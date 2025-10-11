@@ -260,57 +260,77 @@ document.addEventListener('click', (e) => {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  if (e.target.matches('input, textarea, [contenteditable="true"]')) {
+  // Skip if typing in input fields
+  const target = e.target;
+  if (target.matches('input, textarea, [contenteditable="true"]')) {
     return;
   }
 
-  // Space - pause/resume or restart
-  if ((e.key === ' ' || e.code === 'Space') && currentUtterance) {
-    e.preventDefault();
-
-    if (synth.paused) {
-      synth.resume();
-      console.log('[AssisT] Resumed');
-    } else if (synth.speaking) {
-      synth.pause();
-      console.log('[AssisT] Paused');
-    }
-  }
-
-  // + - speed up
-  if (e.key === '+' || e.key === '=' || e.code === 'Equal' || e.code === 'NumpadAdd') {
-    if (e.shiftKey || e.code === 'NumpadAdd' || e.key === '+') {
+  // Space - pause/resume
+  if (e.key === ' ' || e.code === 'Space') {
+    // Only handle if we have an active utterance
+    if (currentUtterance) {
       e.preventDefault();
-      settings.rate = Math.min(2.0, settings.rate + 0.1);
-      console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
-      showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+      e.stopPropagation();
 
-      // Apply immediately if speaking
-      if (currentUtterance && synth.speaking) {
-        const text = currentText;
-        const element = currentElement;
-        synth.cancel();
-        setTimeout(() => readText(text, element), 50);
+      if (synth.paused) {
+        synth.resume();
+        showToast('▶️ Resumed');
+        console.log('[AssisT] Resumed');
+      } else if (synth.speaking) {
+        synth.pause();
+        showToast('⏸️ Paused');
+        console.log('[AssisT] Paused');
       }
     }
   }
 
-  // - - slow down
-  if (e.key === '-' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
+  // + or = - speed up
+  if ((e.key === '+' || e.key === '=') && (e.shiftKey || e.key === '+')) {
     e.preventDefault();
-    settings.rate = Math.max(0.5, settings.rate - 0.1);
-    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
+    e.stopPropagation();
+    settings.rate = Math.min(2.0, settings.rate + 0.1);
     showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
 
     // Apply immediately if speaking
     if (currentUtterance && synth.speaking) {
       const text = currentText;
       const element = currentElement;
+      const wasPaused = synth.paused;
       synth.cancel();
-      setTimeout(() => readText(text, element), 50);
+      setTimeout(() => {
+        readText(text, element);
+        if (wasPaused) {
+          setTimeout(() => synth.pause(), 100);
+        }
+      }, 50);
     }
   }
-});
+
+  // - or _ - slow down
+  if (e.key === '-' || e.key === '_') {
+    e.preventDefault();
+    e.stopPropagation();
+    settings.rate = Math.max(0.5, settings.rate - 0.1);
+    showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
+
+    // Apply immediately if speaking
+    if (currentUtterance && synth.speaking) {
+      const text = currentText;
+      const element = currentElement;
+      const wasPaused = synth.paused;
+      synth.cancel();
+      setTimeout(() => {
+        readText(text, element);
+        if (wasPaused) {
+          setTimeout(() => synth.pause(), 100);
+        }
+      }, 50);
+    }
+  }
+}, true); // Use capture phase for better priority
 
 // Show toast
 function showToast(message) {

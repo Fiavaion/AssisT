@@ -192,6 +192,88 @@ class PopupController {
       // Open settings page (to be implemented)
       console.log('[Popup] Settings clicked');
     });
+
+    // Reset button
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      if (confirm('Reset all settings to defaults? This cannot be undone.')) {
+        this.resetToDefaults();
+      }
+    });
+
+    // Options button
+    document.getElementById('btn-options').addEventListener('click', () => {
+      this.showAdvancedOptions();
+    });
+  }
+
+  resetToDefaults() {
+    // Reset to default settings
+    this.settings.tts = {
+      enabled: false,
+      voice: 'default',
+      rate: 1.0,
+      pitch: 1.0,
+      volume: 1.0,
+      highlightEnabled: true,
+      highlightColor: '#FFEB3B',
+      highlightOpacity: 0.7
+    };
+
+    this.saveSettings();
+
+    // Reload the popup to reflect changes
+    window.location.reload();
+  }
+
+  showAdvancedOptions() {
+    // Create a simple modal for advanced options (to be expanded later)
+    const modal = document.createElement('div');
+    modal.id = 'advanced-options-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    `;
+
+    modal.innerHTML = `
+      <div style="
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        max-width: 300px;
+        text-align: center;
+      ">
+        <h2 style="margin: 0 0 10px 0; font-size: 16px;">Advanced Options</h2>
+        <p style="margin: 0 0 15px 0; font-size: 13px; color: #666;">
+          Advanced options will be available in future updates.
+        </p>
+        <button id="close-modal" style="
+          background: #2196F3;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 13px;
+        ">Close</button>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close modal on click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target.id === 'close-modal') {
+        modal.remove();
+      }
+    });
   }
 
   async loadVoices() {
