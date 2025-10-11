@@ -56,6 +56,8 @@ synth.addEventListener('voiceschanged', loadVoices);
 
 // Load settings from storage
 chrome.storage.local.get('assist_settings', (result) => {
+  console.log('[AssisT] Raw storage result:', result);
+
   if (result.assist_settings && result.assist_settings.tts) {
     const ttsSettings = result.assist_settings.tts;
     settings.enabled = ttsSettings.enabled !== undefined ? ttsSettings.enabled : false;
@@ -78,6 +80,8 @@ chrome.storage.local.get('assist_settings', (result) => {
     }
 
     console.log('[AssisT] Settings loaded, TTS enabled:', settings.enabled);
+  } else {
+    console.warn('[AssisT] No settings found in storage - using defaults. TTS enabled:', settings.enabled);
   }
 });
 
