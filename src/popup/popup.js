@@ -242,53 +242,307 @@ class PopupController {
   }
 
   showAdvancedOptions() {
-    // Create a simple modal for advanced options (to be expanded later)
+    // Create modal overlay
     const modal = document.createElement('div');
     modal.id = 'advanced-options-modal';
-    modal.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    `;
+    modal.className = 'modal-overlay';
 
     modal.innerHTML = `
-      <div style="
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        max-width: 300px;
-        text-align: center;
-      ">
-        <h2 style="margin: 0 0 10px 0; font-size: 16px;">Advanced Options</h2>
-        <p style="margin: 0 0 15px 0; font-size: 13px; color: #666;">
-          Advanced options will be available in future updates.
-        </p>
-        <button id="close-modal" style="
-          background: #2196F3;
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 13px;
-        ">Close</button>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Advanced Options</h2>
+          <button id="modal-close" class="modal-close-btn" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="modal-tabs">
+          <button class="modal-tab active" data-tab="features">Features</button>
+          <button class="modal-tab" data-tab="keyboard">Keyboard</button>
+          <button class="modal-tab" data-tab="appearance">Appearance</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Features Tab -->
+          <div id="tab-features" class="tab-content active">
+            <h3>Feature Visibility</h3>
+            <p class="tab-description">Choose which features appear in the main popup</p>
+
+            <div class="feature-list">
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-voice-selection" checked disabled>
+                  <span>Voice Selection</span>
+                  <span class="feature-badge">Core</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-speed-control" checked disabled>
+                  <span>Speed Control</span>
+                  <span class="feature-badge">Core</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-pitch-control" checked disabled>
+                  <span>Pitch Control</span>
+                  <span class="feature-badge">Core</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-volume-control" checked disabled>
+                  <span>Volume Control</span>
+                  <span class="feature-badge">Core</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-highlighting" checked>
+                  <span>Text Highlighting</span>
+                </label>
+              </div>
+
+              <div class="feature-section-header">
+                <span>Sprint 2 Features</span>
+                <span class="feature-badge-info">Coming Soon</span>
+              </div>
+
+              <div class="feature-item disabled">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-speed-presets" disabled>
+                  <span>Speed Presets</span>
+                  <span class="feature-badge-soon">Soon</span>
+                </label>
+              </div>
+
+              <div class="feature-item disabled">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-reading-queue" disabled>
+                  <span>Reading Queue</span>
+                  <span class="feature-badge-soon">Soon</span>
+                </label>
+              </div>
+
+              <div class="feature-item disabled">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-reading-mode" disabled>
+                  <span>Reading Mode</span>
+                  <span class="feature-badge-soon">Soon</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Keyboard Tab -->
+          <div id="tab-keyboard" class="tab-content">
+            <h3>Keyboard Shortcuts</h3>
+            <p class="tab-description">Quick reference for keyboard controls</p>
+
+            <div class="shortcut-list">
+              <div class="shortcut-item">
+                <span class="shortcut-key">Space</span>
+                <span class="shortcut-desc">Pause / Resume reading</span>
+              </div>
+
+              <div class="shortcut-item">
+                <span class="shortcut-key">+ or =</span>
+                <span class="shortcut-desc">Increase reading speed</span>
+              </div>
+
+              <div class="shortcut-item">
+                <span class="shortcut-key">-</span>
+                <span class="shortcut-desc">Decrease reading speed</span>
+              </div>
+
+              <div class="shortcut-section">Sprint 2 Shortcuts (Coming Soon)</div>
+
+              <div class="shortcut-item disabled">
+                <span class="shortcut-key">Ctrl+Shift+R</span>
+                <span class="shortcut-desc">Read selected text</span>
+              </div>
+
+              <div class="shortcut-item disabled">
+                <span class="shortcut-key">Ctrl+Shift+Q</span>
+                <span class="shortcut-desc">Toggle reading queue</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Appearance Tab -->
+          <div id="tab-appearance" class="tab-content">
+            <h3>Appearance</h3>
+            <p class="tab-description">Customize the extension's look and feel</p>
+
+            <div class="appearance-options">
+              <div class="option-group">
+                <label>Compact Mode</label>
+                <div class="option-control">
+                  <label class="toggle-switch-small">
+                    <input type="checkbox" id="compact-mode" checked>
+                    <span class="toggle-slider-small"></span>
+                  </label>
+                  <span class="option-desc">Minimize spacing in popup</span>
+                </div>
+              </div>
+
+              <div class="option-group">
+                <label>Show Icons</label>
+                <div class="option-control">
+                  <label class="toggle-switch-small">
+                    <input type="checkbox" id="show-icons" checked>
+                    <span class="toggle-slider-small"></span>
+                  </label>
+                  <span class="option-desc">Display emoji icons in controls</span>
+                </div>
+              </div>
+
+              <div class="option-group">
+                <label>Debug Mode</label>
+                <div class="option-control">
+                  <label class="toggle-switch-small">
+                    <input type="checkbox" id="debug-mode">
+                    <span class="toggle-slider-small"></span>
+                  </label>
+                  <span class="option-desc">Show console logs for debugging</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="modal-save" class="modal-btn modal-btn-primary">Save Changes</button>
+          <button id="modal-cancel" class="modal-btn modal-btn-secondary">Cancel</button>
+        </div>
       </div>
     `;
 
     document.body.appendChild(modal);
 
-    // Close modal on click
+    // Setup tab switching
+    this.setupModalTabs(modal);
+
+    // Setup modal actions
+    this.setupModalActions(modal);
+
+    // Load current settings into modal
+    this.loadModalSettings();
+  }
+
+  setupModalTabs(modal) {
+    const tabs = modal.querySelectorAll('.modal-tab');
+    const contents = modal.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active from all tabs
+        tabs.forEach(t => t.classList.remove('active'));
+        contents.forEach(c => c.classList.remove('active'));
+
+        // Add active to clicked tab
+        tab.classList.add('active');
+        const tabId = tab.getAttribute('data-tab');
+        modal.querySelector(`#tab-${tabId}`).classList.add('active');
+      });
+    });
+  }
+
+  setupModalActions(modal) {
+    // Close button
+    modal.querySelector('#modal-close').addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Cancel button
+    modal.querySelector('#modal-cancel').addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Save button
+    modal.querySelector('#modal-save').addEventListener('click', () => {
+      this.saveModalSettings();
+      modal.remove();
+    });
+
+    // Click outside to close
     modal.addEventListener('click', (e) => {
-      if (e.target === modal || e.target.id === 'close-modal') {
+      if (e.target === modal) {
         modal.remove();
       }
+    });
+  }
+
+  loadModalSettings() {
+    // Load UI visibility settings
+    const visibility = this.settings.ui_visibility || {};
+
+    // Highlighting
+    const showHighlighting = document.getElementById('show-highlighting');
+    if (showHighlighting) {
+      showHighlighting.checked = visibility.show_highlighting !== false;
+    }
+
+    // Appearance settings
+    const compactMode = document.getElementById('compact-mode');
+    if (compactMode) {
+      compactMode.checked = this.settings.appearance?.compact_mode !== false;
+    }
+
+    const showIcons = document.getElementById('show-icons');
+    if (showIcons) {
+      showIcons.checked = this.settings.appearance?.show_icons !== false;
+    }
+
+    const debugMode = document.getElementById('debug-mode');
+    if (debugMode) {
+      debugMode.checked = this.settings.appearance?.debug_mode === true;
+    }
+  }
+
+  saveModalSettings() {
+    // Initialize settings objects if they don't exist
+    if (!this.settings.ui_visibility) {
+      this.settings.ui_visibility = {};
+    }
+    if (!this.settings.appearance) {
+      this.settings.appearance = {};
+    }
+
+    // Save UI visibility settings
+    const showHighlighting = document.getElementById('show-highlighting');
+    if (showHighlighting) {
+      this.settings.ui_visibility.show_highlighting = showHighlighting.checked;
+    }
+
+    // Save appearance settings
+    const compactMode = document.getElementById('compact-mode');
+    if (compactMode) {
+      this.settings.appearance.compact_mode = compactMode.checked;
+    }
+
+    const showIcons = document.getElementById('show-icons');
+    if (showIcons) {
+      this.settings.appearance.show_icons = showIcons.checked;
+    }
+
+    const debugMode = document.getElementById('debug-mode');
+    if (debugMode) {
+      this.settings.appearance.debug_mode = debugMode.checked;
+    }
+
+    // Save to storage
+    this.saveSettings();
+
+    // Show confirmation
+    this.updateStatus('Settings saved');
+
+    console.log('[Popup] Modal settings saved:', {
+      ui_visibility: this.settings.ui_visibility,
+      appearance: this.settings.appearance
     });
   }
 
