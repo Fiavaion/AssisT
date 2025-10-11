@@ -60,7 +60,46 @@ class PopupController {
     }
   }
 
+  applyVisibilitySettings() {
+    // Get visibility settings with defaults
+    const visibility = this.settings.ui_visibility || {};
+
+    // Text Highlighting section visibility
+    const highlightingSection = document.querySelector('#highlight-enabled').closest('.control-section');
+    const highlightOptionsContainer = document.getElementById('highlight-options-container');
+
+    if (visibility.show_highlighting === false) {
+      // Hide highlighting toggle and options
+      if (highlightingSection) {
+        highlightingSection.style.display = 'none';
+      }
+      if (highlightOptionsContainer) {
+        highlightOptionsContainer.style.display = 'none';
+      }
+      console.log('[Popup] Highlighting feature hidden');
+    } else {
+      // Show highlighting (default)
+      if (highlightingSection) {
+        highlightingSection.style.display = '';
+      }
+      if (highlightOptionsContainer) {
+        highlightOptionsContainer.style.display = '';
+      }
+    }
+
+    // Future Sprint 2 features will be added here
+    // Example:
+    // if (visibility.show_speed_presets === false) {
+    //   document.getElementById('speed-presets-section').style.display = 'none';
+    // }
+
+    console.log('[Popup] Visibility settings applied:', visibility);
+  }
+
   setupEventListeners() {
+    // Apply visibility settings
+    this.applyVisibilitySettings();
+
     const optionsContainer = document.getElementById('options-container');
 
     // TTS Enable/Disable
@@ -512,6 +551,9 @@ class PopupController {
       this.settings.appearance = {};
     }
 
+    // Track if visibility changed (need to reload popup)
+    const oldVisibility = { ...this.settings.ui_visibility };
+
     // Save UI visibility settings
     const showHighlighting = document.getElementById('show-highlighting');
     if (showHighlighting) {
@@ -544,6 +586,16 @@ class PopupController {
       ui_visibility: this.settings.ui_visibility,
       appearance: this.settings.appearance
     });
+
+    // Check if visibility changed
+    const visibilityChanged = showHighlighting &&
+      (oldVisibility.show_highlighting !== this.settings.ui_visibility.show_highlighting);
+
+    // Reload popup if visibility changed
+    if (visibilityChanged) {
+      console.log('[Popup] Visibility changed, reloading...');
+      setTimeout(() => window.location.reload(), 300);
+    }
   }
 
   async loadVoices() {
