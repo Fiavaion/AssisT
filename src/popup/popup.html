@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AssisT - TTS Controls</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <h1>
+        <span class="logo">🎯</span>
+        AssisT
+      </h1>
+      <p class="subtitle">Text-to-Speech Controls</p>
+    </header>
+
+    <!-- Main Controls -->
+    <main class="popup-main">
+      <!-- TTS Enable/Disable -->
+      <section class="control-section">
+        <div class="toggle-control">
+          <label for="tts-enabled" class="toggle-label">
+            <span class="label-text">Enable TTS</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="tts-enabled" role="switch" aria-label="Enable Text-to-Speech">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <!-- Playback Controls -->
+      <section class="control-section" id="playback-controls">
+        <h2 class="section-title">Playback</h2>
+        <div class="button-group">
+          <button id="btn-play" class="control-btn primary" aria-label="Start reading page">
+            <span class="btn-icon">▶️</span>
+            <span class="btn-text">Read Page</span>
+          </button>
+          <button id="btn-pause" class="control-btn" aria-label="Pause reading" disabled>
+            <span class="btn-icon">⏸️</span>
+            <span class="btn-text">Pause</span>
+          </button>
+          <button id="btn-stop" class="control-btn" aria-label="Stop reading" disabled>
+            <span class="btn-icon">⏹️</span>
+            <span class="btn-text">Stop</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Voice Selection -->
+      <section class="control-section">
+        <h2 class="section-title">
+          <label for="voice-select">Voice</label>
+        </h2>
+        <select id="voice-select" class="voice-select" aria-label="Select voice">
+          <option value="">Loading voices...</option>
+        </select>
+      </section>
+
+      <!-- Rate Control -->
+      <section class="control-section">
+        <h2 class="section-title">
+          <label for="rate-slider">Speed</label>
+          <span class="control-value" id="rate-value">1.0x</span>
+        </h2>
+        <div class="slider-control">
+          <input
+            type="range"
+            id="rate-slider"
+            class="slider"
+            min="0.5"
+            max="2.0"
+            step="0.1"
+            value="1.0"
+            aria-label="Adjust reading speed"
+            aria-valuemin="0.5"
+            aria-valuemax="2.0"
+            aria-valuenow="1.0">
+          <div class="slider-labels">
+            <span>Slower</span>
+            <span>Faster</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pitch Control -->
+      <section class="control-section">
+        <h2 class="section-title">
+          <label for="pitch-slider">Pitch</label>
+          <span class="control-value" id="pitch-value">1.0</span>
+        </h2>
+        <div class="slider-control">
+          <input
+            type="range"
+            id="pitch-slider"
+            class="slider"
+            min="0.5"
+            max="2.0"
+            step="0.1"
+            value="1.0"
+            aria-label="Adjust voice pitch"
+            aria-valuemin="0.5"
+            aria-valuemax="2.0"
+            aria-valuenow="1.0">
+          <div class="slider-labels">
+            <span>Lower</span>
+            <span>Higher</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Volume Control -->
+      <section class="control-section">
+        <h2 class="section-title">
+          <label for="volume-slider">Volume</label>
+          <span class="control-value" id="volume-value">100%</span>
+        </h2>
+        <div class="slider-control">
+          <input
+            type="range"
+            id="volume-slider"
+            class="slider"
+            min="0"
+            max="1"
+            step="0.1"
+            value="1"
+            aria-label="Adjust volume"
+            aria-valuemin="0"
+            aria-valuemax="1"
+            aria-valuenow="1">
+          <div class="slider-labels">
+            <span>🔇</span>
+            <span>🔊</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Highlighting Toggle -->
+      <section class="control-section">
+        <div class="toggle-control">
+          <label for="highlight-enabled" class="toggle-label">
+            <span class="label-text">Word Highlighting</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="highlight-enabled" role="switch" aria-label="Enable word highlighting" checked>
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <div class="status-bar">
+        <span class="status-indicator" id="status-indicator">Ready</span>
+      </div>
+      <div class="footer-links">
+        <a href="#" id="link-settings" class="footer-link">⚙️ Settings</a>
+        <a href="https://github.com/MarJone/AssisT" target="_blank" class="footer-link">ℹ️ Help</a>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

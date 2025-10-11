@@ -1,0 +1,435 @@
+/**
+ * AssisT Popup Styles
+ * WCAG 2.2 AA Compliant
+ * Accessible, clean, modern design
+ */
+
+:root {
+  --primary-color: #2196F3;
+  --primary-dark: #1976D2;
+  --primary-light: #BBDEFB;
+  --accent-color: #FFEB3B;
+  --text-primary: #212121;
+  --text-secondary: #757575;
+  --background: #FFFFFF;
+  --surface: #F5F5F5;
+  --border: #E0E0E0;
+  --success: #4CAF50;
+  --warning: #FF9800;
+  --error: #F44336;
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  --border-radius: 8px;
+  --transition: all 0.2s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--background);
+  width: 360px;
+  min-height: 500px;
+}
+
+.popup-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+/* Header */
+.popup-header {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: white;
+  padding: var(--spacing-lg) var(--spacing-md);
+  text-align: center;
+}
+
+.popup-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: var(--spacing-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.logo {
+  font-size: 28px;
+}
+
+.subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+  font-weight: 400;
+}
+
+/* Main Content */
+.popup-main {
+  flex: 1;
+  padding: var(--spacing-md);
+  overflow-y: auto;
+}
+
+.control-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.control-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--spacing-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.control-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+/* Toggle Switch */
+.toggle-control {
+  background: var(--surface);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+}
+
+.toggle-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.label-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border);
+  transition: var(--transition);
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: var(--transition);
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--primary-color);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 3px var(--primary-light);
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Buttons */
+.button-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.control-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md) var(--spacing-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--border-radius);
+  background: white;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  min-height: 64px;
+}
+
+.control-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  transform: translateY(-2px);
+}
+
+.control-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.control-btn:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--border);
+}
+
+.control-btn.primary {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.control-btn.primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.btn-icon {
+  font-size: 20px;
+}
+
+.btn-text {
+  font-size: 11px;
+}
+
+/* Select */
+.voice-select {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 2px solid var(--border);
+  border-radius: var(--border-radius);
+  background: white;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.voice-select:hover {
+  border-color: var(--primary-color);
+}
+
+.voice-select:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-color: var(--primary-color);
+}
+
+/* Sliders */
+.slider-control {
+  margin-top: var(--spacing-sm);
+}
+
+.slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  transition: var(--transition);
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  transition: var(--transition);
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 4px;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--spacing-xs);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Footer */
+.popup-footer {
+  border-top: 1px solid var(--border);
+  padding: var(--spacing-md);
+  background: var(--surface);
+}
+
+.status-bar {
+  margin-bottom: var(--spacing-sm);
+  text-align: center;
+}
+
+.status-indicator {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--success);
+  color: white;
+}
+
+.status-indicator.speaking {
+  background: var(--primary-color);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-indicator.paused {
+  background: var(--warning);
+}
+
+.status-indicator.error {
+  background: var(--error);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.footer-link {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.footer-link:hover {
+  color: var(--primary-color);
+}
+
+.footer-link:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Accessibility Enhancements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  :root {
+    --primary-color: #0D47A1;
+    --border: #424242;
+    --text-secondary: #424242;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+.popup-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.popup-main::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+.popup-main::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.popup-main::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
