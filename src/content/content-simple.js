@@ -13,6 +13,7 @@ let currentText = '';
 let isPaused = false; // Manual pause state tracker
 let wordHighlightInterval = null; // For word-by-word highlighting
 let settings = {
+  enabled: false, // TTS master toggle
   highlightEnabled: true,
   highlightColor: '#FFEB3B',
   highlightOpacity: 0.7,
@@ -57,6 +58,7 @@ synth.addEventListener('voiceschanged', loadVoices);
 chrome.storage.local.get('assist_settings', (result) => {
   if (result.assist_settings && result.assist_settings.tts) {
     const ttsSettings = result.assist_settings.tts;
+    settings.enabled = ttsSettings.enabled !== undefined ? ttsSettings.enabled : false;
     settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
     settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
     settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
@@ -75,7 +77,7 @@ chrome.storage.local.get('assist_settings', (result) => {
       }
     }
 
-    console.log('[AssisT] Settings loaded');
+    console.log('[AssisT] Settings loaded, TTS enabled:', settings.enabled);
   }
 });
 
@@ -91,8 +93,10 @@ chrome.storage.onChanged.addListener((changes) => {
         const oldVolume = settings.volume;
         const oldColor = settings.highlightColor;
         const oldOpacity = settings.highlightOpacity;
-        const oldEnabled = settings.highlightEnabled;
+        const oldHighlightEnabled = settings.highlightEnabled;
+        const oldTTSEnabled = settings.enabled;
 
+        settings.enabled = ttsSettings.enabled !== undefined ? ttsSettings.enabled : false;
         settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
@@ -100,6 +104,23 @@ chrome.storage.onChanged.addListener((changes) => {
         settings.rate = ttsSettings.rate || settings.rate;
         settings.pitch = ttsSettings.pitch || settings.pitch;
         settings.volume = ttsSettings.volume || settings.volume;
+
+        // If TTS was disabled, stop any current speech
+        if (!settings.enabled && oldTTSEnabled && synth.speaking) {
+          synth.cancel();
+          cleanupWordByWord(currentElement);
+          removeHighlight();
+          removeElementHighlight(currentElement);
+          if (currentElement) {
+            currentElement.style.outline = '';
+            currentElement.style.outlineOffset = '';
+          }
+          currentUtterance = null;
+          currentElement = null;
+          currentText = '';
+          isPaused = false;
+          console.log('[AssisT] TTS disabled, speech stopped');
+        }
 
         // Update voice only if changed
         if (ttsSettings.voice && ttsSettings.voice !== 'default' && ttsSettings.voice !== settings.voice?.name) {
@@ -112,13 +133,13 @@ chrome.storage.onChanged.addListener((changes) => {
         }
 
         // If highlighting was disabled, remove current highlight
-        if (!settings.highlightEnabled && oldEnabled && currentElement) {
+        if (!settings.highlightEnabled && oldHighlightEnabled && currentElement) {
           removeElementHighlight(currentElement);
           console.log('[AssisT] Highlighting disabled');
         }
 
         // If highlighting was enabled, add highlight to current element
-        if (settings.highlightEnabled && !oldEnabled && currentElement) {
+        if (settings.highlightEnabled && !oldHighlightEnabled && currentElement) {
           highlightElement(currentElement);
           console.log('[AssisT] Highlighting enabled');
         }
@@ -369,6 +390,11 @@ function readText(text, element) {
 
 // Click handler
 document.addEventListener('click', (e) => {
+  // Don't read if TTS is disabled
+  if (!settings.enabled) {
+    return;
+  }
+
   // Don't intercept links/buttons
   if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
     return;
