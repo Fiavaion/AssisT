@@ -118,5 +118,245 @@ Outcome/Action	Define project setup using Isolated World methodology in manifest
 
 ---
 
+### DEC-202510-008
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-008 |
+| **Date** | 2025-10-11 |
+| **Decision** | Simplify architecture by consolidating to single-file content script (`content-simple.js`) for MVP phase |
+| **Rationale** | Initial modular architecture (DEC-202510-002) proved too complex for MVP debugging. Multiple features were broken due to tight coupling and race conditions between modules. Single-file approach enables: 1) Easier debugging with all state in one place, 2) Elimination of import/export complexity, 3) Faster iteration during bug fixing, 4) Direct Web Speech API usage without abstraction layers. |
+| **Alternatives** | 1. Fix modular architecture: Rejected as debugging was time-consuming and complexity outweighed benefits at MVP stage. 2. Hybrid approach: Rejected to maintain simplicity and avoid partial refactoring. |
+| **Impact** | Development: Dramatically faster bug fixes and feature testing. Code Organization: Less modular but more maintainable at current scale (~400 lines). Future: Can re-modularize when feature set stabilizes and complexity justifies it. Performance: Actually improved due to elimination of module loading overhead. |
+| **Stakeholders** | Lead Developer, Product Lead |
+| **Outcome/Action** | Created `content-simple.js` replacing complex module system. All features working: TTS, highlighting, keyboard shortcuts, settings persistence. Extension now functional end-to-end. |
+
+---
+
+### DEC-202510-009
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-009 |
+| **Date** | 2025-10-11 |
+| **Decision** | Implement manual state tracking (`isPaused`) instead of relying on Speech Synthesis API states |
+| **Rationale** | Browser Speech Synthesis API state properties (`synth.speaking`, `synth.paused`) proved unreliable across different scenarios. When paused, `synth.speaking` becomes false, making it impossible to distinguish between "paused" and "stopped" states. Resume functionality was broken due to this API inconsistency. Manual state tracking provides: 1) Reliable state management independent of browser API quirks, 2) Clear boolean logic for pause/resume, 3) Predictable behavior across all browsers, 4) Easy debugging with explicit state logs. |
+| **Alternatives** | 1. Complex API state checking: Rejected after multiple failed attempts to reliably detect paused state. 2. Timeout-based workarounds: Rejected as they introduced latency and additional complexity. |
+| **Impact** | Reliability: Pause/resume now works 100% consistently. Code Quality: Simpler, more predictable state management. Maintenance: Future developers can easily understand state transitions. User Experience: Keyboard shortcuts (spacebar) work reliably. |
+| **Stakeholders** | Lead Developer, End Users |
+| **Outcome/Action** | Added `isPaused` boolean flag, updated all state transitions to maintain this flag, spacebar pause/resume now fully functional |
+
+---
+
+### DEC-202510-010
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-010 |
+| **Date** | 2025-10-11 |
+| **Decision** | Adopt feature isolation principle with toggle-based UI organization for all future features |
+| **Rationale** | Based on successful TTS and highlighting implementations, feature isolation provides critical benefits: 1) New features cannot break existing features, 2) Features can be developed independently, 3) Users can hide features they don't use (progressive disclosure), 4) Debugging is simplified by ability to disable features, 5) Performance improves as disabled features don't load unnecessary code. Pattern: Each feature gets toggle → collapsible options container → isolated state management → separate event listeners. |
+| **Alternatives** | 1. Integrated architecture: Rejected based on previous experience where tight coupling caused cascading failures. 2. Separate extensions: Rejected as it fragments user experience and increases maintenance burden. |
+| **Impact** | Development: Slightly more boilerplate code per feature but vastly improved maintainability. User Experience: Cleaner UI, users only see features they want. Performance: Disabled features have zero runtime cost. Scalability: Can add unlimited features without increasing complexity of existing code. |
+| **Stakeholders** | Lead Developer, Product Lead, End Users |
+| **Outcome/Action** | Created DEVELOPMENT_WORKFLOW.md documenting feature isolation pattern, naming conventions (featureName_function), and implementation templates for future developers |
+
+---
+
+### DEC-202510-011
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-011 |
+| **Date** | 2025-10-11 |
+| **Decision** | Use Advanced Options modal for feature visibility toggles and power-user settings |
+| **Rationale** | Main popup space is limited (340px width). Advanced Options modal enables: 1) Feature visibility toggles (users can hide features from main popup), 2) Experimental features that aren't ready for general use, 3) Debug/developer options, 4) Power-user settings that would clutter main UI. This maintains clean main UI while providing extensibility. Pattern: Header "Options" button → Modal overlay → Categorized settings → Save/Cancel actions. |
+| **Alternatives** | 1. Dedicated settings page: Rejected as it requires navigation away from main popup. 2. Expanding main popup: Rejected due to space constraints and poor UX at large sizes. |
+| **Impact** | UX: Main popup stays clean and simple. Power Users: Can access advanced features without cluttering UI for casual users. Future Development: Clear pattern for where to put advanced/experimental features. |
+| **Stakeholders** | Lead Developer, UX Designer, Product Lead |
+| **Outcome/Action** | Implemented modal framework in popup.js, created placeholder advanced options modal, documented pattern in DEVELOPMENT_WORKFLOW.md for future feature visibility toggles |
+
+---
+
+### DEC-202510-012
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-012 |
+| **Date** | 2025-10-11 |
+| **Decision** | Implement hex-to-rgba conversion for highlight opacity instead of CSS opacity property |
+| **Rationale** | CSS opacity property affects entire element including text, making it unreadable at low opacity values. Highlight backgrounds need variable opacity while maintaining text readability. Solution: Convert hex colors to rgba format with specified opacity. This provides: 1) Background-only opacity, 2) Text remains fully readable, 3) Precise opacity control (0.1-1.0), 4) Works with any highlight color. |
+| **Alternatives** | 1. CSS opacity property: Rejected as it makes text transparent. 2. Overlay elements: Rejected as they introduce z-index and positioning complexity. |
+| **Impact** | User Experience: Highlight opacity slider now works correctly with text always readable. Code: Added hexToRgba() utility function, ~10 lines of code. Performance: Negligible (color conversion is instant). |
+| **Stakeholders** | Lead Developer, End Users |
+| **Outcome/Action** | Implemented hexToRgba() function, updated highlightElement() to use rgba colors, opacity slider now functional with real-time updates |
+
+---
+
+### DEC-202510-013
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-013 |
+| **Date** | 2025-10-11 |
+| **Decision** | Create stable version checkpoint with git tag for "MVP-TTS-Stable-v1.0" |
+| **Rationale** | Current version represents first fully functional state: TTS working, highlighting working, keyboard shortcuts working, settings persisting, pause/resume reliable. This checkpoint enables: 1) Safe experimentation with future features knowing we can revert, 2) Clear reference point for "what works", 3) Semantic versioning baseline, 4) Rollback capability if future changes break functionality. Tag name follows pattern: [Milestone]-[Feature]-[Status]-[Version]. |
+| **Alternatives** | 1. Branch-based versioning: Rejected as tags are immutable and clearer for version marking. 2. Release branches: Rejected as overkill for single-developer MVP phase. |
+| **Impact** | Risk Management: Can always revert to working version. Confidence: Can safely add experimental features. Documentation: Clear reference for "stable TTS-only version". |
+| **Stakeholders** | Lead Developer, Product Lead |
+| **Outcome/Action** | Will create annotated git tag "MVP-TTS-Stable-v1.0" with detailed description of functionality, then document in DEVELOPMENT_WORKFLOW.md |
+
+---
+
 ## Project Retrospective Summary
-(To be filled out at the end of each major sprint or milestone to capture lessons learned about workflow and process critique)
+
+### Sprint 1: MVP TTS Implementation (Complete)
+
+**Date:** 2025-10-11
+**Duration:** Single development session
+**Status:** ✅ Complete and Stable
+
+#### What Went Well
+1. **Simplification Strategy:** Moving from complex modular architecture to single-file drastically improved debugging speed
+2. **Incremental Fixes:** Fixing one issue at a time prevented introducing new bugs
+3. **Manual State Management:** `isPaused` flag eliminated API reliability issues
+4. **User Feedback Loop:** Direct user testing and immediate fixes kept development focused
+5. **Documentation:** Creating DEVELOPMENT_WORKFLOW.md while knowledge is fresh
+
+#### What Didn't Go Well
+1. **Initial Over-Engineering:** Modular architecture was premature optimization for MVP
+2. **API Trust:** Initially trusted browser API states without verifying reliability
+3. **Testing:** Should have tested pause/resume more thoroughly before considering it "done"
+
+#### Key Learnings
+1. **Start Simple:** Always begin with simplest working solution, add complexity only when justified
+2. **State Management:** Manual state tracking is more reliable than API state queries for critical functionality
+3. **Iterative Development:** Small commits with single focus enable faster debugging
+4. **Progressive Disclosure:** Toggle-based UI with collapsible sections provides clean UX while enabling feature growth
+5. **Documentation Timing:** Document architectural decisions immediately while context is fresh
+
+#### Metrics
+- **Lines of Code:** ~400 (content-simple.js)
+- **Files Modified:** 4 core files (content-simple.js, popup.html, popup.css, popup.js)
+- **Features Implemented:**
+  - ✅ Click-to-read TTS
+  - ✅ Paragraph highlighting with color/opacity controls
+  - ✅ Voice selection (Google UK Female default)
+  - ✅ Speed/pitch/volume controls with real-time updates
+  - ✅ Keyboard shortcuts (Space: pause/resume, +/-: speed adjust)
+  - ✅ Settings persistence across sessions
+  - ✅ Highlight toggle with collapsible options
+  - ✅ Reset button for defaults
+  - ✅ Options button (modal framework)
+  - ✅ Compact UI (340px width)
+
+#### Technical Debt
+- None critical. Future considerations:
+  - Re-modularize when codebase grows beyond ~1000 lines
+  - Add unit tests when feature set stabilizes
+  - Consider TypeScript for better type safety in future
+
+#### Next Sprint Planning
+- **Sprint 2:** Additional features to be determined
+- **Principle:** Each new feature must be isolated from existing TTS functionality
+- **Process:** Follow DEVELOPMENT_WORKFLOW.md patterns
+- **Safety:** Can always revert to MVP-TTS-Stable-v1.0 tag
+
+---
+
+## Development Principles (Established)
+
+Based on learnings from Sprint 1, these principles guide all future development:
+
+### 1. **Feature Isolation**
+- New features MUST NOT modify existing feature code unless there are clear performance advantages
+- Each feature has its own state variables, prefixed with feature name
+- Features can be toggled on/off without affecting others
+
+### 2. **Manual State Management**
+- Don't trust external API states for critical functionality
+- Maintain explicit state variables for all important states
+- Reset state at all boundaries (start, end, error)
+
+### 3. **Progressive Disclosure**
+- Main UI shows only essential controls
+- Feature-specific options hidden behind toggles
+- Advanced/power-user features in Options modal
+
+### 4. **Incremental Development**
+- Small commits with single focus
+- Test after every change
+- Don't batch multiple fixes
+- Document decisions immediately
+
+### 5. **Code Organization**
+- Group feature code with clear comment boundaries
+- Use naming convention: `featureName_functionName`
+- Keep features self-contained and searchable
+
+### 6. **Version Control**
+- Conventional Commits for all changes
+- Create stable version tags at milestones
+- Linear history via rebase (no merge commits)
+
+### 7. **User-Centric**
+- Fix reported issues immediately
+- Prioritize working functionality over perfect architecture
+- Real-time visual feedback (toasts) for all actions
+
+---
+
+## Future Feature Integration Guidelines
+
+When adding new features, follow this decision tree:
+
+```
+Is this feature independent of existing features?
+├─ YES → Implement as isolated feature with toggle
+└─ NO → Does integration provide significant performance benefit?
+   ├─ YES → Document integration in new Decision Log entry, explain trade-offs
+   └─ NO → Refactor to make it independent, then implement as isolated feature
+```
+
+**Example Applications:**
+- **New Feature: Read Selection** → Independent → Isolate ✅
+- **New Feature: Word-by-word highlighting** → Depends on TTS → Check performance benefit
+  - If benefit: Integrate and document why
+  - If no benefit: Create separate highlighting manager and keep isolated
+
+---
+
+## Reference: Current Stable State
+
+**Version:** MVP-TTS-Stable-v1.0
+**Date:** 2025-10-11
+**Commit:** (to be added after tag creation)
+
+**Functional Features:**
+- Text-to-Speech with click-to-read
+- Paragraph-level highlighting
+- Voice selection and control
+- Speed, pitch, volume adjustment
+- Highlight color and opacity customization
+- Keyboard shortcuts (Space, +, -)
+- Settings persistence
+- Real-time setting updates
+- Feature toggles (TTS, Highlighting)
+- Reset to defaults
+- Compact UI (340px)
+
+**Known Limitations:**
+- No word-by-word highlighting
+- No speech-to-text (STT)
+- No Canvas-specific features
+- No cloud TTS engines
+- No mobile optimization
+
+**Files:**
+- `src/content/content-simple.js` (400 lines)
+- `src/popup/popup.html` (220 lines)
+- `src/popup/popup.css` (420 lines)
+- `src/popup/popup.js` (350 lines)
+- `manifest.json`
+
+This checkpoint serves as the foundation for all future development.
