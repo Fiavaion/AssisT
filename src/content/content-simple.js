@@ -11,6 +11,7 @@ let currentHighlight = null;
 let currentElement = null;
 let currentText = '';
 let settings = {
+  highlightEnabled: true,
   highlightColor: '#FFEB3B',
   highlightOpacity: 0.7,
   rate: 1.0,
@@ -53,6 +54,7 @@ synth.addEventListener('voiceschanged', loadVoices);
 chrome.storage.local.get('assist_settings', (result) => {
   if (result.assist_settings && result.assist_settings.tts) {
     const ttsSettings = result.assist_settings.tts;
+    settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
     settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
     settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
     settings.rate = ttsSettings.rate || settings.rate;
@@ -85,7 +87,9 @@ chrome.storage.onChanged.addListener((changes) => {
         const oldVolume = settings.volume;
         const oldColor = settings.highlightColor;
         const oldOpacity = settings.highlightOpacity;
+        const oldEnabled = settings.highlightEnabled;
 
+        settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
         settings.rate = ttsSettings.rate || settings.rate;
@@ -102,8 +106,20 @@ chrome.storage.onChanged.addListener((changes) => {
           }
         }
 
+        // If highlighting was disabled, remove current highlight
+        if (!settings.highlightEnabled && oldEnabled && currentElement) {
+          removeElementHighlight(currentElement);
+          console.log('[AssisT] Highlighting disabled');
+        }
+
+        // If highlighting was enabled, add highlight to current element
+        if (settings.highlightEnabled && !oldEnabled && currentElement) {
+          highlightElement(currentElement);
+          console.log('[AssisT] Highlighting enabled');
+        }
+
         // If highlight color or opacity changed and we're currently highlighting, update it
-        if ((settings.highlightColor !== oldColor || settings.highlightOpacity !== oldOpacity) && currentElement) {
+        if (settings.highlightEnabled && (settings.highlightColor !== oldColor || settings.highlightOpacity !== oldOpacity) && currentElement) {
           highlightElement(currentElement);
         }
 
@@ -165,9 +181,13 @@ function hexToRgba(hex, opacity) {
 // Simple highlight - just add background to whole element
 function highlightElement(element) {
   removeHighlight();
-  const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
-  element.style.backgroundColor = bgColor;
-  element.style.transition = 'background-color 0.2s';
+
+  // Only apply highlight if enabled
+  if (settings.highlightEnabled) {
+    const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
+    element.style.backgroundColor = bgColor;
+    element.style.transition = 'background-color 0.2s';
+  }
 }
 
 // Remove element highlighting
@@ -294,14 +314,15 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       e.stopPropagation();
 
+      // Check if paused (paused state makes speaking false)
       if (synth.paused) {
         synth.resume();
         showToast('▶️ Resumed');
-        console.log('[AssisT] Resumed');
-      } else if (synth.speaking) {
+        console.log('[AssisT] Resumed, speaking:', synth.speaking, 'paused:', synth.paused);
+      } else if (synth.speaking || synth.pending) {
         synth.pause();
         showToast('⏸️ Paused');
-        console.log('[AssisT] Paused');
+        console.log('[AssisT] Paused, speaking:', synth.speaking, 'paused:', synth.paused);
       }
     }
   }
