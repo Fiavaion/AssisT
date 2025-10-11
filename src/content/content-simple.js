@@ -9,6 +9,7 @@ console.log('[AssisT] Content script loaded');
 let currentUtterance = null;
 let currentHighlight = null;
 let currentElement = null;
+let currentText = '';
 let settings = {
   highlightColor: '#FFEB3B',
   highlightOpacity: 0.7,
@@ -79,6 +80,10 @@ chrome.storage.onChanged.addListener((changes) => {
     updateTimeout = setTimeout(() => {
       const ttsSettings = changes.assist_settings.newValue?.tts;
       if (ttsSettings) {
+        const oldRate = settings.rate;
+        const oldPitch = settings.pitch;
+        const oldVolume = settings.volume;
+
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
         settings.rate = ttsSettings.rate || settings.rate;
@@ -93,6 +98,21 @@ chrome.storage.onChanged.addListener((changes) => {
             settings.voice = voice;
             console.log('[AssisT] Voice updated:', voice.name);
           }
+        }
+
+        // If currently speaking, restart with new settings
+        if (currentUtterance && synth.speaking && (settings.rate !== oldRate || settings.pitch !== oldPitch || settings.volume !== oldVolume)) {
+          const wasPaused = synth.paused;
+          const element = currentElement;
+          const text = currentText;
+
+          synth.cancel();
+          setTimeout(() => {
+            readText(text, element);
+            if (wasPaused) {
+              setTimeout(() => synth.pause(), 100);
+            }
+          }, 50);
         }
       }
       updateTimeout = null;
@@ -122,57 +142,17 @@ function removeHighlight() {
   });
 }
 
-// Highlight word at position
-function highlightWord(text, charIndex, charLength, element) {
+// Simple highlight - just add background to whole element
+function highlightElement(element) {
   removeHighlight();
+  element.style.backgroundColor = settings.highlightColor;
+  element.style.transition = 'background-color 0.2s';
+}
 
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
-
-  let currentIndex = 0;
-  let targetNode = null;
-  let offsetInNode = 0;
-
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    const nodeLength = node.textContent.length;
-
-    if (charIndex >= currentIndex && charIndex < currentIndex + nodeLength) {
-      targetNode = node;
-      offsetInNode = charIndex - currentIndex;
-      break;
-    }
-
-    currentIndex += nodeLength;
-  }
-
-  if (targetNode && targetNode.parentNode) {
-    try {
-      const range = document.createRange();
-      const startOffset = offsetInNode;
-      const endOffset = Math.min(offsetInNode + charLength, targetNode.textContent.length);
-
-      range.setStart(targetNode, startOffset);
-      range.setEnd(targetNode, endOffset);
-
-      const span = document.createElement('span');
-      span.className = 'assist-highlight';
-      span.style.cssText = `
-        background-color: ${settings.highlightColor} !important;
-        opacity: ${settings.highlightOpacity} !important;
-        padding: 2px 0 !important;
-        border-radius: 2px !important;
-        display: inline !important;
-      `;
-
-      range.surroundContents(span);
-      currentHighlight = span;
-    } catch (e) {
-      // Silently fail - highlighting is optional
-    }
+// Remove element highlighting
+function removeElementHighlight(element) {
+  if (element) {
+    element.style.backgroundColor = '';
   }
 }
 
@@ -190,12 +170,16 @@ function readText(text, element) {
   // Wait a tiny bit for cancel to complete
   setTimeout(() => {
     currentElement = element;
+    currentText = text;
 
     console.log('[AssisT] Reading:', text.substring(0, 50) + '...');
 
     // Add outline
     element.style.outline = '2px solid #2196F3';
     element.style.outlineOffset = '2px';
+
+    // Highlight whole paragraph
+    highlightElement(element);
 
     // Create utterance
     currentUtterance = new SpeechSynthesisUtterance(text);
@@ -207,42 +191,31 @@ function readText(text, element) {
       currentUtterance.voice = settings.voice;
     }
 
-    // Highlight words
-    currentUtterance.onboundary = (event) => {
-      if (event.name === 'word' && event.charIndex !== undefined) {
-        let wordLength = 1;
-        for (let i = event.charIndex + 1; i < text.length; i++) {
-          if (text[i] === ' ' || text[i] === '\n' || text[i] === '.' || text[i] === ',') {
-            break;
-          }
-          wordLength++;
-        }
-        highlightWord(text, event.charIndex, wordLength, element);
-      }
-    };
-
     // Clean up on end
     currentUtterance.onend = () => {
       removeHighlight();
+      removeElementHighlight(currentElement);
       if (currentElement) {
         currentElement.style.outline = '';
         currentElement.style.outlineOffset = '';
       }
       currentUtterance = null;
       currentElement = null;
+      currentText = '';
       console.log('[AssisT] Reading complete');
     };
 
     // Handle errors
     currentUtterance.onerror = (event) => {
       console.error('[AssisT] Speech error:', event.error);
-      // Clean up
       removeHighlight();
+      removeElementHighlight(currentElement);
       if (currentElement) {
         currentElement.style.outline = '';
         currentElement.style.outlineOffset = '';
       }
       currentElement = null;
+      currentText = '';
     };
 
     // Speak!
@@ -291,14 +264,14 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Space - pause/resume
-  if ((e.key === ' ' || e.code === 'Space') && (synth.speaking || synth.paused)) {
+  // Space - pause/resume or restart
+  if ((e.key === ' ' || e.code === 'Space') && currentUtterance) {
     e.preventDefault();
 
     if (synth.paused) {
       synth.resume();
       console.log('[AssisT] Resumed');
-    } else {
+    } else if (synth.speaking) {
       synth.pause();
       console.log('[AssisT] Paused');
     }
@@ -311,6 +284,14 @@ document.addEventListener('keydown', (e) => {
       settings.rate = Math.min(2.0, settings.rate + 0.1);
       console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
       showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+
+      // Apply immediately if speaking
+      if (currentUtterance && synth.speaking) {
+        const text = currentText;
+        const element = currentElement;
+        synth.cancel();
+        setTimeout(() => readText(text, element), 50);
+      }
     }
   }
 
@@ -320,6 +301,14 @@ document.addEventListener('keydown', (e) => {
     settings.rate = Math.max(0.5, settings.rate - 0.1);
     console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
     showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+
+    // Apply immediately if speaking
+    if (currentUtterance && synth.speaking) {
+      const text = currentText;
+      const element = currentElement;
+      synth.cancel();
+      setTimeout(() => readText(text, element), 50);
+    }
   }
 });
 
