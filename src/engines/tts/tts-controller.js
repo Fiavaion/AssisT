@@ -1,213 +1,229 @@
 /**
  * TTS Controller
  * Manages Text-to-Speech with synchronized highlighting
- * Supports Web Speech API and cloud TTS engines (Murf, Google Cloud TTS)
- *
- * Features:
- * - Word-by-word synchronized highlighting
- * - SSML support for pace, emphasis, volume control
- * - Multiple voice options
+ * Supports Web Speech API with word-by-word highlighting
  */
 
 export class TTSController {
   constructor(domAdapter, settings) {
     this.domAdapter = domAdapter;
-    this.settings = settings;
-    this.isActive = false;
-    this.isPaused = false;
+    this.settings = { ...settings };
+    this.synthesis = typeof window !== 'undefined' ? window.speechSynthesis : null;
     this.currentUtterance = null;
-    this.synthesis = window.speechSynthesis;
-    this.highlightedElements = [];
+    this.availableVoices = [];
+    this.selectedVoice = null;
+    this.eventHandlers = {};
   }
 
   async initialize() {
+    if (!this.synthesis) {
+      console.warn('[TTS] Speech Synthesis API not available');
+      return;
+    }
+
     // Load available voices
     await this.loadVoices();
+
+    // Set default voice
+    if (this.availableVoices.length > 0) {
+      const defaultVoice = this.availableVoices.find(v => v.default) || this.availableVoices[0];
+      this.selectedVoice = defaultVoice;
+    }
+
     console.log('[TTS] Controller initialized');
   }
 
   async loadVoices() {
     return new Promise(resolve => {
+      if (!this.synthesis) {
+        resolve([]);
+        return;
+      }
+
       let voices = this.synthesis.getVoices();
 
       if (voices.length > 0) {
-        this.voices = voices;
+        this.availableVoices = voices;
         resolve(voices);
       } else {
         this.synthesis.onvoiceschanged = () => {
-          this.voices = this.synthesis.getVoices();
-          resolve(this.voices);
+          this.availableVoices = this.synthesis.getVoices();
+          resolve(this.availableVoices);
         };
       }
     });
   }
 
-  /**
-   * Start reading page content
-   */
-  async start() {
-    if (this.isActive) {
-      return;
-    }
-
-    const text = this.domAdapter.extractReadableText();
-    if (!text) {
-      console.warn('[TTS] No readable text found');
-      return;
-    }
-
-    this.isActive = true;
-    await this.speak(text);
+  getAvailableVoices() {
+    return this.availableVoices;
   }
 
-  /**
-   * Speak text with highlighting
-   */
-  async speak(text) {
-    this.currentUtterance = new SpeechSynthesisUtterance(text);
+  getVoicesByLanguage(langCode) {
+    return this.availableVoices.filter(voice => voice.lang.startsWith(langCode));
+  }
 
-    // Apply settings
+  setVoice(voiceName) {
+    const voice = this.availableVoices.find(v => v.name === voiceName);
+    if (voice) {
+      this.selectedVoice = voice;
+    } else {
+      // Fallback to default voice
+      const defaultVoice = this.availableVoices.find(v => v.default) || this.availableVoices[0];
+      this.selectedVoice = defaultVoice;
+    }
+  }
+
+  setRate(rate) {
+    this.settings.rate = Math.max(0.1, Math.min(10, rate));
+  }
+
+  setPitch(pitch) {
+    this.settings.pitch = Math.max(0, Math.min(2, pitch));
+  }
+
+  setVolume(volume) {
+    this.settings.volume = Math.max(0, Math.min(1, volume));
+  }
+
+  async speak(text) {
+    if (!this.settings.enabled) {
+      return;
+    }
+
+    if (!text || text.trim() === '') {
+      return;
+    }
+
+    if (!this.synthesis) {
+      console.warn('[TTS] Speech Synthesis API not available');
+      return;
+    }
+
+    // Cancel ongoing speech
+    if (this.synthesis.speaking) {
+      this.synthesis.cancel();
+    }
+
+    this.currentUtterance = new SpeechSynthesisUtterance(text);
     this.currentUtterance.rate = this.settings.rate;
     this.currentUtterance.pitch = this.settings.pitch;
     this.currentUtterance.volume = this.settings.volume;
 
-    // Select voice
-    const selectedVoice = this.voices.find(
-      v => v.name === this.settings.voice || v.default
-    );
-    if (selectedVoice) {
-      this.currentUtterance.voice = selectedVoice;
+    if (this.selectedVoice) {
+      this.currentUtterance.voice = this.selectedVoice;
     }
 
-    // Word boundary event for synchronized highlighting
+    // Set up highlighting
     if (this.settings.highlightEnabled) {
       this.currentUtterance.onboundary = event => {
         if (event.name === 'word') {
           this.highlightWord(event.charIndex, event.charLength);
         }
       };
+    } else {
+      this.currentUtterance.onboundary = null;
     }
 
     // Event handlers
+    this.currentUtterance.onstart = () => {
+      console.log('[TTS] Speech started');
+    };
+
     this.currentUtterance.onend = () => {
-      this.isActive = false;
-      this.clearHighlights();
+      if (this.domAdapter && this.domAdapter.removeHighlight) {
+        this.domAdapter.removeHighlight();
+      }
       console.log('[TTS] Speech ended');
     };
 
     this.currentUtterance.onerror = error => {
       console.error('[TTS] Speech error:', error);
-      this.isActive = false;
+      this.emit('error', error);
+    };
+
+    this.currentUtterance.onpause = () => {
+      console.log('[TTS] Speech paused');
+    };
+
+    this.currentUtterance.onresume = () => {
+      console.log('[TTS] Speech resumed');
     };
 
     this.synthesis.speak(this.currentUtterance);
     console.log('[TTS] Speaking:', text.substring(0, 50) + '...');
   }
 
-  /**
-   * Highlight word being spoken
-   */
   highlightWord(charIndex, charLength) {
-    // Clear previous highlights
-    this.clearHighlights();
-
-    // Find and highlight current word
-    // This is a simplified version - production would use text node mapping
-    const textNodes = this.domAdapter.getTextNodes();
-    let currentIndex = 0;
-
-    for (const node of textNodes) {
-      const nodeLength = node.textContent.length;
-
-      if (charIndex >= currentIndex && charIndex < currentIndex + nodeLength) {
-        const relativeIndex = charIndex - currentIndex;
-        const word = node.textContent.substr(relativeIndex, charLength);
-
-        // Create highlight
-        const highlight = this.domAdapter.createHighlight(
-          word,
-          this.settings.highlightColor
-        );
-
-        // Replace text with highlighted span
-        const parent = node.parentNode;
-        const before = document.createTextNode(node.textContent.substring(0, relativeIndex));
-        const after = document.createTextNode(
-          node.textContent.substring(relativeIndex + charLength)
-        );
-
-        parent.insertBefore(before, node);
-        parent.insertBefore(highlight, node);
-        parent.insertBefore(after, node);
-        parent.removeChild(node);
-
-        this.highlightedElements.push(highlight);
-        break;
-      }
-
-      currentIndex += nodeLength;
+    if (this.domAdapter && this.domAdapter.highlightWord) {
+      this.domAdapter.highlightWord(charIndex, charLength, this.settings.highlightColor);
     }
   }
 
-  /**
-   * Clear all highlights
-   */
-  clearHighlights() {
-    this.domAdapter.removeAllHighlights();
-    this.highlightedElements = [];
-  }
-
-  /**
-   * Pause speech
-   */
   pause() {
-    if (this.isActive && !this.isPaused) {
+    if (this.synthesis) {
       this.synthesis.pause();
-      this.isPaused = true;
-      console.log('[TTS] Paused');
     }
   }
 
-  /**
-   * Resume speech
-   */
   resume() {
-    if (this.isActive && this.isPaused) {
+    if (this.synthesis) {
       this.synthesis.resume();
-      this.isPaused = false;
-      console.log('[TTS] Resumed');
     }
   }
 
-  /**
-   * Stop speech
-   */
   stop() {
-    if (this.isActive) {
+    if (this.synthesis) {
       this.synthesis.cancel();
-      this.isActive = false;
-      this.isPaused = false;
-      this.clearHighlights();
-      console.log('[TTS] Stopped');
     }
   }
 
-  /**
-   * Toggle TTS
-   */
-  toggle() {
-    if (this.isActive) {
-      this.stop();
-    } else {
-      this.start();
+  isSpeaking() {
+    return this.synthesis ? this.synthesis.speaking : false;
+  }
+
+  isPaused() {
+    return this.synthesis ? this.synthesis.paused : false;
+  }
+
+  enable() {
+    this.settings.enabled = true;
+    console.log('[TTS] Enabled');
+  }
+
+  disable() {
+    this.settings.enabled = false;
+    this.stop();
+    console.log('[TTS] Disabled');
+  }
+
+  async readPageContent() {
+    if (!this.domAdapter) {
+      console.warn('[TTS] DOM Adapter not available');
+      return;
+    }
+
+    const textNodes = this.domAdapter.getTextNodes();
+    const textContent = textNodes
+      .map(node => node.textContent)
+      .filter(text => text && text.trim() !== '')
+      .join(' ');
+
+    if (textContent) {
+      await this.speak(textContent);
     }
   }
 
-  /**
-   * Update settings
-   */
-  updateSettings(newSettings) {
-    this.settings = { ...this.settings, ...newSettings };
-    console.log('[TTS] Settings updated:', this.settings);
+  // Event emitter pattern
+  on(event, handler) {
+    if (!this.eventHandlers[event]) {
+      this.eventHandlers[event] = [];
+    }
+    this.eventHandlers[event].push(handler);
+  }
+
+  emit(event, data) {
+    if (this.eventHandlers[event]) {
+      this.eventHandlers[event].forEach(handler => handler(data));
+    }
   }
 }
