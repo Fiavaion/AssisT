@@ -27,6 +27,15 @@ chrome.runtime.onInstalled.addListener(async details => {
     console.log('[AssisT] Extension updated from', details.previousVersion);
     // Handle migration if needed
   }
+
+  // Create context menu for Read Selection feature
+  chrome.contextMenus.create({
+    id: 'assist-read-selection',
+    title: '🎯 AssisT: Read Selection',
+    contexts: ['selection']
+  });
+
+  console.log('[AssisT] Context menu created');
 });
 
 // Message handling from content scripts and popup
@@ -63,6 +72,39 @@ chrome.action.onClicked.addListener(async tab => {
   chrome.tabs.sendMessage(tab.id, {
     type: 'TOGGLE_ASSIST_PANEL'
   });
+});
+
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'assist-read-selection') {
+    console.log('[AssisT] Read Selection context menu clicked');
+
+    // Check if TTS is enabled
+    const settings = await StorageManager.get('assist_settings');
+    if (!settings?.tts?.enabled) {
+      console.warn('[AssisT] TTS is disabled, cannot read selection');
+      // Could show a notification here
+      return;
+    }
+
+    // Get the selected text
+    const selectedText = info.selectionText;
+    if (!selectedText || selectedText.trim().length === 0) {
+      console.warn('[AssisT] No text selected');
+      return;
+    }
+
+    // Send message to content script to read the selected text
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'TTS_READ_SELECTION',
+        data: { text: selectedText }
+      });
+      console.log('[AssisT] Read selection command sent:', selectedText.substring(0, 50) + '...');
+    } catch (error) {
+      console.error('[AssisT] Error sending read selection command:', error);
+    }
+  }
 });
 
 console.log('[AssisT] Background service worker initialized');
