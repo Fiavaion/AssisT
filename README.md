@@ -16,55 +16,16 @@ AssisT is a Chrome Extension that provides comprehensive accessibility features 
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js 18+ and npm
-- Google Chrome Browser
-- Git
-
-### Installation
+**See [GETTING_STARTED.md](GETTING_STARTED.md) for setup instructions.**
 
 ```bash
-# Clone repository
-git clone <repository-url>
-cd AssitT
-
-# Install dependencies
-npm install
-
-# Make push script executable (Unix/Mac)
-chmod +x push.sh
-
-# Set up push alias (optional)
-echo "alias push='$(pwd)/push.sh'" >> ~/.bashrc
-source ~/.bashrc
+npm install                    # Install dependencies
+npm test                       # Run tests
+npm run lint                   # Check code quality
+./push.sh                      # Commit & push changes
 ```
 
-### Development
-
-```bash
-# Run tests
-npm test
-
-# Run E2E tests
-npm run test:e2e
-
-# Lint code
-npm run lint
-
-# Format code
-npm run format
-
-# Build extension
-npm run build
-```
-
-### Load Extension in Chrome
-
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked"
-4. Select the `AssitT` project directory
-5. Navigate to any Canvas course to activate AssisT
+Load extension: `chrome://extensions/` → Developer mode → Load unpacked
 
 ## 📋 Features
 
@@ -195,11 +156,10 @@ This ensures:
 
 ## 📚 Documentation
 
-See the `/docs` directory for:
-- [Architecture Overview](docs/architecture/OVERVIEW.md)
-- [API Reference](docs/api/README.md)
-- [User Guide](docs/user-guide/README.md)
-- [Decision Log](projectmemory.md)
+- [GETTING_STARTED.md](GETTING_STARTED.md) - Setup guide
+- [ROADMAP.md](ROADMAP.md) - Development plan
+- [claude.md](claude.md) - Standards & constraints
+- [projectmemory.md](projectmemory.md) - Decision log
 
 ## 🤝 Contributing
 
