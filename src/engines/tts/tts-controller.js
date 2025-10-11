@@ -13,6 +13,10 @@ export class TTSController {
     this.availableVoices = [];
     this.selectedVoice = null;
     this.eventHandlers = {};
+    this.currentElement = null; // Track current element being read
+    this.currentText = '';
+    this.isPlaying = false;
+    this.isPaused = false;
   }
 
   async initialize() {
@@ -126,13 +130,15 @@ export class TTSController {
 
     // Event handlers
     this.currentUtterance.onstart = () => {
+      this.isPlaying = true;
+      this.isPaused = false;
       console.log('[TTS] Speech started');
     };
 
     this.currentUtterance.onend = () => {
-      if (this.domAdapter && this.domAdapter.removeHighlight) {
-        this.domAdapter.removeHighlight();
-      }
+      this.isPlaying = false;
+      this.isPaused = false;
+      this.removeHighlighting();
       console.log('[TTS] Speech ended');
     };
 
@@ -142,10 +148,14 @@ export class TTSController {
     };
 
     this.currentUtterance.onpause = () => {
+      this.isPaused = true;
+      this.isPlaying = false;
       console.log('[TTS] Speech paused');
     };
 
     this.currentUtterance.onresume = () => {
+      this.isPaused = false;
+      this.isPlaying = true;
       console.log('[TTS] Speech resumed');
     };
 
@@ -154,8 +164,123 @@ export class TTSController {
   }
 
   highlightWord(charIndex, charLength) {
-    if (this.domAdapter && this.domAdapter.highlightWord) {
-      this.domAdapter.highlightWord(charIndex, charLength, this.settings.highlightColor);
+    if (!this.currentElement || !this.settings.highlightEnabled) {
+      return;
+    }
+
+    // Remove previous highlight
+    this.removeHighlighting();
+
+    // Get the text content
+    const text = this.currentText;
+    if (charIndex >= text.length) return;
+
+    // Calculate the word
+    const word = text.substring(charIndex, charIndex + charLength);
+
+    // Find and highlight the word in the element
+    this.highlightTextInElement(this.currentElement, charIndex, charLength);
+  }
+
+  highlightTextInElement(element, charIndex, charLength) {
+    // Create a wrapper span for highlighting
+    const range = document.createRange();
+    const textNodes = this.getTextNodesIn(element);
+
+    let currentIndex = 0;
+    let found = false;
+
+    for (const node of textNodes) {
+      const nodeLength = node.textContent.length;
+      const nodeStart = currentIndex;
+      const nodeEnd = currentIndex + nodeLength;
+
+      if (charIndex >= nodeStart && charIndex < nodeEnd) {
+        // Found the node containing our text
+        const offsetStart = charIndex - nodeStart;
+        const offsetEnd = Math.min(offsetStart + charLength, nodeLength);
+
+        try {
+          range.setStart(node, offsetStart);
+          range.setEnd(node, offsetEnd);
+
+          // Create highlight span
+          const span = document.createElement('span');
+          span.className = 'assist-tts-highlight-active';
+          const color = this.settings.highlightColor || '#FFEB3B';
+          const opacity = this.settings.highlightOpacity || 0.7;
+          span.style.cssText = `
+            background-color: ${color} !important;
+            opacity: ${opacity} !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            transition: background-color 0.2s ease !important;
+          `;
+
+          range.surroundContents(span);
+          this.currentHighlight = span;
+          found = true;
+        } catch (e) {
+          // Range might span multiple nodes, fallback to element highlighting
+          console.warn('[TTS] Could not highlight specific word, highlighting element');
+        }
+        break;
+      }
+
+      currentIndex += nodeLength;
+    }
+
+    if (!found) {
+      // Fallback: highlight the entire element
+      element.style.backgroundColor = this.settings.highlightColor || '#FFEB3B';
+      element.style.opacity = this.settings.highlightOpacity || 0.7;
+    }
+  }
+
+  getTextNodesIn(element) {
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    let node;
+    while (node = walker.nextNode()) {
+      if (node.textContent.trim()) {
+        textNodes.push(node);
+      }
+    }
+
+    return textNodes;
+  }
+
+  removeHighlighting() {
+    // Remove active highlight
+    if (this.currentHighlight) {
+      const parent = this.currentHighlight.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(this.currentHighlight.textContent), this.currentHighlight);
+        parent.normalize(); // Merge adjacent text nodes
+      }
+      this.currentHighlight = null;
+    }
+
+    // Remove any remaining highlights
+    const highlights = document.querySelectorAll('.assist-tts-highlight-active');
+    highlights.forEach(el => {
+      const parent = el.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(el.textContent), el);
+        parent.normalize();
+      }
+    });
+
+    // Remove element background if applied
+    if (this.currentElement) {
+      this.currentElement.style.backgroundColor = '';
+      this.currentElement.style.opacity = '';
     }
   }
 
@@ -175,14 +300,13 @@ export class TTSController {
     if (this.synthesis) {
       this.synthesis.cancel();
     }
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.removeHighlighting();
   }
 
   isSpeaking() {
     return this.synthesis ? this.synthesis.speaking : false;
-  }
-
-  isPaused() {
-    return this.synthesis ? this.synthesis.paused : false;
   }
 
   enable() {
@@ -209,8 +333,41 @@ export class TTSController {
       .join(' ');
 
     if (textContent) {
+      this.currentElement = document.body;
+      this.currentText = textContent;
       await this.speak(textContent);
     }
+  }
+
+  async readText(text, element = null) {
+    if (!text || text.trim() === '') {
+      return;
+    }
+
+    this.currentElement = element;
+    this.currentText = text;
+
+    // Add visual feedback to the element being read
+    if (element) {
+      element.style.outline = '2px solid #2196F3';
+      element.style.outlineOffset = '2px';
+
+      // Remove outline when done
+      if (this.currentUtterance) {
+        const removeOutline = () => {
+          element.style.outline = '';
+          element.style.outlineOffset = '';
+        };
+        this.currentUtterance.onend = () => {
+          this.isPlaying = false;
+          this.isPaused = false;
+          this.removeHighlighting();
+          removeOutline();
+        };
+      }
+    }
+
+    await this.speak(text);
   }
 
   // Event emitter pattern

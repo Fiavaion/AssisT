@@ -62,6 +62,12 @@ class AssistContentManager {
       // Set up mutation observer for dynamic content
       this.observeCanvasDOM();
 
+      // Set up keyboard shortcuts
+      this.setupKeyboardShortcuts();
+
+      // Set up click-to-read functionality
+      this.setupClickToRead();
+
       this.isInitialized = true;
       console.log('[AssisT Content] Initialization complete');
 
@@ -216,9 +222,145 @@ class AssistContentManager {
       case 'setHighlighting':
         this.ttsController.settings.highlightEnabled = data.enabled;
         break;
+      case 'setHighlightColor':
+        this.ttsController.settings.highlightColor = data.color;
+        break;
+      case 'setHighlightOpacity':
+        this.ttsController.settings.highlightOpacity = data.opacity;
+        break;
+      case 'readParagraph':
+        await this.ttsController.readText(data.text);
+        break;
       default:
         console.warn('[AssisT Content] Unknown TTS command:', command);
     }
+  }
+
+  setupKeyboardShortcuts() {
+    console.log('[AssisT Content] Setting up keyboard shortcuts');
+
+    document.addEventListener('keydown', async (e) => {
+      // Ignore if user is typing in an input field
+      if (e.target.matches('input, textarea, [contenteditable="true"]')) {
+        return;
+      }
+
+      // Spacebar: Pause/Resume TTS
+      if (e.code === 'Space' && this.ttsController) {
+        e.preventDefault();
+        if (this.ttsController.isPlaying) {
+          this.ttsController.pause();
+          console.log('[AssisT Content] Paused via spacebar');
+        } else if (this.ttsController.isPaused) {
+          this.ttsController.resume();
+          console.log('[AssisT Content] Resumed via spacebar');
+        }
+      }
+
+      // Plus/Equals: Increase speed
+      if ((e.code === 'Equal' || e.code === 'NumpadAdd') && (e.shiftKey || e.code === 'NumpadAdd')) {
+        e.preventDefault();
+        if (this.ttsController) {
+          const newRate = Math.min(2.0, this.ttsController.settings.rate + 0.1);
+          this.ttsController.setRate(newRate);
+          console.log('[AssisT Content] Speed increased to:', newRate.toFixed(1));
+          this.showToast(`Speed: ${newRate.toFixed(1)}x`);
+        }
+      }
+
+      // Minus: Decrease speed
+      if ((e.code === 'Minus' || e.code === 'NumpadSubtract')) {
+        e.preventDefault();
+        if (this.ttsController) {
+          const newRate = Math.max(0.5, this.ttsController.settings.rate - 0.1);
+          this.ttsController.setRate(newRate);
+          console.log('[AssisT Content] Speed decreased to:', newRate.toFixed(1));
+          this.showToast(`Speed: ${newRate.toFixed(1)}x`);
+        }
+      }
+    });
+  }
+
+  setupClickToRead() {
+    console.log('[AssisT Content] Setting up click-to-read functionality');
+
+    document.addEventListener('click', async (e) => {
+      // Only process if TTS is enabled and Ctrl key is held
+      if (!this.settings.tts.enabled || !e.ctrlKey) {
+        return;
+      }
+
+      // Find the closest paragraph or text container
+      let target = e.target;
+      let paragraph = null;
+
+      // Look for paragraph, div, or other text containers
+      while (target && target !== document.body) {
+        if (target.matches('p, div.user_content, div.description, article, section, li')) {
+          paragraph = target;
+          break;
+        }
+        target = target.parentElement;
+      }
+
+      if (paragraph) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const text = paragraph.textContent.trim();
+        if (text) {
+          console.log('[AssisT Content] Reading clicked paragraph:', text.substring(0, 50) + '...');
+
+          // Initialize TTS if needed
+          if (!this.ttsController) {
+            this.ttsController = new TTSController(this.domAdapter, this.settings.tts);
+            await this.ttsController.initialize();
+          }
+
+          // Stop current reading
+          this.ttsController.stop();
+
+          // Read the paragraph with highlighting
+          await this.ttsController.readText(text, paragraph);
+        }
+      }
+    });
+  }
+
+  showToast(message) {
+    // Remove existing toast
+    const existingToast = document.getElementById('assist-toast');
+    if (existingToast) {
+      existingToast.remove();
+    }
+
+    // Create toast
+    const toast = document.createElement('div');
+    toast.id = 'assist-toast';
+    toast.className = 'assist-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(33, 150, 243, 0.95);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease;
+    `;
+
+    document.body.appendChild(toast);
+
+    // Remove after 2 seconds
+    setTimeout(() => {
+      toast.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 2000);
   }
 
   observeCanvasDOM() {

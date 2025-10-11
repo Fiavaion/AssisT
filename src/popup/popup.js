@@ -61,6 +61,17 @@ class PopupController {
   }
 
   setupEventListeners() {
+    // Toggle Options Button
+    const toggleOptionsBtn = document.getElementById('toggle-options');
+    const optionsContainer = document.getElementById('options-container');
+    toggleOptionsBtn.addEventListener('click', () => {
+      const isExpanded = toggleOptionsBtn.getAttribute('aria-expanded') === 'true';
+      toggleOptionsBtn.setAttribute('aria-expanded', !isExpanded);
+      optionsContainer.classList.toggle('hidden');
+      toggleOptionsBtn.querySelector('span:last-child').textContent =
+        isExpanded ? 'Show Options' : 'Hide Options';
+    });
+
     // TTS Enable/Disable
     const ttsEnabled = document.getElementById('tts-enabled');
     ttsEnabled.checked = this.settings?.tts?.enabled || false;
@@ -146,6 +157,28 @@ class PopupController {
       this.sendCommandToTab('setHighlighting', { enabled: e.target.checked });
     });
 
+    // Highlight Color
+    const highlightColor = document.getElementById('highlight-color');
+    highlightColor.value = this.settings?.tts?.highlightColor || '#FFEB3B';
+    highlightColor.addEventListener('change', (e) => {
+      this.settings.tts.highlightColor = e.target.value;
+      this.saveSettings();
+      this.sendCommandToTab('setHighlightColor', { color: e.target.value });
+    });
+
+    // Highlight Opacity
+    const highlightOpacity = document.getElementById('highlight-opacity');
+    const opacityValue = document.getElementById('opacity-value');
+    highlightOpacity.value = this.settings?.tts?.highlightOpacity || 0.7;
+    opacityValue.textContent = `${Math.round(highlightOpacity.value * 100)}%`;
+    highlightOpacity.addEventListener('input', (e) => {
+      const opacity = parseFloat(e.target.value);
+      opacityValue.textContent = `${Math.round(opacity * 100)}%`;
+      this.settings.tts.highlightOpacity = opacity;
+      this.saveSettings();
+      this.sendCommandToTab('setHighlightOpacity', { opacity });
+    });
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', (e) => {
       e.preventDefault();
@@ -176,6 +209,24 @@ class PopupController {
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.innerHTML = '';
 
+    // Try to find Google UK Female voice
+    const preferredVoice = voices.find(v =>
+      v.name.includes('Google') &&
+      v.name.includes('UK') &&
+      v.name.includes('Female')
+    ) || voices.find(v =>
+      v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')
+    ) || voices.find(v =>
+      v.lang.startsWith('en-') && v.name.toLowerCase().includes('female')
+    );
+
+    // Set default voice if not already set
+    if (preferredVoice && !this.settings?.tts?.voice) {
+      this.settings.tts.voice = preferredVoice.name;
+      this.saveSettings();
+      this.sendCommandToTab('setVoice', { voice: preferredVoice.name });
+    }
+
     // Group voices by language
     const grouped = voices.reduce((acc, voice) => {
       const lang = voice.lang.split('-')[0];
@@ -201,6 +252,9 @@ class PopupController {
     });
 
     console.log('[Popup] Loaded', voices.length, 'voices');
+    if (preferredVoice) {
+      console.log('[Popup] Default voice set to:', preferredVoice.name);
+    }
   }
 
   async sendCommandToTab(command, data = {}) {

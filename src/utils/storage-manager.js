@@ -20,6 +20,7 @@ export class StorageManager {
       volume: 1.0,
       highlightEnabled: true,
       highlightColor: '#FFEB3B',
+      highlightOpacity: 0.7,
       autoStart: false
     },
     stt: {

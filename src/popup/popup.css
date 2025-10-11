@@ -117,6 +117,60 @@ body {
   padding: var(--spacing-md);
 }
 
+.toggle-control.main-toggle {
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Toggle Options Button */
+.toggle-options-btn {
+  width: 100%;
+  padding: var(--spacing-sm);
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  transition: var(--transition);
+}
+
+.toggle-options-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.toggle-options-btn:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.toggle-icon {
+  transition: transform 0.3s ease;
+}
+
+.toggle-options-btn[aria-expanded="true"] .toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* Options Container */
+.options-container {
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.options-container.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
 .toggle-label {
   display: flex;
   justify-content: space-between;

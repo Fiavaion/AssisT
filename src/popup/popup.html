@@ -21,7 +21,7 @@
     <main class="popup-main">
       <!-- TTS Enable/Disable -->
       <section class="control-section">
-        <div class="toggle-control">
+        <div class="toggle-control main-toggle">
           <label for="tts-enabled" class="toggle-label">
             <span class="label-text">Enable TTS</span>
             <div class="toggle-switch">
@@ -30,7 +30,14 @@
             </div>
           </label>
         </div>
+        <button id="toggle-options" class="toggle-options-btn" aria-expanded="false">
+          <span class="toggle-icon">▼</span>
+          <span>Show Options</span>
+        </button>
       </section>
+
+      <!-- Collapsible Options Container -->
+      <div id="options-container" class="options-container hidden">
 
       <!-- Playback Controls -->
       <section class="control-section" id="playback-controls">
@@ -143,14 +150,59 @@
       <section class="control-section">
         <div class="toggle-control">
           <label for="highlight-enabled" class="toggle-label">
-            <span class="label-text">Word Highlighting</span>
+            <span class="label-text">Text Highlighting</span>
             <div class="toggle-switch">
-              <input type="checkbox" id="highlight-enabled" role="switch" aria-label="Enable word highlighting" checked>
+              <input type="checkbox" id="highlight-enabled" role="switch" aria-label="Enable text highlighting" checked>
               <span class="toggle-slider"></span>
             </div>
           </label>
         </div>
       </section>
+
+      <!-- Highlight Color -->
+      <section class="control-section">
+        <h2 class="section-title">
+          <label for="highlight-color">Highlight Color</label>
+        </h2>
+        <select id="highlight-color" class="voice-select" aria-label="Select highlight color">
+          <option value="#FFFF00">Yellow (High Contrast)</option>
+          <option value="#FFEB3B">Bright Yellow</option>
+          <option value="#FFD700">Gold</option>
+          <option value="#90EE90">Light Green</option>
+          <option value="#87CEEB">Sky Blue</option>
+          <option value="#FFB6C1">Light Pink</option>
+          <option value="#DDA0DD">Plum</option>
+          <option value="#F0E68C">Khaki</option>
+        </select>
+      </section>
+
+      <!-- Highlight Opacity -->
+      <section class="control-section">
+        <h2 class="section-title">
+          <label for="highlight-opacity">Highlight Opacity</label>
+          <span class="control-value" id="opacity-value">70%</span>
+        </h2>
+        <div class="slider-control">
+          <input
+            type="range"
+            id="highlight-opacity"
+            class="slider"
+            min="0.1"
+            max="1"
+            step="0.1"
+            value="0.7"
+            aria-label="Adjust highlight opacity"
+            aria-valuemin="0.1"
+            aria-valuemax="1"
+            aria-valuenow="0.7">
+          <div class="slider-labels">
+            <span>Transparent</span>
+            <span>Solid</span>
+          </div>
+        </div>
+      </section>
+
+      </div><!-- End options-container -->
     </main>
 
     <!-- Footer -->
