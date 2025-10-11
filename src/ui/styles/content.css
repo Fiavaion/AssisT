@@ -1,0 +1,73 @@
+/**
+ * AssisT Content Styles
+ * Injected into Canvas VLE pages for visual enhancements
+ */
+
+/* TTS Highlight Styles */
+.assist-tts-highlight {
+  background-color: #FFEB3B !important;
+  color: #212121 !important;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+/* Focus Mode Styles */
+.assist-focus-mode-hidden {
+  opacity: 0.3 !important;
+  pointer-events: none !important;
+  transition: opacity 0.3s ease;
+}
+
+/* WAI-Adapt Text Spacing */
+.assist-text-spacing {
+  line-height: 1.5 !important;
+  letter-spacing: 0.12em !important;
+  word-spacing: 0.16em !important;
+}
+
+.assist-text-spacing p,
+.assist-text-spacing div {
+  margin-bottom: 2em !important;
+}
+
+/* AssisT Panel (if we add one) */
+.assist-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border: 2px solid #2196F3;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+.assist-panel-hidden {
+  display: none;
+}
+
+/* Smooth transitions for all AssisT modifications */
+.assist-animated {
+  transition: all 0.3s ease;
+}
+
+/* Ensure high contrast for highlighted text */
+@media (prefers-contrast: high) {
+  .assist-tts-highlight {
+    background-color: #000 !important;
+    color: #FFF !important;
+    outline: 2px solid #FFF;
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .assist-tts-highlight,
+  .assist-focus-mode-hidden,
+  .assist-animated {
+    transition: none !important;
+  }
+}
