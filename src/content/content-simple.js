@@ -8,6 +8,7 @@ console.log('[AssisT] Content script loaded');
 // Global state
 let currentUtterance = null;
 let currentHighlight = null;
+let currentElement = null;
 let settings = {
   highlightColor: '#FFEB3B',
   highlightOpacity: 0.7,
@@ -35,9 +36,9 @@ function loadVoices() {
     v.lang.startsWith('en-') && v.name.toLowerCase().includes('female')
   );
 
-  if (preferredVoice) {
+  if (preferredVoice && !settings.voice) {
     settings.voice = preferredVoice;
-    console.log('[AssisT] Voice set to:', preferredVoice.name);
+    console.log('[AssisT] Default voice:', preferredVoice.name);
   }
 }
 
@@ -61,37 +62,41 @@ chrome.storage.local.get('assist_settings', (result) => {
     if (ttsSettings.voice && ttsSettings.voice !== 'default') {
       const voices = synth.getVoices();
       const voice = voices.find(v => v.name === ttsSettings.voice);
-      if (voice) {
+      if (voice && voice.name !== settings.voice?.name) {
         settings.voice = voice;
         console.log('[AssisT] Voice loaded from settings:', voice.name);
       }
     }
 
-    console.log('[AssisT] Settings loaded:', settings);
+    console.log('[AssisT] Settings loaded');
   }
 });
 
-// Listen for settings updates
+// Listen for settings updates (debounced to prevent loops)
+let updateTimeout = null;
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.assist_settings) {
-    const ttsSettings = changes.assist_settings.newValue?.tts;
-    if (ttsSettings) {
-      settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
-      settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
-      settings.rate = ttsSettings.rate || settings.rate;
-      settings.pitch = ttsSettings.pitch || settings.pitch;
-      settings.volume = ttsSettings.volume || settings.volume;
+  if (changes.assist_settings && updateTimeout === null) {
+    updateTimeout = setTimeout(() => {
+      const ttsSettings = changes.assist_settings.newValue?.tts;
+      if (ttsSettings) {
+        settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
+        settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
+        settings.rate = ttsSettings.rate || settings.rate;
+        settings.pitch = ttsSettings.pitch || settings.pitch;
+        settings.volume = ttsSettings.volume || settings.volume;
 
-      // Update voice
-      if (ttsSettings.voice && ttsSettings.voice !== 'default') {
-        const voices = synth.getVoices();
-        const voice = voices.find(v => v.name === ttsSettings.voice);
-        if (voice) {
-          settings.voice = voice;
-          console.log('[AssisT] Voice updated:', voice.name);
+        // Update voice only if changed
+        if (ttsSettings.voice && ttsSettings.voice !== 'default' && ttsSettings.voice !== settings.voice?.name) {
+          const voices = synth.getVoices();
+          const voice = voices.find(v => v.name === ttsSettings.voice);
+          if (voice) {
+            settings.voice = voice;
+            console.log('[AssisT] Voice updated:', voice.name);
+          }
         }
       }
-    }
+      updateTimeout = null;
+    }, 100);
   }
 });
 
@@ -100,7 +105,6 @@ function removeHighlight() {
   if (currentHighlight) {
     const parent = currentHighlight.parentNode;
     if (parent) {
-      // Replace highlighted span with text
       const text = document.createTextNode(currentHighlight.textContent);
       parent.replaceChild(text, currentHighlight);
       parent.normalize();
@@ -108,7 +112,6 @@ function removeHighlight() {
     currentHighlight = null;
   }
 
-  // Remove any leftover highlights
   document.querySelectorAll('.assist-highlight').forEach(el => {
     const parent = el.parentNode;
     if (parent) {
@@ -123,7 +126,6 @@ function removeHighlight() {
 function highlightWord(text, charIndex, charLength, element) {
   removeHighlight();
 
-  // Find the text node containing this character
   const walker = document.createTreeWalker(
     element,
     NodeFilter.SHOW_TEXT,
@@ -156,7 +158,6 @@ function highlightWord(text, charIndex, charLength, element) {
       range.setStart(targetNode, startOffset);
       range.setEnd(targetNode, endOffset);
 
-      // Create highlight span
       const span = document.createElement('span');
       span.className = 'assist-highlight';
       span.style.cssText = `
@@ -170,96 +171,102 @@ function highlightWord(text, charIndex, charLength, element) {
       range.surroundContents(span);
       currentHighlight = span;
     } catch (e) {
-      console.warn('[AssisT] Could not highlight word:', e);
+      // Silently fail - highlighting is optional
     }
   }
-}
-
-// Stop current speech
-function stopSpeech() {
-  if (synth.speaking) {
-    synth.cancel();
-  }
-  removeHighlight();
-  currentUtterance = null;
 }
 
 // Read text with highlighting
 function readText(text, element) {
-  // Stop any current speech
-  stopSpeech();
-
   if (!text || text.trim() === '') {
     return;
   }
 
-  console.log('[AssisT] Reading:', text.substring(0, 50) + '...');
-
-  // Add outline to element being read
-  element.style.outline = '2px solid #2196F3';
-  element.style.outlineOffset = '2px';
-
-  // Create utterance
-  currentUtterance = new SpeechSynthesisUtterance(text);
-  currentUtterance.rate = settings.rate;
-  currentUtterance.pitch = settings.pitch;
-  currentUtterance.volume = settings.volume;
-
-  if (settings.voice) {
-    currentUtterance.voice = settings.voice;
+  // Cancel previous speech if any
+  if (synth.speaking) {
+    synth.cancel();
   }
 
-  // Highlight words as they're spoken
-  currentUtterance.onboundary = (event) => {
-    if (event.name === 'word' && event.charIndex !== undefined) {
-      // Calculate word length by finding next space
-      let wordLength = 1;
-      for (let i = event.charIndex + 1; i < text.length; i++) {
-        if (text[i] === ' ' || text[i] === '\n' || text[i] === '.' || text[i] === ',') {
-          break;
-        }
-        wordLength++;
-      }
-      console.log('[AssisT] Highlighting word at', event.charIndex, 'length', wordLength);
-      highlightWord(text, event.charIndex, wordLength, element);
+  // Wait a tiny bit for cancel to complete
+  setTimeout(() => {
+    currentElement = element;
+
+    console.log('[AssisT] Reading:', text.substring(0, 50) + '...');
+
+    // Add outline
+    element.style.outline = '2px solid #2196F3';
+    element.style.outlineOffset = '2px';
+
+    // Create utterance
+    currentUtterance = new SpeechSynthesisUtterance(text);
+    currentUtterance.rate = settings.rate;
+    currentUtterance.pitch = settings.pitch;
+    currentUtterance.volume = settings.volume;
+
+    if (settings.voice) {
+      currentUtterance.voice = settings.voice;
     }
-  };
 
-  // Clean up when done
-  currentUtterance.onend = () => {
-    removeHighlight();
-    element.style.outline = '';
-    element.style.outlineOffset = '';
-    currentUtterance = null;
-    console.log('[AssisT] Reading complete');
-  };
+    // Highlight words
+    currentUtterance.onboundary = (event) => {
+      if (event.name === 'word' && event.charIndex !== undefined) {
+        let wordLength = 1;
+        for (let i = event.charIndex + 1; i < text.length; i++) {
+          if (text[i] === ' ' || text[i] === '\n' || text[i] === '.' || text[i] === ',') {
+            break;
+          }
+          wordLength++;
+        }
+        highlightWord(text, event.charIndex, wordLength, element);
+      }
+    };
 
-  currentUtterance.onerror = (event) => {
-    console.error('[AssisT] Speech error:', event);
-    removeHighlight();
-    element.style.outline = '';
-    element.style.outlineOffset = '';
-  };
+    // Clean up on end
+    currentUtterance.onend = () => {
+      removeHighlight();
+      if (currentElement) {
+        currentElement.style.outline = '';
+        currentElement.style.outlineOffset = '';
+      }
+      currentUtterance = null;
+      currentElement = null;
+      console.log('[AssisT] Reading complete');
+    };
 
-  // Speak
-  synth.speak(currentUtterance);
+    // Handle errors
+    currentUtterance.onerror = (event) => {
+      console.error('[AssisT] Speech error:', event.error);
+      // Clean up
+      removeHighlight();
+      if (currentElement) {
+        currentElement.style.outline = '';
+        currentElement.style.outlineOffset = '';
+      }
+      currentElement = null;
+    };
+
+    // Speak!
+    synth.speak(currentUtterance);
+  }, 50); // Small delay to avoid race condition
 }
 
-// Click handler - NO Ctrl key required, just click
+// Click handler
 document.addEventListener('click', (e) => {
-  // Find the closest text container
+  // Don't intercept links/buttons
+  if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
+    return;
+  }
+
+  // Find text container
   let target = e.target;
   let textElement = null;
 
-  // Walk up the DOM to find a good text container
   while (target && target !== document.body) {
     const tag = target.tagName?.toLowerCase();
 
-    // Check if this is a good text container
-    if (tag && ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'article', 'section', 'span'].includes(tag)) {
+    if (tag && ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'article', 'section'].includes(tag)) {
       const text = target.textContent?.trim();
 
-      // Make sure it has substantial text (more than 10 characters)
       if (text && text.length > 10) {
         textElement = target;
         break;
@@ -270,28 +277,21 @@ document.addEventListener('click', (e) => {
   }
 
   if (textElement) {
-    // Check if clicking interactive elements (links, buttons, etc.)
-    if (e.target.matches('a, button, input, textarea, select, [role="button"]')) {
-      // Don't intercept clicks on interactive elements
-      return;
-    }
-
     e.preventDefault();
     e.stopPropagation();
 
     const text = textElement.textContent.trim();
     readText(text, textElement);
   }
-}, true); // Use capture phase
+}, true);
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  // Ignore if typing in input
   if (e.target.matches('input, textarea, [contenteditable="true"]')) {
     return;
   }
 
-  // Spacebar - pause/resume (only when speaking)
+  // Space - pause/resume
   if ((e.key === ' ' || e.code === 'Space') && (synth.speaking || synth.paused)) {
     e.preventDefault();
 
@@ -304,7 +304,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // Speed up: + or =
+  // + - speed up
   if (e.key === '+' || e.key === '=' || e.code === 'Equal' || e.code === 'NumpadAdd') {
     if (e.shiftKey || e.code === 'NumpadAdd' || e.key === '+') {
       e.preventDefault();
@@ -314,7 +314,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // Slow down: -
+  // - - slow down
   if (e.key === '-' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
     e.preventDefault();
     settings.rate = Math.max(0.5, settings.rate - 0.1);
@@ -323,7 +323,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Show toast notification
+// Show toast
 function showToast(message) {
   const existing = document.getElementById('assist-toast');
   if (existing) existing.remove();
