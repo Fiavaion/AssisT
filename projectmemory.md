@@ -330,7 +330,8 @@ Is this feature independent of existing features?
 
 **Version:** MVP-TTS-Stable-v1.0
 **Date:** 2025-10-11
-**Commit:** (to be added after tag creation)
+**Commit:** 5e247a2fa3cf7bfb812646f69b288d4926d6513f
+**Tag:** MVP-TTS-Stable-v1.0
 
 **Functional Features:**
 - Text-to-Speech with click-to-read
