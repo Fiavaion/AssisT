@@ -1,7 +1,7 @@
 /**
  * AssisT Background Service Worker
  * Manages extension lifecycle, message passing, and persistent state
- * Operates in Isolated World to prevent conflicts with Canvas VLE
+ * Universal accessibility extension for all websites
  */
 
 import { StorageManager } from '../utils/storage-manager.js';
@@ -42,21 +42,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.tabs.onActivated.addListener(async activeInfo => {
   const tab = await chrome.tabs.get(activeInfo.tabId);
 
-  // Check if tab is Canvas VLE
-  if (tab.url && tab.url.includes('.instructure.com')) {
-    console.log('[AssisT] Canvas VLE tab activated:', tab.id);
-
-    // Inject content script if needed (fallback)
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['src/content/content.js']
-      });
-    } catch (error) {
-      // Content script may already be injected
-      console.warn('[AssisT] Content script injection skipped:', error.message);
-    }
+  // Skip browser system pages
+  if (tab.url && (
+    tab.url.startsWith('chrome://') ||
+    tab.url.startsWith('chrome-extension://') ||
+    tab.url.startsWith('edge://') ||
+    tab.url.startsWith('about:')
+  )) {
+    return;
   }
+
+  console.log('[AssisT] Tab activated:', tab.id);
 });
 
 // Handle extension icon click (if popup is disabled)

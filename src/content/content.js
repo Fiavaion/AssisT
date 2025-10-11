@@ -1,10 +1,10 @@
 /**
  * AssisT Content Script
- * Runs in Isolated World on Canvas VLE pages
+ * Universal accessibility content script that runs on all web pages
  * Handles DOM manipulation, TTS/STT injection, and accessibility adaptations
  *
  * CRITICAL: Operates in isolated execution environment to prevent conflicts
- * with Canvas VLE JavaScript
+ * with page JavaScript
  */
 
 import { DOMAdapter } from '../adapters/dom-adapter.js';
@@ -28,7 +28,7 @@ class AssistContentManager {
       return;
     }
 
-    console.log('[AssisT Content] Initializing on Canvas VLE...');
+    console.log('[AssisT Content] Initializing accessibility features...');
 
     try {
       // Load user settings
@@ -60,7 +60,7 @@ class AssistContentManager {
       this.setupMessageHandlers();
 
       // Set up mutation observer for dynamic content
-      this.observeCanvasDOM();
+      this.observePageDOM();
 
       // Set up keyboard shortcuts
       this.setupKeyboardShortcuts();
@@ -296,7 +296,7 @@ class AssistContentManager {
 
       // Look for paragraph, div, or other text containers
       while (target && target !== document.body) {
-        if (target.matches('p, div.user_content, div.description, article, section, li')) {
+        if (target.matches('p, div, article, section, li, span, h1, h2, h3, h4, h5, h6')) {
           paragraph = target;
           break;
         }
@@ -363,7 +363,7 @@ class AssistContentManager {
     }, 2000);
   }
 
-  observeCanvasDOM() {
+  observePageDOM() {
     const observer = new MutationObserver(mutations => {
       // Re-apply adaptations to dynamically loaded content
       mutations.forEach(mutation => {

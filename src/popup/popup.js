@@ -269,10 +269,14 @@ class PopupController {
       return;
     }
 
-    // Check if current tab is a Canvas page
-    if (!this.currentTab.url || !this.currentTab.url.includes('instructure.com')) {
-      console.warn('[Popup] Not on a Canvas page');
-      this.updateStatus('Please navigate to a Canvas page', 'error');
+    // Skip extension pages and special URLs
+    if (!this.currentTab.url ||
+        this.currentTab.url.startsWith('chrome://') ||
+        this.currentTab.url.startsWith('chrome-extension://') ||
+        this.currentTab.url.startsWith('edge://') ||
+        this.currentTab.url.startsWith('about:')) {
+      console.warn('[Popup] Cannot access this page type');
+      this.updateStatus('Cannot access browser system pages', 'error');
       return;
     }
 
@@ -285,7 +289,7 @@ class PopupController {
       console.error('[Popup] Error sending command:', error);
       // Check if it's a connection error
       if (error.message.includes('Could not establish connection')) {
-        this.updateStatus('Please reload the Canvas page', 'error');
+        this.updateStatus('Please reload the page', 'error');
       } else {
         this.updateStatus('Error: Tab not accessible', 'error');
       }

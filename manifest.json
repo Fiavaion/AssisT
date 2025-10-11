@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AssisT: Adaptive EdTech for Canvas",
+  "name": "AssisT: Adaptive Accessibility Tool",
   "version": "0.1.0",
-  "description": "Neuro-adaptive TTS/STT layer providing personalized accessibility features for neurodivergent students in Canvas VLE",
+  "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
   "author": "AssisT Development Team",
 
   "permissions": [
@@ -13,7 +13,7 @@
   ],
 
   "host_permissions": [
-    "*://*.instructure.com/*"
+    "<all_urls>"
   ],
 
   "background": {
@@ -23,7 +23,7 @@
 
   "content_scripts": [
     {
-      "matches": ["*://*.instructure.com/*"],
+      "matches": ["<all_urls>"],
       "js": ["src/content/content.js"],
       "css": ["src/ui/styles/content.css"],
       "run_at": "document_idle",
@@ -42,7 +42,7 @@
         "src/ui/styles/*.css",
         "public/assets/*"
       ],
-      "matches": ["*://*.instructure.com/*"]
+      "matches": ["<all_urls>"]
     }
   ],
 
