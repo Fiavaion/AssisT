@@ -10,6 +10,7 @@ let currentUtterance = null;
 let currentHighlight = null;
 let currentElement = null;
 let currentText = '';
+let isPaused = false; // Manual pause state tracker
 let settings = {
   highlightEnabled: true,
   highlightColor: '#FFEB3B',
@@ -212,6 +213,7 @@ function readText(text, element) {
   setTimeout(() => {
     currentElement = element;
     currentText = text;
+    isPaused = false; // Reset pause state
 
     console.log('[AssisT] Reading:', text.substring(0, 50) + '...');
 
@@ -243,6 +245,7 @@ function readText(text, element) {
       currentUtterance = null;
       currentElement = null;
       currentText = '';
+      isPaused = false;
       console.log('[AssisT] Reading complete');
     };
 
@@ -257,6 +260,7 @@ function readText(text, element) {
       }
       currentElement = null;
       currentText = '';
+      isPaused = false;
     };
 
     // Speak!
@@ -314,15 +318,21 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Check if paused (paused state makes speaking false)
-      if (synth.paused) {
+      console.log('[AssisT] Spacebar pressed. isPaused:', isPaused, 'synth.speaking:', synth.speaking, 'synth.paused:', synth.paused);
+
+      // Use our manual state tracker
+      if (isPaused) {
+        // Resume
         synth.resume();
+        isPaused = false;
         showToast('▶️ Resumed');
-        console.log('[AssisT] Resumed, speaking:', synth.speaking, 'paused:', synth.paused);
-      } else if (synth.speaking || synth.pending) {
+        console.log('[AssisT] Resumed playback');
+      } else {
+        // Pause
         synth.pause();
+        isPaused = true;
         showToast('⏸️ Paused');
-        console.log('[AssisT] Paused, speaking:', synth.speaking, 'paused:', synth.paused);
+        console.log('[AssisT] Paused playback');
       }
     }
   }
