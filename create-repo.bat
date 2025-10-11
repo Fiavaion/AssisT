@@ -61,7 +61,15 @@ echo.
 echo Creating private repository...
 echo.
 
-"%GH_PATH%" repo create %REPO_NAME% --private --source=. --description="Neuro-Adaptive EdTech Extension for Canvas VLE - TTS/STT accessibility for neurodivergent students" --push
+"%GH_PATH%" repo create %REPO_NAME% --private --description="Neuro-Adaptive EdTech Extension for Canvas VLE - TTS/STT accessibility for neurodivergent students"
+
+if not errorlevel 1 (
+    echo.
+    echo Adding remote and pushing...
+    git remote add origin https://github.com/MarJone/%REPO_NAME%.git
+    git branch -M main
+    git push -u origin main
+)
 
 if errorlevel 1 (
     echo.
