@@ -1,0 +1,20 @@
+📋 QUICK LOAD INSTRUCTIONS
+========================
+
+1. Open Chrome
+2. Go to: chrome://extensions/
+3. Enable "Developer mode" (top right toggle)
+4. Click "Load unpacked"
+5. Navigate to: C:\Users\jones\AIprojects\AssitT
+6. Click "Select Folder"
+
+✅ You should see "AssisT: Adaptive EdTech for Canvas" card
+
+⚠️ EXPECTED: Icon will be default (we only have SVG, not PNG)
+
+NEXT: Open any webpage and click the extension icon to test the popup!
+
+Test Sites:
+- https://canvas.instructure.com/
+- https://www.wikipedia.org/
+- Any text-heavy webpage

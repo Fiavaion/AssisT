@@ -137,7 +137,14 @@ class AssistContentManager {
 
   setupMessageHandlers() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('[AssisT Content] Received message:', message.type);
+
       switch (message.type) {
+        case 'TTS_COMMAND':
+          this.handleTTSCommand(message.data);
+          sendResponse({ success: true });
+          break;
+
         case 'TOGGLE_ASSIST_PANEL':
           this.togglePanel();
           sendResponse({ success: true });
@@ -158,6 +165,60 @@ class AssistContentManager {
 
       return true;
     });
+  }
+
+  async handleTTSCommand(data) {
+    const { command } = data;
+    console.log('[AssisT Content] Handling TTS command:', command);
+
+    // Initialize TTS if not already done
+    if (!this.ttsController && this.settings.tts.enabled) {
+      this.ttsController = new TTSController(this.domAdapter, this.settings.tts);
+      await this.ttsController.initialize();
+    }
+
+    if (!this.ttsController) {
+      console.warn('[AssisT Content] TTS Controller not available');
+      return;
+    }
+
+    switch (command) {
+      case 'readPage':
+        await this.ttsController.readPageContent();
+        break;
+      case 'pause':
+        this.ttsController.pause();
+        break;
+      case 'resume':
+        this.ttsController.resume();
+        break;
+      case 'stop':
+        this.ttsController.stop();
+        break;
+      case 'enable':
+        this.ttsController.enable();
+        break;
+      case 'disable':
+        this.ttsController.disable();
+        break;
+      case 'setVoice':
+        this.ttsController.setVoice(data.voice);
+        break;
+      case 'setRate':
+        this.ttsController.setRate(data.rate);
+        break;
+      case 'setPitch':
+        this.ttsController.setPitch(data.pitch);
+        break;
+      case 'setVolume':
+        this.ttsController.setVolume(data.volume);
+        break;
+      case 'setHighlighting':
+        this.ttsController.settings.highlightEnabled = data.enabled;
+        break;
+      default:
+        console.warn('[AssisT Content] Unknown TTS command:', command);
+    }
   }
 
   observeCanvasDOM() {
