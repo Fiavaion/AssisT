@@ -1,20 +1,40 @@
 📋 QUICK LOAD INSTRUCTIONS
 ========================
 
+STEP 1: Build the Extension
+----------------------------
+Open terminal in the AssitT folder and run:
+
+    npm run build
+
+This creates the "Output" folder with all extension files.
+
+STEP 2: Load in Chrome
+-----------------------
 1. Open Chrome
 2. Go to: chrome://extensions/
 3. Enable "Developer mode" (top right toggle)
 4. Click "Load unpacked"
-5. Navigate to: C:\Users\jones\AIprojects\AssitT
-6. Click "Select Folder"
+5. Navigate to: C:\Users\jones\AIprojects\AssitT\Output
+6. Select the "Output" folder
+7. Click "Select Folder"
 
 ✅ You should see "AssisT: Adaptive EdTech for Canvas" card
 
 ⚠️ EXPECTED: Icon will be default (we only have SVG, not PNG)
 
-NEXT: Open any webpage and click the extension icon to test the popup!
+STEP 3: Test the Extension
+---------------------------
+1. Open any webpage with text:
+   - https://wikipedia.org/wiki/Accessibility
+   - https://canvas.instructure.com/
+   - Any text-heavy webpage
 
-Test Sites:
-- https://canvas.instructure.com/
-- https://www.wikipedia.org/
-- Any text-heavy webpage
+2. Click the AssisT extension icon in Chrome toolbar
+
+3. Follow the MANUAL_TEST_CHECKLIST.md for detailed testing
+
+REBUILD: After making code changes
+-----------------------------------
+Run: npm run build
+Then click "Reload" button in chrome://extensions/
