@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AssisT TTS Toggle Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #2196F3;
+    }
+    .test-section {
+      background: #f5f5f5;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      border-left: 4px solid #2196F3;
+    }
+    .instructions {
+      background: #fff3cd;
+      border-left-color: #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    p {
+      margin: 15px 0;
+    }
+    .test-paragraph {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .test-paragraph:hover {
+      border-color: #2196F3;
+    }
+    code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>AssisT TTS Toggle Test Page</h1>
+
+  <div class="instructions">
+    <h2>🧪 Test Instructions</h2>
+    <ol>
+      <li>Open the AssisT extension popup (click the extension icon in your browser toolbar)</li>
+      <li>Make sure you can see the "Enable TTS" checkbox at the top</li>
+      <li>Check the current state of TTS (enabled or disabled)</li>
+      <li>Try clicking the test paragraphs below with TTS enabled and disabled</li>
+      <li>Open the browser console (F12) to see debug logs from <code>[AssisT]</code></li>
+    </ol>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Case 1: TTS Enabled</h2>
+    <p><strong>Expected behavior:</strong> Clicking a paragraph should read it aloud with yellow highlighting.</p>
+
+    <div class="test-paragraph">
+      <strong>Test Paragraph 1:</strong> The quick brown fox jumps over the lazy dog. This is a simple test sentence to verify that the text-to-speech functionality is working correctly when TTS is enabled in the extension popup.
+    </div>
+
+    <div class="test-paragraph">
+      <strong>Test Paragraph 2:</strong> Hello world! This is another test paragraph. If you can hear this being read aloud with highlighting, then the TTS system is functioning as expected.
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Case 2: TTS Disabled</h2>
+    <p><strong>Expected behavior:</strong> Clicking a paragraph should show a warning toast: "⚠️ TTS is disabled. Enable it in the popup to read text."</p>
+    <p><strong>Instructions:</strong></p>
+    <ol>
+      <li>Open the AssisT popup</li>
+      <li>Uncheck the "Enable TTS" checkbox</li>
+      <li>Close the popup</li>
+      <li>Try clicking the test paragraphs below</li>
+    </ol>
+
+    <div class="test-paragraph">
+      <strong>Test Paragraph 3:</strong> With TTS disabled, this paragraph should NOT be read aloud when clicked. Instead, you should see a yellow toast notification in the bottom-right corner telling you that TTS is disabled.
+    </div>
+
+    <div class="test-paragraph">
+      <strong>Test Paragraph 4:</strong> This is the final test paragraph. If you see the warning toast and no speech happens, then the TTS disable functionality is working correctly.
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Case 3: Context Menu (TTS Enabled)</h2>
+    <p><strong>Expected behavior:</strong> Right-clicking selected text should show "🎯 AssisT: Read Selection" menu item.</p>
+    <p><strong>Instructions:</strong></p>
+    <ol>
+      <li>Make sure TTS is enabled in the popup</li>
+      <li>Select some text below</li>
+      <li>Right-click the selected text</li>
+      <li>Look for "🎯 AssisT: Read Selection" in the context menu</li>
+    </ol>
+
+    <div class="test-paragraph">
+      Select this text and right-click it to test the context menu. The menu should appear and clicking it should read the selected text aloud.
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Case 4: Context Menu (TTS Disabled)</h2>
+    <p><strong>Expected behavior:</strong> Right-clicking selected text should NOT show the AssisT context menu item.</p>
+    <p><strong>Instructions:</strong></p>
+    <ol>
+      <li>Open the popup and disable TTS</li>
+      <li>Select some text below</li>
+      <li>Right-click the selected text</li>
+      <li>The "🎯 AssisT: Read Selection" menu item should NOT appear</li>
+    </ol>
+
+    <div class="test-paragraph">
+      Select this text and right-click it. With TTS disabled, the AssisT context menu item should not be visible at all.
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Debug Console Logs</h2>
+    <p>Open the browser console (F12 → Console tab) to see debug information:</p>
+    <ul>
+      <li><code>[AssisT] Settings loaded, TTS enabled: true/false</code> - Shows initial TTS state</li>
+      <li><code>[AssisT] TTS enabled state changed: false → true</code> - Shows when you toggle TTS</li>
+      <li><code>[AssisT] Click ignored - TTS is disabled</code> - Shows when clicks are blocked</li>
+      <li><code>[AssisT] Reading: ...</code> - Shows when text is being read</li>
+    </ul>
+  </div>
+
+  <h2>Additional Test Paragraphs</h2>
+  <p>Here are some additional paragraphs for testing. Try clicking them with TTS both enabled and disabled to verify the toggle behavior works correctly.</p>
+
+  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. This paragraph contains enough text to be read by the TTS system.</p>
+
+  <p>The text-to-speech feature should respect the enabled state from the popup. When disabled, clicking should show a helpful warning message.</p>
+
+  <p>Accessibility features like text-to-speech are crucial for users with visual impairments, dyslexia, and other reading difficulties. AssisT aims to make all web content more accessible.</p>
+
+  <div style="margin-top: 40px; padding: 20px; background: #e3f2fd; border-radius: 4px;">
+    <h3>✅ Test Results Checklist</h3>
+    <p>After testing, you should have verified:</p>
+    <ul>
+      <li>✓ Clicking paragraphs reads them aloud when TTS is <strong>enabled</strong></li>
+      <li>✓ Clicking paragraphs shows warning toast when TTS is <strong>disabled</strong></li>
+      <li>✓ Context menu appears when TTS is <strong>enabled</strong></li>
+      <li>✓ Context menu does not appear when TTS is <strong>disabled</strong></li>
+      <li>✓ Toggling TTS updates behavior immediately</li>
+      <li>✓ Console logs show correct state changes</li>
+    </ul>
+  </div>
+</body>
+</html>
