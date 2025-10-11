@@ -61,23 +61,30 @@ class PopupController {
   }
 
   setupEventListeners() {
-    // Toggle Options Button
-    const toggleOptionsBtn = document.getElementById('toggle-options');
     const optionsContainer = document.getElementById('options-container');
-    toggleOptionsBtn.addEventListener('click', () => {
-      const isExpanded = toggleOptionsBtn.getAttribute('aria-expanded') === 'true';
-      toggleOptionsBtn.setAttribute('aria-expanded', !isExpanded);
-      optionsContainer.classList.toggle('hidden');
-      toggleOptionsBtn.querySelector('span:last-child').textContent =
-        isExpanded ? 'Show Options' : 'Hide Options';
-    });
 
     // TTS Enable/Disable
     const ttsEnabled = document.getElementById('tts-enabled');
     ttsEnabled.checked = this.settings?.tts?.enabled || false;
+
+    // Show/hide options based on TTS enabled state
+    if (ttsEnabled.checked) {
+      optionsContainer.classList.remove('hidden');
+    } else {
+      optionsContainer.classList.add('hidden');
+    }
+
     ttsEnabled.addEventListener('change', (e) => {
       this.settings.tts.enabled = e.target.checked;
       this.saveSettings();
+
+      // Toggle options visibility
+      if (e.target.checked) {
+        optionsContainer.classList.remove('hidden');
+      } else {
+        optionsContainer.classList.add('hidden');
+      }
+
       this.updatePlaybackControls();
       this.sendCommandToTab(e.target.checked ? 'enable' : 'disable');
     });
@@ -220,11 +227,10 @@ class PopupController {
       v.lang.startsWith('en-') && v.name.toLowerCase().includes('female')
     );
 
-    // Set default voice if not already set
-    if (preferredVoice && !this.settings?.tts?.voice) {
+    // Set default voice if not already set OR if set to 'default'
+    if (preferredVoice && (!this.settings?.tts?.voice || this.settings.tts.voice === 'default')) {
       this.settings.tts.voice = preferredVoice.name;
       this.saveSettings();
-      this.sendCommandToTab('setVoice', { voice: preferredVoice.name });
     }
 
     // Group voices by language
@@ -258,7 +264,17 @@ class PopupController {
   }
 
   async sendCommandToTab(command, data = {}) {
-    if (!this.currentTab) return;
+    if (!this.currentTab) {
+      console.warn('[Popup] No current tab');
+      return;
+    }
+
+    // Check if current tab is a Canvas page
+    if (!this.currentTab.url || !this.currentTab.url.includes('instructure.com')) {
+      console.warn('[Popup] Not on a Canvas page');
+      this.updateStatus('Please navigate to a Canvas page', 'error');
+      return;
+    }
 
     try {
       await chrome.tabs.sendMessage(this.currentTab.id, {
@@ -267,7 +283,12 @@ class PopupController {
       });
     } catch (error) {
       console.error('[Popup] Error sending command:', error);
-      this.updateStatus('Error: Tab not accessible', 'error');
+      // Check if it's a connection error
+      if (error.message.includes('Could not establish connection')) {
+        this.updateStatus('Please reload the Canvas page', 'error');
+      } else {
+        this.updateStatus('Error: Tab not accessible', 'error');
+      }
     }
   }
 
