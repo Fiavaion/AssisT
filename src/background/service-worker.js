@@ -15,10 +15,12 @@ chrome.runtime.onInstalled.addListener(async details => {
     // Initialize default settings on first install
     await StorageManager.initializeDefaults();
 
-    // Open welcome page
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('src/popup/welcome.html')
-    });
+    console.log('[AssisT] Installation complete! Click the extension icon to get started.');
+
+    // Open welcome page (disabled for now - welcome.html not created yet)
+    // chrome.tabs.create({
+    //   url: chrome.runtime.getURL('src/popup/welcome.html')
+    // });
   }
 
   if (details.reason === 'update') {
