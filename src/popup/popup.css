@@ -163,6 +163,19 @@ body {
   opacity: 0;
 }
 
+/* Highlight Options Container */
+.highlight-options-container {
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.highlight-options-container.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
 .toggle-label {
   display: flex;
   justify-content: space-between;

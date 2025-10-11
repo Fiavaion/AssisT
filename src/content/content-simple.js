@@ -83,6 +83,8 @@ chrome.storage.onChanged.addListener((changes) => {
         const oldRate = settings.rate;
         const oldPitch = settings.pitch;
         const oldVolume = settings.volume;
+        const oldColor = settings.highlightColor;
+        const oldOpacity = settings.highlightOpacity;
 
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
@@ -98,6 +100,11 @@ chrome.storage.onChanged.addListener((changes) => {
             settings.voice = voice;
             console.log('[AssisT] Voice updated:', voice.name);
           }
+        }
+
+        // If highlight color or opacity changed and we're currently highlighting, update it
+        if ((settings.highlightColor !== oldColor || settings.highlightOpacity !== oldOpacity) && currentElement) {
+          highlightElement(currentElement);
         }
 
         // If currently speaking, restart with new settings
@@ -142,10 +149,24 @@ function removeHighlight() {
   });
 }
 
+// Convert hex color to rgba with opacity
+function hexToRgba(hex, opacity) {
+  // Remove # if present
+  hex = hex.replace('#', '');
+
+  // Parse hex values
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 // Simple highlight - just add background to whole element
 function highlightElement(element) {
   removeHighlight();
-  element.style.backgroundColor = settings.highlightColor;
+  const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
+  element.style.backgroundColor = bgColor;
   element.style.transition = 'background-color 0.2s';
 }
 

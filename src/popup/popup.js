@@ -156,12 +156,28 @@ class PopupController {
     });
 
     // Highlighting toggle
+    const highlightOptionsContainer = document.getElementById('highlight-options-container');
     const highlightEnabled = document.getElementById('highlight-enabled');
     highlightEnabled.checked = this.settings?.tts?.highlightEnabled ?? true;
+
+    // Show/hide highlight options based on highlighting enabled state
+    if (highlightEnabled.checked) {
+      highlightOptionsContainer.classList.remove('hidden');
+    } else {
+      highlightOptionsContainer.classList.add('hidden');
+    }
+
     highlightEnabled.addEventListener('change', (e) => {
       this.settings.tts.highlightEnabled = e.target.checked;
       this.saveSettings();
       this.sendCommandToTab('setHighlighting', { enabled: e.target.checked });
+
+      // Toggle highlight options visibility
+      if (e.target.checked) {
+        highlightOptionsContainer.classList.remove('hidden');
+      } else {
+        highlightOptionsContainer.classList.add('hidden');
+      }
     });
 
     // Highlight Color
