@@ -253,6 +253,15 @@ class PopupController {
       this.sendCommandToTab('setHighlightOpacity', { opacity });
     });
 
+    // Word-by-Word Highlighting toggle
+    const wordByWordEnabled = document.getElementById('word-by-word-enabled');
+    wordByWordEnabled.checked = this.settings?.tts?.wordByWordEnabled || false;
+    wordByWordEnabled.addEventListener('change', (e) => {
+      this.settings.tts.wordByWordEnabled = e.target.checked;
+      this.saveSettings();
+      this.sendCommandToTab('setWordByWord', { enabled: e.target.checked });
+    });
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', (e) => {
       e.preventDefault();

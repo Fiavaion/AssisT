@@ -493,6 +493,15 @@ body {
   background: var(--text-secondary);
 }
 
+/* Feature Description */
+.feature-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  line-height: 1.4;
+  padding-left: var(--spacing-sm);
+}
+
 /* ============================================ */
 /* SPEED PRESETS (Sprint 2 Feature)             */
 /* ============================================ */

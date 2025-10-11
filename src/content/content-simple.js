@@ -11,10 +11,12 @@ let currentHighlight = null;
 let currentElement = null;
 let currentText = '';
 let isPaused = false; // Manual pause state tracker
+let wordHighlightInterval = null; // For word-by-word highlighting
 let settings = {
   highlightEnabled: true,
   highlightColor: '#FFEB3B',
   highlightOpacity: 0.7,
+  wordByWordEnabled: false,
   rate: 1.0,
   pitch: 1.0,
   volume: 1.0,
@@ -58,6 +60,7 @@ chrome.storage.local.get('assist_settings', (result) => {
     settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
     settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
     settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
+    settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
     settings.rate = ttsSettings.rate || settings.rate;
     settings.pitch = ttsSettings.pitch || settings.pitch;
     settings.volume = ttsSettings.volume || settings.volume;
@@ -93,6 +96,7 @@ chrome.storage.onChanged.addListener((changes) => {
         settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
+        settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
         settings.rate = ttsSettings.rate || settings.rate;
         settings.pitch = ttsSettings.pitch || settings.pitch;
         settings.volume = ttsSettings.volume || settings.volume;
@@ -191,6 +195,93 @@ function highlightElement(element) {
   }
 }
 
+// Word-by-word highlighting helper
+function highlightWordByWord(element, text, rate) {
+  // Clear any existing word highlighting
+  if (wordHighlightInterval) {
+    clearInterval(wordHighlightInterval);
+    wordHighlightInterval = null;
+  }
+
+  // Remove previous word highlights
+  removeHighlight();
+
+  // Split text into words
+  const words = text.split(/\s+/);
+  if (words.length === 0) return;
+
+  // Estimate time per word (avg reading speed ~ 150 words/min at 1.0x rate)
+  // Adjusted for rate setting
+  const baseWordsPerMinute = 150;
+  const adjustedWordsPerMinute = baseWordsPerMinute * rate;
+  const msPerWord = (60 * 1000) / adjustedWordsPerMinute;
+
+  let currentWordIndex = 0;
+
+  // Wrap each word in the element with a span
+  const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
+  const originalHTML = element.innerHTML;
+
+  // Store original content for cleanup
+  element.dataset.originalHTML = originalHTML;
+
+  // Create wrapped HTML
+  const wrappedHTML = text.split(/(\s+)/).map((part, index) => {
+    if (part.trim().length === 0) {
+      // Keep whitespace as-is
+      return part;
+    } else {
+      // Wrap words in spans
+      return `<span class="assist-word" data-word-index="${Math.floor(index / 2)}">${part}</span>`;
+    }
+  }).join('');
+
+  element.innerHTML = wrappedHTML;
+
+  // Highlight words progressively
+  const wordSpans = element.querySelectorAll('.assist-word');
+
+  function highlightWord(index) {
+    // Remove previous highlight
+    wordSpans.forEach(span => {
+      span.style.backgroundColor = '';
+    });
+
+    // Highlight current word
+    if (index < wordSpans.length) {
+      wordSpans[index].style.backgroundColor = bgColor;
+      wordSpans[index].style.transition = 'background-color 0.1s';
+    }
+  }
+
+  // Start highlighting
+  highlightWord(0);
+
+  wordHighlightInterval = setInterval(() => {
+    currentWordIndex++;
+    if (currentWordIndex >= words.length) {
+      clearInterval(wordHighlightInterval);
+      wordHighlightInterval = null;
+    } else {
+      highlightWord(currentWordIndex);
+    }
+  }, msPerWord);
+}
+
+// Clean up word-by-word highlighting
+function cleanupWordByWord(element) {
+  if (wordHighlightInterval) {
+    clearInterval(wordHighlightInterval);
+    wordHighlightInterval = null;
+  }
+
+  // Restore original HTML if it was modified
+  if (element && element.dataset.originalHTML) {
+    element.innerHTML = element.dataset.originalHTML;
+    delete element.dataset.originalHTML;
+  }
+}
+
 // Remove element highlighting
 function removeElementHighlight(element) {
   if (element) {
@@ -221,8 +312,14 @@ function readText(text, element) {
     element.style.outline = '2px solid #2196F3';
     element.style.outlineOffset = '2px';
 
-    // Highlight whole paragraph
-    highlightElement(element);
+    // Highlight based on settings
+    if (settings.wordByWordEnabled && settings.highlightEnabled) {
+      // Use word-by-word highlighting
+      highlightWordByWord(element, text, settings.rate);
+    } else {
+      // Use whole-element highlighting
+      highlightElement(element);
+    }
 
     // Create utterance
     currentUtterance = new SpeechSynthesisUtterance(text);
@@ -236,6 +333,7 @@ function readText(text, element) {
 
     // Clean up on end
     currentUtterance.onend = () => {
+      cleanupWordByWord(currentElement);
       removeHighlight();
       removeElementHighlight(currentElement);
       if (currentElement) {
@@ -252,6 +350,7 @@ function readText(text, element) {
     // Handle errors
     currentUtterance.onerror = (event) => {
       console.error('[AssisT] Speech error:', event.error);
+      cleanupWordByWord(currentElement);
       removeHighlight();
       removeElementHighlight(currentElement);
       if (currentElement) {
