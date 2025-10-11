@@ -390,13 +390,27 @@ function readText(text, element) {
 
 // Click handler
 document.addEventListener('click', (e) => {
-  // Don't read if TTS is disabled
-  if (!settings.enabled) {
+  // Don't intercept links/buttons first
+  if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
     return;
   }
 
-  // Don't intercept links/buttons
-  if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
+  // Don't read if TTS is disabled
+  if (!settings.enabled) {
+    // Check if they clicked on readable content to show helpful message
+    let target = e.target;
+    while (target && target !== document.body) {
+      const tag = target.tagName?.toLowerCase();
+      if (tag && ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'article', 'section'].includes(tag)) {
+        const text = target.textContent?.trim();
+        if (text && text.length > 10) {
+          showToast('⚠️ TTS is disabled. Enable it in the popup to read text.');
+          console.log('[AssisT] Click ignored - TTS is disabled');
+          break;
+        }
+      }
+      target = target.parentElement;
+    }
     return;
   }
 
