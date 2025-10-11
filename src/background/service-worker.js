@@ -7,6 +7,31 @@
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
 
+// Update context menu based on TTS enabled state
+async function updateContextMenu() {
+  const settings = await StorageManager.get('assist_settings');
+  const ttsEnabled = settings?.tts?.enabled ?? false;
+
+  // Remove existing context menu if it exists
+  try {
+    await chrome.contextMenus.remove('assist-read-selection');
+  } catch (error) {
+    // Menu doesn't exist yet, that's fine
+  }
+
+  // Only create context menu if TTS is enabled
+  if (ttsEnabled) {
+    chrome.contextMenus.create({
+      id: 'assist-read-selection',
+      title: '🎯 AssisT: Read Selection',
+      contexts: ['selection']
+    });
+    console.log('[AssisT] Context menu created (TTS enabled)');
+  } else {
+    console.log('[AssisT] Context menu removed (TTS disabled)');
+  }
+}
+
 // Service worker lifecycle
 chrome.runtime.onInstalled.addListener(async details => {
   console.log('[AssisT] Extension installed:', details.reason);
@@ -28,14 +53,22 @@ chrome.runtime.onInstalled.addListener(async details => {
     // Handle migration if needed
   }
 
-  // Create context menu for Read Selection feature
-  chrome.contextMenus.create({
-    id: 'assist-read-selection',
-    title: '🎯 AssisT: Read Selection',
-    contexts: ['selection']
-  });
+  // Create context menu based on TTS enabled state
+  await updateContextMenu();
+});
 
-  console.log('[AssisT] Context menu created');
+// Listen for storage changes to update context menu
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.assist_settings) {
+    const oldEnabled = changes.assist_settings.oldValue?.tts?.enabled;
+    const newEnabled = changes.assist_settings.newValue?.tts?.enabled;
+
+    // Only update if TTS enabled state changed
+    if (oldEnabled !== newEnabled) {
+      console.log('[AssisT] TTS enabled state changed:', oldEnabled, '→', newEnabled);
+      updateContextMenu();
+    }
+  }
 });
 
 // Message handling from content scripts and popup
