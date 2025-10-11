@@ -56,6 +56,17 @@ chrome.storage.local.get('assist_settings', (result) => {
     settings.rate = ttsSettings.rate || settings.rate;
     settings.pitch = ttsSettings.pitch || settings.pitch;
     settings.volume = ttsSettings.volume || settings.volume;
+
+    // Load voice by name
+    if (ttsSettings.voice && ttsSettings.voice !== 'default') {
+      const voices = synth.getVoices();
+      const voice = voices.find(v => v.name === ttsSettings.voice);
+      if (voice) {
+        settings.voice = voice;
+        console.log('[AssisT] Voice loaded from settings:', voice.name);
+      }
+    }
+
     console.log('[AssisT] Settings loaded:', settings);
   }
 });
@@ -70,6 +81,16 @@ chrome.storage.onChanged.addListener((changes) => {
       settings.rate = ttsSettings.rate || settings.rate;
       settings.pitch = ttsSettings.pitch || settings.pitch;
       settings.volume = ttsSettings.volume || settings.volume;
+
+      // Update voice
+      if (ttsSettings.voice && ttsSettings.voice !== 'default') {
+        const voices = synth.getVoices();
+        const voice = voices.find(v => v.name === ttsSettings.voice);
+        if (voice) {
+          settings.voice = voice;
+          console.log('[AssisT] Voice updated:', voice.name);
+        }
+      }
     }
   }
 });
@@ -190,8 +211,17 @@ function readText(text, element) {
 
   // Highlight words as they're spoken
   currentUtterance.onboundary = (event) => {
-    if (event.name === 'word') {
-      highlightWord(text, event.charIndex, event.charLength || 1, element);
+    if (event.name === 'word' && event.charIndex !== undefined) {
+      // Calculate word length by finding next space
+      let wordLength = 1;
+      for (let i = event.charIndex + 1; i < text.length; i++) {
+        if (text[i] === ' ' || text[i] === '\n' || text[i] === '.' || text[i] === ',') {
+          break;
+        }
+        wordLength++;
+      }
+      console.log('[AssisT] Highlighting word at', event.charIndex, 'length', wordLength);
+      highlightWord(text, event.charIndex, wordLength, element);
     }
   };
 
@@ -254,14 +284,15 @@ document.addEventListener('click', (e) => {
   }
 }, true); // Use capture phase
 
-// Keyboard shortcut - spacebar to pause/resume
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   // Ignore if typing in input
   if (e.target.matches('input, textarea, [contenteditable="true"]')) {
     return;
   }
 
-  if (e.code === 'Space' && synth.speaking) {
+  // Spacebar - pause/resume (only when speaking)
+  if ((e.key === ' ' || e.code === 'Space') && (synth.speaking || synth.paused)) {
     e.preventDefault();
 
     if (synth.paused) {
@@ -274,18 +305,54 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Speed up: + or =
-  if ((e.code === 'Equal' || e.code === 'NumpadAdd') && (e.shiftKey || e.code === 'NumpadAdd')) {
-    e.preventDefault();
-    settings.rate = Math.min(2.0, settings.rate + 0.1);
-    console.log('[AssisT] Speed:', settings.rate.toFixed(1));
+  if (e.key === '+' || e.key === '=' || e.code === 'Equal' || e.code === 'NumpadAdd') {
+    if (e.shiftKey || e.code === 'NumpadAdd' || e.key === '+') {
+      e.preventDefault();
+      settings.rate = Math.min(2.0, settings.rate + 0.1);
+      console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
+      showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+    }
   }
 
   // Slow down: -
-  if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+  if (e.key === '-' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
     e.preventDefault();
     settings.rate = Math.max(0.5, settings.rate - 0.1);
-    console.log('[AssisT] Speed:', settings.rate.toFixed(1));
+    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
+    showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
   }
 });
+
+// Show toast notification
+function showToast(message) {
+  const existing = document.getElementById('assist-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'assist-toast';
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(33, 150, 243, 0.95);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 999999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: -apple-system, system-ui, sans-serif;
+  `;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.3s';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
 
 console.log('[AssisT] Ready! Click any paragraph to read it.');
