@@ -87,11 +87,19 @@ class PopupController {
       }
     }
 
-    // Future Sprint 2 features will be added here
-    // Example:
-    // if (visibility.show_speed_presets === false) {
-    //   document.getElementById('speed-presets-section').style.display = 'none';
-    // }
+    // Speed Presets visibility
+    const speedPresetsContainer = document.getElementById('speed-presets-container');
+    if (visibility.show_speed_presets === false) {
+      if (speedPresetsContainer) {
+        speedPresetsContainer.style.display = 'none';
+      }
+      console.log('[Popup] Speed Presets feature hidden');
+    } else {
+      // Show speed presets (default)
+      if (speedPresetsContainer) {
+        speedPresetsContainer.style.display = '';
+      }
+    }
 
     console.log('[Popup] Visibility settings applied:', visibility);
   }
@@ -166,7 +174,11 @@ class PopupController {
       this.settings.tts.rate = rate;
       this.saveSettings();
       this.sendCommandToTab('setRate', { rate });
+      this.updatePresetButtonStates(rate);
     });
+
+    // Setup speed presets
+    this.setupSpeedPresets();
 
     // Pitch slider
     const pitchSlider = document.getElementById('pitch-slider');
@@ -280,6 +292,50 @@ class PopupController {
     window.location.reload();
   }
 
+  setupSpeedPresets() {
+    const presetButtons = document.querySelectorAll('.preset-btn');
+    const rateSlider = document.getElementById('rate-slider');
+    const rateValue = document.getElementById('rate-value');
+
+    // Add click handlers to preset buttons
+    presetButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const speed = parseFloat(btn.getAttribute('data-speed'));
+
+        // Update slider and value display
+        rateSlider.value = speed;
+        rateValue.textContent = `${speed}x`;
+
+        // Save to settings
+        this.settings.tts.rate = speed;
+        this.saveSettings();
+        this.sendCommandToTab('setRate', { rate: speed });
+
+        // Update button states
+        this.updatePresetButtonStates(speed);
+      });
+    });
+
+    // Initialize button states based on current rate
+    const currentRate = this.settings?.tts?.rate || 1.0;
+    this.updatePresetButtonStates(currentRate);
+  }
+
+  updatePresetButtonStates(currentRate) {
+    const presetButtons = document.querySelectorAll('.preset-btn');
+
+    presetButtons.forEach(btn => {
+      const btnSpeed = parseFloat(btn.getAttribute('data-speed'));
+
+      // Check if this button's speed matches current rate (with tolerance for floating point)
+      if (Math.abs(btnSpeed - currentRate) < 0.01) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
   showAdvancedOptions() {
     // Create modal overlay
     const modal = document.createElement('div');
@@ -347,14 +403,13 @@ class PopupController {
 
               <div class="feature-section-header">
                 <span>Sprint 2 Features</span>
-                <span class="feature-badge-info">Coming Soon</span>
               </div>
 
-              <div class="feature-item disabled">
+              <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-speed-presets" disabled>
+                  <input type="checkbox" id="show-speed-presets" checked>
                   <span>Speed Presets</span>
-                  <span class="feature-badge-soon">Soon</span>
+                  <span class="feature-badge">New</span>
                 </label>
               </div>
 
@@ -525,6 +580,12 @@ class PopupController {
       showHighlighting.checked = visibility.show_highlighting !== false;
     }
 
+    // Speed Presets
+    const showSpeedPresets = document.getElementById('show-speed-presets');
+    if (showSpeedPresets) {
+      showSpeedPresets.checked = visibility.show_speed_presets !== false;
+    }
+
     // Appearance settings
     const compactMode = document.getElementById('compact-mode');
     if (compactMode) {
@@ -560,6 +621,11 @@ class PopupController {
       this.settings.ui_visibility.show_highlighting = showHighlighting.checked;
     }
 
+    const showSpeedPresets = document.getElementById('show-speed-presets');
+    if (showSpeedPresets) {
+      this.settings.ui_visibility.show_speed_presets = showSpeedPresets.checked;
+    }
+
     // Save appearance settings
     const compactMode = document.getElementById('compact-mode');
     if (compactMode) {
@@ -588,8 +654,9 @@ class PopupController {
     });
 
     // Check if visibility changed
-    const visibilityChanged = showHighlighting &&
-      (oldVisibility.show_highlighting !== this.settings.ui_visibility.show_highlighting);
+    const visibilityChanged =
+      (showHighlighting && oldVisibility.show_highlighting !== this.settings.ui_visibility.show_highlighting) ||
+      (showSpeedPresets && oldVisibility.show_speed_presets !== this.settings.ui_visibility.show_speed_presets);
 
     // Reload popup if visibility changed
     if (visibilityChanged) {
