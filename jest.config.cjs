@@ -22,10 +22,10 @@ module.exports = {
   // Setup files to run before tests
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 
-  // Test match patterns
+  // Test match patterns - exclude E2E tests (run with Playwright)
   testMatch: [
-    '<rootDir>/tests/**/*.test.js',
-    '<rootDir>/tests/**/*.spec.js'
+    '<rootDir>/tests/unit/**/*.test.js',
+    '<rootDir>/tests/unit/**/*.spec.js'
   ],
 
   // Coverage configuration
