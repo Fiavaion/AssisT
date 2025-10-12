@@ -7,31 +7,6 @@
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
 
-// Update context menu based on TTS enabled state
-async function updateContextMenu() {
-  const settings = await StorageManager.get('assist_settings');
-  const ttsEnabled = settings?.tts?.enabled ?? false;
-
-  // Remove existing context menu if it exists
-  try {
-    await chrome.contextMenus.remove('assist-read-selection');
-  } catch (error) {
-    // Menu doesn't exist yet, that's fine
-  }
-
-  // Only create context menu if TTS is enabled
-  if (ttsEnabled) {
-    chrome.contextMenus.create({
-      id: 'assist-read-selection',
-      title: '🎯 AssisT: Read Selection',
-      contexts: ['selection']
-    });
-    console.log('[AssisT] Context menu created (TTS enabled)');
-  } else {
-    console.log('[AssisT] Context menu removed (TTS disabled)');
-  }
-}
-
 // Service worker lifecycle
 chrome.runtime.onInstalled.addListener(async details => {
   console.log('[AssisT] Extension installed:', details.reason);
@@ -51,23 +26,6 @@ chrome.runtime.onInstalled.addListener(async details => {
   if (details.reason === 'update') {
     console.log('[AssisT] Extension updated from', details.previousVersion);
     // Handle migration if needed
-  }
-
-  // Create context menu based on TTS enabled state
-  await updateContextMenu();
-});
-
-// Listen for storage changes to update context menu
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && changes.assist_settings) {
-    const oldEnabled = changes.assist_settings.oldValue?.tts?.enabled;
-    const newEnabled = changes.assist_settings.newValue?.tts?.enabled;
-
-    // Only update if TTS enabled state changed
-    if (oldEnabled !== newEnabled) {
-      console.log('[AssisT] TTS enabled state changed:', oldEnabled, '→', newEnabled);
-      updateContextMenu();
-    }
   }
 });
 
@@ -105,39 +63,6 @@ chrome.action.onClicked.addListener(async tab => {
   chrome.tabs.sendMessage(tab.id, {
     type: 'TOGGLE_ASSIST_PANEL'
   });
-});
-
-// Handle context menu clicks
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'assist-read-selection') {
-    console.log('[AssisT] Read Selection context menu clicked');
-
-    // Check if TTS is enabled
-    const settings = await StorageManager.get('assist_settings');
-    if (!settings?.tts?.enabled) {
-      console.warn('[AssisT] TTS is disabled, cannot read selection');
-      // Could show a notification here
-      return;
-    }
-
-    // Get the selected text
-    const selectedText = info.selectionText;
-    if (!selectedText || selectedText.trim().length === 0) {
-      console.warn('[AssisT] No text selected');
-      return;
-    }
-
-    // Send message to content script to read the selected text
-    try {
-      await chrome.tabs.sendMessage(tab.id, {
-        type: 'TTS_READ_SELECTION',
-        data: { text: selectedText }
-      });
-      console.log('[AssisT] Read selection command sent:', selectedText.substring(0, 50) + '...');
-    } catch (error) {
-      console.error('[AssisT] Error sending read selection command:', error);
-    }
-  }
 });
 
 console.log('[AssisT] Background service worker initialized');

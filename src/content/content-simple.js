@@ -563,44 +563,7 @@ function showToast(message) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[AssisT] Message received:', message.type);
 
-  if (message.type === 'TTS_READ_SELECTION') {
-    // Read the selected text
-    const text = message.data?.text;
-    if (text && text.trim().length > 0) {
-      // Create a temporary element for highlighting
-      const tempElement = document.createElement('div');
-      tempElement.style.position = 'fixed';
-      tempElement.style.top = '-9999px';
-      tempElement.textContent = text;
-      document.body.appendChild(tempElement);
-
-      // Read the text
-      readText(text, tempElement);
-
-      // Show toast notification
-      showToast('🎯 Reading selection...');
-
-      // Clean up temp element when done
-      if (currentUtterance) {
-        const originalOnEnd = currentUtterance.onend;
-        currentUtterance.onend = () => {
-          if (originalOnEnd) originalOnEnd();
-          tempElement.remove();
-        };
-
-        const originalOnError = currentUtterance.onerror;
-        currentUtterance.onerror = (event) => {
-          if (originalOnError) originalOnError(event);
-          tempElement.remove();
-        };
-      }
-
-      sendResponse({ success: true });
-    } else {
-      console.warn('[AssisT] No text to read');
-      sendResponse({ success: false, error: 'No text provided' });
-    }
-  }
+  // Future message handlers can be added here
 
   return true; // Keep message channel open
 });

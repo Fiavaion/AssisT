@@ -28,6 +28,14 @@ Code Style: Adhere to project ESLint and Prettier configurations (assume default
 
 File Organization: Separate UI logic (popup.js), content injection (content.js), and background services (background.js).
 
+**🚨 CRITICAL: File Location Rules**
+- **ALWAYS edit source files in:** `src/` directory ONLY
+- **NEVER edit files in:** `Output/` directory (build artifacts)
+- **Chrome loads extension from:** `Output/` directory
+- **Build process:** Run `npm run build` to copy `src/` → `Output/`
+- **Before testing:** Always run build, then reload extension
+- **Validation rule:** If file path contains "Output/", STOP and redirect to source file in `src/`
+
 Commit Workflow: Confirm the type (e.g., feat(tts), fix(ui), refactor(dom)) and scope before committing.[33]
 
 DOM Interaction: Limit DOM manipulation to the content.js script. Use PostMessage for secure communication between isolated worlds.
