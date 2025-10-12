@@ -561,6 +561,71 @@
         </div><!-- End focus-mode-options -->
       </section>
 
+      <!-- ========================================================== -->
+      <!-- SPRINT 4 FEATURE: CANVAS LMS INTEGRATION -->
+      <!-- ========================================================== -->
+      <section class="control-section" id="canvas-integration-section">
+        <div class="toggle-control">
+          <label for="canvas-integration-enabled" class="toggle-label">
+            <span class="label-text">🎓 Canvas Integration</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="canvas-integration-enabled" role="switch" aria-label="Enable Canvas LMS integration">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+        <p class="feature-description hidden" id="canvas-integration-description">
+          Enhanced features for Canvas LMS: assignment reader, quiz helper, keyboard navigation
+        </p>
+
+        <!-- Canvas Integration Options (shows when enabled) -->
+        <div id="canvas-integration-options" class="canvas-integration-options hidden">
+
+          <!-- Assignment Reader -->
+          <div class="control-subsection">
+            <div class="toggle-control">
+              <label for="canvas-assignment-reader" class="toggle-label">
+                <span class="label-text">Assignment Reader</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="canvas-assignment-reader" role="switch" aria-label="Enable assignment auto-reader" checked>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Auto-detect Canvas assignments and add read-aloud button</p>
+          </div>
+
+          <!-- Quiz Helper (Future) -->
+          <div class="control-subsection disabled">
+            <div class="toggle-control">
+              <label for="canvas-quiz-helper" class="toggle-label">
+                <span class="label-text">Quiz Helper (Coming Soon)</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="canvas-quiz-helper" role="switch" aria-label="Enable quiz helper" disabled>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Read quiz questions aloud and enhance accessibility</p>
+          </div>
+
+          <!-- Keyboard Navigation (Future) -->
+          <div class="control-subsection disabled">
+            <div class="toggle-control">
+              <label for="canvas-keyboard-nav" class="toggle-label">
+                <span class="label-text">Enhanced Keyboard Nav (Coming Soon)</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="canvas-keyboard-nav" role="switch" aria-label="Enable enhanced keyboard navigation" disabled>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Navigate Canvas modules and assignments with keyboard shortcuts</p>
+          </div>
+
+        </div><!-- End canvas-integration-options -->
+      </section>
+
     </main>
 
     <!-- Footer -->

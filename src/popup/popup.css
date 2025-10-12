@@ -1070,3 +1070,26 @@ body {
   max-height: 0;
   opacity: 0;
 }
+
+/* ============================================ */
+/* SPRINT 4 FEATURE: CANVAS INTEGRATION        */
+/* ============================================ */
+
+/* Canvas Integration Options Container */
+.canvas-integration-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.canvas-integration-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Disabled subsection (for future features) */
+.control-subsection.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}

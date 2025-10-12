@@ -39,7 +39,8 @@
       "resources": [
         "src/ui/components/*.js",
         "src/ui/styles/*.css",
-        "public/assets/*"
+        "public/assets/*",
+        "adapters/canvas-adapter.js"
       ],
       "matches": ["<all_urls>"]
     }

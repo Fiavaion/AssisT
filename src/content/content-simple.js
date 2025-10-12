@@ -1031,6 +1031,143 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
+// ============================================================
+// SPRINT 4 FEATURE: CANVAS INTEGRATION
+// ============================================================
+
+// Canvas Integration State (Feature Isolated)
+let canvas_enabled = false;
+let canvas_fabElement = null;
+
+// Import Canvas Adapter dynamically when needed
+let CanvasAdapter = null;
+
+async function canvas_loadAdapter() {
+  if (!CanvasAdapter) {
+    try {
+      CanvasAdapter = await import(chrome.runtime.getURL('adapters/canvas-adapter.js'));
+      console.log('[Canvas] Adapter loaded');
+    } catch (error) {
+      console.error('[Canvas] Failed to load adapter:', error);
+    }
+  }
+  return CanvasAdapter;
+}
+
+// Initialize Canvas features
+async function canvas_initialize() {
+  if (!canvas_enabled) return;
+
+  const adapter = await canvas_loadAdapter();
+  if (!adapter) return;
+
+  // Check if on Canvas page
+  if (!adapter.isCanvasPage()) {
+    console.log('[Canvas] Not a Canvas page, skipping');
+    return;
+  }
+
+  const pageType = adapter.detectCanvasPageType();
+  console.log('[Canvas] Page type detected:', pageType);
+
+  // Wait for content to load
+  await adapter.waitForCanvasContent();
+
+  // Initialize features based on page type
+  if (pageType === adapter.CanvasPageType.ASSIGNMENT) {
+    canvas_initializeAssignmentReader();
+  }
+}
+
+// Initialize Assignment Reader
+async function canvas_initializeAssignmentReader() {
+  const adapter = await canvas_loadAdapter();
+  if (!adapter) return;
+
+  // Extract assignment content
+  const assignment = adapter.extractAssignmentContent();
+  if (!assignment) {
+    console.log('[Canvas] No assignment content found');
+    return;
+  }
+
+  console.log('[Canvas] Assignment detected:', assignment.title);
+
+  // Create FAB button
+  canvas_fabElement = adapter.createCanvasFAB({
+    text: 'Read Assignment',
+    icon: '📖',
+    onClick: () => canvas_readAssignment(assignment),
+    position: 'bottom-right'
+  });
+
+  document.body.appendChild(canvas_fabElement);
+  console.log('[Canvas] Assignment Reader initialized');
+}
+
+// Read assignment content
+function canvas_readAssignment(assignment) {
+  if (!settings.enabled) {
+    showToast('⚠️ Enable TTS in the extension popup first');
+    return;
+  }
+
+  console.log('[Canvas] Reading assignment:', assignment.title);
+  showToast('📖 Reading: ' + assignment.title);
+
+  // Read title first
+  const titleText = assignment.title;
+  const contentText = assignment.text;
+  const fullText = titleText + '. ' + contentText;
+
+  // Use existing TTS functionality
+  readText(fullText, assignment.element);
+}
+
+// Remove Canvas FAB
+function canvas_removeFAB() {
+  if (canvas_fabElement) {
+    canvas_fabElement.remove();
+    canvas_fabElement = null;
+  }
+}
+
+// Load Canvas Integration settings
+chrome.storage.local.get('assist_settings', (result) => {
+  if (result.assist_settings && result.assist_settings.canvasIntegration) {
+    const ciSettings = result.assist_settings.canvasIntegration;
+    canvas_enabled = ciSettings.enabled || false;
+
+    if (canvas_enabled) {
+      canvas_initialize();
+    }
+
+    console.log('[Canvas] Settings loaded:', canvas_enabled);
+  } else {
+    console.log('[Canvas] Integration disabled by default');
+  }
+});
+
+// Listen for Canvas Integration settings updates
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.assist_settings && changes.assist_settings.newValue?.canvasIntegration) {
+    const ciSettings = changes.assist_settings.newValue.canvasIntegration;
+    const newEnabled = ciSettings.enabled || false;
+
+    if (newEnabled && !canvas_enabled) {
+      canvas_enabled = true;
+      canvas_initialize();
+      showToast('🎓 Canvas Integration enabled');
+    } else if (!newEnabled && canvas_enabled) {
+      canvas_enabled = false;
+      canvas_removeFAB();
+      showToast('Canvas Integration disabled');
+    }
+
+    console.log('[Canvas] Settings updated:', newEnabled);
+  }
+});
+
 // Message handler for commands from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[AssisT] Message received:', message.type);
