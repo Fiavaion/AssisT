@@ -272,6 +272,11 @@ class PopupController {
     // ============================================================
     this.setupReadingGuide();
 
+    // ============================================================
+    // SPRINT 3 FEATURE: FOCUS MODE
+    // ============================================================
+    this.setupFocusMode();
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', (e) => {
       e.preventDefault();
@@ -1020,6 +1025,82 @@ class PopupController {
     });
 
     console.log('[Popup] Reading Guide initialized');
+  }
+
+  // ============================================================
+  // SPRINT 3 FEATURE: FOCUS MODE
+  // ============================================================
+  setupFocusMode() {
+    if (!this.settings.focusMode) {
+      this.settings.focusMode = {
+        enabled: false,
+        boxWidth: 400,
+        boxHeight: 100,
+        overlayOpacity: 0.7
+      };
+    }
+
+    const focusModeEnabled = document.getElementById('focus-mode-enabled');
+    const focusModeDescription = document.getElementById('focus-mode-description');
+    const focusModeOptions = document.getElementById('focus-mode-options');
+
+    focusModeEnabled.checked = this.settings.focusMode.enabled || false;
+
+    if (focusModeEnabled.checked) {
+      focusModeDescription.classList.remove('hidden');
+      focusModeOptions.classList.remove('hidden');
+    } else {
+      focusModeDescription.classList.add('hidden');
+      focusModeOptions.classList.add('hidden');
+    }
+
+    focusModeEnabled.addEventListener('change', (e) => {
+      this.settings.focusMode.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        focusModeDescription.classList.remove('hidden');
+        focusModeOptions.classList.remove('hidden');
+      } else {
+        focusModeDescription.classList.add('hidden');
+        focusModeOptions.classList.add('hidden');
+      }
+    });
+
+    const boxWidthSlider = document.getElementById('focus-mode-width');
+    const boxWidthValue = document.getElementById('focus-mode-width-value');
+    boxWidthSlider.value = this.settings.focusMode.boxWidth || 400;
+    boxWidthValue.textContent = boxWidthSlider.value + 'px';
+    boxWidthSlider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      boxWidthValue.textContent = value + 'px';
+      this.settings.focusMode.boxWidth = value;
+      this.saveSettings();
+    });
+
+    const boxHeightSlider = document.getElementById('focus-mode-height');
+    const boxHeightValue = document.getElementById('focus-mode-height-value');
+    boxHeightSlider.value = this.settings.focusMode.boxHeight || 100;
+    boxHeightValue.textContent = boxHeightSlider.value + 'px';
+    boxHeightSlider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      boxHeightValue.textContent = value + 'px';
+      this.settings.focusMode.boxHeight = value;
+      this.saveSettings();
+    });
+
+    const overlayOpacitySlider = document.getElementById('focus-mode-opacity');
+    const overlayOpacityValue = document.getElementById('focus-mode-opacity-value');
+    overlayOpacitySlider.value = this.settings.focusMode.overlayOpacity || 0.7;
+    overlayOpacityValue.textContent = Math.round(overlayOpacitySlider.value * 100) + '%';
+    overlayOpacitySlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      overlayOpacityValue.textContent = Math.round(value * 100) + '%';
+      this.settings.focusMode.overlayOpacity = value;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Focus Mode initialized');
   }
 }
 
