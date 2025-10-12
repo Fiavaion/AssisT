@@ -1315,16 +1315,28 @@ function stt_setupFieldListeners() {
     }
   }, true);
 
-  // Listen for focusout
+  // Listen for focusout - Don't hide button immediately
   document.addEventListener('focusout', (e) => {
     if (stt_activeField === e.target && stt_micButton) {
-      // Delay hiding button (user might click it)
-      setTimeout(() => {
-        if (stt_controller && !stt_controller.isRecording) {
-          stt_micButton.hide();
-          stt_activeField = null;
-        }
-      }, 300);
+      // Keep button visible - only hide when:
+      // 1. Recording stops naturally
+      // 2. User explicitly clicks away from both field and button
+      // Do NOT auto-hide on blur
+      console.log('[STT] Field lost focus, but keeping button visible');
+    }
+  }, true);
+
+  // Hide button when clicking outside both field and button
+  document.addEventListener('click', (e) => {
+    if (!stt_enabled || !stt_micButton) return;
+
+    const clickedOnField = stt_activeField && (e.target === stt_activeField || stt_activeField.contains(e.target));
+    const clickedOnButton = stt_micButton.button && (e.target === stt_micButton.button || stt_micButton.button.contains(e.target));
+
+    if (!clickedOnField && !clickedOnButton && stt_activeField && !stt_controller.isRecording) {
+      stt_micButton.hide();
+      stt_activeField = null;
+      console.log('[STT] Clicked outside - hiding button');
     }
   }, true);
 }
