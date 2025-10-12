@@ -555,6 +555,73 @@
       </section>
 
       <!-- ========================================================== -->
+      <!-- SPRINT 6 FEATURE: SCREEN COLOR OVERLAY -->
+      <!-- ========================================================== -->
+      <section class="control-section" id="screen-overlay-section">
+        <div class="toggle-control">
+          <label for="screen-overlay-enabled" class="toggle-label">
+            <span class="label-text">🎨 Screen Color Overlay</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="screen-overlay-enabled" role="switch" aria-label="Enable screen color overlay">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+        <p class="feature-description hidden" id="screen-overlay-description">
+          Add a color tint to reduce eye strain and improve readability
+        </p>
+
+        <!-- Screen Overlay Options (shows when enabled) -->
+        <div id="screen-overlay-options" class="screen-overlay-options hidden">
+
+          <!-- Overlay Color -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="screen-overlay-color">Overlay Color</label>
+            </h3>
+            <select id="screen-overlay-color" class="voice-select" aria-label="Select overlay color">
+              <option value="#FFF4E6">Warm Sepia (recommended)</option>
+              <option value="#FFFACD">Soft Yellow</option>
+              <option value="#FFE4B5">Peach</option>
+              <option value="#F5E6D3">Cream</option>
+              <option value="#E0F7FA">Cool Blue</option>
+              <option value="#E8F5E9">Soft Green</option>
+              <option value="#FCE4EC">Light Pink</option>
+              <option value="#F3E5F5">Lavender</option>
+            </select>
+          </div>
+
+          <!-- Overlay Opacity -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="screen-overlay-opacity">Overlay Intensity</label>
+              <span class="control-value" id="screen-overlay-opacity-value">30%</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="screen-overlay-opacity"
+                class="slider"
+                min="0.1"
+                max="0.9"
+                step="0.1"
+                value="0.3"
+                aria-label="Adjust overlay intensity"
+                aria-valuemin="0.1"
+                aria-valuemax="0.9"
+                aria-valuenow="0.3">
+              <div class="slider-labels">
+                <span>Subtle</span>
+                <span>Strong</span>
+              </div>
+            </div>
+            <p class="feature-description">Adjust the strength of the color tint</p>
+          </div>
+
+        </div><!-- End screen-overlay-options -->
+      </section>
+
+      <!-- ========================================================== -->
       <!-- SPRINT 4 FEATURE: CANVAS LMS INTEGRATION -->
       <!-- ========================================================== -->
       <section class="control-section" id="canvas-integration-section">
