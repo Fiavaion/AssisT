@@ -655,18 +655,92 @@
             <p class="feature-description">Auto-detect Canvas assignments and add read-aloud button</p>
           </div>
 
-          <!-- Quiz Helper (Future) -->
-          <div class="control-subsection disabled">
+          <!-- Quiz Helper -->
+          <div class="control-subsection">
             <div class="toggle-control">
               <label for="canvas-quiz-helper" class="toggle-label">
-                <span class="label-text">Quiz Helper (Coming Soon)</span>
+                <span class="label-text">📝 Quiz Helper</span>
                 <div class="toggle-switch">
-                  <input type="checkbox" id="canvas-quiz-helper" role="switch" aria-label="Enable quiz helper" disabled>
+                  <input type="checkbox" id="canvas-quiz-helper" role="switch" aria-label="Enable quiz helper">
                   <span class="toggle-slider"></span>
                 </div>
               </label>
             </div>
-            <p class="feature-description">Read quiz questions aloud and enhance accessibility</p>
+            <p class="feature-description">Read quiz questions aloud and navigate with keyboard</p>
+
+            <!-- Quiz Helper Sub-options (shows when enabled) -->
+            <div id="quiz-helper-options" class="quiz-helper-options hidden" style="margin-left: 15px; margin-top: 10px;">
+
+              <!-- Read Answer Options -->
+              <div class="control-subsection">
+                <div class="toggle-control">
+                  <label for="quiz-read-answers" class="toggle-label">
+                    <span class="label-text" style="font-size: 13px;">Read Answer Options</span>
+                    <div class="toggle-switch">
+                      <input type="checkbox" id="quiz-read-answers" role="switch" aria-label="Read answer options aloud" checked>
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Auto-Read on Focus -->
+              <div class="control-subsection">
+                <div class="toggle-control">
+                  <label for="quiz-auto-read" class="toggle-label">
+                    <span class="label-text" style="font-size: 13px;">Auto-Read on Focus</span>
+                    <div class="toggle-switch">
+                      <input type="checkbox" id="quiz-auto-read" role="switch" aria-label="Auto-read questions when focused">
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <p class="feature-description" style="font-size: 11px;">Automatically read question when you navigate to it</p>
+              </div>
+
+              <!-- Highlight Current Question -->
+              <div class="control-subsection">
+                <div class="toggle-control">
+                  <label for="quiz-highlight-question" class="toggle-label">
+                    <span class="label-text" style="font-size: 13px;">Highlight Current Question</span>
+                    <div class="toggle-switch">
+                      <input type="checkbox" id="quiz-highlight-question" role="switch" aria-label="Highlight current question" checked>
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Question Highlight Color -->
+              <div class="control-subsection">
+                <h3 class="subsection-title" style="font-size: 13px;">
+                  <label for="quiz-highlight-color">Highlight Color</label>
+                </h3>
+                <select id="quiz-highlight-color" class="voice-select" aria-label="Select question highlight color">
+                  <option value="#4A90E2">Blue (recommended)</option>
+                  <option value="#FF6B6B">Red</option>
+                  <option value="#4ECDC4">Teal</option>
+                  <option value="#95E1D3">Mint</option>
+                  <option value="#FFD93D">Yellow</option>
+                  <option value="#6BCF7F">Green</option>
+                </select>
+              </div>
+
+              <!-- Keyboard Navigation -->
+              <div class="control-subsection">
+                <div class="toggle-control">
+                  <label for="quiz-keyboard-nav" class="toggle-label">
+                    <span class="label-text" style="font-size: 13px;">Keyboard Navigation</span>
+                    <div class="toggle-switch">
+                      <input type="checkbox" id="quiz-keyboard-nav" role="switch" aria-label="Enable keyboard navigation" checked>
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <p class="feature-description" style="font-size: 11px;">↑/↓: Navigate questions | Enter: Read question</p>
+              </div>
+
+            </div><!-- End quiz-helper-options -->
           </div>
 
           <!-- Keyboard Navigation (Future) -->

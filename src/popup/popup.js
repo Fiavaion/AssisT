@@ -1187,11 +1187,98 @@ class PopupController {
       this.saveSettings();
     });
 
-    // Quiz Helper toggle (disabled for now - future feature)
-    const quizHelperCheckbox = document.getElementById('canvas-quiz-helper');
-    if (quizHelperCheckbox) {
-      quizHelperCheckbox.checked = this.settings.canvasIntegration.quizHelper || false;
+    // ============================================================
+    // SPRINT 7 FEATURE: CANVAS QUIZ HELPER
+    // ============================================================
+
+    // Initialize quizHelper settings if they don't exist
+    if (!this.settings.canvasIntegration.quizHelper) {
+      this.settings.canvasIntegration.quizHelper = {
+        enabled: false,
+        readAnswers: true,
+        autoRead: false,
+        highlightQuestion: true,
+        highlightColor: '#4A90E2',
+        keyboardNavigation: true
+      };
     }
+
+    const quizHelperCheckbox = document.getElementById('canvas-quiz-helper');
+    const quizHelperOptions = document.getElementById('quiz-helper-options');
+
+    // Set initial state
+    const quizHelperEnabled = typeof this.settings.canvasIntegration.quizHelper === 'object'
+      ? this.settings.canvasIntegration.quizHelper.enabled
+      : this.settings.canvasIntegration.quizHelper || false;
+
+    quizHelperCheckbox.checked = quizHelperEnabled;
+
+    // Show/hide options based on enabled state
+    if (quizHelperEnabled) {
+      quizHelperOptions.classList.remove('hidden');
+    } else {
+      quizHelperOptions.classList.add('hidden');
+    }
+
+    // Quiz Helper main toggle
+    quizHelperCheckbox.addEventListener('change', (e) => {
+      if (typeof this.settings.canvasIntegration.quizHelper !== 'object') {
+        this.settings.canvasIntegration.quizHelper = {
+          enabled: e.target.checked,
+          readAnswers: true,
+          autoRead: false,
+          highlightQuestion: true,
+          highlightColor: '#4A90E2',
+          keyboardNavigation: true
+        };
+      } else {
+        this.settings.canvasIntegration.quizHelper.enabled = e.target.checked;
+      }
+      this.saveSettings();
+
+      // Toggle options visibility
+      if (e.target.checked) {
+        quizHelperOptions.classList.remove('hidden');
+      } else {
+        quizHelperOptions.classList.add('hidden');
+      }
+    });
+
+    // Quiz Helper sub-options
+    const quizReadAnswers = document.getElementById('quiz-read-answers');
+    quizReadAnswers.checked = this.settings.canvasIntegration.quizHelper.readAnswers !== false;
+    quizReadAnswers.addEventListener('change', (e) => {
+      this.settings.canvasIntegration.quizHelper.readAnswers = e.target.checked;
+      this.saveSettings();
+    });
+
+    const quizAutoRead = document.getElementById('quiz-auto-read');
+    quizAutoRead.checked = this.settings.canvasIntegration.quizHelper.autoRead || false;
+    quizAutoRead.addEventListener('change', (e) => {
+      this.settings.canvasIntegration.quizHelper.autoRead = e.target.checked;
+      this.saveSettings();
+    });
+
+    const quizHighlightQuestion = document.getElementById('quiz-highlight-question');
+    quizHighlightQuestion.checked = this.settings.canvasIntegration.quizHelper.highlightQuestion !== false;
+    quizHighlightQuestion.addEventListener('change', (e) => {
+      this.settings.canvasIntegration.quizHelper.highlightQuestion = e.target.checked;
+      this.saveSettings();
+    });
+
+    const quizHighlightColor = document.getElementById('quiz-highlight-color');
+    quizHighlightColor.value = this.settings.canvasIntegration.quizHelper.highlightColor || '#4A90E2';
+    quizHighlightColor.addEventListener('change', (e) => {
+      this.settings.canvasIntegration.quizHelper.highlightColor = e.target.value;
+      this.saveSettings();
+    });
+
+    const quizKeyboardNav = document.getElementById('quiz-keyboard-nav');
+    quizKeyboardNav.checked = this.settings.canvasIntegration.quizHelper.keyboardNavigation !== false;
+    quizKeyboardNav.addEventListener('change', (e) => {
+      this.settings.canvasIntegration.quizHelper.keyboardNavigation = e.target.checked;
+      this.saveSettings();
+    });
 
     // Keyboard Nav toggle (disabled for now - future feature)
     const keyboardNavCheckbox = document.getElementById('canvas-keyboard-nav');
@@ -1199,7 +1286,7 @@ class PopupController {
       keyboardNavCheckbox.checked = this.settings.canvasIntegration.keyboardNav || false;
     }
 
-    console.log('[Popup] Canvas Integration initialized');
+    console.log('[Popup] Canvas Integration initialized', this.settings.canvasIntegration);
   }
 
   // ============================================================
