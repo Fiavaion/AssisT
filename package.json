@@ -29,8 +29,11 @@
   "author": "AssisT Development Team",
   "license": "MIT",
   "devDependencies": {
+    "@babel/core": "^7.28.4",
+    "@babel/preset-env": "^7.28.3",
     "@playwright/test": "^1.47.0",
     "@types/chrome": "^0.0.270",
+    "babel-jest": "^30.2.0",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-jsx-a11y": "^6.10.0",
@@ -38,21 +41,5 @@
     "jest-environment-jsdom": "^29.7.0",
     "prettier": "^3.3.3"
   },
-  "dependencies": {},
-  "jest": {
-    "testEnvironment": "jsdom",
-    "transform": {},
-    "coverageThreshold": {
-      "global": {
-        "branches": 80,
-        "functions": 80,
-        "lines": 80,
-        "statements": 80
-      }
-    },
-    "collectCoverageFrom": [
-      "src/**/*.js",
-      "!src/**/*.test.js"
-    ]
-  }
+  "dependencies": {}
 }
