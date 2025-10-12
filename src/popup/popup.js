@@ -81,6 +81,7 @@ class PopupController {
     toggleSection('stt-section', 'show_stt');
     toggleSection('screen-overlay-section', 'show_screen_overlay');
     toggleSection('canvas-integration-section', 'show_canvas_integration');
+    toggleSection('dyslexia-mode-section', 'show_dyslexia_mode');
 
     console.log('[Popup] Visibility settings applied:', visibility);
   }
@@ -262,6 +263,11 @@ class PopupController {
     // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
     // ============================================================
     this.setupSTT();
+
+    // ============================================================
+    // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
+    // ============================================================
+    this.setupDyslexiaMode();
 
     // Settings link
     document.getElementById('link-settings').addEventListener('click', (e) => {
@@ -471,6 +477,17 @@ class PopupController {
                   <span>Canvas Integration</span>
                 </label>
               </div>
+
+              <div class="feature-section-header">
+                <span>Sprint 9 Features</span>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-dyslexia-mode" checked>
+                  <span>Dyslexia Reading Mode</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -622,6 +639,7 @@ class PopupController {
     loadCheckbox('show-stt', 'show_stt');
     loadCheckbox('show-screen-overlay', 'show_screen_overlay');
     loadCheckbox('show-canvas-integration', 'show_canvas_integration');
+    loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
 
     // Appearance settings
     const compactMode = document.getElementById('compact-mode');
@@ -669,6 +687,7 @@ class PopupController {
     saveCheckbox('show-stt', 'show_stt');
     saveCheckbox('show-screen-overlay', 'show_screen_overlay');
     saveCheckbox('show-canvas-integration', 'show_canvas_integration');
+    saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
 
     // Save appearance settings
     const compactMode = document.getElementById('compact-mode');
@@ -1398,6 +1417,104 @@ class PopupController {
     });
 
     console.log('[Popup] STT initialized');
+  }
+
+  // ============================================================
+  // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
+  // ============================================================
+  setupDyslexiaMode() {
+    if (!this.settings.dyslexiaMode) {
+      this.settings.dyslexiaMode = {
+        enabled: false,
+        bionicReading: true,
+        syllableHighlighting: false,
+        grammarColors: false,
+        colorIntensity: 0.7
+      };
+    }
+
+    const dyslexiaEnabled = document.getElementById('dyslexia-mode-enabled');
+    const dyslexiaDescription = document.getElementById('dyslexia-mode-description');
+    const dyslexiaOptions = document.getElementById('dyslexia-mode-options');
+
+    dyslexiaEnabled.checked = this.settings.dyslexiaMode.enabled || false;
+
+    if (dyslexiaEnabled.checked) {
+      dyslexiaDescription.classList.remove('hidden');
+      dyslexiaOptions.classList.remove('hidden');
+    } else {
+      dyslexiaDescription.classList.add('hidden');
+      dyslexiaOptions.classList.add('hidden');
+    }
+
+    dyslexiaEnabled.addEventListener('change', (e) => {
+      this.settings.dyslexiaMode.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        dyslexiaDescription.classList.remove('hidden');
+        dyslexiaOptions.classList.remove('hidden');
+      } else {
+        dyslexiaDescription.classList.add('hidden');
+        dyslexiaOptions.classList.add('hidden');
+      }
+    });
+
+    // Feature selection (radio buttons)
+    const bionicRadio = document.getElementById('dyslexia-bionic');
+    const syllableRadio = document.getElementById('dyslexia-syllable');
+    const grammarRadio = document.getElementById('dyslexia-grammar');
+
+    // Set initial state
+    if (this.settings.dyslexiaMode.bionicReading) {
+      bionicRadio.checked = true;
+    } else if (this.settings.dyslexiaMode.syllableHighlighting) {
+      syllableRadio.checked = true;
+    } else if (this.settings.dyslexiaMode.grammarColors) {
+      grammarRadio.checked = true;
+    }
+
+    // Radio button handlers
+    bionicRadio.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        this.settings.dyslexiaMode.bionicReading = true;
+        this.settings.dyslexiaMode.syllableHighlighting = false;
+        this.settings.dyslexiaMode.grammarColors = false;
+        this.saveSettings();
+      }
+    });
+
+    syllableRadio.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        this.settings.dyslexiaMode.bionicReading = false;
+        this.settings.dyslexiaMode.syllableHighlighting = true;
+        this.settings.dyslexiaMode.grammarColors = false;
+        this.saveSettings();
+      }
+    });
+
+    grammarRadio.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        this.settings.dyslexiaMode.bionicReading = false;
+        this.settings.dyslexiaMode.syllableHighlighting = false;
+        this.settings.dyslexiaMode.grammarColors = true;
+        this.saveSettings();
+      }
+    });
+
+    // Color Intensity slider
+    const intensitySlider = document.getElementById('dyslexia-intensity');
+    const intensityValue = document.getElementById('dyslexia-intensity-value');
+    intensitySlider.value = this.settings.dyslexiaMode.colorIntensity || 0.7;
+    intensityValue.textContent = Math.round(intensitySlider.value * 100) + '%';
+    intensitySlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      intensityValue.textContent = Math.round(value * 100) + '%';
+      this.settings.dyslexiaMode.colorIntensity = value;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Dyslexia Mode initialized');
   }
 
   // ============================================================

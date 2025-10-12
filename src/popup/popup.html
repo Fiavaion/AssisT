@@ -898,6 +898,100 @@
         </div><!-- End stt-options -->
       </section>
 
+      <!-- ========================================================== -->
+      <!-- SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE -->
+      <!-- ========================================================== -->
+      <section class="control-section" id="dyslexia-mode-section">
+        <div class="toggle-control">
+          <label for="dyslexia-mode-enabled" class="toggle-label">
+            <span class="label-text">✨ Dyslexia Reading Mode</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="dyslexia-mode-enabled" role="switch" aria-label="Enable Dyslexia Reading Mode">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+        <p class="feature-description hidden" id="dyslexia-mode-description">
+          Specialized reading enhancements for dyslexia: bionic reading, syllable highlighting, grammar colors
+        </p>
+
+        <!-- Dyslexia Mode Options (shows when enabled) -->
+        <div id="dyslexia-mode-options" class="dyslexia-mode-options hidden">
+
+          <!-- Feature Selection -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">Reading Enhancement</h3>
+            <p class="feature-description" style="margin-bottom: 10px;">Choose one reading enhancement method (only one can be active at a time)</p>
+
+            <!-- Bionic Reading -->
+            <div class="control-subsection" style="margin-bottom: 10px;">
+              <label class="toggle-label" style="cursor: pointer;">
+                <input type="radio" name="dyslexia-feature" id="dyslexia-bionic" value="bionic" checked style="margin-right: 8px;">
+                <span class="label-text">🔤 Bionic Reading</span>
+              </label>
+              <p class="feature-description" style="margin-left: 24px; font-size: 11px;">Bold first letters of words to guide eye movement (improves reading speed 20-30%)</p>
+            </div>
+
+            <!-- Syllable Highlighting -->
+            <div class="control-subsection" style="margin-bottom: 10px;">
+              <label class="toggle-label" style="cursor: pointer;">
+                <input type="radio" name="dyslexia-feature" id="dyslexia-syllable" value="syllable" style="margin-right: 8px;">
+                <span class="label-text">📝 Syllable Highlighting</span>
+              </label>
+              <p class="feature-description" style="margin-left: 24px; font-size: 11px;">Alternate colors between syllables (e.g., <span style="background: #B3E5FC; padding: 0 2px;">syl</span><span style="background: #FFF9C4; padding: 0 2px;">la</span><span style="background: #B3E5FC; padding: 0 2px;">ble</span>)</p>
+            </div>
+
+            <!-- Grammar Colors -->
+            <div class="control-subsection">
+              <label class="toggle-label" style="cursor: pointer;">
+                <input type="radio" name="dyslexia-feature" id="dyslexia-grammar" value="grammar" style="margin-right: 8px;">
+                <span class="label-text">🎨 Grammar Colors</span>
+              </label>
+              <p class="feature-description" style="margin-left: 24px; font-size: 11px;">Color-code words by part of speech:
+                <span style="background: rgba(33, 150, 243, 0.2); padding: 0 3px; border-radius: 2px;">nouns</span>
+                <span style="background: rgba(76, 175, 80, 0.2); padding: 0 3px; border-radius: 2px;">verbs</span>
+                <span style="background: rgba(156, 39, 176, 0.2); padding: 0 3px; border-radius: 2px;">adjectives</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Color Intensity Slider -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="dyslexia-intensity">Color Intensity</label>
+              <span class="control-value" id="dyslexia-intensity-value">70%</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="dyslexia-intensity"
+                class="slider"
+                min="0.5"
+                max="1.0"
+                step="0.1"
+                value="0.7"
+                aria-label="Adjust color intensity"
+                aria-valuemin="0.5"
+                aria-valuemax="1.0"
+                aria-valuenow="0.7">
+              <div class="slider-labels">
+                <span>Subtle</span>
+                <span>Strong</span>
+              </div>
+            </div>
+            <p class="feature-description">Adjust color saturation for highlighting and grammar colors</p>
+          </div>
+
+          <!-- Performance Note -->
+          <div class="control-subsection" style="background: rgba(255, 152, 0, 0.1); padding: 10px; border-radius: 6px; border-left: 3px solid #FF9800;">
+            <p class="feature-description" style="font-size: 11px; margin: 0;">
+              <strong>⚡ Performance Note:</strong> Dyslexia Mode processes all text on the page. Large pages may take a few seconds to transform. Grammar Colors takes longest (~300ms) due to NLP processing.
+            </p>
+          </div>
+
+        </div><!-- End dyslexia-mode-options -->
+      </section>
+
     </main>
 
     <!-- Footer -->
