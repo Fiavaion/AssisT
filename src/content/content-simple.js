@@ -1190,8 +1190,8 @@ let stt_settings = {
 async function stt_loadModules() {
   try {
     const [STTModule, MicButtonModule] = await Promise.all([
-      import(chrome.runtime.getURL('engines/stt/stt-controller.js')),
-      import(chrome.runtime.getURL('ui/components/microphone-button.js'))
+      import(chrome.runtime.getURL('src/engines/stt/stt-controller.js')),
+      import(chrome.runtime.getURL('src/ui/components/microphone-button.js'))
     ]);
     return {
       STTController: STTModule.STTController,
