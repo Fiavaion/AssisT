@@ -86,6 +86,13 @@ export class StorageManager {
       boxWidth: 400,             // px, min: 150, max: 800, step: 5
       boxHeight: 100,            // px, min: 50, max: 250, step: 5
       overlayOpacity: 0.7        // 0.0-1.0 (darkness of surrounding area)
+    },
+    // Sprint 4 Features
+    canvasIntegration: {
+      enabled: false,            // Default OFF - user will test post-launch
+      assignmentReader: true,    // Auto-reader for Canvas assignments
+      quizHelper: false,         // Future: Quiz content extraction
+      keyboardNav: false         // Future: Keyboard navigation enhancements
     }
   };
 

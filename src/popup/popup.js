@@ -277,6 +277,11 @@ class PopupController {
     // ============================================================
     this.setupFocusMode();
 
+    // ============================================================
+    // SPRINT 4 FEATURE: CANVAS INTEGRATION
+    // ============================================================
+    this.setupCanvasIntegration();
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', (e) => {
       e.preventDefault();
@@ -1101,6 +1106,74 @@ class PopupController {
     });
 
     console.log('[Popup] Focus Mode initialized');
+  }
+
+  // ============================================================
+  // SPRINT 4 FEATURE: CANVAS INTEGRATION
+  // ============================================================
+  setupCanvasIntegration() {
+    // Initialize canvasIntegration settings if they don't exist
+    if (!this.settings.canvasIntegration) {
+      this.settings.canvasIntegration = {
+        enabled: false,
+        assignmentReader: true,
+        quizHelper: false,
+        keyboardNav: false
+      };
+    }
+
+    const canvasIntegrationEnabled = document.getElementById('canvas-integration-enabled');
+    const canvasIntegrationDescription = document.getElementById('canvas-integration-description');
+    const canvasIntegrationOptions = document.getElementById('canvas-integration-options');
+
+    // Set initial state
+    canvasIntegrationEnabled.checked = this.settings.canvasIntegration.enabled || false;
+
+    // Show/hide description and options based on enabled state
+    if (canvasIntegrationEnabled.checked) {
+      canvasIntegrationDescription.classList.remove('hidden');
+      canvasIntegrationOptions.classList.remove('hidden');
+    } else {
+      canvasIntegrationDescription.classList.add('hidden');
+      canvasIntegrationOptions.classList.add('hidden');
+    }
+
+    // Toggle event
+    canvasIntegrationEnabled.addEventListener('change', (e) => {
+      this.settings.canvasIntegration.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle description and options visibility
+      if (e.target.checked) {
+        canvasIntegrationDescription.classList.remove('hidden');
+        canvasIntegrationOptions.classList.remove('hidden');
+      } else {
+        canvasIntegrationDescription.classList.add('hidden');
+        canvasIntegrationOptions.classList.add('hidden');
+      }
+    });
+
+    // Assignment Reader toggle
+    const assignmentReaderCheckbox = document.getElementById('canvas-assignment-reader');
+    assignmentReaderCheckbox.checked = this.settings.canvasIntegration.assignmentReader !== false;
+    assignmentReaderCheckbox.addEventListener('change', (e) => {
+      this.settings.canvasIntegration.assignmentReader = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Quiz Helper toggle (disabled for now - future feature)
+    const quizHelperCheckbox = document.getElementById('canvas-quiz-helper');
+    if (quizHelperCheckbox) {
+      quizHelperCheckbox.checked = this.settings.canvasIntegration.quizHelper || false;
+    }
+
+    // Keyboard Nav toggle (disabled for now - future feature)
+    const keyboardNavCheckbox = document.getElementById('canvas-keyboard-nav');
+    if (keyboardNavCheckbox) {
+      keyboardNavCheckbox.checked = this.settings.canvasIntegration.keyboardNav || false;
+    }
+
+    console.log('[Popup] Canvas Integration initialized');
   }
 }
 
