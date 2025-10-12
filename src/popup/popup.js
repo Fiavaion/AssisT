@@ -1382,10 +1382,350 @@ class PopupController {
 
     console.log('[Popup] STT initialized');
   }
+
+  // ============================================================
+  // SPRINT 7 FEATURE: USER PROFILES
+  // ============================================================
+
+  async setupUserProfiles() {
+    console.log('[Popup] Setting up User Profiles...');
+
+    // Initialize profiles from storage
+    await this.profiles_initialize();
+
+    // Setup UI event listeners
+    this.profiles_setupEventListeners();
+  }
+
+  async profiles_initialize() {
+    // Load profiles from storage
+    const result = await chrome.storage.local.get(['assist_profiles', 'assist_active_profile']);
+
+    let profiles = result.assist_profiles || {};
+    let activeProfile = result.assist_active_profile || 'Default';
+
+    // Create default profiles if they don't exist
+    if (Object.keys(profiles).length === 0) {
+      profiles = this.profiles_createDefaults();
+      await chrome.storage.local.set({
+        assist_profiles: profiles,
+        assist_active_profile: 'Default'
+      });
+      console.log('[Profiles] Created default profiles');
+    }
+
+    this.profiles = profiles;
+    this.activeProfile = activeProfile;
+
+    // Populate profile selector
+    this.profiles_populateSelector();
+
+    console.log('[Profiles] Initialized with', Object.keys(profiles).length, 'profiles');
+  }
+
+  profiles_createDefaults() {
+    const timestamp = new Date().toISOString();
+
+    return {
+      'Default': {
+        name: 'Default',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: false, rate: 1.0, pitch: 1.0, volume: 1.0, highlightEnabled: true, highlightColor: '#FFEB3B', highlightOpacity: 0.7 },
+          textCustomization: { enabled: false },
+          readingGuide: { enabled: false },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: false },
+          canvasIntegration: { enabled: false }
+        }
+      },
+      'Reading Mode': {
+        name: 'Reading Mode',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 1.2, highlightEnabled: true, wordByWordEnabled: true },
+          textCustomization: { enabled: true, fontSize: 18, lineHeight: 1.8, fontFamily: 'OpenDyslexic' },
+          readingGuide: { enabled: true, lineColor: '#4A90E2', opacity: 0.5 },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: true, color: '#FFF4E6', opacity: 0.2 },
+          canvasIntegration: { enabled: false }
+        }
+      },
+      'Quiz Mode': {
+        name: 'Quiz Mode',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 1.0, highlightEnabled: true, wordByWordEnabled: false },
+          textCustomization: { enabled: true, fontSize: 16, lineHeight: 1.6 },
+          readingGuide: { enabled: false },
+          focusMode: { enabled: true, dimAmount: 0.7 },
+          screenOverlay: { enabled: false },
+          canvasIntegration: { enabled: true, quizHelper: { enabled: true, readAnswers: true, highlightQuestion: true, keyboardNavigation: true } }
+        }
+      },
+      'Low Vision': {
+        name: 'Low Vision',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 0.9, highlightEnabled: true, highlightColor: '#FFEB3B', highlightOpacity: 0.9 },
+          textCustomization: { enabled: true, fontSize: 22, lineHeight: 2.0, letterSpacing: 0.15, wordSpacing: 0.2 },
+          readingGuide: { enabled: true, lineColor: '#FF0000', opacity: 0.8 },
+          focusMode: { enabled: true, dimAmount: 0.9 },
+          screenOverlay: { enabled: false },
+          canvasIntegration: { enabled: false }
+        }
+      }
+    };
+  }
+
+  profiles_populateSelector() {
+    const selector = document.getElementById('profile-select');
+    selector.innerHTML = '';
+
+    // Add profiles to selector
+    Object.keys(this.profiles).forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      option.selected = name === this.activeProfile;
+      selector.appendChild(option);
+    });
+  }
+
+  profiles_setupEventListeners() {
+    // Profile selector change
+    const selector = document.getElementById('profile-select');
+    selector.addEventListener('change', (e) => {
+      this.profiles_loadProfile(e.target.value);
+    });
+
+    // Save current button
+    document.getElementById('btn-save-profile').addEventListener('click', () => {
+      this.profiles_showSaveModal();
+    });
+
+    // Export button
+    document.getElementById('btn-export-profiles').addEventListener('click', () => {
+      this.profiles_export();
+    });
+
+    // Import button
+    document.getElementById('btn-import-profiles').addEventListener('click', () => {
+      document.getElementById('profile-import-input').click();
+    });
+
+    // Import file input
+    document.getElementById('profile-import-input').addEventListener('change', (e) => {
+      this.profiles_import(e.target.files[0]);
+    });
+
+    // Save profile modal
+    document.getElementById('btn-cancel-save-profile').addEventListener('click', () => {
+      document.getElementById('save-profile-modal').classList.add('hidden');
+    });
+
+    document.getElementById('btn-confirm-save-profile').addEventListener('click', () => {
+      this.profiles_saveNew();
+    });
+
+    // Delete profile modal
+    document.getElementById('btn-cancel-delete-profile').addEventListener('click', () => {
+      document.getElementById('delete-profile-modal').classList.add('hidden');
+    });
+
+    document.getElementById('btn-confirm-delete-profile').addEventListener('click', () => {
+      this.profiles_confirmDelete();
+    });
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', () => {
+        overlay.closest('.modal').classList.add('hidden');
+      });
+    });
+  }
+
+  async profiles_loadProfile(name) {
+    if (!this.profiles[name]) {
+      console.error('[Profiles] Profile not found:', name);
+      return;
+    }
+
+    const profile = this.profiles[name];
+    this.activeProfile = name;
+
+    // Deep merge profile settings with current settings
+    this.settings = { ...this.settings, ...profile.settings };
+
+    // Save active profile
+    await chrome.storage.local.set({ assist_active_profile: name });
+
+    // Save settings
+    await this.saveSettings();
+
+    // Reload popup to reflect changes
+    window.location.reload();
+  }
+
+  profiles_showSaveModal() {
+    const modal = document.getElementById('save-profile-modal');
+    const input = document.getElementById('profile-name-input');
+    input.value = '';
+    modal.classList.remove('hidden');
+    input.focus();
+  }
+
+  async profiles_saveNew() {
+    const input = document.getElementById('profile-name-input');
+    const name = input.value.trim();
+
+    if (!name) {
+      alert('Please enter a profile name');
+      return;
+    }
+
+    if (this.profiles[name]) {
+      if (!confirm(`Profile "${name}" already exists. Overwrite?`)) {
+        return;
+      }
+    }
+
+    // Create new profile from current settings
+    const newProfile = {
+      name: name,
+      isDefault: false,
+      createdAt: new Date().toISOString(),
+      settings: JSON.parse(JSON.stringify(this.settings)) // Deep clone
+    };
+
+    this.profiles[name] = newProfile;
+
+    // Save to storage
+    await chrome.storage.local.set({ assist_profiles: this.profiles });
+
+    // Update UI
+    this.profiles_populateSelector();
+
+    // Close modal
+    document.getElementById('save-profile-modal').classList.add('hidden');
+
+    // Show success message
+    this.updateStatus(`Profile "${name}" saved!`, 'success');
+
+    console.log('[Profiles] Saved new profile:', name);
+  }
+
+  profiles_showDeleteModal(name) {
+    const modal = document.getElementById('delete-profile-modal');
+    const nameSpan = document.getElementById('delete-profile-name');
+    nameSpan.textContent = name;
+    modal.classList.add('hidden');
+
+    this.profileToDelete = name;
+    modal.classList.remove('hidden');
+  }
+
+  async profiles_confirmDelete() {
+    const name = this.profileToDelete;
+
+    if (!name || !this.profiles[name]) return;
+
+    // Cannot delete default profiles
+    if (this.profiles[name].isDefault) {
+      alert('Cannot delete default profiles');
+      return;
+    }
+
+    // Delete profile
+    delete this.profiles[name];
+
+    // If deleted profile was active, switch to Default
+    if (this.activeProfile === name) {
+      await this.profiles_loadProfile('Default');
+    }
+
+    // Save to storage
+    await chrome.storage.local.set({ assist_profiles: this.profiles });
+
+    // Update UI
+    this.profiles_populateSelector();
+
+    // Close modal
+    document.getElementById('delete-profile-modal').classList.add('hidden');
+
+    // Show success message
+    this.updateStatus(`Profile "${name}" deleted`, 'success');
+
+    console.log('[Profiles] Deleted profile:', name);
+  }
+
+  profiles_export() {
+    const data = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      profiles: this.profiles
+    };
+
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `assist-profiles-${Date.now()}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+    this.updateStatus('Profiles exported!', 'success');
+    console.log('[Profiles] Exported', Object.keys(this.profiles).length, 'profiles');
+  }
+
+  async profiles_import(file) {
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.profiles || typeof data.profiles !== 'object') {
+        alert('Invalid profile file format');
+        return;
+      }
+
+      // Merge imported profiles (keep existing if name conflicts)
+      let importedCount = 0;
+      for (const [name, profile] of Object.entries(data.profiles)) {
+        if (!this.profiles[name] || !this.profiles[name].isDefault) {
+          this.profiles[name] = profile;
+          importedCount++;
+        }
+      }
+
+      // Save to storage
+      await chrome.storage.local.set({ assist_profiles: this.profiles });
+
+      // Update UI
+      this.profiles_populateSelector();
+
+      // Show success message
+      this.updateStatus(`Imported ${importedCount} profiles!`, 'success');
+
+      console.log('[Profiles] Imported', importedCount, 'profiles');
+    } catch (error) {
+      console.error('[Profiles] Import error:', error);
+      alert('Error importing profiles: ' + error.message);
+    }
+  }
 }
 
 // Initialize popup when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
   const popup = new PopupController();
   await popup.initialize();
+  await popup.setupUserProfiles();
 });
