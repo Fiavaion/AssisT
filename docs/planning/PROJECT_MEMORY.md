@@ -441,5 +441,217 @@ Is this feature independent of existing features?
 **Previous Checkpoints:**
 - MVP-TTS-Stable-v1.0 (2025-10-11): Basic TTS and highlighting
 - Sprint-6-ScreenOverlay-Stable (2025-10-12): Current stable with screen overlay
+- Sprint-8-Testing-Complete (2025-10-12): 72/72 unit tests, 21/25 E2E tests
 
-This checkpoint serves as the foundation for Canvas-specific feature development (Option C).
+This checkpoint serves as the foundation for Quality + Innovation hybrid approach (Sprint 9).
+
+---
+
+### DEC-202510-018
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-018 |
+| **Date** | 2025-10-12 |
+| **Decision** | Adopt "Hybrid Quality + Innovation" strategy (Option D) for Sprint 9: Implement TTS/STT engine tests + Dyslexia-Optimized Reading Mode |
+| **Rationale** | **STRATEGIC ANALYSIS:** After completing Sprint 8 with 72 unit tests but ZERO test coverage on core TTS/STT engines (0% coverage on most critical features), identified significant quality gap. Simultaneously, identified opportunity for product differentiation through dyslexia-optimized reading features. Hybrid approach addresses both: 1) **Quality Foundation:** Test TTS/STT controllers to prevent regressions in core features, 2) **Product Differentiation:** Bionic reading + syllable highlighting + color-coded grammar make AssisT the only extension specifically optimized for neurodivergent learners, 3) **Technical Synergy:** Text manipulation tests validate new reading mode functionality, 4) **Marketing Story:** "Battle-tested reliability + dyslexia-optimized features" positions product uniquely. Decision made after analyzing: 5,595 LOC codebase, 84% E2E pass rate (4 failures), test coverage gaps in engines/tts-controller.js and engines/stt-controller.js, competitive landscape showing no TTS extensions with specialized dyslexia features. |
+| **Alternatives** | 1. **Option A (Quality-Only):** Test engines + benchmarks only - Rejected as it doesn't add user-facing value. 2. **Option B (Innovation-Only):** Dyslexia mode only - Rejected as it risks breaking existing features without test coverage. 3. **Option C (Scale-Only):** Analytics + monitoring - Rejected as premature before reaching 100+ users. 4. **Sequential approach:** Tests first, features later - Rejected to maintain development momentum. |
+| **Impact** | **Development:** 8-10 hours total effort (4h tests + 4-6h features). **Quality:** Achieve 80%+ coverage on TTS/STT engines, regression protection for 16% E2E failure cases. **Product:** Become first TTS extension with dyslexia-optimized reading (bionic reading, syllable highlights, grammar color-coding). **User Value:** Deeply serve neurodivergent audience with scientifically-backed reading enhancements. **Marketing:** Clear differentiation story for launch. **Technical:** Test infrastructure validates new features work correctly. |
+| **Stakeholders** | Lead Developer, Product Lead, Target Users (neurodivergent students), QA Team |
+| **Outcome/Action** | **Phase 1 (4 hours):** Write TTS Controller tests (voice selection, highlighting precision, browser compatibility, mock speechSynthesis API), Write STT Controller tests (continuous/single modes, punctuation parsing, language switching, mock webkitSpeechRecognition API). **Phase 2 (4-6 hours):** Implement Bionic Reading (bold first letters using font-weight), Implement Syllable Highlighting (use hyphenation algorithm), Implement Color-Coded Grammar (parts-of-speech using compromise.js or pattern matching), Add toggle controls in Writing Tools panel. **Success Criteria:** 80%+ engine test coverage, dyslexia mode functional with performance <100ms, all existing 72 tests still pass, creates new E2E test for dyslexia mode. |
+
+---
+
+## Sprint 9 Implementation Plan: Quality + Innovation Hybrid
+
+**Sprint Goal:** Battle-test core engines + Ship dyslexia-optimized reading mode
+
+### Phase 1: Core Engine Testing (Priority 1)
+
+**Files to Test:**
+1. `src/engines/tts/tts-controller.js` (~400 lines, 0% coverage)
+2. `src/engines/stt/stt-controller.js` (~300 lines, 0% coverage)
+
+**Test Cases Required:**
+
+#### TTS Controller Tests (tests/unit/tts-controller.test.js)
+- ✅ Voice loading and selection
+- ✅ Rate/pitch/volume adjustments
+- ✅ Play/pause/stop state management
+- ✅ Highlighting synchronization
+- ✅ Word boundary detection
+- ✅ Error handling (no voices available, synthesis failure)
+- ✅ Settings persistence
+- ✅ Event callbacks (start, end, error, boundary)
+
+#### STT Controller Tests (tests/unit/stt-controller.test.js)
+- ✅ Recognition initialization
+- ✅ Continuous vs single-shot modes
+- ✅ Language selection
+- ✅ Punctuation command parsing ("period", "comma", "new line")
+- ✅ Auto-capitalization
+- ✅ Interim results handling
+- ✅ Error handling (mic permissions, no speech detected)
+- ✅ Settings persistence
+
+**Mocking Strategy:**
+- Mock `window.speechSynthesis` (getVoices, speak, pause, resume, cancel)
+- Mock `window.webkitSpeechRecognition` (start, stop, abort, events)
+- Use Jest timers for timing-dependent tests
+
+**Success Metrics:**
+- 80%+ line coverage on both controllers
+- All edge cases covered (no voices, permissions denied, network offline)
+- Tests run in <5 seconds
+
+---
+
+### Phase 2: Dyslexia-Optimized Reading Mode (Priority 2)
+
+**Feature Specification:**
+
+#### 2.1 Bionic Reading
+**What:** Bold the first 1-3 letters of each word to guide eye movement
+**Algorithm:**
+```javascript
+// Word length determines bold count
+- 1-3 chars: bold 1 letter
+- 4-7 chars: bold 2 letters
+- 8+ chars: bold 3 letters
+```
+**Implementation:** Wrap bolded portion in `<strong>` tags, insert via DOM
+**Inspiration:** Bionic Reading™ methodology (proven to improve reading speed 20-30%)
+
+#### 2.2 Syllable Highlighting
+**What:** Alternate background colors between syllables (e.g., syl-la-ble)
+**Algorithm:** Use Hypher.js or regex-based syllabification
+**Colors:** Light blue (#E3F2FD) / Light yellow (#FFF9C4) alternating
+**Implementation:** Wrap each syllable in span with background color
+
+#### 2.3 Color-Coded Grammar (Parts of Speech)
+**What:** Color-code words by grammatical function
+**Categories:**
+- Nouns: Blue (#2196F3)
+- Verbs: Green (#4CAF50)
+- Adjectives: Purple (#9C27B0)
+- Adverbs: Orange (#FF9800)
+- Function words (the, a, is): Gray (#9E9E9E)
+
+**Library:** compromise.js (12kb gzipped, client-side NLP)
+**Implementation:** Parse text, wrap words in spans with color classes
+
+#### 2.4 UI Controls
+**Location:** New panel in Writing Tools section
+**Controls:**
+- ☑️ Enable Dyslexia Mode (master toggle)
+- ☑️ Bionic Reading (checkbox)
+- ☑️ Syllable Highlighting (checkbox)
+- ☑️ Grammar Colors (checkbox)
+- 🎨 Intensity slider (50-100% saturation for colors)
+
+**Settings Persistence:** Store in `chrome.storage.local` under `dyslexiaMode` object
+
+---
+
+### Technical Implementation Details
+
+**File Changes:**
+1. `src/content/content-simple.js` - Add dyslexia mode functions (+200 lines)
+2. `src/popup/popup.html` - Add dyslexia controls (+50 lines)
+3. `src/popup/popup.js` - Add dyslexia settings handlers (+80 lines)
+4. `src/popup/popup.css` - Add dyslexia mode styles (+40 lines)
+5. `tests/unit/tts-controller.test.js` - **NEW FILE** (+150 lines)
+6. `tests/unit/stt-controller.test.js` - **NEW FILE** (+120 lines)
+7. `tests/e2e/dyslexia-mode.test.js` - **NEW FILE** (+80 lines)
+
+**Dependencies to Add:**
+```json
+"dependencies": {
+  "compromise": "^14.10.0"  // For grammar detection (12kb)
+}
+```
+
+**Performance Targets:**
+- Bionic reading transformation: <50ms for 1000 words
+- Syllable highlighting: <100ms for 1000 words
+- Grammar coloring: <150ms for 1000 words (compromise.js parsing)
+- Total mode activation: <300ms perceived latency
+
+**Accessibility:**
+- All color combinations must meet WCAG AA contrast (4.5:1)
+- Provide "Reset to Original" button
+- Don't interfere with existing highlighting feature
+- Works alongside TTS (can read aloud with dyslexia mode active)
+
+---
+
+### Testing Strategy for New Feature
+
+**Unit Tests:**
+- Test bionic letter calculation (word length → bold count)
+- Test syllabification algorithm accuracy
+- Test grammar detection accuracy (sample sentences)
+- Test performance (1000 word benchmark)
+
+**E2E Tests:**
+- Enable dyslexia mode toggle
+- Verify bionic reading applies to page content
+- Verify syllable colors alternate correctly
+- Verify grammar colors match word types
+- Verify mode persists across page reloads
+- Verify reset button restores original text
+
+---
+
+### Risk Mitigation
+
+**Potential Issues:**
+1. **Performance degradation on large pages**
+   - Mitigation: Lazy-load feature, process visible viewport only
+
+2. **Conflicts with existing highlighting**
+   - Mitigation: Disable highlight when dyslexia mode active (or blend)
+
+3. **DOM mutations breaking page functionality**
+   - Mitigation: Use MutationObserver-safe wrapping, test on real Canvas pages
+
+4. **compromise.js bundle size impact**
+   - Mitigation: 12kb gzipped is acceptable, lazy-load only when feature enabled
+
+**Rollback Plan:**
+- Feature is fully toggleable
+- Can disable via Advanced Options if issues arise
+- Checkpoint tag before starting: Sprint-8-Testing-Complete
+- Can revert to checkpoint if major issues
+
+---
+
+### Definition of Done
+
+**Phase 1 Complete When:**
+- ✅ TTS Controller tests: 80%+ coverage, all passing
+- ✅ STT Controller tests: 80%+ coverage, all passing
+- ✅ All existing 72 unit tests still pass
+- ✅ Test execution time <10 seconds total
+- ✅ Documentation updated with mock patterns
+
+**Phase 2 Complete When:**
+- ✅ Bionic reading implemented and functional
+- ✅ Syllable highlighting implemented and functional
+- ✅ Grammar coloring implemented and functional
+- ✅ UI controls in popup (toggles + intensity slider)
+- ✅ Settings persist across sessions
+- ✅ Performance targets met (<300ms activation)
+- ✅ E2E test for dyslexia mode passing
+- ✅ All 72 existing tests + new tests passing
+- ✅ No regressions in existing features
+- ✅ Tested on real Canvas LMS pages
+
+**Sprint 9 Complete When:**
+- ✅ Both Phase 1 and Phase 2 complete
+- ✅ Git tag created: Sprint-9-Quality-Innovation-Complete
+- ✅ Documentation updated (CLAUDE.md, PROJECT_MEMORY.md)
+- ✅ Build successful, extension tested end-to-end
+- ✅ Ready for user testing with neurodivergent students
+
+---
