@@ -7,12 +7,12 @@ import { test, expect } from './extension-fixture.js';
 
 test.describe('Feature Visibility - Sprint 7', () => {
   test.beforeEach(async ({ popupPage }) => {
-    // Open advanced options modal before each test
-    const optionsButton = popupPage.locator('button:has-text("Options"), button:has-text("⚙")').first();
+    // Open advanced options modal before each test (correct ID: btn-options)
+    const optionsButton = popupPage.locator('#btn-options');
     await optionsButton.click();
 
-    // Wait for modal to appear
-    const modal = popupPage.locator('.modal, [role="dialog"], .advanced-options');
+    // Wait for modal to appear (use specific modal ID)
+    const modal = popupPage.locator('#advanced-options-modal');
     await expect(modal).toBeVisible({ timeout: 2000 });
   });
 
@@ -124,24 +124,35 @@ test.describe('Core Features Protection', () => {
 
 test.describe('Feature Visibility Modal Interaction', () => {
   test('should close modal on cancel', async ({ popupPage }) => {
+    // Open modal first
+    const optionsButton = popupPage.locator('#btn-options');
+    await optionsButton.click();
+
     // Find cancel or close button
     const cancelButton = popupPage.locator('button:has-text("Cancel"), button:has-text("Close"), button.close').first();
 
     if (await cancelButton.isVisible()) {
       await cancelButton.click();
 
-      // Modal should disappear
-      const modal = popupPage.locator('.modal, [role="dialog"]');
+      // Modal should disappear (use specific modal ID)
+      const modal = popupPage.locator('#advanced-options-modal');
       await expect(modal).not.toBeVisible({ timeout: 2000 });
     }
   });
 
   test('should have multiple tabs in advanced options', async ({ popupPage }) => {
-    // Count tabs
-    const tabs = popupPage.locator('button[role="tab"], .tab-button');
+    // Open modal first
+    const optionsButton = popupPage.locator('#btn-options');
+    await optionsButton.click();
+
+    // Wait for modal to appear
+    await popupPage.waitForTimeout(300);
+
+    // Count tabs (correct class is .modal-tab)
+    const tabs = popupPage.locator('.modal-tab');
     const count = await tabs.count();
 
-    // Should have at least 2 tabs (likely Profiles and Features)
-    expect(count).toBeGreaterThanOrEqual(1);
+    // Should have 3 tabs (Features, Keyboard, Appearance)
+    expect(count).toBeGreaterThanOrEqual(3);
   });
 });
