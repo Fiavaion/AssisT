@@ -1110,3 +1110,215 @@ body {
   max-height: 0;
   opacity: 0;
 }
+
+/* ============================================ */
+/* SPRINT 7 FEATURE: USER PROFILES            */
+/* ============================================ */
+
+/* Profile Section */
+.profile-section {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-selector-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.profile-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.profile-select {
+  flex: 1;
+  padding: 6px var(--spacing-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--border-radius);
+  background: white;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.profile-select:hover {
+  border-color: var(--primary-color);
+}
+
+.profile-select:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-color: var(--primary-color);
+}
+
+/* Profile Actions */
+.profile-actions {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--spacing-sm);
+}
+
+.profile-action-btn {
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.profile-action-btn:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  transform: translateY(-1px);
+}
+
+.profile-action-btn:active {
+  transform: translateY(0);
+}
+
+.profile-action-btn:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Modal Specific Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10001;
+}
+
+.modal .modal-content {
+  position: relative;
+  z-index: 10002;
+  background: white;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  padding: 16px 20px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.modal-input {
+  width: 100%;
+  padding: var(--spacing-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--border-radius);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: var(--transition);
+}
+
+.modal-input:hover {
+  border-color: var(--primary-color);
+}
+
+.modal-input:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-color: var(--primary-color);
+}
+
+.modal-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 12px 0 8px 0;
+}
+
+.modal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.modal-list li {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.modal-list li:before {
+  content: "•";
+  position: absolute;
+  left: 8px;
+  color: var(--primary-color);
+  font-weight: bold;
+}
+
+.modal-warning {
+  font-size: 12px;
+  color: var(--error);
+  font-weight: 500;
+  margin: 8px 0 0 0;
+}
+
+.modal-btn-danger {
+  background: var(--error);
+  color: white;
+}
+
+.modal-btn-danger:hover {
+  background: #D32F2F;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}

@@ -25,6 +25,30 @@
       <p class="subtitle">Text-to-Speech Controls</p>
     </header>
 
+    <!-- ========================================================== -->
+    <!-- SPRINT 7 FEATURE: USER PROFILES -->
+    <!-- ========================================================== -->
+    <section class="profile-section">
+      <div class="profile-selector-container">
+        <label for="profile-select" class="profile-label">👤 Profile:</label>
+        <select id="profile-select" class="profile-select" aria-label="Select profile">
+          <option value="Default">Default</option>
+        </select>
+      </div>
+
+      <div class="profile-actions">
+        <button id="btn-save-profile" class="profile-action-btn" title="Save current settings as profile" aria-label="Save current settings">
+          <span>💾 Save</span>
+        </button>
+        <button id="btn-export-profiles" class="profile-action-btn" title="Export all profiles" aria-label="Export profiles">
+          <span>📤</span>
+        </button>
+        <button id="btn-import-profiles" class="profile-action-btn" title="Import profiles" aria-label="Import profiles">
+          <span>📥</span>
+        </button>
+      </div>
+    </section>
+
     <!-- Main Controls -->
     <main class="popup-main">
       <!-- TTS Enable/Disable -->
@@ -891,6 +915,61 @@
       </div>
     </footer>
   </div>
+
+  <!-- ========================================================== -->
+  <!-- MODAL: SAVE PROFILE -->
+  <!-- ========================================================== -->
+  <div id="save-profile-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <h2 class="modal-title">Save Current Settings as Profile</h2>
+      <div class="modal-body">
+        <label for="profile-name-input" class="modal-label">Profile Name:</label>
+        <input
+          type="text"
+          id="profile-name-input"
+          class="modal-input"
+          placeholder="e.g., My Study Settings"
+          maxlength="50"
+          aria-label="Enter profile name">
+
+        <p class="modal-description">This will save all current settings:</p>
+        <ul class="modal-list">
+          <li>TTS settings (voice, speed, pitch, volume)</li>
+          <li>Text highlighting preferences</li>
+          <li>Text customization (font, spacing)</li>
+          <li>Reading guide and focus mode</li>
+          <li>Screen overlay settings</li>
+          <li>Canvas integration settings</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-save-profile" class="modal-btn modal-btn-secondary">Cancel</button>
+        <button id="btn-confirm-save-profile" class="modal-btn modal-btn-primary">Save Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================== -->
+  <!-- MODAL: DELETE PROFILE CONFIRMATION -->
+  <!-- ========================================================== -->
+  <div id="delete-profile-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <h2 class="modal-title">Delete Profile?</h2>
+      <div class="modal-body">
+        <p class="modal-description">Are you sure you want to delete "<span id="delete-profile-name"></span>"?</p>
+        <p class="modal-warning">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-delete-profile" class="modal-btn modal-btn-secondary">Cancel</button>
+        <button id="btn-confirm-delete-profile" class="modal-btn modal-btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file input for profile import -->
+  <input type="file" id="profile-import-input" accept=".json" style="display: none;">
 
   <script type="module" src="popup.js"></script>
 </body>
