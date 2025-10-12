@@ -326,6 +326,23 @@ Is this feature independent of existing features?
 
 ---
 
+---
+
+### DEC-202510-014
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-014 |
+| **Date** | 2025-10-11 |
+| **Decision** | Formalize build process requiring `npm run build` before testing, with strict rule: NEVER edit Output/ files directly |
+| **Rationale** | **CRITICAL INCIDENT RESOLUTION:** During Sprint 2, all code edits were made to `src/` files while Chrome loaded from `Output/` directory. This caused 2+ hours of wasted development time because "fixes didn't work" despite proper extension reloads. Root cause: Build step was skipped, leaving Output/ with stale code. Source and build directories must remain separated with clear workflow: Edit src/ → Build to Output/ → Chrome loads Output/. This architectural pattern prevents editing wrong files and ensures Chrome always runs latest code. |
+| **Alternatives** | 1. Single directory (no build step): Rejected as it prevents minification, excludes test files, and lacks deployment optimization. 2. Auto-watch and rebuild: Planned for future but requires additional tooling setup. 3. Direct Chrome loading from src/: Rejected as it exposes non-production files (tests, configs) to Chrome. |
+| **Impact** | Development Workflow: MANDATORY step added - must run `npm run build` after every source file edit. File Organization: Clear separation - `src/` is editable, `Output/` is generated (in .gitignore). Debugging: Eliminated confusing situations where "code doesn't update" due to stale build. Documentation: Created FILE_STRUCTURE.md explaining directory purpose and workflow. |
+| **Stakeholders** | Lead Developer, AI Assistant, Future Developers |
+| **Outcome/Action** | 1. Updated CLAUDE.md with file location rules: "ALWAYS edit src/, NEVER edit Output/". 2. Created FILE_STRUCTURE.md with comprehensive explanation and diagnostic checklist. 3. Verified existing build-extension.js handles src/ → Output/ copying. 4. Added bash alternative (build.sh) for non-Node environments. 5. Updated .gitignore (already excluded Output/). 6. RULE FOR AI: Before editing ANY file, validate path does not contain "Output/" - if it does, redirect to equivalent src/ path. |
+
+---
+
 ## Reference: Current Stable State
 
 **Version:** MVP-TTS-Stable-v1.0
@@ -359,5 +376,12 @@ Is this feature independent of existing features?
 - `src/popup/popup.css` (420 lines)
 - `src/popup/popup.js` (350 lines)
 - `manifest.json`
+
+**⚠️ CRITICAL WORKFLOW:**
+- **Edit:** Only files in `src/` directory
+- **Build:** Run `npm run build` (copies src/ → Output/)
+- **Load:** Chrome extension loads from `Output/` directory
+- **Test:** Reload extension + hard refresh page
+- **Commit:** Only commit `src/` files (Output/ is in .gitignore)
 
 This checkpoint serves as the foundation for all future development.
