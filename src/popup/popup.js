@@ -132,27 +132,7 @@ class PopupController {
         optionsContainer.classList.add('hidden');
       }
 
-      this.updatePlaybackControls();
       this.sendCommandToTab(e.target.checked ? 'enable' : 'disable');
-    });
-
-    // Playback buttons
-    document.getElementById('btn-play').addEventListener('click', () => {
-      this.sendCommandToTab('readPage');
-      this.updateStatus('Reading...', 'speaking');
-      this.updatePlaybackButtons(true);
-    });
-
-    document.getElementById('btn-pause').addEventListener('click', () => {
-      this.sendCommandToTab('pause');
-      this.updateStatus('Paused', 'paused');
-      this.updatePlaybackButtons(false, true);
-    });
-
-    document.getElementById('btn-stop').addEventListener('click', () => {
-      this.sendCommandToTab('stop');
-      this.updateStatus('Ready');
-      this.updatePlaybackButtons(false);
     });
 
     // Voice selection
@@ -802,41 +782,7 @@ class PopupController {
   }
 
   updateUI() {
-    this.updatePlaybackControls();
-  }
-
-  updatePlaybackControls() {
-    const enabled = this.settings?.tts?.enabled || false;
-    const playbackSection = document.getElementById('playback-controls');
-
-    if (enabled) {
-      playbackSection.style.opacity = '1';
-      playbackSection.style.pointerEvents = 'auto';
-    } else {
-      playbackSection.style.opacity = '0.5';
-      playbackSection.style.pointerEvents = 'none';
-    }
-  }
-
-  updatePlaybackButtons(playing = false, paused = false) {
-    const playBtn = document.getElementById('btn-play');
-    const pauseBtn = document.getElementById('btn-pause');
-    const stopBtn = document.getElementById('btn-stop');
-
-    playBtn.disabled = playing;
-    pauseBtn.disabled = !playing || paused;
-    stopBtn.disabled = !playing;
-
-    if (paused) {
-      pauseBtn.innerHTML = '<span class="btn-icon">▶️</span><span class="btn-text">Resume</span>';
-      pauseBtn.onclick = () => {
-        this.sendCommandToTab('resume');
-        this.updateStatus('Reading...', 'speaking');
-        this.updatePlaybackButtons(true, false);
-      };
-    } else {
-      pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span><span class="btn-text">Pause</span>';
-    }
+    // UI updates can be added here as needed
   }
 
   updateStatus(message, type = '') {
