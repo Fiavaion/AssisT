@@ -1,305 +1,292 @@
-# AssisT: Adaptive EdTech Extension for Canvas VLE
+# 🎓 AssisT - Adaptive EdTech Chrome Extension
+
+**Version:** Sprint 9 (Dyslexia Mode Complete)
+**Status:** Test-Phase Ready ✅
+**License:** MIT
+**Repository:** https://github.com/MarJone/AssisT
 
 [![WCAG 2.2 AA](https://img.shields.io/badge/WCAG-2.2%20AA-blue)](https://www.w3.org/WAI/WCAG22/quickref/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Neuro-adaptive TTS/STT personalization layer for neurodivergent students using Canvas VLE**
+---
 
-## 🎯 Overview
+## 📖 Overview
 
-AssisT is a Chrome Extension that provides comprehensive accessibility features for neurodivergent students (Dyslexia, Dysgraphia, Dyscalculia, ADHD, ASD) within the Canvas Virtual Learning Environment. By implementing W3C WAI-Adapt standards and WCAG 2.2 Level AA compliance, AssisT delivers personalized reading and writing support.
+**AssisT** is an adaptive educational technology Chrome extension designed to make web content more accessible for neurodivergent students, particularly those using Canvas LMS. It provides comprehensive text-to-speech, reading assistance, and innovative dyslexia-optimized features.
 
-### Current Features (Sprint 3 Complete)
+### 🎯 Target Users
 
-- ✅ **Text-to-Speech** with synchronized paragraph highlighting
-- ✅ **Text Customization** (WCAG 2.2 SC 1.4.12 compliant fonts and spacing)
-- ✅ **Reading Guide** (horizontal line cursor tracker for dyslexia)
-- ✅ **Focus Mode** (adjustable reading window with rounded corners)
-- 🚧 Speech-to-Text (planned Sprint 5)
-- 🚧 Canvas LMS Integration (planned Sprint 4)
+- Students with dyslexia, ADHD, or other learning differences
+- Students using Canvas LMS for online courses
+- Anyone who benefits from audio reinforcement while reading
+- Users requiring text customization for readability
+- Students taking online quizzes who need accessibility support
 
-**Current Version:** Sprint3-Complete-v1.0
+### ✨ Key Features
+
+- 🔊 **Text-to-Speech** with synchronized word-by-word highlighting
+- 🎤 **Speech-to-Text** for hands-free input with voice commands
+- ✨ **Dyslexia-Optimized Reading** (Bionic Reading, Syllable Highlighting, Grammar Colors)
+- 📚 **Canvas Quiz Helper** with keyboard navigation
+- 👤 **User Profiles** for quick context switching
+- 🎨 **Text Customization** (font, size, spacing, colors)
+- 🔍 **Reading Guide** and Focus Mode
+- 🌅 **Screen Overlays** for eye strain reduction
+- ⚙️ **Feature Visibility** controls for cleaner UI
 
 ---
 
 ## 🚀 Quick Start
 
-### Installation
+### Prerequisites
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/MarJone/AssisT.git
-   cd AssisT
-   ```
+- **Node.js** v16+ ([Download](https://nodejs.org/))
+- **Google Chrome** (latest version)
+- **Git** ([Download](https://git-scm.com/))
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Build the extension:**
-   ```bash
-   npm run build
-   ```
-
-4. **Load in Chrome:**
-   - Navigate to `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select the `Output/` directory
-
-See [docs/user/GETTING_STARTED.md](docs/user/GETTING_STARTED.md) for detailed instructions.
-
----
-
-## 📋 Features
-
-### ✅ Implemented Features
-
-#### Text-to-Speech (TTS)
-- Click any paragraph to read it aloud
-- Voice selection (default: Google UK Female)
-- Speed, pitch, and volume controls
-- Paragraph-level highlighting with customizable colors
-- Keyboard shortcuts: Space (pause/resume), +/- (speed)
-
-#### Text Customization (WCAG 2.2 SC 1.4.12)
-- 5 font options: System, Lexend, OpenDyslexic, Comic Sans, Arial
-- Line spacing: 1.0-3.0 (WCAG min: 1.5)
-- Letter spacing: 0-50% (WCAG min: 12%)
-- Word spacing: 0-50% (WCAG min: 16%)
-- Paragraph spacing: 1.0-3.0em (WCAG min: 2.0)
-
-#### Reading Guide
-- Horizontal line follows mouse cursor
-- Helps dyslexic students track reading position
-- Customizable color, thickness (1-10px), opacity (10-100%)
-
-#### Focus Mode
-- Adjustable reading window (150-800px × 50-250px)
-- 20% rounded corners for comfortable viewing
-- Overlay darkness control (10-100%)
-- Mutual exclusivity with Reading Guide
-
-### 🚧 Planned Features
-
-See [docs/planning/PRODUCTION_ROADMAP.md](docs/planning/PRODUCTION_ROADMAP.md) for full roadmap.
-
-**Sprint 4:** Canvas LMS Integration
-- Assignment auto-reader
-- Quiz helper with keyboard navigation
-- Canvas keyboard shortcuts
-
-**Sprint 5:** Writing Features
-- Speech-to-Text (Web Speech API)
-- FixOver multimodal correction system
-
-**Sprint 6:** Testing & Quality
-- 80% unit test coverage (Jest)
-- E2E tests (Playwright)
-- WCAG 2.2 AA full compliance audit
-
-**Sprint 7:** Cloud TTS/STT
-- Google Cloud Text-to-Speech
-- Amazon Polly
-- Whisper (OpenAI)
-
----
-
-## 🏗️ Project Structure
-
-```
-AssisT/
-├── docs/                       # Documentation (organized by audience)
-│   ├── development/           # For developers (testing, debugging, architecture)
-│   ├── planning/              # Roadmaps, sprint docs, decision logs
-│   ├── user/                  # End-user guides
-│   └── archive/               # Historical/deprecated docs
-├── scripts/                   # Build and utility scripts
-│   ├── build-extension.js     # Copies src/ → Output/
-│   ├── build.sh               # Bash alternative
-│   ├── push.sh                # Automated commit with rebase
-│   └── reload-extension.bat   # Force reload in Chrome
-├── src/                       # Source code (edit here!)
-│   ├── background/
-│   │   └── service-worker.js
-│   ├── content/
-│   │   └── content-simple.js  # Main content script (~1100 lines)
-│   ├── popup/
-│   │   ├── popup.html
-│   │   ├── popup.js
-│   │   └── popup.css
-│   ├── engines/               # TTS/STT controllers
-│   ├── adapters/              # DOM and WAI-Adapt adapters
-│   └── utils/                 # Storage, messaging utilities
-├── tests/                     # Test suites
-├── public/                    # Public assets (icons)
-├── Output/                    # Build output (gitignored, Chrome loads from here)
-├── manifest.json              # Chrome Extension manifest
-├── package.json               # NPM dependencies and scripts
-├── CLAUDE.md                  # AI assistant instructions
-├── CHANGELOG.md               # Version history
-└── README.md                  # This file
-```
-
-**⚠️ CRITICAL:** Always edit files in `src/`, never in `Output/`. Run `npm run build` after changes.
-
----
-
-## 🔧 Development Workflow
-
-### Build Process
+### Installation (5 Minutes)
 
 ```bash
-# Edit source files in src/
-npm run build           # Copies src/ → Output/
-# Reload extension in Chrome (chrome://extensions/)
-# Hard refresh page (Ctrl+Shift+R)
+# 1. Clone the repository
+git clone https://github.com/MarJone/AssisT.git
+cd AssisT
+
+# 2. Install dependencies
+npm install
+
+# 3. Build the extension
+npm run build
+
+# 4. Load in Chrome
+# - Open chrome://extensions/
+# - Enable "Developer mode"
+# - Click "Load unpacked"
+# - Select the "Output" folder
 ```
 
-### Commit Changes
+**✅ Done!** Click the AssisT icon in your Chrome toolbar to start.
 
-```bash
-# Use automated push script (ensures conventional commits + rebase)
-./scripts/push.sh
-
-# Or manually:
-git add .
-git commit -m "feat(feature): description"
-git pull --rebase origin main
-git push origin main
-```
-
-### Conventional Commits
-
-All commits MUST follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat(tts): add cloud TTS adapter
-fix(ui): resolve focus mode border radius
-docs(readme): update installation steps
-refactor(content): extract TTS logic to module
-test(storage): add unit tests for settings manager
-```
-
-### Version Tags
-
-Create annotated tags for stable versions:
-
-```bash
-git tag -a "Sprint4-Complete-v1.0" -m "Canvas integration complete"
-git push origin Sprint4-Complete-v1.0
-```
-
-**Existing Tags:**
-- `Sprint3-Complete-v1.0` - Current stable (Focus Mode + Text Customization + Reading Guide)
-- `Sprint3-TextCustomization-ReadingGuide-v1.0` - Before Focus Mode
-- `MVP-TTS-Stable-v1.0` - Original MVP
-
----
-
-## 🧪 Testing
-
-### Current Status
-- Unit Tests: 🚧 Minimal coverage (Sprint 6 goal: 80%)
-- E2E Tests: ❌ Not implemented yet
-- Accessibility: 🚧 Partial WCAG 2.2 AA compliance
-
-### Run Tests
-
-```bash
-npm test                    # Run all tests
-npm run test:unit          # Unit tests only (Jest)
-npm run test:e2e           # E2E tests (Playwright - not yet implemented)
-npm run test:coverage      # Generate coverage report
-```
-
-### Manual Testing Checklist
-
-See [docs/development/MANUAL_TEST_CHECKLIST.md](docs/development/MANUAL_TEST_CHECKLIST.md)
-
----
-
-## 🔒 Security & Privacy
-
-### FERPA Compliance
-- **Minimal Permissions:** Only `storage`, `activeTab`, Canvas domains
-- **Local Storage:** All settings stored in `chrome.storage.local`
-- **No PII Collection:** Zero personally identifiable information transmitted
-- **Isolated World:** Prevents conflicts with Canvas JavaScript
-
-### Data Handling
-- User preferences stored locally only
-- No external API calls in current version (Web Speech API is browser-native)
-- Future cloud TTS/STT will require explicit opt-in and API key management
+📘 **Detailed Setup:** See [SETUP.md](SETUP.md) for complete installation guide.
 
 ---
 
 ## 📚 Documentation
 
-### For Users
-- [Getting Started Guide](docs/user/GETTING_STARTED.md)
-- [User Guide](docs/user/USER_GUIDE.md)
-- [Troubleshooting](docs/user/TROUBLESHOOTING.md)
+| Document | Description |
+|----------|-------------|
+| [SETUP.md](SETUP.md) | Complete setup guide for new developers |
+| [TESTING_GUIDE.md](TESTING_GUIDE.md) | Manual testing procedures (43 test cases) |
+| [CLAUDE.md](CLAUDE.md) | Development standards and workflow |
+| [PROJECT_MEMORY.md](docs/planning/PROJECT_MEMORY.md) | Decision log and architecture rationale |
+| [TEST_EXECUTION_RESULTS.md](TEST_EXECUTION_RESULTS.md) | Test infrastructure status |
 
-### For Developers
-- [Development Workflow](docs/development/DEVELOPMENT_WORKFLOW.md)
-- [File Structure Guide](docs/development/FILE_STRUCTURE.md)
-- [Testing Guide](docs/development/TESTING_GUIDE.md)
-- [Stable Version Guide](docs/development/STABLE_VERSION_GUIDE.md)
+---
 
-### For Planning
-- [Production Roadmap](docs/planning/PRODUCTION_ROADMAP.md) ⭐ **Comprehensive 10-sprint plan**
-- [Project Memory (Decision Log)](docs/planning/PROJECT_MEMORY.md)
-- [Sprint Summaries](docs/planning/)
+## 🎨 Features by Sprint
+
+### Sprint 1-5: Core Functionality
+
+1. **Text-to-Speech (TTS)**
+   - Read any webpage aloud
+   - Multiple voices, adjustable speed/pitch/volume
+   - Word-by-word synchronized highlighting
+
+2. **Text Customization**
+   - Font size, line height, letter spacing
+   - Font family (OpenDyslexic, Arial, etc.)
+   - WCAG 2.2 AA compliant
+
+3. **Reading Guide & Focus Mode**
+   - Horizontal guide bar follows cursor
+   - Dims surrounding content
+   - Reduces visual distractions
+
+4. **Speech-to-Text (STT)**
+   - Dictate into text fields
+   - Voice punctuation commands
+   - Auto-capitalization
+
+### Sprint 6-7: Advanced Features
+
+5. **Screen Color Overlay**
+   - Sepia, blue light filter, grayscale
+   - Adjustable opacity
+   - Reduces eye strain
+
+6. **Canvas Quiz Helper**
+   - Read quiz questions aloud
+   - Keyboard navigation (Ctrl+↑/↓/Enter)
+   - Visual highlighting
+
+7. **User Profiles**
+   - 4 default profiles (Default, Reading, Quiz, Low Vision)
+   - Save/load custom profiles
+   - Export/import as JSON
+
+8. **Feature Visibility**
+   - Show/hide 8 features
+   - Cleaner, focused UI
+   - Settings persist
+
+### Sprint 9: Innovation ✨ NEW!
+
+9. **Dyslexia-Optimized Reading Mode**
+   - **Bionic Reading:** Bold first 1-3 letters of words
+   - **Syllable Highlighting:** Alternating color backgrounds
+   - **Grammar Color-Coding:** NLP-based part-of-speech coloring
+   - Adjustable color intensity
+   - Performance optimized (<300ms)
+
+---
+
+## 🧪 Testing
+
+### Test Status
+
+| Test Type | Status | Details |
+|-----------|--------|---------|
+| Unit Tests | ✅ 94/94 passing | Jest, 96%+ coverage on tested modules |
+| E2E Tests | ⚠️ 11/25 passing | Playwright, selector updates needed |
+| Manual Testing | ✅ Ready | 43 test cases documented |
+
+### Run Tests
+
+```bash
+# Unit tests (fast, ~4 seconds)
+npm test
+
+# Unit tests with coverage
+npm run test:coverage
+
+# E2E tests (slow, ~55 seconds)
+npm run test:e2e
+```
+
+📘 **Testing Guide:** See [TESTING_GUIDE.md](TESTING_GUIDE.md) for 43 manual test cases.
+
+---
+
+## 🔧 Development
+
+### Workflow
+
+```bash
+# 1. Make changes in src/ directory
+code src/popup/popup.js
+
+# 2. Build the extension
+npm run build
+
+# 3. Reload extension in Chrome
+# Go to chrome://extensions/ and click reload icon
+
+# 4. Test your changes
+```
+
+### Commit Convention
+
+```bash
+git commit -m "feat(popup): add new feature"
+git commit -m "fix(tts): resolve bug"
+git commit -m "docs(readme): update"
+```
+
+**Types:** `feat`, `fix`, `docs`, `test`, `refactor`, `chore`
+
+---
+
+## 📊 Project Stats
+
+- **7,538 lines** of code
+- **10 major features** implemented
+- **94 unit tests** passing
+- **43 manual test cases** documented
+- **9 sprints** completed
+- **603 npm packages** installed
+
+---
+
+## 🔮 Roadmap
+
+### Completed ✅
+- [x] Core TTS with highlighting
+- [x] Text customization
+- [x] Reading guide and focus mode
+- [x] Speech-to-text
+- [x] Canvas Quiz Helper
+- [x] User Profiles
+- [x] Feature visibility
+- [x] Screen overlays
+- [x] Dyslexia modes
+- [x] Testing infrastructure
+
+### Planned 📋
+- [ ] Fix E2E test selectors
+- [ ] TTS/STT engine test coverage
+- [ ] Performance benchmarks
+- [ ] Canvas assignment reader
+- [ ] Auto-profile switching
+- [ ] Keyboard shortcut customization
+- [ ] Cloud sync for profiles
+- [ ] First-time user tutorial
 
 ---
 
 ## 🤝 Contributing
 
-1. **Review project standards:** [CLAUDE.md](CLAUDE.md)
-2. **Read decision log:** [docs/planning/PROJECT_MEMORY.md](docs/planning/PROJECT_MEMORY.md)
-3. **Follow TDD:** Write tests first, then implementation
-4. **Use Conventional Commits:** All changes must follow spec
-5. **Update decision log:** Document significant architectural choices
-
----
-
-## 📊 Success Metrics
-
-### Technical KPIs
-- Test Coverage: Target 80%+
-- WCAG Conformance: 2.2 AA (100% for core flows)
-- Extension Load Time: <100ms
-- TTS Latency: <200ms
-- Memory Usage: <50MB after 1 hour
-
-### User KPIs (Post-Launch)
-- Task Success Rate: ≥90%
-- User Error Frequency: ≥25% decrease per quarter
-- Accessible Usability Scale: ≥70 (High Usability)
+1. **Read [SETUP.md](SETUP.md)** for installation
+2. **Follow [CLAUDE.md](CLAUDE.md)** for standards
+3. **Check [PROJECT_MEMORY.md](docs/planning/PROJECT_MEMORY.md)** for architecture
+4. **Use conventional commits**
+5. **Write tests for new features**
 
 ---
 
 ## 📄 License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- W3C WAI-Adapt Working Group
-- Canvas LMS Platform
-- OpenDyslexic font project
-- Open-source accessibility community
-- Neurodivergent students and advocates
+- **OpenDyslexic Font** - Font for dyslexic readers
+- **compromise.js** - NLP library
+- **Web Speech API** - Browser TTS/STT
+- **Canvas LMS** - Learning management system
+- **Jest & Playwright** - Testing frameworks
 
 ---
 
-**Version:** Sprint3-Complete-v1.0
-**Status:** Active Development
-**Last Updated:** 2025-10-12
-**Next Milestone:** Sprint 4 (Canvas LMS Integration)
+## 📞 Support
 
-For detailed version history, see [CHANGELOG.md](CHANGELOG.md)
+- **Documentation:** [SETUP.md](SETUP.md), [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- **Bug Reports:** Use template in TESTING_GUIDE.md
+- **Debugging:** Check console logs (Right-click icon → Inspect popup)
+
+---
+
+## 📈 Current Status
+
+**Version:** Sprint 9 (Dyslexia Mode Complete)
+**Status:** Test-Phase Ready ✅
+**Last Updated:** 2025-10-12
+**Production Ready:** Beta testing ready
+
+### Recent Changes
+
+- ✨ Dyslexia-Optimized Reading Mode (3 algorithms)
+- ✨ Bionic Reading implementation
+- ✨ Syllable Highlighting implementation
+- ✨ Grammar Color-Coding with NLP
+- ✨ Color intensity slider
+- 📝 Comprehensive E2E test suite
+- 📝 Sprint 9 Phase 2 documentation
+- 🧪 94/94 unit tests maintained
+
+---
+
+**Built with ❤️ for neurodivergent learners**
+
+**Ready to get started?** See [SETUP.md](SETUP.md)!
+**Ready to test?** See [TESTING_GUIDE.md](TESTING_GUIDE.md)!
