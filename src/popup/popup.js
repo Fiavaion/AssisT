@@ -268,6 +268,11 @@ class PopupController {
     this.setupFocusMode();
 
     // ============================================================
+    // SPRINT 6 FEATURE: SCREEN COLOR OVERLAY
+    // ============================================================
+    this.setupScreenOverlay();
+
+    // ============================================================
     // SPRINT 4 FEATURE: CANVAS INTEGRATION
     // ============================================================
     this.setupCanvasIntegration();
@@ -1067,6 +1072,66 @@ class PopupController {
     });
 
     console.log('[Popup] Focus Mode initialized');
+  }
+
+  // ============================================================
+  // SPRINT 6 FEATURE: SCREEN COLOR OVERLAY
+  // ============================================================
+  setupScreenOverlay() {
+    if (!this.settings.screenOverlay) {
+      this.settings.screenOverlay = {
+        enabled: false,
+        color: '#FFF4E6',
+        opacity: 0.3
+      };
+    }
+
+    const screenOverlayEnabled = document.getElementById('screen-overlay-enabled');
+    const screenOverlayDescription = document.getElementById('screen-overlay-description');
+    const screenOverlayOptions = document.getElementById('screen-overlay-options');
+
+    screenOverlayEnabled.checked = this.settings.screenOverlay.enabled || false;
+
+    if (screenOverlayEnabled.checked) {
+      screenOverlayDescription.classList.remove('hidden');
+      screenOverlayOptions.classList.remove('hidden');
+    } else {
+      screenOverlayDescription.classList.add('hidden');
+      screenOverlayOptions.classList.add('hidden');
+    }
+
+    screenOverlayEnabled.addEventListener('change', (e) => {
+      this.settings.screenOverlay.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        screenOverlayDescription.classList.remove('hidden');
+        screenOverlayOptions.classList.remove('hidden');
+      } else {
+        screenOverlayDescription.classList.add('hidden');
+        screenOverlayOptions.classList.add('hidden');
+      }
+    });
+
+    const colorSelect = document.getElementById('screen-overlay-color');
+    colorSelect.value = this.settings.screenOverlay.color || '#FFF4E6';
+    colorSelect.addEventListener('change', (e) => {
+      this.settings.screenOverlay.color = e.target.value;
+      this.saveSettings();
+    });
+
+    const opacitySlider = document.getElementById('screen-overlay-opacity');
+    const opacityValue = document.getElementById('screen-overlay-opacity-value');
+    opacitySlider.value = this.settings.screenOverlay.opacity || 0.3;
+    opacityValue.textContent = Math.round(opacitySlider.value * 100) + '%';
+    opacitySlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      opacityValue.textContent = Math.round(value * 100) + '%';
+      this.settings.screenOverlay.opacity = value;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Screen Overlay initialized');
   }
 
   // ============================================================
