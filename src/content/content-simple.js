@@ -1418,11 +1418,102 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
+// ============================================================
+// SPRINT 6 FEATURE: READ ENTIRE PAGE
+// ============================================================
+
+// Extract main content from page (skip navigation, headers, sidebars)
+function readPage_extractMainContent() {
+  // Try to find main content area
+  const mainContent =
+    document.querySelector('main') ||
+    document.querySelector('article') ||
+    document.querySelector('[role="main"]') ||
+    document.querySelector('.main-content') ||
+    document.querySelector('.content') ||
+    document.querySelector('#content') ||
+    // Canvas-specific selectors
+    document.querySelector('.ic-Layout-contentMain') ||
+    document.querySelector('.assignment_description') ||
+    document.querySelector('.user_content') ||
+    // Fallback to body
+    document.body;
+
+  // Build skip list (elements to exclude)
+  const skipElements = new Set();
+  const skipSelectors = [
+    'nav', 'header', 'footer', 'aside',
+    '[role="navigation"]', '[role="banner"]', '[role="complementary"]',
+    '.menu', '.sidebar', '.navigation', '.breadcrumb',
+    '.ic-app-header', '.header-bar', '.right-side'
+  ];
+
+  skipSelectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => skipElements.add(el));
+  });
+
+  // Extract text from paragraphs, headings, etc.
+  const textElements = mainContent.querySelectorAll(
+    'p, h1, h2, h3, h4, h5, h6, li, blockquote'
+  );
+
+  const textParts = [];
+  textElements.forEach(el => {
+    // Skip if element is inside skip list
+    let shouldSkip = false;
+    let current = el;
+    while (current && current !== document.body) {
+      if (skipElements.has(current)) {
+        shouldSkip = true;
+        break;
+      }
+      current = current.parentElement;
+    }
+
+    if (!shouldSkip) {
+      const text = el.textContent?.trim();
+      if (text && text.length > 10) {
+        textParts.push(text);
+      }
+    }
+  });
+
+  return {
+    text: textParts.join(' '),
+    element: mainContent,
+    count: textParts.length
+  };
+}
+
 // Message handler for commands from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[AssisT] Message received:', message.type);
 
-  // Future message handlers can be added here
+  // Handle TTS commands from popup
+  if (message.type === 'TTS_COMMAND' && message.data) {
+    const command = message.data.command;
+
+    // Read entire page
+    if (command === 'readPage') {
+      if (!settings.enabled) {
+        showToast('⚠️ Enable TTS in the extension popup first');
+        return;
+      }
+
+      const { text, element, count } = readPage_extractMainContent();
+
+      if (!text || text.length < 50) {
+        showToast('⚠️ No readable content found');
+        return;
+      }
+
+      console.log('[ReadPage] Reading page:', count, 'sections');
+      showToast(`📖 Reading page (${count} sections)`);
+
+      // Use existing readText function - NO MODIFICATIONS!
+      readText(text, element);
+    }
+  }
 
   return true; // Keep message channel open
 });

@@ -135,6 +135,16 @@ class PopupController {
       this.sendCommandToTab(e.target.checked ? 'enable' : 'disable');
     });
 
+    // ============================================================
+    // SPRINT 6 FEATURE: READ ENTIRE PAGE
+    // ============================================================
+    const btnReadPage = document.getElementById('btn-read-page');
+    btnReadPage.addEventListener('click', () => {
+      console.log('[Popup] Read Page button clicked');
+      this.sendCommandToTab('readPage');
+      this.updateStatus('Reading page...', 'speaking');
+    });
+
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.addEventListener('change', (e) => {
