@@ -343,38 +343,74 @@ Is this feature independent of existing features?
 
 ---
 
+### DEC-202510-015
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-015 |
+| **Date** | 2025-10-12 |
+| **Decision** | Implement Screen Color Overlay feature for eye strain reduction with 8 preset colors and adjustable opacity |
+| **Rationale** | User explicitly requested screen color overlay feature similar to text highlighting color picker UI. Eye strain reduction is critical for neurodivergent students during long study sessions. Color overlays (especially warm tones like sepia) are proven to reduce eye fatigue and improve reading comfort. Feature implemented using full-screen fixed-position div with `pointer-events: none` to avoid interfering with page interaction. Maintains feature isolation pattern established in DEC-202510-010. |
+| **Alternatives** | 1. CSS filters (brightness, contrast, hue-rotate): Rejected as they affect entire page including UI elements and images in unwanted ways. 2. Browser-level dark mode: Rejected as it doesn't provide color tint options and isn't customizable per-page. 3. Third-party browser extensions: Rejected to keep all features integrated in single extension. |
+| **Impact** | User Experience: Reduces eye strain with customizable color tints. Accessibility: Benefits users with visual processing sensitivities, dyslexia, and photophobia. Performance: Minimal (single div overlay, no reflow/repaint on scroll). Code: Added 112 lines to content-simple.js, 65 lines to popup.html, 58 lines to popup.js. |
+| **Stakeholders** | Lead Developer, End Users, Accessibility SME |
+| **Outcome/Action** | Implemented Sprint 6 feature with 8 color presets (Warm Sepia default), opacity slider (10-90%), real-time updates, settings persistence. Created checkpoint tag "Sprint-6-ScreenOverlay-Stable". Feature follows isolation pattern, no impact on existing features. |
+
+---
+
+### DEC-202510-016
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-016 |
+| **Date** | 2025-10-12 |
+| **Decision** | Defer word-by-word highlighting refinement (Option B) to later iteration, prioritize Canvas-specific features (Option C) |
+| **Rationale** | User explicitly requested to "leave option b until later iteration" and move to Option C. Strategic decision to focus on Canvas VLE integration features (Quiz Helper, User Profiles, Keyboard Navigation) before polishing existing TTS word-by-word highlighting. Canvas-specific features provide higher value for target users (students in Canvas LMS) and align with project goal of deep VLE integration. Word-by-word highlighting is functional but could use polish - deferring allows focus on new capabilities. |
+| **Alternatives** | 1. Complete Option B first: Rejected based on user priority guidance. 2. Parallel development: Rejected to maintain focus and avoid context switching. |
+| **Impact** | Development: Clear priority order enables focused implementation. User Value: Canvas-specific features deliver more immediate value to target audience. Technical Debt: Word-by-word refinement noted for future sprint, not blocking. |
+| **Stakeholders** | Lead Developer, Product Lead, End Users |
+| **Outcome/Action** | Updated project roadmap. Next sprint focuses on Canvas Quiz Helper, User Profiles system, and Canvas Keyboard Navigation. Word-by-word highlighting refinement moved to backlog. Created Sprint-6-ScreenOverlay-Stable checkpoint before starting Option C work. |
+
+---
+
 ## Reference: Current Stable State
 
-**Version:** MVP-TTS-Stable-v1.0
-**Date:** 2025-10-11
-**Commit:** 5e247a2fa3cf7bfb812646f69b288d4926d6513f
-**Tag:** MVP-TTS-Stable-v1.0
+**Version:** Sprint-6-ScreenOverlay-Stable
+**Date:** 2025-10-12
+**Commit:** 51bd34dc849db6997e96e188c3a017c9d0516c63
+**Tag:** Sprint-6-ScreenOverlay-Stable
 
 **Functional Features:**
-- Text-to-Speech with click-to-read
-- Paragraph-level highlighting
-- Voice selection and control
-- Speed, pitch, volume adjustment
-- Highlight color and opacity customization
-- Keyboard shortcuts (Space, +, -)
-- Settings persistence
-- Real-time setting updates
-- Feature toggles (TTS, Highlighting)
-- Reset to defaults
-- Compact UI (340px)
+- ✅ Text-to-Speech with click-to-read
+- ✅ Paragraph-level highlighting with synchronized reading
+- ✅ Word-by-word highlighting (basic implementation)
+- ✅ Voice selection and control
+- ✅ Speed, pitch, volume adjustment
+- ✅ Text customization (font, size, spacing, colors)
+- ✅ Reading Guide (customizable line guide)
+- ✅ Focus Mode (dim surrounding content)
+- ✅ Screen Color Overlay (8 colors, adjustable opacity) **NEW**
+- ✅ Highlight color and opacity customization
+- ✅ Keyboard shortcuts (Space: pause/resume, +/-: speed adjust)
+- ✅ Settings persistence across sessions
+- ✅ Real-time setting updates
+- ✅ Feature toggles with progressive disclosure
+- ✅ Reset to defaults
+- ✅ Compact UI (340px)
 
 **Known Limitations:**
-- No word-by-word highlighting
+- Word-by-word highlighting needs refinement (deferred to future sprint)
 - No speech-to-text (STT)
-- No Canvas-specific features
+- No Canvas-specific features yet
 - No cloud TTS engines
 - No mobile optimization
+- No automated tests yet
 
 **Files:**
-- `src/content/content-simple.js` (400 lines)
-- `src/popup/popup.html` (220 lines)
-- `src/popup/popup.css` (420 lines)
-- `src/popup/popup.js` (350 lines)
+- `src/content/content-simple.js` (1635 lines)
+- `src/popup/popup.html` (622 lines)
+- `src/popup/popup.css` (830 lines)
+- `src/popup/popup.js` (1135 lines)
 - `manifest.json`
 
 **⚠️ CRITICAL WORKFLOW:**
@@ -384,4 +420,8 @@ Is this feature independent of existing features?
 - **Test:** Reload extension + hard refresh page
 - **Commit:** Only commit `src/` files (Output/ is in .gitignore)
 
-This checkpoint serves as the foundation for all future development.
+**Previous Checkpoints:**
+- MVP-TTS-Stable-v1.0 (2025-10-11): Basic TTS and highlighting
+- Sprint-6-ScreenOverlay-Stable (2025-10-12): Current stable with screen overlay
+
+This checkpoint serves as the foundation for Canvas-specific feature development (Option C).
