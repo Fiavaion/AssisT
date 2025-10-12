@@ -10,7 +10,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const OUTPUT_DIR = path.join(__dirname, 'Output');
+// Project root is one level up from scripts/
+const PROJECT_ROOT = path.join(__dirname, '..');
+const OUTPUT_DIR = path.join(PROJECT_ROOT, 'Output');
 
 // Files and directories to copy
 const FILES_TO_COPY = [
@@ -77,7 +79,7 @@ function buildExtension() {
   console.log('📦 Copying extension files...\n');
 
   for (const item of FILES_TO_COPY) {
-    const srcPath = path.join(__dirname, item);
+    const srcPath = path.join(PROJECT_ROOT, item);
 
     if (!fs.existsSync(srcPath)) {
       console.warn(`⚠️  Warning: ${item} not found, skipping`);

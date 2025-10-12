@@ -7,189 +7,299 @@
 
 ## 🎯 Overview
 
-AssisT is a Chrome Extension that provides comprehensive accessibility features for neurodivergent students (Dyslexia, Dysgraphia, Dyscalculia, ADHD, ASD) within the Canvas Virtual Learning Environment. By implementing W3C WAI-Adapt standards and WCAG 2.2 Level AA compliance, AssisT delivers personalized reading and writing support through:
+AssisT is a Chrome Extension that provides comprehensive accessibility features for neurodivergent students (Dyslexia, Dysgraphia, Dyscalculia, ADHD, ASD) within the Canvas Virtual Learning Environment. By implementing W3C WAI-Adapt standards and WCAG 2.2 Level AA compliance, AssisT delivers personalized reading and writing support.
 
-- **Text-to-Speech (TTS)** with synchronized word-by-word highlighting
-- **Speech-to-Text (STT)** with multimodal error correction (FixOver pattern)
-- **WAI-Adapt Personalization** for text spacing, focus mode, and numeric simplification
-- **Isolated World Architecture** preventing conflicts with Canvas VLE
+### Current Features (Sprint 3 Complete)
+
+- ✅ **Text-to-Speech** with synchronized paragraph highlighting
+- ✅ **Text Customization** (WCAG 2.2 SC 1.4.12 compliant fonts and spacing)
+- ✅ **Reading Guide** (horizontal line cursor tracker for dyslexia)
+- ✅ **Focus Mode** (adjustable reading window with rounded corners)
+- 🚧 Speech-to-Text (planned Sprint 5)
+- 🚧 Canvas LMS Integration (planned Sprint 4)
+
+**Current Version:** Sprint3-Complete-v1.0
+
+---
 
 ## 🚀 Quick Start
 
-**See [GETTING_STARTED.md](GETTING_STARTED.md) for setup instructions.**
+### Installation
 
-```bash
-npm install                    # Install dependencies
-npm test                       # Run tests
-npm run lint                   # Check code quality
-./push.sh                      # Commit & push changes
-```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/MarJone/AssisT.git
+   cd AssisT
+   ```
 
-Load extension: `chrome://extensions/` → Developer mode → Load unpacked
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Build the extension:**
+   ```bash
+   npm run build
+   ```
+
+4. **Load in Chrome:**
+   - Navigate to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select the `Output/` directory
+
+See [docs/user/GETTING_STARTED.md](docs/user/GETTING_STARTED.md) for detailed instructions.
+
+---
 
 ## 📋 Features
 
-### Core Accessibility Features
+### ✅ Implemented Features
 
-#### FR-100: Adaptive Text Styling Suite
-- Customizable fonts (including OpenDyslexic)
-- Color scheme customization
-- WCAG 2.2 SC 1.4.12 compliant text spacing controls
+#### Text-to-Speech (TTS)
+- Click any paragraph to read it aloud
+- Voice selection (default: Google UK Female)
+- Speed, pitch, and volume controls
+- Paragraph-level highlighting with customizable colors
+- Keyboard shortcuts: Space (pause/resume), +/- (speed)
 
-#### FR-101: Synchronized TTS Reader
-- High-fidelity neural TTS with SSML support
-- Word-by-word visual highlighting
-- Adjustable pace, pitch, and volume
+#### Text Customization (WCAG 2.2 SC 1.4.12)
+- 5 font options: System, Lexend, OpenDyslexic, Comic Sans, Arial
+- Line spacing: 1.0-3.0 (WCAG min: 1.5)
+- Letter spacing: 0-50% (WCAG min: 12%)
+- Word spacing: 0-50% (WCAG min: 16%)
+- Paragraph spacing: 1.0-3.0em (WCAG min: 2.0)
 
-#### FR-102: Immersive Focus Mode
-- Hides extraneous page elements
-- Simplifies navigation
-- Reduces cognitive load
+#### Reading Guide
+- Horizontal line follows mouse cursor
+- Helps dyslexic students track reading position
+- Customizable color, thickness (1-10px), opacity (10-100%)
 
-#### FR-103: High-Accuracy STT Input
-- Domain-adapted speech recognition
-- Academic terminology support
-- <5% Word Error Rate (WER)
+#### Focus Mode
+- Adjustable reading window (150-800px × 50-250px)
+- 20% rounded corners for comfortable viewing
+- Overlay darkness control (10-100%)
+- Mutual exclusivity with Reading Guide
 
-#### FR-104: Multimodal FixOver Correction
-- Voice-and-point error correction
-- No re-dictation required
-- Reduces motor fatigue
+### 🚧 Planned Features
 
-#### FR-106: Numeric Information Adaptation
-- Date/time simplification (e.g., "Due today")
-- Dyscalculia-friendly formats
-- Semantic text alternatives
+See [docs/planning/PRODUCTION_ROADMAP.md](docs/planning/PRODUCTION_ROADMAP.md) for full roadmap.
 
-## 🏗️ Architecture
+**Sprint 4:** Canvas LMS Integration
+- Assignment auto-reader
+- Quiz helper with keyboard navigation
+- Canvas keyboard shortcuts
+
+**Sprint 5:** Writing Features
+- Speech-to-Text (Web Speech API)
+- FixOver multimodal correction system
+
+**Sprint 6:** Testing & Quality
+- 80% unit test coverage (Jest)
+- E2E tests (Playwright)
+- WCAG 2.2 AA full compliance audit
+
+**Sprint 7:** Cloud TTS/STT
+- Google Cloud Text-to-Speech
+- Amazon Polly
+- Whisper (OpenAI)
+
+---
+
+## 🏗️ Project Structure
 
 ```
 AssisT/
-├── manifest.json              # Chrome Extension Manifest V3
-├── src/
+├── docs/                       # Documentation (organized by audience)
+│   ├── development/           # For developers (testing, debugging, architecture)
+│   ├── planning/              # Roadmaps, sprint docs, decision logs
+│   ├── user/                  # End-user guides
+│   └── archive/               # Historical/deprecated docs
+├── scripts/                   # Build and utility scripts
+│   ├── build-extension.js     # Copies src/ → Output/
+│   ├── build.sh               # Bash alternative
+│   ├── push.sh                # Automated commit with rebase
+│   └── reload-extension.bat   # Force reload in Chrome
+├── src/                       # Source code (edit here!)
 │   ├── background/
-│   │   └── service-worker.js  # Background service worker
+│   │   └── service-worker.js
 │   ├── content/
-│   │   └── content.js         # DOM injection (Isolated World)
+│   │   └── content-simple.js  # Main content script (~1100 lines)
 │   ├── popup/
-│   │   ├── popup.html         # Extension popup UI
-│   │   ├── popup.js           # Popup logic
-│   │   └── popup.css          # Popup styles
-│   ├── engines/
-│   │   ├── tts/
-│   │   │   └── tts-controller.js
-│   │   └── stt/
-│   │       └── stt-controller.js
-│   ├── adapters/
-│   │   ├── dom-adapter.js     # Canvas DOM interaction
-│   │   └── wai-adapt-manager.js
-│   └── utils/
-│       ├── storage-manager.js  # FERPA-compliant storage
-│       └── message-router.js   # Secure messaging
-├── tests/
-│   ├── unit/
-│   └── e2e/
-└── docs/
+│   │   ├── popup.html
+│   │   ├── popup.js
+│   │   └── popup.css
+│   ├── engines/               # TTS/STT controllers
+│   ├── adapters/              # DOM and WAI-Adapt adapters
+│   └── utils/                 # Storage, messaging utilities
+├── tests/                     # Test suites
+├── public/                    # Public assets (icons)
+├── Output/                    # Build output (gitignored, Chrome loads from here)
+├── manifest.json              # Chrome Extension manifest
+├── package.json               # NPM dependencies and scripts
+├── CLAUDE.md                  # AI assistant instructions
+├── CHANGELOG.md               # Version history
+└── README.md                  # This file
 ```
 
-## 🔒 Security & Privacy
+**⚠️ CRITICAL:** Always edit files in `src/`, never in `Output/`. Run `npm run build` after changes.
 
-### FERPA/HIPAA Compliance
-- **Minimal Permissions**: Only `storage`, `activeTab`, and Canvas domain access
-- **Local Processing**: User preferences stored locally via Chrome Storage API
-- **No PII Collection**: No personally identifiable information transmitted
-- **Isolated World**: Prevents JavaScript conflicts and security vulnerabilities
+---
 
-### Data Handling
-- All TTS/STT processing can be configured for local-only operation
-- Cloud API usage (if enabled) requires institutional data agreements
-- User settings are exportable/importable for backup
+## 🔧 Development Workflow
+
+### Build Process
+
+```bash
+# Edit source files in src/
+npm run build           # Copies src/ → Output/
+# Reload extension in Chrome (chrome://extensions/)
+# Hard refresh page (Ctrl+Shift+R)
+```
+
+### Commit Changes
+
+```bash
+# Use automated push script (ensures conventional commits + rebase)
+./scripts/push.sh
+
+# Or manually:
+git add .
+git commit -m "feat(feature): description"
+git pull --rebase origin main
+git push origin main
+```
+
+### Conventional Commits
+
+All commits MUST follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat(tts): add cloud TTS adapter
+fix(ui): resolve focus mode border radius
+docs(readme): update installation steps
+refactor(content): extract TTS logic to module
+test(storage): add unit tests for settings manager
+```
+
+### Version Tags
+
+Create annotated tags for stable versions:
+
+```bash
+git tag -a "Sprint4-Complete-v1.0" -m "Canvas integration complete"
+git push origin Sprint4-Complete-v1.0
+```
+
+**Existing Tags:**
+- `Sprint3-Complete-v1.0` - Current stable (Focus Mode + Text Customization + Reading Guide)
+- `Sprint3-TextCustomization-ReadingGuide-v1.0` - Before Focus Mode
+- `MVP-TTS-Stable-v1.0` - Original MVP
+
+---
 
 ## 🧪 Testing
 
-### Test-Driven Development (TDD)
-All features are developed following strict TDD principles:
+### Current Status
+- Unit Tests: 🚧 Minimal coverage (Sprint 6 goal: 80%)
+- E2E Tests: ❌ Not implemented yet
+- Accessibility: 🚧 Partial WCAG 2.2 AA compliance
+
+### Run Tests
 
 ```bash
-# Run unit tests
-npm run test:unit
-
-# Run E2E tests with Playwright
-npm run test:e2e
-
-# Generate coverage report
-npm run test:coverage
+npm test                    # Run all tests
+npm run test:unit          # Unit tests only (Jest)
+npm run test:e2e           # E2E tests (Playwright - not yet implemented)
+npm run test:coverage      # Generate coverage report
 ```
 
-### Accessibility Testing
-- WCAG 2.2 AA automated checks
-- Screen reader compatibility testing
-- Keyboard navigation verification
-- Neurodivergent user testing protocols
+### Manual Testing Checklist
 
-## 📝 Development Workflow
+See [docs/development/MANUAL_TEST_CHECKLIST.md](docs/development/MANUAL_TEST_CHECKLIST.md)
 
-### Conventional Commits
-All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+---
 
-```
-feat(tts): add SSML pace control
-fix(ui): resolve focus mode indicator positioning
-docs(readme): update installation instructions
-refactor(dom): optimize text node extraction
-test(stt): add domain adaptation tests
-```
+## 🔒 Security & Privacy
 
-### Automated Push Script
-Use the `push` alias (or `./push.sh`) for all commits:
+### FERPA Compliance
+- **Minimal Permissions:** Only `storage`, `activeTab`, Canvas domains
+- **Local Storage:** All settings stored in `chrome.storage.local`
+- **No PII Collection:** Zero personally identifiable information transmitted
+- **Isolated World:** Prevents conflicts with Canvas JavaScript
 
-```bash
-# After making changes
-push
-# Enter commit message: feat(wai-adapt): implement text spacing controls
-```
+### Data Handling
+- User preferences stored locally only
+- No external API calls in current version (Web Speech API is browser-native)
+- Future cloud TTS/STT will require explicit opt-in and API key management
 
-This ensures:
-- Atomic commits with descriptive versioning
-- Linear git history via rebase
-- Easy rollback to stable versions
+---
 
 ## 📚 Documentation
 
-- [GETTING_STARTED.md](GETTING_STARTED.md) - Setup guide
-- [ROADMAP.md](ROADMAP.md) - Development plan
-- [claude.md](claude.md) - Standards & constraints
-- [projectmemory.md](projectmemory.md) - Decision log
+### For Users
+- [Getting Started Guide](docs/user/GETTING_STARTED.md)
+- [User Guide](docs/user/USER_GUIDE.md)
+- [Troubleshooting](docs/user/TROUBLESHOOTING.md)
+
+### For Developers
+- [Development Workflow](docs/development/DEVELOPMENT_WORKFLOW.md)
+- [File Structure Guide](docs/development/FILE_STRUCTURE.md)
+- [Testing Guide](docs/development/TESTING_GUIDE.md)
+- [Stable Version Guide](docs/development/STABLE_VERSION_GUIDE.md)
+
+### For Planning
+- [Production Roadmap](docs/planning/PRODUCTION_ROADMAP.md) ⭐ **Comprehensive 10-sprint plan**
+- [Project Memory (Decision Log)](docs/planning/PROJECT_MEMORY.md)
+- [Sprint Summaries](docs/planning/)
+
+---
 
 ## 🤝 Contributing
 
-1. Consult [CLAUDE.md](claude.md) for project standards
-2. Review [projectmemory.md](projectmemory.md) for architectural decisions
-3. Follow TDD: Write tests first, then implementation
-4. Use Conventional Commits for all changes
-5. Update decision log for significant changes
+1. **Review project standards:** [CLAUDE.md](CLAUDE.md)
+2. **Read decision log:** [docs/planning/PROJECT_MEMORY.md](docs/planning/PROJECT_MEMORY.md)
+3. **Follow TDD:** Write tests first, then implementation
+4. **Use Conventional Commits:** All changes must follow spec
+5. **Update decision log:** Document significant architectural choices
 
-## 📊 Key Performance Indicators (KPIs)
+---
 
-- **Task Success Rate (TSR)**: ≥90% for core Canvas tasks
-- **User Error Frequency (UEF)**: Downward trend (≥25% decrease per quarter)
-- **Task Completion Time**: Minimal delta between AT and non-AT users
-- **Accessible Usability Scale**: ≥70 (High Usability)
-- **WCAG Conformance**: 100% for core user flows
+## 📊 Success Metrics
+
+### Technical KPIs
+- Test Coverage: Target 80%+
+- WCAG Conformance: 2.2 AA (100% for core flows)
+- Extension Load Time: <100ms
+- TTS Latency: <200ms
+- Memory Usage: <50MB after 1 hour
+
+### User KPIs (Post-Launch)
+- Task Success Rate: ≥90%
+- User Error Frequency: ≥25% decrease per quarter
+- Accessible Usability Scale: ≥70 (High Usability)
+
+---
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details
+MIT License - see LICENSE file for details
+
+---
 
 ## 🙏 Acknowledgments
 
 - W3C WAI-Adapt Working Group
 - Canvas LMS Platform
+- OpenDyslexic font project
 - Open-source accessibility community
 - Neurodivergent students and advocates
 
 ---
 
-**Version**: 0.1.0
-**Status**: Initial Development
-**Last Updated**: 2025-10-11
+**Version:** Sprint3-Complete-v1.0
+**Status:** Active Development
+**Last Updated:** 2025-10-12
+**Next Milestone:** Sprint 4 (Canvas LMS Integration)
+
+For detailed version history, see [CHANGELOG.md](CHANGELOG.md)
