@@ -64,42 +64,23 @@ class PopupController {
     // Get visibility settings with defaults
     const visibility = this.settings.ui_visibility || {};
 
-    // Text Highlighting section visibility
-    const highlightingSection = document.querySelector('#highlight-enabled').closest('.control-section');
-    const highlightOptionsContainer = document.getElementById('highlight-options-container');
+    // Helper function to hide/show section
+    const toggleSection = (sectionId, visibilityKey) => {
+      const section = document.getElementById(sectionId);
+      if (section) {
+        section.style.display = visibility[visibilityKey] === false ? 'none' : '';
+      }
+    };
 
-    if (visibility.show_highlighting === false) {
-      // Hide highlighting toggle and options
-      if (highlightingSection) {
-        highlightingSection.style.display = 'none';
-      }
-      if (highlightOptionsContainer) {
-        highlightOptionsContainer.style.display = 'none';
-      }
-      console.log('[Popup] Highlighting feature hidden');
-    } else {
-      // Show highlighting (default)
-      if (highlightingSection) {
-        highlightingSection.style.display = '';
-      }
-      if (highlightOptionsContainer) {
-        highlightOptionsContainer.style.display = '';
-      }
-    }
-
-    // Speed Presets visibility
-    const speedPresetsContainer = document.getElementById('speed-presets-container');
-    if (visibility.show_speed_presets === false) {
-      if (speedPresetsContainer) {
-        speedPresetsContainer.style.display = 'none';
-      }
-      console.log('[Popup] Speed Presets feature hidden');
-    } else {
-      // Show speed presets (default)
-      if (speedPresetsContainer) {
-        speedPresetsContainer.style.display = '';
-      }
-    }
+    // Apply visibility for all features
+    toggleSection('highlight-options-container', 'show_highlighting');
+    toggleSection('speed-presets-container', 'show_speed_presets');
+    toggleSection('text-customization-section', 'show_text_customization');
+    toggleSection('reading-guide-section', 'show_reading_guide');
+    toggleSection('focus-mode-section', 'show_focus_mode');
+    toggleSection('stt-section', 'show_stt');
+    toggleSection('screen-overlay-section', 'show_screen_overlay');
+    toggleSection('canvas-integration-section', 'show_canvas_integration');
 
     console.log('[Popup] Visibility settings applied:', visibility);
   }
@@ -391,6 +372,10 @@ class PopupController {
             <p class="tab-description">Choose which features appear in the main popup</p>
 
             <div class="feature-list">
+              <div class="feature-section-header">
+                <span>Core TTS Features</span>
+              </div>
+
               <div class="feature-item">
                 <label class="feature-label">
                   <input type="checkbox" id="show-voice-selection" checked disabled>
@@ -430,31 +415,60 @@ class PopupController {
                 </label>
               </div>
 
-              <div class="feature-section-header">
-                <span>Sprint 2 Features</span>
-              </div>
-
               <div class="feature-item">
                 <label class="feature-label">
                   <input type="checkbox" id="show-speed-presets" checked>
                   <span>Speed Presets</span>
-                  <span class="feature-badge">New</span>
                 </label>
               </div>
 
-              <div class="feature-item disabled">
+              <div class="feature-section-header">
+                <span>Sprint 3 Features</span>
+              </div>
+
+              <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-reading-queue" disabled>
-                  <span>Reading Queue</span>
-                  <span class="feature-badge-soon">Soon</span>
+                  <input type="checkbox" id="show-text-customization" checked>
+                  <span>Text Customization</span>
                 </label>
               </div>
 
-              <div class="feature-item disabled">
+              <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-reading-mode" disabled>
-                  <span>Reading Mode</span>
-                  <span class="feature-badge-soon">Soon</span>
+                  <input type="checkbox" id="show-reading-guide" checked>
+                  <span>Reading Guide</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-focus-mode" checked>
+                  <span>Focus Mode</span>
+                </label>
+              </div>
+
+              <div class="feature-section-header">
+                <span>Sprint 5-7 Features</span>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-stt" checked>
+                  <span>Speech-to-Text</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-screen-overlay" checked>
+                  <span>Screen Color Overlay</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-canvas-integration" checked>
+                  <span>Canvas Integration</span>
                 </label>
               </div>
             </div>
@@ -603,17 +617,23 @@ class PopupController {
     // Load UI visibility settings
     const visibility = this.settings.ui_visibility || {};
 
-    // Highlighting
-    const showHighlighting = document.getElementById('show-highlighting');
-    if (showHighlighting) {
-      showHighlighting.checked = visibility.show_highlighting !== false;
-    }
+    // Helper function to load checkbox state
+    const loadCheckbox = (id, visibilityKey) => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.checked = visibility[visibilityKey] !== false;
+      }
+    };
 
-    // Speed Presets
-    const showSpeedPresets = document.getElementById('show-speed-presets');
-    if (showSpeedPresets) {
-      showSpeedPresets.checked = visibility.show_speed_presets !== false;
-    }
+    // Load all feature visibility checkboxes
+    loadCheckbox('show-highlighting', 'show_highlighting');
+    loadCheckbox('show-speed-presets', 'show_speed_presets');
+    loadCheckbox('show-text-customization', 'show_text_customization');
+    loadCheckbox('show-reading-guide', 'show_reading_guide');
+    loadCheckbox('show-focus-mode', 'show_focus_mode');
+    loadCheckbox('show-stt', 'show_stt');
+    loadCheckbox('show-screen-overlay', 'show_screen_overlay');
+    loadCheckbox('show-canvas-integration', 'show_canvas_integration');
 
     // Appearance settings
     const compactMode = document.getElementById('compact-mode');
@@ -644,16 +664,23 @@ class PopupController {
     // Track if visibility changed (need to reload popup)
     const oldVisibility = { ...this.settings.ui_visibility };
 
-    // Save UI visibility settings
-    const showHighlighting = document.getElementById('show-highlighting');
-    if (showHighlighting) {
-      this.settings.ui_visibility.show_highlighting = showHighlighting.checked;
-    }
+    // Helper function to save checkbox state
+    const saveCheckbox = (id, visibilityKey) => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        this.settings.ui_visibility[visibilityKey] = checkbox.checked;
+      }
+    };
 
-    const showSpeedPresets = document.getElementById('show-speed-presets');
-    if (showSpeedPresets) {
-      this.settings.ui_visibility.show_speed_presets = showSpeedPresets.checked;
-    }
+    // Save all feature visibility settings
+    saveCheckbox('show-highlighting', 'show_highlighting');
+    saveCheckbox('show-speed-presets', 'show_speed_presets');
+    saveCheckbox('show-text-customization', 'show_text_customization');
+    saveCheckbox('show-reading-guide', 'show_reading_guide');
+    saveCheckbox('show-focus-mode', 'show_focus_mode');
+    saveCheckbox('show-stt', 'show_stt');
+    saveCheckbox('show-screen-overlay', 'show_screen_overlay');
+    saveCheckbox('show-canvas-integration', 'show_canvas_integration');
 
     // Save appearance settings
     const compactMode = document.getElementById('compact-mode');
@@ -682,10 +709,12 @@ class PopupController {
       appearance: this.settings.appearance
     });
 
-    // Check if visibility changed
-    const visibilityChanged =
-      (showHighlighting && oldVisibility.show_highlighting !== this.settings.ui_visibility.show_highlighting) ||
-      (showSpeedPresets && oldVisibility.show_speed_presets !== this.settings.ui_visibility.show_speed_presets);
+    // Check if any visibility changed
+    const visibilityChanged = Object.keys(oldVisibility).some(
+      key => oldVisibility[key] !== this.settings.ui_visibility[key]
+    ) || Object.keys(this.settings.ui_visibility).some(
+      key => oldVisibility[key] !== this.settings.ui_visibility[key]
+    );
 
     // Reload popup if visibility changed
     if (visibilityChanged) {
