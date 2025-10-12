@@ -1,8 +1,8 @@
 # AssisT Production Roadmap
 **Full-Featured Development Cycle (Post-MVP)**
 
-**Current Status:** Sprint 3 Complete (Tag: Sprint3-Complete-v1.0)
-**Next Phase:** Production-Ready Development with Canvas LMS Integration
+**Current Status:** Sprint 5.1 Complete (Tag: Sprint5.1-UI-Cleanup-v1.0)
+**Next Phase:** Enhanced Reading Features & Testing Infrastructure
 
 ---
 
@@ -23,18 +23,19 @@ Transform AssisT from MVP to production-grade Chrome Extension with:
 | Feature | Status | Version | Notes |
 |---------|--------|---------|-------|
 | **Reading Features** |
-| TTS (Web Speech API) | ✅ Complete | v1.0 | Click-to-read with highlighting |
+| TTS (Web Speech API) | ✅ Complete | Sprint 1 | Click-to-read with highlighting |
 | Text Customization | ✅ Complete | Sprint 3 | WCAG 2.2 SC 1.4.12 compliant |
 | Reading Guide | ✅ Complete | Sprint 3 | Horizontal cursor-tracking line |
 | Focus Mode | ✅ Complete | Sprint 3 | Rounded window with overlay |
-| Word-by-Word Highlighting | 🚧 Partial | v1.0 | Basic implementation, needs refinement |
+| Word-by-Word Highlighting | 🚧 Partial | Sprint 2 | Basic implementation, needs refinement |
+| Read Entire Page | ❌ Deferred | - | Deferred to Sprint 6+ (needs architecture review) |
 | **Writing Features** |
-| Speech-to-Text | ❌ Not Started | - | Planned for Sprint 4 |
-| FixOver Correction | ❌ Not Started | - | Multimodal correction system |
+| Speech-to-Text | ✅ Complete | Sprint 5 | Voice typing with mic button |
+| FixOver Correction | ❌ Not Started | - | Multimodal correction system (future) |
 | **Canvas Integration** |
-| Assignment Reader | ❌ Not Started | - | Auto-detect and read assignments |
-| Quiz Helper | ❌ Not Started | - | Read questions with enhanced clarity |
-| Course Navigation | ❌ Not Started | - | Keyboard shortcuts, voice control |
+| Assignment Reader | ✅ Complete | Sprint 4 | Auto-detect and read assignments |
+| Quiz Helper | ❌ Not Started | - | Read questions with enhanced clarity (future) |
+| Course Navigation | ❌ Not Started | - | Keyboard shortcuts, voice control (future) |
 | **Advanced Features** |
 | User Profiles | ❌ Not Started | - | Save/load personalization presets |
 | Cloud TTS | ❌ Not Started | - | Murf, Google Cloud TTS, ElevenLabs |
@@ -48,11 +49,77 @@ Transform AssisT from MVP to production-grade Chrome Extension with:
 
 ---
 
-## 🚀 Sprint 4: Canvas LMS Integration Foundation
-**Duration:** 2-3 weeks
-**Goal:** Deep Canvas integration for assignment reading and quiz assistance
+## ✅ Sprint 4: Canvas LMS Integration Foundation (COMPLETE)
+**Duration:** Completed
+**Status:** Tag: Sprint4-Canvas-Complete-v1.0
 
-### 4.1 Canvas DOM Analysis & Selectors
+## ✅ Sprint 5: Speech-to-Text & Writing Features (COMPLETE)
+**Duration:** Completed
+**Status:** Tag: Sprint5-STT-Complete-v1.0
+
+## ✅ Sprint 5.1: UI Cleanup (COMPLETE)
+**Duration:** Completed
+**Status:** Tag: Sprint5.1-UI-Cleanup-v1.0
+**Changes:** Removed obsolete Play/Pause/Stop buttons from popup, deferred "Read Entire Page" feature
+
+---
+
+## 🚀 Sprint 6: Enhanced Reading Features (PLANNED)
+**Duration:** 2-3 weeks
+**Goal:** Implement "Read Entire Page" with proper architecture, refine word-by-word highlighting
+
+### 6.1 Read Entire Page
+**Priority:** High
+**Complexity:** Medium
+
+**Features:**
+1. **Smart Content Detection**: Extract main content, skip navigation/menus
+2. **Canvas-Specific Selectors**: Optimized for Canvas LMS pages (.ic-Layout-contentMain, .user_content)
+3. **Fallback Selectors**: Works on any web page (main, article, body)
+4. **Integration**: Uses existing `readText()` function - no modifications to working TTS code
+
+**Architecture:**
+- Feature-isolated: All code prefixed with `readPage_`
+- Message-based activation: Popup sends `readPage` command
+- No function wrapping: Compose functionality, don't modify existing code
+
+**UI:**
+- Single "Read Page" button in popup (activated when TTS enabled)
+- Toast notification showing sections being read
+- Works alongside click-to-read (not a replacement)
+
+**Acceptance Criteria:**
+- ✅ Extracts main content from any web page
+- ✅ Skips navigation, headers, footers, sidebars
+- ✅ Works on Canvas assignment pages
+- ✅ No modifications to existing TTS functionality
+- ✅ Clean 80-100 lines of isolated code
+
+**Lessons Learned from Previous Attempt:**
+- KISS principle: Keep implementation simple
+- No function wrapping: Avoid infinite recursion issues
+- UI alignment: Ensure UI matches actual functionality
+
+---
+
+### 6.2 Word-by-Word Highlighting Refinement
+**Priority:** Medium
+**Complexity:** High
+
+**Current Issues:**
+- Basic implementation from Sprint 2 needs refinement
+- Synchronization with speech timing may be off
+- Performance optimization needed
+
+**Planned Improvements:**
+- Better word boundary detection
+- Precise timing synchronization with Web Speech API
+- Performance profiling and optimization
+- Visual polish (smooth transitions)
+
+---
+
+### 4.1 Canvas DOM Analysis & Selectors (ARCHIVED - Sprint 4 Complete)
 **Priority:** Critical
 **Complexity:** Medium
 
@@ -986,9 +1053,11 @@ class TTSEngineManager {
 | Sprint | Duration | Key Deliverables | Status |
 |--------|----------|------------------|--------|
 | Sprint 1-3 (MVP) | 4 weeks | TTS, Text Customization, Reading Guide, Focus Mode | ✅ Complete |
-| Sprint 4 | 2-3 weeks | Canvas LMS Integration (Assignment Reader, Quiz Helper) | 🔜 Next |
-| Sprint 5 | 2-3 weeks | STT, FixOver Correction System | 📋 Planned |
-| Sprint 6 | 2 weeks | Testing (80% coverage), WCAG Audit, Performance Profiling | 📋 Planned |
+| Sprint 4 | 2-3 weeks | Canvas LMS Integration (Assignment Reader) | ✅ Complete |
+| Sprint 5 | 2-3 weeks | Speech-to-Text (STT) with floating mic button | ✅ Complete |
+| Sprint 5.1 | 1 day | UI Cleanup (remove obsolete buttons) | ✅ Complete |
+| Sprint 6 | 2-3 weeks | Read Entire Page, Word-by-Word Highlighting Refinement | 🔜 Next |
+| Sprint 7 | 2 weeks | Testing (80% coverage), WCAG Audit, Performance Profiling | 📋 Planned |
 | Sprint 7 | 2-3 weeks | Cloud TTS/STT Adapters (Google, Amazon, Whisper) | 📋 Planned |
 | Sprint 8 | 2 weeks | User Profiles, Learning Analytics Dashboard | 📋 Planned |
 | Sprint 9 | 3-4 weeks | Multi-Platform LMS (Moodle, Blackboard, Google Classroom) | 📋 Planned |
