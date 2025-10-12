@@ -990,3 +990,67 @@ body {
 .modal-body::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
+
+/* ============================================ */
+/* SPRINT 3 FEATURE: TEXT CUSTOMIZATION        */
+/* ============================================ */
+
+/* Text Customization Options Container */
+.text-customization-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.text-customization-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Control Subsection */
+.control-subsection {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(33, 150, 243, 0.03);
+  border-radius: 6px;
+  border-left: 3px solid var(--primary-light);
+}
+
+.control-subsection:first-child {
+  margin-top: 8px;
+}
+
+.subsection-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Hidden class for description text */
+.hidden {
+  display: none;
+}
+
+/* ============================================ */
+/* SPRINT 3 FEATURE: READING GUIDE             */
+/* ============================================ */
+
+/* Reading Guide Options Container */
+.reading-guide-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.reading-guide-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}

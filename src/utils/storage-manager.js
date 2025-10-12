@@ -65,6 +65,27 @@ export class StorageManager {
       keyboardShortcuts: true,
       screenReaderOptimized: false,
       reducedMotion: false
+    },
+    // Sprint 3 Features
+    textCustomization: {
+      enabled: false,
+      fontFamily: 'system',      // 'system' | 'lexend' | 'opendyslexic' | 'comic-sans' | 'arial'
+      lineSpacing: 1.5,          // WCAG min: 1.5
+      letterSpacing: 0.12,       // WCAG min: 0.12em (displayed as 12%)
+      wordSpacing: 0.16,         // WCAG min: 0.16em (displayed as 16%)
+      paragraphSpacing: 2.0      // WCAG min: 2.0em
+    },
+    readingGuide: {
+      enabled: false,
+      lineColor: '#000000',
+      lineThickness: 3,          // px, range: 1-10px
+      lineOpacity: 0.7           // 0.0-1.0
+    },
+    focusMode: {
+      enabled: false,
+      boxWidth: 400,             // px, min: 150, max: 800, step: 5
+      boxHeight: 100,            // px, min: 50, max: 250, step: 5
+      overlayOpacity: 0.7        // 0.0-1.0 (darkness of surrounding area)
     }
   };
 

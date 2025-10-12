@@ -236,6 +236,242 @@
       </div><!-- End highlight-options-container -->
 
       </div><!-- End options-container -->
+
+      <!-- ========================================================== -->
+      <!-- SPRINT 3 FEATURE: TEXT CUSTOMIZATION -->
+      <!-- ========================================================== -->
+      <section class="control-section" id="text-customization-section">
+        <div class="toggle-control">
+          <label for="text-customization-enabled" class="toggle-label">
+            <span class="label-text">✨ Text Customization</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="text-customization-enabled" role="switch" aria-label="Enable text customization">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+        <p class="feature-description hidden" id="text-customization-description">
+          Adjust font and spacing for better readability (WCAG 2.2 SC 1.4.12)
+        </p>
+
+        <!-- Text Customization Options (shows when enabled) -->
+        <div id="text-customization-options" class="text-customization-options hidden">
+
+          <!-- Font Selection -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="text-font-family">Font Family</label>
+            </h3>
+            <select id="text-font-family" class="voice-select" aria-label="Select font family">
+              <option value="system">System Default</option>
+              <option value="lexend">Lexend (highly readable)</option>
+              <option value="opendyslexic">OpenDyslexic (dyslexia-friendly)</option>
+              <option value="comic-sans">Comic Sans MS</option>
+              <option value="arial">Arial</option>
+            </select>
+          </div>
+
+          <!-- Line Spacing -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="text-line-spacing">Line Spacing</label>
+              <span class="control-value" id="text-line-spacing-value">1.5</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="text-line-spacing"
+                class="slider"
+                min="1.0"
+                max="3.0"
+                step="0.1"
+                value="1.5"
+                aria-label="Adjust line spacing"
+                aria-valuemin="1.0"
+                aria-valuemax="3.0"
+                aria-valuenow="1.5">
+              <div class="slider-labels">
+                <span>Tight</span>
+                <span>Loose</span>
+              </div>
+            </div>
+            <p class="feature-description">WCAG minimum: 1.5 | Recommended: 1.5-2.0</p>
+          </div>
+
+          <!-- Letter Spacing -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="text-letter-spacing">Letter Spacing</label>
+              <span class="control-value" id="text-letter-spacing-value">12%</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="text-letter-spacing"
+                class="slider"
+                min="0"
+                max="50"
+                step="1"
+                value="12"
+                aria-label="Adjust letter spacing"
+                aria-valuemin="0"
+                aria-valuemax="50"
+                aria-valuenow="12">
+              <div class="slider-labels">
+                <span>Normal</span>
+                <span>Wide</span>
+              </div>
+            </div>
+            <p class="feature-description">WCAG minimum: 12% | 0% = normal spacing</p>
+          </div>
+
+          <!-- Word Spacing -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="text-word-spacing">Word Spacing</label>
+              <span class="control-value" id="text-word-spacing-value">16%</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="text-word-spacing"
+                class="slider"
+                min="0"
+                max="50"
+                step="1"
+                value="16"
+                aria-label="Adjust word spacing"
+                aria-valuemin="0"
+                aria-valuemax="50"
+                aria-valuenow="16">
+              <div class="slider-labels">
+                <span>Normal</span>
+                <span>Wide</span>
+              </div>
+            </div>
+            <p class="feature-description">WCAG minimum: 16% | 0% = normal spacing</p>
+          </div>
+
+          <!-- Paragraph Spacing -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="text-paragraph-spacing">Paragraph Spacing</label>
+              <span class="control-value" id="text-paragraph-spacing-value">2.0em</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="text-paragraph-spacing"
+                class="slider"
+                min="1.0"
+                max="4.0"
+                step="0.1"
+                value="2.0"
+                aria-label="Adjust paragraph spacing"
+                aria-valuemin="1.0"
+                aria-valuemax="4.0"
+                aria-valuenow="2.0">
+              <div class="slider-labels">
+                <span>Tight</span>
+                <span>Loose</span>
+              </div>
+            </div>
+            <p class="feature-description">WCAG minimum: 2.0em</p>
+          </div>
+
+        </div><!-- End text-customization-options -->
+      </section>
+
+      <!-- ========================================================== -->
+      <!-- SPRINT 3 FEATURE: READING GUIDE -->
+      <!-- ========================================================== -->
+      <section class="control-section" id="reading-guide-section">
+        <div class="toggle-control">
+          <label for="reading-guide-enabled" class="toggle-label">
+            <span class="label-text">📏 Reading Guide</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="reading-guide-enabled" role="switch" aria-label="Enable reading guide">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+        <p class="feature-description hidden" id="reading-guide-description">
+          Horizontal line follows your mouse to help track reading position
+        </p>
+
+        <!-- Reading Guide Options (shows when enabled) -->
+        <div id="reading-guide-options" class="reading-guide-options hidden">
+
+          <!-- Line Color -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="reading-guide-color">Line Color</label>
+            </h3>
+            <select id="reading-guide-color" class="voice-select" aria-label="Select line color">
+              <option value="#000000">Black</option>
+              <option value="#FF0000">Red</option>
+              <option value="#0000FF">Blue</option>
+              <option value="#00FF00">Green</option>
+              <option value="#FF00FF">Magenta</option>
+              <option value="#FFA500">Orange</option>
+            </select>
+          </div>
+
+          <!-- Line Thickness -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="reading-guide-thickness">Line Thickness</label>
+              <span class="control-value" id="reading-guide-thickness-value">3px</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="reading-guide-thickness"
+                class="slider"
+                min="1"
+                max="10"
+                step="1"
+                value="3"
+                aria-label="Adjust line thickness"
+                aria-valuemin="1"
+                aria-valuemax="10"
+                aria-valuenow="3">
+              <div class="slider-labels">
+                <span>Thin</span>
+                <span>Thick</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Line Opacity -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="reading-guide-opacity">Line Opacity</label>
+              <span class="control-value" id="reading-guide-opacity-value">70%</span>
+            </h3>
+            <div class="slider-control">
+              <input
+                type="range"
+                id="reading-guide-opacity"
+                class="slider"
+                min="0.1"
+                max="1"
+                step="0.1"
+                value="0.7"
+                aria-label="Adjust line opacity"
+                aria-valuemin="0.1"
+                aria-valuemax="1"
+                aria-valuenow="0.7">
+              <div class="slider-labels">
+                <span>Transparent</span>
+                <span>Solid</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- End reading-guide-options -->
+      </section>
+
     </main>
 
     <!-- Footer -->

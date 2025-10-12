@@ -262,6 +262,16 @@ class PopupController {
       this.sendCommandToTab('setWordByWord', { enabled: e.target.checked });
     });
 
+    // ============================================================
+    // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
+    // ============================================================
+    this.setupTextCustomization();
+
+    // ============================================================
+    // SPRINT 3 FEATURE: READING GUIDE
+    // ============================================================
+    this.setupReadingGuide();
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', (e) => {
       e.preventDefault();
@@ -818,6 +828,198 @@ class PopupController {
     const statusIndicator = document.getElementById('status-indicator');
     statusIndicator.textContent = message;
     statusIndicator.className = 'status-indicator ' + type;
+  }
+
+  // ============================================================
+  // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
+  // ============================================================
+  setupTextCustomization() {
+    // Initialize textCustomization settings if they don't exist
+    if (!this.settings.textCustomization) {
+      this.settings.textCustomization = {
+        enabled: false,
+        fontFamily: 'system',
+        lineSpacing: 1.5,
+        letterSpacing: 0.12,
+        wordSpacing: 0.16,
+        paragraphSpacing: 2.0
+      };
+    }
+
+    const textCustomizationEnabled = document.getElementById('text-customization-enabled');
+    const textCustomizationDescription = document.getElementById('text-customization-description');
+    const textCustomizationOptions = document.getElementById('text-customization-options');
+
+    // Set initial state
+    textCustomizationEnabled.checked = this.settings.textCustomization.enabled || false;
+
+    // Show/hide description and options based on enabled state
+    if (textCustomizationEnabled.checked) {
+      textCustomizationDescription.classList.remove('hidden');
+      textCustomizationOptions.classList.remove('hidden');
+    } else {
+      textCustomizationDescription.classList.add('hidden');
+      textCustomizationOptions.classList.add('hidden');
+    }
+
+    // Toggle event
+    textCustomizationEnabled.addEventListener('change', (e) => {
+      this.settings.textCustomization.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle description and options visibility
+      if (e.target.checked) {
+        textCustomizationDescription.classList.remove('hidden');
+        textCustomizationOptions.classList.remove('hidden');
+      } else {
+        textCustomizationDescription.classList.add('hidden');
+        textCustomizationOptions.classList.add('hidden');
+      }
+    });
+
+    // Font Family selector
+    const fontFamilySelect = document.getElementById('text-font-family');
+    fontFamilySelect.value = this.settings.textCustomization.fontFamily || 'system';
+    fontFamilySelect.addEventListener('change', (e) => {
+      this.settings.textCustomization.fontFamily = e.target.value;
+      this.saveSettings();
+    });
+
+    // Line Spacing slider
+    const lineSpacingSlider = document.getElementById('text-line-spacing');
+    const lineSpacingValue = document.getElementById('text-line-spacing-value');
+    lineSpacingSlider.value = this.settings.textCustomization.lineSpacing || 1.5;
+    lineSpacingValue.textContent = lineSpacingSlider.value;
+    lineSpacingSlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      lineSpacingValue.textContent = value;
+      this.settings.textCustomization.lineSpacing = value;
+      this.saveSettings();
+    });
+
+    // Letter Spacing slider (percentage to em conversion)
+    const letterSpacingSlider = document.getElementById('text-letter-spacing');
+    const letterSpacingValue = document.getElementById('text-letter-spacing-value');
+    // Convert stored em value to percentage (0.12em = 12%)
+    const letterSpacingPercent = Math.round((this.settings.textCustomization.letterSpacing || 0.12) * 100);
+    letterSpacingSlider.value = letterSpacingPercent;
+    letterSpacingValue.textContent = letterSpacingPercent + '%';
+    letterSpacingSlider.addEventListener('input', (e) => {
+      const percent = parseInt(e.target.value);
+      letterSpacingValue.textContent = percent + '%';
+      // Convert percentage to em (12% = 0.12em)
+      this.settings.textCustomization.letterSpacing = percent / 100;
+      this.saveSettings();
+    });
+
+    // Word Spacing slider (percentage to em conversion)
+    const wordSpacingSlider = document.getElementById('text-word-spacing');
+    const wordSpacingValue = document.getElementById('text-word-spacing-value');
+    // Convert stored em value to percentage (0.16em = 16%)
+    const wordSpacingPercent = Math.round((this.settings.textCustomization.wordSpacing || 0.16) * 100);
+    wordSpacingSlider.value = wordSpacingPercent;
+    wordSpacingValue.textContent = wordSpacingPercent + '%';
+    wordSpacingSlider.addEventListener('input', (e) => {
+      const percent = parseInt(e.target.value);
+      wordSpacingValue.textContent = percent + '%';
+      // Convert percentage to em (16% = 0.16em)
+      this.settings.textCustomization.wordSpacing = percent / 100;
+      this.saveSettings();
+    });
+
+    // Paragraph Spacing slider
+    const paragraphSpacingSlider = document.getElementById('text-paragraph-spacing');
+    const paragraphSpacingValue = document.getElementById('text-paragraph-spacing-value');
+    paragraphSpacingSlider.value = this.settings.textCustomization.paragraphSpacing || 2.0;
+    paragraphSpacingValue.textContent = paragraphSpacingSlider.value + 'em';
+    paragraphSpacingSlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      paragraphSpacingValue.textContent = value + 'em';
+      this.settings.textCustomization.paragraphSpacing = value;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Text Customization initialized');
+  }
+
+  // ============================================================
+  // SPRINT 3 FEATURE: READING GUIDE
+  // ============================================================
+  setupReadingGuide() {
+    // Initialize readingGuide settings if they don't exist
+    if (!this.settings.readingGuide) {
+      this.settings.readingGuide = {
+        enabled: false,
+        lineColor: '#000000',
+        lineThickness: 3,
+        lineOpacity: 0.7
+      };
+    }
+
+    const readingGuideEnabled = document.getElementById('reading-guide-enabled');
+    const readingGuideDescription = document.getElementById('reading-guide-description');
+    const readingGuideOptions = document.getElementById('reading-guide-options');
+
+    // Set initial state
+    readingGuideEnabled.checked = this.settings.readingGuide.enabled || false;
+
+    // Show/hide description and options based on enabled state
+    if (readingGuideEnabled.checked) {
+      readingGuideDescription.classList.remove('hidden');
+      readingGuideOptions.classList.remove('hidden');
+    } else {
+      readingGuideDescription.classList.add('hidden');
+      readingGuideOptions.classList.add('hidden');
+    }
+
+    // Toggle event
+    readingGuideEnabled.addEventListener('change', (e) => {
+      this.settings.readingGuide.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle description and options visibility
+      if (e.target.checked) {
+        readingGuideDescription.classList.remove('hidden');
+        readingGuideOptions.classList.remove('hidden');
+      } else {
+        readingGuideDescription.classList.add('hidden');
+        readingGuideOptions.classList.add('hidden');
+      }
+    });
+
+    // Line Color selector
+    const lineColorSelect = document.getElementById('reading-guide-color');
+    lineColorSelect.value = this.settings.readingGuide.lineColor || '#000000';
+    lineColorSelect.addEventListener('change', (e) => {
+      this.settings.readingGuide.lineColor = e.target.value;
+      this.saveSettings();
+    });
+
+    // Line Thickness slider
+    const lineThicknessSlider = document.getElementById('reading-guide-thickness');
+    const lineThicknessValue = document.getElementById('reading-guide-thickness-value');
+    lineThicknessSlider.value = this.settings.readingGuide.lineThickness || 3;
+    lineThicknessValue.textContent = lineThicknessSlider.value + 'px';
+    lineThicknessSlider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      lineThicknessValue.textContent = value + 'px';
+      this.settings.readingGuide.lineThickness = value;
+      this.saveSettings();
+    });
+
+    // Line Opacity slider (displayed as percentage)
+    const lineOpacitySlider = document.getElementById('reading-guide-opacity');
+    const lineOpacityValue = document.getElementById('reading-guide-opacity-value');
+    lineOpacitySlider.value = this.settings.readingGuide.lineOpacity || 0.7;
+    lineOpacityValue.textContent = Math.round(lineOpacitySlider.value * 100) + '%';
+    lineOpacitySlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      lineOpacityValue.textContent = Math.round(value * 100) + '%';
+      this.settings.readingGuide.lineOpacity = value;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Reading Guide initialized');
   }
 }
 
