@@ -453,7 +453,7 @@ class PopupController {
 
               <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-stt" checked>
+                  <input type="checkbox" id="show-stt">
                   <span>Speech-to-Text</span>
                 </label>
               </div>
@@ -467,7 +467,7 @@ class PopupController {
 
               <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-canvas-integration" checked>
+                  <input type="checkbox" id="show-canvas-integration">
                   <span>Canvas Integration</span>
                 </label>
               </div>
@@ -493,18 +493,6 @@ class PopupController {
               <div class="shortcut-item">
                 <span class="shortcut-key">-</span>
                 <span class="shortcut-desc">Decrease reading speed</span>
-              </div>
-
-              <div class="shortcut-section">Sprint 2 Shortcuts (Coming Soon)</div>
-
-              <div class="shortcut-item disabled">
-                <span class="shortcut-key">Ctrl+Shift+R</span>
-                <span class="shortcut-desc">Read selected text</span>
-              </div>
-
-              <div class="shortcut-item disabled">
-                <span class="shortcut-key">Ctrl+Shift+Q</span>
-                <span class="shortcut-desc">Toggle reading queue</span>
               </div>
             </div>
           </div>
@@ -843,7 +831,7 @@ class PopupController {
     if (!this.settings.textCustomization) {
       this.settings.textCustomization = {
         enabled: false,
-        fontFamily: 'system',
+        fontFamily: 'lexend',
         lineSpacing: 1.5,
         letterSpacing: 0.12,
         wordSpacing: 0.16,
@@ -884,7 +872,7 @@ class PopupController {
 
     // Font Family selector
     const fontFamilySelect = document.getElementById('text-font-family');
-    fontFamilySelect.value = this.settings.textCustomization.fontFamily || 'system';
+    fontFamilySelect.value = this.settings.textCustomization.fontFamily || 'lexend';
     fontFamilySelect.addEventListener('change', (e) => {
       this.settings.textCustomization.fontFamily = e.target.value;
       this.saveSettings();
@@ -1110,7 +1098,7 @@ class PopupController {
     if (!this.settings.screenOverlay) {
       this.settings.screenOverlay = {
         enabled: false,
-        color: '#FFF4E6',
+        color: '#FFE4C4',
         opacity: 0.3
       };
     }
@@ -1143,7 +1131,7 @@ class PopupController {
     });
 
     const colorSelect = document.getElementById('screen-overlay-color');
-    colorSelect.value = this.settings.screenOverlay.color || '#FFF4E6';
+    colorSelect.value = this.settings.screenOverlay.color || '#FFE4C4';
     colorSelect.addEventListener('change', (e) => {
       this.settings.screenOverlay.color = e.target.value;
       this.saveSettings();
