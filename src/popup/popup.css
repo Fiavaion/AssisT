@@ -1093,3 +1093,20 @@ body {
   opacity: 0.6;
   pointer-events: none;
 }
+
+/* ============================================ */
+/* SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)     */
+/* ============================================ */
+
+/* STT Options Container */
+.stt-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.stt-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}

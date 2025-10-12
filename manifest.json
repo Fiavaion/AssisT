@@ -40,7 +40,9 @@
         "src/ui/components/*.js",
         "src/ui/styles/*.css",
         "public/assets/*",
-        "adapters/canvas-adapter.js"
+        "adapters/canvas-adapter.js",
+        "engines/stt/stt-controller.js",
+        "ui/components/microphone-button.js"
       ],
       "matches": ["<all_urls>"]
     }

@@ -282,6 +282,11 @@ class PopupController {
     // ============================================================
     this.setupCanvasIntegration();
 
+    // ============================================================
+    // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
+    // ============================================================
+    this.setupSTT();
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', (e) => {
       e.preventDefault();
@@ -1174,6 +1179,100 @@ class PopupController {
     }
 
     console.log('[Popup] Canvas Integration initialized');
+  }
+
+  // ============================================================
+  // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
+  // ============================================================
+  setupSTT() {
+    if (!this.settings.stt) {
+      this.settings.stt = {
+        enabled: false,
+        continuousMode: true,
+        interimResults: true,
+        language: 'en-US',
+        autoCapitalize: true,
+        punctuationCommands: true,
+        floatingButton: true
+      };
+    }
+
+    const sttEnabled = document.getElementById('stt-enabled');
+    const sttDescription = document.getElementById('stt-description');
+    const sttOptions = document.getElementById('stt-options');
+
+    sttEnabled.checked = this.settings.stt.enabled || false;
+
+    if (sttEnabled.checked) {
+      sttDescription.classList.remove('hidden');
+      sttOptions.classList.remove('hidden');
+    } else {
+      sttDescription.classList.add('hidden');
+      sttOptions.classList.add('hidden');
+    }
+
+    sttEnabled.addEventListener('change', (e) => {
+      this.settings.stt.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        sttDescription.classList.remove('hidden');
+        sttOptions.classList.remove('hidden');
+      } else {
+        sttDescription.classList.add('hidden');
+        sttOptions.classList.add('hidden');
+      }
+    });
+
+    // Continuous Mode
+    const continuousModeCheckbox = document.getElementById('stt-continuous-mode');
+    continuousModeCheckbox.checked = this.settings.stt.continuousMode !== false;
+    continuousModeCheckbox.addEventListener('change', (e) => {
+      this.settings.stt.continuousMode = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Language
+    const languageSelect = document.getElementById('stt-language');
+    languageSelect.value = this.settings.stt.language || 'en-US';
+    languageSelect.addEventListener('change', (e) => {
+      this.settings.stt.language = e.target.value;
+      this.saveSettings();
+    });
+
+    // Punctuation Commands
+    const punctuationCheckbox = document.getElementById('stt-punctuation-commands');
+    punctuationCheckbox.checked = this.settings.stt.punctuationCommands !== false;
+    punctuationCheckbox.addEventListener('change', (e) => {
+      this.settings.stt.punctuationCommands = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Auto Capitalize
+    const autoCapitalizeCheckbox = document.getElementById('stt-auto-capitalize');
+    autoCapitalizeCheckbox.checked = this.settings.stt.autoCapitalize !== false;
+    autoCapitalizeCheckbox.addEventListener('change', (e) => {
+      this.settings.stt.autoCapitalize = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Interim Results
+    const interimResultsCheckbox = document.getElementById('stt-interim-results');
+    interimResultsCheckbox.checked = this.settings.stt.interimResults !== false;
+    interimResultsCheckbox.addEventListener('change', (e) => {
+      this.settings.stt.interimResults = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Floating Button
+    const floatingButtonCheckbox = document.getElementById('stt-floating-button');
+    floatingButtonCheckbox.checked = this.settings.stt.floatingButton !== false;
+    floatingButtonCheckbox.addEventListener('change', (e) => {
+      this.settings.stt.floatingButton = e.target.checked;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] STT initialized');
   }
 }
 

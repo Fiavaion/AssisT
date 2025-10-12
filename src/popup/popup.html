@@ -626,6 +626,124 @@
         </div><!-- End canvas-integration-options -->
       </section>
 
+      <!-- ========================================================== -->
+      <!-- SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT) -->
+      <!-- ========================================================== -->
+      <section class="control-section" id="stt-section">
+        <div class="toggle-control">
+          <label for="stt-enabled" class="toggle-label">
+            <span class="label-text">🎤 Speech-to-Text</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="stt-enabled" role="switch" aria-label="Enable Speech-to-Text">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+        <p class="feature-description hidden" id="stt-description">
+          Type using your voice in any text field - mic button appears on focus
+        </p>
+
+        <!-- STT Options (shows when enabled) -->
+        <div id="stt-options" class="stt-options hidden">
+
+          <!-- Continuous Mode Toggle -->
+          <div class="control-subsection">
+            <div class="toggle-control">
+              <label for="stt-continuous-mode" class="toggle-label">
+                <span class="label-text">Continuous Mode</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="stt-continuous-mode" role="switch" aria-label="Enable continuous listening mode" checked>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Keep listening for long-form writing (stops when you click mic button)</p>
+          </div>
+
+          <!-- Language Selection -->
+          <div class="control-subsection">
+            <h3 class="subsection-title">
+              <label for="stt-language">Language</label>
+            </h3>
+            <select id="stt-language" class="voice-select" aria-label="Select recognition language">
+              <option value="en-US">English (US)</option>
+              <option value="en-GB">English (UK)</option>
+              <option value="en-AU">English (Australia)</option>
+              <option value="en-CA">English (Canada)</option>
+              <option value="es-ES">Spanish (Spain)</option>
+              <option value="es-MX">Spanish (Mexico)</option>
+              <option value="fr-FR">French</option>
+              <option value="de-DE">German</option>
+              <option value="it-IT">Italian</option>
+              <option value="pt-BR">Portuguese (Brazil)</option>
+              <option value="pt-PT">Portuguese (Portugal)</option>
+              <option value="nl-NL">Dutch</option>
+              <option value="ja-JP">Japanese</option>
+              <option value="ko-KR">Korean</option>
+              <option value="zh-CN">Chinese (Simplified)</option>
+              <option value="zh-TW">Chinese (Traditional)</option>
+            </select>
+          </div>
+
+          <!-- Punctuation Commands -->
+          <div class="control-subsection">
+            <div class="toggle-control">
+              <label for="stt-punctuation-commands" class="toggle-label">
+                <span class="label-text">Punctuation Commands</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="stt-punctuation-commands" role="switch" aria-label="Enable punctuation voice commands" checked>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Say "period", "comma", "new line" to add punctuation</p>
+          </div>
+
+          <!-- Auto Capitalize -->
+          <div class="control-subsection">
+            <div class="toggle-control">
+              <label for="stt-auto-capitalize" class="toggle-label">
+                <span class="label-text">Auto-Capitalize</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="stt-auto-capitalize" role="switch" aria-label="Enable auto-capitalization" checked>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Automatically capitalize first word of each sentence</p>
+          </div>
+
+          <!-- Interim Results -->
+          <div class="control-subsection">
+            <div class="toggle-control">
+              <label for="stt-interim-results" class="toggle-label">
+                <span class="label-text">Show Interim Results</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="stt-interim-results" role="switch" aria-label="Show partial transcription results" checked>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Display text as you speak (before it's finalized)</p>
+          </div>
+
+          <!-- Floating Button -->
+          <div class="control-subsection">
+            <div class="toggle-control">
+              <label for="stt-floating-button" class="toggle-label">
+                <span class="label-text">Show Microphone Button</span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="stt-floating-button" role="switch" aria-label="Show floating microphone button" checked>
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="feature-description">Display mic icon when text field is focused</p>
+          </div>
+
+        </div><!-- End stt-options -->
+      </section>
+
     </main>
 
     <!-- Footer -->

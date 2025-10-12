@@ -23,13 +23,15 @@ export class StorageManager {
       highlightOpacity: 0.7,
       autoStart: false
     },
+    // Sprint 5 Features
     stt: {
-      enabled: false,
-      language: 'en-US',
-      continuous: false,
-      interimResults: true,
-      maxAlternatives: 3,
-      domainAdaptation: true
+      enabled: false,               // Default OFF
+      continuousMode: true,         // Keep listening vs single utterance
+      interimResults: true,         // Show partial results
+      language: 'en-US',            // Recognition language
+      autoCapitalize: true,         // Capitalize first word of sentences
+      punctuationCommands: true,    // Voice punctuation ("period", "comma")
+      floatingButton: true          // Show mic button on text field focus
     },
     waiAdapt: {
       textSpacing: {
