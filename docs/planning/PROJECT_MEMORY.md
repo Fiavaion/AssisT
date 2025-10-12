@@ -373,12 +373,30 @@ Is this feature independent of existing features?
 
 ---
 
+### DEC-202510-017
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-017 |
+| **Date** | 2025-10-12 |
+| **Decision** | Implement comprehensive testing infrastructure with Jest (unit tests) and Playwright (E2E tests) for Sprint 8 |
+| **Rationale** | After 7 sprints of feature development with zero automated tests, Sprint 8 focused exclusively on test infrastructure and quality assurance. Testing enables: 1) Regression prevention, 2) Safe refactoring, 3) Confidence in feature stability, 4) Documentation via test cases, 5) Professional development practices. Jest chosen for unit tests due to excellent ES module support and Chrome API mocking capabilities. Playwright chosen for E2E tests as it supports Chrome Extension testing (unlike Cypress) and provides better cross-browser support. Target: 70%+ coverage on critical modules. |
+| **Alternatives** | 1. Continue without tests: Rejected as technical debt was growing and regression risks increasing. 2. Vitest instead of Jest: Rejected as Jest has larger community and better Chrome Extension mock support. 3. Cypress for E2E: Rejected as it doesn't support Chrome Extensions natively. 4. Manual testing only: Rejected as it's not scalable and error-prone. |
+| **Impact** | Quality: 72 unit tests with 96%+ coverage on critical modules. Development: Test-first mindset established for future features. Confidence: Can refactor without fear of breaking existing features. Documentation: Tests serve as executable documentation. CI/CD: Ready for automated test runs on commit. |
+| **Stakeholders** | Lead Developer, QA Team, Future Contributors |
+| **Outcome/Action** | Created Jest config with Babel for ES modules, implemented Chrome API mocks, wrote 72 unit tests (storage-manager.js: 38 tests/96% coverage, message-router.js: 34 tests/100% coverage), set up Playwright with extension fixtures, wrote ~30 E2E tests for popup UI, User Profiles, and Feature Visibility. Created Sprint-8-Testing-Complete checkpoint. |
+
+---
+
 ## Reference: Current Stable State
 
-**Version:** Sprint-6-ScreenOverlay-Stable
+**Version:** Sprint-8-Testing-Complete
 **Date:** 2025-10-12
-**Commit:** 51bd34dc849db6997e96e188c3a017c9d0516c63
-**Tag:** Sprint-6-ScreenOverlay-Stable
+**Latest Commits:**
+- ba22bf1: test(jest): set up Jest testing infrastructure
+- 2164012: test(unit): add message-router tests with 100% coverage
+- e6fce40: test(e2e): add Playwright E2E testing infrastructure
+**Tag:** Sprint-8-Testing-Complete (pending)
 
 **Functional Features:**
 - ✅ Text-to-Speech with click-to-read
