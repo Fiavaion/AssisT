@@ -12,7 +12,7 @@ let currentElement = null;
 let currentText = '';
 let isPaused = false; // Manual pause state tracker
 let wordHighlightInterval = null; // For word-by-word highlighting
-let settings = {
+const settings = {
   enabled: false, // TTS master toggle
   highlightEnabled: true,
   highlightColor: '#FFEB3B',
@@ -21,7 +21,7 @@ let settings = {
   rate: 1.0,
   pitch: 1.0,
   volume: 1.0,
-  voice: null
+  voice: null,
 };
 
 // Initialize speech synthesis
@@ -32,15 +32,12 @@ function loadVoices() {
   const voices = synth.getVoices();
 
   // Try to find Google UK Female
-  const preferredVoice = voices.find(v =>
-    v.name.includes('Google') &&
-    v.name.includes('UK') &&
-    v.name.includes('Female')
-  ) || voices.find(v =>
-    v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')
-  ) || voices.find(v =>
-    v.lang.startsWith('en-') && v.name.toLowerCase().includes('female')
-  );
+  const preferredVoice =
+    voices.find(
+      v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
+    ) ||
+    voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
+    voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
 
   if (preferredVoice && !settings.voice) {
     settings.voice = preferredVoice;
@@ -55,13 +52,16 @@ if (synth.getVoices().length > 0) {
 synth.addEventListener('voiceschanged', loadVoices);
 
 // Load settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   console.log('[AssisT] Raw storage result:', result);
 
   if (result.assist_settings && result.assist_settings.tts) {
     const ttsSettings = result.assist_settings.tts;
     settings.enabled = ttsSettings.enabled !== undefined ? ttsSettings.enabled : false;
-    settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
+    settings.highlightEnabled =
+      ttsSettings.highlightEnabled !== undefined
+        ? ttsSettings.highlightEnabled
+        : settings.highlightEnabled;
     settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
     settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
     settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
@@ -81,13 +81,16 @@ chrome.storage.local.get('assist_settings', (result) => {
 
     console.log('[AssisT] Settings loaded, TTS enabled:', settings.enabled);
   } else {
-    console.warn('[AssisT] No settings found in storage - using defaults. TTS enabled:', settings.enabled);
+    console.warn(
+      '[AssisT] No settings found in storage - using defaults. TTS enabled:',
+      settings.enabled
+    );
   }
 });
 
 // Listen for settings updates (debounced to prevent loops)
 let updateTimeout = null;
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && updateTimeout === null) {
     updateTimeout = setTimeout(() => {
       const ttsSettings = changes.assist_settings.newValue?.tts;
@@ -101,7 +104,10 @@ chrome.storage.onChanged.addListener((changes) => {
         const oldTTSEnabled = settings.enabled;
 
         settings.enabled = ttsSettings.enabled !== undefined ? ttsSettings.enabled : false;
-        settings.highlightEnabled = ttsSettings.highlightEnabled !== undefined ? ttsSettings.highlightEnabled : settings.highlightEnabled;
+        settings.highlightEnabled =
+          ttsSettings.highlightEnabled !== undefined
+            ? ttsSettings.highlightEnabled
+            : settings.highlightEnabled;
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
         settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
@@ -127,7 +133,11 @@ chrome.storage.onChanged.addListener((changes) => {
         }
 
         // Update voice only if changed
-        if (ttsSettings.voice && ttsSettings.voice !== 'default' && ttsSettings.voice !== settings.voice?.name) {
+        if (
+          ttsSettings.voice &&
+          ttsSettings.voice !== 'default' &&
+          ttsSettings.voice !== settings.voice?.name
+        ) {
           const voices = synth.getVoices();
           const voice = voices.find(v => v.name === ttsSettings.voice);
           if (voice) {
@@ -149,12 +159,22 @@ chrome.storage.onChanged.addListener((changes) => {
         }
 
         // If highlight color or opacity changed and we're currently highlighting, update it
-        if (settings.highlightEnabled && (settings.highlightColor !== oldColor || settings.highlightOpacity !== oldOpacity) && currentElement) {
+        if (
+          settings.highlightEnabled &&
+          (settings.highlightColor !== oldColor || settings.highlightOpacity !== oldOpacity) &&
+          currentElement
+        ) {
           highlightElement(currentElement);
         }
 
         // If currently speaking, restart with new settings
-        if (currentUtterance && synth.speaking && (settings.rate !== oldRate || settings.pitch !== oldPitch || settings.volume !== oldVolume)) {
+        if (
+          currentUtterance &&
+          synth.speaking &&
+          (settings.rate !== oldRate ||
+            settings.pitch !== oldPitch ||
+            settings.volume !== oldVolume)
+        ) {
           const wasPaused = synth.paused;
           const element = currentElement;
           const text = currentText;
@@ -233,7 +253,9 @@ function highlightWordByWord(element, text, rate) {
 
   // Split text into words
   const words = text.split(/\s+/);
-  if (words.length === 0) return;
+  if (words.length === 0) {
+    return;
+  }
 
   // Estimate time per word (avg reading speed ~ 150 words/min at 1.0x rate)
   // Adjusted for rate setting
@@ -251,15 +273,18 @@ function highlightWordByWord(element, text, rate) {
   element.dataset.originalHTML = originalHTML;
 
   // Create wrapped HTML
-  const wrappedHTML = text.split(/(\s+)/).map((part, index) => {
-    if (part.trim().length === 0) {
-      // Keep whitespace as-is
-      return part;
-    } else {
-      // Wrap words in spans
-      return `<span class="assist-word" data-word-index="${Math.floor(index / 2)}">${part}</span>`;
-    }
-  }).join('');
+  const wrappedHTML = text
+    .split(/(\s+)/)
+    .map((part, index) => {
+      if (part.trim().length === 0) {
+        // Keep whitespace as-is
+        return part;
+      } else {
+        // Wrap words in spans
+        return `<span class="assist-word" data-word-index="${Math.floor(index / 2)}">${part}</span>`;
+      }
+    })
+    .join('');
 
   element.innerHTML = wrappedHTML;
 
@@ -373,7 +398,7 @@ function readText(text, element) {
     };
 
     // Handle errors
-    currentUtterance.onerror = (event) => {
+    currentUtterance.onerror = event => {
       console.error('[AssisT] Speech error:', event.error);
       cleanupWordByWord(currentElement);
       removeHighlight();
@@ -393,144 +418,193 @@ function readText(text, element) {
 }
 
 // Click handler
-document.addEventListener('click', (e) => {
-  // Don't intercept links/buttons first
-  if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
-    return;
-  }
+document.addEventListener(
+  'click',
+  e => {
+    // Don't intercept links/buttons first
+    if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
+      return;
+    }
 
-  // Don't read if TTS is disabled
-  if (!settings.enabled) {
-    // Check if they clicked on readable content to show helpful message
+    // Don't read if TTS is disabled
+    if (!settings.enabled) {
+      // Check if they clicked on readable content to show helpful message
+      let target = e.target;
+      while (target && target !== document.body) {
+        const tag = target.tagName?.toLowerCase();
+        if (
+          tag &&
+          [
+            'p',
+            'li',
+            'h1',
+            'h2',
+            'h3',
+            'h4',
+            'h5',
+            'h6',
+            'blockquote',
+            'div',
+            'article',
+            'section',
+          ].includes(tag)
+        ) {
+          const text = target.textContent?.trim();
+          if (text && text.length > 10) {
+            showToast('⚠️ TTS is disabled. Enable it in the popup to read text.');
+            console.log('[AssisT] Click ignored - TTS is disabled');
+            break;
+          }
+        }
+        target = target.parentElement;
+      }
+      return;
+    }
+
+    // Find text container
     let target = e.target;
+    let textElement = null;
+
     while (target && target !== document.body) {
       const tag = target.tagName?.toLowerCase();
-      if (tag && ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'article', 'section'].includes(tag)) {
+
+      if (
+        tag &&
+        [
+          'p',
+          'li',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'blockquote',
+          'div',
+          'article',
+          'section',
+        ].includes(tag)
+      ) {
         const text = target.textContent?.trim();
+
         if (text && text.length > 10) {
-          showToast('⚠️ TTS is disabled. Enable it in the popup to read text.');
-          console.log('[AssisT] Click ignored - TTS is disabled');
+          textElement = target;
           break;
         }
       }
+
       target = target.parentElement;
     }
-    return;
-  }
 
-  // Find text container
-  let target = e.target;
-  let textElement = null;
-
-  while (target && target !== document.body) {
-    const tag = target.tagName?.toLowerCase();
-
-    if (tag && ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'article', 'section'].includes(tag)) {
-      const text = target.textContent?.trim();
-
-      if (text && text.length > 10) {
-        textElement = target;
-        break;
-      }
-    }
-
-    target = target.parentElement;
-  }
-
-  if (textElement) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const text = textElement.textContent.trim();
-    readText(text, textElement);
-  }
-}, true);
-
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-  // Skip if typing in input fields
-  const target = e.target;
-  if (target.matches('input, textarea, [contenteditable="true"]')) {
-    return;
-  }
-
-  // Space - pause/resume
-  if (e.key === ' ' || e.code === 'Space') {
-    // Only handle if we have an active utterance
-    if (currentUtterance) {
+    if (textElement) {
       e.preventDefault();
       e.stopPropagation();
 
-      console.log('[AssisT] Spacebar pressed. isPaused:', isPaused, 'synth.speaking:', synth.speaking, 'synth.paused:', synth.paused);
+      const text = textElement.textContent.trim();
+      readText(text, textElement);
+    }
+  },
+  true
+);
 
-      // Use our manual state tracker
-      if (isPaused) {
-        // Resume
-        synth.resume();
-        isPaused = false;
-        showToast('▶️ Resumed');
-        console.log('[AssisT] Resumed playback');
-      } else {
-        // Pause
-        synth.pause();
-        isPaused = true;
-        showToast('⏸️ Paused');
-        console.log('[AssisT] Paused playback');
+// Keyboard shortcuts
+document.addEventListener(
+  'keydown',
+  e => {
+    // Skip if typing in input fields
+    const target = e.target;
+    if (target.matches('input, textarea, [contenteditable="true"]')) {
+      return;
+    }
+
+    // Space - pause/resume
+    if (e.key === ' ' || e.code === 'Space') {
+      // Only handle if we have an active utterance
+      if (currentUtterance) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        console.log(
+          '[AssisT] Spacebar pressed. isPaused:',
+          isPaused,
+          'synth.speaking:',
+          synth.speaking,
+          'synth.paused:',
+          synth.paused
+        );
+
+        // Use our manual state tracker
+        if (isPaused) {
+          // Resume
+          synth.resume();
+          isPaused = false;
+          showToast('▶️ Resumed');
+          console.log('[AssisT] Resumed playback');
+        } else {
+          // Pause
+          synth.pause();
+          isPaused = true;
+          showToast('⏸️ Paused');
+          console.log('[AssisT] Paused playback');
+        }
       }
     }
-  }
 
-  // + or = - speed up
-  if ((e.key === '+' || e.key === '=') && (e.shiftKey || e.key === '+')) {
-    e.preventDefault();
-    e.stopPropagation();
-    settings.rate = Math.min(2.0, settings.rate + 0.1);
-    showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
-    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
+    // + or = - speed up
+    if ((e.key === '+' || e.key === '=') && (e.shiftKey || e.key === '+')) {
+      e.preventDefault();
+      e.stopPropagation();
+      settings.rate = Math.min(2.0, settings.rate + 0.1);
+      showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+      console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
 
-    // Apply immediately if speaking
-    if (currentUtterance && synth.speaking) {
-      const text = currentText;
-      const element = currentElement;
-      const wasPaused = synth.paused;
-      synth.cancel();
-      setTimeout(() => {
-        readText(text, element);
-        if (wasPaused) {
-          setTimeout(() => synth.pause(), 100);
-        }
-      }, 50);
+      // Apply immediately if speaking
+      if (currentUtterance && synth.speaking) {
+        const text = currentText;
+        const element = currentElement;
+        const wasPaused = synth.paused;
+        synth.cancel();
+        setTimeout(() => {
+          readText(text, element);
+          if (wasPaused) {
+            setTimeout(() => synth.pause(), 100);
+          }
+        }, 50);
+      }
     }
-  }
 
-  // - or _ - slow down
-  if (e.key === '-' || e.key === '_') {
-    e.preventDefault();
-    e.stopPropagation();
-    settings.rate = Math.max(0.5, settings.rate - 0.1);
-    showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
-    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
+    // - or _ - slow down
+    if (e.key === '-' || e.key === '_') {
+      e.preventDefault();
+      e.stopPropagation();
+      settings.rate = Math.max(0.5, settings.rate - 0.1);
+      showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+      console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
 
-    // Apply immediately if speaking
-    if (currentUtterance && synth.speaking) {
-      const text = currentText;
-      const element = currentElement;
-      const wasPaused = synth.paused;
-      synth.cancel();
-      setTimeout(() => {
-        readText(text, element);
-        if (wasPaused) {
-          setTimeout(() => synth.pause(), 100);
-        }
-      }, 50);
+      // Apply immediately if speaking
+      if (currentUtterance && synth.speaking) {
+        const text = currentText;
+        const element = currentElement;
+        const wasPaused = synth.paused;
+        synth.cancel();
+        setTimeout(() => {
+          readText(text, element);
+          if (wasPaused) {
+            setTimeout(() => synth.pause(), 100);
+          }
+        }, 50);
+      }
     }
-  }
-}, true); // Use capture phase for better priority
+  },
+  true
+); // Use capture phase for better priority
 
 // Show toast
 function showToast(message) {
   const existing = document.getElementById('assist-toast');
-  if (existing) existing.remove();
+  if (existing) {
+    existing.remove();
+  }
 
   const toast = document.createElement('div');
   toast.id = 'assist-toast';
@@ -567,21 +641,21 @@ function showToast(message) {
 let textCustomization_enabled = false;
 let textCustomization_styleElement = null;
 let textCustomization_fontLinkElement = null;
-let textCustomization_settings = {
+const textCustomization_settings = {
   fontFamily: 'system',
   lineSpacing: 1.5,
   letterSpacing: 0.12,
   wordSpacing: 0.16,
-  paragraphSpacing: 2.0
+  paragraphSpacing: 2.0,
 };
 
 // Font map for CSS generation
 const textCustomization_fontMap = {
-  'system': 'inherit',
-  'lexend': '"Lexend", -apple-system, system-ui, sans-serif',
-  'opendyslexic': '"OpenDyslexic", Arial, sans-serif',
+  system: 'inherit',
+  lexend: '"Lexend", -apple-system, system-ui, sans-serif',
+  opendyslexic: '"OpenDyslexic", Arial, sans-serif',
   'comic-sans': '"Comic Sans MS", "Comic Sans", cursive',
-  'arial': 'Arial, Helvetica, sans-serif'
+  arial: 'Arial, Helvetica, sans-serif',
 };
 
 // Load Lexend font from Google Fonts
@@ -589,7 +663,8 @@ function textCustomization_loadLexend() {
   if (!textCustomization_fontLinkElement) {
     textCustomization_fontLinkElement = document.createElement('link');
     textCustomization_fontLinkElement.rel = 'stylesheet';
-    textCustomization_fontLinkElement.href = 'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap';
+    textCustomization_fontLinkElement.href =
+      'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap';
     document.head.appendChild(textCustomization_fontLinkElement);
     console.log('[TextCustomization] Lexend font loaded from Google Fonts');
   }
@@ -682,7 +757,7 @@ function textCustomization_remove() {
 }
 
 // Load Text Customization settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.textCustomization) {
     const tcSettings = result.assist_settings.textCustomization;
     textCustomization_enabled = tcSettings.enabled || false;
@@ -696,12 +771,16 @@ chrome.storage.local.get('assist_settings', (result) => {
       textCustomization_apply();
     }
 
-    console.log('[TextCustomization] Settings loaded:', textCustomization_enabled, textCustomization_settings);
+    console.log(
+      '[TextCustomization] Settings loaded:',
+      textCustomization_enabled,
+      textCustomization_settings
+    );
   }
 });
 
 // Listen for Text Customization settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.textCustomization) {
     const tcSettings = changes.assist_settings.newValue.textCustomization;
 
@@ -726,7 +805,11 @@ chrome.storage.onChanged.addListener((changes) => {
       }
     }
 
-    console.log('[TextCustomization] Settings updated:', textCustomization_enabled, textCustomization_settings);
+    console.log(
+      '[TextCustomization] Settings updated:',
+      textCustomization_enabled,
+      textCustomization_settings
+    );
   }
 });
 
@@ -737,10 +820,10 @@ chrome.storage.onChanged.addListener((changes) => {
 // Reading Guide State (Feature Isolated)
 let readingGuide_enabled = false;
 let readingGuide_lineElement = null;
-let readingGuide_settings = {
+const readingGuide_settings = {
   lineColor: '#000000',
   lineThickness: 3,
-  lineOpacity: 0.7
+  lineOpacity: 0.7,
 };
 
 // Create Reading Guide line element
@@ -827,7 +910,7 @@ function readingGuide_handleMouseMove(event) {
 }
 
 // Load Reading Guide settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.readingGuide) {
     const rgSettings = result.assist_settings.readingGuide;
     readingGuide_enabled = rgSettings.enabled || false;
@@ -844,7 +927,7 @@ chrome.storage.local.get('assist_settings', (result) => {
 });
 
 // Listen for Reading Guide settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.readingGuide) {
     const rgSettings = changes.assist_settings.newValue.readingGuide;
 
@@ -877,10 +960,10 @@ chrome.storage.onChanged.addListener((changes) => {
 // Focus Mode State (Feature Isolated)
 let focusMode_enabled = false;
 let focusMode_windowElement = null;
-let focusMode_settings = {
+const focusMode_settings = {
   boxWidth: 400,
   boxHeight: 100,
-  overlayOpacity: 0.7
+  overlayOpacity: 0.7,
 };
 
 // Create Focus Mode window element with box-shadow overlay
@@ -895,7 +978,8 @@ function focusMode_createWindow() {
 
   // Calculate border-radius as 20% of the smaller dimension
   const radiusPercent = 0.2;
-  const radius = Math.min(focusMode_settings.boxWidth, focusMode_settings.boxHeight) * radiusPercent;
+  const radius =
+    Math.min(focusMode_settings.boxWidth, focusMode_settings.boxHeight) * radiusPercent;
 
   focusMode_windowElement.style.cssText = `
     position: fixed;
@@ -916,7 +1000,9 @@ function focusMode_createWindow() {
 
 // Update window position based on mouse coordinates
 function focusMode_updatePosition(mouseX, mouseY) {
-  if (!focusMode_windowElement || !focusMode_enabled) return;
+  if (!focusMode_windowElement || !focusMode_enabled) {
+    return;
+  }
 
   const halfWidth = focusMode_settings.boxWidth / 2;
   const halfHeight = focusMode_settings.boxHeight / 2;
@@ -931,11 +1017,14 @@ function focusMode_updatePosition(mouseX, mouseY) {
 
 // Update window styling (size, opacity, border-radius)
 function focusMode_updateStyle() {
-  if (!focusMode_windowElement) return;
+  if (!focusMode_windowElement) {
+    return;
+  }
 
   // Calculate border-radius as 20% of the smaller dimension
   const radiusPercent = 0.2;
-  const radius = Math.min(focusMode_settings.boxWidth, focusMode_settings.boxHeight) * radiusPercent;
+  const radius =
+    Math.min(focusMode_settings.boxWidth, focusMode_settings.boxHeight) * radiusPercent;
 
   focusMode_windowElement.style.width = focusMode_settings.boxWidth + 'px';
   focusMode_windowElement.style.height = focusMode_settings.boxHeight + 'px';
@@ -988,7 +1077,7 @@ function focusMode_handleMouseMove(event) {
 }
 
 // Load Focus Mode settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.focusMode) {
     const fmSettings = result.assist_settings.focusMode;
     focusMode_enabled = fmSettings.enabled || false;
@@ -1005,7 +1094,7 @@ chrome.storage.local.get('assist_settings', (result) => {
 });
 
 // Listen for Focus Mode settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.focusMode) {
     const fmSettings = changes.assist_settings.newValue.focusMode;
 
@@ -1056,10 +1145,14 @@ async function canvas_loadAdapter() {
 
 // Initialize Canvas features
 async function canvas_initialize() {
-  if (!canvas_enabled) return;
+  if (!canvas_enabled) {
+    return;
+  }
 
   const adapter = await canvas_loadAdapter();
-  if (!adapter) return;
+  if (!adapter) {
+    return;
+  }
 
   // Check if on Canvas page
   if (!adapter.isCanvasPage()) {
@@ -1082,7 +1175,9 @@ async function canvas_initialize() {
 // Initialize Assignment Reader
 async function canvas_initializeAssignmentReader() {
   const adapter = await canvas_loadAdapter();
-  if (!adapter) return;
+  if (!adapter) {
+    return;
+  }
 
   // Extract assignment content
   const assignment = adapter.extractAssignmentContent();
@@ -1098,7 +1193,7 @@ async function canvas_initializeAssignmentReader() {
     text: 'Read Assignment',
     icon: '📖',
     onClick: () => canvas_readAssignment(assignment),
-    position: 'bottom-right'
+    position: 'bottom-right',
   });
 
   document.body.appendChild(canvas_fabElement);
@@ -1133,7 +1228,7 @@ function canvas_removeFAB() {
 }
 
 // Load Canvas Integration settings
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.canvasIntegration) {
     const ciSettings = result.assist_settings.canvasIntegration;
     canvas_enabled = ciSettings.enabled || false;
@@ -1149,7 +1244,7 @@ chrome.storage.local.get('assist_settings', (result) => {
 });
 
 // Listen for Canvas Integration settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.canvasIntegration) {
     const ciSettings = changes.assist_settings.newValue.canvasIntegration;
     const newEnabled = ciSettings.enabled || false;
@@ -1169,6 +1264,450 @@ chrome.storage.onChanged.addListener((changes) => {
 });
 
 // ============================================================
+// SPRINT 9 FEATURE: MOODLE LMS INTEGRATION
+// ============================================================
+
+// Moodle Integration State (Feature Isolated)
+let moodle_enabled = false;
+let moodle_fabElement = null;
+
+// Import Moodle Adapter dynamically when needed
+let MoodleAdapter = null;
+
+async function moodle_loadAdapter() {
+  if (!MoodleAdapter) {
+    try {
+      MoodleAdapter = await import(chrome.runtime.getURL('adapters/moodle-adapter.js'));
+      console.log('[Moodle] Adapter loaded');
+    } catch (error) {
+      console.error('[Moodle] Failed to load adapter:', error);
+    }
+  }
+  return MoodleAdapter;
+}
+
+// Initialize Moodle features
+async function moodle_initialize() {
+  if (!moodle_enabled) {
+    return;
+  }
+
+  const adapter = await moodle_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  // Check if on Moodle page
+  if (!adapter.isMoodlePage()) {
+    console.log('[Moodle] Not a Moodle page, skipping');
+    return;
+  }
+
+  const pageType = adapter.detectMoodlePageType();
+  console.log('[Moodle] Page type detected:', pageType);
+
+  // Wait for content to load
+  await adapter.waitForMoodleContent();
+
+  // Initialize features based on page type
+  if (pageType === adapter.MoodlePageType.ASSIGNMENT) {
+    moodle_initializeAssignmentReader();
+  } else if (pageType === adapter.MoodlePageType.FORUM) {
+    moodle_initializeForumReader();
+  } else if (pageType === adapter.MoodlePageType.PAGE) {
+    moodle_initializePageReader();
+  }
+}
+
+// Initialize Assignment Reader
+async function moodle_initializeAssignmentReader() {
+  const adapter = await moodle_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  const assignment = adapter.extractAssignmentContent();
+  if (!assignment) {
+    console.log('[Moodle] No assignment content found');
+    return;
+  }
+
+  console.log('[Moodle] Assignment detected:', assignment.title);
+
+  // Create FAB button
+  moodle_fabElement = adapter.createMoodleFAB({
+    text: 'Read Assignment',
+    icon: '📖',
+    onClick: () => moodle_readContent(assignment),
+    position: 'bottom-right',
+  });
+
+  document.body.appendChild(moodle_fabElement);
+  console.log('[Moodle] Assignment Reader initialized');
+}
+
+// Initialize Forum Reader
+async function moodle_initializeForumReader() {
+  const adapter = await moodle_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  const posts = adapter.extractForumPosts();
+  if (!posts || posts.length === 0) {
+    console.log('[Moodle] No forum posts found');
+    return;
+  }
+
+  console.log('[Moodle] Forum detected with', posts.length, 'posts');
+
+  // Create FAB button to read all posts
+  moodle_fabElement = adapter.createMoodleFAB({
+    text: 'Read Forum',
+    icon: '💬',
+    onClick: () => moodle_readPosts(posts),
+    position: 'bottom-right',
+  });
+
+  document.body.appendChild(moodle_fabElement);
+  console.log('[Moodle] Forum Reader initialized');
+}
+
+// Initialize Page Reader
+async function moodle_initializePageReader() {
+  const adapter = await moodle_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  const page = adapter.extractPageContent();
+  if (!page) {
+    console.log('[Moodle] No page content found');
+    return;
+  }
+
+  console.log('[Moodle] Page resource detected:', page.title);
+
+  // Create FAB button
+  moodle_fabElement = adapter.createMoodleFAB({
+    text: 'Read Page',
+    icon: '📄',
+    onClick: () => moodle_readContent(page),
+    position: 'bottom-right',
+  });
+
+  document.body.appendChild(moodle_fabElement);
+  console.log('[Moodle] Page Reader initialized');
+}
+
+// Read Moodle content
+function moodle_readContent(content) {
+  if (!settings.enabled) {
+    showToast('⚠️ Enable TTS in the extension popup first');
+    return;
+  }
+
+  console.log('[Moodle] Reading content:', content.title);
+  showToast('📖 Reading: ' + content.title);
+
+  const fullText = content.title + '. ' + content.text;
+  readText(fullText, content.element);
+}
+
+// Read forum posts
+function moodle_readPosts(posts) {
+  if (!settings.enabled) {
+    showToast('⚠️ Enable TTS in the extension popup first');
+    return;
+  }
+
+  console.log('[Moodle] Reading', posts.length, 'forum posts');
+  showToast(`💬 Reading ${posts.length} forum posts`);
+
+  // Combine all posts
+  const fullText = posts.map(post => `${post.author} says: ${post.content}`).join('. Next post. ');
+
+  readText(fullText, posts[0].element);
+}
+
+// Remove Moodle FAB
+function moodle_removeFAB() {
+  if (moodle_fabElement) {
+    moodle_fabElement.remove();
+    moodle_fabElement = null;
+  }
+}
+
+// Load Moodle Integration settings
+chrome.storage.local.get('assist_settings', result => {
+  if (result.assist_settings && result.assist_settings.moodleIntegration) {
+    const miSettings = result.assist_settings.moodleIntegration;
+    moodle_enabled = miSettings.enabled || false;
+
+    if (moodle_enabled) {
+      moodle_initialize();
+    }
+
+    console.log('[Moodle] Settings loaded:', moodle_enabled);
+  } else {
+    console.log('[Moodle] Integration disabled by default');
+  }
+});
+
+// Listen for Moodle Integration settings updates
+chrome.storage.onChanged.addListener(changes => {
+  if (changes.assist_settings && changes.assist_settings.newValue?.moodleIntegration) {
+    const miSettings = changes.assist_settings.newValue.moodleIntegration;
+    const newEnabled = miSettings.enabled || false;
+
+    if (newEnabled && !moodle_enabled) {
+      moodle_enabled = true;
+      moodle_initialize();
+      showToast('📚 Moodle Integration enabled');
+    } else if (!newEnabled && moodle_enabled) {
+      moodle_enabled = false;
+      moodle_removeFAB();
+      showToast('Moodle Integration disabled');
+    }
+
+    console.log('[Moodle] Settings updated:', newEnabled);
+  }
+});
+
+// ============================================================
+// SPRINT 9 FEATURE: GOOGLE CLASSROOM INTEGRATION
+// ============================================================
+
+// Google Classroom Integration State (Feature Isolated)
+let googleClassroom_enabled = false;
+let googleClassroom_fabElement = null;
+
+// Import Google Classroom Adapter dynamically when needed
+let GoogleClassroomAdapter = null;
+
+async function googleClassroom_loadAdapter() {
+  if (!GoogleClassroomAdapter) {
+    try {
+      GoogleClassroomAdapter = await import(
+        chrome.runtime.getURL('adapters/google-classroom-adapter.js')
+      );
+      console.log('[GoogleClassroom] Adapter loaded');
+    } catch (error) {
+      console.error('[GoogleClassroom] Failed to load adapter:', error);
+    }
+  }
+  return GoogleClassroomAdapter;
+}
+
+// Initialize Google Classroom features
+async function googleClassroom_initialize() {
+  if (!googleClassroom_enabled) {
+    return;
+  }
+
+  const adapter = await googleClassroom_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  // Check if on Google Classroom page
+  if (!adapter.isGoogleClassroomPage()) {
+    console.log('[GoogleClassroom] Not a Google Classroom page, skipping');
+    return;
+  }
+
+  const pageType = adapter.detectGoogleClassroomPageType();
+  console.log('[GoogleClassroom] Page type detected:', pageType);
+
+  // Wait for content to load
+  await adapter.waitForGoogleClassroomContent();
+
+  // Initialize features based on page type
+  if (pageType === adapter.GoogleClassroomPageType.ASSIGNMENT) {
+    googleClassroom_initializeAssignmentReader();
+  } else if (pageType === adapter.GoogleClassroomPageType.STREAM) {
+    googleClassroom_initializeStreamReader();
+  } else if (pageType === adapter.GoogleClassroomPageType.CLASSWORK) {
+    googleClassroom_initializeClassworkReader();
+  }
+}
+
+// Initialize Assignment Reader
+async function googleClassroom_initializeAssignmentReader() {
+  const adapter = await googleClassroom_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  const assignment = adapter.extractAssignmentContent();
+  if (!assignment) {
+    console.log('[GoogleClassroom] No assignment content found');
+    return;
+  }
+
+  console.log('[GoogleClassroom] Assignment detected:', assignment.title);
+
+  // Create FAB button
+  googleClassroom_fabElement = adapter.createGoogleClassroomFAB({
+    text: 'Read Assignment',
+    icon: '📖',
+    onClick: () => googleClassroom_readContent(assignment),
+    position: 'bottom-right',
+  });
+
+  document.body.appendChild(googleClassroom_fabElement);
+  console.log('[GoogleClassroom] Assignment Reader initialized');
+}
+
+// Initialize Stream Reader
+async function googleClassroom_initializeStreamReader() {
+  const adapter = await googleClassroom_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  const posts = adapter.extractStreamPosts();
+  if (!posts || posts.length === 0) {
+    console.log('[GoogleClassroom] No stream posts found');
+    return;
+  }
+
+  console.log('[GoogleClassroom] Stream detected with', posts.length, 'posts');
+
+  // Create FAB button
+  googleClassroom_fabElement = adapter.createGoogleClassroomFAB({
+    text: 'Read Stream',
+    icon: '📢',
+    onClick: () => googleClassroom_readPosts(posts),
+    position: 'bottom-right',
+  });
+
+  document.body.appendChild(googleClassroom_fabElement);
+  console.log('[GoogleClassroom] Stream Reader initialized');
+}
+
+// Initialize Classwork Reader
+async function googleClassroom_initializeClassworkReader() {
+  const adapter = await googleClassroom_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  const items = adapter.extractClassworkItems();
+  if (!items || items.length === 0) {
+    console.log('[GoogleClassroom] No classwork items found');
+    return;
+  }
+
+  console.log('[GoogleClassroom] Classwork detected with', items.length, 'items');
+
+  // Create FAB button
+  googleClassroom_fabElement = adapter.createGoogleClassroomFAB({
+    text: 'Read Classwork',
+    icon: '📚',
+    onClick: () => googleClassroom_readClasswork(items),
+    position: 'bottom-right',
+  });
+
+  document.body.appendChild(googleClassroom_fabElement);
+  console.log('[GoogleClassroom] Classwork Reader initialized');
+}
+
+// Read Google Classroom content
+function googleClassroom_readContent(content) {
+  if (!settings.enabled) {
+    showToast('⚠️ Enable TTS in the extension popup first');
+    return;
+  }
+
+  console.log('[GoogleClassroom] Reading content:', content.title);
+  showToast('📖 Reading: ' + content.title);
+
+  const fullText = content.title + '. ' + content.text;
+  readText(fullText, content.element);
+}
+
+// Read stream posts
+function googleClassroom_readPosts(posts) {
+  if (!settings.enabled) {
+    showToast('⚠️ Enable TTS in the extension popup first');
+    return;
+  }
+
+  console.log('[GoogleClassroom] Reading', posts.length, 'stream posts');
+  showToast(`📢 Reading ${posts.length} posts`);
+
+  // Combine all posts
+  const fullText = posts
+    .map(post => `${post.title || 'Post'}. ${post.content}`)
+    .join('. Next post. ');
+
+  readText(fullText, posts[0].element);
+}
+
+// Read classwork items
+function googleClassroom_readClasswork(items) {
+  if (!settings.enabled) {
+    showToast('⚠️ Enable TTS in the extension popup first');
+    return;
+  }
+
+  console.log('[GoogleClassroom] Reading', items.length, 'classwork items');
+  showToast(`📚 Reading ${items.length} classwork items`);
+
+  // Combine all items
+  const fullText = items
+    .map(item => `${item.type}: ${item.title}. Due: ${item.dueDate || 'No due date'}.`)
+    .join(' ');
+
+  readText(fullText, items[0].element);
+}
+
+// Remove Google Classroom FAB
+function googleClassroom_removeFAB() {
+  if (googleClassroom_fabElement) {
+    googleClassroom_fabElement.remove();
+    googleClassroom_fabElement = null;
+  }
+}
+
+// Load Google Classroom Integration settings
+chrome.storage.local.get('assist_settings', result => {
+  if (result.assist_settings && result.assist_settings.googleClassroomIntegration) {
+    const gciSettings = result.assist_settings.googleClassroomIntegration;
+    googleClassroom_enabled = gciSettings.enabled || false;
+
+    if (googleClassroom_enabled) {
+      googleClassroom_initialize();
+    }
+
+    console.log('[GoogleClassroom] Settings loaded:', googleClassroom_enabled);
+  } else {
+    console.log('[GoogleClassroom] Integration disabled by default');
+  }
+});
+
+// Listen for Google Classroom Integration settings updates
+chrome.storage.onChanged.addListener(changes => {
+  if (changes.assist_settings && changes.assist_settings.newValue?.googleClassroomIntegration) {
+    const gciSettings = changes.assist_settings.newValue.googleClassroomIntegration;
+    const newEnabled = gciSettings.enabled || false;
+
+    if (newEnabled && !googleClassroom_enabled) {
+      googleClassroom_enabled = true;
+      googleClassroom_initialize();
+      showToast('🎒 Google Classroom Integration enabled');
+    } else if (!newEnabled && googleClassroom_enabled) {
+      googleClassroom_enabled = false;
+      googleClassroom_removeFAB();
+      showToast('Google Classroom Integration disabled');
+    }
+
+    console.log('[GoogleClassroom] Settings updated:', newEnabled);
+  }
+});
+
+// ============================================================
 // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
 // ============================================================
 
@@ -1177,13 +1716,13 @@ let stt_enabled = false;
 let stt_controller = null;
 let stt_micButton = null;
 let stt_activeField = null;
-let stt_settings = {
+const stt_settings = {
   continuous: true,
   interimResults: true,
   language: 'en-US',
   autoCapitalize: true,
   punctuationCommands: true,
-  floatingButton: true
+  floatingButton: true,
 };
 
 // Dynamic import STT controller and mic button
@@ -1191,11 +1730,11 @@ async function stt_loadModules() {
   try {
     const [STTModule, MicButtonModule] = await Promise.all([
       import(chrome.runtime.getURL('src/engines/stt/stt-controller.js')),
-      import(chrome.runtime.getURL('src/ui/components/microphone-button.js'))
+      import(chrome.runtime.getURL('src/ui/components/microphone-button.js')),
     ]);
     return {
       STTController: STTModule.STTController,
-      MicrophoneButton: MicButtonModule.MicrophoneButton
+      MicrophoneButton: MicButtonModule.MicrophoneButton,
     };
   } catch (error) {
     console.error('[STT] Failed to load modules:', error);
@@ -1205,7 +1744,9 @@ async function stt_loadModules() {
 
 // Initialize STT controller
 async function stt_initialize() {
-  if (!stt_enabled) return;
+  if (!stt_enabled) {
+    return;
+  }
 
   const modules = await stt_loadModules();
   if (!modules) {
@@ -1232,29 +1773,29 @@ async function stt_initialize() {
         stt_micButton.updateState({ isRecording: false });
       }
     },
-    onResult: (text, fullTranscript) => {
+    onResult: (text, _fullTranscript) => {
       console.log('[STT] Result:', text);
       // Text already inserted by controller
     },
-    onInterimResult: (text) => {
+    onInterimResult: text => {
       // Show interim results in mic button
       if (stt_micButton && stt_settings.interimResults) {
         stt_micButton.showInterimResult(text);
       }
     },
-    onError: (error, errorType) => {
+    onError: (error, _errorType) => {
       console.error('[STT] Error:', error.message);
       showToast('⚠️ ' + error.message);
       if (stt_micButton) {
         stt_micButton.showError(error.message);
       }
-    }
+    },
   });
 
   // Create microphone button if enabled
   if (stt_settings.floatingButton) {
     stt_micButton = new modules.MicrophoneButton({
-      onStart: (targetField) => {
+      onStart: targetField => {
         if (stt_controller) {
           stt_activeField = targetField;
           stt_controller.startListening(targetField);
@@ -1265,9 +1806,9 @@ async function stt_initialize() {
           stt_controller.stopListening();
         }
       },
-      onError: (message) => {
+      onError: message => {
         showToast('⚠️ ' + message);
-      }
+      },
     });
   }
 
@@ -1279,66 +1820,93 @@ async function stt_initialize() {
 
 // Check if element is a text input field
 function stt_isTextInput(element) {
-  if (!element) return false;
+  if (!element) {
+    return false;
+  }
 
   const tagName = element.tagName?.toLowerCase();
   const contentEditable = element.contentEditable === 'true' || element.isContentEditable;
 
   // Check for standard text inputs
-  if (tagName === 'textarea') return true;
+  if (tagName === 'textarea') {
+    return true;
+  }
   if (tagName === 'input') {
     const type = element.type?.toLowerCase();
     return ['text', 'email', 'search', 'url', 'tel'].includes(type);
   }
 
   // Check for contenteditable elements
-  if (contentEditable) return true;
+  if (contentEditable) {
+    return true;
+  }
 
   // Check for Canvas Rich Text Editor
-  if (element.closest('.mce-content-body, [role="textbox"]')) return true;
+  if (element.closest('.mce-content-body, [role="textbox"]')) {
+    return true;
+  }
 
   return false;
 }
 
 // Set up listeners for text field focus
 function stt_setupFieldListeners() {
-  if (!stt_enabled || !stt_settings.floatingButton) return;
+  if (!stt_enabled || !stt_settings.floatingButton) {
+    return;
+  }
 
   // Listen for focus on text fields
-  document.addEventListener('focusin', (e) => {
-    if (stt_enabled && stt_isTextInput(e.target)) {
-      stt_activeField = e.target;
-      if (stt_micButton) {
-        stt_micButton.show(e.target);
+  document.addEventListener(
+    'focusin',
+    e => {
+      if (stt_enabled && stt_isTextInput(e.target)) {
+        stt_activeField = e.target;
+        if (stt_micButton) {
+          stt_micButton.show(e.target);
+        }
+        console.log('[STT] Field focused:', e.target.tagName);
       }
-      console.log('[STT] Field focused:', e.target.tagName);
-    }
-  }, true);
+    },
+    true
+  );
 
   // Listen for focusout - Don't hide button immediately
-  document.addEventListener('focusout', (e) => {
-    if (stt_activeField === e.target && stt_micButton) {
-      // Keep button visible - only hide when:
-      // 1. Recording stops naturally
-      // 2. User explicitly clicks away from both field and button
-      // Do NOT auto-hide on blur
-      console.log('[STT] Field lost focus, but keeping button visible');
-    }
-  }, true);
+  document.addEventListener(
+    'focusout',
+    e => {
+      if (stt_activeField === e.target && stt_micButton) {
+        // Keep button visible - only hide when:
+        // 1. Recording stops naturally
+        // 2. User explicitly clicks away from both field and button
+        // Do NOT auto-hide on blur
+        console.log('[STT] Field lost focus, but keeping button visible');
+      }
+    },
+    true
+  );
 
   // Hide button when clicking outside both field and button
-  document.addEventListener('click', (e) => {
-    if (!stt_enabled || !stt_micButton) return;
+  document.addEventListener(
+    'click',
+    e => {
+      if (!stt_enabled || !stt_micButton) {
+        return;
+      }
 
-    const clickedOnField = stt_activeField && (e.target === stt_activeField || stt_activeField.contains(e.target));
-    const clickedOnButton = stt_micButton.button && (e.target === stt_micButton.button || stt_micButton.button.contains(e.target));
+      const clickedOnField =
+        stt_activeField && (e.target === stt_activeField || stt_activeField.contains(e.target));
+      const clickedOnButton =
+        stt_micButton.button &&
+        (e.target === stt_micButton.button || stt_micButton.button.contains(e.target));
 
-    if (!clickedOnField && !clickedOnButton && stt_activeField && !stt_controller.isRecording) {
-      stt_micButton.hide();
-      stt_activeField = null;
-      console.log('[STT] Clicked outside - hiding button');
-    }
-  }, true);
+      if (!clickedOnField && !clickedOnButton && stt_activeField && !stt_controller.isRecording) {
+        stt_micButton.hide();
+        stt_activeField = null;
+        console.log('[STT] Clicked outside - hiding button');
+      }
+    },
+    true
+  );
 }
 
 // Cleanup STT
@@ -1358,16 +1926,21 @@ function stt_cleanup() {
 }
 
 // Load STT settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.stt) {
     const sttSettings = result.assist_settings.stt;
     stt_enabled = sttSettings.enabled || false;
-    stt_settings.continuous = sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
-    stt_settings.interimResults = sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
+    stt_settings.continuous =
+      sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
+    stt_settings.interimResults =
+      sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
     stt_settings.language = sttSettings.language || 'en-US';
-    stt_settings.autoCapitalize = sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
-    stt_settings.punctuationCommands = sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
-    stt_settings.floatingButton = sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
+    stt_settings.autoCapitalize =
+      sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
+    stt_settings.punctuationCommands =
+      sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
+    stt_settings.floatingButton =
+      sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
 
     if (stt_enabled) {
       stt_initialize();
@@ -1380,18 +1953,23 @@ chrome.storage.local.get('assist_settings', (result) => {
 });
 
 // Listen for STT settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.stt) {
     const sttSettings = changes.assist_settings.newValue.stt;
     const newEnabled = sttSettings.enabled || false;
 
     // Update settings
-    stt_settings.continuous = sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
-    stt_settings.interimResults = sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
+    stt_settings.continuous =
+      sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
+    stt_settings.interimResults =
+      sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
     stt_settings.language = sttSettings.language || 'en-US';
-    stt_settings.autoCapitalize = sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
-    stt_settings.punctuationCommands = sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
-    stt_settings.floatingButton = sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
+    stt_settings.autoCapitalize =
+      sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
+    stt_settings.punctuationCommands =
+      sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
+    stt_settings.floatingButton =
+      sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
 
     // Handle enable/disable
     if (newEnabled && !stt_enabled) {
@@ -1409,7 +1987,7 @@ chrome.storage.onChanged.addListener((changes) => {
         interimResults: stt_settings.interimResults,
         language: stt_settings.language,
         autoCapitalize: stt_settings.autoCapitalize,
-        punctuationCommands: stt_settings.punctuationCommands
+        punctuationCommands: stt_settings.punctuationCommands,
       });
       console.log('[STT] Settings updated');
     }
@@ -1442,10 +2020,20 @@ function readPage_extractMainContent() {
   // Build skip list (elements to exclude)
   const skipElements = new Set();
   const skipSelectors = [
-    'nav', 'header', 'footer', 'aside',
-    '[role="navigation"]', '[role="banner"]', '[role="complementary"]',
-    '.menu', '.sidebar', '.navigation', '.breadcrumb',
-    '.ic-app-header', '.header-bar', '.right-side'
+    'nav',
+    'header',
+    'footer',
+    'aside',
+    '[role="navigation"]',
+    '[role="banner"]',
+    '[role="complementary"]',
+    '.menu',
+    '.sidebar',
+    '.navigation',
+    '.breadcrumb',
+    '.ic-app-header',
+    '.header-bar',
+    '.right-side',
   ];
 
   skipSelectors.forEach(selector => {
@@ -1453,9 +2041,7 @@ function readPage_extractMainContent() {
   });
 
   // Extract text from paragraphs, headings, etc.
-  const textElements = mainContent.querySelectorAll(
-    'p, h1, h2, h3, h4, h5, h6, li, blockquote'
-  );
+  const textElements = mainContent.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote');
 
   const textParts = [];
   textElements.forEach(el => {
@@ -1481,12 +2067,12 @@ function readPage_extractMainContent() {
   return {
     text: textParts.join(' '),
     element: mainContent,
-    count: textParts.length
+    count: textParts.length,
   };
 }
 
 // Message handler for commands from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
   console.log('[AssisT] Message received:', message.type);
 
   // Handle TTS commands from popup
@@ -1525,9 +2111,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Screen Overlay State (Feature Isolated)
 let screenOverlay_enabled = false;
 let screenOverlay_element = null;
-let screenOverlay_settings = {
+const screenOverlay_settings = {
   color: '#FFF4E6', // Warm sepia
-  opacity: 0.3
+  opacity: 0.3,
 };
 
 // Create screen overlay element
@@ -1590,7 +2176,7 @@ function screenOverlay_disable() {
 }
 
 // Load Screen Overlay settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.screenOverlay) {
     const soSettings = result.assist_settings.screenOverlay;
     screenOverlay_enabled = soSettings.enabled || false;
@@ -1606,7 +2192,7 @@ chrome.storage.local.get('assist_settings', (result) => {
 });
 
 // Listen for Screen Overlay settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.screenOverlay) {
     const soSettings = changes.assist_settings.newValue.screenOverlay;
 
@@ -1639,20 +2225,24 @@ chrome.storage.onChanged.addListener((changes) => {
 let quizHelper_enabled = false;
 let quizHelper_questions = [];
 let quizHelper_currentIndex = -1;
-let quizHelper_settings = {
+const quizHelper_settings = {
   readAnswers: true,
   autoRead: false,
   highlightQuestion: true,
   highlightColor: '#4A90E2',
-  keyboardNavigation: true
+  keyboardNavigation: true,
 };
 
 // Detect if on Canvas quiz page
 async function quizHelper_isQuizPage() {
   const adapter = await canvas_loadAdapter();
-  if (!adapter) return false;
+  if (!adapter) {
+    return false;
+  }
 
-  if (!adapter.isCanvasPage()) return false;
+  if (!adapter.isCanvasPage()) {
+    return false;
+  }
 
   const pageType = adapter.detectCanvasPageType();
   return pageType === adapter.CanvasPageType.QUIZ;
@@ -1661,7 +2251,9 @@ async function quizHelper_isQuizPage() {
 // Extract quiz questions
 async function quizHelper_extractQuestions() {
   const adapter = await canvas_loadAdapter();
-  if (!adapter) return [];
+  if (!adapter) {
+    return [];
+  }
 
   const questions = adapter.extractQuizQuestions();
   return questions || [];
@@ -1669,7 +2261,9 @@ async function quizHelper_extractQuestions() {
 
 // Initialize Quiz Helper
 async function quizHelper_initialize() {
-  if (!quizHelper_enabled) return;
+  if (!quizHelper_enabled) {
+    return;
+  }
 
   const isQuiz = await quizHelper_isQuizPage();
   if (!isQuiz) {
@@ -1707,7 +2301,9 @@ async function quizHelper_initialize() {
 function quizHelper_injectUI() {
   quizHelper_questions.forEach((question, index) => {
     const element = question.element;
-    if (!element) return;
+    if (!element) {
+      return;
+    }
 
     // Add data attribute for tracking
     element.dataset.quizQuestionIndex = index;
@@ -1723,7 +2319,7 @@ function quizHelper_injectUI() {
     element.style.marginBottom = '16px';
 
     // Add click handler
-    element.addEventListener('click', (e) => {
+    element.addEventListener('click', e => {
       // Don't interfere with actual quiz interaction (radio buttons, etc.)
       if (e.target.matches('input, label, button')) {
         return;
@@ -1816,7 +2412,9 @@ function quizHelper_setupKeyboardNav() {
 
 // Handle keyboard events
 function quizHelper_handleKeyPress(e) {
-  if (!quizHelper_enabled || quizHelper_questions.length === 0) return;
+  if (!quizHelper_enabled || quizHelper_questions.length === 0) {
+    return;
+  }
 
   // Skip if typing in input fields
   const target = e.target;
@@ -1876,7 +2474,9 @@ function quizHelper_handleKeyPress(e) {
 
 // Navigate to question (highlight and scroll)
 function quizHelper_navigateToQuestion(index) {
-  if (index < 0 || index >= quizHelper_questions.length) return;
+  if (index < 0 || index >= quizHelper_questions.length) {
+    return;
+  }
 
   quizHelper_currentIndex = index;
   const question = quizHelper_questions[index];
@@ -1916,7 +2516,7 @@ function quizHelper_cleanup() {
 }
 
 // Load Quiz Helper settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.canvasIntegration) {
     const ciSettings = result.assist_settings.canvasIntegration;
 
@@ -1942,13 +2542,15 @@ chrome.storage.local.get('assist_settings', (result) => {
 });
 
 // Listen for Quiz Helper settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.canvasIntegration) {
     const ciSettings = changes.assist_settings.newValue.canvasIntegration;
 
     // Check if quizHelper settings exist and are an object
     const qhSettings = ciSettings.quizHelper;
-    if (!qhSettings) return;
+    if (!qhSettings) {
+      return;
+    }
 
     const wasEnabled = quizHelper_enabled;
 
@@ -1991,49 +2593,53 @@ chrome.storage.onChanged.addListener((changes) => {
 
 // Dyslexia Mode State (Feature Isolated)
 let dyslexiaMode_enabled = false;
-let dyslexiaMode_settings = {
+const dyslexiaMode_settings = {
   bionicReading: true,
   syllableHighlighting: false,
   grammarColors: false,
-  colorIntensity: 0.7 // 0.5-1.0, affects saturation
+  colorIntensity: 0.7, // 0.5-1.0, affects saturation
 };
-let dyslexiaMode_originalContent = new Map(); // Store original HTML
-let dyslexiaMode_processedElements = new Set(); // Track processed elements
+const dyslexiaMode_originalContent = new Map(); // Store original HTML
+const dyslexiaMode_processedElements = new Set(); // Track processed elements
 
 // Bionic Reading: Bold first letters of words
 function dyslexiaMode_applyBionicReading(element) {
-  if (!element || element.dataset.assistDyslexiaProcessed) return;
+  if (!element || element.dataset.assistDyslexiaProcessed) {
+    return;
+  }
 
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        // Skip if parent is a script, style, or already processed
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        const tag = parent.tagName?.toLowerCase();
-        if (['script', 'style', 'code', 'pre'].includes(tag)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        if (parent.classList.contains('assist-bionic')) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return node.textContent.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+    acceptNode: node => {
+      // Skip if parent is a script, style, or already processed
+      const parent = node.parentElement;
+      if (!parent) {
+        return NodeFilter.FILTER_REJECT;
       }
-    }
-  );
+      const tag = parent.tagName?.toLowerCase();
+      if (['script', 'style', 'code', 'pre'].includes(tag)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      if (parent.classList.contains('assist-bionic')) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return node.textContent.trim().length > 0
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    },
+  });
 
   const textNodes = [];
   let node;
-  while (node = walker.nextNode()) {
+  while ((node = walker.nextNode())) {
     textNodes.push(node);
   }
 
   textNodes.forEach(textNode => {
     const text = textNode.textContent;
     const parent = textNode.parentElement;
-    if (!text.trim() || !parent) return;
+    if (!text.trim() || !parent) {
+      return;
+    }
 
     // Split into words and process
     const words = text.split(/(\s+|[,.!?;:])/);
@@ -2047,9 +2653,13 @@ function dyslexiaMode_applyBionicReading(element) {
         // Determine how many letters to bold based on word length
         const len = word.length;
         let boldCount;
-        if (len <= 3) boldCount = 1;
-        else if (len <= 7) boldCount = 2;
-        else boldCount = 3;
+        if (len <= 3) {
+          boldCount = 1;
+        } else if (len <= 7) {
+          boldCount = 2;
+        } else {
+          boldCount = 3;
+        }
 
         // Create span with bolded first part
         const span = document.createElement('span');
@@ -2075,13 +2685,17 @@ function dyslexiaMode_applyBionicReading(element) {
 
 // Syllable Highlighting: Alternate colors between syllables
 function dyslexiaMode_applySyllableHighlighting(element) {
-  if (!element || element.dataset.assistDyslexiaProcessed) return;
+  if (!element || element.dataset.assistDyslexiaProcessed) {
+    return;
+  }
 
   // Simple syllable split algorithm (basic English rules)
   function splitIntoSyllables(word) {
     // Very basic syllabification - split on vowel clusters
     // This is simplified; production would use Hypher.js library
-    if (word.length <= 3) return [word];
+    if (word.length <= 3) {
+      return [word];
+    }
 
     const vowels = 'aeiouAEIOU';
     const syllables = [];
@@ -2102,29 +2716,31 @@ function dyslexiaMode_applySyllableHighlighting(element) {
       }
     }
 
-    if (current) syllables.push(current);
+    if (current) {
+      syllables.push(current);
+    }
     return syllables.length > 0 ? syllables : [word];
   }
 
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        const tag = parent.tagName?.toLowerCase();
-        if (['script', 'style', 'code', 'pre'].includes(tag)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return node.textContent.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+    acceptNode: node => {
+      const parent = node.parentElement;
+      if (!parent) {
+        return NodeFilter.FILTER_REJECT;
       }
-    }
-  );
+      const tag = parent.tagName?.toLowerCase();
+      if (['script', 'style', 'code', 'pre'].includes(tag)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return node.textContent.trim().length > 0
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    },
+  });
 
   const textNodes = [];
   let node;
-  while (node = walker.nextNode()) {
+  while ((node = walker.nextNode())) {
     textNodes.push(node);
   }
 
@@ -2134,7 +2750,9 @@ function dyslexiaMode_applySyllableHighlighting(element) {
   textNodes.forEach(textNode => {
     const text = textNode.textContent;
     const parent = textNode.parentElement;
-    if (!text.trim() || !parent) return;
+    if (!text.trim() || !parent) {
+      return;
+    }
 
     const words = text.split(/(\s+)/);
     const fragment = document.createDocumentFragment();
@@ -2163,12 +2781,15 @@ function dyslexiaMode_applySyllableHighlighting(element) {
 
 // Grammar Color-Coding: Color words by part of speech
 async function dyslexiaMode_applyGrammarColors(element) {
-  if (!element || element.dataset.assistDyslexiaProcessed) return;
+  if (!element || element.dataset.assistDyslexiaProcessed) {
+    return;
+  }
 
   // Dynamic import compromise.js
   let nlp;
   try {
-    nlp = (await import(chrome.runtime.getURL('node_modules/compromise/builds/compromise.mjs'))).default;
+    nlp = (await import(chrome.runtime.getURL('node_modules/compromise/builds/compromise.mjs')))
+      .default;
   } catch (error) {
     console.error('[DyslexiaMode] Failed to load compromise.js:', error);
     return;
@@ -2176,7 +2797,9 @@ async function dyslexiaMode_applyGrammarColors(element) {
 
   // Get text content
   const text = element.textContent;
-  if (!text.trim()) return;
+  if (!text.trim()) {
+    return;
+  }
 
   // Parse with compromise
   const doc = nlp(text);
@@ -2188,7 +2811,7 @@ async function dyslexiaMode_applyGrammarColors(element) {
     verb: `rgba(76, 175, 80, ${intensity * 0.3})`, // Green
     adjective: `rgba(156, 39, 176, ${intensity * 0.3})`, // Purple
     adverb: `rgba(255, 152, 0, ${intensity * 0.3})`, // Orange
-    other: `rgba(158, 158, 158, ${intensity * 0.15})` // Gray
+    other: `rgba(158, 158, 158, ${intensity * 0.15})`, // Gray
   };
 
   // Extract parts of speech
@@ -2198,32 +2821,34 @@ async function dyslexiaMode_applyGrammarColors(element) {
   const adverbs = new Set(doc.adverbs().out('array'));
 
   // Process text nodes
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        const tag = parent.tagName?.toLowerCase();
-        if (['script', 'style', 'code', 'pre'].includes(tag)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return node.textContent.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+    acceptNode: node => {
+      const parent = node.parentElement;
+      if (!parent) {
+        return NodeFilter.FILTER_REJECT;
       }
-    }
-  );
+      const tag = parent.tagName?.toLowerCase();
+      if (['script', 'style', 'code', 'pre'].includes(tag)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return node.textContent.trim().length > 0
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    },
+  });
 
   const textNodes = [];
   let node;
-  while (node = walker.nextNode()) {
+  while ((node = walker.nextNode())) {
     textNodes.push(node);
   }
 
   textNodes.forEach(textNode => {
     const text = textNode.textContent;
     const parent = textNode.parentElement;
-    if (!text.trim() || !parent) return;
+    if (!text.trim() || !parent) {
+      return;
+    }
 
     const words = text.split(/(\s+|[,.!?;:])/);
     const fragment = document.createDocumentFragment();
@@ -2235,10 +2860,15 @@ async function dyslexiaMode_applyGrammarColors(element) {
         const lowerWord = word.toLowerCase();
         let color = colors.other;
 
-        if (nouns.has(lowerWord)) color = colors.noun;
-        else if (verbs.has(lowerWord)) color = colors.verb;
-        else if (adjectives.has(lowerWord)) color = colors.adjective;
-        else if (adverbs.has(lowerWord)) color = colors.adverb;
+        if (nouns.has(lowerWord)) {
+          color = colors.noun;
+        } else if (verbs.has(lowerWord)) {
+          color = colors.verb;
+        } else if (adjectives.has(lowerWord)) {
+          color = colors.adjective;
+        } else if (adverbs.has(lowerWord)) {
+          color = colors.adverb;
+        }
 
         const span = document.createElement('span');
         span.classList.add('assist-grammar');
@@ -2267,10 +2897,23 @@ async function dyslexiaMode_apply() {
 
   // Find main content areas
   const contentSelectors = [
-    'main', 'article', '[role="main"]',
-    '.main-content', '.content', '#content',
-    '.user_content', '.ic-Layout-contentMain', // Canvas-specific
-    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote'
+    'main',
+    'article',
+    '[role="main"]',
+    '.main-content',
+    '.content',
+    '#content',
+    '.user_content',
+    '.ic-Layout-contentMain', // Canvas-specific
+    'p',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'li',
+    'blockquote',
   ];
 
   const elements = new Set();
@@ -2333,7 +2976,7 @@ function dyslexiaMode_remove() {
 }
 
 // Load Dyslexia Mode settings from storage
-chrome.storage.local.get('assist_settings', (result) => {
+chrome.storage.local.get('assist_settings', result => {
   if (result.assist_settings && result.assist_settings.dyslexiaMode) {
     const dmSettings = result.assist_settings.dyslexiaMode;
     dyslexiaMode_enabled = dmSettings.enabled || false;
@@ -2358,7 +3001,7 @@ chrome.storage.local.get('assist_settings', (result) => {
 });
 
 // Listen for Dyslexia Mode settings updates
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener(changes => {
   if (changes.assist_settings && changes.assist_settings.newValue?.dyslexiaMode) {
     const dmSettings = changes.assist_settings.newValue.dyslexiaMode;
 

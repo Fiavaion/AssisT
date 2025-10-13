@@ -12,7 +12,7 @@ export const MESSAGE_TYPES = {
   GET_TAB_CONTEXT: 'GET_TAB_CONTEXT',
   GET_PAGE_CONTEXT: 'GET_PAGE_CONTEXT',
   TTS_COMMAND: 'TTS_COMMAND',
-  STT_COMMAND: 'STT_COMMAND'
+  STT_COMMAND: 'STT_COMMAND',
 };
 
 export const CANVAS_DOMAINS = '*://*.instructure.com/*';
@@ -20,7 +20,7 @@ export const CANVAS_DOMAINS = '*://*.instructure.com/*';
 export const STORAGE_KEYS = {
   SETTINGS: 'assist_settings',
   USER_PROFILE: 'assist_user_profile',
-  LAST_SYNC: 'assist_last_sync'
+  LAST_SYNC: 'assist_last_sync',
 };
 
 export const CONTENT_TYPES = {
@@ -29,7 +29,7 @@ export const CONTENT_TYPES = {
   ANNOUNCEMENT: 'announcement',
   PAGE: 'page',
   QUIZ: 'quiz',
-  MODULE: 'module'
+  MODULE: 'module',
 };
 
 export const HIGHLIGHT_COLOR = '#FFEB3B';

@@ -48,14 +48,14 @@ export class MicrophoneButton {
     `;
 
     // Click handler
-    this.button.addEventListener('click', (e) => {
+    this.button.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       this.toggle();
     });
 
     // Keyboard handler
-    this.button.addEventListener('keydown', (e) => {
+    this.button.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         this.toggle();
@@ -322,7 +322,7 @@ export class MicrophoneButton {
 
     // Position to the right and slightly below the field
     const left = rect.right + scrollX - 70; // 70px from right edge
-    const top = rect.bottom + scrollY + 10;  // 10px below field
+    const top = rect.bottom + scrollY + 10; // 10px below field
 
     this.button.style.left = `${left}px`;
     this.button.style.top = `${top}px`;

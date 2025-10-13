@@ -57,7 +57,7 @@ export class MessageRouter {
     // Broadcast to all Canvas tabs
     await this.broadcastToCanvasTabs({
       type: 'UPDATE_SETTINGS',
-      settings: updated
+      settings: updated,
     });
 
     return updated;
@@ -69,7 +69,7 @@ export class MessageRouter {
     // Broadcast to all Canvas tabs
     await this.broadcastToCanvasTabs({
       type: 'UPDATE_SETTINGS',
-      settings: defaults
+      settings: defaults,
     });
 
     return defaults;
@@ -85,7 +85,7 @@ export class MessageRouter {
     // Broadcast to all Canvas tabs
     await this.broadcastToCanvasTabs({
       type: 'UPDATE_SETTINGS',
-      settings: settings
+      settings: settings,
     });
 
     return settings;
@@ -97,7 +97,7 @@ export class MessageRouter {
     }
 
     const response = await chrome.tabs.sendMessage(tab.id, {
-      type: 'GET_PAGE_CONTEXT'
+      type: 'GET_PAGE_CONTEXT',
     });
 
     return response;
@@ -110,7 +110,7 @@ export class MessageRouter {
 
     return await chrome.tabs.sendMessage(tabId, {
       type: 'TTS_COMMAND',
-      command: command
+      command: command,
     });
   }
 
@@ -121,7 +121,7 @@ export class MessageRouter {
 
     return await chrome.tabs.sendMessage(tabId, {
       type: 'STT_COMMAND',
-      command: command
+      command: command,
     });
   }
 
@@ -131,7 +131,7 @@ export class MessageRouter {
   static async broadcastToCanvasTabs(message) {
     try {
       const tabs = await chrome.tabs.query({
-        url: '*://*.instructure.com/*'
+        url: '*://*.instructure.com/*',
       });
 
       const promises = tabs.map(tab =>

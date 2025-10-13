@@ -44,7 +44,7 @@ export class TTSController {
         return;
       }
 
-      let voices = this.synthesis.getVoices();
+      const voices = this.synthesis.getVoices();
 
       if (voices.length > 0) {
         this.availableVoices = voices;
@@ -173,10 +173,9 @@ export class TTSController {
 
     // Get the text content
     const text = this.currentText;
-    if (charIndex >= text.length) return;
-
-    // Calculate the word
-    const word = text.substring(charIndex, charIndex + charLength);
+    if (charIndex >= text.length) {
+      return;
+    }
 
     // Find and highlight the word in the element
     this.highlightTextInElement(this.currentElement, charIndex, charLength);
@@ -220,7 +219,7 @@ export class TTSController {
           range.surroundContents(span);
           this.currentHighlight = span;
           found = true;
-        } catch (e) {
+        } catch {
           // Range might span multiple nodes, fallback to element highlighting
           console.warn('[TTS] Could not highlight specific word, highlighting element');
         }
@@ -239,15 +238,10 @@ export class TTSController {
 
   getTextNodesIn(element) {
     const textNodes = [];
-    const walker = document.createTreeWalker(
-      element,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
 
     let node;
-    while (node = walker.nextNode()) {
+    while ((node = walker.nextNode())) {
       if (node.textContent.trim()) {
         textNodes.push(node);
       }
@@ -261,7 +255,10 @@ export class TTSController {
     if (this.currentHighlight) {
       const parent = this.currentHighlight.parentNode;
       if (parent) {
-        parent.replaceChild(document.createTextNode(this.currentHighlight.textContent), this.currentHighlight);
+        parent.replaceChild(
+          document.createTextNode(this.currentHighlight.textContent),
+          this.currentHighlight
+        );
         parent.normalize(); // Merge adjacent text nodes
       }
       this.currentHighlight = null;

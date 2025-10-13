@@ -43,12 +43,13 @@ chrome.tabs.onActivated.addListener(async activeInfo => {
   const tab = await chrome.tabs.get(activeInfo.tabId);
 
   // Skip browser system pages
-  if (tab.url && (
-    tab.url.startsWith('chrome://') ||
-    tab.url.startsWith('chrome-extension://') ||
-    tab.url.startsWith('edge://') ||
-    tab.url.startsWith('about:')
-  )) {
+  if (
+    tab.url &&
+    (tab.url.startsWith('chrome://') ||
+      tab.url.startsWith('chrome-extension://') ||
+      tab.url.startsWith('edge://') ||
+      tab.url.startsWith('about:'))
+  ) {
     return;
   }
 
@@ -61,7 +62,7 @@ chrome.action.onClicked.addListener(async tab => {
 
   // Send message to content script to toggle AssisT panel
   chrome.tabs.sendMessage(tab.id, {
-    type: 'TOGGLE_ASSIST_PANEL'
+    type: 'TOGGLE_ASSIST_PANEL',
   });
 });
 

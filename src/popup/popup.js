@@ -35,7 +35,7 @@ class PopupController {
   async loadSettings() {
     try {
       const response = await chrome.runtime.sendMessage({
-        type: MESSAGE_TYPES.GET_SETTINGS
+        type: MESSAGE_TYPES.GET_SETTINGS,
       });
 
       if (response.success) {
@@ -52,7 +52,7 @@ class PopupController {
     try {
       await chrome.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SETTINGS,
-        data: this.settings
+        data: this.settings,
       });
       console.log('[Popup] Settings saved');
     } catch (error) {
@@ -65,22 +65,31 @@ class PopupController {
     const visibility = this.settings.ui_visibility || {};
 
     // Helper function to hide/show section
-    const toggleSection = (sectionId, visibilityKey) => {
+    const toggleSection = (sectionId, visibilityKey, defaultValue = true) => {
       const section = document.getElementById(sectionId);
       if (section) {
-        section.style.display = visibility[visibilityKey] === false ? 'none' : '';
+        // Use explicit value if set, otherwise use defaultValue
+        const isVisible =
+          visibility[visibilityKey] !== undefined ? visibility[visibilityKey] : defaultValue;
+        section.style.display = isVisible ? '' : 'none';
       }
     };
 
-    // Apply visibility for all features
+    // Apply visibility for all features (most default to true)
     toggleSection('highlight-options-container', 'show_highlighting');
     toggleSection('speed-presets-container', 'show_speed_presets');
     toggleSection('text-customization-section', 'show_text_customization');
     toggleSection('reading-guide-section', 'show_reading_guide');
     toggleSection('focus-mode-section', 'show_focus_mode');
-    toggleSection('stt-section', 'show_stt');
+    toggleSection('stt-section', 'show_stt', false); // EXPERIMENTAL - hidden by default
     toggleSection('screen-overlay-section', 'show_screen_overlay');
-    toggleSection('canvas-integration-section', 'show_canvas_integration');
+    toggleSection('canvas-integration-section', 'show_canvas_integration', false); // EXPERIMENTAL - hidden by default
+    toggleSection('moodle-integration-section', 'show_moodle_integration', false); // EXPERIMENTAL - hidden by default
+    toggleSection(
+      'google-classroom-integration-section',
+      'show_google_classroom_integration',
+      false
+    ); // EXPERIMENTAL - hidden by default
     toggleSection('dyslexia-mode-section', 'show_dyslexia_mode');
 
     console.log('[Popup] Visibility settings applied:', visibility);
@@ -103,7 +112,7 @@ class PopupController {
       optionsContainer.classList.add('hidden');
     }
 
-    ttsEnabled.addEventListener('change', (e) => {
+    ttsEnabled.addEventListener('change', e => {
       this.settings.tts.enabled = e.target.checked;
       this.saveSettings();
 
@@ -129,7 +138,7 @@ class PopupController {
 
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
-    voiceSelect.addEventListener('change', (e) => {
+    voiceSelect.addEventListener('change', e => {
       this.settings.tts.voice = e.target.value;
       this.saveSettings();
       this.sendCommandToTab('setVoice', { voice: e.target.value });
@@ -140,7 +149,7 @@ class PopupController {
     const rateValue = document.getElementById('rate-value');
     rateSlider.value = this.settings?.tts?.rate || 1.0;
     rateValue.textContent = `${rateSlider.value}x`;
-    rateSlider.addEventListener('input', (e) => {
+    rateSlider.addEventListener('input', e => {
       const rate = parseFloat(e.target.value);
       rateValue.textContent = `${rate}x`;
       this.settings.tts.rate = rate;
@@ -157,7 +166,7 @@ class PopupController {
     const pitchValue = document.getElementById('pitch-value');
     pitchSlider.value = this.settings?.tts?.pitch || 1.0;
     pitchValue.textContent = pitchSlider.value;
-    pitchSlider.addEventListener('input', (e) => {
+    pitchSlider.addEventListener('input', e => {
       const pitch = parseFloat(e.target.value);
       pitchValue.textContent = pitch;
       this.settings.tts.pitch = pitch;
@@ -170,7 +179,7 @@ class PopupController {
     const volumeValue = document.getElementById('volume-value');
     volumeSlider.value = this.settings?.tts?.volume || 1.0;
     volumeValue.textContent = `${Math.round(volumeSlider.value * 100)}%`;
-    volumeSlider.addEventListener('input', (e) => {
+    volumeSlider.addEventListener('input', e => {
       const volume = parseFloat(e.target.value);
       volumeValue.textContent = `${Math.round(volume * 100)}%`;
       this.settings.tts.volume = volume;
@@ -190,7 +199,7 @@ class PopupController {
       highlightOptionsContainer.classList.add('hidden');
     }
 
-    highlightEnabled.addEventListener('change', (e) => {
+    highlightEnabled.addEventListener('change', e => {
       this.settings.tts.highlightEnabled = e.target.checked;
       this.saveSettings();
       this.sendCommandToTab('setHighlighting', { enabled: e.target.checked });
@@ -206,7 +215,7 @@ class PopupController {
     // Highlight Color
     const highlightColor = document.getElementById('highlight-color');
     highlightColor.value = this.settings?.tts?.highlightColor || '#FFEB3B';
-    highlightColor.addEventListener('change', (e) => {
+    highlightColor.addEventListener('change', e => {
       this.settings.tts.highlightColor = e.target.value;
       this.saveSettings();
       this.sendCommandToTab('setHighlightColor', { color: e.target.value });
@@ -217,7 +226,7 @@ class PopupController {
     const opacityValue = document.getElementById('opacity-value');
     highlightOpacity.value = this.settings?.tts?.highlightOpacity || 0.7;
     opacityValue.textContent = `${Math.round(highlightOpacity.value * 100)}%`;
-    highlightOpacity.addEventListener('input', (e) => {
+    highlightOpacity.addEventListener('input', e => {
       const opacity = parseFloat(e.target.value);
       opacityValue.textContent = `${Math.round(opacity * 100)}%`;
       this.settings.tts.highlightOpacity = opacity;
@@ -228,7 +237,7 @@ class PopupController {
     // Word-by-Word Highlighting toggle
     const wordByWordEnabled = document.getElementById('word-by-word-enabled');
     wordByWordEnabled.checked = this.settings?.tts?.wordByWordEnabled || false;
-    wordByWordEnabled.addEventListener('change', (e) => {
+    wordByWordEnabled.addEventListener('change', e => {
       this.settings.tts.wordByWordEnabled = e.target.checked;
       this.saveSettings();
       this.sendCommandToTab('setWordByWord', { enabled: e.target.checked });
@@ -270,7 +279,7 @@ class PopupController {
     this.setupDyslexiaMode();
 
     // Settings link
-    document.getElementById('link-settings').addEventListener('click', (e) => {
+    document.getElementById('link-settings').addEventListener('click', e => {
       e.preventDefault();
       // Open settings page (to be implemented)
       console.log('[Popup] Settings clicked');
@@ -281,6 +290,14 @@ class PopupController {
       if (confirm('Reset all settings to defaults? This cannot be undone.')) {
         this.resetToDefaults();
       }
+    });
+
+    // Help button (WCAG 2.2 SC 3.2.6 - Consistent Help)
+    document.getElementById('btn-help').addEventListener('click', () => {
+      // Open user guide in new tab
+      chrome.tabs.create({
+        url: 'https://github.com/MarJone/AssisT#readme',
+      });
     });
 
     // Options button
@@ -299,7 +316,7 @@ class PopupController {
       volume: 1.0,
       highlightEnabled: true,
       highlightColor: '#FFEB3B',
-      highlightOpacity: 0.7
+      highlightOpacity: 0.7,
     };
 
     this.saveSettings();
@@ -379,39 +396,7 @@ class PopupController {
 
             <div class="feature-list">
               <div class="feature-section-header">
-                <span>Core TTS Features</span>
-              </div>
-
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-voice-selection" checked disabled>
-                  <span>Voice Selection</span>
-                  <span class="feature-badge">Core</span>
-                </label>
-              </div>
-
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-speed-control" checked disabled>
-                  <span>Speed Control</span>
-                  <span class="feature-badge">Core</span>
-                </label>
-              </div>
-
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-pitch-control" checked disabled>
-                  <span>Pitch Control</span>
-                  <span class="feature-badge">Core</span>
-                </label>
-              </div>
-
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-volume-control" checked disabled>
-                  <span>Volume Control</span>
-                  <span class="feature-badge">Core</span>
-                </label>
+                <span>📖 Reading Features</span>
               </div>
 
               <div class="feature-item">
@@ -426,10 +411,6 @@ class PopupController {
                   <input type="checkbox" id="show-speed-presets" checked>
                   <span>Speed Presets</span>
                 </label>
-              </div>
-
-              <div class="feature-section-header">
-                <span>Sprint 3 Features</span>
               </div>
 
               <div class="feature-item">
@@ -448,19 +429,19 @@ class PopupController {
 
               <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-focus-mode" checked>
-                  <span>Focus Mode</span>
+                  <input type="checkbox" id="show-dyslexia-mode" checked>
+                  <span>Dyslexia Reading Mode</span>
                 </label>
               </div>
 
               <div class="feature-section-header">
-                <span>Sprint 5-7 Features</span>
+                <span>🎯 Focus & Visual</span>
               </div>
 
               <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-stt">
-                  <span>Speech-to-Text</span>
+                  <input type="checkbox" id="show-focus-mode" checked>
+                  <span>Focus Mode</span>
                 </label>
               </div>
 
@@ -471,22 +452,48 @@ class PopupController {
                 </label>
               </div>
 
+              <div class="feature-section-header">
+                <span>✍️ Writing Features</span>
+              </div>
+
               <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-canvas-integration">
-                  <span>Canvas Integration</span>
+                  <input type="checkbox" id="show-stt">
+                  <span>Speech-to-Text</span>
+                  <span class="feature-badge experimental">Experimental</span>
                 </label>
               </div>
 
               <div class="feature-section-header">
-                <span>Sprint 9 Features</span>
+                <span>🎓 LMS Integration</span>
               </div>
 
               <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-dyslexia-mode" checked>
-                  <span>Dyslexia Reading Mode</span>
+                  <input type="checkbox" id="show-canvas-integration">
+                  <span>Canvas LMS</span>
+                  <span class="feature-badge experimental">Experimental</span>
                 </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-moodle-integration">
+                  <span>Moodle LMS</span>
+                  <span class="feature-badge experimental">Experimental</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-google-classroom-integration">
+                  <span>Google Classroom</span>
+                  <span class="feature-badge experimental">Experimental</span>
+                </label>
+              </div>
+
+              <div class="feature-note">
+                <p><strong>Note:</strong> Core TTS controls (voice, speed, pitch, volume) are always visible and cannot be hidden.</p>
               </div>
             </div>
           </div>
@@ -611,7 +618,7 @@ class PopupController {
     });
 
     // Click outside to close
-    modal.addEventListener('click', (e) => {
+    modal.addEventListener('click', e => {
       if (e.target === modal) {
         modal.remove();
       }
@@ -623,22 +630,26 @@ class PopupController {
     const visibility = this.settings.ui_visibility || {};
 
     // Helper function to load checkbox state
-    const loadCheckbox = (id, visibilityKey) => {
+    const loadCheckbox = (id, visibilityKey, defaultValue = true) => {
       const checkbox = document.getElementById(id);
       if (checkbox) {
-        checkbox.checked = visibility[visibilityKey] !== false;
+        // Use explicit value if set, otherwise use defaultValue
+        checkbox.checked =
+          visibility[visibilityKey] !== undefined ? visibility[visibilityKey] : defaultValue;
       }
     };
 
-    // Load all feature visibility checkboxes
+    // Load all feature visibility checkboxes (most default to true)
     loadCheckbox('show-highlighting', 'show_highlighting');
     loadCheckbox('show-speed-presets', 'show_speed_presets');
     loadCheckbox('show-text-customization', 'show_text_customization');
     loadCheckbox('show-reading-guide', 'show_reading_guide');
     loadCheckbox('show-focus-mode', 'show_focus_mode');
-    loadCheckbox('show-stt', 'show_stt');
+    loadCheckbox('show-stt', 'show_stt', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-screen-overlay', 'show_screen_overlay');
-    loadCheckbox('show-canvas-integration', 'show_canvas_integration');
+    loadCheckbox('show-canvas-integration', 'show_canvas_integration', false); // EXPERIMENTAL - hidden by default
+    loadCheckbox('show-moodle-integration', 'show_moodle_integration', false); // EXPERIMENTAL - hidden by default
+    loadCheckbox('show-google-classroom-integration', 'show_google_classroom_integration', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
 
     // Appearance settings
@@ -687,6 +698,8 @@ class PopupController {
     saveCheckbox('show-stt', 'show_stt');
     saveCheckbox('show-screen-overlay', 'show_screen_overlay');
     saveCheckbox('show-canvas-integration', 'show_canvas_integration');
+    saveCheckbox('show-moodle-integration', 'show_moodle_integration');
+    saveCheckbox('show-google-classroom-integration', 'show_google_classroom_integration');
     saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
 
     // Save appearance settings
@@ -713,15 +726,17 @@ class PopupController {
 
     console.log('[Popup] Modal settings saved:', {
       ui_visibility: this.settings.ui_visibility,
-      appearance: this.settings.appearance
+      appearance: this.settings.appearance,
     });
 
     // Check if any visibility changed
-    const visibilityChanged = Object.keys(oldVisibility).some(
-      key => oldVisibility[key] !== this.settings.ui_visibility[key]
-    ) || Object.keys(this.settings.ui_visibility).some(
-      key => oldVisibility[key] !== this.settings.ui_visibility[key]
-    );
+    const visibilityChanged =
+      Object.keys(oldVisibility).some(
+        key => oldVisibility[key] !== this.settings.ui_visibility[key]
+      ) ||
+      Object.keys(this.settings.ui_visibility).some(
+        key => oldVisibility[key] !== this.settings.ui_visibility[key]
+      );
 
     // Reload popup if visibility changed
     if (visibilityChanged) {
@@ -733,7 +748,6 @@ class PopupController {
   async loadVoices() {
     try {
       const voices = speechSynthesis.getVoices();
-      const voiceSelect = document.getElementById('voice-select');
 
       if (voices.length === 0) {
         // Wait for voices to load
@@ -753,15 +767,12 @@ class PopupController {
     voiceSelect.innerHTML = '';
 
     // Try to find Google UK Female voice
-    const preferredVoice = voices.find(v =>
-      v.name.includes('Google') &&
-      v.name.includes('UK') &&
-      v.name.includes('Female')
-    ) || voices.find(v =>
-      v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')
-    ) || voices.find(v =>
-      v.lang.startsWith('en-') && v.name.toLowerCase().includes('female')
-    );
+    const preferredVoice =
+      voices.find(
+        v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
+      ) ||
+      voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
+      voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
 
     // Set default voice if not already set OR if set to 'default'
     if (preferredVoice && (!this.settings?.tts?.voice || this.settings.tts.voice === 'default')) {
@@ -772,26 +783,30 @@ class PopupController {
     // Group voices by language
     const grouped = voices.reduce((acc, voice) => {
       const lang = voice.lang.split('-')[0];
-      if (!acc[lang]) acc[lang] = [];
+      if (!acc[lang]) {
+        acc[lang] = [];
+      }
       acc[lang].push(voice);
       return acc;
     }, {});
 
     // Add voices to select
-    Object.keys(grouped).sort().forEach(lang => {
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = lang.toUpperCase();
+    Object.keys(grouped)
+      .sort()
+      .forEach(lang => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = lang.toUpperCase();
 
-      grouped[lang].forEach(voice => {
-        const option = document.createElement('option');
-        option.value = voice.name;
-        option.textContent = voice.name + (voice.default ? ' (Default)' : '');
-        option.selected = voice.name === this.settings?.tts?.voice;
-        optgroup.appendChild(option);
+        grouped[lang].forEach(voice => {
+          const option = document.createElement('option');
+          option.value = voice.name;
+          option.textContent = voice.name + (voice.default ? ' (Default)' : '');
+          option.selected = voice.name === this.settings?.tts?.voice;
+          optgroup.appendChild(option);
+        });
+
+        voiceSelect.appendChild(optgroup);
       });
-
-      voiceSelect.appendChild(optgroup);
-    });
 
     console.log('[Popup] Loaded', voices.length, 'voices');
     if (preferredVoice) {
@@ -806,11 +821,13 @@ class PopupController {
     }
 
     // Skip extension pages and special URLs
-    if (!this.currentTab.url ||
-        this.currentTab.url.startsWith('chrome://') ||
-        this.currentTab.url.startsWith('chrome-extension://') ||
-        this.currentTab.url.startsWith('edge://') ||
-        this.currentTab.url.startsWith('about:')) {
+    if (
+      !this.currentTab.url ||
+      this.currentTab.url.startsWith('chrome://') ||
+      this.currentTab.url.startsWith('chrome-extension://') ||
+      this.currentTab.url.startsWith('edge://') ||
+      this.currentTab.url.startsWith('about:')
+    ) {
       console.warn('[Popup] Cannot access this page type');
       this.updateStatus('Cannot access browser system pages', 'error');
       return;
@@ -819,7 +836,7 @@ class PopupController {
     try {
       await chrome.tabs.sendMessage(this.currentTab.id, {
         type: MESSAGE_TYPES.TTS_COMMAND,
-        data: { command, ...data }
+        data: { command, ...data },
       });
     } catch (error) {
       console.error('[Popup] Error sending command:', error);
@@ -854,7 +871,7 @@ class PopupController {
         lineSpacing: 1.5,
         letterSpacing: 0.12,
         wordSpacing: 0.16,
-        paragraphSpacing: 2.0
+        paragraphSpacing: 2.0,
       };
     }
 
@@ -875,7 +892,7 @@ class PopupController {
     }
 
     // Toggle event
-    textCustomizationEnabled.addEventListener('change', (e) => {
+    textCustomizationEnabled.addEventListener('change', e => {
       this.settings.textCustomization.enabled = e.target.checked;
       this.saveSettings();
 
@@ -892,7 +909,7 @@ class PopupController {
     // Font Family selector
     const fontFamilySelect = document.getElementById('text-font-family');
     fontFamilySelect.value = this.settings.textCustomization.fontFamily || 'lexend';
-    fontFamilySelect.addEventListener('change', (e) => {
+    fontFamilySelect.addEventListener('change', e => {
       this.settings.textCustomization.fontFamily = e.target.value;
       this.saveSettings();
     });
@@ -902,7 +919,7 @@ class PopupController {
     const lineSpacingValue = document.getElementById('text-line-spacing-value');
     lineSpacingSlider.value = this.settings.textCustomization.lineSpacing || 1.5;
     lineSpacingValue.textContent = lineSpacingSlider.value;
-    lineSpacingSlider.addEventListener('input', (e) => {
+    lineSpacingSlider.addEventListener('input', e => {
       const value = parseFloat(e.target.value);
       lineSpacingValue.textContent = value;
       this.settings.textCustomization.lineSpacing = value;
@@ -913,10 +930,12 @@ class PopupController {
     const letterSpacingSlider = document.getElementById('text-letter-spacing');
     const letterSpacingValue = document.getElementById('text-letter-spacing-value');
     // Convert stored em value to percentage (0.12em = 12%)
-    const letterSpacingPercent = Math.round((this.settings.textCustomization.letterSpacing || 0.12) * 100);
+    const letterSpacingPercent = Math.round(
+      (this.settings.textCustomization.letterSpacing || 0.12) * 100
+    );
     letterSpacingSlider.value = letterSpacingPercent;
     letterSpacingValue.textContent = letterSpacingPercent + '%';
-    letterSpacingSlider.addEventListener('input', (e) => {
+    letterSpacingSlider.addEventListener('input', e => {
       const percent = parseInt(e.target.value);
       letterSpacingValue.textContent = percent + '%';
       // Convert percentage to em (12% = 0.12em)
@@ -928,10 +947,12 @@ class PopupController {
     const wordSpacingSlider = document.getElementById('text-word-spacing');
     const wordSpacingValue = document.getElementById('text-word-spacing-value');
     // Convert stored em value to percentage (0.16em = 16%)
-    const wordSpacingPercent = Math.round((this.settings.textCustomization.wordSpacing || 0.16) * 100);
+    const wordSpacingPercent = Math.round(
+      (this.settings.textCustomization.wordSpacing || 0.16) * 100
+    );
     wordSpacingSlider.value = wordSpacingPercent;
     wordSpacingValue.textContent = wordSpacingPercent + '%';
-    wordSpacingSlider.addEventListener('input', (e) => {
+    wordSpacingSlider.addEventListener('input', e => {
       const percent = parseInt(e.target.value);
       wordSpacingValue.textContent = percent + '%';
       // Convert percentage to em (16% = 0.16em)
@@ -944,7 +965,7 @@ class PopupController {
     const paragraphSpacingValue = document.getElementById('text-paragraph-spacing-value');
     paragraphSpacingSlider.value = this.settings.textCustomization.paragraphSpacing || 2.0;
     paragraphSpacingValue.textContent = paragraphSpacingSlider.value + 'em';
-    paragraphSpacingSlider.addEventListener('input', (e) => {
+    paragraphSpacingSlider.addEventListener('input', e => {
       const value = parseFloat(e.target.value);
       paragraphSpacingValue.textContent = value + 'em';
       this.settings.textCustomization.paragraphSpacing = value;
@@ -964,7 +985,7 @@ class PopupController {
         enabled: false,
         lineColor: '#000000',
         lineThickness: 3,
-        lineOpacity: 0.7
+        lineOpacity: 0.7,
       };
     }
 
@@ -985,7 +1006,7 @@ class PopupController {
     }
 
     // Toggle event
-    readingGuideEnabled.addEventListener('change', (e) => {
+    readingGuideEnabled.addEventListener('change', e => {
       this.settings.readingGuide.enabled = e.target.checked;
       this.saveSettings();
 
@@ -1002,7 +1023,7 @@ class PopupController {
     // Line Color selector
     const lineColorSelect = document.getElementById('reading-guide-color');
     lineColorSelect.value = this.settings.readingGuide.lineColor || '#000000';
-    lineColorSelect.addEventListener('change', (e) => {
+    lineColorSelect.addEventListener('change', e => {
       this.settings.readingGuide.lineColor = e.target.value;
       this.saveSettings();
     });
@@ -1012,7 +1033,7 @@ class PopupController {
     const lineThicknessValue = document.getElementById('reading-guide-thickness-value');
     lineThicknessSlider.value = this.settings.readingGuide.lineThickness || 3;
     lineThicknessValue.textContent = lineThicknessSlider.value + 'px';
-    lineThicknessSlider.addEventListener('input', (e) => {
+    lineThicknessSlider.addEventListener('input', e => {
       const value = parseInt(e.target.value);
       lineThicknessValue.textContent = value + 'px';
       this.settings.readingGuide.lineThickness = value;
@@ -1024,7 +1045,7 @@ class PopupController {
     const lineOpacityValue = document.getElementById('reading-guide-opacity-value');
     lineOpacitySlider.value = this.settings.readingGuide.lineOpacity || 0.7;
     lineOpacityValue.textContent = Math.round(lineOpacitySlider.value * 100) + '%';
-    lineOpacitySlider.addEventListener('input', (e) => {
+    lineOpacitySlider.addEventListener('input', e => {
       const value = parseFloat(e.target.value);
       lineOpacityValue.textContent = Math.round(value * 100) + '%';
       this.settings.readingGuide.lineOpacity = value;
@@ -1043,7 +1064,7 @@ class PopupController {
         enabled: false,
         boxWidth: 400,
         boxHeight: 100,
-        overlayOpacity: 0.7
+        overlayOpacity: 0.7,
       };
     }
 
@@ -1061,7 +1082,7 @@ class PopupController {
       focusModeOptions.classList.add('hidden');
     }
 
-    focusModeEnabled.addEventListener('change', (e) => {
+    focusModeEnabled.addEventListener('change', e => {
       this.settings.focusMode.enabled = e.target.checked;
       this.saveSettings();
 
@@ -1078,7 +1099,7 @@ class PopupController {
     const boxWidthValue = document.getElementById('focus-mode-width-value');
     boxWidthSlider.value = this.settings.focusMode.boxWidth || 400;
     boxWidthValue.textContent = boxWidthSlider.value + 'px';
-    boxWidthSlider.addEventListener('input', (e) => {
+    boxWidthSlider.addEventListener('input', e => {
       const value = parseInt(e.target.value);
       boxWidthValue.textContent = value + 'px';
       this.settings.focusMode.boxWidth = value;
@@ -1089,7 +1110,7 @@ class PopupController {
     const boxHeightValue = document.getElementById('focus-mode-height-value');
     boxHeightSlider.value = this.settings.focusMode.boxHeight || 100;
     boxHeightValue.textContent = boxHeightSlider.value + 'px';
-    boxHeightSlider.addEventListener('input', (e) => {
+    boxHeightSlider.addEventListener('input', e => {
       const value = parseInt(e.target.value);
       boxHeightValue.textContent = value + 'px';
       this.settings.focusMode.boxHeight = value;
@@ -1100,7 +1121,7 @@ class PopupController {
     const overlayOpacityValue = document.getElementById('focus-mode-opacity-value');
     overlayOpacitySlider.value = this.settings.focusMode.overlayOpacity || 0.7;
     overlayOpacityValue.textContent = Math.round(overlayOpacitySlider.value * 100) + '%';
-    overlayOpacitySlider.addEventListener('input', (e) => {
+    overlayOpacitySlider.addEventListener('input', e => {
       const value = parseFloat(e.target.value);
       overlayOpacityValue.textContent = Math.round(value * 100) + '%';
       this.settings.focusMode.overlayOpacity = value;
@@ -1118,7 +1139,7 @@ class PopupController {
       this.settings.screenOverlay = {
         enabled: false,
         color: '#FFE4C4',
-        opacity: 0.3
+        opacity: 0.3,
       };
     }
 
@@ -1136,7 +1157,7 @@ class PopupController {
       screenOverlayOptions.classList.add('hidden');
     }
 
-    screenOverlayEnabled.addEventListener('change', (e) => {
+    screenOverlayEnabled.addEventListener('change', e => {
       this.settings.screenOverlay.enabled = e.target.checked;
       this.saveSettings();
 
@@ -1151,7 +1172,7 @@ class PopupController {
 
     const colorSelect = document.getElementById('screen-overlay-color');
     colorSelect.value = this.settings.screenOverlay.color || '#FFE4C4';
-    colorSelect.addEventListener('change', (e) => {
+    colorSelect.addEventListener('change', e => {
       this.settings.screenOverlay.color = e.target.value;
       this.saveSettings();
     });
@@ -1160,7 +1181,7 @@ class PopupController {
     const opacityValue = document.getElementById('screen-overlay-opacity-value');
     opacitySlider.value = this.settings.screenOverlay.opacity || 0.3;
     opacityValue.textContent = Math.round(opacitySlider.value * 100) + '%';
-    opacitySlider.addEventListener('input', (e) => {
+    opacitySlider.addEventListener('input', e => {
       const value = parseFloat(e.target.value);
       opacityValue.textContent = Math.round(value * 100) + '%';
       this.settings.screenOverlay.opacity = value;
@@ -1180,7 +1201,7 @@ class PopupController {
         enabled: false,
         assignmentReader: true,
         quizHelper: false,
-        keyboardNav: false
+        keyboardNav: false,
       };
     }
 
@@ -1201,7 +1222,7 @@ class PopupController {
     }
 
     // Toggle event
-    canvasIntegrationEnabled.addEventListener('change', (e) => {
+    canvasIntegrationEnabled.addEventListener('change', e => {
       this.settings.canvasIntegration.enabled = e.target.checked;
       this.saveSettings();
 
@@ -1218,7 +1239,7 @@ class PopupController {
     // Assignment Reader toggle
     const assignmentReaderCheckbox = document.getElementById('canvas-assignment-reader');
     assignmentReaderCheckbox.checked = this.settings.canvasIntegration.assignmentReader !== false;
-    assignmentReaderCheckbox.addEventListener('change', (e) => {
+    assignmentReaderCheckbox.addEventListener('change', e => {
       this.settings.canvasIntegration.assignmentReader = e.target.checked;
       this.saveSettings();
     });
@@ -1235,7 +1256,7 @@ class PopupController {
         autoRead: false,
         highlightQuestion: true,
         highlightColor: '#4A90E2',
-        keyboardNavigation: true
+        keyboardNavigation: true,
       };
     }
 
@@ -1243,9 +1264,10 @@ class PopupController {
     const quizHelperOptions = document.getElementById('quiz-helper-options');
 
     // Set initial state
-    const quizHelperEnabled = typeof this.settings.canvasIntegration.quizHelper === 'object'
-      ? this.settings.canvasIntegration.quizHelper.enabled
-      : this.settings.canvasIntegration.quizHelper || false;
+    const quizHelperEnabled =
+      typeof this.settings.canvasIntegration.quizHelper === 'object'
+        ? this.settings.canvasIntegration.quizHelper.enabled
+        : this.settings.canvasIntegration.quizHelper || false;
 
     quizHelperCheckbox.checked = quizHelperEnabled;
 
@@ -1257,7 +1279,7 @@ class PopupController {
     }
 
     // Quiz Helper main toggle
-    quizHelperCheckbox.addEventListener('change', (e) => {
+    quizHelperCheckbox.addEventListener('change', e => {
       if (typeof this.settings.canvasIntegration.quizHelper !== 'object') {
         this.settings.canvasIntegration.quizHelper = {
           enabled: e.target.checked,
@@ -1265,7 +1287,7 @@ class PopupController {
           autoRead: false,
           highlightQuestion: true,
           highlightColor: '#4A90E2',
-          keyboardNavigation: true
+          keyboardNavigation: true,
         };
       } else {
         this.settings.canvasIntegration.quizHelper.enabled = e.target.checked;
@@ -1283,35 +1305,38 @@ class PopupController {
     // Quiz Helper sub-options
     const quizReadAnswers = document.getElementById('quiz-read-answers');
     quizReadAnswers.checked = this.settings.canvasIntegration.quizHelper.readAnswers !== false;
-    quizReadAnswers.addEventListener('change', (e) => {
+    quizReadAnswers.addEventListener('change', e => {
       this.settings.canvasIntegration.quizHelper.readAnswers = e.target.checked;
       this.saveSettings();
     });
 
     const quizAutoRead = document.getElementById('quiz-auto-read');
     quizAutoRead.checked = this.settings.canvasIntegration.quizHelper.autoRead || false;
-    quizAutoRead.addEventListener('change', (e) => {
+    quizAutoRead.addEventListener('change', e => {
       this.settings.canvasIntegration.quizHelper.autoRead = e.target.checked;
       this.saveSettings();
     });
 
     const quizHighlightQuestion = document.getElementById('quiz-highlight-question');
-    quizHighlightQuestion.checked = this.settings.canvasIntegration.quizHelper.highlightQuestion !== false;
-    quizHighlightQuestion.addEventListener('change', (e) => {
+    quizHighlightQuestion.checked =
+      this.settings.canvasIntegration.quizHelper.highlightQuestion !== false;
+    quizHighlightQuestion.addEventListener('change', e => {
       this.settings.canvasIntegration.quizHelper.highlightQuestion = e.target.checked;
       this.saveSettings();
     });
 
     const quizHighlightColor = document.getElementById('quiz-highlight-color');
-    quizHighlightColor.value = this.settings.canvasIntegration.quizHelper.highlightColor || '#4A90E2';
-    quizHighlightColor.addEventListener('change', (e) => {
+    quizHighlightColor.value =
+      this.settings.canvasIntegration.quizHelper.highlightColor || '#4A90E2';
+    quizHighlightColor.addEventListener('change', e => {
       this.settings.canvasIntegration.quizHelper.highlightColor = e.target.value;
       this.saveSettings();
     });
 
     const quizKeyboardNav = document.getElementById('quiz-keyboard-nav');
-    quizKeyboardNav.checked = this.settings.canvasIntegration.quizHelper.keyboardNavigation !== false;
-    quizKeyboardNav.addEventListener('change', (e) => {
+    quizKeyboardNav.checked =
+      this.settings.canvasIntegration.quizHelper.keyboardNavigation !== false;
+    quizKeyboardNav.addEventListener('change', e => {
       this.settings.canvasIntegration.quizHelper.keyboardNavigation = e.target.checked;
       this.saveSettings();
     });
@@ -1337,7 +1362,7 @@ class PopupController {
         language: 'en-US',
         autoCapitalize: true,
         punctuationCommands: true,
-        floatingButton: true
+        floatingButton: true,
       };
     }
 
@@ -1355,7 +1380,7 @@ class PopupController {
       sttOptions.classList.add('hidden');
     }
 
-    sttEnabled.addEventListener('change', (e) => {
+    sttEnabled.addEventListener('change', e => {
       this.settings.stt.enabled = e.target.checked;
       this.saveSettings();
 
@@ -1371,7 +1396,7 @@ class PopupController {
     // Continuous Mode
     const continuousModeCheckbox = document.getElementById('stt-continuous-mode');
     continuousModeCheckbox.checked = this.settings.stt.continuousMode !== false;
-    continuousModeCheckbox.addEventListener('change', (e) => {
+    continuousModeCheckbox.addEventListener('change', e => {
       this.settings.stt.continuousMode = e.target.checked;
       this.saveSettings();
     });
@@ -1379,7 +1404,7 @@ class PopupController {
     // Language
     const languageSelect = document.getElementById('stt-language');
     languageSelect.value = this.settings.stt.language || 'en-US';
-    languageSelect.addEventListener('change', (e) => {
+    languageSelect.addEventListener('change', e => {
       this.settings.stt.language = e.target.value;
       this.saveSettings();
     });
@@ -1387,7 +1412,7 @@ class PopupController {
     // Punctuation Commands
     const punctuationCheckbox = document.getElementById('stt-punctuation-commands');
     punctuationCheckbox.checked = this.settings.stt.punctuationCommands !== false;
-    punctuationCheckbox.addEventListener('change', (e) => {
+    punctuationCheckbox.addEventListener('change', e => {
       this.settings.stt.punctuationCommands = e.target.checked;
       this.saveSettings();
     });
@@ -1395,7 +1420,7 @@ class PopupController {
     // Auto Capitalize
     const autoCapitalizeCheckbox = document.getElementById('stt-auto-capitalize');
     autoCapitalizeCheckbox.checked = this.settings.stt.autoCapitalize !== false;
-    autoCapitalizeCheckbox.addEventListener('change', (e) => {
+    autoCapitalizeCheckbox.addEventListener('change', e => {
       this.settings.stt.autoCapitalize = e.target.checked;
       this.saveSettings();
     });
@@ -1403,7 +1428,7 @@ class PopupController {
     // Interim Results
     const interimResultsCheckbox = document.getElementById('stt-interim-results');
     interimResultsCheckbox.checked = this.settings.stt.interimResults !== false;
-    interimResultsCheckbox.addEventListener('change', (e) => {
+    interimResultsCheckbox.addEventListener('change', e => {
       this.settings.stt.interimResults = e.target.checked;
       this.saveSettings();
     });
@@ -1411,7 +1436,7 @@ class PopupController {
     // Floating Button
     const floatingButtonCheckbox = document.getElementById('stt-floating-button');
     floatingButtonCheckbox.checked = this.settings.stt.floatingButton !== false;
-    floatingButtonCheckbox.addEventListener('change', (e) => {
+    floatingButtonCheckbox.addEventListener('change', e => {
       this.settings.stt.floatingButton = e.target.checked;
       this.saveSettings();
     });
@@ -1429,7 +1454,7 @@ class PopupController {
         bionicReading: true,
         syllableHighlighting: false,
         grammarColors: false,
-        colorIntensity: 0.7
+        colorIntensity: 0.7,
       };
     }
 
@@ -1447,7 +1472,7 @@ class PopupController {
       dyslexiaOptions.classList.add('hidden');
     }
 
-    dyslexiaEnabled.addEventListener('change', (e) => {
+    dyslexiaEnabled.addEventListener('change', e => {
       this.settings.dyslexiaMode.enabled = e.target.checked;
       this.saveSettings();
 
@@ -1475,7 +1500,7 @@ class PopupController {
     }
 
     // Radio button handlers
-    bionicRadio.addEventListener('change', (e) => {
+    bionicRadio.addEventListener('change', e => {
       if (e.target.checked) {
         this.settings.dyslexiaMode.bionicReading = true;
         this.settings.dyslexiaMode.syllableHighlighting = false;
@@ -1484,7 +1509,7 @@ class PopupController {
       }
     });
 
-    syllableRadio.addEventListener('change', (e) => {
+    syllableRadio.addEventListener('change', e => {
       if (e.target.checked) {
         this.settings.dyslexiaMode.bionicReading = false;
         this.settings.dyslexiaMode.syllableHighlighting = true;
@@ -1493,7 +1518,7 @@ class PopupController {
       }
     });
 
-    grammarRadio.addEventListener('change', (e) => {
+    grammarRadio.addEventListener('change', e => {
       if (e.target.checked) {
         this.settings.dyslexiaMode.bionicReading = false;
         this.settings.dyslexiaMode.syllableHighlighting = false;
@@ -1507,7 +1532,7 @@ class PopupController {
     const intensityValue = document.getElementById('dyslexia-intensity-value');
     intensitySlider.value = this.settings.dyslexiaMode.colorIntensity || 0.7;
     intensityValue.textContent = Math.round(intensitySlider.value * 100) + '%';
-    intensitySlider.addEventListener('input', (e) => {
+    intensitySlider.addEventListener('input', e => {
       const value = parseFloat(e.target.value);
       intensityValue.textContent = Math.round(value * 100) + '%';
       this.settings.dyslexiaMode.colorIntensity = value;
@@ -1536,14 +1561,14 @@ class PopupController {
     const result = await chrome.storage.local.get(['assist_profiles', 'assist_active_profile']);
 
     let profiles = result.assist_profiles || {};
-    let activeProfile = result.assist_active_profile || 'Default';
+    const activeProfile = result.assist_active_profile || 'Default';
 
     // Create default profiles if they don't exist
     if (Object.keys(profiles).length === 0) {
       profiles = this.profiles_createDefaults();
       await chrome.storage.local.set({
         assist_profiles: profiles,
-        assist_active_profile: 'Default'
+        assist_active_profile: 'Default',
       });
       console.log('[Profiles] Created default profiles');
     }
@@ -1561,18 +1586,26 @@ class PopupController {
     const timestamp = new Date().toISOString();
 
     return {
-      'Default': {
+      Default: {
         name: 'Default',
         isDefault: true,
         createdAt: timestamp,
         settings: {
-          tts: { enabled: false, rate: 1.0, pitch: 1.0, volume: 1.0, highlightEnabled: true, highlightColor: '#FFEB3B', highlightOpacity: 0.7 },
+          tts: {
+            enabled: false,
+            rate: 1.0,
+            pitch: 1.0,
+            volume: 1.0,
+            highlightEnabled: true,
+            highlightColor: '#FFEB3B',
+            highlightOpacity: 0.7,
+          },
           textCustomization: { enabled: false },
           readingGuide: { enabled: false },
           focusMode: { enabled: false },
           screenOverlay: { enabled: false },
-          canvasIntegration: { enabled: false }
-        }
+          canvasIntegration: { enabled: false },
+        },
       },
       'Reading Mode': {
         name: 'Reading Mode',
@@ -1580,12 +1613,17 @@ class PopupController {
         createdAt: timestamp,
         settings: {
           tts: { enabled: true, rate: 1.2, highlightEnabled: true, wordByWordEnabled: true },
-          textCustomization: { enabled: true, fontSize: 18, lineHeight: 1.8, fontFamily: 'OpenDyslexic' },
+          textCustomization: {
+            enabled: true,
+            fontSize: 18,
+            lineHeight: 1.8,
+            fontFamily: 'OpenDyslexic',
+          },
           readingGuide: { enabled: true, lineColor: '#4A90E2', opacity: 0.5 },
           focusMode: { enabled: false },
           screenOverlay: { enabled: true, color: '#FFF4E6', opacity: 0.2 },
-          canvasIntegration: { enabled: false }
-        }
+          canvasIntegration: { enabled: false },
+        },
       },
       'Quiz Mode': {
         name: 'Quiz Mode',
@@ -1597,22 +1635,42 @@ class PopupController {
           readingGuide: { enabled: false },
           focusMode: { enabled: true, dimAmount: 0.7 },
           screenOverlay: { enabled: false },
-          canvasIntegration: { enabled: true, quizHelper: { enabled: true, readAnswers: true, highlightQuestion: true, keyboardNavigation: true } }
-        }
+          canvasIntegration: {
+            enabled: true,
+            quizHelper: {
+              enabled: true,
+              readAnswers: true,
+              highlightQuestion: true,
+              keyboardNavigation: true,
+            },
+          },
+        },
       },
       'Low Vision': {
         name: 'Low Vision',
         isDefault: true,
         createdAt: timestamp,
         settings: {
-          tts: { enabled: true, rate: 0.9, highlightEnabled: true, highlightColor: '#FFEB3B', highlightOpacity: 0.9 },
-          textCustomization: { enabled: true, fontSize: 22, lineHeight: 2.0, letterSpacing: 0.15, wordSpacing: 0.2 },
+          tts: {
+            enabled: true,
+            rate: 0.9,
+            highlightEnabled: true,
+            highlightColor: '#FFEB3B',
+            highlightOpacity: 0.9,
+          },
+          textCustomization: {
+            enabled: true,
+            fontSize: 22,
+            lineHeight: 2.0,
+            letterSpacing: 0.15,
+            wordSpacing: 0.2,
+          },
           readingGuide: { enabled: true, lineColor: '#FF0000', opacity: 0.8 },
           focusMode: { enabled: true, dimAmount: 0.9 },
           screenOverlay: { enabled: false },
-          canvasIntegration: { enabled: false }
-        }
-      }
+          canvasIntegration: { enabled: false },
+        },
+      },
     };
   }
 
@@ -1633,7 +1691,7 @@ class PopupController {
   profiles_setupEventListeners() {
     // Profile selector change
     const selector = document.getElementById('profile-select');
-    selector.addEventListener('change', (e) => {
+    selector.addEventListener('change', e => {
       this.profiles_loadProfile(e.target.value);
     });
 
@@ -1653,7 +1711,7 @@ class PopupController {
     });
 
     // Import file input
-    document.getElementById('profile-import-input').addEventListener('change', (e) => {
+    document.getElementById('profile-import-input').addEventListener('change', e => {
       this.profiles_import(e.target.files[0]);
     });
 
@@ -1733,7 +1791,7 @@ class PopupController {
       name: name,
       isDefault: false,
       createdAt: new Date().toISOString(),
-      settings: JSON.parse(JSON.stringify(this.settings)) // Deep clone
+      settings: JSON.parse(JSON.stringify(this.settings)), // Deep clone
     };
 
     this.profiles[name] = newProfile;
@@ -1766,7 +1824,9 @@ class PopupController {
   async profiles_confirmDelete() {
     const name = this.profileToDelete;
 
-    if (!name || !this.profiles[name]) return;
+    if (!name || !this.profiles[name]) {
+      return;
+    }
 
     // Cannot delete default profiles
     if (this.profiles[name].isDefault) {
@@ -1801,7 +1861,7 @@ class PopupController {
     const data = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
-      profiles: this.profiles
+      profiles: this.profiles,
     };
 
     const json = JSON.stringify(data, null, 2);
@@ -1820,7 +1880,9 @@ class PopupController {
   }
 
   async profiles_import(file) {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       const text = await file.text();
