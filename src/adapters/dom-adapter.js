@@ -14,7 +14,7 @@ export class DOMAdapter {
       ANNOUNCEMENT: 'announcement',
       SYLLABUS: 'syllabus',
       MODULE: 'module',
-      UNKNOWN: 'unknown'
+      UNKNOWN: 'unknown',
     };
   }
 
@@ -22,7 +22,6 @@ export class DOMAdapter {
    * Detect the type of Canvas content on current page
    */
   detectContentType() {
-    const url = window.location.href;
     const pathname = window.location.pathname;
 
     if (pathname.includes('/assignments/')) {
@@ -76,13 +75,7 @@ export class DOMAdapter {
    */
   getMainContentArea() {
     // Canvas-specific content containers
-    const selectors = [
-      '#content',
-      '#main',
-      '.user_content',
-      '[role="main"]',
-      '.show-content'
-    ];
+    const selectors = ['#content', '#main', '.user_content', '[role="main"]', '.show-content'];
 
     for (const selector of selectors) {
       const element = document.querySelector(selector);
@@ -122,28 +115,25 @@ export class DOMAdapter {
   getTextNodes(element = null) {
     const root = element || this.getMainContentArea();
     const textNodes = [];
-    const walker = document.createTreeWalker(
-      root,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: node => {
-          // Skip whitespace-only nodes and hidden elements
-          if (!node.textContent.trim()) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          const parent = node.parentElement;
-          if (parent && (
-            parent.closest('script, style, nav, [aria-hidden="true"]') ||
-            window.getComputedStyle(parent).display === 'none'
-          )) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          return NodeFilter.FILTER_ACCEPT;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: node => {
+        // Skip whitespace-only nodes and hidden elements
+        if (!node.textContent.trim()) {
+          return NodeFilter.FILTER_REJECT;
         }
-      }
-    );
+
+        const parent = node.parentElement;
+        if (
+          parent &&
+          (parent.closest('script, style, nav, [aria-hidden="true"]') ||
+            window.getComputedStyle(parent).display === 'none')
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
 
     while (walker.nextNode()) {
       textNodes.push(walker.currentNode);
@@ -162,7 +152,7 @@ export class DOMAdapter {
       'input[type="text"]',
       'input[type="search"]',
       '[contenteditable="true"]',
-      '.tox-edit-area' // TinyMCE editor
+      '.tox-edit-area', // TinyMCE editor
     ];
 
     selectors.forEach(selector => {
@@ -215,7 +205,7 @@ export class DOMAdapter {
       if (numericRegex.test(text)) {
         numericElements.push({
           node: node,
-          text: text
+          text: text,
         });
       }
     });
@@ -250,7 +240,7 @@ export class DOMAdapter {
 
       return date.toLocaleDateString('en-US', {
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       });
     } catch {
       return dateString;
@@ -269,7 +259,7 @@ export class DOMAdapter {
       'footer',
       '.ad',
       '.advertisement',
-      '[class*="banner"]:not(.main-banner)'
+      '[class*="banner"]:not(.main-banner)',
     ];
 
     const elements = [];

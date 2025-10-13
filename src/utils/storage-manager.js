@@ -8,7 +8,7 @@ export class StorageManager {
   static STORAGE_KEYS = {
     SETTINGS: 'assist_settings',
     USER_PROFILE: 'assist_user_profile',
-    LAST_SYNC: 'assist_last_sync'
+    LAST_SYNC: 'assist_last_sync',
   };
 
   static DEFAULT_SETTINGS = {
@@ -21,17 +21,17 @@ export class StorageManager {
       highlightEnabled: true,
       highlightColor: '#FFEB3B',
       highlightOpacity: 0.7,
-      autoStart: false
+      autoStart: false,
     },
     // Sprint 5 Features
     stt: {
-      enabled: false,               // Default OFF
-      continuousMode: true,         // Keep listening vs single utterance
-      interimResults: true,         // Show partial results
-      language: 'en-US',            // Recognition language
-      autoCapitalize: true,         // Capitalize first word of sentences
-      punctuationCommands: true,    // Voice punctuation ("period", "comma")
-      floatingButton: true          // Show mic button on text field focus
+      enabled: false, // Default OFF
+      continuousMode: true, // Keep listening vs single utterance
+      interimResults: true, // Show partial results
+      language: 'en-US', // Recognition language
+      autoCapitalize: true, // Capitalize first word of sentences
+      punctuationCommands: true, // Voice punctuation ("period", "comma")
+      floatingButton: true, // Show mic button on text field focus
     },
     waiAdapt: {
       textSpacing: {
@@ -39,63 +39,77 @@ export class StorageManager {
         lineHeight: 1.5,
         paragraphSpacing: 2.0,
         letterSpacing: 0.12,
-        wordSpacing: 0.16
+        wordSpacing: 0.16,
       },
       focusMode: {
         enabled: false,
         hideExtraneous: true,
-        simplifyNavigation: true
+        simplifyNavigation: true,
       },
       numericSimplification: {
         enabled: false,
         useText: true,
-        useGraphics: false
+        useGraphics: false,
       },
       typography: {
         font: 'system',
         fontSize: 16,
-        useOpenDyslexic: false
+        useOpenDyslexic: false,
       },
       colorScheme: {
         mode: 'default',
         backgroundColor: '#FFFFFF',
         textColor: '#000000',
-        contrast: 'normal'
-      }
+        contrast: 'normal',
+      },
     },
     accessibility: {
       keyboardShortcuts: true,
       screenReaderOptimized: false,
-      reducedMotion: false
+      reducedMotion: false,
     },
     // Sprint 3 Features
     textCustomization: {
       enabled: false,
-      fontFamily: 'system',      // 'system' | 'lexend' | 'opendyslexic' | 'comic-sans' | 'arial'
-      lineSpacing: 1.5,          // WCAG min: 1.5
-      letterSpacing: 0.12,       // WCAG min: 0.12em (displayed as 12%)
-      wordSpacing: 0.16,         // WCAG min: 0.16em (displayed as 16%)
-      paragraphSpacing: 2.0      // WCAG min: 2.0em
+      fontFamily: 'system', // 'system' | 'lexend' | 'opendyslexic' | 'comic-sans' | 'arial'
+      lineSpacing: 1.5, // WCAG min: 1.5
+      letterSpacing: 0.12, // WCAG min: 0.12em (displayed as 12%)
+      wordSpacing: 0.16, // WCAG min: 0.16em (displayed as 16%)
+      paragraphSpacing: 2.0, // WCAG min: 2.0em
     },
     readingGuide: {
       enabled: false,
       lineColor: '#000000',
-      lineThickness: 3,          // px, range: 1-10px
-      lineOpacity: 0.7           // 0.0-1.0
+      lineThickness: 3, // px, range: 1-10px
+      lineOpacity: 0.7, // 0.0-1.0
     },
     focusMode: {
       enabled: false,
-      boxWidth: 400,             // px, min: 150, max: 800, step: 5
-      boxHeight: 100,            // px, min: 50, max: 250, step: 5
-      overlayOpacity: 0.7        // 0.0-1.0 (darkness of surrounding area)
+      boxWidth: 400, // px, min: 150, max: 800, step: 5
+      boxHeight: 100, // px, min: 50, max: 250, step: 5
+      overlayOpacity: 0.7, // 0.0-1.0 (darkness of surrounding area)
     },
     // Sprint 4 Features
     canvasIntegration: {
-      enabled: false,            // Default OFF - user will test post-launch
-      assignmentReader: true,    // Auto-reader for Canvas assignments
-      quizHelper: false,         // Future: Quiz content extraction
-      keyboardNav: false         // Future: Keyboard navigation enhancements
-    }
+      enabled: false, // Default OFF - user will test post-launch
+      assignmentReader: true, // Auto-reader for Canvas assignments
+      quizHelper: false, // Future: Quiz content extraction
+      keyboardNav: false, // Future: Keyboard navigation enhancements
+    },
+    // Sprint 9 Features - Multi-Platform LMS Support
+    moodleIntegration: {
+      enabled: false, // Default OFF - EXPERIMENTAL feature
+      assignmentReader: true, // Auto-reader for Moodle assignments
+      forumReader: true, // Read forum posts
+      pageReader: true, // Read page resources
+      quizHelper: false, // Future: Quiz content extraction
+    },
+    googleClassroomIntegration: {
+      enabled: false, // Default OFF - EXPERIMENTAL feature
+      assignmentReader: true, // Auto-reader for Google Classroom assignments
+      streamReader: true, // Read stream posts/announcements
+      classworkReader: true, // Read classwork items
+    },
   };
 
   /**
@@ -108,7 +122,7 @@ export class StorageManager {
       if (!existing[this.STORAGE_KEYS.SETTINGS]) {
         await chrome.storage.local.set({
           [this.STORAGE_KEYS.SETTINGS]: this.DEFAULT_SETTINGS,
-          [this.STORAGE_KEYS.LAST_SYNC]: Date.now()
+          [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
         });
 
         console.log('[Storage] Default settings initialized');
@@ -150,7 +164,7 @@ export class StorageManager {
 
       await chrome.storage.local.set({
         [this.STORAGE_KEYS.SETTINGS]: settings,
-        [this.STORAGE_KEYS.LAST_SYNC]: Date.now()
+        [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
       });
 
       console.log('[Storage] Setting updated:', path, value);
@@ -168,7 +182,7 @@ export class StorageManager {
     try {
       await chrome.storage.local.set({
         [this.STORAGE_KEYS.SETTINGS]: settings,
-        [this.STORAGE_KEYS.LAST_SYNC]: Date.now()
+        [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
       });
 
       console.log('[Storage] Settings saved');
@@ -186,7 +200,7 @@ export class StorageManager {
     try {
       await chrome.storage.local.set({
         [this.STORAGE_KEYS.SETTINGS]: this.DEFAULT_SETTINGS,
-        [this.STORAGE_KEYS.LAST_SYNC]: Date.now()
+        [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
       });
 
       console.log('[Storage] Settings reset to defaults');
@@ -206,7 +220,7 @@ export class StorageManager {
       const exportData = {
         version: '1.0',
         timestamp: new Date().toISOString(),
-        settings: settings
+        settings: settings,
       };
 
       return JSON.stringify(exportData, null, 2);

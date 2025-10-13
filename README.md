@@ -17,7 +17,7 @@
 ### 🎯 Target Users
 
 - Students with dyslexia, ADHD, or other learning differences
-- Students using Canvas LMS for online courses
+- Students using Canvas LMS, Moodle, or Google Classroom
 - Anyone who benefits from audio reinforcement while reading
 - Users requiring text customization for readability
 - Students taking online quizzes who need accessibility support
@@ -27,12 +27,14 @@
 - 🔊 **Text-to-Speech** with synchronized word-by-word highlighting
 - 🎤 **Speech-to-Text** for hands-free input with voice commands
 - ✨ **Dyslexia-Optimized Reading** (Bionic Reading, Syllable Highlighting, Grammar Colors)
+- 🎓 **Multi-Platform LMS Integration** (Canvas, Moodle, Google Classroom)
 - 📚 **Canvas Quiz Helper** with keyboard navigation
 - 👤 **User Profiles** for quick context switching
 - 🎨 **Text Customization** (font, size, spacing, colors)
 - 🔍 **Reading Guide** and Focus Mode
 - 🌅 **Screen Overlays** for eye strain reduction
 - ⚙️ **Feature Visibility** controls for cleaner UI
+- ❓ **Consistent Help** button (WCAG 2.2 SC 3.2.6 compliant)
 
 ---
 
@@ -72,13 +74,13 @@ npm run build
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
-| [SETUP.md](SETUP.md) | Complete setup guide for new developers |
-| [TESTING_GUIDE.md](TESTING_GUIDE.md) | Manual testing procedures (43 test cases) |
-| [CLAUDE.md](CLAUDE.md) | Development standards and workflow |
-| [PROJECT_MEMORY.md](docs/planning/PROJECT_MEMORY.md) | Decision log and architecture rationale |
-| [TEST_EXECUTION_RESULTS.md](TEST_EXECUTION_RESULTS.md) | Test infrastructure status |
+| Document                                               | Description                               |
+| ------------------------------------------------------ | ----------------------------------------- |
+| [SETUP.md](SETUP.md)                                   | Complete setup guide for new developers   |
+| [TESTING_GUIDE.md](TESTING_GUIDE.md)                   | Manual testing procedures (43 test cases) |
+| [CLAUDE.md](CLAUDE.md)                                 | Development standards and workflow        |
+| [PROJECT_MEMORY.md](docs/planning/PROJECT_MEMORY.md)   | Decision log and architecture rationale   |
+| [TEST_EXECUTION_RESULTS.md](TEST_EXECUTION_RESULTS.md) | Test infrastructure status                |
 
 ---
 
@@ -137,17 +139,26 @@ npm run build
    - Adjustable color intensity
    - Performance optimized (<300ms)
 
+10. **Multi-Platform LMS Integration** 🎓 EXPERIMENTAL
+
+- **Canvas LMS:** Read assignments, forums, and course pages
+- **Moodle:** Read assignments, forums, and page resources
+- **Google Classroom:** Read assignments, stream posts, and classwork
+- Floating Action Button (FAB) for quick access
+- Platform-specific branding and detection
+- Enable via Advanced Options → Features → LMS Integration
+
 ---
 
 ## 🧪 Testing
 
 ### Test Status
 
-| Test Type | Status | Details |
-|-----------|--------|---------|
-| Unit Tests | ✅ 94/94 passing | Jest, 96%+ coverage on tested modules |
-| E2E Tests | ⚠️ 11/25 passing | Playwright, selector updates needed |
-| Manual Testing | ✅ Ready | 43 test cases documented |
+| Test Type      | Status           | Details                               |
+| -------------- | ---------------- | ------------------------------------- |
+| Unit Tests     | ✅ 94/94 passing | Jest, 96%+ coverage on tested modules |
+| E2E Tests      | ⚠️ 11/25 passing | Playwright, selector updates needed   |
+| Manual Testing | ✅ Ready         | 43 test cases documented              |
 
 ### Run Tests
 
@@ -209,6 +220,7 @@ git commit -m "docs(readme): update"
 ## 🔮 Roadmap
 
 ### Completed ✅
+
 - [x] Core TTS with highlighting
 - [x] Text customization
 - [x] Reading guide and focus mode
@@ -218,17 +230,21 @@ git commit -m "docs(readme): update"
 - [x] Feature visibility
 - [x] Screen overlays
 - [x] Dyslexia modes
+- [x] Multi-platform LMS integration (Canvas, Moodle, Google Classroom)
+- [x] WCAG 2.2 AA compliance (Consistent Help button)
 - [x] Testing infrastructure
 
 ### Planned 📋
+
 - [ ] Fix E2E test selectors
 - [ ] TTS/STT engine test coverage
 - [ ] Performance benchmarks
-- [ ] Canvas assignment reader
+- [ ] WCAG 2.2 AA full audit (contrast ratios, keyboard navigation)
 - [ ] Auto-profile switching
 - [ ] Keyboard shortcut customization
 - [ ] Cloud sync for profiles
 - [ ] First-time user tutorial
+- [ ] Chrome Web Store submission
 
 ---
 
@@ -275,6 +291,8 @@ MIT License - see LICENSE file for details.
 
 ### Recent Changes
 
+- 🎓 Multi-platform LMS integration (Canvas, Moodle, Google Classroom)
+- ❓ WCAG 2.2 Consistent Help button added
 - ✨ Dyslexia-Optimized Reading Mode (3 algorithms)
 - ✨ Bionic Reading implementation
 - ✨ Syllable Highlighting implementation

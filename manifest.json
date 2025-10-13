@@ -5,6 +5,13 @@
   "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
   "author": "AssisT Development Team",
 
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "32": "public/icons/icon32.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  },
+
   "permissions": [
     "storage",
     "activeTab",
@@ -31,7 +38,14 @@
   ],
 
   "action": {
-    "default_popup": "src/popup/popup.html"
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "public/icons/icon16.png",
+      "32": "public/icons/icon32.png",
+      "48": "public/icons/icon48.png",
+      "128": "public/icons/icon128.png"
+    },
+    "default_title": "AssisT - Adaptive Accessibility"
   },
 
   "web_accessible_resources": [

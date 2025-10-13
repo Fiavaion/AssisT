@@ -70,7 +70,6 @@ class AssistContentManager {
 
       this.isInitialized = true;
       console.log('[AssisT Content] Initialization complete');
-
     } catch (error) {
       console.error('[AssisT Content] Initialization failed:', error);
     }
@@ -239,7 +238,7 @@ class AssistContentManager {
   setupKeyboardShortcuts() {
     console.log('[AssisT Content] Setting up keyboard shortcuts');
 
-    document.addEventListener('keydown', async (e) => {
+    document.addEventListener('keydown', async e => {
       // Ignore if user is typing in an input field
       if (e.target.matches('input, textarea, [contenteditable="true"]')) {
         return;
@@ -258,7 +257,10 @@ class AssistContentManager {
       }
 
       // Plus/Equals: Increase speed
-      if ((e.code === 'Equal' || e.code === 'NumpadAdd') && (e.shiftKey || e.code === 'NumpadAdd')) {
+      if (
+        (e.code === 'Equal' || e.code === 'NumpadAdd') &&
+        (e.shiftKey || e.code === 'NumpadAdd')
+      ) {
         e.preventDefault();
         if (this.ttsController) {
           const newRate = Math.min(2.0, this.ttsController.settings.rate + 0.1);
@@ -269,7 +271,7 @@ class AssistContentManager {
       }
 
       // Minus: Decrease speed
-      if ((e.code === 'Minus' || e.code === 'NumpadSubtract')) {
+      if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
         e.preventDefault();
         if (this.ttsController) {
           const newRate = Math.max(0.5, this.ttsController.settings.rate - 0.1);
@@ -284,7 +286,7 @@ class AssistContentManager {
   setupClickToRead() {
     console.log('[AssisT Content] Setting up click-to-read functionality');
 
-    document.addEventListener('click', async (e) => {
+    document.addEventListener('click', async e => {
       // Only process if TTS is enabled and Ctrl key is held
       if (!this.settings.tts.enabled || !e.ctrlKey) {
         return;
@@ -375,7 +377,7 @@ class AssistContentManager {
 
     observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
     });
   }
 
@@ -407,7 +409,7 @@ class AssistContentManager {
       url: window.location.href,
       contentType: this.domAdapter.detectContentType(),
       courseId: this.domAdapter.extractCourseId(),
-      hasTextContent: this.domAdapter.hasTextContent()
+      hasTextContent: this.domAdapter.hasTextContent(),
     };
   }
 

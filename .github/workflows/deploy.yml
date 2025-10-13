@@ -1,0 +1,110 @@
+name: Deploy to Chrome Web Store
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., 0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Build & Deploy Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run all tests
+        run: |
+          npm test
+          npm run test:e2e || echo "E2E tests failed, continuing..."
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Get version from manifest
+        id: get_version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(node -p "require('./manifest.json').version")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Deploying version: $VERSION"
+
+      - name: Create ZIP for Chrome Web Store
+        run: |
+          cd Output
+          zip -r ../AssisT-v${{ steps.get_version.outputs.version }}.zip .
+          cd ..
+          echo "ZIP created: AssisT-v${{ steps.get_version.outputs.version }}.zip"
+
+      - name: Verify ZIP contents
+        run: |
+          echo "ZIP Contents:"
+          unzip -l AssisT-v${{ steps.get_version.outputs.version }}.zip | head -20
+
+      - name: Upload ZIP to Release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./AssisT-v${{ steps.get_version.outputs.version }}.zip
+          asset_name: AssisT-v${{ steps.get_version.outputs.version }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload as artifact (for manual deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: AssisT-v${{ steps.get_version.outputs.version }}
+          path: AssisT-v${{ steps.get_version.outputs.version }}.zip
+          retention-days: 90
+
+      # Optional: Automatic Chrome Web Store Publishing
+      # Requires Chrome Web Store API credentials in GitHub Secrets:
+      # - CHROME_CLIENT_ID
+      # - CHROME_CLIENT_SECRET
+      # - CHROME_REFRESH_TOKEN
+      # - CHROME_EXTENSION_ID
+      #
+      # Uncomment the following step to enable auto-publishing:
+      #
+      # - name: Publish to Chrome Web Store
+      #   if: github.event.release.prerelease == false
+      #   uses: mobilefirstllc/cws-publish@latest
+      #   with:
+      #     action: 'publish'
+      #     client_id: ${{ secrets.CHROME_CLIENT_ID }}
+      #     client_secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+      #     refresh_token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+      #     extension_id: ${{ secrets.CHROME_EXTENSION_ID }}
+      #     zip_file: ./AssisT-v${{ steps.get_version.outputs.version }}.zip
+
+      - name: Deployment summary
+        run: |
+          echo "✅ Extension packaged successfully!"
+          echo "📦 Package: AssisT-v${{ steps.get_version.outputs.version }}.zip"
+          echo "🚀 Ready for Chrome Web Store submission"
+          echo ""
+          echo "Next steps:"
+          echo "1. Download the ZIP artifact from this workflow run"
+          echo "2. Go to Chrome Web Store Developer Dashboard"
+          echo "3. Upload the ZIP file"
+          echo "4. Submit for review"

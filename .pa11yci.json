@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "standard": "WCAG2AA",
+    "timeout": 30000,
+    "wait": 1000,
+    "chromeLaunchConfig": {
+      "args": [
+        "--no-sandbox",
+        "--disable-setuid-sandbox"
+      ]
+    },
+    "runners": [
+      "axe",
+      "htmlcs"
+    ],
+    "includeWarnings": true,
+    "includeNotices": false
+  },
+  "urls": [
+    {
+      "url": "file://./Output/src/popup/popup.html",
+      "screenCapture": "./reports/screenshots/popup.png",
+      "actions": [
+        "wait for element #popup-container to be visible"
+      ]
+    }
+  ]
+}

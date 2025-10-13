@@ -208,7 +208,11 @@ export class WAIAdaptManager {
       }
     });
 
-    console.log('[WAI-Adapt] Numeric simplification applied to', numericElements.length, 'elements');
+    console.log(
+      '[WAI-Adapt] Numeric simplification applied to',
+      numericElements.length,
+      'elements'
+    );
   }
 
   /**
@@ -229,8 +233,8 @@ export class WAIAdaptManager {
     const fontFamily = useOpenDyslexic
       ? 'OpenDyslexic, sans-serif'
       : font === 'system'
-      ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      : font;
+        ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        : font;
 
     styleElement.textContent = `
       .assist-adapted-typography {
@@ -251,7 +255,7 @@ export class WAIAdaptManager {
    * Apply color scheme
    */
   applyColorScheme(settings) {
-    const { mode, backgroundColor, textColor, contrast } = settings;
+    const { mode, backgroundColor, textColor } = settings;
 
     const styleId = 'assist-color-scheme';
     let styleElement = document.getElementById(styleId);

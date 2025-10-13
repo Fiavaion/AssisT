@@ -19,8 +19,9 @@ export class STTController {
       interimResults: options.interimResults !== undefined ? options.interimResults : true,
       language: options.language || 'en-US',
       autoCapitalize: options.autoCapitalize !== undefined ? options.autoCapitalize : true,
-      punctuationCommands: options.punctuationCommands !== undefined ? options.punctuationCommands : true,
-      maxAlternatives: options.maxAlternatives || 1
+      punctuationCommands:
+        options.punctuationCommands !== undefined ? options.punctuationCommands : true,
+      maxAlternatives: options.maxAlternatives || 1,
     };
 
     this.recognition = null;
@@ -40,24 +41,24 @@ export class STTController {
 
     // Punctuation command mappings
     this.punctuationCommands = {
-      'period': '.',
-      'comma': ',',
+      period: '.',
+      comma: ',',
       'question mark': '?',
       'exclamation point': '!',
       'exclamation mark': '!',
       'new line': '\n',
       'new paragraph': '\n\n',
-      'colon': ':',
-      'semicolon': ';',
-      'quote': '"',
+      colon: ':',
+      semicolon: ';',
+      quote: '"',
       'end quote': '"',
-      'apostrophe': "'",
-      'dash': '-',
-      'hyphen': '-',
+      apostrophe: "'",
+      dash: '-',
+      hyphen: '-',
       'open parenthesis': '(',
       'close parenthesis': ')',
       'open bracket': '[',
-      'close bracket': ']'
+      'close bracket': ']',
     };
 
     this.initialize();
@@ -86,8 +87,8 @@ export class STTController {
       // Set up event handlers
       this.recognition.onstart = () => this.handleStart();
       this.recognition.onend = () => this.handleEnd();
-      this.recognition.onresult = (event) => this.handleResult(event);
-      this.recognition.onerror = (event) => this.handleError(event);
+      this.recognition.onresult = event => this.handleResult(event);
+      this.recognition.onerror = event => this.handleError(event);
       this.recognition.onnomatch = () => this.handleNoMatch();
       this.recognition.onaudiostart = () => console.log('[STT] Audio capture started');
       this.recognition.onaudioend = () => console.log('[STT] Audio capture ended');
@@ -281,10 +282,10 @@ export class STTController {
       'no-speech': 'No speech detected. Please try again.',
       'audio-capture': 'No microphone detected. Please check your audio input.',
       'not-allowed': 'Microphone permission denied. Please allow microphone access.',
-      'network': 'Network error. Please check your internet connection.',
-      'aborted': 'Speech recognition aborted.',
+      network: 'Network error. Please check your internet connection.',
+      aborted: 'Speech recognition aborted.',
       'bad-grammar': 'Speech recognition grammar error.',
-      'language-not-supported': `Language "${this.settings.language}" is not supported.`
+      'language-not-supported': `Language "${this.settings.language}" is not supported.`,
     };
 
     const userMessage = errorMessages[event.error] || `Speech recognition error: ${event.error}`;
@@ -308,9 +309,6 @@ export class STTController {
    */
   processPunctuationCommands(text) {
     let processed = text;
-
-    // Convert to lowercase for command matching
-    const lowerText = text.toLowerCase();
 
     // Check each punctuation command
     for (const [command, punctuation] of Object.entries(this.punctuationCommands)) {
@@ -339,7 +337,9 @@ export class STTController {
    * @returns {string}
    */
   capitalizeFirstWord(text) {
-    if (!text || text.length === 0) return text;
+    if (!text || text.length === 0) {
+      return text;
+    }
 
     // Capitalize first letter
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -357,7 +357,8 @@ export class STTController {
     }
 
     // Add space before text if element already has content
-    const shouldAddSpace = element.value && element.value.trim().length > 0 && !element.value.endsWith(' ');
+    const shouldAddSpace =
+      element.value && element.value.trim().length > 0 && !element.value.endsWith(' ');
     const textToInsert = shouldAddSpace ? ' ' + text : text;
 
     // Handle different element types
@@ -378,7 +379,6 @@ export class STTController {
       // Trigger input event for frameworks (React, Vue, etc.)
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
-
     } else if (element.contentEditable === 'true' || element.isContentEditable) {
       // ContentEditable element
       const selection = window.getSelection();
@@ -443,7 +443,7 @@ export class STTController {
       isPaused: this.isPaused,
       hasTarget: this.targetElement !== null,
       language: this.settings.language,
-      continuous: this.settings.continuous
+      continuous: this.settings.continuous,
     };
   }
 

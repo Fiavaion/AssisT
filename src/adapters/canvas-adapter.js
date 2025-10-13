@@ -16,7 +16,7 @@ export const CanvasPageType = {
   ANNOUNCEMENT: 'announcement',
   MODULE: 'module',
   COURSE_HOME: 'course_home',
-  OTHER: 'other'
+  OTHER: 'other',
 };
 
 /**
@@ -27,16 +27,13 @@ export function isCanvasPage() {
   const hostname = window.location.hostname;
 
   // Check for common Canvas domains
-  const canvasPatterns = [
-    /\.instructure\.com$/,
-    /\.canvas\./,
-    /canvas\./
-  ];
+  const canvasPatterns = [/\.instructure\.com$/, /\.canvas\./, /canvas\./];
 
   // Check if body has Canvas-specific classes
-  const hasCanvasClass = document.body?.classList.contains('course-menu-expanded') ||
-                         document.body?.classList.contains('primary-nav-expanded') ||
-                         document.getElementById('application') !== null;
+  const hasCanvasClass =
+    document.body?.classList.contains('course-menu-expanded') ||
+    document.body?.classList.contains('primary-nav-expanded') ||
+    document.getElementById('application') !== null;
 
   return canvasPatterns.some(pattern => pattern.test(hostname)) || hasCanvasClass;
 }
@@ -51,7 +48,6 @@ export function detectCanvasPageType() {
   }
 
   const pathname = window.location.pathname;
-  const url = window.location.href;
 
   // Assignment page
   if (pathname.includes('/assignments/') && !pathname.includes('/assignments$')) {
@@ -102,13 +98,15 @@ export function extractAssignmentContent() {
     '.assignment_description',
     '#assignment_show .description',
     '.show-content .user_content',
-    'div[data-testid="assignment-description"]'
+    'div[data-testid="assignment-description"]',
   ];
 
   let contentElement = null;
   for (const selector of selectors) {
     contentElement = document.querySelector(selector);
-    if (contentElement) break;
+    if (contentElement) {
+      break;
+    }
   }
 
   if (!contentElement) {
@@ -117,7 +115,9 @@ export function extractAssignmentContent() {
   }
 
   // Get assignment title
-  const titleElement = document.querySelector('.page-title, h1.title, [data-testid="assignment-title"]');
+  const titleElement = document.querySelector(
+    '.page-title, h1.title, [data-testid="assignment-title"]'
+  );
   const title = titleElement?.textContent?.trim() || 'Assignment';
 
   // Extract text content, preserving structure
@@ -128,7 +128,7 @@ export function extractAssignmentContent() {
     content: contentElement.innerHTML,
     text: contentElement.textContent.trim(),
     sections,
-    element: contentElement
+    element: contentElement,
   };
 }
 
@@ -143,11 +143,13 @@ function extractSections(element) {
 
   if (headings.length === 0) {
     // No headings, treat entire content as one section
-    return [{
-      title: 'Content',
-      text: element.textContent.trim(),
-      element: element
-    }];
+    return [
+      {
+        title: 'Content',
+        text: element.textContent.trim(),
+        element: element,
+      },
+    ];
   }
 
   headings.forEach((heading, index) => {
@@ -167,7 +169,7 @@ function extractSections(element) {
       title,
       text: content.trim(),
       level: parseInt(heading.tagName[1]), // h1 = 1, h2 = 2, etc.
-      element: heading
+      element: heading,
     });
   });
 
@@ -188,15 +190,19 @@ export function extractQuizQuestions() {
   const questionElements = document.querySelectorAll('.question, [data-testid="question"]');
 
   questionElements.forEach((questionEl, index) => {
-    const questionText = questionEl.querySelector('.question_text, .question-text')?.textContent?.trim();
+    const questionText = questionEl
+      .querySelector('.question_text, .question-text')
+      ?.textContent?.trim();
     const answers = [];
 
     // Extract answer options
-    const answerElements = questionEl.querySelectorAll('.answer, .answer_label, [role="radio"], [role="checkbox"]');
+    const answerElements = questionEl.querySelectorAll(
+      '.answer, .answer_label, [role="radio"], [role="checkbox"]'
+    );
     answerElements.forEach(answerEl => {
       answers.push({
         text: answerEl.textContent.trim(),
-        element: answerEl
+        element: answerEl,
       });
     });
 
@@ -205,7 +211,7 @@ export function extractQuizQuestions() {
         number: index + 1,
         text: questionText,
         answers,
-        element: questionEl
+        element: questionEl,
       });
     }
   });
@@ -223,13 +229,7 @@ export function getCleanText(html) {
   tempDiv.innerHTML = html;
 
   // Remove Canvas UI elements
-  const uiSelectors = [
-    '.screenreader-only',
-    '.element_toggler',
-    'script',
-    'style',
-    'noscript'
-  ];
+  const uiSelectors = ['.screenreader-only', '.element_toggler', 'script', 'style', 'noscript'];
 
   uiSelectors.forEach(selector => {
     tempDiv.querySelectorAll(selector).forEach(el => el.remove());
@@ -243,11 +243,14 @@ export function getCleanText(html) {
  * @returns {Promise<boolean>} Resolves when content is loaded
  */
 export function waitForCanvasContent(timeout = 5000) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const startTime = Date.now();
 
     const checkInterval = setInterval(() => {
-      const contentLoaded = document.querySelector('.user_content, .description, [data-testid="assignment-description"]') !== null;
+      const contentLoaded =
+        document.querySelector(
+          '.user_content, .description, [data-testid="assignment-description"]'
+        ) !== null;
 
       if (contentLoaded) {
         clearInterval(checkInterval);
@@ -269,12 +272,7 @@ export function waitForCanvasContent(timeout = 5000) {
  * @returns {HTMLElement} FAB element
  */
 export function createCanvasFAB(options = {}) {
-  const {
-    text = 'Read',
-    icon = '▶️',
-    onClick = () => {},
-    position = 'bottom-right'
-  } = options;
+  const { text = 'Read', icon = '▶️', onClick = () => {}, position = 'bottom-right' } = options;
 
   const fab = document.createElement('button');
   fab.className = 'assist-canvas-fab';
@@ -285,7 +283,7 @@ export function createCanvasFAB(options = {}) {
     'bottom-right': 'bottom: 20px; right: 20px;',
     'bottom-left': 'bottom: 20px; left: 20px;',
     'top-right': 'top: 80px; right: 20px;',
-    'top-left': 'top: 80px; left: 20px;'
+    'top-left': 'top: 80px; left: 20px;',
   };
 
   fab.style.cssText = `
@@ -336,5 +334,5 @@ export default {
   getCleanText,
   waitForCanvasContent,
   createCanvasFAB,
-  CanvasPageType
+  CanvasPageType,
 };
