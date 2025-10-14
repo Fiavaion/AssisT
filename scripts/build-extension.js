@@ -1,11 +1,13 @@
 /**
  * Build Script for AssisT Extension
- * Copies all necessary extension files to Output folder for Chrome loading
+ * 1. Bundles modular ES6 code via concatenation
+ * 2. Copies all necessary extension files to Output folder for Chrome loading
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,11 +71,27 @@ function cleanOutputDirectory() {
   console.log('✨ Output directory ready\n');
 }
 
+function bundleModules() {
+  console.log('📦 Bundling modular content scripts...\n');
+  try {
+    execSync('node scripts/bundle-content.js', {
+      cwd: PROJECT_ROOT,
+      stdio: 'inherit'
+    });
+    console.log('');
+  } catch (error) {
+    throw new Error('Module bundling failed');
+  }
+}
+
 function buildExtension() {
   console.log('🚀 Building AssisT Extension...\n');
 
   // Clean output directory
   cleanOutputDirectory();
+
+  // Bundle modular content scripts
+  bundleModules();
 
   // Copy files
   console.log('📦 Copying extension files...\n');
