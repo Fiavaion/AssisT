@@ -8,12 +8,12 @@ import { test, expect } from './extension-fixture.js';
 test.describe('User Profiles - Sprint 7', () => {
   test('should show profile selector dropdown', async ({ popupPage }) => {
     // Profile dropdown should be visible
-    const profileSelect = popupPage.locator('#profile-select');
+    const profileSelect = popupPage.locator('[data-testid="profile-select"]');
     await expect(profileSelect).toBeVisible();
   });
 
   test('should have default profiles available', async ({ popupPage }) => {
-    const profileSelect = popupPage.locator('#profile-select');
+    const profileSelect = popupPage.locator('[data-testid="profile-select"]');
 
     // Get options
     const options = await profileSelect.locator('option').allTextContents();
@@ -26,14 +26,14 @@ test.describe('User Profiles - Sprint 7', () => {
 
   test('should have Save Profile button', async ({ popupPage }) => {
     // Look for save profile button (correct ID: btn-save-profile)
-    const saveButton = popupPage.locator('#btn-save-profile');
+    const saveButton = popupPage.locator('[data-testid="profile-save-button"]');
 
     // Check if visible
     await expect(saveButton).toBeVisible();
   });
 
   test('should switch between profiles', async ({ popupPage }) => {
-    const profileSelect = popupPage.locator('#profile-select');
+    const profileSelect = popupPage.locator('[data-testid="profile-select"]');
 
     // Get initial profile
     const initialProfile = await profileSelect.inputValue();
@@ -59,7 +59,7 @@ test.describe('User Profiles - Sprint 7', () => {
 test.describe('Profile Management', () => {
   test('should open advanced options modal', async ({ popupPage }) => {
     // Click options button (correct ID: btn-options)
-    const optionsButton = popupPage.locator('#btn-options');
+    const optionsButton = popupPage.locator('[data-testid="settings-button"]');
     await optionsButton.click();
 
     // Modal should appear (use specific modal ID)
@@ -69,28 +69,28 @@ test.describe('Profile Management', () => {
 
   test('should have export profiles button in modal', async ({ popupPage }) => {
     // Open options modal
-    const optionsButton = popupPage.locator('#btn-options');
+    const optionsButton = popupPage.locator('[data-testid="settings-button"]');
     await optionsButton.click();
 
     // Look for export button (correct ID: btn-export-profiles)
-    const exportButton = popupPage.locator('#btn-export-profiles');
+    const exportButton = popupPage.locator('[data-testid="profile-export-button"]');
     await expect(exportButton).toBeVisible({ timeout: 2000 });
   });
 
   test('should have import profiles button in modal', async ({ popupPage }) => {
     // Open options modal
-    const optionsButton = popupPage.locator('#btn-options');
+    const optionsButton = popupPage.locator('[data-testid="settings-button"]');
     await optionsButton.click();
 
     // Look for import button (correct ID: btn-import-profiles)
-    const importButton = popupPage.locator('#btn-import-profiles');
+    const importButton = popupPage.locator('[data-testid="profile-import-button"]');
     await expect(importButton).toBeVisible({ timeout: 2000 });
   });
 });
 
 test.describe('Profile Profiles', () => {
   test('should apply Reading Mode settings', async ({ popupPage }) => {
-    const profileSelect = popupPage.locator('#profile-select');
+    const profileSelect = popupPage.locator('[data-testid="profile-select"]');
 
     // Find and select "Reading Mode" if it exists
     const options = await profileSelect.locator('option').allTextContents();
@@ -103,13 +103,13 @@ test.describe('Profile Profiles', () => {
       await popupPage.waitForTimeout(1000);
 
       // Check that TTS is enabled (Reading Mode should have TTS enabled)
-      const speedSlider = popupPage.locator('#rate-slider');
+      const speedSlider = popupPage.locator('[data-testid="tts-speed-slider"]');
       await expect(speedSlider).toBeVisible();
     }
   });
 
   test('should apply Quiz Mode settings', async ({ popupPage }) => {
-    const profileSelect = popupPage.locator('#profile-select');
+    const profileSelect = popupPage.locator('[data-testid="profile-select"]');
 
     // Find and select "Quiz Mode" if it exists
     const options = await profileSelect.locator('option').allTextContents();
