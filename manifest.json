@@ -31,8 +31,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content/index.js"],
-      "type": "module",
+      "js": ["src/content/content-simple.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
