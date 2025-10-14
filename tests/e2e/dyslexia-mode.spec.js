@@ -41,8 +41,8 @@ test.describe('Dyslexia Mode - Bionic Reading', () => {
     ]);
 
     // Enable Dyslexia Mode with Bionic Reading
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-bionic-reading').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-bionic-radio"]').check();
 
     // Wait for transformation to apply
     await page.waitForTimeout(500);
@@ -78,8 +78,8 @@ test.describe('Dyslexia Mode - Bionic Reading', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-bionic-reading').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-bionic-radio"]').check();
     await page.waitForTimeout(500);
 
     // Check specific words
@@ -104,8 +104,8 @@ test.describe('Dyslexia Mode - Bionic Reading', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-bionic-reading').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-bionic-radio"]').check();
     await page.waitForTimeout(500);
 
     // Verify content changed
@@ -113,7 +113,7 @@ test.describe('Dyslexia Mode - Bionic Reading', () => {
     expect(transformedHTML).not.toBe(originalHTML);
 
     // Disable Dyslexia Mode
-    await popup.locator('#dyslexia-mode-enabled').uncheck();
+    await popup.locator('[data-testid="dyslexia-toggle"]').uncheck();
     await page.waitForTimeout(500);
 
     // Verify content restored
@@ -132,8 +132,8 @@ test.describe('Dyslexia Mode - Syllable Highlighting', () => {
     ]);
 
     // Enable Dyslexia Mode with Syllable Highlighting
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-syllable-highlighting').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-syllable-radio"]').check();
 
     await page.waitForTimeout(500);
 
@@ -159,11 +159,11 @@ test.describe('Dyslexia Mode - Syllable Highlighting', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-syllable-highlighting').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-syllable-radio"]').check();
 
     // Set intensity to 50%
-    await popup.locator('#dyslexia-color-intensity').fill('0.5');
+    await popup.locator('[data-testid="dyslexia-intensity-slider"]').fill('0.5');
     await page.waitForTimeout(500);
 
     // Check that opacity in rgba is around 0.25 (0.5 * 0.5)
@@ -191,8 +191,8 @@ test.describe('Dyslexia Mode - Grammar Color-Coding', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-grammar-colors').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-grammar-radio"]').check();
 
     // Wait for NLP processing
     await page.waitForTimeout(1000);
@@ -218,8 +218,8 @@ test.describe('Dyslexia Mode - Grammar Color-Coding', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-grammar-colors').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-grammar-radio"]').check();
 
     await page.waitForTimeout(1000);
 
@@ -237,16 +237,16 @@ test.describe('Dyslexia Mode - Feature Isolation', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
 
     // Check Bionic Reading
-    await popup.locator('#dyslexia-bionic-reading').check();
-    expect(await popup.locator('#dyslexia-bionic-reading').isChecked()).toBe(true);
+    await popup.locator('[data-testid="dyslexia-bionic-radio"]').check();
+    expect(await popup.locator('[data-testid="dyslexia-bionic-radio"]').isChecked()).toBe(true);
 
     // Check Syllable Highlighting - should uncheck Bionic Reading
-    await popup.locator('#dyslexia-syllable-highlighting').check();
-    expect(await popup.locator('#dyslexia-bionic-reading').isChecked()).toBe(false);
-    expect(await popup.locator('#dyslexia-syllable-highlighting').isChecked()).toBe(true);
+    await popup.locator('[data-testid="dyslexia-syllable-radio"]').check();
+    expect(await popup.locator('[data-testid="dyslexia-bionic-radio"]').isChecked()).toBe(false);
+    expect(await popup.locator('[data-testid="dyslexia-syllable-radio"]').isChecked()).toBe(true);
   });
 
   test('should not interfere with TTS feature', async ({ page }) => {
@@ -256,17 +256,17 @@ test.describe('Dyslexia Mode - Feature Isolation', () => {
     ]);
 
     // Enable TTS
-    await popup.locator('#toggle-tts').check();
+    await popup.locator('[data-testid="tts-toggle"]').check();
     await popup.locator('#btn-play-pause').click();
 
     // Enable Dyslexia Mode
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-bionic-reading').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-bionic-radio"]').check();
 
     await page.waitForTimeout(500);
 
     // Verify TTS is still active
-    const ttsEnabled = await popup.locator('#toggle-tts').isChecked();
+    const ttsEnabled = await popup.locator('[data-testid="tts-toggle"]').isChecked();
     expect(ttsEnabled).toBe(true);
 
     // Verify both features applied
@@ -281,9 +281,9 @@ test.describe('Dyslexia Mode - Feature Isolation', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-syllable-highlighting').check();
-    await popup.locator('#dyslexia-color-intensity').fill('0.8');
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-syllable-radio"]').check();
+    await popup.locator('[data-testid="dyslexia-intensity-slider"]').fill('0.8');
 
     // Close popup
     await popup.close();
@@ -295,9 +295,9 @@ test.describe('Dyslexia Mode - Feature Isolation', () => {
     ]);
 
     // Verify settings persisted
-    expect(await popup.locator('#dyslexia-mode-enabled').isChecked()).toBe(true);
-    expect(await popup.locator('#dyslexia-syllable-highlighting').isChecked()).toBe(true);
-    expect(await popup.locator('#dyslexia-color-intensity').inputValue()).toBe('0.8');
+    expect(await popup.locator('[data-testid="dyslexia-toggle"]').isChecked()).toBe(true);
+    expect(await popup.locator('[data-testid="dyslexia-syllable-radio"]').isChecked()).toBe(true);
+    expect(await popup.locator('[data-testid="dyslexia-intensity-slider"]').inputValue()).toBe('0.8');
   });
 });
 
@@ -312,8 +312,8 @@ test.describe('Dyslexia Mode - Performance', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-bionic-reading').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-bionic-radio"]').check();
 
     await page.waitForTimeout(500);
 
@@ -346,8 +346,8 @@ test.describe('Dyslexia Mode - Performance', () => {
       page.click('#assist-extension-icon')
     ]);
 
-    await popup.locator('#dyslexia-mode-enabled').check();
-    await popup.locator('#dyslexia-bionic-reading').check();
+    await popup.locator('[data-testid="dyslexia-toggle"]').check();
+    await popup.locator('[data-testid="dyslexia-bionic-radio"]').check();
 
     await page.waitForTimeout(1000);
 

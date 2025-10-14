@@ -8,7 +8,7 @@ import { test, expect } from './extension-fixture.js';
 test.describe('Feature Visibility - Sprint 7', () => {
   test.beforeEach(async ({ popupPage }) => {
     // Open advanced options modal before each test (correct ID: btn-options)
-    const optionsButton = popupPage.locator('#btn-options');
+    const optionsButton = popupPage.locator('[data-testid="settings-button"]');
     await optionsButton.click();
 
     // Wait for modal to appear (use specific modal ID)
@@ -125,7 +125,7 @@ test.describe('Core Features Protection', () => {
 test.describe('Feature Visibility Modal Interaction', () => {
   test('should close modal on cancel', async ({ popupPage }) => {
     // Open modal first
-    const optionsButton = popupPage.locator('#btn-options');
+    const optionsButton = popupPage.locator('[data-testid="settings-button"]');
     await optionsButton.click();
 
     // Find cancel or close button
@@ -142,7 +142,7 @@ test.describe('Feature Visibility Modal Interaction', () => {
 
   test('should have multiple tabs in advanced options', async ({ popupPage }) => {
     // Open modal first
-    const optionsButton = popupPage.locator('#btn-options');
+    const optionsButton = popupPage.locator('[data-testid="settings-button"]');
     await optionsButton.click();
 
     // Wait for modal to appear

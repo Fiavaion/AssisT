@@ -21,7 +21,7 @@ test.describe('Popup UI', () => {
     await popupPage.waitForTimeout(500);
 
     // Enable TTS first (controls are hidden by default)
-    const ttsToggle = popupPage.locator('#tts-enabled');
+    const ttsToggle = popupPage.locator('[data-testid="tts-toggle"]');
 
     // Scroll into view and check
     await ttsToggle.scrollIntoViewIfNeeded();
@@ -31,25 +31,25 @@ test.describe('Popup UI', () => {
     await popupPage.waitForTimeout(300);
 
     // Voice selection dropdown should exist
-    const voiceSelect = popupPage.locator('#voice-select');
+    const voiceSelect = popupPage.locator('[data-testid="tts-voice-select"]');
     await expect(voiceSelect).toBeVisible();
 
     // Speed control should exist (rate-slider is the correct ID)
-    const speedControl = popupPage.locator('#rate-slider');
+    const speedControl = popupPage.locator('[data-testid="tts-speed-slider"]');
     await expect(speedControl).toBeVisible();
 
     // Volume control should exist
-    const volumeControl = popupPage.locator('#volume-slider');
+    const volumeControl = popupPage.locator('[data-testid="tts-volume-slider"]');
     await expect(volumeControl).toBeVisible();
   });
 
   test('should have reset button', async ({ popupPage }) => {
-    const resetButton = popupPage.locator('#btn-reset');
+    const resetButton = popupPage.locator('[data-testid="reset-button"]');
     await expect(resetButton).toBeVisible();
   });
 
   test('should have options button', async ({ popupPage }) => {
-    const optionsButton = popupPage.locator('#btn-options');
+    const optionsButton = popupPage.locator('[data-testid="settings-button"]');
     await expect(optionsButton).toBeVisible();
   });
 });
@@ -61,7 +61,7 @@ test.describe('Feature Toggles', () => {
     await popupPage.waitForTimeout(500);
 
     // Enable TTS first (highlighting controls are hidden by default)
-    const ttsToggle = popupPage.locator('#tts-enabled');
+    const ttsToggle = popupPage.locator('[data-testid="tts-toggle"]');
 
     // Scroll into view and check
     await ttsToggle.scrollIntoViewIfNeeded();
@@ -70,13 +70,13 @@ test.describe('Feature Toggles', () => {
     // Wait for options container to become visible
     await popupPage.waitForTimeout(300);
 
-    const highlightToggle = popupPage.locator('#highlight-enabled');
+    const highlightToggle = popupPage.locator('[data-testid="tts-highlight-toggle"]');
     await expect(highlightToggle).toBeVisible();
   });
 
   test('should show text customization section when enabled', async ({ popupPage }) => {
     // Find text customization toggle
-    const textCustomToggle = popupPage.locator('#text-customization-enabled');
+    const textCustomToggle = popupPage.locator('[data-testid="text-customization-toggle"]');
 
     if (await textCustomToggle.isVisible()) {
       // Enable if not already enabled
@@ -99,7 +99,7 @@ test.describe('Settings Persistence', () => {
     await popupPage.waitForTimeout(500);
 
     // Enable TTS first (rate slider is hidden by default)
-    const ttsToggle = popupPage.locator('#tts-enabled');
+    const ttsToggle = popupPage.locator('[data-testid="tts-toggle"]');
 
     // Scroll into view and check
     await ttsToggle.scrollIntoViewIfNeeded();
@@ -109,7 +109,7 @@ test.describe('Settings Persistence', () => {
     await popupPage.waitForTimeout(300);
 
     // Find speed slider (rate-slider is the correct ID)
-    const speedSlider = popupPage.locator('#rate-slider');
+    const speedSlider = popupPage.locator('[data-testid="tts-speed-slider"]');
 
     // Set to specific value
     await speedSlider.fill('1.5');
@@ -122,11 +122,11 @@ test.describe('Settings Persistence', () => {
     await popupPage.waitForLoadState('domcontentloaded');
 
     // Re-enable TTS to show slider
-    await popupPage.locator('#tts-enabled').check({ force: true });
+    await popupPage.locator('[data-testid="tts-toggle"]').check({ force: true });
     await popupPage.waitForTimeout(300);
 
     // Check value persisted
-    const value = await popupPage.locator('#rate-slider').inputValue();
+    const value = await popupPage.locator('[data-testid="tts-speed-slider"]').inputValue();
     expect(parseFloat(value)).toBeCloseTo(1.5, 1);
   });
 });
