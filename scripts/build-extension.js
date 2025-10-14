@@ -90,9 +90,6 @@ function buildExtension() {
   // Clean output directory
   cleanOutputDirectory();
 
-  // Bundle modular content scripts
-  bundleModules();
-
   // Copy files
   console.log('📦 Copying extension files...\n');
 
