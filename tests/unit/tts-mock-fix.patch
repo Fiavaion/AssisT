@@ -1,0 +1,12 @@
+The TTS tests have 22 failures due to incomplete mocking. Key issues:
+1. Synthesis API not properly initialized in some tests
+2. Async operations (read methods) not being awaited
+3. Mock synthesis.speaking state not being tracked
+
+Quick fix approach:
+- Add initialization to test groups that need it
+- Ensure readText/readPageContent tests use await
+- Track speaking state in mock when speak() is called
+
+Tests currently passing: 22/44
+After fix should be: ~40/44 (90%+)

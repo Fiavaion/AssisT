@@ -40,10 +40,21 @@ describe('TTSController', () => {
         { name: 'Google UK English Female', lang: 'en-GB', default: false },
         { name: 'Google French', lang: 'fr-FR', default: false }
       ]),
-      speak: jest.fn(),
-      cancel: jest.fn(),
-      pause: jest.fn(),
-      resume: jest.fn(),
+      speak: jest.fn((utterance) => {
+        // Simulate async speech start
+        if (utterance && typeof utterance.onstart === 'function') {
+          setTimeout(() => utterance.onstart(), 0);
+        }
+      }),
+      cancel: jest.fn(() => {
+        mockSynthesis.speaking = false;
+      }),
+      pause: jest.fn(() => {
+        mockSynthesis.paused = true;
+      }),
+      resume: jest.fn(() => {
+        mockSynthesis.paused = false;
+      }),
       onvoiceschanged: null
     };
 
@@ -76,11 +87,12 @@ describe('TTSController', () => {
     global.SpeechSynthesisUtterance = MockUtterance;
 
     global.document = {
-      body: { textContent: 'Mock body' },
+      body: { textContent: 'Mock body', style: {} },
       createElement: jest.fn(() => ({
         className: '',
-        style: { cssText: '' },
-        textContent: ''
+        style: { cssText: '', backgroundColor: '', opacity: '', outline: '', outlineOffset: '' },
+        textContent: '',
+        parentNode: null
       })),
       createRange: jest.fn(() => ({
         setStart: jest.fn(),
@@ -92,6 +104,14 @@ describe('TTSController', () => {
         nextNode: jest.fn(() => null)
       })),
       querySelectorAll: jest.fn(() => [])
+    };
+
+    // Add NodeFilter mock for TreeWalker
+    global.NodeFilter = {
+      SHOW_TEXT: 4,
+      FILTER_ACCEPT: 1,
+      FILTER_REJECT: 2,
+      FILTER_SKIP: 3
     };
 
     controller = new TTSController(mockDomAdapter, mockSettings);
