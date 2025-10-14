@@ -14,6 +14,7 @@
           <button
             id="btn-reset"
             class="header-btn"
+            data-testid="reset-button"
             title="Reset all settings to defaults"
             aria-label="Reset settings"
           >
@@ -26,6 +27,7 @@
           <button
             id="btn-help"
             class="header-btn"
+            data-testid="help-button"
             title="Help and documentation"
             aria-label="Open help documentation"
           >
@@ -34,6 +36,7 @@
           <button
             id="btn-options"
             class="header-btn"
+            data-testid="settings-button"
             title="Advanced options"
             aria-label="Open advanced options"
           >
@@ -49,7 +52,8 @@
       <section class="profile-section">
         <div class="profile-selector-container">
           <label for="profile-select" class="profile-label">👤 Profile:</label>
-          <select id="profile-select" class="profile-select" aria-label="Select profile">
+          <select id="profile-select"
+            data-testid="profile-select" class="profile-select" aria-label="Select profile">
             <option value="Default">Default</option>
           </select>
         </div>
@@ -57,6 +61,7 @@
         <div class="profile-actions">
           <button
             id="btn-save-profile"
+            data-testid="profile-save-button"
             class="profile-action-btn"
             title="Save current settings as profile"
             aria-label="Save current settings"
@@ -65,6 +70,7 @@
           </button>
           <button
             id="btn-export-profiles"
+            data-testid="profile-export-button"
             class="profile-action-btn"
             title="Export all profiles"
             aria-label="Export profiles"
@@ -73,6 +79,7 @@
           </button>
           <button
             id="btn-import-profiles"
+            data-testid="profile-import-button"
             class="profile-action-btn"
             title="Import profiles"
             aria-label="Import profiles"
@@ -93,6 +100,7 @@
                 <input
                   type="checkbox"
                   id="tts-enabled"
+            data-testid="tts-toggle"
                   role="switch"
                   aria-label="Enable Text-to-Speech"
                 />
@@ -112,6 +120,7 @@
             <p class="feature-description">Reads main content, skipping navigation and menus</p>
             <button
               id="btn-read-page"
+            data-testid="read-page-button"
               class="control-btn primary full-width"
               aria-label="Read entire page content"
             >
@@ -125,7 +134,8 @@
             <h2 class="section-title">
               <label for="voice-select">Voice</label>
             </h2>
-            <select id="voice-select" class="voice-select" aria-label="Select voice">
+            <select id="voice-select"
+            data-testid="tts-voice-select" class="voice-select" aria-label="Select voice">
               <option value="">Loading voices...</option>
             </select>
           </section>
@@ -140,6 +150,7 @@
               <input
                 type="range"
                 id="rate-slider"
+            data-testid="tts-speed-slider"
                 class="slider"
                 min="0.5"
                 max="2.0"
@@ -159,16 +170,20 @@
             <!-- Speed Presets (Sprint 2 Feature) -->
             <div id="speed-presets-container" class="speed-presets-container">
               <div class="preset-buttons">
-                <button class="preset-btn" data-speed="0.5" aria-label="Set speed to 0.5x">
+                <button class="preset-btn" data-speed="0.5"
+            data-testid="speed-preset-0.5" aria-label="Set speed to 0.5x">
                   0.5x
                 </button>
-                <button class="preset-btn" data-speed="1.0" aria-label="Set speed to 1.0x">
+                <button class="preset-btn" data-speed="1.0"
+            data-testid="speed-preset-1.0" aria-label="Set speed to 1.0x">
                   1.0x
                 </button>
-                <button class="preset-btn" data-speed="1.5" aria-label="Set speed to 1.5x">
+                <button class="preset-btn" data-speed="1.5"
+            data-testid="speed-preset-1.5" aria-label="Set speed to 1.5x">
                   1.5x
                 </button>
-                <button class="preset-btn" data-speed="2.0" aria-label="Set speed to 2.0x">
+                <button class="preset-btn" data-speed="2.0"
+            data-testid="speed-preset-2.0" aria-label="Set speed to 2.0x">
                   2.0x
                 </button>
               </div>
@@ -185,6 +200,7 @@
               <input
                 type="range"
                 id="pitch-slider"
+            data-testid="tts-pitch-slider"
                 class="slider"
                 min="0.5"
                 max="2.0"
@@ -212,6 +228,7 @@
               <input
                 type="range"
                 id="volume-slider"
+            data-testid="tts-volume-slider"
                 class="slider"
                 min="0"
                 max="1"
@@ -238,6 +255,7 @@
                   <input
                     type="checkbox"
                     id="highlight-enabled"
+            data-testid="tts-highlight-toggle"
                     role="switch"
                     aria-label="Enable text highlighting"
                     checked
@@ -255,7 +273,8 @@
               <h2 class="section-title">
                 <label for="highlight-color">Highlight Color</label>
               </h2>
-              <select id="highlight-color" class="voice-select" aria-label="Select highlight color">
+              <select id="highlight-color"
+            data-testid="tts-highlight-color-select" class="voice-select" aria-label="Select highlight color">
                 <option value="#FFFF00">Yellow (High Contrast)</option>
                 <option value="#FFEB3B">Bright Yellow</option>
                 <option value="#FFD700">Gold</option>
@@ -277,6 +296,7 @@
                 <input
                   type="range"
                   id="highlight-opacity"
+            data-testid="tts-highlight-opacity-slider"
                   class="slider"
                   min="0.1"
                   max="1"
@@ -303,6 +323,7 @@
                     <input
                       type="checkbox"
                       id="word-by-word-enabled"
+            data-testid="tts-word-by-word-toggle"
                       role="switch"
                       aria-label="Enable word-by-word highlighting"
                     />
@@ -330,6 +351,7 @@
                 <input
                   type="checkbox"
                   id="text-customization-enabled"
+            data-testid="text-customization-toggle"
                   role="switch"
                   aria-label="Enable text customization"
                 />
@@ -348,7 +370,8 @@
               <h3 class="subsection-title">
                 <label for="text-font-family">Font Family</label>
               </h3>
-              <select id="text-font-family" class="voice-select" aria-label="Select font family">
+              <select id="text-font-family"
+            data-testid="text-font-select" class="voice-select" aria-label="Select font family">
                 <option value="system">System Default</option>
                 <option value="lexend">Lexend (highly readable)</option>
                 <option value="opendyslexic">OpenDyslexic (dyslexia-friendly)</option>
@@ -367,6 +390,7 @@
                 <input
                   type="range"
                   id="text-line-spacing"
+            data-testid="text-line-spacing-slider"
                   class="slider"
                   min="1.0"
                   max="3.0"
@@ -394,6 +418,7 @@
                 <input
                   type="range"
                   id="text-letter-spacing"
+            data-testid="text-letter-spacing-slider"
                   class="slider"
                   min="0"
                   max="50"
@@ -421,6 +446,7 @@
                 <input
                   type="range"
                   id="text-word-spacing"
+            data-testid="text-word-spacing-slider"
                   class="slider"
                   min="0"
                   max="50"
@@ -448,6 +474,7 @@
                 <input
                   type="range"
                   id="text-paragraph-spacing"
+            data-testid="text-paragraph-spacing-slider"
                   class="slider"
                   min="1.0"
                   max="4.0"
@@ -479,6 +506,7 @@
                 <input
                   type="checkbox"
                   id="reading-guide-enabled"
+            data-testid="reading-guide-toggle"
                   role="switch"
                   aria-label="Enable reading guide"
                 />
@@ -497,7 +525,8 @@
               <h3 class="subsection-title">
                 <label for="reading-guide-color">Line Color</label>
               </h3>
-              <select id="reading-guide-color" class="voice-select" aria-label="Select line color">
+              <select id="reading-guide-color"
+            data-testid="reading-guide-color-select" class="voice-select" aria-label="Select line color">
                 <option value="#000000">Black</option>
                 <option value="#FF0000">Red</option>
                 <option value="#0000FF">Blue</option>
@@ -517,6 +546,7 @@
                 <input
                   type="range"
                   id="reading-guide-thickness"
+            data-testid="reading-guide-thickness-slider"
                   class="slider"
                   min="1"
                   max="10"
@@ -544,6 +574,7 @@
                 <input
                   type="range"
                   id="reading-guide-opacity"
+            data-testid="reading-guide-opacity-slider"
                   class="slider"
                   min="0.1"
                   max="1"
@@ -575,6 +606,7 @@
                 <input
                   type="checkbox"
                   id="focus-mode-enabled"
+            data-testid="focus-mode-toggle"
                   role="switch"
                   aria-label="Enable focus mode"
                 />
@@ -598,6 +630,7 @@
                 <input
                   type="range"
                   id="focus-mode-width"
+            data-testid="focus-mode-width-slider"
                   class="slider"
                   min="150"
                   max="800"
@@ -621,6 +654,7 @@
                 <input
                   type="range"
                   id="focus-mode-height"
+            data-testid="focus-mode-height-slider"
                   class="slider"
                   min="50"
                   max="250"
@@ -644,6 +678,7 @@
                 <input
                   type="range"
                   id="focus-mode-opacity"
+            data-testid="focus-mode-opacity-slider"
                   class="slider"
                   min="0.1"
                   max="1"
@@ -671,6 +706,7 @@
                 <input
                   type="checkbox"
                   id="screen-overlay-enabled"
+            data-testid="screen-overlay-toggle"
                   role="switch"
                   aria-label="Enable screen color overlay"
                 />
@@ -691,6 +727,7 @@
               </h3>
               <select
                 id="screen-overlay-color"
+            data-testid="screen-overlay-color-select"
                 class="voice-select"
                 aria-label="Select overlay color"
               >
@@ -715,6 +752,7 @@
                 <input
                   type="range"
                   id="screen-overlay-opacity"
+            data-testid="screen-overlay-opacity-slider"
                   class="slider"
                   min="0.1"
                   max="0.9"
@@ -749,6 +787,7 @@
                 <input
                   type="checkbox"
                   id="canvas-integration-enabled"
+            data-testid="canvas-toggle"
                   role="switch"
                   aria-label="Enable Canvas LMS integration (Experimental feature)"
                 />
@@ -772,6 +811,7 @@
                     <input
                       type="checkbox"
                       id="canvas-assignment-reader"
+            data-testid="canvas-assignment-reader-toggle"
                       role="switch"
                       aria-label="Enable assignment auto-reader"
                       checked
@@ -794,6 +834,7 @@
                     <input
                       type="checkbox"
                       id="canvas-quiz-helper"
+            data-testid="canvas-quiz-helper-toggle"
                       role="switch"
                       aria-label="Enable quiz helper"
                     />
@@ -820,6 +861,7 @@
                         <input
                           type="checkbox"
                           id="quiz-read-answers"
+            data-testid="canvas-quiz-read-answers-toggle"
                           role="switch"
                           aria-label="Read answer options aloud"
                           checked
@@ -839,6 +881,7 @@
                         <input
                           type="checkbox"
                           id="quiz-auto-read"
+            data-testid="canvas-quiz-auto-read-toggle"
                           role="switch"
                           aria-label="Auto-read questions when focused"
                         />
@@ -862,6 +905,7 @@
                         <input
                           type="checkbox"
                           id="quiz-highlight-question"
+            data-testid="canvas-quiz-highlight-toggle"
                           role="switch"
                           aria-label="Highlight current question"
                           checked
@@ -879,6 +923,7 @@
                   </h3>
                   <select
                     id="quiz-highlight-color"
+            data-testid="canvas-quiz-highlight-color-select"
                     class="voice-select"
                     aria-label="Select question highlight color"
                   >
@@ -900,6 +945,7 @@
                         <input
                           type="checkbox"
                           id="quiz-keyboard-nav"
+            data-testid="canvas-quiz-keyboard-nav-toggle"
                           role="switch"
                           aria-label="Enable keyboard navigation"
                           checked
@@ -925,6 +971,7 @@
                     <input
                       type="checkbox"
                       id="canvas-keyboard-nav"
+            data-testid="canvas-keyboard-nav-toggle"
                       role="switch"
                       aria-label="Enable enhanced keyboard navigation"
                       disabled
@@ -954,6 +1001,7 @@
                 <input
                   type="checkbox"
                   id="moodle-integration-enabled"
+            data-testid="moodle-toggle"
                   role="switch"
                   aria-label="Enable Moodle LMS integration (Experimental feature)"
                 />
@@ -977,6 +1025,7 @@
                     <input
                       type="checkbox"
                       id="moodle-assignment-reader"
+            data-testid="moodle-assignment-reader-toggle"
                       role="switch"
                       aria-label="Enable Moodle assignment auto-reader"
                       checked
@@ -999,6 +1048,7 @@
                     <input
                       type="checkbox"
                       id="moodle-forum-reader"
+            data-testid="moodle-forum-reader-toggle"
                       role="switch"
                       aria-label="Enable Moodle forum post reader"
                       checked
@@ -1019,6 +1069,7 @@
                     <input
                       type="checkbox"
                       id="moodle-page-reader"
+            data-testid="moodle-page-reader-toggle"
                       role="switch"
                       aria-label="Enable Moodle page resource reader"
                       checked
@@ -1039,6 +1090,7 @@
                     <input
                       type="checkbox"
                       id="moodle-quiz-helper"
+            data-testid="moodle-quiz-helper-toggle"
                       role="switch"
                       aria-label="Enable Moodle quiz helper"
                       disabled
@@ -1068,6 +1120,7 @@
                 <input
                   type="checkbox"
                   id="google-classroom-integration-enabled"
+            data-testid="classroom-toggle"
                   role="switch"
                   aria-label="Enable Google Classroom integration (Experimental feature)"
                 />
@@ -1094,6 +1147,7 @@
                     <input
                       type="checkbox"
                       id="google-classroom-assignment-reader"
+            data-testid="classroom-assignment-reader-toggle"
                       role="switch"
                       aria-label="Enable Google Classroom assignment reader"
                       checked
@@ -1116,6 +1170,7 @@
                     <input
                       type="checkbox"
                       id="google-classroom-stream-reader"
+            data-testid="classroom-stream-reader-toggle"
                       role="switch"
                       aria-label="Enable Google Classroom stream post reader"
                       checked
@@ -1136,6 +1191,7 @@
                     <input
                       type="checkbox"
                       id="google-classroom-classwork-reader"
+            data-testid="classroom-classwork-reader-toggle"
                       role="switch"
                       aria-label="Enable Google Classroom classwork reader"
                       checked
@@ -1163,6 +1219,7 @@
                 <input
                   type="checkbox"
                   id="stt-enabled"
+            data-testid="stt-toggle"
                   role="switch"
                   aria-label="Enable Speech-to-Text (Experimental feature)"
                 />
@@ -1186,6 +1243,7 @@
                     <input
                       type="checkbox"
                       id="stt-continuous-mode"
+            data-testid="stt-continuous-mode-toggle"
                       role="switch"
                       aria-label="Enable continuous listening mode"
                       checked
@@ -1206,6 +1264,7 @@
               </h3>
               <select
                 id="stt-language"
+            data-testid="stt-language-select"
                 class="voice-select"
                 aria-label="Select recognition language"
               >
@@ -1237,6 +1296,7 @@
                     <input
                       type="checkbox"
                       id="stt-punctuation-commands"
+            data-testid="stt-punctuation-toggle"
                       role="switch"
                       aria-label="Enable punctuation voice commands"
                       checked
@@ -1259,6 +1319,7 @@
                     <input
                       type="checkbox"
                       id="stt-auto-capitalize"
+            data-testid="stt-auto-capitalize-toggle"
                       role="switch"
                       aria-label="Enable auto-capitalization"
                       checked
@@ -1281,6 +1342,7 @@
                     <input
                       type="checkbox"
                       id="stt-interim-results"
+            data-testid="stt-interim-results-toggle"
                       role="switch"
                       aria-label="Show partial transcription results"
                       checked
@@ -1301,6 +1363,7 @@
                     <input
                       type="checkbox"
                       id="stt-floating-button"
+            data-testid="stt-floating-button-toggle"
                       role="switch"
                       aria-label="Show floating microphone button"
                       checked
@@ -1326,6 +1389,7 @@
                 <input
                   type="checkbox"
                   id="dyslexia-mode-enabled"
+            data-testid="dyslexia-toggle"
                   role="switch"
                   aria-label="Enable Dyslexia Reading Mode"
                 />
@@ -1354,6 +1418,7 @@
                     type="radio"
                     name="dyslexia-feature"
                     id="dyslexia-bionic"
+            data-testid="dyslexia-bionic-radio"
                     value="bionic"
                     checked
                     style="margin-right: 8px"
@@ -1372,6 +1437,7 @@
                     type="radio"
                     name="dyslexia-feature"
                     id="dyslexia-syllable"
+            data-testid="dyslexia-syllable-radio"
                     value="syllable"
                     style="margin-right: 8px"
                   />
@@ -1392,6 +1458,7 @@
                     type="radio"
                     name="dyslexia-feature"
                     id="dyslexia-grammar"
+            data-testid="dyslexia-grammar-radio"
                     value="grammar"
                     style="margin-right: 8px"
                   />
@@ -1425,6 +1492,7 @@
                 <input
                   type="range"
                   id="dyslexia-intensity"
+            data-testid="dyslexia-intensity-slider"
                   class="slider"
                   min="0.5"
                   max="1.0"
@@ -1472,7 +1540,8 @@
           <span class="status-indicator" id="status-indicator">Ready</span>
         </div>
         <div class="footer-links">
-          <a href="#" id="link-settings" class="footer-link">⚙️ Settings</a>
+          <a href="#" id="link-settings"
+            data-testid="footer-settings-link" class="footer-link">⚙️ Settings</a>
           <a href="https://github.com/MarJone/AssisT" target="_blank" class="footer-link"
             >ℹ️ Help</a
           >
@@ -1492,6 +1561,7 @@
           <input
             type="text"
             id="profile-name-input"
+            data-testid="profile-name-input"
             class="modal-input"
             placeholder="e.g., My Study Settings"
             maxlength="50"
@@ -1509,8 +1579,10 @@
           </ul>
         </div>
         <div class="modal-footer">
-          <button id="btn-cancel-save-profile" class="modal-btn modal-btn-secondary">Cancel</button>
-          <button id="btn-confirm-save-profile" class="modal-btn modal-btn-primary">
+          <button id="btn-cancel-save-profile"
+            data-testid="profile-save-cancel-button" class="modal-btn modal-btn-secondary">Cancel</button>
+          <button id="btn-confirm-save-profile"
+            data-testid="profile-save-confirm-button" class="modal-btn modal-btn-primary">
             Save Profile
           </button>
         </div>
@@ -1531,16 +1603,19 @@
           <p class="modal-warning">This action cannot be undone.</p>
         </div>
         <div class="modal-footer">
-          <button id="btn-cancel-delete-profile" class="modal-btn modal-btn-secondary">
+          <button id="btn-cancel-delete-profile"
+            data-testid="profile-delete-cancel-button" class="modal-btn modal-btn-secondary">
             Cancel
           </button>
-          <button id="btn-confirm-delete-profile" class="modal-btn modal-btn-danger">Delete</button>
+          <button id="btn-confirm-delete-profile"
+            data-testid="profile-delete-confirm-button" class="modal-btn modal-btn-danger">Delete</button>
         </div>
       </div>
     </div>
 
     <!-- Hidden file input for profile import -->
-    <input type="file" id="profile-import-input" accept=".json" style="display: none" />
+    <input type="file" id="profile-import-input"
+            data-testid="profile-import-input" accept=".json" style="display: none" />
 
     <script type="module" src="popup.js"></script>
   </body>

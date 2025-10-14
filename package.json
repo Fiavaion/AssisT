@@ -11,6 +11,7 @@
     "test:coverage": "jest --coverage",
     "test:a11y": "npm run build && pa11y --standard WCAG2AA ./Output/src/popup/popup.html",
     "test:a11y:ci": "pa11y-ci",
+    "verify:testids": "node tests/utils/verify-testids.cjs",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.{js,css,html}\"",
