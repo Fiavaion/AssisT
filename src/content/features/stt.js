@@ -22,21 +22,25 @@ const stt_settings = {
 
 /**
  * Dynamic import STT controller and mic button
+ * TEMPORARILY DISABLED: Dynamic imports don't work in bundled code
  */
 async function stt_loadModules() {
-  try {
-    const [STTModule, MicButtonModule] = await Promise.all([
-      import(chrome.runtime.getURL('src/engines/stt/stt-controller.js')),
-      import(chrome.runtime.getURL('src/ui/components/microphone-button.js')),
-    ]);
-    return {
-      STTController: STTModule.STTController,
-      MicrophoneButton: MicButtonModule.MicrophoneButton,
-    };
-  } catch (error) {
-    console.error('[STT] Failed to load modules:', error);
-    return null;
-  }
+  console.warn('[STT] Feature temporarily disabled - needs module bundling refactor');
+  return null;
+
+  // try {
+  //   const [STTModule, MicButtonModule] = await Promise.all([
+  //     import(chrome.runtime.getURL('src/engines/stt/stt-controller.js')),
+  //     import(chrome.runtime.getURL('src/ui/components/microphone-button.js')),
+  //   ]);
+  //   return {
+  //     STTController: STTModule.STTController,
+  //     MicrophoneButton: MicButtonModule.MicrophoneButton,
+  //   };
+  // } catch (error) {
+  //   console.error('[STT] Failed to load modules:', error);
+  //   return null;
+  // }
 }
 
 /**

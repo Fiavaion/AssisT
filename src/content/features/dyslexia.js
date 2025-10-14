@@ -206,15 +206,20 @@ async function dyslexiaMode_applyGrammarColors(element) {
     return;
   }
 
+  // TEMPORARILY DISABLED: Dynamic import doesn't work in bundled code
+  // TODO: Either inline the library or handle differently
+  console.warn('[DyslexiaMode] Grammar colors feature temporarily disabled - needs library bundling');
+  return;
+
   // Dynamic import compromise.js
-  let nlp;
-  try {
-    nlp = (await import(chrome.runtime.getURL('node_modules/compromise/builds/compromise.mjs')))
-      .default;
-  } catch (error) {
-    console.error('[DyslexiaMode] Failed to load compromise.js:', error);
-    return;
-  }
+  // let nlp;
+  // try {
+  //   nlp = (await import(chrome.runtime.getURL('node_modules/compromise/builds/compromise.mjs')))
+  //     .default;
+  // } catch (error) {
+  //   console.error('[DyslexiaMode] Failed to load compromise.js:', error);
+  //   return;
+  // }
 
   // Get text content
   const text = element.textContent;
