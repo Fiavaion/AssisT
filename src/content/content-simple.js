@@ -6,16 +6,17 @@
 // === MODULAR IMPORTS (Phase 1 Refactoring with Vite) ===
 import { showToast } from '../core/ui/toast.js';
 import { hexToRgba } from '../core/utils/color.js';
+import { isTextInput } from '../features/stt/validation.js';
+import { removeHighlight, highlightElement, removeElementHighlight, highlightWordByWord, cleanupWordByWord } from '../core/dom/highlighting.js';
 
 console.log('[AssisT] Content script loaded');
 
 // Global state
 let currentUtterance = null;
-let currentHighlight = null;
 let currentElement = null;
 let currentText = '';
 let isPaused = false; // Manual pause state tracker
-let wordHighlightInterval = null; // For word-by-word highlighting
+// Note: currentHighlight and wordHighlightInterval moved to src/core/dom/highlighting.js
 const settings = {
   enabled: false, // TTS master toggle
   highlightEnabled: true,
@@ -158,7 +159,7 @@ chrome.storage.onChanged.addListener(changes => {
 
         // If highlighting was enabled, add highlight to current element
         if (settings.highlightEnabled && !oldHighlightEnabled && currentElement) {
-          highlightElement(currentElement);
+          highlightElement(currentElement, settings);
           console.log('[AssisT] Highlighting enabled');
         }
 
@@ -168,7 +169,7 @@ chrome.storage.onChanged.addListener(changes => {
           (settings.highlightColor !== oldColor || settings.highlightOpacity !== oldOpacity) &&
           currentElement
         ) {
-          highlightElement(currentElement);
+          highlightElement(currentElement, settings);
         }
 
         // If currently speaking, restart with new settings
@@ -197,140 +198,17 @@ chrome.storage.onChanged.addListener(changes => {
   }
 });
 
-// Remove highlighting
-function removeHighlight() {
-  if (currentHighlight) {
-    const parent = currentHighlight.parentNode;
-    if (parent) {
-      const text = document.createTextNode(currentHighlight.textContent);
-      parent.replaceChild(text, currentHighlight);
-      parent.normalize();
-    }
-    currentHighlight = null;
-  }
-
-  document.querySelectorAll('.assist-highlight').forEach(el => {
-    const parent = el.parentNode;
-    if (parent) {
-      const text = document.createTextNode(el.textContent);
-      parent.replaceChild(text, el);
-      parent.normalize();
-    }
-  });
-}
+// ✂️ EXTRACTED: removeHighlight() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
 // ✂️ EXTRACTED: hexToRgba() moved to src/core/utils/color.js (Phase 1, Step 2)
 
-// Simple highlight - just add background to whole element
-function highlightElement(element) {
-  removeHighlight();
+// ✂️ EXTRACTED: highlightElement() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
-  // Only apply highlight if enabled
-  if (settings.highlightEnabled) {
-    const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
-    element.style.backgroundColor = bgColor;
-    element.style.transition = 'background-color 0.2s';
-  }
-}
+// ✂️ EXTRACTED: highlightWordByWord() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
-// Word-by-word highlighting helper
-function highlightWordByWord(element, text, rate) {
-  // Clear any existing word highlighting
-  if (wordHighlightInterval) {
-    clearInterval(wordHighlightInterval);
-    wordHighlightInterval = null;
-  }
+// ✂️ EXTRACTED: cleanupWordByWord() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
-  // Remove previous word highlights
-  removeHighlight();
-
-  // Split text into words
-  const words = text.split(/\s+/);
-  if (words.length === 0) {
-    return;
-  }
-
-  // Estimate time per word (avg reading speed ~ 150 words/min at 1.0x rate)
-  // Adjusted for rate setting
-  const baseWordsPerMinute = 150;
-  const adjustedWordsPerMinute = baseWordsPerMinute * rate;
-  const msPerWord = (60 * 1000) / adjustedWordsPerMinute;
-
-  let currentWordIndex = 0;
-
-  // Wrap each word in the element with a span
-  const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
-  const originalHTML = element.innerHTML;
-
-  // Store original content for cleanup
-  element.dataset.originalHTML = originalHTML;
-
-  // Create wrapped HTML
-  const wrappedHTML = text
-    .split(/(\s+)/)
-    .map((part, index) => {
-      if (part.trim().length === 0) {
-        // Keep whitespace as-is
-        return part;
-      } else {
-        // Wrap words in spans
-        return `<span class="assist-word" data-word-index="${Math.floor(index / 2)}">${part}</span>`;
-      }
-    })
-    .join('');
-
-  element.innerHTML = wrappedHTML;
-
-  // Highlight words progressively
-  const wordSpans = element.querySelectorAll('.assist-word');
-
-  function highlightWord(index) {
-    // Remove previous highlight
-    wordSpans.forEach(span => {
-      span.style.backgroundColor = '';
-    });
-
-    // Highlight current word
-    if (index < wordSpans.length) {
-      wordSpans[index].style.backgroundColor = bgColor;
-      wordSpans[index].style.transition = 'background-color 0.1s';
-    }
-  }
-
-  // Start highlighting
-  highlightWord(0);
-
-  wordHighlightInterval = setInterval(() => {
-    currentWordIndex++;
-    if (currentWordIndex >= words.length) {
-      clearInterval(wordHighlightInterval);
-      wordHighlightInterval = null;
-    } else {
-      highlightWord(currentWordIndex);
-    }
-  }, msPerWord);
-}
-
-// Clean up word-by-word highlighting
-function cleanupWordByWord(element) {
-  if (wordHighlightInterval) {
-    clearInterval(wordHighlightInterval);
-    wordHighlightInterval = null;
-  }
-
-  // Restore original HTML if it was modified
-  if (element && element.dataset.originalHTML) {
-    element.innerHTML = element.dataset.originalHTML;
-    delete element.dataset.originalHTML;
-  }
-}
-
-// Remove element highlighting
-function removeElementHighlight(element) {
-  if (element) {
-    element.style.backgroundColor = '';
-  }
-}
+// ✂️ EXTRACTED: removeElementHighlight() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
 // Read text with highlighting
 function readText(text, element) {
@@ -358,10 +236,10 @@ function readText(text, element) {
     // Highlight based on settings
     if (settings.wordByWordEnabled && settings.highlightEnabled) {
       // Use word-by-word highlighting
-      highlightWordByWord(element, text, settings.rate);
+      highlightWordByWord(element, text, settings.rate, settings);
     } else {
       // Use whole-element highlighting
-      highlightElement(element);
+      highlightElement(element, settings);
     }
 
     // Create utterance
@@ -1787,35 +1665,7 @@ async function stt_initialize() {
 }
 
 // Check if element is a text input field
-function stt_isTextInput(element) {
-  if (!element) {
-    return false;
-  }
-
-  const tagName = element.tagName?.toLowerCase();
-  const contentEditable = element.contentEditable === 'true' || element.isContentEditable;
-
-  // Check for standard text inputs
-  if (tagName === 'textarea') {
-    return true;
-  }
-  if (tagName === 'input') {
-    const type = element.type?.toLowerCase();
-    return ['text', 'email', 'search', 'url', 'tel'].includes(type);
-  }
-
-  // Check for contenteditable elements
-  if (contentEditable) {
-    return true;
-  }
-
-  // Check for Canvas Rich Text Editor
-  if (element.closest('.mce-content-body, [role="textbox"]')) {
-    return true;
-  }
-
-  return false;
-}
+// EXTRACTED: See src/features/stt/validation.js - isTextInput()
 
 // Set up listeners for text field focus
 function stt_setupFieldListeners() {
@@ -1827,7 +1677,7 @@ function stt_setupFieldListeners() {
   document.addEventListener(
     'focusin',
     e => {
-      if (stt_enabled && stt_isTextInput(e.target)) {
+      if (stt_enabled && isTextInput(e.target)) {
         stt_activeField = e.target;
         if (stt_micButton) {
           stt_micButton.show(e.target);
