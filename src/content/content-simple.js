@@ -81,6 +81,24 @@ let currentElement = null;
 let currentText = '';
 let isPaused = false; // Manual pause state tracker
 // Note: currentHighlight and wordHighlightInterval moved to src/core/dom/highlighting.js
+
+/**
+ * TTS Settings Object
+ *
+ * ⚠️ CRITICAL: This object is injected into feature modules (Canvas, Moodle, etc.)
+ * Changes to property names will BREAK all dependent modules.
+ *
+ * Safe changes:
+ * - ✅ Add new optional properties (modules ignore unknown properties)
+ * - ✅ Change default values (test all features)
+ *
+ * Unsafe changes:
+ * - ❌ Rename existing properties (breaks dependency injection)
+ * - ❌ Remove properties (breaks modules that read them)
+ * - ❌ Change property types (causes type errors)
+ *
+ * @type {Object}
+ */
 const settings = {
   enabled: false, // TTS master toggle
   highlightEnabled: true,
@@ -92,6 +110,40 @@ const settings = {
   volume: 1.0,
   voice: null,
 };
+
+/**
+ * Validate settings object to prevent breaking changes
+ * @param {Object} settingsObj - Settings object to validate
+ * @returns {boolean} True if valid
+ */
+function validateSettings(settingsObj) {
+  if (!settingsObj || typeof settingsObj !== 'object') {
+    console.error('[AssisT] Invalid settings object');
+    return false;
+  }
+
+  // Required properties
+  const required = ['enabled', 'highlightEnabled', 'highlightColor', 'rate', 'pitch', 'volume'];
+  for (const prop of required) {
+    if (!(prop in settingsObj)) {
+      console.error(`[AssisT] Missing required setting: ${prop}`);
+      return false;
+    }
+  }
+
+  // Type validation
+  if (typeof settingsObj.enabled !== 'boolean') {
+    console.error('[AssisT] settings.enabled must be boolean');
+    return false;
+  }
+
+  if (typeof settingsObj.rate !== 'number' || settingsObj.rate < 0.1 || settingsObj.rate > 10) {
+    console.error('[AssisT] settings.rate must be number between 0.1 and 10');
+    return false;
+  }
+
+  return true;
+}
 
 // ============================================================
 // TTS CORE - VOICE MANAGEMENT
@@ -292,11 +344,36 @@ chrome.storage.onChanged.addListener(changes => {
 
 /**
  * Read text aloud using TTS with synchronized highlighting
- * @param {string} text - Text to read
- * @param {HTMLElement} element - Element to highlight while reading
+ *
+ * IMPORTANT: This is a CORE FUNCTION used by all modules (Canvas, Moodle, Quiz Helper, etc.)
+ * DO NOT change the function signature without updating ALL dependent modules.
+ *
+ * @param {string} text - Text to read aloud
+ * @param {HTMLElement} element - DOM element to highlight while reading
+ * @returns {void}
+ *
+ * @example
+ * // Basic usage
+ * readText("Hello world", paragraphElement);
+ *
+ * @example
+ * // From Canvas module
+ * readTextFunction(assignmentText, assignmentElement);
  */
 function readText(text, element) {
-  if (!text || text.trim() === '') {
+  // Defensive checks
+  if (!text || typeof text !== 'string' || text.trim() === '') {
+    console.warn('[AssisT] readText called with invalid text:', text);
+    return;
+  }
+
+  if (!element || !(element instanceof HTMLElement)) {
+    console.warn('[AssisT] readText called with invalid element:', element);
+    return;
+  }
+
+  if (!settings || typeof settings !== 'object') {
+    console.error('[AssisT] Settings object is invalid');
     return;
   }
 
@@ -377,7 +454,21 @@ function readText(text, element) {
 // ============================================================
 // Initialize feature modules with TTS dependencies (Dependency Injection)
 
+/**
+ * Validate dependencies before passing to modules
+ * This prevents breaking changes from propagating to feature modules
+ */
+if (!validateSettings(settings)) {
+  console.error('[AssisT] Settings validation failed - modules may not work correctly');
+}
+
+if (typeof readText !== 'function') {
+  console.error('[AssisT] readText is not a function - dependency injection will fail');
+}
+
 // Canvas module needs readText function and settings object
+// ⚠️ CRITICAL: If you change readText signature or settings structure,
+// update initializeCanvasModule() in canvas.js accordingly
 initializeCanvasModule(readText, settings);
 
 // ============================================================
