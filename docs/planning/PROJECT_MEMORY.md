@@ -794,3 +794,30 @@ Chrome extension content scripts ARE DIFFERENT from:
 This is not technical debt. This is not poor code quality. This is the correct approach for the Chrome extension platform as of 2025.
 
 ---
+
+### DEC-202510-021
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-021 |
+| **Date** | 2025-10-30 |
+| **Decision** | Establish Mandatory Incremental Change Protocol for Monolithic Content Script |
+| **Rationale** | On 2025-10-30, an attempt to enhance dyslexia mode (fix grammar colors + add syllable intensity slider) resulted in complete extension failure when 5 files were modified simultaneously. Root cause: monolithic `content-simple.js` (3,034 lines) has NO feature isolation - a single error breaks ALL 10 features. Investigation confirmed that Chrome extension platform constraints prevent modular architecture (per DEC-202510-020). Given this reality, we MUST adopt extreme caution with changes. |
+| **Alternatives** | 1. **Accept high risk, no change:** Rejected - another batch modification will cause another complete failure. 2. **Attempt modular refactor again:** Rejected - already failed 3 times due to platform limitations. 3. **Implement incremental protocol:** ADOPTED - only viable option for monolithic architecture. |
+| **Impact** | **Development Process:** All modifications to `content-simple.js` and `popup.js` must follow ONE-CHANGE-AT-A-TIME protocol: (1) Modify ONE file, (2) Build immediately, (3) Test in Chrome, (4) Commit if working, (5) Repeat. **Time Investment:** Changes take longer due to testing overhead, but prevents catastrophic failures. **Risk Mitigation:** Enables precise identification of breaking changes and granular rollback. **Documentation:** Created comprehensive incident report (`docs/INCIDENT-2025-10-30-DYSLEXIA-ENHANCEMENTS.md`) with prevention strategy. |
+| **Stakeholders** | Lead Developer, QA Team, Future AI Assistants |
+| **Outcome/Action** | (1) Created git checkpoint tag: `checkpoint-working-state` (2) Documented incident with full RCA and lessons learned (3) Reverted all breaking changes via `git restore` (4) Extension restored to full working state (5) Future enhancements MUST follow incremental protocol documented in incident report |
+
+**Related Files:**
+- Incident Report: `docs/INCIDENT-2025-10-30-DYSLEXIA-ENHANCEMENTS.md`
+- Checkpoint Tag: `checkpoint-working-state` (commit cfad935)
+- Architecture Decision: DEC-202510-020 (Monolithic adoption rationale)
+
+**Critical Rules Established:**
+1. Never modify multiple files simultaneously
+2. Build and test after EVERY single change
+3. Commit immediately after successful test
+4. Check browser console before assuming code is correct
+5. Create branch for ANY non-trivial enhancement
+
+---
