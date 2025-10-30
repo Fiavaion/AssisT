@@ -5,6 +5,7 @@
 
 // === MODULAR IMPORTS (Phase 1 Refactoring with Vite) ===
 import { showToast } from '../core/ui/toast.js';
+import { hexToRgba } from '../core/utils/color.js';
 
 console.log('[AssisT] Content script loaded');
 
@@ -218,18 +219,7 @@ function removeHighlight() {
   });
 }
 
-// Convert hex color to rgba with opacity
-function hexToRgba(hex, opacity) {
-  // Remove # if present
-  hex = hex.replace('#', '');
-
-  // Parse hex values
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-}
+// ✂️ EXTRACTED: hexToRgba() moved to src/core/utils/color.js (Phase 1, Step 2)
 
 // Simple highlight - just add background to whole element
 function highlightElement(element) {
