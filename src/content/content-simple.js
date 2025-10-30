@@ -12,6 +12,7 @@ import { dyslexia_initialize } from '../content/features/dyslexia.js';
 import { readingGuide_enable, readingGuide_disable, readingGuide_createLine, readingGuide_updatePosition, readingGuide_updateStyle, readingGuide_handleMouseMove } from '../features/readingGuide/readingGuide.js';
 import { screenOverlay_create, screenOverlay_remove, screenOverlay_update, screenOverlay_enable, screenOverlay_disable, screenOverlay_settings } from '../features/screenOverlay/screenOverlay.js';
 import '../features/textCustomization/textCustomization.js'; // Self-initializing module with Chrome storage listeners
+import '../features/focusMode/focusMode.js'; // Self-initializing module with Chrome storage listeners
 
 console.log('[AssisT] Content script loaded');
 
@@ -544,169 +545,11 @@ document.addEventListener(
 // ============================================================
 // SPRINT 3 FEATURE: FOCUS MODE
 // ============================================================
-
-// Focus Mode State (Feature Isolated)
-let focusMode_enabled = false;
-let focusMode_windowElement = null;
-const focusMode_settings = {
-  boxWidth: 400,
-  boxHeight: 100,
-  overlayOpacity: 0.7,
-};
-
-// Create Focus Mode window element with box-shadow overlay
-function focusMode_createWindow() {
-  if (focusMode_windowElement) {
-    return; // Already exists
-  }
-
-  // Create a single div that will cast a huge box-shadow to darken everything else
-  focusMode_windowElement = document.createElement('div');
-  focusMode_windowElement.id = 'assist-focus-mode-window';
-
-  // Calculate border-radius as 20% of the smaller dimension
-  const radiusPercent = 0.2;
-  const radius =
-    Math.min(focusMode_settings.boxWidth, focusMode_settings.boxHeight) * radiusPercent;
-
-  focusMode_windowElement.style.cssText = `
-    position: fixed;
-    width: ${focusMode_settings.boxWidth}px;
-    height: ${focusMode_settings.boxHeight}px;
-    border-radius: ${radius}px;
-    pointer-events: none;
-    z-index: 9998;
-    display: none;
-    background-color: transparent;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, ${focusMode_settings.overlayOpacity});
-    transition: all 0.05s ease-out;
-  `;
-
-  document.body.appendChild(focusMode_windowElement);
-  console.log('[FocusMode] Window element created with box-shadow overlay');
-}
-
-// Update window position based on mouse coordinates
-function focusMode_updatePosition(mouseX, mouseY) {
-  if (!focusMode_windowElement || !focusMode_enabled) {
-    return;
-  }
-
-  const halfWidth = focusMode_settings.boxWidth / 2;
-  const halfHeight = focusMode_settings.boxHeight / 2;
-
-  // Center window on mouse position
-  const left = mouseX - halfWidth;
-  const top = mouseY - halfHeight;
-
-  focusMode_windowElement.style.left = left + 'px';
-  focusMode_windowElement.style.top = top + 'px';
-}
-
-// Update window styling (size, opacity, border-radius)
-function focusMode_updateStyle() {
-  if (!focusMode_windowElement) {
-    return;
-  }
-
-  // Calculate border-radius as 20% of the smaller dimension
-  const radiusPercent = 0.2;
-  const radius =
-    Math.min(focusMode_settings.boxWidth, focusMode_settings.boxHeight) * radiusPercent;
-
-  focusMode_windowElement.style.width = focusMode_settings.boxWidth + 'px';
-  focusMode_windowElement.style.height = focusMode_settings.boxHeight + 'px';
-  focusMode_windowElement.style.borderRadius = radius + 'px';
-  focusMode_windowElement.style.boxShadow = `0 0 0 9999px rgba(0, 0, 0, ${focusMode_settings.overlayOpacity})`;
-}
-
-// Enable Focus Mode
-function focusMode_enable() {
-  // Check mutual exclusivity with Reading Guide
-  if (readingGuide_enabled) {
-    readingGuide_disable();
-    showToast('📏 Reading Guide disabled (Focus Mode active)');
-  }
-
-  focusMode_enabled = true;
-  focusMode_createWindow();
-
-  if (focusMode_windowElement) {
-    focusMode_windowElement.style.display = 'block';
-  }
-
-  // Add mousemove listener
-  document.addEventListener('mousemove', focusMode_handleMouseMove);
-
-  console.log('[FocusMode] Enabled');
-  showToast('🎯 Focus Mode enabled');
-}
-
-// Disable Focus Mode
-function focusMode_disable() {
-  focusMode_enabled = false;
-
-  if (focusMode_windowElement) {
-    focusMode_windowElement.style.display = 'none';
-  }
-
-  // Remove mousemove listener
-  document.removeEventListener('mousemove', focusMode_handleMouseMove);
-
-  console.log('[FocusMode] Disabled');
-  showToast('Focus Mode disabled');
-}
-
-// Mouse move handler
-function focusMode_handleMouseMove(event) {
-  if (focusMode_enabled) {
-    focusMode_updatePosition(event.clientX, event.clientY);
-  }
-}
-
-// Load Focus Mode settings from storage
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.focusMode) {
-    const fmSettings = result.assist_settings.focusMode;
-    focusMode_enabled = fmSettings.enabled || false;
-    focusMode_settings.boxWidth = fmSettings.boxWidth || 400;
-    focusMode_settings.boxHeight = fmSettings.boxHeight || 100;
-    focusMode_settings.overlayOpacity = fmSettings.overlayOpacity || 0.7;
-
-    if (focusMode_enabled) {
-      focusMode_enable();
-    }
-
-    console.log('[FocusMode] Settings loaded:', focusMode_enabled, focusMode_settings);
-  }
-});
-
-// Listen for Focus Mode settings updates
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.focusMode) {
-    const fmSettings = changes.assist_settings.newValue.focusMode;
-
-    const wasEnabled = focusMode_enabled;
-    const newEnabled = fmSettings.enabled || false;
-
-    // Update settings
-    focusMode_settings.boxWidth = fmSettings.boxWidth || 400;
-    focusMode_settings.boxHeight = fmSettings.boxHeight || 100;
-    focusMode_settings.overlayOpacity = fmSettings.overlayOpacity || 0.7;
-
-    // Handle enable/disable
-    if (newEnabled && !wasEnabled) {
-      focusMode_enable();
-    } else if (!newEnabled && wasEnabled) {
-      focusMode_disable();
-    } else if (newEnabled) {
-      // Update style if already enabled
-      focusMode_updateStyle();
-    }
-
-    console.log('[FocusMode] Settings updated:', newEnabled, focusMode_settings);
-  }
-});
+// ✂️ EXTRACTED: Focus Mode moved to src/features/focusMode/focusMode.js (Phase 2)
+// All Focus Mode state, functions, and Chrome storage listeners now in module:
+// - focusMode_createWindow(), focusMode_updatePosition(), focusMode_updateStyle()
+// - focusMode_enable(), focusMode_disable(), focusMode_handleMouseMove()
+// - Self-initializing module imported above
 
 // ============================================================
 // SPRINT 4 FEATURE: CANVAS INTEGRATION

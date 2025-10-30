@@ -34,6 +34,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { readingGuide_disable, readingGuide_getEnabled } from '../readingGuide/readingGuide.js';
 
 // ============================================================
 // MODULE STATE
@@ -207,8 +208,7 @@ function focusMode_updateStyle() {
  */
 function focusMode_enable() {
   // Check mutual exclusivity with Reading Guide
-  // Note: readingGuide variables/functions are assumed to be in global scope
-  if (typeof readingGuide_disable !== 'undefined' && typeof readingGuide_enabled !== 'undefined' && readingGuide_enabled) {
+  if (readingGuide_getEnabled()) {
     readingGuide_disable();
     showToast('📏 Reading Guide disabled (Focus Mode active)');
   }
@@ -350,6 +350,14 @@ chrome.storage.onChanged.addListener(changes => {
 // ============================================================
 
 /**
+ * Returns whether Focus Mode is currently enabled
+ * @returns {boolean} True if enabled, false otherwise
+ */
+function focusMode_getEnabled() {
+  return focusMode_enabled;
+}
+
+/**
  * Public API for the Focus Mode feature module
  */
 export {
@@ -359,4 +367,5 @@ export {
   focusMode_updatePosition,
   focusMode_updateStyle,
   focusMode_handleMouseMove,
+  focusMode_getEnabled,
 };
