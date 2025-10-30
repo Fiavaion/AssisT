@@ -8,11 +8,13 @@ import { showToast } from '../core/ui/toast.js';
 import { hexToRgba } from '../core/utils/color.js';
 import { isTextInput } from '../features/stt/validation.js';
 import { removeHighlight, highlightElement, removeElementHighlight, highlightWordByWord, cleanupWordByWord } from '../core/dom/highlighting.js';
+import { extractMainContent } from '../core/content/readPage.js';
 import { dyslexia_initialize } from '../content/features/dyslexia.js';
 import { readingGuide_enable, readingGuide_disable, readingGuide_createLine, readingGuide_updatePosition, readingGuide_updateStyle, readingGuide_handleMouseMove } from '../features/readingGuide/readingGuide.js';
 import { screenOverlay_create, screenOverlay_remove, screenOverlay_update, screenOverlay_enable, screenOverlay_disable, screenOverlay_settings } from '../features/screenOverlay/screenOverlay.js';
 import '../features/textCustomization/textCustomization.js'; // Self-initializing module with Chrome storage listeners
 import '../features/focusMode/focusMode.js'; // Self-initializing module with Chrome storage listeners
+import '../features/stt/stt.js'; // Self-initializing module with Chrome storage listeners
 
 console.log('[AssisT] Content script loaded');
 
@@ -1141,338 +1143,48 @@ chrome.storage.onChanged.addListener(changes => {
 // ============================================================
 // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
 // ============================================================
-
-// STT State (Feature Isolated)
-let stt_enabled = false;
-let stt_controller = null;
-let stt_micButton = null;
-let stt_activeField = null;
-const stt_settings = {
-  continuous: true,
-  interimResults: true,
-  language: 'en-US',
-  autoCapitalize: true,
-  punctuationCommands: true,
-  floatingButton: true,
-};
-
-// Dynamic import STT controller and mic button
-async function stt_loadModules() {
-  try {
-    const [STTModule, MicButtonModule] = await Promise.all([
-      import(chrome.runtime.getURL('src/engines/stt/stt-controller.js')),
-      import(chrome.runtime.getURL('src/ui/components/microphone-button.js')),
-    ]);
-    return {
-      STTController: STTModule.STTController,
-      MicrophoneButton: MicButtonModule.MicrophoneButton,
-    };
-  } catch (error) {
-    console.error('[STT] Failed to load modules:', error);
-    return null;
-  }
-}
-
-// Initialize STT controller
-async function stt_initialize() {
-  if (!stt_enabled) {
-    return;
-  }
-
-  const modules = await stt_loadModules();
-  if (!modules) {
-    showToast('⚠️ STT failed to load');
-    return;
-  }
-
-  // Create STT controller
-  stt_controller = new modules.STTController({
-    continuous: stt_settings.continuous,
-    interimResults: stt_settings.interimResults,
-    language: stt_settings.language,
-    autoCapitalize: stt_settings.autoCapitalize,
-    punctuationCommands: stt_settings.punctuationCommands,
-    onStart: () => {
-      console.log('[STT] Recording started');
-      if (stt_micButton) {
-        stt_micButton.updateState({ isRecording: true });
-      }
-    },
-    onEnd: () => {
-      console.log('[STT] Recording ended');
-      if (stt_micButton) {
-        stt_micButton.updateState({ isRecording: false });
-      }
-    },
-    onResult: (text, _fullTranscript) => {
-      console.log('[STT] Result:', text);
-      // Text already inserted by controller
-    },
-    onInterimResult: text => {
-      // Show interim results in mic button
-      if (stt_micButton && stt_settings.interimResults) {
-        stt_micButton.showInterimResult(text);
-      }
-    },
-    onError: (error, _errorType) => {
-      console.error('[STT] Error:', error.message);
-      showToast('⚠️ ' + error.message);
-      if (stt_micButton) {
-        stt_micButton.showError(error.message);
-      }
-    },
-  });
-
-  // Create microphone button if enabled
-  if (stt_settings.floatingButton) {
-    stt_micButton = new modules.MicrophoneButton({
-      onStart: targetField => {
-        if (stt_controller) {
-          stt_activeField = targetField;
-          stt_controller.startListening(targetField);
-        }
-      },
-      onStop: () => {
-        if (stt_controller) {
-          stt_controller.stopListening();
-        }
-      },
-      onError: message => {
-        showToast('⚠️ ' + message);
-      },
-    });
-  }
-
-  // Listen for focus on text input fields
-  stt_setupFieldListeners();
-
-  console.log('[STT] Initialized successfully');
-}
-
-// Check if element is a text input field
-// EXTRACTED: See src/features/stt/validation.js - isTextInput()
-
-// Set up listeners for text field focus
-function stt_setupFieldListeners() {
-  if (!stt_enabled || !stt_settings.floatingButton) {
-    return;
-  }
-
-  // Listen for focus on text fields
-  document.addEventListener(
-    'focusin',
-    e => {
-      if (stt_enabled && isTextInput(e.target)) {
-        stt_activeField = e.target;
-        if (stt_micButton) {
-          stt_micButton.show(e.target);
-        }
-        console.log('[STT] Field focused:', e.target.tagName);
-      }
-    },
-    true
-  );
-
-  // Listen for focusout - Don't hide button immediately
-  document.addEventListener(
-    'focusout',
-    e => {
-      if (stt_activeField === e.target && stt_micButton) {
-        // Keep button visible - only hide when:
-        // 1. Recording stops naturally
-        // 2. User explicitly clicks away from both field and button
-        // Do NOT auto-hide on blur
-        console.log('[STT] Field lost focus, but keeping button visible');
-      }
-    },
-    true
-  );
-
-  // Hide button when clicking outside both field and button
-  document.addEventListener(
-    'click',
-    e => {
-      if (!stt_enabled || !stt_micButton) {
-        return;
-      }
-
-      const clickedOnField =
-        stt_activeField && (e.target === stt_activeField || stt_activeField.contains(e.target));
-      const clickedOnButton =
-        stt_micButton.button &&
-        (e.target === stt_micButton.button || stt_micButton.button.contains(e.target));
-
-      if (!clickedOnField && !clickedOnButton && stt_activeField && !stt_controller.isRecording) {
-        stt_micButton.hide();
-        stt_activeField = null;
-        console.log('[STT] Clicked outside - hiding button');
-      }
-    },
-    true
-  );
-}
-
-// Cleanup STT
-function stt_cleanup() {
-  if (stt_controller) {
-    stt_controller.destroy();
-    stt_controller = null;
-  }
-
-  if (stt_micButton) {
-    stt_micButton.destroy();
-    stt_micButton = null;
-  }
-
-  stt_activeField = null;
-  console.log('[STT] Cleanup complete');
-}
-
-// Load STT settings from storage
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.stt) {
-    const sttSettings = result.assist_settings.stt;
-    stt_enabled = sttSettings.enabled || false;
-    stt_settings.continuous =
-      sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
-    stt_settings.interimResults =
-      sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
-    stt_settings.language = sttSettings.language || 'en-US';
-    stt_settings.autoCapitalize =
-      sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
-    stt_settings.punctuationCommands =
-      sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
-    stt_settings.floatingButton =
-      sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
-
-    if (stt_enabled) {
-      stt_initialize();
-    }
-
-    console.log('[STT] Settings loaded:', stt_enabled, stt_settings);
-  } else {
-    console.log('[STT] Feature disabled by default');
-  }
-});
-
-// Listen for STT settings updates
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.stt) {
-    const sttSettings = changes.assist_settings.newValue.stt;
-    const newEnabled = sttSettings.enabled || false;
-
-    // Update settings
-    stt_settings.continuous =
-      sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
-    stt_settings.interimResults =
-      sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
-    stt_settings.language = sttSettings.language || 'en-US';
-    stt_settings.autoCapitalize =
-      sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
-    stt_settings.punctuationCommands =
-      sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
-    stt_settings.floatingButton =
-      sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
-
-    // Handle enable/disable
-    if (newEnabled && !stt_enabled) {
-      stt_enabled = true;
-      stt_initialize();
-      showToast('🎤 Speech-to-Text enabled');
-    } else if (!newEnabled && stt_enabled) {
-      stt_enabled = false;
-      stt_cleanup();
-      showToast('Speech-to-Text disabled');
-    } else if (newEnabled && stt_controller) {
-      // Update controller settings if already initialized
-      stt_controller.updateSettings({
-        continuous: stt_settings.continuous,
-        interimResults: stt_settings.interimResults,
-        language: stt_settings.language,
-        autoCapitalize: stt_settings.autoCapitalize,
-        punctuationCommands: stt_settings.punctuationCommands,
-      });
-      console.log('[STT] Settings updated');
-    }
-
-    console.log('[STT] Settings changed:', newEnabled, stt_settings);
-  }
-});
+//
+// EXTRACTED: STT Feature Module
+// Location: src/features/stt/stt.js
+//
+// The STT module provides speech-to-text functionality with:
+// - stt_loadModules() - Dynamically imports STT controller and microphone button
+// - stt_initialize() - Initializes STT with controller and UI components
+// - stt_setupFieldListeners() - Attaches focus/click handlers to text fields
+// - stt_cleanup() - Cleanup and destroy STT resources
+//
+// State variables (now managed in module):
+// - stt_enabled - Master enable/disable flag
+// - stt_controller - Reference to STTController instance
+// - stt_micButton - Reference to MicrophoneButton UI component
+// - stt_activeField - Currently active text input field
+// - stt_settings - Configuration object (continuous, interimResults, language, etc.)
+//
+// Chrome storage integration:
+// - chrome.storage.local.get() - Loads settings on module initialization
+// - chrome.storage.onChanged.addListener() - Listens for real-time settings updates
+//
+// This is a self-initializing module that handles all STT state internally.
+// Storage listeners auto-run when the module loads.
+//
+// Imported at top of file via:
+// import '../features/stt/stt.js';
+//
+// Module operates independently via Vite bundling.
+// Phase 1, Modularization - STT Extraction (2025-10-30)
 
 // ============================================================
 // SPRINT 6 FEATURE: READ ENTIRE PAGE
 // ============================================================
-
-// Extract main content from page (skip navigation, headers, sidebars)
-function readPage_extractMainContent() {
-  // Try to find main content area
-  const mainContent =
-    document.querySelector('main') ||
-    document.querySelector('article') ||
-    document.querySelector('[role="main"]') ||
-    document.querySelector('.main-content') ||
-    document.querySelector('.content') ||
-    document.querySelector('#content') ||
-    // Canvas-specific selectors
-    document.querySelector('.ic-Layout-contentMain') ||
-    document.querySelector('.assignment_description') ||
-    document.querySelector('.user_content') ||
-    // Fallback to body
-    document.body;
-
-  // Build skip list (elements to exclude)
-  const skipElements = new Set();
-  const skipSelectors = [
-    'nav',
-    'header',
-    'footer',
-    'aside',
-    '[role="navigation"]',
-    '[role="banner"]',
-    '[role="complementary"]',
-    '.menu',
-    '.sidebar',
-    '.navigation',
-    '.breadcrumb',
-    '.ic-app-header',
-    '.header-bar',
-    '.right-side',
-  ];
-
-  skipSelectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(el => skipElements.add(el));
-  });
-
-  // Extract text from paragraphs, headings, etc.
-  const textElements = mainContent.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote');
-
-  const textParts = [];
-  textElements.forEach(el => {
-    // Skip if element is inside skip list
-    let shouldSkip = false;
-    let current = el;
-    while (current && current !== document.body) {
-      if (skipElements.has(current)) {
-        shouldSkip = true;
-        break;
-      }
-      current = current.parentElement;
-    }
-
-    if (!shouldSkip) {
-      const text = el.textContent?.trim();
-      if (text && text.length > 10) {
-        textParts.push(text);
-      }
-    }
-  });
-
-  return {
-    text: textParts.join(' '),
-    element: mainContent,
-    count: textParts.length,
-  };
-}
+//
+// EXTRACTED: Content extraction utility module
+// Location: src/core/content/readPage.js
+//
+// The readPage module provides:
+// - extractMainContent() - Intelligent DOM traversal to identify and extract main content
+//
+// Usage: See import at top of file
+// Imported as: { extractMainContent } from '../core/content/readPage.js'
 
 // Message handler for commands from background script
 chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
@@ -1489,7 +1201,7 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
         return;
       }
 
-      const { text, element, count } = readPage_extractMainContent();
+      const { text, element, count } = extractMainContent();
 
       if (!text || text.length < 50) {
         showToast('⚠️ No readable content found');
