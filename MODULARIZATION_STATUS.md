@@ -427,3 +427,68 @@ git commit -m "refactor(core): [description]"
 **Last Updated:** 2025-10-30
 **Status:** Phase 3 complete, ready for Phase 4 (LMS Integrations)
 
+## Phase 4 Complete - LMS Integrations (2025-10-30)
+
+### Modules Created:
+1. **src/features/lms/canvas.js** - Canvas LMS integration with assignment reader
+2. **src/features/lms/moodle.js** - Moodle LMS integration
+3. **src/features/lms/googleClassroom.js** - Google Classroom integration
+
+### Progress Update:
+- **Phase 4:** 100% COMPLETE ✅ (3/3 extractions)
+- **Overall:** 44% COMPLETE (18/41 modules)
+- **Code Reduced:** ~1,300+ lines from content-simple.js
+- **Build Time:** 562ms (27 modules)
+- **Bundle Size:** 72.15 KB (optimized)
+
+**Last Updated:** 2025-10-30
+**Status:** Phase 4 complete, ready for Phase 5 (Quiz Helper)
+
+## Phase 5 Complete - Quiz Helper Integration (2025-10-30)
+
+### Integration Details:
+**Quiz Helper integrated into Canvas module** (src/features/lms/canvas.js)
+- Quiz Helper is Canvas-specific functionality, so it was integrated directly into the Canvas module rather than as a separate module
+- Uses `extractQuizQuestions()` from canvas-adapter.js for quiz detection
+- Initialized by `canvas_initialize()` when QUIZ page type is detected
+
+### Functions Integrated:
+- `canvas_initializeQuizHelper()` - Main initialization on quiz pages (NEW export)
+- `quizHelper_injectUI()` - Visual indicators and click handlers
+- `quizHelper_readQuestion()` - TTS reading with answer options
+- `quizHelper_highlightQuestion()` - Visual highlighting
+- `quizHelper_setupKeyboardNav()` - Keyboard navigation setup
+- `quizHelper_handleKeyPress()` - Keyboard event handler (Ctrl+Up/Down/Enter)
+- `quizHelper_navigateToQuestion()` - Question navigation
+- `quizHelper_cleanup()` - Cleanup function
+- Chrome storage integration for Quiz Helper settings
+
+### Progress Update:
+- **Phase 5:** 100% COMPLETE ✅ (1/1 integration)
+- **Overall:** 46% COMPLETE (19/41 planned extractions)
+- **Code Reduced:** ~1,536 lines from content-simple.js (cumulative)
+- **Remaining:** 624 lines in content-simple.js (down from 896 at Phase 4)
+- **Build Time:** 520ms (27 modules)
+- **Bundle Size:** 74.46 KB (reduced from 75.20 KB)
+- **Gzip Size:** 13.13 KB
+
+### Quiz Helper Features:
+- Canvas quiz page detection via canvas-adapter.js
+- Question extraction using `extractQuizQuestions()`
+- TTS reading with answer options support
+- Visual highlighting and hover effects
+- Keyboard shortcuts: Ctrl+Down (next), Ctrl+Up (previous), Ctrl+Enter (read)
+- Chrome storage persistence with real-time updates
+- Configurable settings: readAnswers, autoRead, highlightQuestion, highlightColor, keyboardNavigation
+
+### Architectural Decision:
+**Why integrate into Canvas module instead of separate file?**
+1. Quiz Helper is Canvas-specific (only works on Canvas LMS quiz pages)
+2. Depends heavily on Canvas adapter functions
+3. Follows pattern of canvas_initializeAssignmentReader()
+4. Simplifies dependency management
+5. Reduces module overhead and import complexity
+
+**Last Updated:** 2025-10-30
+**Status:** Phase 5 complete, ready for Phase 6 (Core TTS Refactor)
+
