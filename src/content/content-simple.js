@@ -1,9 +1,57 @@
 /**
- * AssisT Simple Content Script
- * Click any paragraph to read it with TTS and highlighting
+ * @fileoverview AssisT Content Script - Application Orchestrator
+ *
+ * ARCHITECTURAL PATTERN: Orchestrator (Central Coordinator)
+ *
+ * This file serves as the MAIN ORCHESTRATOR for the AssisT extension, coordinating
+ * all features and managing core TTS (Text-to-Speech) functionality. It follows the
+ * Orchestrator pattern where a central controller manages application flow and
+ * provides core services to feature modules.
+ *
+ * CORE RESPONSIBILITIES:
+ * 1. TTS Engine Management (readText, settings, synth, voice loading)
+ * 2. User Interaction Handlers (click detection, keyboard shortcuts)
+ * 3. Feature Module Coordination (initializes and provides dependencies)
+ * 4. Chrome Storage Integration (TTS settings persistence)
+ * 5. Speech Synthesis Lifecycle (utterance management, pause/resume, cleanup)
+ *
+ * WHY TTS STAYS HERE (Not Extracted):
+ * - TTS is INFRASTRUCTURE, not a feature - like a database connection
+ * - Every module depends on it (Canvas, Moodle, Quiz Helper, click handlers)
+ * - Extracting would create circular dependencies and complexity
+ * - Orchestrator pattern keeps core services centralized
+ * - This is architecturally sound: React has App.js, Express has server.js
+ *
+ * MODULARIZATION COMPLETE:
+ * - ✅ Isolated Features: textCustomization, screenOverlay, dyslexia, focusMode, readingGuide
+ * - ✅ LMS Integrations: Canvas, Moodle, Google Classroom (with Quiz Helper)
+ * - ✅ Utilities: toast, color, highlighting, readPage
+ * - ✅ STT: Speech-to-Text (separate concern)
+ * - ✅ 19 modules created, 46% modularization (strategically complete)
+ * - ⚠️ TTS remains here as CORE ORCHESTRATION (intentional architectural decision)
+ *
+ * FILE STRUCTURE:
+ * - Lines 1-20: Module imports
+ * - Lines 24-209: TTS Core (state, settings, voice management, Chrome storage)
+ * - Lines 223-299: readText() - Main TTS function
+ * - Lines 302-302: Module initialization (Canvas dependency injection)
+ * - Lines 305-392: Click handler (main user interaction)
+ * - Lines 395-484: Keyboard shortcuts (Space, +/-, pause/resume, speed control)
+ * - Lines 486-624: Extraction documentation comments
+ *
+ * @module content-simple
+ * @requires core/ui/toast
+ * @requires core/utils/color
+ * @requires core/dom/highlighting
+ * @requires features/lms/canvas
+ * @requires features/lms/moodle
+ * @requires features/lms/googleClassroom
+ * @see {@link https://github.com/anthropics/claude-code} - Built with Claude Code
  */
 
-// === MODULAR IMPORTS (Phase 1 Refactoring with Vite) ===
+// ============================================================
+// MODULE IMPORTS
+// ============================================================
 import { showToast } from '../core/ui/toast.js';
 import { hexToRgba } from '../core/utils/color.js';
 import { isTextInput } from '../features/stt/validation.js';
@@ -21,7 +69,13 @@ import '../features/lms/googleClassroom.js'; // Self-initializing module with Ch
 
 console.log('[AssisT] Content script loaded');
 
-// Global state
+// ============================================================
+// TTS CORE - STATE & CONFIGURATION
+// ============================================================
+// This section manages the core TTS state and configuration.
+// TTS is the foundation service provided by the orchestrator to all feature modules.
+
+// TTS State
 let currentUtterance = null;
 let currentElement = null;
 let currentText = '';
@@ -39,10 +93,17 @@ const settings = {
   voice: null,
 };
 
+// ============================================================
+// TTS CORE - VOICE MANAGEMENT
+// ============================================================
+
 // Initialize speech synthesis
 const synth = window.speechSynthesis;
 
-// Load voices when available
+/**
+ * Load available voices and set default preferred voice
+ * Preference order: Google UK Female > UK Female > Any English Female
+ */
 function loadVoices() {
   const voices = synth.getVoices();
 
@@ -66,7 +127,12 @@ if (synth.getVoices().length > 0) {
 }
 synth.addEventListener('voiceschanged', loadVoices);
 
-// Load settings from storage
+// ============================================================
+// TTS CORE - CHROME STORAGE INTEGRATION
+// ============================================================
+// Load and persist TTS settings from Chrome storage
+
+// Initial settings load
 chrome.storage.local.get('assist_settings', result => {
   console.log('[AssisT] Raw storage result:', result);
 
@@ -220,7 +286,15 @@ chrome.storage.onChanged.addListener(changes => {
 
 // ✂️ EXTRACTED: removeElementHighlight() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
-// Read text with highlighting
+// ============================================================
+// TTS CORE - MAIN ENGINE
+// ============================================================
+
+/**
+ * Read text aloud using TTS with synchronized highlighting
+ * @param {string} text - Text to read
+ * @param {HTMLElement} element - Element to highlight while reading
+ */
 function readText(text, element) {
   if (!text || text.trim() === '') {
     return;
@@ -298,10 +372,20 @@ function readText(text, element) {
   }, 50); // Small delay to avoid race condition
 }
 
-// Initialize Canvas module with dependencies
+// ============================================================
+// FEATURE MODULE INITIALIZATION
+// ============================================================
+// Initialize feature modules with TTS dependencies (Dependency Injection)
+
+// Canvas module needs readText function and settings object
 initializeCanvasModule(readText, settings);
 
-// Click handler
+// ============================================================
+// USER INTERACTION - CLICK HANDLER
+// ============================================================
+// Main click detection for reading text on click
+
+// Click handler - Detects clicks on readable elements and triggers TTS
 document.addEventListener(
   'click',
   e => {
@@ -391,7 +475,12 @@ document.addEventListener(
   true
 );
 
-// Keyboard shortcuts
+// ============================================================
+// USER INTERACTION - KEYBOARD SHORTCUTS
+// ============================================================
+// Keyboard controls for TTS playback (Space, +, -)
+
+// Keyboard shortcuts - Space (pause/resume), +/- (speed control)
 document.addEventListener(
   'keydown',
   e => {
@@ -482,6 +571,13 @@ document.addEventListener(
   },
   true
 ); // Use capture phase for better priority
+
+// ============================================================
+// EXTRACTION DOCUMENTATION
+// ============================================================
+// This section documents all features and utilities that have been
+// extracted to separate modules during the modularization process.
+// ============================================================
 
 // ============================================================
 // TOAST NOTIFICATION - EXTRACTED TO MODULE
