@@ -3,9 +3,6 @@
  * Click any paragraph to read it with TTS and highlighting
  */
 
-// === MODULAR IMPORTS (Phase 1 Refactoring) ===
-import { showToast } from '../core/ui/toast.js';
-
 console.log('[AssisT] Content script loaded');
 
 // Global state
@@ -603,12 +600,38 @@ document.addEventListener(
 ); // Use capture phase for better priority
 
 // Show toast
-// ============================================================
-// TOAST NOTIFICATION - EXTRACTED TO MODULE
-// ============================================================
-// showToast() function has been extracted to: src/core/ui/toast.js
-// Imported at top of file. All 41+ call sites continue to work unchanged.
-// Phase 1, Step 1 of modularization (2025-10-30)
+function showToast(message) {
+  const existing = document.getElementById('assist-toast');
+  if (existing) {
+    existing.remove();
+  }
+
+  const toast = document.createElement('div');
+  toast.id = 'assist-toast';
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(33, 150, 243, 0.95);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 999999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: -apple-system, system-ui, sans-serif;
+  `;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.3s';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
 
 // ============================================================
 // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
