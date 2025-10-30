@@ -77,7 +77,7 @@ export async function canvas_loadAdapter() {
  * 2. Loads the Canvas adapter
  * 3. Detects the current Canvas page type
  * 4. Waits for Canvas content to load
- * 5. Initializes appropriate features (e.g., Assignment Reader)
+ * 5. Initializes appropriate features (e.g., Assignment Reader, Quiz Helper)
  */
 export async function canvas_initialize() {
   if (!canvas_enabled) {
@@ -104,6 +104,8 @@ export async function canvas_initialize() {
   // Initialize features based on page type
   if (pageType === adapter.CanvasPageType.ASSIGNMENT) {
     canvas_initializeAssignmentReader();
+  } else if (pageType === adapter.CanvasPageType.QUIZ) {
+    canvas_initializeQuizHelper();
   }
 }
 
@@ -206,6 +208,320 @@ export function initializeCanvasModule(readText, settings) {
   console.log('[Canvas] Module initialized with dependencies');
 }
 
+// ============================================================
+// QUIZ HELPER FEATURE (Canvas-specific)
+// ============================================================
+
+/**
+ * Quiz Helper State Variables
+ */
+let quizHelper_enabled = false;
+let quizHelper_questions = [];
+let quizHelper_currentIndex = -1;
+let quizHelper_settings = {
+  readAnswers: true,
+  autoRead: false,
+  highlightQuestion: true,
+  highlightColor: '#4A90E2',
+  keyboardNavigation: true,
+};
+
+/**
+ * Initialize Quiz Helper on Canvas quiz pages
+ * @async
+ * @function canvas_initializeQuizHelper
+ * @returns {Promise<void>}
+ * @description Extracts quiz questions and sets up interactive quiz navigation
+ * with TTS support, keyboard shortcuts, and visual highlighting.
+ */
+export async function canvas_initializeQuizHelper() {
+  if (!quizHelper_enabled) {
+    console.log('[QuizHelper] Not enabled');
+    return;
+  }
+
+  const adapter = await canvas_loadAdapter();
+  if (!adapter) {
+    return;
+  }
+
+  // Extract quiz questions using Canvas adapter
+  quizHelper_questions = adapter.extractQuizQuestions() || [];
+
+  if (quizHelper_questions.length === 0) {
+    console.warn('[QuizHelper] No questions found on quiz page');
+    showToast('⚠️ No quiz questions detected');
+    return;
+  }
+
+  console.log('[QuizHelper] Detected', quizHelper_questions.length, 'questions');
+  showToast(`📝 Quiz Helper: ${quizHelper_questions.length} questions found`);
+
+  // Inject UI elements
+  quizHelper_injectUI();
+
+  // Setup keyboard navigation if enabled
+  if (quizHelper_settings.keyboardNavigation) {
+    quizHelper_setupKeyboardNav();
+  }
+
+  console.log('[QuizHelper] Initialized successfully');
+}
+
+/**
+ * Inject UI elements (click handlers, visual indicators)
+ * @function quizHelper_injectUI
+ * @returns {void}
+ */
+function quizHelper_injectUI() {
+  quizHelper_questions.forEach((question, index) => {
+    const element = question.element;
+    if (!element) {
+      return;
+    }
+
+    // Add data attribute for tracking
+    element.dataset.quizQuestionIndex = index;
+
+    // Add hover effect
+    element.style.cursor = 'pointer';
+    element.style.transition = 'all 0.3s ease';
+
+    // Add border to indicate clickable
+    element.style.border = `2px dashed ${quizHelper_settings.highlightColor}40`;
+    element.style.borderRadius = '8px';
+    element.style.padding = '12px';
+    element.style.marginBottom = '16px';
+
+    // Add click handler
+    element.addEventListener('click', e => {
+      // Don't interfere with actual quiz interaction (radio buttons, etc.)
+      if (e.target.matches('input, label, button')) {
+        return;
+      }
+
+      e.stopPropagation();
+      quizHelper_readQuestion(index);
+    });
+
+    // Add hover effects
+    element.addEventListener('mouseenter', () => {
+      if (quizHelper_currentIndex !== index) {
+        element.style.border = `2px solid ${quizHelper_settings.highlightColor}80`;
+        element.style.backgroundColor = `${quizHelper_settings.highlightColor}10`;
+      }
+    });
+
+    element.addEventListener('mouseleave', () => {
+      if (quizHelper_currentIndex !== index) {
+        element.style.border = `2px dashed ${quizHelper_settings.highlightColor}40`;
+        element.style.backgroundColor = '';
+      }
+    });
+  });
+
+  console.log('[QuizHelper] UI injected for', quizHelper_questions.length, 'questions');
+}
+
+/**
+ * Read question aloud with TTS
+ * @function quizHelper_readQuestion
+ * @param {number} index - Question index
+ * @returns {void}
+ */
+function quizHelper_readQuestion(index) {
+  if (index < 0 || index >= quizHelper_questions.length) {
+    return;
+  }
+
+  if (!settingsObject || !settingsObject.enabled) {
+    showToast('⚠️ Enable TTS in the extension popup first');
+    return;
+  }
+
+  const question = quizHelper_questions[index];
+  quizHelper_currentIndex = index;
+
+  // Build text to read
+  let textToRead = `Question ${question.number}: ${question.text}`;
+
+  // Add answers if enabled
+  if (quizHelper_settings.readAnswers && question.answers && question.answers.length > 0) {
+    textToRead += '. Answer options: ';
+    question.answers.forEach((answer, i) => {
+      textToRead += `Option ${String.fromCharCode(65 + i)}: ${answer.text}. `;
+    });
+  }
+
+  console.log('[QuizHelper] Reading question', question.number);
+
+  // Highlight question
+  if (quizHelper_settings.highlightQuestion) {
+    quizHelper_highlightQuestion(question.element);
+  }
+
+  // Scroll to question smoothly
+  question.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  // Read using TTS
+  if (readTextFunction) {
+    readTextFunction(textToRead, question.element);
+  } else {
+    console.error('[QuizHelper] readText function not initialized');
+  }
+}
+
+/**
+ * Highlight current question
+ * @function quizHelper_highlightQuestion
+ * @param {HTMLElement} element - Question element to highlight
+ * @returns {void}
+ */
+function quizHelper_highlightQuestion(element) {
+  // Remove previous highlights
+  quizHelper_questions.forEach(q => {
+    if (q.element && q.element !== element) {
+      q.element.style.border = `2px dashed ${quizHelper_settings.highlightColor}40`;
+      q.element.style.backgroundColor = '';
+      q.element.style.boxShadow = '';
+    }
+  });
+
+  // Highlight current question
+  element.style.border = `3px solid ${quizHelper_settings.highlightColor}`;
+  element.style.backgroundColor = `${quizHelper_settings.highlightColor}15`;
+  element.style.boxShadow = `0 0 12px ${quizHelper_settings.highlightColor}40`;
+}
+
+/**
+ * Setup keyboard navigation
+ * @function quizHelper_setupKeyboardNav
+ * @returns {void}
+ */
+function quizHelper_setupKeyboardNav() {
+  document.addEventListener('keydown', quizHelper_handleKeyPress);
+  console.log('[QuizHelper] Keyboard navigation enabled');
+}
+
+/**
+ * Handle keyboard events
+ * @function quizHelper_handleKeyPress
+ * @param {KeyboardEvent} e - Keyboard event
+ * @returns {void}
+ */
+function quizHelper_handleKeyPress(e) {
+  if (!quizHelper_enabled || quizHelper_questions.length === 0) {
+    return;
+  }
+
+  // Skip if typing in input fields
+  const target = e.target;
+  if (target.matches('input, textarea, [contenteditable="true"]')) {
+    return;
+  }
+
+  // Arrow Down - next question
+  if (e.key === 'ArrowDown' && e.ctrlKey) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const nextIndex = quizHelper_currentIndex + 1;
+    if (nextIndex < quizHelper_questions.length) {
+      quizHelper_navigateToQuestion(nextIndex);
+
+      // Auto-read if enabled
+      if (quizHelper_settings.autoRead) {
+        quizHelper_readQuestion(nextIndex);
+      }
+    } else {
+      showToast('📝 Already at last question');
+    }
+  }
+
+  // Arrow Up - previous question
+  if (e.key === 'ArrowUp' && e.ctrlKey) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const prevIndex = quizHelper_currentIndex - 1;
+    if (prevIndex >= 0) {
+      quizHelper_navigateToQuestion(prevIndex);
+
+      // Auto-read if enabled
+      if (quizHelper_settings.autoRead) {
+        quizHelper_readQuestion(prevIndex);
+      }
+    } else {
+      showToast('📝 Already at first question');
+    }
+  }
+
+  // Enter - read current question
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (quizHelper_currentIndex >= 0 && quizHelper_currentIndex < quizHelper_questions.length) {
+      quizHelper_readQuestion(quizHelper_currentIndex);
+    } else if (quizHelper_questions.length > 0) {
+      // If no question selected, read first question
+      quizHelper_readQuestion(0);
+    }
+  }
+}
+
+/**
+ * Navigate to question (highlight and scroll)
+ * @function quizHelper_navigateToQuestion
+ * @param {number} index - Question index
+ * @returns {void}
+ */
+function quizHelper_navigateToQuestion(index) {
+  if (index < 0 || index >= quizHelper_questions.length) {
+    return;
+  }
+
+  quizHelper_currentIndex = index;
+  const question = quizHelper_questions[index];
+
+  if (quizHelper_settings.highlightQuestion) {
+    quizHelper_highlightQuestion(question.element);
+  }
+
+  question.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  showToast(`📝 Question ${question.number} of ${quizHelper_questions.length}`);
+
+  console.log('[QuizHelper] Navigated to question', question.number);
+}
+
+/**
+ * Cleanup Quiz Helper
+ * @function quizHelper_cleanup
+ * @returns {void}
+ */
+function quizHelper_cleanup() {
+  // Remove event listeners
+  document.removeEventListener('keydown', quizHelper_handleKeyPress);
+
+  // Remove visual indicators
+  quizHelper_questions.forEach(q => {
+    if (q.element) {
+      q.element.style.border = '';
+      q.element.style.cursor = '';
+      q.element.style.backgroundColor = '';
+      q.element.style.boxShadow = '';
+      q.element.style.padding = '';
+      q.element.style.marginBottom = '';
+      delete q.element.dataset.quizQuestionIndex;
+    }
+  });
+
+  quizHelper_questions = [];
+  quizHelper_currentIndex = -1;
+
+  console.log('[QuizHelper] Cleanup complete');
+}
+
 /**
  * Chrome Storage initialization
  * @description Loads Canvas integration settings from chrome.storage.local
@@ -216,11 +532,24 @@ chrome.storage.local.get('assist_settings', result => {
     const ciSettings = result.assist_settings.canvasIntegration;
     canvas_enabled = ciSettings.enabled || false;
 
+    // Load Quiz Helper settings
+    const qhSettings = ciSettings.quizHelper;
+    if (typeof qhSettings === 'object') {
+      quizHelper_enabled = qhSettings.enabled || false;
+      quizHelper_settings.readAnswers = qhSettings.readAnswers !== false;
+      quizHelper_settings.autoRead = qhSettings.autoRead || false;
+      quizHelper_settings.highlightQuestion = qhSettings.highlightQuestion !== false;
+      quizHelper_settings.highlightColor = qhSettings.highlightColor || '#4A90E2';
+      quizHelper_settings.keyboardNavigation = qhSettings.keyboardNavigation !== false;
+    } else if (qhSettings !== undefined) {
+      quizHelper_enabled = qhSettings || false;
+    }
+
     if (canvas_enabled) {
       canvas_initialize();
     }
 
-    console.log('[Canvas] Settings loaded:', canvas_enabled);
+    console.log('[Canvas] Settings loaded - Canvas:', canvas_enabled, 'QuizHelper:', quizHelper_enabled);
   } else {
     console.log('[Canvas] Integration disabled by default');
   }
@@ -236,6 +565,7 @@ chrome.storage.onChanged.addListener(changes => {
     const ciSettings = changes.assist_settings.newValue.canvasIntegration;
     const newEnabled = ciSettings.enabled || false;
 
+    // Handle Canvas integration enable/disable
     if (newEnabled && !canvas_enabled) {
       canvas_enabled = true;
       canvas_initialize();
@@ -243,9 +573,45 @@ chrome.storage.onChanged.addListener(changes => {
     } else if (!newEnabled && canvas_enabled) {
       canvas_enabled = false;
       canvas_removeFAB();
+      quizHelper_cleanup();
       showToast('Canvas Integration disabled');
     }
 
-    console.log('[Canvas] Settings updated:', newEnabled);
+    // Handle Quiz Helper settings updates
+    const qhSettings = ciSettings.quizHelper;
+    if (qhSettings) {
+      const wasEnabled = quizHelper_enabled;
+
+      if (typeof qhSettings === 'object') {
+        const newQHEnabled = qhSettings.enabled || false;
+
+        // Update settings
+        quizHelper_settings.readAnswers = qhSettings.readAnswers !== false;
+        quizHelper_settings.autoRead = qhSettings.autoRead || false;
+        quizHelper_settings.highlightQuestion = qhSettings.highlightQuestion !== false;
+        quizHelper_settings.highlightColor = qhSettings.highlightColor || '#4A90E2';
+        quizHelper_settings.keyboardNavigation = qhSettings.keyboardNavigation !== false;
+
+        // Handle enable/disable
+        if (newQHEnabled && !wasEnabled && canvas_enabled) {
+          quizHelper_enabled = true;
+          canvas_initializeQuizHelper();
+        } else if (!newQHEnabled && wasEnabled) {
+          quizHelper_enabled = false;
+          quizHelper_cleanup();
+          showToast('Quiz Helper disabled');
+        } else if (newQHEnabled && wasEnabled) {
+          // Settings changed, reinitialize
+          quizHelper_cleanup();
+          canvas_initializeQuizHelper();
+        }
+
+        console.log('[QuizHelper] Settings updated:', newQHEnabled, quizHelper_settings);
+      } else {
+        quizHelper_enabled = qhSettings || false;
+      }
+    }
+
+    console.log('[Canvas] Settings updated - Canvas:', newEnabled, 'QuizHelper:', quizHelper_enabled);
   }
 });
