@@ -5,6 +5,7 @@
 
 import { getSettings, onSettingsChange } from '../utils/storage-utils.js';
 import { showToast } from '../utils/dom-utils.js';
+import { isTextInput } from '../../features/stt/validation.js';
 
 // STT State (Feature Isolated)
 let stt_enabled = false;
@@ -43,38 +44,8 @@ async function stt_loadModules() {
   // }
 }
 
-/**
- * Check if element is a text input field
- */
-function stt_isTextInput(element) {
-  if (!element) {
-    return false;
-  }
-
-  const tagName = element.tagName?.toLowerCase();
-  const contentEditable = element.contentEditable === 'true' || element.isContentEditable;
-
-  // Check for standard text inputs
-  if (tagName === 'textarea') {
-    return true;
-  }
-  if (tagName === 'input') {
-    const type = element.type?.toLowerCase();
-    return ['text', 'email', 'search', 'url', 'tel'].includes(type);
-  }
-
-  // Check for contenteditable elements
-  if (contentEditable) {
-    return true;
-  }
-
-  // Check for Canvas Rich Text Editor
-  if (element.closest('.mce-content-body, [role="textbox"]')) {
-    return true;
-  }
-
-  return false;
-}
+// Check if element is a text input field
+// EXTRACTED: See src/features/stt/validation.js - isTextInput()
 
 /**
  * Set up listeners for text field focus
@@ -88,7 +59,7 @@ function stt_setupFieldListeners() {
   document.addEventListener(
     'focusin',
     e => {
-      if (stt_enabled && stt_isTextInput(e.target)) {
+      if (stt_enabled && isTextInput(e.target)) {
         stt_activeField = e.target;
         if (stt_micButton) {
           stt_micButton.show(e.target);
