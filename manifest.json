@@ -54,7 +54,9 @@
         "src/ui/components/*.js",
         "src/ui/styles/*.css",
         "public/assets/*",
-        "adapters/canvas-adapter.js",
+        "src/adapters/canvas-adapter.js",
+        "src/adapters/moodle-adapter.js",
+        "src/adapters/google-classroom-adapter.js",
         "src/engines/stt/stt-controller.js",
         "src/ui/components/microphone-button.js"
       ],

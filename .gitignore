@@ -41,3 +41,6 @@ temp/
 
 # OS files
 Thumbs.db
+
+# Vite build output
+.vite/
