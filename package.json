@@ -17,7 +17,9 @@
     "format": "prettier --write \"src/**/*.{js,css,html}\"",
     "build": "node scripts/build-extension.js",
     "dev": "node scripts/dev-server.js",
-    "prepare": "husky"
+    "prepare": "husky",
+    "switch:assist": "node -e \"require('fs').copyFileSync('manifest.assist.json', 'manifest.json')\" && echo Switched to AssisT version",
+    "switch:ncad": "node -e \"require('fs').copyFileSync('manifest.ncad.json', 'manifest.json')\" && echo Switched to @NCAD version"
   },
   "keywords": [
     "accessibility",
