@@ -821,3 +821,30 @@ This is not technical debt. This is not poor code quality. This is the correct a
 5. Create branch for ANY non-trivial enhancement
 
 ---
+
+### DEC-202510-023
+
+| Field | Value |
+|-------|-------|
+| **ID** | DEC-202510-023 |
+| **Date** | 2025-10-30 |
+| **Decision** | **CONFIRMED: Chrome Extensions Cannot Use Native ES6 Modules in Content Scripts** - Modularization Requires Bundler |
+| **Rationale** | **FOURTH FAILED ATTEMPT DOCUMENTED:** Despite adding `"type": "module"` to manifest.json content_scripts and using proper ES6 import syntax, Chrome threw error: `Uncaught SyntaxError: Cannot use import statement outside a module` when loading content-simple.js. This confirms DEC-202510-020 findings. **Root Cause:** Chrome Manifest V3 content scripts do NOT support native ES6 module imports, even with `"type": "module"`. The flag works for background service workers but NOT content scripts. **ONLY VIABLE APPROACH:** Use a bundler (Vite/Webpack/Rollup) to compile modular source into single file that Chrome can load. |
+| **Alternatives** | 1. **Native ES6 modules:** FAILED (4th attempt) - Chrome doesn't support it. 2. **Vite bundler:** Recommended - fast, has Chrome extension plugins. 3. **Webpack bundler:** Alternative - more complex but proven. 4. **Rollup bundler:** Alternative - simpler config. 5. **Keep monolithic:** Works but defeats modularity goal. |
+| **Impact** | **Development:** Cannot use incremental Strangler Fig pattern from DEC-202510-022 with native imports. **Required:** Must integrate bundler into build process BEFORE any modularization. **Workflow:** Write modular src/ → bundle to Output/bundled.js → Chrome loads bundled file. **Timeline:** Phase 1 blocked until bundler validated. |
+| **Stakeholders** | Lead Developer, AI Assistant, Future Contributors |
+| **Outcome/Action** | (1) Reverted commit 5afc3e5 - extension working. (2) Confirmed DEC-202510-020 correct. (3) **NEW PLAN:** Set up Vite bundler FIRST, then resume modularization. (4) Update DEC-202510-022 to require bundler as prerequisite. |
+
+**Critical Learning:**
+- `"type": "module"` works ONLY for background service workers, NOT content scripts
+- Content scripts MUST be: single file OR bundled from modules
+- This is a **platform limitation**, not fixable by configuration
+
+**Revised Strategy:**
+We can still achieve modular architecture, but MUST use this workflow:
+1. Write modular source code in /src/core/, /src/features/
+2. Use Vite to bundle modules → single content-script.bundled.js
+3. Chrome loads the bundled file (no module syntax)
+4. Developers work with clean modular code, Chrome gets bundled monolith
+
+---
