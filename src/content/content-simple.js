@@ -8,6 +8,10 @@ import { showToast } from '../core/ui/toast.js';
 import { hexToRgba } from '../core/utils/color.js';
 import { isTextInput } from '../features/stt/validation.js';
 import { removeHighlight, highlightElement, removeElementHighlight, highlightWordByWord, cleanupWordByWord } from '../core/dom/highlighting.js';
+import { dyslexia_initialize } from '../content/features/dyslexia.js';
+import { readingGuide_enable, readingGuide_disable, readingGuide_createLine, readingGuide_updatePosition, readingGuide_updateStyle, readingGuide_handleMouseMove } from '../features/readingGuide/readingGuide.js';
+import { screenOverlay_create, screenOverlay_remove, screenOverlay_update, screenOverlay_enable, screenOverlay_disable, screenOverlay_settings } from '../features/screenOverlay/screenOverlay.js';
+import '../features/textCustomization/textCustomization.js'; // Self-initializing module with Chrome storage listeners
 
 console.log('[AssisT] Content script loaded');
 
@@ -483,321 +487,59 @@ document.addEventListener(
 // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
 // ============================================================
 
-// Text Customization State (Feature Isolated)
-let textCustomization_enabled = false;
-let textCustomization_styleElement = null;
-let textCustomization_fontLinkElement = null;
-const textCustomization_settings = {
-  fontFamily: 'system',
-  lineSpacing: 1.5,
-  letterSpacing: 0.12,
-  wordSpacing: 0.16,
-  paragraphSpacing: 2.0,
-};
+// ✂️ EXTRACTED: Text Customization module moved to src/features/textCustomization/textCustomization.js (Phase 1, Modularization)
+// Imported at top of file with: import '../features/textCustomization/textCustomization.js';
+//
+// This is a self-initializing module that:
+// - Manages all text customization state internally
+// - Handles Chrome storage listeners for settings persistence
+// - Automatically applies settings on module load
+// - Provides toast notifications for enable/disable actions
+//
+// Extracted functions:
+// - textCustomization_apply() - Applies text customization to the page
+// - textCustomization_remove() - Removes text customization
+// - textCustomization_generateCSS() - Generates WCAG 2.2 SC 1.4.12 compliant CSS
+// - textCustomization_loadLexend() - Loads Lexend font from Google Fonts
+// - textCustomization_loadOpenDyslexic() - Loads OpenDyslexic font from CDN
+//
+// Extracted state:
+// - textCustomization_enabled - Enable/disable flag
+// - textCustomization_styleElement - Reference to injected style element
+// - textCustomization_fontLinkElement - Reference to font link element
+// - textCustomization_settings - Typography settings object
+// - textCustomization_fontMap - Font family mapping
+//
+// Extracted Chrome storage integration:
+// - chrome.storage.local.get() - Loads settings on module initialization
+// - chrome.storage.onChanged.addListener() - Listens for real-time settings updates
+//
+// Module operates independently via Vite bundling.
+// Phase 1, Modularization (2025-10-30)
 
-// Font map for CSS generation
-const textCustomization_fontMap = {
-  system: 'inherit',
-  lexend: '"Lexend", -apple-system, system-ui, sans-serif',
-  opendyslexic: '"OpenDyslexic", Arial, sans-serif',
-  'comic-sans': '"Comic Sans MS", "Comic Sans", cursive',
-  arial: 'Arial, Helvetica, sans-serif',
-};
-
-// Load Lexend font from Google Fonts
-function textCustomization_loadLexend() {
-  if (!textCustomization_fontLinkElement) {
-    textCustomization_fontLinkElement = document.createElement('link');
-    textCustomization_fontLinkElement.rel = 'stylesheet';
-    textCustomization_fontLinkElement.href =
-      'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap';
-    document.head.appendChild(textCustomization_fontLinkElement);
-    console.log('[TextCustomization] Lexend font loaded from Google Fonts');
-  }
-}
-
-// Load OpenDyslexic font from CDN
-function textCustomization_loadOpenDyslexic() {
-  if (!document.getElementById('assist-opendyslexic-font')) {
-    const style = document.createElement('style');
-    style.id = 'assist-opendyslexic-font';
-    style.textContent = `
-      @font-face {
-        font-family: 'OpenDyslexic';
-        src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/ttf/OpenDyslexic-Regular.ttf') format('truetype');
-        font-weight: normal;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: 'OpenDyslexic';
-        src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/ttf/OpenDyslexic-Bold.ttf') format('truetype');
-        font-weight: bold;
-        font-style: normal;
-      }
-    `;
-    document.head.appendChild(style);
-    console.log('[TextCustomization] OpenDyslexic font loaded from CDN');
-  }
-}
-
-// Generate CSS for text customization
-function textCustomization_generateCSS() {
-  const font = textCustomization_fontMap[textCustomization_settings.fontFamily] || 'inherit';
-
-  // Load fonts if needed
-  if (textCustomization_settings.fontFamily === 'lexend') {
-    textCustomization_loadLexend();
-  } else if (textCustomization_settings.fontFamily === 'opendyslexic') {
-    textCustomization_loadOpenDyslexic();
-  }
-
-  // Generate CSS with high specificity and !important to override Canvas styles
-  // Exclude Canvas UI elements (buttons, inputs, navigation, headers)
-  return `
-    /* Text Customization - WCAG 2.2 SC 1.4.12 Compliant */
-    body *:not(button):not(input):not(select):not(textarea):not([role="button"]):not([role="navigation"]):not(code):not(pre):not(.ic-app-header):not(.ic-app-header *):not(#header):not(#header *) {
-      font-family: ${font} !important;
-      line-height: ${textCustomization_settings.lineSpacing} !important;
-      letter-spacing: ${textCustomization_settings.letterSpacing}em !important;
-      word-spacing: ${textCustomization_settings.wordSpacing}em !important;
-    }
-
-    /* Paragraph spacing */
-    p:not(.ic-app-header p):not(#header p),
-    div.user_content p,
-    article p,
-    section p {
-      margin-bottom: ${textCustomization_settings.paragraphSpacing}em !important;
-    }
-  `;
-}
-
-// Apply text customization
-function textCustomization_apply() {
-  if (!textCustomization_enabled) {
-    textCustomization_remove();
-    return;
-  }
-
-  // Remove existing style element
-  if (textCustomization_styleElement) {
-    textCustomization_styleElement.remove();
-  }
-
-  // Create new style element
-  textCustomization_styleElement = document.createElement('style');
-  textCustomization_styleElement.id = 'assist-text-customization';
-  textCustomization_styleElement.textContent = textCustomization_generateCSS();
-  document.head.appendChild(textCustomization_styleElement);
-
-  console.log('[TextCustomization] Applied:', textCustomization_settings);
-}
-
-// Remove text customization
-function textCustomization_remove() {
-  if (textCustomization_styleElement) {
-    textCustomization_styleElement.remove();
-    textCustomization_styleElement = null;
-  }
-  console.log('[TextCustomization] Removed');
-}
-
-// Load Text Customization settings from storage
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.textCustomization) {
-    const tcSettings = result.assist_settings.textCustomization;
-    textCustomization_enabled = tcSettings.enabled || false;
-    textCustomization_settings.fontFamily = tcSettings.fontFamily || 'system';
-    textCustomization_settings.lineSpacing = tcSettings.lineSpacing || 1.5;
-    textCustomization_settings.letterSpacing = tcSettings.letterSpacing || 0.12;
-    textCustomization_settings.wordSpacing = tcSettings.wordSpacing || 0.16;
-    textCustomization_settings.paragraphSpacing = tcSettings.paragraphSpacing || 2.0;
-
-    if (textCustomization_enabled) {
-      textCustomization_apply();
-    }
-
-    console.log(
-      '[TextCustomization] Settings loaded:',
-      textCustomization_enabled,
-      textCustomization_settings
-    );
-  }
-});
-
-// Listen for Text Customization settings updates
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.textCustomization) {
-    const tcSettings = changes.assist_settings.newValue.textCustomization;
-
-    const wasEnabled = textCustomization_enabled;
-    textCustomization_enabled = tcSettings.enabled || false;
-    textCustomization_settings.fontFamily = tcSettings.fontFamily || 'system';
-    textCustomization_settings.lineSpacing = tcSettings.lineSpacing || 1.5;
-    textCustomization_settings.letterSpacing = tcSettings.letterSpacing || 0.12;
-    textCustomization_settings.wordSpacing = tcSettings.wordSpacing || 0.16;
-    textCustomization_settings.paragraphSpacing = tcSettings.paragraphSpacing || 2.0;
-
-    // Apply or remove based on enabled state
-    if (textCustomization_enabled) {
-      textCustomization_apply();
-      if (!wasEnabled) {
-        showToast('✨ Text Customization enabled');
-      }
-    } else {
-      textCustomization_remove();
-      if (wasEnabled) {
-        showToast('Text Customization disabled');
-      }
-    }
-
-    console.log(
-      '[TextCustomization] Settings updated:',
-      textCustomization_enabled,
-      textCustomization_settings
-    );
-  }
-});
-
+// ============================================================
 // ============================================================
 // SPRINT 3 FEATURE: READING GUIDE
 // ============================================================
-
-// Reading Guide State (Feature Isolated)
-let readingGuide_enabled = false;
-let readingGuide_lineElement = null;
-const readingGuide_settings = {
-  lineColor: '#000000',
-  lineThickness: 3,
-  lineOpacity: 0.7,
-};
-
-// Create Reading Guide line element
-function readingGuide_createLine() {
-  if (readingGuide_lineElement) {
-    return; // Already exists
-  }
-
-  readingGuide_lineElement = document.createElement('div');
-  readingGuide_lineElement.id = 'assist-reading-guide-line';
-  readingGuide_lineElement.style.cssText = `
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100vw;
-    height: ${readingGuide_settings.lineThickness}px;
-    background-color: ${readingGuide_settings.lineColor};
-    opacity: ${readingGuide_settings.lineOpacity};
-    pointer-events: none;
-    z-index: 9999;
-    transition: top 0.05s ease-out;
-    display: none;
-  `;
-  document.body.appendChild(readingGuide_lineElement);
-  console.log('[ReadingGuide] Line element created');
-}
-
-// Update line position based on mouse Y coordinate
-function readingGuide_updatePosition(mouseY) {
-  if (readingGuide_lineElement && readingGuide_enabled) {
-    readingGuide_lineElement.style.top = mouseY + 'px';
-  }
-}
-
-// Update line styling
-function readingGuide_updateStyle() {
-  if (readingGuide_lineElement) {
-    readingGuide_lineElement.style.height = readingGuide_settings.lineThickness + 'px';
-    readingGuide_lineElement.style.backgroundColor = readingGuide_settings.lineColor;
-    readingGuide_lineElement.style.opacity = readingGuide_settings.lineOpacity;
-  }
-}
-
-// Enable Reading Guide
-function readingGuide_enable() {
-  // Check mutual exclusivity with Focus Mode
-  if (focusMode_enabled) {
-    focusMode_disable();
-    showToast('🎯 Focus Mode disabled (Reading Guide active)');
-  }
-
-  readingGuide_enabled = true;
-  readingGuide_createLine();
-  if (readingGuide_lineElement) {
-    readingGuide_lineElement.style.display = 'block';
-  }
-
-  // Add mousemove listener
-  document.addEventListener('mousemove', readingGuide_handleMouseMove);
-
-  console.log('[ReadingGuide] Enabled');
-  showToast('📏 Reading Guide enabled');
-}
-
-// Disable Reading Guide
-function readingGuide_disable() {
-  readingGuide_enabled = false;
-  if (readingGuide_lineElement) {
-    readingGuide_lineElement.style.display = 'none';
-  }
-
-  // Remove mousemove listener
-  document.removeEventListener('mousemove', readingGuide_handleMouseMove);
-
-  console.log('[ReadingGuide] Disabled');
-  showToast('Reading Guide disabled');
-}
-
-// Mouse move handler
-function readingGuide_handleMouseMove(event) {
-  if (readingGuide_enabled) {
-    readingGuide_updatePosition(event.clientY);
-  }
-}
-
-// Load Reading Guide settings from storage
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.readingGuide) {
-    const rgSettings = result.assist_settings.readingGuide;
-    readingGuide_enabled = rgSettings.enabled || false;
-    readingGuide_settings.lineColor = rgSettings.lineColor || '#000000';
-    readingGuide_settings.lineThickness = rgSettings.lineThickness || 3;
-    readingGuide_settings.lineOpacity = rgSettings.lineOpacity || 0.7;
-
-    if (readingGuide_enabled) {
-      readingGuide_enable();
-    }
-
-    console.log('[ReadingGuide] Settings loaded:', readingGuide_enabled, readingGuide_settings);
-  }
-});
-
-// Listen for Reading Guide settings updates
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.readingGuide) {
-    const rgSettings = changes.assist_settings.newValue.readingGuide;
-
-    const wasEnabled = readingGuide_enabled;
-    const newEnabled = rgSettings.enabled || false;
-
-    // Update settings
-    readingGuide_settings.lineColor = rgSettings.lineColor || '#000000';
-    readingGuide_settings.lineThickness = rgSettings.lineThickness || 3;
-    readingGuide_settings.lineOpacity = rgSettings.lineOpacity || 0.7;
-
-    // Handle enable/disable
-    if (newEnabled && !wasEnabled) {
-      readingGuide_enable();
-    } else if (!newEnabled && wasEnabled) {
-      readingGuide_disable();
-    } else if (newEnabled) {
-      // Update style if already enabled
-      readingGuide_updateStyle();
-    }
-
-    console.log('[ReadingGuide] Settings updated:', newEnabled, readingGuide_settings);
-  }
-});
+// EXTRACTION COMMENT: All readingGuide functions and state have been
+// extracted to src/features/readingGuide/readingGuide.js
+//
+// Functions extracted (and imported at top of file):
+// - readingGuide_createLine()
+// - readingGuide_updatePosition()
+// - readingGuide_updateStyle()
+// - readingGuide_enable()
+// - readingGuide_disable()
+// - readingGuide_handleMouseMove()
+//
+// State variables (now managed in module):
+// - readingGuide_enabled
+// - readingGuide_lineElement
+// - readingGuide_settings
+//
+// Storage initialization and listeners are now handled in the module.
+// See: src/features/readingGuide/readingGuide.js for implementation.
+// ============================================================
 
 // ============================================================
 // SPRINT 3 FEATURE: FOCUS MODE
@@ -1925,115 +1667,25 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
 // ============================================================
 // SPRINT 6 FEATURE: SCREEN COLOR OVERLAY
 // ============================================================
-
-// Screen Overlay State (Feature Isolated)
-let screenOverlay_enabled = false;
-let screenOverlay_element = null;
-const screenOverlay_settings = {
-  color: '#FFF4E6', // Warm sepia
-  opacity: 0.3,
-};
-
-// Create screen overlay element
-function screenOverlay_create() {
-  if (screenOverlay_element) {
-    return; // Already exists
-  }
-
-  screenOverlay_element = document.createElement('div');
-  screenOverlay_element.id = 'assist-screen-overlay';
-  screenOverlay_element.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: ${screenOverlay_settings.color};
-    opacity: ${screenOverlay_settings.opacity};
-    pointer-events: none;
-    z-index: 999999;
-    transition: background-color 0.3s ease, opacity 0.3s ease;
-  `;
-
-  document.body.appendChild(screenOverlay_element);
-  console.log('[ScreenOverlay] Overlay element created');
-}
-
-// Update overlay styling
-function screenOverlay_update() {
-  if (screenOverlay_element) {
-    screenOverlay_element.style.backgroundColor = screenOverlay_settings.color;
-    screenOverlay_element.style.opacity = screenOverlay_settings.opacity;
-    console.log('[ScreenOverlay] Updated:', screenOverlay_settings);
-  }
-}
-
-// Remove screen overlay
-function screenOverlay_remove() {
-  if (screenOverlay_element) {
-    screenOverlay_element.remove();
-    screenOverlay_element = null;
-    console.log('[ScreenOverlay] Removed');
-  }
-}
-
-// Enable screen overlay
-function screenOverlay_enable() {
-  screenOverlay_enabled = true;
-  screenOverlay_create();
-  showToast('🎨 Screen Overlay enabled');
-  console.log('[ScreenOverlay] Enabled');
-}
-
-// Disable screen overlay
-function screenOverlay_disable() {
-  screenOverlay_enabled = false;
-  screenOverlay_remove();
-  showToast('Screen Overlay disabled');
-  console.log('[ScreenOverlay] Disabled');
-}
-
-// Load Screen Overlay settings from storage
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.screenOverlay) {
-    const soSettings = result.assist_settings.screenOverlay;
-    screenOverlay_enabled = soSettings.enabled || false;
-    screenOverlay_settings.color = soSettings.color || '#FFF4E6';
-    screenOverlay_settings.opacity = soSettings.opacity || 0.3;
-
-    if (screenOverlay_enabled) {
-      screenOverlay_enable();
-    }
-
-    console.log('[ScreenOverlay] Settings loaded:', screenOverlay_enabled, screenOverlay_settings);
-  }
-});
-
-// Listen for Screen Overlay settings updates
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.screenOverlay) {
-    const soSettings = changes.assist_settings.newValue.screenOverlay;
-
-    const wasEnabled = screenOverlay_enabled;
-    const newEnabled = soSettings.enabled || false;
-
-    // Update settings
-    screenOverlay_settings.color = soSettings.color || '#FFF4E6';
-    screenOverlay_settings.opacity = soSettings.opacity || 0.3;
-
-    // Handle enable/disable
-    if (newEnabled && !wasEnabled) {
-      screenOverlay_enable();
-    } else if (!newEnabled && wasEnabled) {
-      screenOverlay_disable();
-    } else if (newEnabled) {
-      // Update style if already enabled
-      screenOverlay_update();
-    }
-
-    console.log('[ScreenOverlay] Settings updated:', newEnabled, screenOverlay_settings);
-  }
-});
+//
+// EXTRACTED: Screen Overlay feature module
+// Location: src/features/screenOverlay/screenOverlay.js
+//
+// The screenOverlay module provides:
+// - screenOverlay_create() - Creates overlay element
+// - screenOverlay_update() - Updates overlay styling
+// - screenOverlay_remove() - Removes overlay from DOM
+// - screenOverlay_enable() - Enables the overlay feature
+// - screenOverlay_disable() - Disables the overlay feature
+// - screenOverlay_settings - Configuration object
+//
+// All initialization and storage listeners are handled within the module
+// to maintain feature isolation and modularity.
+//
+// Imported at top of file via:
+// import { screenOverlay_create, screenOverlay_remove, screenOverlay_update,
+//          screenOverlay_enable, screenOverlay_disable, screenOverlay_settings }
+//         from '../features/screenOverlay/screenOverlay.js';
 
 // ============================================================
 // SPRINT 7 FEATURE: CANVAS QUIZ HELPER
@@ -2406,447 +2058,22 @@ chrome.storage.onChanged.addListener(changes => {
 });
 
 // ============================================================
+
+// ============================================================
 // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
 // ============================================================
-
-// Dyslexia Mode State (Feature Isolated)
-let dyslexiaMode_enabled = false;
-const dyslexiaMode_settings = {
-  bionicReading: true,
-  syllableHighlighting: false,
-  grammarColors: false,
-  colorIntensity: 0.7, // 0.5-1.0, affects saturation
-};
-const dyslexiaMode_originalContent = new Map(); // Store original HTML
-const dyslexiaMode_processedElements = new Set(); // Track processed elements
-
-// Bionic Reading: Bold first letters of words
-function dyslexiaMode_applyBionicReading(element) {
-  if (!element || element.dataset.assistDyslexiaProcessed) {
-    return;
-  }
-
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-    acceptNode: node => {
-      // Skip if parent is a script, style, or already processed
-      const parent = node.parentElement;
-      if (!parent) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      const tag = parent.tagName?.toLowerCase();
-      if (['script', 'style', 'code', 'pre'].includes(tag)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      if (parent.classList.contains('assist-bionic')) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return node.textContent.trim().length > 0
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_REJECT;
-    },
-  });
-
-  const textNodes = [];
-  let node;
-  while ((node = walker.nextNode())) {
-    textNodes.push(node);
-  }
-
-  textNodes.forEach(textNode => {
-    const text = textNode.textContent;
-    const parent = textNode.parentElement;
-    if (!text.trim() || !parent) {
-      return;
-    }
-
-    // Split into words and process
-    const words = text.split(/(\s+|[,.!?;:])/);
-    const fragment = document.createDocumentFragment();
-
-    words.forEach(word => {
-      if (!word.trim()) {
-        // Keep whitespace/punctuation as-is
-        fragment.appendChild(document.createTextNode(word));
-      } else {
-        // Determine how many letters to bold based on word length
-        const len = word.length;
-        let boldCount;
-        if (len <= 3) {
-          boldCount = 1;
-        } else if (len <= 7) {
-          boldCount = 2;
-        } else {
-          boldCount = 3;
-        }
-
-        // Create span with bolded first part
-        const span = document.createElement('span');
-        span.classList.add('assist-bionic');
-
-        const strongPart = document.createElement('strong');
-        strongPart.textContent = word.substring(0, boldCount);
-        strongPart.style.fontWeight = '700';
-
-        const normalPart = document.createTextNode(word.substring(boldCount));
-
-        span.appendChild(strongPart);
-        span.appendChild(normalPart);
-        fragment.appendChild(span);
-      }
-    });
-
-    parent.replaceChild(fragment, textNode);
-  });
-
-  element.dataset.assistDyslexiaProcessed = 'bionic';
-}
-
-// Syllable Highlighting: Alternate colors between syllables
-function dyslexiaMode_applySyllableHighlighting(element) {
-  if (!element || element.dataset.assistDyslexiaProcessed) {
-    return;
-  }
-
-  // Simple syllable split algorithm (basic English rules)
-  function splitIntoSyllables(word) {
-    // Very basic syllabification - split on vowel clusters
-    // This is simplified; production would use Hypher.js library
-    if (word.length <= 3) {
-      return [word];
-    }
-
-    const vowels = 'aeiouAEIOU';
-    const syllables = [];
-    let current = '';
-
-    for (let i = 0; i < word.length; i++) {
-      current += word[i];
-
-      // Split when we hit a consonant after a vowel
-      if (i < word.length - 1) {
-        const isVowel = vowels.includes(word[i]);
-        const nextIsConsonant = !vowels.includes(word[i + 1]);
-
-        if (isVowel && nextIsConsonant && current.length >= 2) {
-          syllables.push(current);
-          current = '';
-        }
-      }
-    }
-
-    if (current) {
-      syllables.push(current);
-    }
-    return syllables.length > 0 ? syllables : [word];
-  }
-
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-    acceptNode: node => {
-      const parent = node.parentElement;
-      if (!parent) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      const tag = parent.tagName?.toLowerCase();
-      if (['script', 'style', 'code', 'pre'].includes(tag)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return node.textContent.trim().length > 0
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_REJECT;
-    },
-  });
-
-  const textNodes = [];
-  let node;
-  while ((node = walker.nextNode())) {
-    textNodes.push(node);
-  }
-
-  const color1 = `rgba(179, 229, 252, ${dyslexiaMode_settings.colorIntensity * 0.5})`; // Light blue
-  const color2 = `rgba(255, 249, 196, ${dyslexiaMode_settings.colorIntensity * 0.5})`; // Light yellow
-
-  textNodes.forEach(textNode => {
-    const text = textNode.textContent;
-    const parent = textNode.parentElement;
-    if (!text.trim() || !parent) {
-      return;
-    }
-
-    const words = text.split(/(\s+)/);
-    const fragment = document.createDocumentFragment();
-
-    words.forEach(word => {
-      if (!word.trim()) {
-        fragment.appendChild(document.createTextNode(word));
-      } else {
-        const syllables = splitIntoSyllables(word);
-        syllables.forEach((syllable, idx) => {
-          const span = document.createElement('span');
-          span.classList.add('assist-syllable');
-          span.textContent = syllable;
-          span.style.backgroundColor = idx % 2 === 0 ? color1 : color2;
-          span.style.padding = '0 1px';
-          fragment.appendChild(span);
-        });
-      }
-    });
-
-    parent.replaceChild(fragment, textNode);
-  });
-
-  element.dataset.assistDyslexiaProcessed = 'syllable';
-}
-
-// Grammar Color-Coding: Color words by part of speech
-async function dyslexiaMode_applyGrammarColors(element) {
-  if (!element || element.dataset.assistDyslexiaProcessed) {
-    return;
-  }
-
-  // Dynamic import compromise.js
-  let nlp;
-  try {
-    nlp = (await import(chrome.runtime.getURL('node_modules/compromise/builds/compromise.mjs')))
-      .default;
-  } catch (error) {
-    console.error('[DyslexiaMode] Failed to load compromise.js:', error);
-    return;
-  }
-
-  // Get text content
-  const text = element.textContent;
-  if (!text.trim()) {
-    return;
-  }
-
-  // Parse with compromise
-  const doc = nlp(text);
-
-  // Color mapping (with intensity adjustment)
-  const intensity = dyslexiaMode_settings.colorIntensity;
-  const colors = {
-    noun: `rgba(33, 150, 243, ${intensity * 0.3})`, // Blue
-    verb: `rgba(76, 175, 80, ${intensity * 0.3})`, // Green
-    adjective: `rgba(156, 39, 176, ${intensity * 0.3})`, // Purple
-    adverb: `rgba(255, 152, 0, ${intensity * 0.3})`, // Orange
-    other: `rgba(158, 158, 158, ${intensity * 0.15})`, // Gray
-  };
-
-  // Extract parts of speech
-  const nouns = new Set(doc.nouns().out('array'));
-  const verbs = new Set(doc.verbs().out('array'));
-  const adjectives = new Set(doc.adjectives().out('array'));
-  const adverbs = new Set(doc.adverbs().out('array'));
-
-  // Process text nodes
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-    acceptNode: node => {
-      const parent = node.parentElement;
-      if (!parent) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      const tag = parent.tagName?.toLowerCase();
-      if (['script', 'style', 'code', 'pre'].includes(tag)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return node.textContent.trim().length > 0
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_REJECT;
-    },
-  });
-
-  const textNodes = [];
-  let node;
-  while ((node = walker.nextNode())) {
-    textNodes.push(node);
-  }
-
-  textNodes.forEach(textNode => {
-    const text = textNode.textContent;
-    const parent = textNode.parentElement;
-    if (!text.trim() || !parent) {
-      return;
-    }
-
-    const words = text.split(/(\s+|[,.!?;:])/);
-    const fragment = document.createDocumentFragment();
-
-    words.forEach(word => {
-      if (!word.trim()) {
-        fragment.appendChild(document.createTextNode(word));
-      } else {
-        const lowerWord = word.toLowerCase();
-        let color = colors.other;
-
-        if (nouns.has(lowerWord)) {
-          color = colors.noun;
-        } else if (verbs.has(lowerWord)) {
-          color = colors.verb;
-        } else if (adjectives.has(lowerWord)) {
-          color = colors.adjective;
-        } else if (adverbs.has(lowerWord)) {
-          color = colors.adverb;
-        }
-
-        const span = document.createElement('span');
-        span.classList.add('assist-grammar');
-        span.textContent = word;
-        span.style.backgroundColor = color;
-        span.style.padding = '0 2px';
-        span.style.borderRadius = '2px';
-        fragment.appendChild(span);
-      }
-    });
-
-    parent.replaceChild(fragment, textNode);
-  });
-
-  element.dataset.assistDyslexiaProcessed = 'grammar';
-}
-
-// Apply dyslexia mode to main content
-async function dyslexiaMode_apply() {
-  if (!dyslexiaMode_enabled) {
-    dyslexiaMode_remove();
-    return;
-  }
-
-  const startTime = performance.now();
-
-  // Find main content areas
-  const contentSelectors = [
-    'main',
-    'article',
-    '[role="main"]',
-    '.main-content',
-    '.content',
-    '#content',
-    '.user_content',
-    '.ic-Layout-contentMain', // Canvas-specific
-    'p',
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'h5',
-    'h6',
-    'li',
-    'blockquote',
-  ];
-
-  const elements = new Set();
-  contentSelectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(el => {
-      // Skip already processed elements
-      if (!dyslexiaMode_processedElements.has(el)) {
-        elements.add(el);
-      }
-    });
-  });
-
-  if (elements.size === 0) {
-    console.log('[DyslexiaMode] No content elements found');
-    return;
-  }
-
-  console.log('[DyslexiaMode] Processing', elements.size, 'elements');
-
-  // Store original content for reset
-  elements.forEach(el => {
-    if (!dyslexiaMode_originalContent.has(el)) {
-      dyslexiaMode_originalContent.set(el, el.innerHTML);
-    }
-  });
-
-  // Apply selected features
-  for (const element of elements) {
-    if (dyslexiaMode_settings.bionicReading) {
-      dyslexiaMode_applyBionicReading(element);
-    } else if (dyslexiaMode_settings.syllableHighlighting) {
-      dyslexiaMode_applySyllableHighlighting(element);
-    } else if (dyslexiaMode_settings.grammarColors) {
-      await dyslexiaMode_applyGrammarColors(element);
-    }
-
-    dyslexiaMode_processedElements.add(element);
-  }
-
-  const duration = performance.now() - startTime;
-  console.log(`[DyslexiaMode] Applied in ${duration.toFixed(1)}ms`);
-  showToast(`✨ Dyslexia Mode enabled`);
-}
-
-// Remove dyslexia mode (restore original content)
-function dyslexiaMode_remove() {
-  // Restore original HTML
-  dyslexiaMode_originalContent.forEach((originalHTML, element) => {
-    if (element && element.isConnected) {
-      element.innerHTML = originalHTML;
-      delete element.dataset.assistDyslexiaProcessed;
-    }
-  });
-
-  dyslexiaMode_originalContent.clear();
-  dyslexiaMode_processedElements.clear();
-
-  console.log('[DyslexiaMode] Removed');
-  showToast('Dyslexia Mode disabled');
-}
-
-// Load Dyslexia Mode settings from storage
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.dyslexiaMode) {
-    const dmSettings = result.assist_settings.dyslexiaMode;
-    dyslexiaMode_enabled = dmSettings.enabled || false;
-    dyslexiaMode_settings.bionicReading = dmSettings.bionicReading !== false;
-    dyslexiaMode_settings.syllableHighlighting = dmSettings.syllableHighlighting || false;
-    dyslexiaMode_settings.grammarColors = dmSettings.grammarColors || false;
-    dyslexiaMode_settings.colorIntensity = dmSettings.colorIntensity || 0.7;
-
-    if (dyslexiaMode_enabled) {
-      // Apply after page loads
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-          setTimeout(() => dyslexiaMode_apply(), 500);
-        });
-      } else {
-        setTimeout(() => dyslexiaMode_apply(), 500);
-      }
-    }
-
-    console.log('[DyslexiaMode] Settings loaded:', dyslexiaMode_enabled, dyslexiaMode_settings);
-  }
-});
-
-// Listen for Dyslexia Mode settings updates
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.dyslexiaMode) {
-    const dmSettings = changes.assist_settings.newValue.dyslexiaMode;
-
-    const wasEnabled = dyslexiaMode_enabled;
-    const newEnabled = dmSettings.enabled || false;
-
-    // Update settings
-    dyslexiaMode_settings.bionicReading = dmSettings.bionicReading !== false;
-    dyslexiaMode_settings.syllableHighlighting = dmSettings.syllableHighlighting || false;
-    dyslexiaMode_settings.grammarColors = dmSettings.grammarColors || false;
-    dyslexiaMode_settings.colorIntensity = dmSettings.colorIntensity || 0.7;
-
-    // Handle enable/disable
-    if (newEnabled && !wasEnabled) {
-      dyslexiaMode_enabled = true;
-      dyslexiaMode_apply();
-    } else if (!newEnabled && wasEnabled) {
-      dyslexiaMode_enabled = false;
-      dyslexiaMode_remove();
-    } else if (newEnabled) {
-      // Settings changed, reapply
-      dyslexiaMode_remove();
-      setTimeout(() => dyslexiaMode_apply(), 100);
-    }
-
-    console.log('[DyslexiaMode] Settings updated:', newEnabled, dyslexiaMode_settings);
-  }
-});
-
+// EXTRACTED TO: src/content/features/dyslexia.js
+// All dyslexia mode functionality has been moved to the modular
+// feature module to follow the Phase 1 refactoring architecture.
+// Functions extracted:
+//   - dyslexiaMode_applyBionicReading()
+//   - dyslexiaMode_applySyllableHighlighting()
+//   - dyslexiaMode_applyGrammarColors()
+//   - dyslexiaMode_apply()
+//   - dyslexiaMode_remove()
+// The dyslexia_initialize() function is called below to set up
+// the feature with settings management and DOM monitoring.
+
+// Initialize the Dyslexia Mode feature module
+dyslexia_initialize();
 console.log('[AssisT] Ready! Click any paragraph to read it.');
