@@ -53,12 +53,9 @@
 // MODULE IMPORTS
 // ============================================================
 import { showToast } from '../core/ui/toast.js';
-import { hexToRgba } from '../core/utils/color.js';
-import { isTextInput } from '../features/stt/validation.js';
 import { removeHighlight, highlightElement, removeElementHighlight, highlightWordByWord, cleanupWordByWord } from '../core/dom/highlighting.js';
-import { extractMainContent } from '../core/content/readPage.js';
 import { dyslexia_initialize } from '../content/features/dyslexia.js';
-import { readingGuide_enable, readingGuide_disable, readingGuide_createLine, readingGuide_updatePosition, readingGuide_updateStyle, readingGuide_handleMouseMove } from '../features/readingGuide/readingGuide.js';
+import { readingGuide_updateStyle, readingGuide_handleMouseMove } from '../features/readingGuide/readingGuide.js';
 import { screenOverlay_create, screenOverlay_remove, screenOverlay_update, screenOverlay_enable, screenOverlay_disable, screenOverlay_settings } from '../features/screenOverlay/screenOverlay.js';
 import '../features/textCustomization/textCustomization.js'; // Self-initializing module with Chrome storage listeners
 import '../features/focusMode/focusMode.js'; // Self-initializing module with Chrome storage listeners
@@ -66,8 +63,6 @@ import '../features/stt/stt.js'; // Self-initializing module with Chrome storage
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
-
-console.log('[AssisT] Content script loaded');
 
 // ============================================================
 // TTS CORE - STATE & CONFIGURATION
