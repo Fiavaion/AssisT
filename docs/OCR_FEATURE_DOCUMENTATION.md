@@ -1,7 +1,7 @@
 # OCR (Optical Character Recognition) Feature Documentation
 
 **Status:** ✅ FULLY IMPLEMENTED
-**Version:** 0.1.1
+**Version:** 0.2.0
 **Last Updated:** 2025-11-21
 **Module Location:** [src/features/ocr/ocr.js](../src/features/ocr/ocr.js)
 
@@ -50,6 +50,16 @@ src/features/ocr/
 ---
 
 ## 🚀 Usage
+
+### Keyboard Shortcut
+
+**Press Alt+O** on any webpage to trigger OCR.
+
+This will:
+
+1. Show a toast notification: "📸 OCR: Select screenshot mode"
+2. Display the screenshot UI modal with three capture options
+3. Allow you to capture and extract text from the screen
 
 ### Programmatic API
 
@@ -482,6 +492,12 @@ Gets detailed loading state.
 ---
 
 ## 📝 Changelog
+
+### 0.2.0 (2025-11-21)
+
+- ✨ Added: Keyboard shortcut **Alt+O** to trigger OCR from any webpage
+- 🎯 Feature now accessible via keyboard without console access
+- 📸 Shows toast notification when triggered
 
 ### 0.1.1 (2025-11-21)
 
