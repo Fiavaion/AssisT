@@ -391,10 +391,21 @@ function highlightMenu_handleTTS() {
 
   // Check if TTS is available via readText function in content-simple.js
   if (typeof window.readText === 'function') {
-    window.readText(highlightMenu_selectedText);
+    // Create a temporary element to pass to readText
+    // Since we're reading selected text, we'll use the selection range
+    let targetElement = document.body;
+
+    // Try to get the element that contains the selection
+    if (highlightMenu_selectionRange) {
+      const container = highlightMenu_selectionRange.commonAncestorContainer;
+      // If it's a text node, get its parent element
+      targetElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+    }
+
+    window.readText(highlightMenu_selectedText, targetElement);
   } else {
     console.warn('[HighlightMenu] TTS not available');
-    alert('TTS feature not available');
+    alert('TTS feature not available. Please reload the page.');
   }
 
   highlightMenu_hide();
