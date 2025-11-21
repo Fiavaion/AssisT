@@ -987,43 +987,125 @@ function ocr_saveAsFile(text) {
  * @param {string} text - Text to read
  */
 function ocr_readAloud(text) {
-  console.log('[OCR] Reading text aloud, length:', text.length);
+  console.log('[OCR] Read aloud button clicked');
+  console.log('[OCR] Text length:', text.length);
+  console.log('[OCR] Text preview:', text.substring(0, 100));
 
   if (!window.speechSynthesis) {
-    console.error('[OCR] Speech synthesis not supported');
+    console.error('[OCR] Speech synthesis API not available');
     alert('Text-to-speech is not supported in this browser');
     return;
   }
 
   // Stop any currently playing speech
   window.speechSynthesis.cancel();
+  console.log('[OCR] Cancelled previous speech');
 
-  // Create utterance
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
-  utterance.volume = 1.0;
+  // Load TTS settings from Chrome storage
+  chrome.storage.local.get('assist_settings', result => {
+    const ttsSettings = result.assist_settings?.tts || {};
+    const userVoiceName = ttsSettings.voice;
+    const userRate = ttsSettings.rate || 1.0;
+    const userPitch = ttsSettings.pitch || 1.0;
+    const userVolume = ttsSettings.volume || 1.0;
 
-  // Try to find a good English voice
-  const voices = window.speechSynthesis.getVoices();
-  const preferredVoice =
-    voices.find(v => v.name.includes('Google') && v.lang.startsWith('en-')) ||
-    voices.find(v => v.lang.startsWith('en-GB')) ||
-    voices.find(v => v.lang.startsWith('en-'));
+    console.log('[OCR] User TTS settings:', {
+      voice: userVoiceName,
+      rate: userRate,
+      pitch: userPitch,
+      volume: userVolume,
+    });
 
-  if (preferredVoice) {
-    utterance.voice = preferredVoice;
-    console.log('[OCR] Using voice:', preferredVoice.name);
-  }
+    // Function to speak with loaded voices
+    const speakNow = () => {
+      const voices = window.speechSynthesis.getVoices();
+      console.log('[OCR] Voices available:', voices.length);
 
-  // Event handlers for debugging
-  utterance.onstart = () => console.log('[OCR] Speech started');
-  utterance.onend = () => console.log('[OCR] Speech ended');
-  utterance.onerror = e => console.error('[OCR] Speech error:', e);
+      if (voices.length === 0) {
+        console.warn('[OCR] No voices loaded yet');
+        return false;
+      }
 
-  // Speak
-  window.speechSynthesis.speak(utterance);
-  console.log('[OCR] Speech utterance queued');
+      // Create utterance
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = userRate;
+      utterance.pitch = userPitch;
+      utterance.volume = userVolume;
+
+      // Try to use the user's preferred voice from extension settings
+      let selectedVoice = null;
+
+      if (userVoiceName && userVoiceName !== 'default') {
+        selectedVoice = voices.find(v => v.name === userVoiceName);
+        if (selectedVoice) {
+          console.log('[OCR] Using user preference:', selectedVoice.name);
+        } else {
+          console.warn('[OCR] User voice not found:', userVoiceName);
+        }
+      }
+
+      // Fallback to good English voice if user preference not found
+      if (!selectedVoice) {
+        selectedVoice =
+          voices.find(v => v.name.includes('Google') && v.lang.startsWith('en-')) ||
+          voices.find(v => v.lang.startsWith('en-GB')) ||
+          voices.find(v => v.lang.startsWith('en-'));
+
+        if (selectedVoice) {
+          console.log('[OCR] Using fallback voice:', selectedVoice.name);
+        } else {
+          console.log('[OCR] Using browser default voice');
+        }
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
+      // Event handlers
+      utterance.onstart = () => console.log('[OCR] ✓ Speech started');
+      utterance.onend = () => console.log('[OCR] ✓ Speech ended');
+      utterance.onerror = e => {
+        console.error('[OCR] ✗ Speech error:', e);
+        alert('Speech error: ' + (e.error || 'unknown'));
+      };
+
+      // Speak
+      console.log('[OCR] Calling speak()...');
+      window.speechSynthesis.speak(utterance);
+
+      // Check if speaking started
+      setTimeout(() => {
+        console.log('[OCR] Speaking status:', window.speechSynthesis.speaking);
+        console.log('[OCR] Pending status:', window.speechSynthesis.pending);
+      }, 100);
+
+      return true;
+    };
+
+    // Try speaking immediately
+    if (speakNow()) {
+      return;
+    }
+
+    // Wait for voices to load
+    console.log('[OCR] Waiting for voices...');
+    const handler = () => {
+      console.log('[OCR] Voices changed event');
+      window.speechSynthesis.removeEventListener('voiceschanged', handler);
+      speakNow();
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', handler);
+
+    // Timeout fallback
+    setTimeout(() => {
+      window.speechSynthesis.removeEventListener('voiceschanged', handler);
+      if (!window.speechSynthesis.speaking) {
+        console.log('[OCR] Timeout - forcing speak attempt');
+        speakNow();
+      }
+    }, 1000);
+  });
 }
 
 /**
