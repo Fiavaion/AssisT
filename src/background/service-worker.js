@@ -31,6 +31,26 @@ chrome.runtime.onInstalled.addListener(async details => {
 
 // Message handling from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle screenshot capture requests
+  if (message.action === 'CAPTURE_SCREENSHOT') {
+    chrome.tabs.captureVisibleTab(
+      null,
+      { format: message.options?.format || 'png' },
+      dataUrl => {
+        if (chrome.runtime.lastError) {
+          sendResponse({
+            success: false,
+            error: chrome.runtime.lastError.message,
+          });
+        } else {
+          sendResponse({ success: true, dataUrl });
+        }
+      }
+    );
+    return true; // Keep channel open for async response
+  }
+
+  // Route other messages through MessageRouter
   MessageRouter.route(message, sender)
     .then(response => sendResponse({ success: true, data: response }))
     .catch(error => sendResponse({ success: false, error: error.message }));
