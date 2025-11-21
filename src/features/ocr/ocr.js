@@ -259,43 +259,43 @@ async function ocr_captureFullPage() {
  * @returns {Promise<string>} Data URL of stitched image
  */
 async function ocr_stitchScreenshots(screenshots, width, height) {
-  return new Promise((resolve, reject) => {
-    try {
-      // Create canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
+  console.log(`[OCR] Stitching ${screenshots.length} screenshots into ${width}x${height} canvas`);
 
-      let loadedCount = 0;
-      const totalCount = screenshots.length;
+  // Create canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
 
-      // Load and draw each screenshot
-      screenshots.forEach(screenshot => {
-        const img = new Image();
+  // Fill with white background
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, width, height);
 
-        img.onload = () => {
-          // Draw image at correct Y offset
-          ctx.drawImage(img, 0, screenshot.offsetY);
-          loadedCount++;
+  // Load and draw screenshots sequentially to avoid race conditions
+  for (let i = 0; i < screenshots.length; i++) {
+    const screenshot = screenshots[i];
 
-          // If all images loaded, resolve with final canvas
-          if (loadedCount === totalCount) {
-            const stitchedDataUrl = canvas.toDataURL('image/png');
-            resolve(stitchedDataUrl);
-          }
-        };
+    await new Promise((resolve, reject) => {
+      const img = new Image();
 
-        img.onerror = () => {
-          reject(new Error('Failed to load screenshot for stitching'));
-        };
+      img.onload = () => {
+        // Draw image at correct Y offset
+        console.log(`[OCR] Drawing screenshot ${i + 1} at Y offset ${screenshot.offsetY}`);
+        ctx.drawImage(img, 0, screenshot.offsetY);
+        resolve();
+      };
 
-        img.src = screenshot.dataUrl;
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
+      img.onerror = () => {
+        reject(new Error(`Failed to load screenshot ${i + 1} for stitching`));
+      };
+
+      img.src = screenshot.dataUrl;
+    });
+  }
+
+  const stitchedDataUrl = canvas.toDataURL('image/png');
+  console.log('[OCR] Stitching complete');
+  return stitchedDataUrl;
 }
 
 /**
@@ -570,6 +570,8 @@ async function ocr_showScreenshotUI() {
   return new Promise(resolve => {
     document.getElementById('assist-ocr-visible').onclick = async () => {
       overlay.remove();
+      // Wait for modal to be completely removed from DOM
+      await new Promise(r => setTimeout(r, 100));
       try {
         const dataUrl = await ocr_captureVisibleTab();
         resolve(dataUrl);
@@ -581,6 +583,8 @@ async function ocr_showScreenshotUI() {
 
     document.getElementById('assist-ocr-fullpage').onclick = async () => {
       overlay.remove();
+      // Wait for modal to be completely removed from DOM
+      await new Promise(r => setTimeout(r, 100));
       try {
         const dataUrl = await ocr_captureFullPage();
         resolve(dataUrl);
@@ -592,6 +596,8 @@ async function ocr_showScreenshotUI() {
 
     document.getElementById('assist-ocr-region').onclick = async () => {
       overlay.remove();
+      // Wait for modal to be completely removed from DOM
+      await new Promise(r => setTimeout(r, 100));
       try {
         const dataUrl = await ocr_captureRegion();
         resolve(dataUrl);
@@ -737,14 +743,115 @@ async function ocr_performOCR(options = {}) {
 // RESULT MODAL UI
 // ============================================================================
 
+// ============================================================================
+// MEDIA PLAYER STATE
+// ============================================================================
+
+const ocrMediaPlayer = {
+  chunks: [],
+  currentChunkIndex: 0,
+  utterance: null,
+  isPaused: false,
+  isPlaying: false,
+  rate: 1.0,
+  fullText: '',
+};
+
 /**
- * Shows OCR result modal with extracted text
+ * Splits text into chunks suitable for speech synthesis
+ * @param {string} text - Full text to split
+ * @param {number} maxChunkSize - Maximum characters per chunk
+ * @returns {Array<string>} Array of text chunks
+ */
+function ocr_splitTextIntoChunks(text, maxChunkSize = 3000) {
+  const chunks = [];
+  let startPos = 0;
+
+  console.log(`[OCR] Splitting ${text.length} characters into chunks of max ${maxChunkSize}`);
+
+  while (startPos < text.length) {
+    // Calculate end position for this chunk
+    let endPos = startPos + maxChunkSize;
+
+    // If this would be the last chunk, just take everything remaining
+    if (endPos >= text.length) {
+      const finalChunk = text.substring(startPos).trim();
+      if (finalChunk.length > 0) {
+        chunks.push(finalChunk);
+        console.log(
+          `[OCR] Chunk ${chunks.length}: ${startPos} to end (${finalChunk.length} chars)`
+        );
+      }
+      break;
+    }
+
+    // Try to find a sentence boundary (. followed by space or newline)
+    const searchText = text.substring(startPos, endPos);
+    let bestBreak = -1;
+
+    // Look for ". " or ".\n" patterns
+    for (let i = searchText.length - 1; i >= Math.floor(searchText.length * 0.7); i--) {
+      const char = searchText[i];
+      const nextChar = searchText[i + 1];
+      if (char === '.' && (nextChar === ' ' || nextChar === '\n' || i === searchText.length - 1)) {
+        bestBreak = i + 1; // Include the period
+        break;
+      }
+    }
+
+    // If we found a good break point, use it
+    if (bestBreak > 0) {
+      endPos = startPos + bestBreak;
+    }
+
+    // Extract chunk
+    const chunk = text.substring(startPos, endPos).trim();
+    if (chunk.length > 0) {
+      chunks.push(chunk);
+      console.log(`[OCR] Chunk ${chunks.length}: ${startPos} to ${endPos} (${chunk.length} chars)`);
+    }
+
+    // Move start position for next chunk
+    startPos = endPos;
+
+    // Skip any leading whitespace for the next chunk
+    while (startPos < text.length && /\s/.test(text[startPos])) {
+      startPos++;
+    }
+  }
+
+  console.log(`[OCR] Successfully split into ${chunks.length} chunks`);
+
+  // Verify no duplicates in first 50 chars of each chunk (for debugging)
+  for (let i = 1; i < chunks.length; i++) {
+    const prevEnd = chunks[i - 1].substring(Math.max(0, chunks[i - 1].length - 50));
+    const currStart = chunks[i].substring(0, Math.min(50, chunks[i].length));
+    if (
+      prevEnd.includes(currStart.substring(0, 20)) ||
+      currStart.includes(prevEnd.substring(prevEnd.length - 20))
+    ) {
+      console.warn(`[OCR] Possible overlap detected between chunks ${i} and ${i + 1}`);
+    }
+  }
+
+  return chunks;
+}
+
+/**
+ * Shows OCR result modal with extracted text and media player controls
  *
  * @param {Object} result - OCR result object
  * @param {string} imageDataUrl - Original image data URL
  */
 async function ocr_showResultModal(result, imageDataUrl) {
   return new Promise(resolve => {
+    // Initialize media player state
+    ocrMediaPlayer.fullText = result.text;
+    ocrMediaPlayer.chunks = ocr_splitTextIntoChunks(result.text);
+    ocrMediaPlayer.currentChunkIndex = 0;
+    ocrMediaPlayer.isPlaying = false;
+    ocrMediaPlayer.isPaused = false;
+    ocrMediaPlayer.rate = 1.0;
     // Create modal overlay
     const overlay = document.createElement('div');
     overlay.id = 'assist-ocr-result-modal';
@@ -754,22 +861,23 @@ async function ocr_showResultModal(result, imageDataUrl) {
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.8);
       z-index: 999999;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     `;
 
     // Create modal content
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      max-width: 800px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      max-width: 900px;
+      width: 90%;
       max-height: 90vh;
-      overflow-y: auto;
       display: flex;
       flex-direction: column;
     `;
@@ -782,22 +890,34 @@ async function ocr_showResultModal(result, imageDataUrl) {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px 12px 0 0;
     `;
     header.innerHTML = `
       <div>
-        <h2 style="margin: 0; font-size: 20px;">OCR Results</h2>
-        <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600;">OCR Audio Player</h2>
+        <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">
           Confidence: ${result.confidence.toFixed(1)}% |
-          ${result.text.length} characters
+          ${result.text.length.toLocaleString()} characters |
+          ${ocrMediaPlayer.chunks.length} chunk${ocrMediaPlayer.chunks.length > 1 ? 's' : ''}
         </p>
       </div>
       <button id="assist-ocr-close" style="
-        background: none;
+        background: rgba(255,255,255,0.2);
         border: none;
-        font-size: 24px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        font-size: 20px;
         cursor: pointer;
-        color: #666;
-      ">×</button>
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+         onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
     `;
 
     // Content area
@@ -806,13 +926,21 @@ async function ocr_showResultModal(result, imageDataUrl) {
       padding: 24px;
       flex: 1;
       overflow-y: auto;
+      background: #f8f9fa;
     `;
 
-    // Image preview
-    const imagePreview = document.createElement('div');
+    // Image preview (collapsible)
+    const imagePreview = document.createElement('details');
     imagePreview.style.cssText = `
       margin-bottom: 20px;
-      text-align: center;
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+    `;
+    imagePreview.innerHTML = `
+      <summary style="cursor: pointer; font-weight: 500; color: #667eea; margin-bottom: 12px;">
+        📷 View Screenshot
+      </summary>
     `;
     const img = document.createElement('img');
     img.src = imageDataUrl;
@@ -821,27 +949,208 @@ async function ocr_showResultModal(result, imageDataUrl) {
       max-height: 200px;
       border: 1px solid #e0e0e0;
       border-radius: 4px;
+      display: block;
+      margin: 0 auto;
     `;
     imagePreview.appendChild(img);
 
-    // Extracted text
+    // Chunk info and navigation
+    const chunkNavigation = document.createElement('div');
+    chunkNavigation.style.cssText = `
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    `;
+    chunkNavigation.innerHTML = `
+      <div style="flex: 1;">
+        <div style="font-weight: 500; color: #333; margin-bottom: 4px;">
+          Chunk <span id="ocr-current-chunk">1</span> of <span id="ocr-total-chunks">${ocrMediaPlayer.chunks.length}</span>
+        </div>
+        <div style="font-size: 12px; color: #666;">
+          <span id="ocr-chunk-length">${ocrMediaPlayer.chunks[0].length}</span> characters
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="ocr-prev-chunk" style="
+          padding: 8px 16px;
+          background: #e0e0e0;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background 0.2s;
+        " ${ocrMediaPlayer.chunks.length <= 1 ? 'disabled' : ''}>⏮ Previous</button>
+        <button id="ocr-next-chunk" style="
+          padding: 8px 16px;
+          background: #e0e0e0;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background 0.2s;
+        " ${ocrMediaPlayer.chunks.length <= 1 ? 'disabled' : ''}>Next ⏭</button>
+      </div>
+    `;
+
+    // Extracted text (current chunk)
     const textArea = document.createElement('textarea');
-    textArea.value = result.text;
+    textArea.id = 'ocr-text-display';
+    textArea.value = ocrMediaPlayer.chunks[0];
     textArea.style.cssText = `
       width: 100%;
-      min-height: 200px;
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 14px;
+      min-height: 250px;
+      padding: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
       resize: vertical;
+      background: white;
+      margin-bottom: 20px;
     `;
 
     content.appendChild(imagePreview);
+    content.appendChild(chunkNavigation);
     content.appendChild(textArea);
 
-    // Footer with action buttons
+    // Media Player Controls
+    const playerControls = document.createElement('div');
+    playerControls.style.cssText = `
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+    `;
+
+    // Playback controls
+    const playbackControls = document.createElement('div');
+    playbackControls.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    `;
+    playbackControls.innerHTML = `
+      <button id="ocr-play-pause" style="
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        transition: transform 0.2s, box-shadow 0.2s;
+      " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 16px rgba(102, 126, 234, 0.5)'"
+         onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)'">▶</button>
+      <button id="ocr-stop" style="
+        width: 44px;
+        height: 44px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#c82333'"
+         onmouseout="this.style.background='#dc3545'">⏹</button>
+    `;
+
+    // Speed control
+    const speedControl = document.createElement('div');
+    speedControl.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    `;
+    speedControl.innerHTML = `
+      <span style="font-size: 14px; color: #666; min-width: 80px;">Speed:</span>
+      <button class="speed-btn" data-speed="0.5" style="
+        padding: 6px 12px;
+        background: #f0f0f0;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+      ">0.5x</button>
+      <button class="speed-btn" data-speed="0.75" style="
+        padding: 6px 12px;
+        background: #f0f0f0;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+      ">0.75x</button>
+      <button class="speed-btn" data-speed="1" style="
+        padding: 6px 12px;
+        background: #667eea;
+        color: white;
+        border: 2px solid #667eea;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+      ">1x</button>
+      <button class="speed-btn" data-speed="1.25" style="
+        padding: 6px 12px;
+        background: #f0f0f0;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+      ">1.25x</button>
+      <button class="speed-btn" data-speed="1.5" style="
+        padding: 6px 12px;
+        background: #f0f0f0;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+      ">1.5x</button>
+      <button class="speed-btn" data-speed="2" style="
+        padding: 6px 12px;
+        background: #f0f0f0;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+      ">2x</button>
+    `;
+
+    playerControls.appendChild(playbackControls);
+    playerControls.appendChild(speedControl);
+    content.appendChild(playerControls);
+
+    // Footer with utility buttons
     const footer = document.createElement('div');
     footer.style.cssText = `
       padding: 16px 24px;
@@ -849,44 +1158,34 @@ async function ocr_showResultModal(result, imageDataUrl) {
       display: flex;
       gap: 12px;
       justify-content: flex-end;
+      background: white;
+      border-radius: 0 0 12px 12px;
     `;
     footer.innerHTML = `
-      <button id="assist-ocr-tts" style="
-        padding: 10px 20px;
-        background: #17a2b8;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-      ">🔊 Read Aloud</button>
-      <button id="assist-ocr-stop" style="
-        padding: 10px 20px;
-        background: #dc3545;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-      ">⏹️ Stop Audio</button>
       <button id="assist-ocr-copy" style="
         padding: 10px 20px;
         background: #007bff;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">📋 Copy</button>
+        font-weight: 500;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#0056b3'"
+         onmouseout="this.style.background='#007bff'">📋 Copy All</button>
       <button id="assist-ocr-save" style="
         padding: 10px 20px;
         background: #28a745;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">💾 Save TXT</button>
+        font-weight: 500;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#1e7e34'"
+         onmouseout="this.style.background='#28a745'">💾 Save TXT</button>
     `;
 
     // Assemble modal
@@ -896,32 +1195,119 @@ async function ocr_showResultModal(result, imageDataUrl) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // Event handlers
+    // Helper function to update chunk display
+    const updateChunkDisplay = () => {
+      textArea.value = ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex];
+      document.getElementById('ocr-current-chunk').textContent =
+        ocrMediaPlayer.currentChunkIndex + 1;
+      document.getElementById('ocr-chunk-length').textContent =
+        ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex].length;
+
+      // Update button states
+      const prevBtn = document.getElementById('ocr-prev-chunk');
+      const nextBtn = document.getElementById('ocr-next-chunk');
+      if (prevBtn) {
+        prevBtn.disabled = ocrMediaPlayer.currentChunkIndex === 0;
+      }
+      if (nextBtn) {
+        nextBtn.disabled = ocrMediaPlayer.currentChunkIndex === ocrMediaPlayer.chunks.length - 1;
+      }
+    };
+
+    // Play/Pause button handler
+    document.getElementById('ocr-play-pause').onclick = () => {
+      const btn = document.getElementById('ocr-play-pause');
+      if (ocrMediaPlayer.isPlaying) {
+        // Pause
+        if (ocrMediaPlayer.utterance) {
+          window.speechSynthesis.pause();
+          ocrMediaPlayer.isPaused = true;
+          btn.textContent = '▶';
+          console.log('[OCR] Paused playback');
+        }
+      } else if (ocrMediaPlayer.isPaused) {
+        // Resume
+        window.speechSynthesis.resume();
+        ocrMediaPlayer.isPaused = false;
+        btn.textContent = '⏸';
+        console.log('[OCR] Resumed playback');
+      } else {
+        // Start playing current chunk
+        ocr_playChunk(ocrMediaPlayer.currentChunkIndex, btn);
+      }
+    };
+
+    // Stop button handler
+    document.getElementById('ocr-stop').onclick = () => {
+      ocr_stopPlayback();
+      const btn = document.getElementById('ocr-play-pause');
+      btn.textContent = '▶';
+    };
+
+    // Chunk navigation
+    document.getElementById('ocr-prev-chunk')?.addEventListener('click', () => {
+      if (ocrMediaPlayer.currentChunkIndex > 0) {
+        ocr_stopPlayback();
+        ocrMediaPlayer.currentChunkIndex--;
+        updateChunkDisplay();
+        console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
+      }
+    });
+
+    document.getElementById('ocr-next-chunk')?.addEventListener('click', () => {
+      if (ocrMediaPlayer.currentChunkIndex < ocrMediaPlayer.chunks.length - 1) {
+        ocr_stopPlayback();
+        ocrMediaPlayer.currentChunkIndex++;
+        updateChunkDisplay();
+        console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
+      }
+    });
+
+    // Speed control buttons
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const speed = parseFloat(btn.getAttribute('data-speed'));
+        ocrMediaPlayer.rate = speed;
+
+        // Update visual state
+        document.querySelectorAll('.speed-btn').forEach(b => {
+          b.style.background = '#f0f0f0';
+          b.style.color = '#333';
+          b.style.border = '2px solid transparent';
+        });
+        btn.style.background = '#667eea';
+        btn.style.color = 'white';
+        btn.style.border = '2px solid #667eea';
+
+        // If currently playing, update the utterance rate
+        if (ocrMediaPlayer.utterance && ocrMediaPlayer.isPlaying) {
+          ocrMediaPlayer.utterance.rate = speed;
+        }
+
+        console.log(`[OCR] Speed set to ${speed}x`);
+      });
+    });
+
+    // Utility buttons
     document.getElementById('assist-ocr-close').onclick = () => {
+      ocr_stopPlayback();
       overlay.remove();
       resolve();
     };
 
     document.getElementById('assist-ocr-copy').onclick = () => {
-      ocr_copyToClipboard(textArea.value);
-      alert('Text copied to clipboard!');
+      ocr_copyToClipboard(ocrMediaPlayer.fullText);
+      alert('Full text copied to clipboard!');
     };
 
     document.getElementById('assist-ocr-save').onclick = () => {
-      ocr_saveAsFile(textArea.value);
-    };
-
-    document.getElementById('assist-ocr-tts').onclick = () => {
-      ocr_readAloud(textArea.value);
-    };
-
-    document.getElementById('assist-ocr-stop').onclick = () => {
-      ocr_stopAudio();
+      ocr_saveAsFile(ocrMediaPlayer.fullText);
     };
 
     // Close on overlay click
     overlay.onclick = e => {
       if (e.target === overlay) {
+        ocr_stopPlayback();
         overlay.remove();
         resolve();
       }
@@ -930,6 +1316,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
     // ESC key to close
     const handleEsc = e => {
       if (e.key === 'Escape') {
+        ocr_stopPlayback();
         overlay.remove();
         document.removeEventListener('keydown', handleEsc);
         resolve();
@@ -937,6 +1324,103 @@ async function ocr_showResultModal(result, imageDataUrl) {
     };
     document.addEventListener('keydown', handleEsc);
   });
+}
+
+/**
+ * Plays a specific chunk with TTS
+ * @param {number} chunkIndex - Index of chunk to play
+ * @param {HTMLElement} playPauseBtn - Play/pause button element
+ */
+function ocr_playChunk(chunkIndex, playPauseBtn) {
+  const text = ocrMediaPlayer.chunks[chunkIndex];
+  console.log(`[OCR] Playing chunk ${chunkIndex + 1}/${ocrMediaPlayer.chunks.length}`);
+
+  // Load user TTS settings
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get('assist_settings', result => {
+      const ttsSettings = result.assist_settings?.tts || {};
+      const userVoiceName = ttsSettings.voice;
+      const userPitch = ttsSettings.pitch || 1.0;
+      const userVolume = ttsSettings.volume || 1.0;
+
+      const voices = window.speechSynthesis.getVoices();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = ocrMediaPlayer.rate;
+      utterance.pitch = userPitch;
+      utterance.volume = userVolume;
+
+      // Try to use user's preferred voice
+      if (userVoiceName && userVoiceName !== 'default') {
+        const selectedVoice = voices.find(v => v.name === userVoiceName);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+      }
+
+      utterance.onstart = () => {
+        ocrMediaPlayer.isPlaying = true;
+        ocrMediaPlayer.isPaused = false;
+        playPauseBtn.textContent = '⏸';
+        console.log('[OCR] ✓ Chunk playback started');
+      };
+
+      utterance.onend = () => {
+        console.log('[OCR] ✓ Chunk playback ended');
+
+        // Auto-advance to next chunk if available
+        if (ocrMediaPlayer.currentChunkIndex < ocrMediaPlayer.chunks.length - 1) {
+          ocrMediaPlayer.currentChunkIndex++;
+          document.getElementById('ocr-current-chunk').textContent =
+            ocrMediaPlayer.currentChunkIndex + 1;
+          document.getElementById('ocr-chunk-length').textContent =
+            ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex].length;
+          document.getElementById('ocr-text-display').value =
+            ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex];
+
+          // Update navigation buttons
+          const prevBtn = document.getElementById('ocr-prev-chunk');
+          const nextBtn = document.getElementById('ocr-next-chunk');
+          if (prevBtn) {
+            prevBtn.disabled = false;
+          }
+          if (nextBtn) {
+            nextBtn.disabled =
+              ocrMediaPlayer.currentChunkIndex === ocrMediaPlayer.chunks.length - 1;
+          }
+
+          // Continue playing
+          ocr_playChunk(ocrMediaPlayer.currentChunkIndex, playPauseBtn);
+        } else {
+          // Reached end of all chunks
+          ocrMediaPlayer.isPlaying = false;
+          playPauseBtn.textContent = '▶';
+          console.log('[OCR] ✓ Finished playing all chunks');
+        }
+      };
+
+      utterance.onerror = e => {
+        console.error('[OCR] ✗ Speech error:', e.error || 'unknown');
+        ocrMediaPlayer.isPlaying = false;
+        playPauseBtn.textContent = '▶';
+      };
+
+      ocrMediaPlayer.utterance = utterance;
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+}
+
+/**
+ * Stops playback and resets state
+ */
+function ocr_stopPlayback() {
+  if (ocrMediaPlayer.utterance) {
+    window.speechSynthesis.cancel();
+    ocrMediaPlayer.isPlaying = false;
+    ocrMediaPlayer.isPaused = false;
+    ocrMediaPlayer.utterance = null;
+    console.log('[OCR] Stopped playback');
+  }
 }
 
 /**
@@ -980,146 +1464,7 @@ function ocr_saveAsFile(text) {
   console.log(`[OCR] Text saved as ${filename}`);
 }
 
-/**
- * Reads text aloud using browser's built-in speech synthesis
- * Works independently of extension TTS settings
- *
- * @param {string} text - Text to read
- */
-function ocr_readAloud(text) {
-  console.log('[OCR] Read aloud button clicked');
-  console.log('[OCR] Text length:', text.length);
-  console.log('[OCR] Text preview:', text.substring(0, 100));
-
-  if (!window.speechSynthesis) {
-    console.error('[OCR] Speech synthesis API not available');
-    alert('Text-to-speech is not supported in this browser');
-    return;
-  }
-
-  // Stop any currently playing speech
-  window.speechSynthesis.cancel();
-  console.log('[OCR] Cancelled previous speech');
-
-  // Load TTS settings from Chrome storage
-  chrome.storage.local.get('assist_settings', result => {
-    const ttsSettings = result.assist_settings?.tts || {};
-    const userVoiceName = ttsSettings.voice;
-    const userRate = ttsSettings.rate || 1.0;
-    const userPitch = ttsSettings.pitch || 1.0;
-    const userVolume = ttsSettings.volume || 1.0;
-
-    console.log('[OCR] User TTS settings:', {
-      voice: userVoiceName,
-      rate: userRate,
-      pitch: userPitch,
-      volume: userVolume,
-    });
-
-    // Function to speak with loaded voices
-    const speakNow = () => {
-      const voices = window.speechSynthesis.getVoices();
-      console.log('[OCR] Voices available:', voices.length);
-
-      if (voices.length === 0) {
-        console.warn('[OCR] No voices loaded yet');
-        return false;
-      }
-
-      // Create utterance
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = userRate;
-      utterance.pitch = userPitch;
-      utterance.volume = userVolume;
-
-      // Try to use the user's preferred voice from extension settings
-      let selectedVoice = null;
-
-      if (userVoiceName && userVoiceName !== 'default') {
-        selectedVoice = voices.find(v => v.name === userVoiceName);
-        if (selectedVoice) {
-          console.log('[OCR] Using user preference:', selectedVoice.name);
-        } else {
-          console.warn('[OCR] User voice not found:', userVoiceName);
-        }
-      }
-
-      // Fallback to good English voice if user preference not found
-      if (!selectedVoice) {
-        selectedVoice =
-          voices.find(v => v.name.includes('Google') && v.lang.startsWith('en-')) ||
-          voices.find(v => v.lang.startsWith('en-GB')) ||
-          voices.find(v => v.lang.startsWith('en-'));
-
-        if (selectedVoice) {
-          console.log('[OCR] Using fallback voice:', selectedVoice.name);
-        } else {
-          console.log('[OCR] Using browser default voice');
-        }
-      }
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
-
-      // Event handlers
-      utterance.onstart = () => console.log('[OCR] ✓ Speech started');
-      utterance.onend = () => console.log('[OCR] ✓ Speech ended');
-      utterance.onerror = e => {
-        console.error('[OCR] ✗ Speech error:', e);
-        alert('Speech error: ' + (e.error || 'unknown'));
-      };
-
-      // Speak
-      console.log('[OCR] Calling speak()...');
-      window.speechSynthesis.speak(utterance);
-
-      // Check if speaking started
-      setTimeout(() => {
-        console.log('[OCR] Speaking status:', window.speechSynthesis.speaking);
-        console.log('[OCR] Pending status:', window.speechSynthesis.pending);
-      }, 100);
-
-      return true;
-    };
-
-    // Try speaking immediately
-    if (speakNow()) {
-      return;
-    }
-
-    // Wait for voices to load
-    console.log('[OCR] Waiting for voices...');
-    const handler = () => {
-      console.log('[OCR] Voices changed event');
-      window.speechSynthesis.removeEventListener('voiceschanged', handler);
-      speakNow();
-    };
-    window.speechSynthesis.addEventListener('voiceschanged', handler);
-
-    // Timeout fallback
-    setTimeout(() => {
-      window.speechSynthesis.removeEventListener('voiceschanged', handler);
-      if (!window.speechSynthesis.speaking) {
-        console.log('[OCR] Timeout - forcing speak attempt');
-        speakNow();
-      }
-    }, 1000);
-  });
-}
-
-/**
- * Stops any currently playing TTS audio
- */
-function ocr_stopAudio() {
-  console.log('[OCR] Stopping audio playback');
-
-  // Try to use the extension's speech synthesis
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    console.log('[OCR] Audio stopped');
-  }
-}
+// Old ocr_readAloud and ocr_stopAudio functions removed - replaced by media player system
 
 // ============================================================================
 // EXPORTS
