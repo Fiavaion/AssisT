@@ -32,6 +32,20 @@
 
 ## ✅ Recently Completed
 
+### Phase 2 Session 005 (2025-11-21)
+
+**OCR Media Player Feature - Complete**
+
+- [x] Fixed OCR modal recursive capture (100ms DOM delay)
+- [x] Fixed TTS character limits (3,000 char safe limit)
+- [x] Built full media player UI (play/pause/stop/speed/chunks)
+- [x] Integrated extension-level TTS voice settings
+- [x] Fixed text chunking algorithm (position-based, no duplicates)
+- [x] Fixed screenshot stitching (sequential loading, no race conditions)
+- [x] Added Alt+O keyboard shortcut for OCR activation
+
+**Commit**: feat(accessibility): complete OCR media player with chunking and controls
+
 ### Phase 0: Preparation (Week 1)
 
 - [x] Created git savepoint: `v0.1.0-pre-phase2`
@@ -152,10 +166,10 @@
 
 ### Phase 2.1: High-Priority (Weeks 2-5)
 
-- [>] OCR + Screenshot Tool (58% - 7/12 tasks)
+- [>] OCR + Screenshot Tool (85% - 10/12 tasks - Media Player Complete)
 - [>] Highlight Menu (69% - 9/13 tasks)
 - [✓] Reading Mode (100% - 12/12 tasks, E2E test pending)
-- [ ] Dictionary Lookup
+- [>] Dictionary Lookup (85% - 11/13 tasks)
 
 ### Phase 2.2: Writing & Organization (Weeks 6-9)
 
