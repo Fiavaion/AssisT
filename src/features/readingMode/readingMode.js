@@ -27,7 +27,7 @@
 let readingMode_isActive = false;
 let readingMode_overlay = null;
 let readingMode_originalContent = null;
-let readingMode_settings = {
+const readingMode_settings = {
   enabled: true,
   backgroundColor: '#FBF8F3', // Cream
   fontFamily: 'OpenDyslexic, Georgia, serif',
@@ -50,7 +50,7 @@ async function readingMode_extractContent() {
     console.log('[ReadingMode] Extracting content with @mozilla/readability...');
 
     // Dynamic import of @mozilla/readability
-    const { Readability } = await import('../../node_modules/@mozilla/readability/index.js');
+    const { Readability } = await import('@mozilla/readability');
 
     // Clone document for readability (it mutates the DOM)
     const documentClone = document.cloneNode(true);
@@ -229,10 +229,7 @@ function readingMode_exit() {
 
   // Restore scroll position
   if (readingMode_originalContent) {
-    window.scrollTo(
-      readingMode_originalContent.scrollX,
-      readingMode_originalContent.scrollY
-    );
+    window.scrollTo(readingMode_originalContent.scrollX, readingMode_originalContent.scrollY);
     readingMode_originalContent = null;
   }
 
@@ -290,7 +287,7 @@ function readingMode_init() {
   document.addEventListener('keydown', readingMode_handleKeyboard);
 
   // Load settings from chrome.storage
-  chrome.storage.local.get(['readingModeSettings'], (result) => {
+  chrome.storage.local.get(['readingModeSettings'], result => {
     if (result.readingModeSettings) {
       Object.assign(readingMode_settings, result.readingModeSettings);
       console.log('[ReadingMode] Settings loaded:', readingMode_settings);

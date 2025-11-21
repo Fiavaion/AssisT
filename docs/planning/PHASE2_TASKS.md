@@ -54,7 +54,7 @@
 
 ### Feature 3: Reading Mode
 
-**Status**: `[>]` In Progress (92% - 12/13 tasks)
+**Status**: `[✓]` Complete (100% - 12/12 tasks, E2E test pending)
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: None
@@ -68,7 +68,7 @@
 - [x] 3.5: Background color options (cream default)
 - [x] 3.6: TTS preservation in reading mode
 - [x] 3.7: Dyslexia mode compatibility
-- [ ] 3.8: Toggle button in popup (Enter/Exit)
+- [x] 3.8: Toggle button in popup (Enter/Exit)
 - [x] 3.9: Keyboard shortcut (Ctrl+Shift+R)
 - [x] 3.10: ESC key to exit
 - [x] 3.11: Font customization (OpenDyslexic font)

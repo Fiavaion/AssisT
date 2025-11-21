@@ -59,7 +59,7 @@ async function ocr_loadTesseract() {
       console.log('[OCR] Lazy loading Tesseract.js...');
 
       // Dynamically import Tesseract.js from node_modules
-      const Tesseract = await import('../../node_modules/tesseract.js/dist/tesseract.min.js');
+      const Tesseract = await import('tesseract.js');
 
       console.log('[OCR] Tesseract.js loaded successfully');
       ocr_tesseractInstance = Tesseract;
@@ -194,14 +194,8 @@ async function ocr_captureFullPage() {
     const originalScrollX = window.scrollX;
 
     // Get page dimensions
-    const pageHeight = Math.max(
-      document.documentElement.scrollHeight,
-      document.body.scrollHeight
-    );
-    const pageWidth = Math.max(
-      document.documentElement.scrollWidth,
-      document.body.scrollWidth
-    );
+    const pageHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    const pageWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
@@ -219,7 +213,7 @@ async function ocr_captureFullPage() {
       window.scrollTo(0, scrollY);
 
       // Wait for scroll to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Capture visible area
       const dataUrl = await ocr_captureVisibleTab();
@@ -243,11 +237,7 @@ async function ocr_captureFullPage() {
 
     // Stitch screenshots together
     console.log('[OCR] Stitching screenshots...');
-    const stitchedDataUrl = await ocr_stitchScreenshots(
-      screenshots,
-      viewportWidth,
-      pageHeight
-    );
+    const stitchedDataUrl = await ocr_stitchScreenshots(screenshots, viewportWidth, pageHeight);
 
     console.log('[OCR] Full-page capture complete');
     return stitchedDataUrl;
@@ -278,7 +268,7 @@ async function ocr_stitchScreenshots(screenshots, width, height) {
       const totalCount = screenshots.length;
 
       // Load and draw each screenshot
-      screenshots.forEach((screenshot) => {
+      screenshots.forEach(screenshot => {
         const img = new Image();
 
         img.onload = () => {
@@ -311,7 +301,7 @@ async function ocr_stitchScreenshots(screenshots, width, height) {
  * @returns {Promise<string>} Data URL of the selected region
  */
 async function ocr_captureRegion() {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     console.log('[OCR] Starting region selection...');
 
     // Create overlay for region selection
@@ -360,10 +350,12 @@ async function ocr_captureRegion() {
     document.body.appendChild(selectionBox);
     document.body.appendChild(instructions);
 
-    let startX, startY, isSelecting = false;
+    let startX,
+      startY,
+      isSelecting = false;
 
     // Mouse down - start selection
-    overlay.onmousedown = (e) => {
+    overlay.onmousedown = e => {
       isSelecting = true;
       startX = e.clientX;
       startY = e.clientY;
@@ -375,8 +367,10 @@ async function ocr_captureRegion() {
     };
 
     // Mouse move - update selection
-    overlay.onmousemove = (e) => {
-      if (!isSelecting) return;
+    overlay.onmousemove = e => {
+      if (!isSelecting) {
+        return;
+      }
 
       const currentX = e.clientX;
       const currentY = e.clientY;
@@ -393,8 +387,10 @@ async function ocr_captureRegion() {
     };
 
     // Mouse up - capture region
-    overlay.onmouseup = async (e) => {
-      if (!isSelecting) return;
+    overlay.onmouseup = async e => {
+      if (!isSelecting) {
+        return;
+      }
       isSelecting = false;
 
       const currentX = e.clientX;
@@ -420,13 +416,7 @@ async function ocr_captureRegion() {
         const fullScreenshot = await ocr_captureVisibleTab();
 
         // Crop to selected region using canvas
-        const croppedDataUrl = await ocr_cropImage(
-          fullScreenshot,
-          left,
-          top,
-          width,
-          height
-        );
+        const croppedDataUrl = await ocr_cropImage(fullScreenshot, left, top, width, height);
 
         cleanup();
         resolve(croppedDataUrl);
@@ -438,7 +428,7 @@ async function ocr_captureRegion() {
     };
 
     // ESC key - cancel
-    const handleEsc = (e) => {
+    const handleEsc = e => {
       if (e.key === 'Escape') {
         console.log('[OCR] Region selection canceled');
         cleanup();
@@ -574,7 +564,7 @@ async function ocr_showScreenshotUI() {
   document.body.appendChild(overlay);
 
   // Handle button clicks
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     document.getElementById('assist-ocr-visible').onclick = async () => {
       overlay.remove();
       try {
@@ -632,7 +622,9 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
   const { lang = 'eng', confidenceThreshold = 60 } = options;
 
   try {
-    console.log(`[OCR] Starting text recognition (lang: ${lang}, threshold: ${confidenceThreshold}%)`);
+    console.log(
+      `[OCR] Starting text recognition (lang: ${lang}, threshold: ${confidenceThreshold}%)`
+    );
 
     // Lazy load Tesseract
     const Tesseract = await ocr_loadTesseract();
@@ -640,7 +632,7 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
     // Create worker
     console.log('[OCR] Creating Tesseract worker...');
     const worker = await Tesseract.createWorker(lang, 1, {
-      logger: (m) => {
+      logger: m => {
         if (m.status === 'recognizing text') {
           console.log(`[OCR] Progress: ${Math.round(m.progress * 100)}%`);
         }
@@ -687,8 +679,8 @@ function ocr_filterByConfidence(result, threshold) {
   }
 
   const filteredWords = result.data.words
-    .filter((word) => word.confidence >= threshold)
-    .map((word) => word.text);
+    .filter(word => word.confidence >= threshold)
+    .map(word => word.text);
 
   return filteredWords.join(' ');
 }
@@ -735,7 +727,7 @@ async function ocr_performOCR(options = {}) {
  * @param {string} imageDataUrl - Original image data URL
  */
 async function ocr_showResultModal(result, imageDataUrl) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     // Create modal overlay
     const overlay = document.createElement('div');
     overlay.id = 'assist-ocr-result-modal';
@@ -898,7 +890,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
     };
 
     // Close on overlay click
-    overlay.onclick = (e) => {
+    overlay.onclick = e => {
       if (e.target === overlay) {
         overlay.remove();
         resolve();
@@ -906,7 +898,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
     };
 
     // ESC key to close
-    const handleEsc = (e) => {
+    const handleEsc = e => {
       if (e.key === 'Escape') {
         overlay.remove();
         document.removeEventListener('keydown', handleEsc);

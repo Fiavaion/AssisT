@@ -152,9 +152,9 @@
 
 ### Phase 2.1: High-Priority (Weeks 2-5)
 
-- [ ] OCR + Screenshot Tool
-- [ ] Highlight Menu
-- [ ] Reading Mode
+- [>] OCR + Screenshot Tool (58% - 7/12 tasks)
+- [>] Highlight Menu (69% - 9/13 tasks)
+- [✓] Reading Mode (100% - 12/12 tasks, E2E test pending)
 - [ ] Dictionary Lookup
 
 ### Phase 2.2: Writing & Organization (Weeks 6-9)
