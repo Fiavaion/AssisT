@@ -664,6 +664,23 @@ document.addEventListener(
         }, 50);
       }
     }
+
+    // Alt+O - Trigger OCR
+    if (e.altKey && e.key === 'o') {
+      e.preventDefault();
+      e.stopPropagation();
+
+      console.log('[AssisT] OCR keyboard shortcut triggered (Alt+O)');
+
+      if (window.assistFeatures && window.assistFeatures.ocr) {
+        // Call performOCR which will show the screenshot UI modal
+        window.assistFeatures.ocr.performOCR();
+        showToast('📸 OCR: Select screenshot mode');
+      } else {
+        console.error('[AssisT] OCR feature not available');
+        showToast('❌ OCR feature not initialized');
+      }
+    }
   },
   true
 ); // Use capture phase for better priority
