@@ -116,16 +116,19 @@ function ocr_init() {
   // This will be expanded in later tasks (screenshot button, context menu, etc.)
 
   // Register the feature as available
-  if (window.assistFeatures) {
-    window.assistFeatures.ocr = {
-      isReady: ocr_isReady,
-      getLoadingState: ocr_getLoadingState,
-      loadTesseract: ocr_loadTesseract,
-      performOCR: ocr_performOCR,
-      recognizeText: ocr_recognizeText,
-      captureScreenshot: ocr_showScreenshotUI,
-    };
+  // Ensure namespace exists (defensive check)
+  if (!window.assistFeatures) {
+    window.assistFeatures = {};
   }
+
+  window.assistFeatures.ocr = {
+    isReady: ocr_isReady,
+    getLoadingState: ocr_getLoadingState,
+    loadTesseract: ocr_loadTesseract,
+    performOCR: ocr_performOCR,
+    recognizeText: ocr_recognizeText,
+    captureScreenshot: ocr_showScreenshotUI,
+  };
 
   console.log('[OCR] Feature ready. Use window.assistFeatures.ocr.performOCR() to start');
 }
