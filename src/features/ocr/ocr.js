@@ -618,11 +618,11 @@ async function ocr_showScreenshotUI() {
  * @param {string} imageDataUrl - Image data URL to process
  * @param {Object} options - OCR options
  * @param {string} options.lang - Language code (default: 'eng')
- * @param {number} options.confidenceThreshold - Minimum confidence (0-100, default: 60)
+ * @param {number} options.confidenceThreshold - Minimum confidence (0-100, default: 50)
  * @returns {Promise<Object>} OCR result with text and confidence
  */
 async function ocr_recognizeText(imageDataUrl, options = {}) {
-  const { lang = 'eng', confidenceThreshold = 60 } = options;
+  const { lang = 'eng', confidenceThreshold = 50 } = options;
 
   try {
     console.log(
@@ -632,7 +632,7 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
     // Lazy load Tesseract
     const Tesseract = await ocr_loadTesseract();
 
-    // Create worker
+    // Create worker with improved settings
     console.log('[OCR] Creating Tesseract worker...');
     const worker = await Tesseract.createWorker(lang, 1, {
       logger: m => {
@@ -640,6 +640,20 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
           console.log(`[OCR] Progress: ${Math.round(m.progress * 100)}%`);
         }
       },
+    });
+
+    // Configure worker with parameters for better accuracy
+    await worker.setParameters({
+      // Use PSM (Page Segmentation Mode) 3: Fully automatic page segmentation (best for most documents)
+      // PSM modes: 0=OSD only, 1=Auto OSD, 3=Fully auto, 6=Single block, 11=Sparse text, 13=Raw line
+      tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+
+      // OCR Engine Mode - Use LSTM neural net (mode 1) for better accuracy
+      // 0=Legacy, 1=LSTM, 2=Legacy+LSTM, 3=Default
+      tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+
+      // Improve character recognition
+      preserve_interword_spaces: '1', // Better word spacing detection
     });
 
     // Perform OCR
@@ -845,7 +859,16 @@ async function ocr_showResultModal(result, imageDataUrl) {
         border-radius: 4px;
         cursor: pointer;
         font-size: 14px;
-      ">Read Aloud (TTS)</button>
+      ">🔊 Read Aloud</button>
+      <button id="assist-ocr-stop" style="
+        padding: 10px 20px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">⏹️ Stop Audio</button>
       <button id="assist-ocr-copy" style="
         padding: 10px 20px;
         background: #007bff;
@@ -854,7 +877,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
         border-radius: 4px;
         cursor: pointer;
         font-size: 14px;
-      ">Copy to Clipboard</button>
+      ">📋 Copy</button>
       <button id="assist-ocr-save" style="
         padding: 10px 20px;
         background: #28a745;
@@ -863,7 +886,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
         border-radius: 4px;
         cursor: pointer;
         font-size: 14px;
-      ">Save as TXT</button>
+      ">💾 Save TXT</button>
     `;
 
     // Assemble modal
@@ -890,6 +913,10 @@ async function ocr_showResultModal(result, imageDataUrl) {
 
     document.getElementById('assist-ocr-tts').onclick = () => {
       ocr_readAloud(textArea.value);
+    };
+
+    document.getElementById('assist-ocr-stop').onclick = () => {
+      ocr_stopAudio();
     };
 
     // Close on overlay click
@@ -959,16 +986,42 @@ function ocr_saveAsFile(text) {
  * @param {string} text - Text to read
  */
 function ocr_readAloud(text) {
-  // Check if TTS feature is available
-  if (window.assistFeatures && window.assistFeatures.tts) {
-    console.log('[OCR] Triggering TTS for extracted text');
-    // Integration with existing TTS will be added in Task 1.7
-    alert('TTS integration will be added in the next task');
+  // Use the existing readText function from content-simple.js
+  if (typeof window.readText === 'function') {
+    console.log('[OCR] Using extension TTS with user settings');
+    // Create a temporary element for TTS context
+    const tempElement = document.createElement('div');
+    tempElement.textContent = text;
+    tempElement.style.display = 'none';
+    document.body.appendChild(tempElement);
+
+    // Call readText which respects user's TTS settings (voice, rate, etc.)
+    window.readText(text, tempElement);
+
+    // Clean up after a delay
+    setTimeout(() => {
+      if (tempElement.parentNode) {
+        tempElement.remove();
+      }
+    }, 1000);
   } else {
+    console.warn('[OCR] Extension TTS not available, using fallback');
     // Fallback to browser speech synthesis
     const utterance = new SpeechSynthesisUtterance(text);
     speechSynthesis.speak(utterance);
-    console.log('[OCR] Using browser speech synthesis');
+  }
+}
+
+/**
+ * Stops any currently playing TTS audio
+ */
+function ocr_stopAudio() {
+  console.log('[OCR] Stopping audio playback');
+
+  // Try to use the extension's speech synthesis
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    console.log('[OCR] Audio stopped');
   }
 }
 
