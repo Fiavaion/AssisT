@@ -51,6 +51,57 @@ Knowledge Persistence: The @projectmemory.md file is the definitive source for d
 
 Tooling Context: Reference files (if needed, generate @general_index.md and @detailed_index.md for large codebases) should be managed by the developer.[34, 35]
 
+🐛 DEBUGGING PROTOCOL (CRITICAL - AI ASSISTANT BEHAVIOR)
+**MANDATORY READING:** `TEMPLATE_DEBUGGING_PROTOCOL.md` and `LESSONS_UI_EVENT_HANDLING.md`
+
+**The 5-Minute Rule:**
+
+- If a bug cannot be diagnosed in 5 minutes, change strategy immediately
+- DO NOT spend time reading large amounts of code before testing hypotheses
+- ADD debug logging FIRST, analyze output SECOND
+
+**Proactive Debugging Stance:**
+When encountering ANY bug (UI, logic, integration, build):
+
+1. **IMMEDIATE ACTION (0-60 seconds):**
+   - Add `console.log()` at suspected failure points
+   - Add `alert()` if logs don't appear (forces visibility)
+   - Rebuild and test hypothesis
+
+2. **NUCLEAR OPTIONS (60-120 seconds):**
+   - If normal approach fails, use aggressive tactics:
+     - Inline event handlers (`setAttribute('onclick', ...)`)
+     - Hardcoded test data (`return { success: true }`)
+     - Debugger breakpoints (`debugger;` statements)
+   - These are VALID approaches when stuck
+
+3. **VERIFICATION (120-180 seconds):**
+   - Create minimal isolated test case
+   - Test in clean environment (new HTML file, no dependencies)
+   - Verify external factors (build system, caching, browser extensions)
+
+4. **ESCALATION (180+ seconds):**
+   - If still not resolved, problem is likely NOT what you think
+   - Check: Module loading, build output, environment config
+   - Document findings and ask user for additional context
+
+**AI Assistant Rules:**
+
+- ✅ BE AGGRESSIVE: Try nuclear options early, don't hesitate
+- ✅ LOG EVERYTHING: Add debug statements liberally
+- ✅ TEST FAST: Small iterations, quick rebuilds
+- ✅ FAIL FAST: If approach isn't working in 2 minutes, pivot
+- ❌ DON'T: Spend 10+ minutes reading code before testing
+- ❌ DON'T: Assume the problem - verify with logs
+- ❌ DON'T: Fear "breaking things" during debug (that's the point)
+
+**Event Handling Bugs (UI appears but doesn't respond):**
+
+- FIRST ACTION: Change `onclick` to `onmousedown` + `e.preventDefault()` + `e.stopPropagation()`
+- SECOND ACTION: Add logging to ALL event listeners in the chain
+- THIRD ACTION: Check CSS (`pointer-events`, `z-index`) and DOM structure
+- See `LESSONS_UI_EVENT_HANDLING.md` for full playbook
+
 🚀 Automated Versioning and Rollback Setup
 To facilitate automatic progress versioning and reliable rollback capability, use the following steps to set up the push alias:
 
