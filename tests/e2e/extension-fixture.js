@@ -10,8 +10,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Extension path
-const extensionPath = path.join(__dirname, '..', '..', 'Output');
+// Extension path - use .vite build output (Vite bundles extension here)
+const extensionPath = path.join(__dirname, '..', '..', '.vite');
 
 /**
  * Extended test with extension context
