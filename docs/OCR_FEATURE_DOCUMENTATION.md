@@ -1,7 +1,7 @@
 # OCR (Optical Character Recognition) Feature Documentation
 
 **Status:** ✅ FULLY IMPLEMENTED
-**Version:** 0.1.0
+**Version:** 0.1.1
 **Last Updated:** 2025-11-21
 **Module Location:** [src/features/ocr/ocr.js](../src/features/ocr/ocr.js)
 
@@ -482,6 +482,12 @@ Gets detailed loading state.
 ---
 
 ## 📝 Changelog
+
+### 0.1.1 (2025-11-21)
+
+- 🐛 Fixed: OCR namespace not created properly in `ocr_init()` function
+- Changed from `if (window.assistFeatures)` to `if (!window.assistFeatures)` check
+- This was preventing `window.assistFeatures.ocr` from being accessible in browser console
 
 ### 0.1.0 (2025-11-21)
 
