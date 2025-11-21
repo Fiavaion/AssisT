@@ -19,7 +19,7 @@ Project Goal: To deliver a stable, client-side TTS/STT personalization layer for
 
 Technology Stack: Modern JavaScript (ES6+), Chrome Extension API (Manifest V3), WAI-Adapt standards.
 
-Target VLE: Canvas LMS (All domains matching *://*.instructure.com/* or institutional specific URLs).
+Target VLE: Canvas LMS (All domains matching _://_.instructure.com/\* or institutional specific URLs).
 
 Core Feature Focus: TTS with Synchronized Highlighting (Reading) and Multimodal FixOver Correction (Writing).
 
@@ -28,13 +28,17 @@ Code Style: Adhere to project ESLint and Prettier configurations (assume default
 
 File Organization: Separate UI logic (popup.js), content injection (content.js), and background services (background.js).
 
-**🚨 CRITICAL: File Location Rules**
+**🚨 CRITICAL: File Location & Build System Rules**
+
 - **ALWAYS edit source files in:** `src/` directory ONLY
-- **NEVER edit files in:** `Output/` directory (build artifacts)
-- **Chrome loads extension from:** `Output/` directory
-- **Build process:** Run `npm run build` to copy `src/` → `Output/`
-- **Before testing:** Always run build, then reload extension
-- **Validation rule:** If file path contains "Output/", STOP and redirect to source file in `src/`
+- **NEVER edit files in:** `.vite/` directory (Vite build output - auto-generated)
+- **Chrome loads extension from:** `.vite/` directory (this is the OUTPUT directory)
+- **Build system:** Vite with @crxjs/vite-plugin (Manifest V3 support)
+- **Build process:** Run `npm run build` to bundle `src/` → `.vite/`
+- **Build output location:** `.vite/` directory contains the final bundled extension
+- **Before testing:** Always run `npm run build`, then reload extension in Chrome
+- **Validation rule:** If file path contains ".vite/", STOP and redirect to source file in `src/`
+- **Key detail:** Vite bundles JavaScript files with hashed names (e.g., `popup.html-0dTtY8E-.js`) into `.vite/assets/`
 
 Commit Workflow: Confirm the type (e.g., feat(tts), fix(ui), refactor(dom)) and scope before committing.[33]
 
@@ -51,6 +55,7 @@ Tooling Context: Reference files (if needed, generate @general_index.md and @det
 To facilitate automatic progress versioning and reliable rollback capability, use the following steps to set up the push alias:
 
 ### 1. Create the Push Script (push.sh)
+
 Create a file named push.sh in the root of the repository and populate it with the following Bash script. This script automatically stages all changes, requires a Conventional Commit message, executes a git pull --rebase to ensure a linear, clean history, and finally pushes the changes.[36, 1]
 
 ```bash
@@ -115,6 +120,7 @@ chmod +x push.sh
 ```
 
 ### 3. Create the push Alias
+
 Add the following line to your shell configuration file (e.g., ~/.bashrc, ~/.zshrc, or equivalent) to enable the single-command workflow:
 
 ```bash
