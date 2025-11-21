@@ -27,7 +27,8 @@ let highlightMenu_toolbar = null;
 let highlightMenu_selectedText = '';
 let highlightMenu_selectionRange = null;
 let highlightMenu_autoHideTimeout = null;
-let highlightMenu_settings = {
+let highlightMenu_currentFocusIndex = 0;
+const highlightMenu_settings = {
   enabled: true,
   showTTS: true,
   showDictionary: true,
@@ -45,10 +46,12 @@ let highlightMenu_settings = {
 /**
  * Handles text selection (mouseup event)
  *
- * @param {MouseEvent} event - Mouse event
+ * @param {MouseEvent} _event - Mouse event (unused)
  */
-function highlightMenu_handleSelection(event) {
-  if (!highlightMenu_settings.enabled) return;
+function highlightMenu_handleSelection(_event) {
+  if (!highlightMenu_settings.enabled) {
+    return;
+  }
 
   // Clear existing timeout
   if (highlightMenu_autoHideTimeout) {
@@ -74,7 +77,7 @@ function highlightMenu_handleSelection(event) {
   const rect = highlightMenu_selectionRange.getBoundingClientRect();
 
   // Show toolbar
-  highlightMenu_show(rect, event.clientX, event.clientY);
+  highlightMenu_show(rect);
 
   // Set auto-hide timeout
   if (highlightMenu_settings.autoHideDelay > 0) {
@@ -113,56 +116,70 @@ function highlightMenu_createToolbar() {
 
   // Add buttons
   const buttons = [];
+  let buttonIndex = 0;
 
   if (highlightMenu_settings.showTTS) {
     buttons.push(
-      highlightMenu_createButton('🔊', 'Read Aloud (TTS)', () =>
-        highlightMenu_handleTTS()
+      highlightMenu_createButton(
+        '🔊',
+        'Read Aloud (TTS)',
+        () => highlightMenu_handleTTS(),
+        buttonIndex++
       )
     );
   }
 
   if (highlightMenu_settings.showDictionary) {
     buttons.push(
-      highlightMenu_createButton('📖', 'Dictionary Lookup', () =>
-        highlightMenu_handleDictionary()
+      highlightMenu_createButton(
+        '📖',
+        'Dictionary Lookup',
+        () => highlightMenu_handleDictionary(),
+        buttonIndex++
       )
     );
   }
 
   if (highlightMenu_settings.showTranslate) {
     buttons.push(
-      highlightMenu_createButton('🌐', 'Translate', () =>
-        highlightMenu_handleTranslate()
+      highlightMenu_createButton(
+        '🌐',
+        'Translate',
+        () => highlightMenu_handleTranslate(),
+        buttonIndex++
       )
     );
   }
 
   if (highlightMenu_settings.showSearch) {
     buttons.push(
-      highlightMenu_createButton('🔍', 'Search Google', () =>
-        highlightMenu_handleSearch()
+      highlightMenu_createButton(
+        '🔍',
+        'Search Google',
+        () => highlightMenu_handleSearch(),
+        buttonIndex++
       )
     );
   }
 
   if (highlightMenu_settings.showAnnotate) {
     buttons.push(
-      highlightMenu_createButton('📝', 'Add Annotation', () =>
-        highlightMenu_handleAnnotate()
+      highlightMenu_createButton(
+        '📝',
+        'Add Annotation',
+        () => highlightMenu_handleAnnotate(),
+        buttonIndex++
       )
     );
   }
 
   if (highlightMenu_settings.showCopy) {
     buttons.push(
-      highlightMenu_createButton('📋', 'Copy Text', () =>
-        highlightMenu_handleCopy()
-      )
+      highlightMenu_createButton('📋', 'Copy Text', () => highlightMenu_handleCopy(), buttonIndex++)
     );
   }
 
-  buttons.forEach((btn) => toolbar.appendChild(btn));
+  buttons.forEach(btn => toolbar.appendChild(btn));
 
   return toolbar;
 }
@@ -173,13 +190,16 @@ function highlightMenu_createToolbar() {
  * @param {string} icon - Button icon/emoji
  * @param {string} label - Accessible label
  * @param {Function} onClick - Click handler
+ * @param {number} index - Button index for keyboard navigation
  * @returns {HTMLElement} Button element
  */
-function highlightMenu_createButton(icon, label, onClick) {
+function highlightMenu_createButton(icon, label, onClick, index) {
   const button = document.createElement('button');
   button.className = 'assist-highlight-menu-btn';
   button.setAttribute('aria-label', label);
   button.setAttribute('title', label);
+  button.setAttribute('tabindex', index === 0 ? '0' : '-1');
+  button.setAttribute('data-button-index', index);
   button.textContent = icon;
   button.style.cssText = `
     background: white;
@@ -205,7 +225,16 @@ function highlightMenu_createButton(icon, label, onClick) {
     button.style.transform = 'scale(1)';
   };
 
-  button.onclick = (e) => {
+  button.onfocus = () => {
+    button.style.outline = '2px solid #4285f4';
+    button.style.outlineOffset = '2px';
+  };
+
+  button.onblur = () => {
+    button.style.outline = 'none';
+  };
+
+  button.onclick = e => {
     e.stopPropagation();
     onClick();
   };
@@ -217,10 +246,8 @@ function highlightMenu_createButton(icon, label, onClick) {
  * Shows the toolbar at the specified position
  *
  * @param {DOMRect} selectionRect - Selection bounding rectangle
- * @param {number} mouseX - Mouse X coordinate
- * @param {number} mouseY - Mouse Y coordinate
  */
-function highlightMenu_show(selectionRect, mouseX, mouseY) {
+function highlightMenu_show(selectionRect) {
   // Remove existing toolbar
   if (highlightMenu_toolbar) {
     highlightMenu_toolbar.remove();
@@ -239,10 +266,11 @@ function highlightMenu_show(selectionRect, mouseX, mouseY) {
 
   // Adjust if toolbar would be off-screen
   const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
 
   // Horizontal bounds
-  if (left < 8) left = 8;
+  if (left < 8) {
+    left = 8;
+  }
   if (left + toolbarRect.width > viewportWidth - 8) {
     left = viewportWidth - toolbarRect.width - 8;
   }
@@ -270,6 +298,7 @@ function highlightMenu_hide() {
 
   highlightMenu_selectedText = '';
   highlightMenu_selectionRange = null;
+  highlightMenu_currentFocusIndex = 0;
 
   if (highlightMenu_autoHideTimeout) {
     clearTimeout(highlightMenu_autoHideTimeout);
@@ -277,6 +306,77 @@ function highlightMenu_hide() {
   }
 
   console.log('[HighlightMenu] Toolbar hidden');
+}
+
+/**
+ * Handles keyboard navigation within the toolbar
+ *
+ * @param {KeyboardEvent} event - Keyboard event
+ */
+function highlightMenu_handleKeyboardNav(event) {
+  if (!highlightMenu_toolbar) {
+    return;
+  }
+
+  const buttons = Array.from(highlightMenu_toolbar.querySelectorAll('.assist-highlight-menu-btn'));
+  const totalButtons = buttons.length;
+
+  if (totalButtons === 0) {
+    return;
+  }
+
+  let handled = false;
+
+  switch (event.key) {
+    case 'Tab':
+      event.preventDefault();
+      if (event.shiftKey) {
+        // Shift+Tab: move backward
+        highlightMenu_currentFocusIndex =
+          (highlightMenu_currentFocusIndex - 1 + totalButtons) % totalButtons;
+      } else {
+        // Tab: move forward
+        highlightMenu_currentFocusIndex = (highlightMenu_currentFocusIndex + 1) % totalButtons;
+      }
+      handled = true;
+      break;
+
+    case 'ArrowRight':
+      event.preventDefault();
+      highlightMenu_currentFocusIndex = (highlightMenu_currentFocusIndex + 1) % totalButtons;
+      handled = true;
+      break;
+
+    case 'ArrowLeft':
+      event.preventDefault();
+      highlightMenu_currentFocusIndex =
+        (highlightMenu_currentFocusIndex - 1 + totalButtons) % totalButtons;
+      handled = true;
+      break;
+
+    case 'Escape':
+      event.preventDefault();
+      highlightMenu_hide();
+      handled = true;
+      break;
+
+    case 'Enter':
+    case ' ':
+      // Let the focused button handle the event
+      break;
+  }
+
+  if (handled) {
+    // Update tabindex and focus
+    buttons.forEach((btn, idx) => {
+      if (idx === highlightMenu_currentFocusIndex) {
+        btn.setAttribute('tabindex', '0');
+        btn.focus();
+      } else {
+        btn.setAttribute('tabindex', '-1');
+      }
+    });
+  }
 }
 
 // ============================================================================
@@ -305,7 +405,9 @@ function highlightMenu_handleTTS() {
  */
 function highlightMenu_handleDictionary() {
   console.log('[HighlightMenu] Dictionary action triggered');
-  alert(`Dictionary lookup for: "${highlightMenu_selectedText}"\n\n(Feature 4 - Dictionary will be implemented next)`);
+  alert(
+    `Dictionary lookup for: "${highlightMenu_selectedText}"\n\n(Feature 4 - Dictionary will be implemented next)`
+  );
   highlightMenu_hide();
 }
 
@@ -314,7 +416,9 @@ function highlightMenu_handleDictionary() {
  */
 function highlightMenu_handleTranslate() {
   console.log('[HighlightMenu] Translate action triggered');
-  alert(`Translate: "${highlightMenu_selectedText}"\n\n(Feature 6 - Translation will be implemented later)`);
+  alert(
+    `Translate: "${highlightMenu_selectedText}"\n\n(Feature 6 - Translation will be implemented later)`
+  );
   highlightMenu_hide();
 }
 
@@ -333,7 +437,9 @@ function highlightMenu_handleSearch() {
  */
 function highlightMenu_handleAnnotate() {
   console.log('[HighlightMenu] Annotate action triggered');
-  alert(`Add annotation for: "${highlightMenu_selectedText}"\n\n(Feature 5 - Annotations will be implemented later)`);
+  alert(
+    `Add annotation for: "${highlightMenu_selectedText}"\n\n(Feature 5 - Annotations will be implemented later)`
+  );
   highlightMenu_hide();
 }
 
@@ -374,18 +480,18 @@ function highlightMenu_init() {
   // Add mouseup listener for text selection
   document.addEventListener('mouseup', highlightMenu_handleSelection);
 
+  // Add keyboard navigation listener
+  document.addEventListener('keydown', highlightMenu_handleKeyboardNav);
+
   // Hide toolbar when clicking outside
-  document.addEventListener('mousedown', (e) => {
-    if (
-      highlightMenu_toolbar &&
-      !highlightMenu_toolbar.contains(e.target)
-    ) {
+  document.addEventListener('mousedown', e => {
+    if (highlightMenu_toolbar && !highlightMenu_toolbar.contains(e.target)) {
       highlightMenu_hide();
     }
   });
 
   // Load settings from chrome.storage
-  chrome.storage.local.get(['highlightMenuSettings'], (result) => {
+  chrome.storage.local.get(['highlightMenuSettings'], result => {
     if (result.highlightMenuSettings) {
       Object.assign(highlightMenu_settings, result.highlightMenuSettings);
       console.log('[HighlightMenu] Settings loaded:', highlightMenu_settings);
@@ -421,6 +527,7 @@ function highlightMenu_cleanup() {
   console.log('[HighlightMenu] Cleaning up...');
   highlightMenu_hide();
   document.removeEventListener('mouseup', highlightMenu_handleSelection);
+  document.removeEventListener('keydown', highlightMenu_handleKeyboardNav);
 }
 
 // ============================================================================
