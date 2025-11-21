@@ -63,7 +63,7 @@ npm run build
 # - Open chrome://extensions/
 # - Enable "Developer mode"
 # - Click "Load unpacked"
-# - Select the "Output" folder
+# - Select the ".vite" folder (NOT "Output")
 ```
 
 **✅ Done!** Click the AssisT icon in your Chrome toolbar to start.
