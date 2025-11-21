@@ -69,6 +69,7 @@ import '../features/stt/stt.js'; // Self-initializing module with Chrome storage
 import '../features/ocr/ocr.js'; // Self-initializing OCR module with Tesseract.js lazy loading
 import '../features/highlightMenu/highlightMenu.js'; // Self-initializing highlight menu with text selection actions
 import '../features/readingMode/readingMode.js'; // Self-initializing reading mode with Mozilla Readability
+import '../features/dictionary/dictionary.js'; // Self-initializing dictionary lookup with Free Dictionary API
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners

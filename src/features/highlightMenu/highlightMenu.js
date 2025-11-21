@@ -401,13 +401,19 @@ function highlightMenu_handleTTS() {
 }
 
 /**
- * Handles Dictionary action (placeholder for Feature 4)
+ * Handles Dictionary action
  */
 function highlightMenu_handleDictionary() {
   console.log('[HighlightMenu] Dictionary action triggered');
-  alert(
-    `Dictionary lookup for: "${highlightMenu_selectedText}"\n\n(Feature 4 - Dictionary will be implemented next)`
-  );
+
+  // Check if dictionary feature is available
+  if (window.assistFeatures?.dictionary?.lookup) {
+    window.assistFeatures.dictionary.lookup(highlightMenu_selectedText);
+  } else {
+    console.warn('[HighlightMenu] Dictionary feature not loaded');
+    alert('Dictionary feature not available. Please reload the page.');
+  }
+
   highlightMenu_hide();
 }
 
