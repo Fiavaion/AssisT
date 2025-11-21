@@ -9,7 +9,7 @@
 
 ### Feature 1: OCR + Screenshot Tool
 
-**Status**: `[>]` In Progress (85% - Major UI/TTS Complete)
+**Status**: `[>]` In Progress (92% - PDF Support Added, Settings/Tests Remain)
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
@@ -19,7 +19,7 @@
 - [x] 1.1: Set up Tesseract.js lazy loading
 - [x] 1.2: Implement screenshot capture (full page)
 - [x] 1.3: Implement screenshot region selection
-- [ ] 1.4: PDF detection and rendering with PDF.js
+- [x] 1.4: PDF detection and rendering (Chrome viewer, PDF.js, Canvas embedded, direct URLs)
 - [x] 1.5: OCR engine integration with confidence threshold
 - [x] 1.6: Text extraction modal UI (Media Player design with controls)
 - [x] 1.7: TTS integration for extracted text (Full media player with play/pause/stop/speed/chunking)

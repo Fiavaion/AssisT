@@ -32,6 +32,20 @@
 
 ## ✅ Recently Completed
 
+### Phase 2 Session 006 (2025-11-21)
+
+**OCR PDF Support & Content Filtering - Complete**
+
+- [x] Fixed Reading Mode double scrollbar issue (scroll overlay, not window)
+- [x] Implemented OCR noise filtering (30+ patterns for cookie notices, social embeds)
+- [x] Added comprehensive PDF support (Chrome viewer, PDF.js, Canvas embedded, direct URLs)
+- [x] Added OCR button to extension popup with message handlers
+- [x] Fixed PDF multi-page scrolling using background script injection
+- [x] Increased PDF rendering delay to 500ms for stable captures
+- [x] Added settings: ocr.autoActivateReadingMode, ocr.filterNoise
+
+**Commit**: feat(accessibility): add PDF support and noise filtering to OCR
+
 ### Phase 2 Session 005 (2025-11-21)
 
 **OCR Media Player Feature - Complete**
