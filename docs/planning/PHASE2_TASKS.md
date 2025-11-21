@@ -16,7 +16,7 @@
 
 **Tasks**:
 
-- [>] 1.1: Set up Tesseract.js lazy loading
+- [x] 1.1: Set up Tesseract.js lazy loading
 - [ ] 1.2: Implement screenshot capture (full page)
 - [ ] 1.3: Implement screenshot region selection
 - [ ] 1.4: PDF detection and rendering with PDF.js
