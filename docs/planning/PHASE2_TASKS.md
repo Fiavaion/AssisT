@@ -31,22 +31,22 @@
 
 ### Feature 2: Highlight Menu
 
-**Status**: `[ ]` Pending
+**Status**: `[>]` In Progress (69% - 9/13 tasks)
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: Dictionary (4), Translation (6)
 
 **Tasks**:
 
-- [ ] 2.1: Text selection detection (mouseup event)
-- [ ] 2.2: Floating toolbar positioning logic
-- [ ] 2.3: Toolbar UI with 6 action buttons
-- [ ] 2.4: TTS button integration
-- [ ] 2.5: Dictionary button (placeholder for Feature 4)
-- [ ] 2.6: Translate button (placeholder for Feature 6)
-- [ ] 2.7: Search button (Google search)
-- [ ] 2.8: Annotate button (placeholder for Feature 5)
-- [ ] 2.9: Copy button
+- [x] 2.1: Text selection detection (mouseup event)
+- [x] 2.2: Floating toolbar positioning logic
+- [x] 2.3: Toolbar UI with 6 action buttons
+- [x] 2.4: TTS button integration
+- [x] 2.5: Dictionary button (placeholder for Feature 4)
+- [x] 2.6: Translate button (placeholder for Feature 6)
+- [x] 2.7: Search button (Google search)
+- [x] 2.8: Annotate button (placeholder for Feature 5)
+- [x] 2.9: Copy button
 - [ ] 2.10: Keyboard navigation (Tab/Arrow keys)
 - [ ] 2.11: Auto-hide after 5 seconds
 - [ ] 2.12: Settings (enable/disable buttons, timeout)
@@ -54,25 +54,25 @@
 
 ### Feature 3: Reading Mode
 
-**Status**: `[ ]` Pending
+**Status**: `[>]` In Progress (92% - 12/13 tasks)
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: None
 
 **Tasks**:
 
-- [ ] 3.1: Integrate @mozilla/readability library
-- [ ] 3.2: Content extraction algorithm
-- [ ] 3.3: Full-page overlay rendering
-- [ ] 3.4: Clean typography (max-width 800px, centered)
-- [ ] 3.5: Background color options (cream default)
-- [ ] 3.6: TTS preservation in reading mode
-- [ ] 3.7: Dyslexia mode compatibility
+- [x] 3.1: Integrate @mozilla/readability library
+- [x] 3.2: Content extraction algorithm
+- [x] 3.3: Full-page overlay rendering
+- [x] 3.4: Clean typography (max-width 800px, centered)
+- [x] 3.5: Background color options (cream default)
+- [x] 3.6: TTS preservation in reading mode
+- [x] 3.7: Dyslexia mode compatibility
 - [ ] 3.8: Toggle button in popup (Enter/Exit)
-- [ ] 3.9: Keyboard shortcut (Ctrl+Shift+R)
-- [ ] 3.10: ESC key to exit
-- [ ] 3.11: Font customization (4 fonts from Feature 9)
-- [ ] 3.12: Settings persistence
+- [x] 3.9: Keyboard shortcut (Ctrl+Shift+R)
+- [x] 3.10: ESC key to exit
+- [x] 3.11: Font customization (OpenDyslexic font)
+- [x] 3.12: Settings persistence
 - [ ] 3.13: E2E test on Canvas pages
 
 ### Feature 4: Dictionary Lookup

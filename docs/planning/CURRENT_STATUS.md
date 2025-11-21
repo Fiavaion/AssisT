@@ -2,15 +2,16 @@
 
 **Last Updated**: 2025-11-21
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 In Progress)
-**Current Phase**: Phase 2 - Feature Expansion
+**Current Phase**: Phase 2.1 - High-Priority Core Features
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
+**Current Branch**: feature/ocr-screenshot (7 commits ahead)
 
 ---
 
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: 🚧 0% Complete (0/24 features)
+**Phase 2 (Feature Expansion)**: 🚧 13% Complete (3/24 features in progress, 28 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 1 week (preparation)
@@ -46,10 +47,11 @@
 
 ## 🚧 In Progress
 
-**Current Feature**: Feature 1 - OCR + Screenshot Tool
-**Current Task**: 1.10 - Settings panel (remaining)
+**Session**: Phase 2 Session 3 Complete (Full Auto Mode)
+**Features Started**: 3 (OCR, Highlight Menu, Reading Mode)
+**Next Feature**: Feature 4 - Dictionary Lookup
 **Started**: 2025-11-21
-**Progress**: 7/12 tasks complete (58%)
+**Overall Progress**: 28/~150 tasks (19%)
 
 ---
 
