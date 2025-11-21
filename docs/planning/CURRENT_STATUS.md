@@ -32,6 +32,7 @@
 ## ✅ Recently Completed
 
 ### Phase 0: Preparation (Week 1)
+
 - [x] Created git savepoint: `v0.1.0-pre-phase2`
 - [x] Added DEC-202511-001 to PROJECT_MEMORY.md
 - [x] Updated package.json with 5 new dependencies
@@ -45,29 +46,34 @@
 
 ## 🚧 In Progress
 
-**Current Feature**: None (ready to start)
-**Current Task**: Awaiting user approval to begin Feature 1
+**Current Feature**: Feature 1 - OCR + Screenshot Tool
+**Current Task**: 1.1 - Set up Tesseract.js lazy loading
+**Started**: 2025-11-21
 
 ---
 
 ## 📋 Next Steps
 
 ### Immediate (This Session)
+
 1. Begin Feature 1: OCR + Screenshot Tool
    - Task 1.1: Set up Tesseract.js lazy loading
    - Task 1.2: Implement screenshot capture
 
 ### Short-Term (Next 2-3 weeks)
+
 1. Complete Feature 1: OCR + Screenshot Tool (12 tasks)
 2. Complete Feature 2: Highlight Menu (13 tasks)
 3. Complete Feature 3: Reading Mode (13 tasks)
 4. Complete Feature 4: Dictionary Lookup (13 tasks)
 
 ### Medium-Term (Weeks 6-11)
+
 1. Complete Phase 2: Writing & Organization (3 features)
 2. Complete Phase 3: UX Enhancements (2 features)
 
 ### Long-Term (Weeks 12-16)
+
 1. Complete Phase 4: Citation & Research Management (6 features)
 2. Complete Testing & Documentation
 3. Prepare for Chrome Web Store submission
@@ -77,6 +83,7 @@
 ## 🔧 Technical Status
 
 ### Dependencies Installed
+
 - ✅ tesseract.js@5.0.0 (OCR engine)
 - ✅ @mozilla/readability@0.5.0 (Reading Mode)
 - ✅ dexie@3.2.0 (IndexedDB wrapper)
@@ -85,6 +92,7 @@
 - ✅ compromise@14.14.4 (NLP for dyslexia features - already installed)
 
 ### Manifest Permissions
+
 - ✅ storage (existing)
 - ✅ activeTab (existing)
 - ✅ scripting (existing)
@@ -94,6 +102,7 @@
 - ✅ unlimitedStorage (NEW - optional for IndexedDB)
 
 ### Build System
+
 - ✅ npm run build (copies src/ → Output/)
 - ✅ Extension loads from Output/
 - ✅ All existing features working
@@ -105,6 +114,7 @@
 ## 📈 Metrics
 
 ### Code Stats (Pre-Phase 2)
+
 - **Total Lines**: ~7,538 LOC
 - **Files**: 4 core + 10+ features
 - **Features**: 10 shipped
@@ -112,6 +122,7 @@
 - **E2E Tests**: 11 passing (44% pass rate)
 
 ### Expected Growth (Post-Phase 2)
+
 - **Total Lines**: ~15,000-20,000 LOC (estimated)
 - **Features**: 34 total (10 existing + 24 new)
 - **Unit Tests**: ~200-250 tests (target 80%+ coverage)
@@ -137,21 +148,25 @@
 ## 🚀 Phase 2 Features (In Progress)
 
 ### Phase 2.1: High-Priority (Weeks 2-5)
+
 - [ ] OCR + Screenshot Tool
 - [ ] Highlight Menu
 - [ ] Reading Mode
 - [ ] Dictionary Lookup
 
 ### Phase 2.2: Writing & Organization (Weeks 6-9)
+
 - [ ] Annotations & Sticky Notes
 - [ ] Translation
 - [ ] Text Statistics
 
 ### Phase 2.3: UX Enhancements (Weeks 10-11)
+
 - [ ] Font Library (+4 fonts)
 - [ ] Full Keyboard Shortcuts System
 
 ### Phase 2.4: Citation Management (Weeks 12-16)
+
 - [ ] Citation Capture & Metadata Extraction
 - [ ] Citation Formatting (Cite Them Right Harvard)
 - [ ] Project Organization System
@@ -164,14 +179,17 @@
 ## ⚠️ Known Issues & Blockers
 
 ### Current Blockers
+
 - None
 
 ### Known Technical Debt
+
 1. E2E test selectors need updating (14/25 failing)
 2. TTS Controller tests at 50% pass rate (mocking issues)
 3. commitlint config needs ES module fix
 
 ### Deferred Issues
+
 1. TTS/STT engine test coverage (deferred from Sprint 9 Phase 1)
 2. Word-by-word highlighting refinement (deferred from Sprint 6)
 3. Cloud sync for profiles (deferred to Phase 3+)
@@ -184,6 +202,7 @@
 **Rollback Command**: `git reset --hard v0.1.0-pre-phase2`
 
 **Previous Checkpoints**:
+
 - Sprint-9-Phase-2-Complete (Dyslexia Mode)
 - Sprint-8-Testing-Complete (94 unit tests)
 - Sprint-6-ScreenOverlay-Stable
@@ -199,6 +218,7 @@
 **Branch**: feature/automated-fixes
 
 **Notes**:
+
 - All Phase 0 preparation complete
 - Ready to begin Feature 1 implementation
 - Follow incremental protocol from DEC-202510-021

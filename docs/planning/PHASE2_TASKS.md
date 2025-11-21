@@ -8,13 +8,15 @@
 ## Phase 1: High-Priority Core Features (Weeks 2-5)
 
 ### Feature 1: OCR + Screenshot Tool
-**Status**: `[ ]` Pending
+
+**Status**: `[>]` In Progress
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
 
 **Tasks**:
-- [ ] 1.1: Set up Tesseract.js lazy loading
+
+- [>] 1.1: Set up Tesseract.js lazy loading
 - [ ] 1.2: Implement screenshot capture (full page)
 - [ ] 1.3: Implement screenshot region selection
 - [ ] 1.4: PDF detection and rendering with PDF.js
@@ -28,12 +30,14 @@
 - [ ] 1.12: E2E test for screenshot workflow
 
 ### Feature 2: Highlight Menu
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: Dictionary (4), Translation (6)
 
 **Tasks**:
+
 - [ ] 2.1: Text selection detection (mouseup event)
 - [ ] 2.2: Floating toolbar positioning logic
 - [ ] 2.3: Toolbar UI with 6 action buttons
@@ -49,12 +53,14 @@
 - [ ] 2.13: E2E test for menu workflow
 
 ### Feature 3: Reading Mode
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: None
 
 **Tasks**:
+
 - [ ] 3.1: Integrate @mozilla/readability library
 - [ ] 3.2: Content extraction algorithm
 - [ ] 3.3: Full-page overlay rendering
@@ -70,12 +76,14 @@
 - [ ] 3.13: E2E test on Canvas pages
 
 ### Feature 4: Dictionary Lookup
+
 **Status**: `[ ]` Pending
 **Estimated**: 0.5 weeks
 **Priority**: MEDIUM
 **Dependencies**: Highlight Menu (2)
 
 **Tasks**:
+
 - [ ] 4.1: Free Dictionary API integration
 - [ ] 4.2: API request with error handling
 - [ ] 4.3: Modal popup UI design
@@ -95,12 +103,14 @@
 ## Phase 2: Writing & Organization Tools (Weeks 6-9)
 
 ### Feature 5: Annotations & Sticky Notes
+
 **Status**: `[ ]` Pending
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
 
 **Tasks**:
+
 - [ ] 5.1: Storage mode dropdown (local vs IndexedDB)
 - [ ] 5.2: Dexie.js IndexedDB setup
 - [ ] 5.3: Auto-migration between storage modes
@@ -121,12 +131,14 @@
 - [ ] 5.18: E2E test for note creation
 
 ### Feature 6: Translation
+
 **Status**: `[ ]` Pending
 **Estimated**: 1-2 weeks
 **Priority**: MEDIUM
 **Dependencies**: Highlight Menu (2)
 
 **Tasks**:
+
 - [ ] 6.1: LibreTranslate API integration
 - [ ] 6.2: API error handling (quota exceeded)
 - [ ] 6.3: Settings dropdown (engine selection)
@@ -142,12 +154,14 @@
 - [ ] 6.13: Unit tests with mocked API
 
 ### Feature 7: Text Statistics
+
 **Status**: `[ ]` Pending
 **Estimated**: 0.5 weeks
 **Priority**: LOW
 **Dependencies**: None
 
 **Tasks**:
+
 - [ ] 7.1: Word count algorithm
 - [ ] 7.2: Character count (with/without spaces)
 - [ ] 7.3: Sentence count
@@ -169,12 +183,14 @@
 ## Phase 3: UX Enhancements (Weeks 10-11)
 
 ### Feature 9: Font Library Expansion
+
 **Status**: `[ ]` Pending
 **Estimated**: 0.5 weeks
 **Priority**: LOW
 **Dependencies**: None
 
 **Tasks**:
+
 - [ ] 9.1: Download Lexend font files
 - [ ] 9.2: Download Atkinson Hyperlegible font files
 - [ ] 9.3: Add Arial system font option
@@ -186,12 +202,14 @@
 - [ ] 9.9: E2E test for font switching
 
 ### Feature 10: Full Keyboard Shortcuts System
+
 **Status**: `[ ]` Pending
 **Estimated**: 1-2 weeks
 **Priority**: MEDIUM
 **Dependencies**: All previous features
 
 **Tasks**:
+
 - [ ] 10.1: Define 14 default shortcuts
 - [ ] 10.2: Centralized keyboard event handler
 - [ ] 10.3: Settings UI table (Feature | Shortcut | Edit)
@@ -210,12 +228,14 @@
 ## Phase 4: Citation & Research Management (Weeks 12-16)
 
 ### Feature 11.1: Citation Capture & Metadata Extraction
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: None
 
 **Tasks**:
+
 - [ ] 11.1.1: open-graph-scraper integration
 - [ ] 11.1.2: OpenGraph metadata extraction
 - [ ] 11.1.3: Dublin Core extraction
@@ -231,12 +251,14 @@
 - [ ] 11.1.13: Success toast notification
 
 ### Feature 11.2: Citation Formatting (Cite Them Right)
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: 11.1
 
 **Tasks**:
+
 - [ ] 11.2.1: citeproc-js integration
 - [ ] 11.2.2: Download harvard-cite-them-right-13th-edition.csl
 - [ ] 11.2.3: Load CSL style files
@@ -251,12 +273,14 @@
 - [ ] 11.2.12: Export as Word/Google Docs/Plain Text/HTML
 
 ### Feature 11.3: Project Organization System
+
 **Status**: `[ ]` Pending
 **Estimated**: 2 weeks
 **Priority**: MEDIUM
 **Dependencies**: 11.1, 11.2
 
 **Tasks**:
+
 - [ ] 11.3.1: IndexedDB schema with Dexie
 - [ ] 11.3.2: Project CRUD operations
 - [ ] 11.3.3: Many-to-many citation-project relationships
@@ -276,12 +300,14 @@
 - [ ] 11.3.17: Link annotations to citations
 
 ### Feature 11.4: Source Evaluation & Credibility
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: 11.1
 
 **Tasks**:
+
 - [ ] 11.4.1: CRAAP test integration (5 questions)
 - [ ] 11.4.2: Credibility score calculation (0-100)
 - [ ] 11.4.3: Visual badges (green/yellow/red)
@@ -295,12 +321,14 @@
 - [ ] 11.4.11: Suggest better sources (Semantic Scholar API)
 
 ### Feature 11.5: Citation Export & Integration
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: 11.1, 11.2, 11.3
 
 **Tasks**:
+
 - [ ] 11.5.1: Export bibliography (Word .docx)
 - [ ] 11.5.2: Export Google Docs (formatted text)
 - [ ] 11.5.3: Export Plain Text
@@ -317,12 +345,14 @@
 - [ ] 11.5.14: Backup & restore functionality
 
 ### Feature 11.6: Citation UI Design
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: All 11.x features
 
 **Tasks**:
+
 - [ ] 11.6.1: Citation Manager tab in popup
 - [ ] 11.6.2: View switcher (All/Projects/Recent)
 - [ ] 11.6.3: Gallery/List/Kanban toggle
@@ -353,10 +383,12 @@
 ## Testing & Documentation
 
 ### Testing Tasks
+
 **Status**: `[ ]` Pending
 **Estimated**: 2 weeks (ongoing)
 
 **Tasks**:
+
 - [ ] T.1: Unit tests for all OCR functions
 - [ ] T.2: Unit tests for all dictionary functions
 - [ ] T.3: Unit tests for all translation functions
@@ -371,10 +403,12 @@
 - [ ] T.12: WCAG 2.2 AA accessibility audit
 
 ### Documentation Tasks
+
 **Status**: `[ ]` Pending
 **Estimated**: 1 week
 
 **Tasks**:
+
 - [ ] D.1: Create CITATION_SYSTEM_GUIDE.md
 - [ ] D.2: Create FEATURE_COMPARISON_HELPERBIRD.md
 - [ ] D.3: Update TESTING_GUIDE.md with new features
