@@ -61,6 +61,7 @@ import '../features/textCustomization/textCustomization.js'; // Self-initializin
 import '../features/focusMode/focusMode.js'; // Self-initializing module with Chrome storage listeners
 import '../features/stt/stt.js'; // Self-initializing module with Chrome storage listeners
 import '../features/ocr/ocr.js'; // Self-initializing OCR module with Tesseract.js lazy loading
+import '../features/highlightMenu/highlightMenu.js'; // Self-initializing highlight menu with text selection actions
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
