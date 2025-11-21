@@ -17,14 +17,14 @@
 **Tasks**:
 
 - [x] 1.1: Set up Tesseract.js lazy loading
-- [ ] 1.2: Implement screenshot capture (full page)
-- [ ] 1.3: Implement screenshot region selection
+- [x] 1.2: Implement screenshot capture (full page)
+- [x] 1.3: Implement screenshot region selection
 - [ ] 1.4: PDF detection and rendering with PDF.js
-- [ ] 1.5: OCR engine integration with confidence threshold
-- [ ] 1.6: Text extraction modal UI
+- [x] 1.5: OCR engine integration with confidence threshold
+- [x] 1.6: Text extraction modal UI
 - [ ] 1.7: TTS integration for extracted text
-- [ ] 1.8: Copy to clipboard functionality
-- [ ] 1.9: Save as TXT file
+- [x] 1.8: Copy to clipboard functionality
+- [x] 1.9: Save as TXT file
 - [ ] 1.10: Settings panel (language, confidence, auto-TTS)
 - [ ] 1.11: Unit tests for OCR functions
 - [ ] 1.12: E2E test for screenshot workflow
