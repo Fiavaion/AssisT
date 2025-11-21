@@ -15,8 +15,9 @@
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.{js,css,html}\"",
-    "build": "vite build",
+    "build": "vite build && node scripts/inject-popup-scripts.js",
     "dev": "vite build --watch",
+    "postbuild": "node scripts/inject-popup-scripts.js",
     "prepare": "husky",
     "switch:assist": "node -e \"require('fs').copyFileSync('manifest.assist.json', 'manifest.json')\" && echo Switched to AssisT version",
     "switch:ncad": "node -e \"require('fs').copyFileSync('manifest.ncad.json', 'manifest.json')\" && echo Switched to @NCAD version"

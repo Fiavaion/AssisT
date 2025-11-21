@@ -21,11 +21,10 @@ test.describe('Popup UI', () => {
     await popupPage.waitForTimeout(500);
 
     // Enable TTS first (controls are hidden by default)
-    const ttsToggle = popupPage.locator('[data-testid="tts-toggle"]');
-
-    // Scroll into view and check
-    await ttsToggle.scrollIntoViewIfNeeded();
-    await ttsToggle.check({ force: true });
+    // Click the visible toggle switch label instead of the hidden checkbox
+    const ttsToggleLabel = popupPage.locator('label.toggle-switch[for="tts-enabled"]');
+    await ttsToggleLabel.scrollIntoViewIfNeeded();
+    await ttsToggleLabel.click();
 
     // Wait for options container to become visible
     await popupPage.waitForTimeout(300);
