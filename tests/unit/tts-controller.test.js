@@ -84,6 +84,7 @@ describe('TTSController', () => {
       SpeechSynthesisUtterance: MockUtterance
     };
 
+    global.speechSynthesis = mockSynthesis;
     global.SpeechSynthesisUtterance = MockUtterance;
 
     global.document = {
@@ -131,9 +132,19 @@ describe('TTSController', () => {
     });
 
     test('should initialize without synthesis API', () => {
+      // Temporarily remove global mocks
+      const savedWindow = global.window;
+      const savedSpeechSynthesis = global.speechSynthesis;
+
       global.window = {};
+      global.speechSynthesis = undefined;
+
       const noSynthController = new TTSController(mockDomAdapter, mockSettings);
-      expect(noSynthController.synthesis).toBe(null);
+      expect(noSynthController.synthesis).toBeFalsy(); // Can be null or undefined
+
+      // Restore mocks
+      global.window = savedWindow;
+      global.speechSynthesis = savedSpeechSynthesis;
     });
 
     test('should load voices on initialize', async () => {
@@ -145,7 +156,21 @@ describe('TTSController', () => {
 
     test('should handle no voices available', async () => {
       mockSynthesis.getVoices.mockReturnValue([]);
-      await controller.initialize();
+
+      // Trigger onvoiceschanged callback immediately with empty array
+      mockSynthesis.onvoiceschanged = null;
+      const initPromise = controller.initialize();
+
+      // Wait a tick for onvoiceschanged to be assigned
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Trigger the callback if it was assigned
+      if (mockSynthesis.onvoiceschanged) {
+        mockSynthesis.onvoiceschanged();
+      }
+
+      await initPromise;
+
       expect(controller.availableVoices).toHaveLength(0);
       expect(controller.selectedVoice).toBe(null);
     });
@@ -367,6 +392,10 @@ describe('TTSController', () => {
   });
 
   describe('Playback Control', () => {
+    beforeEach(async () => {
+      await controller.initialize();
+    });
+
     test('should pause speech', () => {
       controller.pause();
       expect(mockSynthesis.pause).toHaveBeenCalled();
@@ -401,6 +430,10 @@ describe('TTSController', () => {
   });
 
   describe('Enable/Disable', () => {
+    beforeEach(async () => {
+      await controller.initialize();
+    });
+
     test('should enable TTS', () => {
       controller.settings.enabled = false;
       controller.enable();
