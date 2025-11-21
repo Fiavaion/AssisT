@@ -981,35 +981,49 @@ function ocr_saveAsFile(text) {
 }
 
 /**
- * Reads text aloud using TTS (integrates with existing TTS feature)
+ * Reads text aloud using browser's built-in speech synthesis
+ * Works independently of extension TTS settings
  *
  * @param {string} text - Text to read
  */
 function ocr_readAloud(text) {
-  // Use the existing readText function from content-simple.js
-  if (typeof window.readText === 'function') {
-    console.log('[OCR] Using extension TTS with user settings');
-    // Create a temporary element for TTS context
-    const tempElement = document.createElement('div');
-    tempElement.textContent = text;
-    tempElement.style.display = 'none';
-    document.body.appendChild(tempElement);
+  console.log('[OCR] Reading text aloud, length:', text.length);
 
-    // Call readText which respects user's TTS settings (voice, rate, etc.)
-    window.readText(text, tempElement);
-
-    // Clean up after a delay
-    setTimeout(() => {
-      if (tempElement.parentNode) {
-        tempElement.remove();
-      }
-    }, 1000);
-  } else {
-    console.warn('[OCR] Extension TTS not available, using fallback');
-    // Fallback to browser speech synthesis
-    const utterance = new SpeechSynthesisUtterance(text);
-    speechSynthesis.speak(utterance);
+  if (!window.speechSynthesis) {
+    console.error('[OCR] Speech synthesis not supported');
+    alert('Text-to-speech is not supported in this browser');
+    return;
   }
+
+  // Stop any currently playing speech
+  window.speechSynthesis.cancel();
+
+  // Create utterance
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+
+  // Try to find a good English voice
+  const voices = window.speechSynthesis.getVoices();
+  const preferredVoice =
+    voices.find(v => v.name.includes('Google') && v.lang.startsWith('en-')) ||
+    voices.find(v => v.lang.startsWith('en-GB')) ||
+    voices.find(v => v.lang.startsWith('en-'));
+
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+    console.log('[OCR] Using voice:', preferredVoice.name);
+  }
+
+  // Event handlers for debugging
+  utterance.onstart = () => console.log('[OCR] Speech started');
+  utterance.onend = () => console.log('[OCR] Speech ended');
+  utterance.onerror = e => console.error('[OCR] Speech error:', e);
+
+  // Speak
+  window.speechSynthesis.speak(utterance);
+  console.log('[OCR] Speech utterance queued');
 }
 
 /**
