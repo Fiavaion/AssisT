@@ -234,16 +234,45 @@ git commit -m "docs(readme): update"
 - [x] WCAG 2.2 AA compliance (Consistent Help button)
 - [x] Testing infrastructure
 
-### Planned 📋
+### In Progress 🚧 (Phase 2 - 12-16 weeks)
+
+**High-Priority Features:**
+
+- [ ] OCR + Screenshot Tool (PDF support, image text extraction)
+- [ ] Highlight Menu (floating toolbar on text selection)
+- [ ] Reading Mode (distraction-free article view)
+- [ ] Dictionary Lookup (Free Dictionary API integration)
+
+**Writing & Organization:**
+
+- [ ] Annotations & Sticky Notes (dual storage: local/IndexedDB)
+- [ ] Translation (LibreTranslate + optional Google Translate)
+- [ ] Text Statistics (word count, reading time for assignments)
+
+**UX Enhancements:**
+
+- [ ] Font Library Expansion (+4 fonts: Lexend, Atkinson Hyperlegible, Arial, Verdana)
+- [ ] Full Keyboard Shortcuts System (customizable, conflict detection)
+
+**Citation & Research Management** ⭐ NEW:
+
+- [ ] Citation Capture & Metadata Extraction (OpenGraph, Dublin Core, JSON-LD)
+- [ ] Citation Formatting (Cite Them Right Harvard 13th edition)
+- [ ] Project Organization (visual cards, Kanban view, tags)
+- [ ] Source Evaluation (CRAAP test, DOI validation, credibility scoring)
+- [ ] Export & Integration (Google Docs, Canvas, Word, BibTeX, Zotero)
+- [ ] Citation UI (accessibility-first design with TTS, spell-check)
+
+### Planned 📋 (Phase 3+)
 
 - [ ] Fix E2E test selectors
 - [ ] TTS/STT engine test coverage
 - [ ] Performance benchmarks
 - [ ] WCAG 2.2 AA full audit (contrast ratios, keyboard navigation)
 - [ ] Auto-profile switching
-- [ ] Keyboard shortcut customization
-- [ ] Cloud sync for profiles
+- [ ] Cloud sync for profiles and citations
 - [ ] First-time user tutorial
+- [ ] Cross-browser support (Firefox, Edge)
 - [ ] Chrome Web Store submission
 
 ---
