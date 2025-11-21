@@ -53,10 +53,16 @@
 // MODULE IMPORTS
 // ============================================================
 import { showToast } from '../core/ui/toast.js';
-import { removeHighlight, highlightElement, removeElementHighlight, highlightWordByWord, cleanupWordByWord } from '../core/dom/highlighting.js';
+import {
+  removeHighlight,
+  highlightElement,
+  removeElementHighlight,
+  highlightWordByWord,
+  cleanupWordByWord,
+} from '../core/dom/highlighting.js';
 import { dyslexia_initialize } from '../content/features/dyslexia.js';
-import { readingGuide_updateStyle, readingGuide_handleMouseMove } from '../features/readingGuide/readingGuide.js';
-import { screenOverlay_create, screenOverlay_remove, screenOverlay_update, screenOverlay_enable, screenOverlay_disable, screenOverlay_settings } from '../features/screenOverlay/screenOverlay.js';
+import '../features/readingGuide/readingGuide.js'; // Self-initializing module
+import '../features/screenOverlay/screenOverlay.js'; // Self-initializing module
 import '../features/textCustomization/textCustomization.js'; // Self-initializing module with Chrome storage listeners
 import '../features/focusMode/focusMode.js'; // Self-initializing module with Chrome storage listeners
 import '../features/stt/stt.js'; // Self-initializing module with Chrome storage listeners
@@ -806,4 +812,31 @@ document.addEventListener(
 
 // Initialize the Dyslexia Mode feature module
 dyslexia_initialize();
+
+// ============================================================
+// MESSAGE LISTENER FOR POPUP COMMANDS
+// ============================================================
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('[AssisT] Received message:', message.type);
+
+  switch (message.type) {
+    case 'READING_MODE_TOGGLE':
+      // Toggle reading mode using the exported function from readingMode module
+      if (window.assistFeatures && window.assistFeatures.readingMode) {
+        window.assistFeatures.readingMode.toggle();
+        sendResponse({ success: true, active: window.assistFeatures.readingMode.isActive() });
+      } else {
+        console.error('[AssisT] Reading Mode feature not available');
+        sendResponse({ success: false, error: 'Reading Mode not initialized' });
+      }
+      break;
+
+    default:
+      console.warn('[AssisT] Unknown message type:', message.type);
+      sendResponse({ success: false, error: 'Unknown message type' });
+  }
+
+  return true; // Keep message channel open for async response
+});
+
 console.log('[AssisT] Ready! Click any paragraph to read it.');

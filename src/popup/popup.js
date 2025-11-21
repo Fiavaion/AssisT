@@ -274,6 +274,11 @@ class PopupController {
     this.setupSTT();
 
     // ============================================================
+    // PHASE 2 FEATURE 3: READING MODE
+    // ============================================================
+    this.setupReadingMode();
+
+    // ============================================================
     // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
     // ============================================================
     this.setupDyslexiaMode();
@@ -1442,6 +1447,83 @@ class PopupController {
     });
 
     console.log('[Popup] STT initialized');
+  }
+
+  // ============================================================
+  // PHASE 2 FEATURE 3: READING MODE
+  // ============================================================
+  setupReadingMode() {
+    // Initialize readingMode settings if they don't exist
+    if (!this.settings.readingMode) {
+      this.settings.readingMode = {
+        enabled: false,
+        backgroundColor: '#FBF8F3',
+        fontFamily: 'OpenDyslexic, Georgia, serif',
+        fontSize: '18px',
+        lineHeight: '1.6',
+        maxWidth: '800px',
+      };
+    }
+
+    const readingModeEnabled = document.getElementById('reading-mode-enabled');
+    const readingModeDescription = document.getElementById('reading-mode-description');
+    const readingModeOptions = document.getElementById('reading-mode-options');
+    const toggleButton = document.getElementById('btn-toggle-reading-mode');
+
+    // Set initial state
+    readingModeEnabled.checked = this.settings.readingMode.enabled || false;
+
+    // Show/hide description and options based on enabled state
+    if (readingModeEnabled.checked) {
+      readingModeDescription.classList.remove('hidden');
+      readingModeOptions.classList.remove('hidden');
+    } else {
+      readingModeDescription.classList.add('hidden');
+      readingModeOptions.classList.add('hidden');
+    }
+
+    // Toggle event
+    readingModeEnabled.addEventListener('change', e => {
+      this.settings.readingMode.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle description and options visibility
+      if (e.target.checked) {
+        readingModeDescription.classList.remove('hidden');
+        readingModeOptions.classList.remove('hidden');
+      } else {
+        readingModeDescription.classList.add('hidden');
+        readingModeOptions.classList.add('hidden');
+      }
+    });
+
+    // Toggle Reading Mode button
+    toggleButton.addEventListener('click', async () => {
+      if (!this.currentTab) {
+        this.updateStatus('No active tab', 'error');
+        return;
+      }
+
+      try {
+        // Send message to content script to toggle reading mode
+        await chrome.tabs.sendMessage(this.currentTab.id, {
+          type: 'READING_MODE_TOGGLE',
+        });
+
+        // Update button text (the content script will handle the actual toggle)
+        const btnText = toggleButton.querySelector('.btn-text');
+        if (btnText.textContent === 'Enter Reading Mode') {
+          btnText.textContent = 'Exit Reading Mode';
+        } else {
+          btnText.textContent = 'Enter Reading Mode';
+        }
+      } catch (error) {
+        console.error('[Popup] Error toggling reading mode:', error);
+        this.updateStatus('Error: Please reload the page', 'error');
+      }
+    });
+
+    console.log('[Popup] Reading Mode initialized');
   }
 
   // ============================================================
