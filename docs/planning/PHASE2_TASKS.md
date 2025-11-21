@@ -77,24 +77,24 @@
 
 ### Feature 4: Dictionary Lookup
 
-**Status**: `[ ]` Pending
+**Status**: `[>]` In Progress (85% - 11/13 tasks)
 **Estimated**: 0.5 weeks
 **Priority**: MEDIUM
-**Dependencies**: Highlight Menu (2)
+**Dependencies**: Highlight Menu (2) ✓
 
 **Tasks**:
 
-- [ ] 4.1: Free Dictionary API integration
-- [ ] 4.2: API request with error handling
-- [ ] 4.3: Modal popup UI design
-- [ ] 4.4: Display definitions grouped by part of speech
-- [ ] 4.5: IPA pronunciation display
-- [ ] 4.6: Audio playback (if available)
-- [ ] 4.7: Examples in context
-- [ ] 4.8: Synonyms as clickable links
-- [ ] 4.9: Double-click auto-lookup (optional)
-- [ ] 4.10: Keyboard shortcut (Ctrl+Shift+D)
-- [ ] 4.11: Cache last 100 lookups
+- [x] 4.1: Free Dictionary API integration
+- [x] 4.2: API request with error handling
+- [x] 4.3: Modal popup UI design
+- [x] 4.4: Display definitions grouped by part of speech
+- [x] 4.5: IPA pronunciation display
+- [x] 4.6: Audio playback (if available)
+- [x] 4.7: Examples in context
+- [x] 4.8: Synonyms as clickable links
+- [x] 4.9: Double-click auto-lookup (optional)
+- [x] 4.10: Keyboard shortcut (Ctrl+Shift+D)
+- [x] 4.11: Cache last 100 lookups
 - [ ] 4.12: Settings (auto-lookup, cache size)
 - [ ] 4.13: Unit tests for API integration
 
