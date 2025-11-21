@@ -236,13 +236,10 @@ function highlightMenu_createButton(icon, label, onClick, index) {
 
   // Use mousedown instead of onclick to prevent race condition with document mousedown listener
   button.onmousedown = e => {
-    console.log('[HighlightMenu] Button clicked:', label);
     e.preventDefault();
     e.stopPropagation();
     onClick();
   };
-
-  console.log('[HighlightMenu] Button created:', label, 'with handler:', typeof button.onmousedown);
 
   return button;
 }
@@ -288,8 +285,6 @@ function highlightMenu_show(selectionRect) {
   // Apply position (using fixed positioning, no scroll offset needed)
   highlightMenu_toolbar.style.left = `${left}px`;
   highlightMenu_toolbar.style.top = `${top}px`;
-
-  console.log('[HighlightMenu] Toolbar shown at:', { left, top });
 }
 
 /**
@@ -309,8 +304,6 @@ function highlightMenu_hide() {
     clearTimeout(highlightMenu_autoHideTimeout);
     highlightMenu_autoHideTimeout = null;
   }
-
-  console.log('[HighlightMenu] Toolbar hidden');
 }
 
 /**
@@ -420,17 +413,8 @@ function highlightMenu_handleTTS() {
  * Handles Dictionary action
  */
 function highlightMenu_handleDictionary() {
-  console.log('[HighlightMenu] Dictionary action triggered for text:', highlightMenu_selectedText);
-  console.log('[HighlightMenu] assistFeatures available:', !!window.assistFeatures);
-  console.log('[HighlightMenu] dictionary feature available:', !!window.assistFeatures?.dictionary);
-  console.log(
-    '[HighlightMenu] dictionary.lookup available:',
-    !!window.assistFeatures?.dictionary?.lookup
-  );
-
   // Check if dictionary feature is available
   if (window.assistFeatures?.dictionary?.lookup) {
-    console.log('[HighlightMenu] Calling dictionary.lookup()...');
     window.assistFeatures.dictionary.lookup(highlightMenu_selectedText);
   } else {
     console.warn('[HighlightMenu] Dictionary feature not loaded');
@@ -517,10 +501,7 @@ function highlightMenu_init() {
     // Don't hide if clicking on the toolbar or its buttons
     // Note: If button handler called stopPropagation(), this won't run
     if (highlightMenu_toolbar && !highlightMenu_toolbar.contains(e.target)) {
-      console.log('[HighlightMenu] Click outside toolbar, hiding...');
       highlightMenu_hide();
-    } else if (highlightMenu_toolbar) {
-      console.log('[HighlightMenu] Click inside toolbar, keeping visible');
     }
   });
 
