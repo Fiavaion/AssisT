@@ -115,14 +115,19 @@ function ocr_init() {
   // Add event listeners for OCR triggers
   // This will be expanded in later tasks (screenshot button, context menu, etc.)
 
-  // For now, just register the feature as available
+  // Register the feature as available
   if (window.assistFeatures) {
     window.assistFeatures.ocr = {
       isReady: ocr_isReady,
       getLoadingState: ocr_getLoadingState,
       loadTesseract: ocr_loadTesseract,
+      performOCR: ocr_performOCR,
+      recognizeText: ocr_recognizeText,
+      captureScreenshot: ocr_showScreenshotUI,
     };
   }
+
+  console.log('[OCR] Feature ready. Use window.assistFeatures.ocr.performOCR() to start');
 }
 
 /**
@@ -611,6 +616,368 @@ async function ocr_showScreenshotUI() {
 }
 
 // ============================================================================
+// OCR ENGINE INTEGRATION
+// ============================================================================
+
+/**
+ * Performs OCR on an image
+ *
+ * @param {string} imageDataUrl - Image data URL to process
+ * @param {Object} options - OCR options
+ * @param {string} options.lang - Language code (default: 'eng')
+ * @param {number} options.confidenceThreshold - Minimum confidence (0-100, default: 60)
+ * @returns {Promise<Object>} OCR result with text and confidence
+ */
+async function ocr_recognizeText(imageDataUrl, options = {}) {
+  const { lang = 'eng', confidenceThreshold = 60 } = options;
+
+  try {
+    console.log(`[OCR] Starting text recognition (lang: ${lang}, threshold: ${confidenceThreshold}%)`);
+
+    // Lazy load Tesseract
+    const Tesseract = await ocr_loadTesseract();
+
+    // Create worker
+    console.log('[OCR] Creating Tesseract worker...');
+    const worker = await Tesseract.createWorker(lang, 1, {
+      logger: (m) => {
+        if (m.status === 'recognizing text') {
+          console.log(`[OCR] Progress: ${Math.round(m.progress * 100)}%`);
+        }
+      },
+    });
+
+    // Perform OCR
+    console.log('[OCR] Recognizing text...');
+    const result = await worker.recognize(imageDataUrl);
+
+    // Terminate worker
+    await worker.terminate();
+
+    // Filter by confidence threshold
+    const filteredText = ocr_filterByConfidence(result, confidenceThreshold);
+
+    console.log(`[OCR] Recognition complete. Confidence: ${result.data.confidence.toFixed(1)}%`);
+    console.log(`[OCR] Extracted ${result.data.text.length} characters`);
+
+    return {
+      text: filteredText,
+      originalText: result.data.text,
+      confidence: result.data.confidence,
+      words: result.data.words,
+      lines: result.data.lines,
+      paragraphs: result.data.paragraphs,
+    };
+  } catch (error) {
+    console.error('[OCR] Text recognition failed:', error);
+    throw new Error(`OCR failed: ${error.message}`);
+  }
+}
+
+/**
+ * Filters OCR result by confidence threshold
+ *
+ * @param {Object} result - Tesseract result object
+ * @param {number} threshold - Confidence threshold (0-100)
+ * @returns {string} Filtered text
+ */
+function ocr_filterByConfidence(result, threshold) {
+  if (threshold === 0) {
+    return result.data.text;
+  }
+
+  const filteredWords = result.data.words
+    .filter((word) => word.confidence >= threshold)
+    .map((word) => word.text);
+
+  return filteredWords.join(' ');
+}
+
+/**
+ * Main OCR workflow - captures screenshot and performs OCR
+ *
+ * @param {Object} options - OCR options
+ * @returns {Promise<Object>} OCR result
+ */
+async function ocr_performOCR(options = {}) {
+  try {
+    // Show screenshot UI
+    console.log('[OCR] Starting OCR workflow...');
+    const imageDataUrl = await ocr_showScreenshotUI();
+
+    if (!imageDataUrl) {
+      console.log('[OCR] Screenshot canceled');
+      return null;
+    }
+
+    // Perform OCR
+    const result = await ocr_recognizeText(imageDataUrl, options);
+
+    // Show result modal
+    await ocr_showResultModal(result, imageDataUrl);
+
+    return result;
+  } catch (error) {
+    console.error('[OCR] OCR workflow failed:', error);
+    alert(`OCR failed: ${error.message}`);
+    return null;
+  }
+}
+
+// ============================================================================
+// RESULT MODAL UI
+// ============================================================================
+
+/**
+ * Shows OCR result modal with extracted text
+ *
+ * @param {Object} result - OCR result object
+ * @param {string} imageDataUrl - Original image data URL
+ */
+async function ocr_showResultModal(result, imageDataUrl) {
+  return new Promise((resolve) => {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'assist-ocr-result-modal';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    `;
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+      padding: 20px 24px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    `;
+    header.innerHTML = `
+      <div>
+        <h2 style="margin: 0; font-size: 20px;">OCR Results</h2>
+        <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">
+          Confidence: ${result.confidence.toFixed(1)}% |
+          ${result.text.length} characters
+        </p>
+      </div>
+      <button id="assist-ocr-close" style="
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+      ">×</button>
+    `;
+
+    // Content area
+    const content = document.createElement('div');
+    content.style.cssText = `
+      padding: 24px;
+      flex: 1;
+      overflow-y: auto;
+    `;
+
+    // Image preview
+    const imagePreview = document.createElement('div');
+    imagePreview.style.cssText = `
+      margin-bottom: 20px;
+      text-align: center;
+    `;
+    const img = document.createElement('img');
+    img.src = imageDataUrl;
+    img.style.cssText = `
+      max-width: 100%;
+      max-height: 200px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    `;
+    imagePreview.appendChild(img);
+
+    // Extracted text
+    const textArea = document.createElement('textarea');
+    textArea.value = result.text;
+    textArea.style.cssText = `
+      width: 100%;
+      min-height: 200px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+      resize: vertical;
+    `;
+
+    content.appendChild(imagePreview);
+    content.appendChild(textArea);
+
+    // Footer with action buttons
+    const footer = document.createElement('div');
+    footer.style.cssText = `
+      padding: 16px 24px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    `;
+    footer.innerHTML = `
+      <button id="assist-ocr-tts" style="
+        padding: 10px 20px;
+        background: #17a2b8;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Read Aloud (TTS)</button>
+      <button id="assist-ocr-copy" style="
+        padding: 10px 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Copy to Clipboard</button>
+      <button id="assist-ocr-save" style="
+        padding: 10px 20px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Save as TXT</button>
+    `;
+
+    // Assemble modal
+    modal.appendChild(header);
+    modal.appendChild(content);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Event handlers
+    document.getElementById('assist-ocr-close').onclick = () => {
+      overlay.remove();
+      resolve();
+    };
+
+    document.getElementById('assist-ocr-copy').onclick = () => {
+      ocr_copyToClipboard(textArea.value);
+      alert('Text copied to clipboard!');
+    };
+
+    document.getElementById('assist-ocr-save').onclick = () => {
+      ocr_saveAsFile(textArea.value);
+    };
+
+    document.getElementById('assist-ocr-tts').onclick = () => {
+      ocr_readAloud(textArea.value);
+    };
+
+    // Close on overlay click
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+        resolve();
+      }
+    };
+
+    // ESC key to close
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', handleEsc);
+        resolve();
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+  });
+}
+
+/**
+ * Copies text to clipboard
+ *
+ * @param {string} text - Text to copy
+ */
+async function ocr_copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    console.log('[OCR] Text copied to clipboard');
+  } catch (error) {
+    console.error('[OCR] Clipboard copy failed:', error);
+    // Fallback method
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+}
+
+/**
+ * Saves text as a .txt file
+ *
+ * @param {string} text - Text to save
+ */
+function ocr_saveAsFile(text) {
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `ocr-extract-${timestamp}.txt`;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+
+  URL.revokeObjectURL(url);
+  console.log(`[OCR] Text saved as ${filename}`);
+}
+
+/**
+ * Reads text aloud using TTS (integrates with existing TTS feature)
+ *
+ * @param {string} text - Text to read
+ */
+function ocr_readAloud(text) {
+  // Check if TTS feature is available
+  if (window.assistFeatures && window.assistFeatures.tts) {
+    console.log('[OCR] Triggering TTS for extracted text');
+    // Integration with existing TTS will be added in Task 1.7
+    alert('TTS integration will be added in the next task');
+  } else {
+    // Fallback to browser speech synthesis
+    const utterance = new SpeechSynthesisUtterance(text);
+    speechSynthesis.speak(utterance);
+    console.log('[OCR] Using browser speech synthesis');
+  }
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -631,5 +998,10 @@ if (typeof module !== 'undefined' && module.exports) {
     ocr_getLoadingState,
     ocr_init,
     ocr_cleanup,
+    ocr_performOCR,
+    ocr_recognizeText,
+    ocr_captureVisibleTab,
+    ocr_captureFullPage,
+    ocr_captureRegion,
   };
 }

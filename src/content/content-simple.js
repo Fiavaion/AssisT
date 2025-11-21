@@ -60,6 +60,7 @@ import { screenOverlay_create, screenOverlay_remove, screenOverlay_update, scree
 import '../features/textCustomization/textCustomization.js'; // Self-initializing module with Chrome storage listeners
 import '../features/focusMode/focusMode.js'; // Self-initializing module with Chrome storage listeners
 import '../features/stt/stt.js'; // Self-initializing module with Chrome storage listeners
+import '../features/ocr/ocr.js'; // Self-initializing OCR module with Tesseract.js lazy loading
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
