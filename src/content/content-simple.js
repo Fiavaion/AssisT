@@ -840,4 +840,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // Keep message channel open for async response
 });
 
+// ============================================================================
+// EXPOSE FUNCTIONS FOR FEATURE INTEGRATION
+// ============================================================================
+
+// Expose readText function for Highlight Menu TTS integration
+window.readText = readText;
+
+// Expose showToast function for copy notifications
+if (typeof showToast !== 'undefined') {
+  window.showToast = showToast;
+}
+
 console.log('[AssisT] Ready! Click any paragraph to read it.');
