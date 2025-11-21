@@ -280,11 +280,11 @@ function highlightMenu_show(selectionRect) {
     top = selectionRect.bottom + 8;
   }
 
-  // Apply position
-  highlightMenu_toolbar.style.left = `${left + window.scrollX}px`;
-  highlightMenu_toolbar.style.top = `${top + window.scrollY}px`;
+  // Apply position (using fixed positioning, no scroll offset needed)
+  highlightMenu_toolbar.style.left = `${left}px`;
+  highlightMenu_toolbar.style.top = `${top}px`;
 
-  console.log('[HighlightMenu] Toolbar shown');
+  console.log('[HighlightMenu] Toolbar shown at:', { left, top });
 }
 
 /**
