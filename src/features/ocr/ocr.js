@@ -301,6 +301,193 @@ async function ocr_stitchScreenshots(screenshots, width, height) {
 }
 
 /**
+ * Captures a region of the screen selected by the user
+ *
+ * @returns {Promise<string>} Data URL of the selected region
+ */
+async function ocr_captureRegion() {
+  return new Promise((resolve) => {
+    console.log('[OCR] Starting region selection...');
+
+    // Create overlay for region selection
+    const overlay = document.createElement('div');
+    overlay.id = 'assist-ocr-region-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 999998;
+      cursor: crosshair;
+    `;
+
+    // Create selection box
+    const selectionBox = document.createElement('div');
+    selectionBox.id = 'assist-ocr-selection-box';
+    selectionBox.style.cssText = `
+      position: fixed;
+      border: 2px dashed #007bff;
+      background: rgba(0, 123, 255, 0.1);
+      display: none;
+      z-index: 999999;
+      pointer-events: none;
+    `;
+
+    // Create instructions
+    const instructions = document.createElement('div');
+    instructions.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 12px 24px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 1000000;
+      font-size: 14px;
+    `;
+    instructions.textContent = 'Click and drag to select region. Press ESC to cancel.';
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(selectionBox);
+    document.body.appendChild(instructions);
+
+    let startX, startY, isSelecting = false;
+
+    // Mouse down - start selection
+    overlay.onmousedown = (e) => {
+      isSelecting = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      selectionBox.style.left = startX + 'px';
+      selectionBox.style.top = startY + 'px';
+      selectionBox.style.width = '0';
+      selectionBox.style.height = '0';
+      selectionBox.style.display = 'block';
+    };
+
+    // Mouse move - update selection
+    overlay.onmousemove = (e) => {
+      if (!isSelecting) return;
+
+      const currentX = e.clientX;
+      const currentY = e.clientY;
+
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+      const left = Math.min(startX, currentX);
+      const top = Math.min(startY, currentY);
+
+      selectionBox.style.left = left + 'px';
+      selectionBox.style.top = top + 'px';
+      selectionBox.style.width = width + 'px';
+      selectionBox.style.height = height + 'px';
+    };
+
+    // Mouse up - capture region
+    overlay.onmouseup = async (e) => {
+      if (!isSelecting) return;
+      isSelecting = false;
+
+      const currentX = e.clientX;
+      const currentY = e.clientY;
+
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+      const left = Math.min(startX, currentX);
+      const top = Math.min(startY, currentY);
+
+      // Minimum selection size
+      if (width < 10 || height < 10) {
+        console.warn('[OCR] Selection too small, canceling');
+        cleanup();
+        resolve(null);
+        return;
+      }
+
+      console.log(`[OCR] Region selected: ${width}x${height} at (${left},${top})`);
+
+      // Capture full page screenshot
+      try {
+        const fullScreenshot = await ocr_captureVisibleTab();
+
+        // Crop to selected region using canvas
+        const croppedDataUrl = await ocr_cropImage(
+          fullScreenshot,
+          left,
+          top,
+          width,
+          height
+        );
+
+        cleanup();
+        resolve(croppedDataUrl);
+      } catch (error) {
+        console.error('[OCR] Region capture failed:', error);
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    // ESC key - cancel
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        console.log('[OCR] Region selection canceled');
+        cleanup();
+        resolve(null);
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+
+    // Cleanup function
+    function cleanup() {
+      overlay.remove();
+      selectionBox.remove();
+      instructions.remove();
+      document.removeEventListener('keydown', handleEsc);
+    }
+  });
+}
+
+/**
+ * Crops an image to a specific region
+ *
+ * @param {string} imageDataUrl - Source image data URL
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {number} width - Width of crop area
+ * @param {number} height - Height of crop area
+ * @returns {Promise<string>} Cropped image data URL
+ */
+async function ocr_cropImage(imageDataUrl, x, y, width, height) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      // Draw cropped region
+      ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
+
+      const croppedDataUrl = canvas.toDataURL('image/png');
+      resolve(croppedDataUrl);
+    };
+
+    img.onerror = () => {
+      reject(new Error('Failed to load image for cropping'));
+    };
+
+    img.src = imageDataUrl;
+  });
+}
+
+/**
  * Shows screenshot capture UI with options
  */
 async function ocr_showScreenshotUI() {
@@ -355,6 +542,17 @@ async function ocr_showScreenshotUI() {
       font-size: 16px;
       cursor: pointer;
     ">Full Page (Scroll & Stitch)</button>
+    <button id="assist-ocr-region" style="
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #ffc107;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    ">Select Region</button>
     <button id="assist-ocr-cancel" style="
       width: 100%;
       padding: 12px;
@@ -390,6 +588,17 @@ async function ocr_showScreenshotUI() {
         resolve(dataUrl);
       } catch (error) {
         console.error('[OCR] Full-page capture failed:', error);
+        resolve(null);
+      }
+    };
+
+    document.getElementById('assist-ocr-region').onclick = async () => {
+      overlay.remove();
+      try {
+        const dataUrl = await ocr_captureRegion();
+        resolve(dataUrl);
+      } catch (error) {
+        console.error('[OCR] Region capture failed:', error);
         resolve(null);
       }
     };
