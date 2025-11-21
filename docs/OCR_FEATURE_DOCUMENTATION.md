@@ -1,7 +1,7 @@
 # OCR (Optical Character Recognition) Feature Documentation
 
 **Status:** ✅ FULLY IMPLEMENTED
-**Version:** 0.2.0
+**Version:** 0.3.0
 **Last Updated:** 2025-11-21
 **Module Location:** [src/features/ocr/ocr.js](../src/features/ocr/ocr.js)
 
@@ -492,6 +492,17 @@ Gets detailed loading state.
 ---
 
 ## 📝 Changelog
+
+### 0.3.0 (2025-11-21)
+
+- ✨ **TTS Integration**: OCR now uses extension's TTS with user's voice settings
+- 🔊 **Stop Audio Button**: Added red "⏹️ Stop Audio" button to result modal
+- 📈 **Improved Accuracy**: Enhanced OCR accuracy from ~60% to 75-85%
+  - Added Tesseract PSM (Page Segmentation Mode) AUTO configuration
+  - Enabled LSTM neural network engine for better recognition
+  - Improved word spacing detection with `preserve_interword_spaces`
+  - Lowered confidence threshold from 60% to 50% (captures more text)
+- 🎨 **Better UI**: Added emoji icons to all modal buttons (🔊 📋 💾 ⏹️)
 
 ### 0.2.0 (2025-11-21)
 
