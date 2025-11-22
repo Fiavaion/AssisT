@@ -83,7 +83,7 @@
 
 ### Feature 4: Dictionary Lookup
 
-**Status**: `[>]` In Progress (85% - 11/13 tasks)
+**Status**: `[✓]` Complete (100% - 13/13 tasks)
 **Estimated**: 0.5 weeks
 **Priority**: MEDIUM
 **Dependencies**: Highlight Menu (2) ✓
@@ -101,8 +101,8 @@
 - [x] 4.9: Double-click auto-lookup (optional)
 - [x] 4.10: Keyboard shortcut (Ctrl+Shift+D)
 - [x] 4.11: Cache last 100 lookups
-- [ ] 4.12: Settings (auto-lookup, cache size)
-- [ ] 4.13: Unit tests for API integration
+- [x] 4.12: Settings (auto-lookup, cache size)
+- [x] 4.13: Unit tests for API integration
 
 ---
 
