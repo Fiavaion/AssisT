@@ -22,10 +22,10 @@
 ## 🎯 Current Step
 
 **Phase**: 2.1 - High-Priority Core Features
-**Step**: Feature 1 - OCR + Screenshot Tool (100% Complete ✓)
-**Next Task**: Feature 2 - Highlight Menu (Task 2.12 - Settings)
+**Step**: Feature 2 - Highlight Menu (92% Complete)
+**Next Task**: Feature 4 - Dictionary (Task 4.12 - Settings)
 
-**Status**: ✅ Feature 1 Complete
+**Status**: 🚀 2 tasks from completing 3 features
 **Blocker**: None
 
 ---
@@ -34,16 +34,33 @@
 
 ### Phase 2 Session 010 (2025-11-22)
 
-**OCR E2E Test Suite - Complete**
+**OCR E2E Tests & Highlight Menu Settings - Complete**
 
-- [x] Created comprehensive E2E test file (ocr-screenshot.spec.js) with 14 tests
-- [x] Tests cover: basic activation, settings configuration, feature isolation, accessibility, defaults
-- [x] Structured tests to match existing E2E pattern (using extension-fixture.js)
-- [x] Task 1.12 complete - Feature 1 (OCR + Screenshot Tool) 100% done
+- [x] Task 1.12 - OCR E2E test suite (14 comprehensive tests)
+- [x] Task 2.12 - Highlight Menu settings panel (button toggles, auto-hide delay)
+- [x] Feature 1 (OCR) 100% complete
+- [x] Feature 2 (Highlight Menu) 92% complete (12/13 tasks)
+
+**Key Accomplishments**:
+
+- Created 14 E2E tests for OCR workflow (activation, settings, accessibility)
+- Implemented Highlight Menu settings: enable/disable toggles for 6 buttons
+- Added auto-hide delay slider (1-10 seconds)
+- Integrated feature visibility controls in Advanced Options
+- All settings persist to chrome.storage.local
+- +610 lines of code added
+- 158/158 unit tests passing
 
 **Commits**:
 
-- test(e2e): add OCR screenshot workflow E2E tests (14 tests covering all settings)
+- `18dcb15` - test(test): add OCR E2E tests (14 tests)
+- `b5b29f1` - feat(ui): add Highlight Menu settings panel
+
+**Technical Insights**:
+
+- E2E test pattern: Use `popupPage` fixture, no beforeEach needed
+- Array-based handlers efficient for repetitive settings (6 button toggles)
+- Settings pattern: Initialize → Load → Event listeners → Save
 
 ### Phase 2 Session 009 (2025-11-22)
 
@@ -134,11 +151,11 @@
 
 ## 🚧 In Progress
 
-**Session**: Phase 2 Session 010 (OCR E2E Test)
-**Features Started**: 3 (OCR, Highlight Menu, Reading Mode)
-**Current Task**: Task 1.12 - E2E test for screenshot workflow (final OCR task)
+**Session**: Phase 2 Session 011 (Dictionary Settings & Tests)
+**Features Started**: 4 (OCR ✓, Highlight Menu, Reading Mode, Dictionary)
+**Next Task**: Task 4.12 - Dictionary settings panel
 **Started**: 2025-11-22
-**Overall Progress**: 36/~150 tasks (24%)
+**Overall Progress**: 38/~150 tasks (25%)
 
 ---
 
