@@ -471,6 +471,90 @@
         </div>
         <!-- End highlight-menu-options-container -->
 
+        <!-- ========================================================== -->
+        <!-- DICTIONARY FEATURE -->
+        <!-- ========================================================== -->
+        <section id="dictionary-section" class="control-section">
+          <div class="toggle-control main-toggle">
+            <label for="dictionary-enabled" class="toggle-label">
+              <span class="label-text">Enable Dictionary</span>
+              <label class="toggle-switch" for="dictionary-enabled">
+                <input
+                  type="checkbox"
+                  id="dictionary-enabled"
+                  data-testid="dictionary-toggle"
+                  role="switch"
+                  aria-label="Enable dictionary lookup for selected words"
+                  checked
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+          </div>
+        </section>
+
+        <!-- Dictionary Options Container -->
+        <div id="dictionary-options-container" class="options-container">
+          <section class="control-section">
+            <p class="feature-description" style="font-size: 13px; color: #666; margin: 0 0 12px 0">
+              Look up word definitions, synonyms, and pronunciations
+            </p>
+
+            <!-- Auto-lookup on Double-click Toggle -->
+            <div class="toggle-control" style="margin-top: 12px">
+              <label for="dictionary-auto-lookup" class="toggle-label">
+                <span class="label-text">Auto-lookup on Double-click</span>
+                <div class="toggle-switch">
+                  <input
+                    type="checkbox"
+                    id="dictionary-auto-lookup"
+                    data-testid="dictionary-auto-lookup-toggle"
+                    role="switch"
+                    aria-label="Automatically show dictionary when double-clicking words"
+                    checked
+                  />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="setting-description" style="font-size: 12px; color: #999; margin: 4px 0 0 0">
+              Automatically show definition when you double-click a word
+            </p>
+
+            <!-- Cache Size Slider -->
+            <div style="margin-top: 16px">
+              <label
+                for="dictionary-cache-size"
+                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
+              >
+                Cache Size
+              </label>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="font-size: 11px; color: #999; min-width: 35px">10</span>
+                <input
+                  type="range"
+                  id="dictionary-cache-size"
+                  min="10"
+                  max="200"
+                  step="10"
+                  value="50"
+                  style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd"
+                  aria-label="Dictionary cache size in entries"
+                />
+                <span style="font-size: 11px; color: #999; min-width: 35px">200</span>
+              </div>
+              <p
+                class="setting-description"
+                style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center"
+              >
+                <span id="dictionary-cache-label">50 entries</span> - Save definitions to reduce API
+                calls
+              </p>
+            </div>
+          </section>
+        </div>
+        <!-- End dictionary-options-container -->
+
         <!-- TTS Enable/Disable -->
         <section class="control-section">
           <div class="toggle-control main-toggle">

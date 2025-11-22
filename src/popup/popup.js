@@ -86,6 +86,7 @@ class PopupController {
     // Apply visibility for all features (most default to true)
     toggleSection('ocr-section', 'show_ocr'); // OCR section
     toggleSection('highlight-menu-section', 'show_highlight_menu'); // Highlight Menu section
+    toggleSection('dictionary-section', 'show_dictionary'); // Dictionary section
     toggleSection('highlight-options-container', 'show_highlighting');
     toggleSection('speed-presets-container', 'show_speed_presets');
     toggleSection('text-customization-section', 'show_text_customization');
@@ -478,6 +479,92 @@ class PopupController {
       });
     }
 
+    // ============================================================
+    // DICTIONARY SETTINGS
+    // ============================================================
+    const dictionaryEnabled = document.getElementById('dictionary-enabled');
+    const dictionaryOptionsContainer = document.getElementById('dictionary-options-container');
+
+    if (dictionaryEnabled && dictionaryOptionsContainer) {
+      // Initialize default settings
+      if (!this.settings.dictionary) {
+        this.settings.dictionary = {
+          enabled: true,
+          autoLookup: true,
+          cacheSize: 50,
+        };
+      }
+
+      // Set initial checked state
+      dictionaryEnabled.checked = this.settings.dictionary.enabled !== false;
+
+      // Show/hide options based on enabled state
+      if (dictionaryEnabled.checked) {
+        dictionaryOptionsContainer.classList.remove('hidden');
+      } else {
+        dictionaryOptionsContainer.classList.add('hidden');
+      }
+
+      dictionaryEnabled.addEventListener('change', e => {
+        this.settings.dictionary.enabled = e.target.checked;
+        this.saveSettings();
+
+        // Toggle options visibility
+        if (e.target.checked) {
+          dictionaryOptionsContainer.classList.remove('hidden');
+        } else {
+          dictionaryOptionsContainer.classList.add('hidden');
+        }
+
+        console.log('[Popup] Dictionary enabled:', e.target.checked);
+      });
+    }
+
+    // ============================================================
+    // DICTIONARY SETTINGS: AUTO-LOOKUP TOGGLE
+    // ============================================================
+    const dictionaryAutoLookup = document.getElementById('dictionary-auto-lookup');
+
+    if (dictionaryAutoLookup) {
+      // Set initial checked state
+      dictionaryAutoLookup.checked = this.settings.dictionary?.autoLookup !== false;
+
+      // Add change listener
+      dictionaryAutoLookup.addEventListener('change', e => {
+        if (!this.settings.dictionary) {
+          this.settings.dictionary = {};
+        }
+        this.settings.dictionary.autoLookup = e.target.checked;
+        this.saveSettings();
+        console.log('[Popup] Dictionary auto-lookup:', e.target.checked);
+      });
+    }
+
+    // ============================================================
+    // DICTIONARY SETTINGS: CACHE SIZE SLIDER
+    // ============================================================
+    const dictionaryCacheSizeSlider = document.getElementById('dictionary-cache-size');
+    const dictionaryCacheLabel = document.getElementById('dictionary-cache-label');
+
+    if (dictionaryCacheSizeSlider && dictionaryCacheLabel) {
+      // Set initial value
+      const cacheSize = this.settings.dictionary?.cacheSize || 50;
+      dictionaryCacheSizeSlider.value = cacheSize;
+      dictionaryCacheLabel.textContent = `${cacheSize} entr${cacheSize === 1 ? 'y' : 'ies'}`;
+
+      // Add input listener
+      dictionaryCacheSizeSlider.addEventListener('input', e => {
+        const size = parseInt(e.target.value);
+        dictionaryCacheLabel.textContent = `${size} entr${size === 1 ? 'y' : 'ies'}`;
+        if (!this.settings.dictionary) {
+          this.settings.dictionary = {};
+        }
+        this.settings.dictionary.cacheSize = size;
+        this.saveSettings();
+        console.log('[Popup] Dictionary cache size:', size);
+      });
+    }
+
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.addEventListener('change', e => {
@@ -762,6 +849,13 @@ class PopupController {
 
               <div class="feature-item">
                 <label class="feature-label">
+                  <input type="checkbox" id="show-dictionary" checked>
+                  <span>Dictionary</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
                   <input type="checkbox" id="show-highlighting" checked>
                   <span>Text Highlighting</span>
                 </label>
@@ -1030,6 +1124,7 @@ class PopupController {
     // Load all feature visibility checkboxes (most default to true)
     loadCheckbox('show-ocr', 'show_ocr'); // OCR
     loadCheckbox('show-highlight-menu', 'show_highlight_menu'); // Highlight Menu
+    loadCheckbox('show-dictionary', 'show_dictionary'); // Dictionary
     loadCheckbox('show-highlighting', 'show_highlighting');
     loadCheckbox('show-speed-presets', 'show_speed_presets');
     loadCheckbox('show-text-customization', 'show_text_customization');
@@ -1242,6 +1337,7 @@ class PopupController {
     // Save all feature visibility settings
     saveCheckbox('show-ocr', 'show_ocr'); // OCR
     saveCheckbox('show-highlight-menu', 'show_highlight_menu'); // Highlight Menu
+    saveCheckbox('show-dictionary', 'show_dictionary'); // Dictionary
     saveCheckbox('show-highlighting', 'show_highlighting');
     saveCheckbox('show-speed-presets', 'show_speed_presets');
     saveCheckbox('show-text-customization', 'show_text_customization');
