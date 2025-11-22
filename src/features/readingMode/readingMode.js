@@ -20,6 +20,8 @@
  * @module features/readingMode
  */
 
+import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -254,18 +256,12 @@ function readingMode_toggle() {
 // ============================================================================
 
 /**
- * Handles keyboard shortcuts
+ * Handles Escape key for exiting reading mode
+ * (Only used when reading mode is active)
  *
  * @param {KeyboardEvent} event - Keyboard event
  */
 function readingMode_handleKeyboard(event) {
-  // Ctrl+Shift+R - Toggle reading mode
-  if (event.ctrlKey && event.shiftKey && event.key === 'R') {
-    event.preventDefault();
-    readingMode_toggle();
-    return;
-  }
-
   // ESC - Exit reading mode
   if (event.key === 'Escape' && readingMode_isActive) {
     event.preventDefault();
@@ -283,8 +279,22 @@ function readingMode_handleKeyboard(event) {
 function readingMode_init() {
   console.log('[ReadingMode] Initializing...');
 
-  // Add keyboard listener
+  // Add keyboard listener for Escape key
   document.addEventListener('keydown', readingMode_handleKeyboard);
+
+  // Register dynamic keyboard shortcut for toggle
+  registerShortcut('reading_mode_toggle', () => {
+    console.log('[ReadingMode] Toggle shortcut triggered');
+    readingMode_toggle();
+  });
+
+  // Register dynamic keyboard shortcut for exit
+  registerShortcut('reading_mode_exit', () => {
+    if (readingMode_isActive) {
+      console.log('[ReadingMode] Exit shortcut triggered');
+      readingMode_exit();
+    }
+  });
 
   // Load settings from chrome.storage
   chrome.storage.local.get(['readingModeSettings'], result => {

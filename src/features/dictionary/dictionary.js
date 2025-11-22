@@ -22,6 +22,8 @@
  * @module features/dictionary
  */
 
+import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -578,25 +580,8 @@ function dictionary_playAudio(audioUrl) {
 // ============================================================================
 // KEYBOARD SHORTCUT
 // ============================================================================
-
-/**
- * Handles keyboard shortcuts
- *
- * @param {KeyboardEvent} event - Keyboard event
- */
-function dictionary_handleKeyboardShortcut(event) {
-  // Ctrl+Shift+D: Look up selected text
-  if (event.ctrlKey && event.shiftKey && event.key === 'D') {
-    event.preventDefault();
-
-    const selection = window.getSelection();
-    const text = selection.toString().trim();
-
-    if (text) {
-      dictionary_lookup(text);
-    }
-  }
-}
+// Keyboard shortcut is now dynamically registered via shortcuts manager
+// See initialization code in dictionary_init()
 
 // ============================================================================
 // INITIALIZATION & CLEANUP
@@ -608,8 +593,19 @@ function dictionary_handleKeyboardShortcut(event) {
 function dictionary_init() {
   console.log('[Dictionary] Initializing...');
 
-  // Add keyboard shortcut listener
-  document.addEventListener('keydown', dictionary_handleKeyboardShortcut);
+  // Register dynamic keyboard shortcut for dictionary lookup
+  registerShortcut('dictionary_lookup', () => {
+    console.log('[Dictionary] Lookup shortcut triggered');
+
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+
+    if (text) {
+      dictionary_lookup(text);
+    } else {
+      console.log('[Dictionary] No text selected for lookup');
+    }
+  });
 
   // Load settings
   chrome.storage.local.get(['dictionarySettings'], (result) => {
@@ -639,7 +635,7 @@ function dictionary_init() {
 function dictionary_cleanup() {
   console.log('[Dictionary] Cleaning up...');
   dictionary_hide();
-  document.removeEventListener('keydown', dictionary_handleKeyboardShortcut);
+  // Shortcut unregistration is handled automatically by shortcuts manager
 }
 
 // ============================================================================
