@@ -40,6 +40,7 @@
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: Dictionary (4), Translation (6)
+**Agent Config**: `task-agent-config.json` → Task 2.13 (E2E test)
 
 **Tasks**:
 
@@ -114,6 +115,7 @@
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
+**Agent Config**: `task-agent-config.json` → Tasks 5.1-5.3, 5.4-5.7, 5.8-5.13 (3 sub-agents)
 
 **Tasks**:
 
@@ -142,6 +144,7 @@
 **Estimated**: 1-2 weeks
 **Priority**: MEDIUM
 **Dependencies**: Highlight Menu (2)
+**Agent Config**: `task-agent-config.json` → Tasks 6.1-6.4, 6.5-6.9 (2 sub-agents)
 
 **Tasks**:
 
@@ -165,6 +168,7 @@
 **Estimated**: 0.5 weeks
 **Priority**: LOW
 **Dependencies**: None
+**Agent Config**: `task-agent-config.json` → Tasks 7.1-7.6, 7.7-7.10 (2 sub-agents)
 
 **Tasks**:
 
@@ -194,6 +198,7 @@
 **Estimated**: 0.5 weeks
 **Priority**: LOW
 **Dependencies**: None
+**Agent Config**: `task-agent-config.json` → Task 8.1-8.6 (1 sub-agent)
 
 **Tasks**:
 
@@ -213,6 +218,7 @@
 **Estimated**: 1-2 weeks
 **Priority**: MEDIUM
 **Dependencies**: All previous features
+**Agent Config**: `task-agent-config.json` → Task 9.11-9.13 (1 sub-agent - testing only, infrastructure already complete)
 
 **Tasks**:
 
@@ -239,6 +245,7 @@
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: None
+**Agent Config**: `task-agent-config.json` → Tasks 11.1.1-11.1.7, 11.1.8-11.1.13 (2 sub-agents)
 
 **Tasks**:
 
@@ -262,6 +269,7 @@
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: 11.1
+**Agent Config**: `task-agent-config.json` → Tasks 11.2.1-11.2.8, 11.2.9-11.2.12 (2 sub-agents)
 
 **Tasks**:
 
@@ -284,6 +292,7 @@
 **Estimated**: 2 weeks
 **Priority**: MEDIUM
 **Dependencies**: 11.1, 11.2
+**Agent Config**: `task-agent-config.json` → Tasks 11.3.1-11.3.9, 11.3.10-11.3.17 (2 sub-agents)
 
 **Tasks**:
 
@@ -311,6 +320,7 @@
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: 11.1
+**Agent Config**: `task-agent-config.json` → Tasks 11.4.1-11.4.8, 11.4.9-11.4.11 (2 sub-agents)
 
 **Tasks**:
 
@@ -332,6 +342,7 @@
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: 11.1, 11.2, 11.3
+**Agent Config**: `task-agent-config.json` → Tasks 11.5.1-11.5.8, 11.5.9-11.5.14 (2 sub-agents)
 
 **Tasks**:
 
@@ -356,6 +367,7 @@
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: All 11.x features
+**Agent Config**: `task-agent-config.json` → Tasks 11.6.1-11.6.13, 11.6.14-11.6.24 (2 sub-agents)
 
 **Tasks**:
 
