@@ -4,14 +4,14 @@
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 In Progress)
 **Current Phase**: Phase 2.1 - High-Priority Core Features
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/ocr-screenshot (7 commits ahead)
+**Current Branch**: feature/ocr-screenshot (9 commits ahead)
 
 ---
 
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: 🚧 17% Complete (3/24 features in progress, 34 tasks done)
+**Phase 2 (Feature Expansion)**: 🚧 23% Complete (3/24 features in progress, 36 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 1 week (preparation)
@@ -22,15 +22,31 @@
 ## 🎯 Current Step
 
 **Phase**: 2.1 - High-Priority Core Features
-**Step**: Preparation Complete
-**Next Task**: Feature 1 - OCR + Screenshot Tool
+**Step**: Feature 1 - OCR + Screenshot Tool (98% Complete)
+**Next Task**: Task 1.12 - E2E test for screenshot workflow
 
-**Status**: ✅ Ready to begin implementation
+**Status**: 🚧 In Progress (1 task remaining)
 **Blocker**: None
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 009 (2025-11-22)
+
+**OCR Settings Panel & Unit Tests - Complete**
+
+- [x] Added OCR language selector with 14 languages (eng, spa, fra, deu, ita, por, nld, pol, rus, chi_sim, chi_tra, jpn, kor, ara)
+- [x] Added confidence threshold slider (0-100%, default 60%) to filter low-quality OCR results
+- [x] Added auto-TTS toggle to automatically start text-to-speech after OCR completes
+- [x] Integrated settings into OCR workflow (settings persist via chrome.storage.local)
+- [x] Created comprehensive unit test suite with 42 tests (100% pass rate)
+- [x] Tests cover: text chunking, confidence filtering, noise filtering, settings integration, error handling, WCAG compliance, performance
+
+**Commits**:
+
+- 4ff73c5 - test(ocr): add comprehensive unit tests for OCR functions (42 tests, 100% pass)
+- cee59f2 - feat(ocr): add comprehensive settings panel (language, confidence, auto-TTS)
 
 ### Phase 2 Session 008 (2025-11-22)
 
@@ -105,11 +121,11 @@
 
 ## 🚧 In Progress
 
-**Session**: Phase 2 Session 008 Complete (OCR Upscaling & UI Improvements)
+**Session**: Phase 2 Session 009 Complete (OCR Settings & Unit Tests)
 **Features Started**: 3 (OCR, Highlight Menu, Reading Mode)
-**Next Feature**: Complete OCR settings/tests, then Feature 5 - Annotations
+**Next Feature**: Complete OCR E2E test (Task 1.12), then Feature 5 - Annotations
 **Started**: 2025-11-21
-**Overall Progress**: 34/~150 tasks (23%)
+**Overall Progress**: 36/~150 tasks (24%)
 
 ---
 
@@ -117,9 +133,8 @@
 
 ### Immediate (This Session)
 
-1. Begin Feature 1: OCR + Screenshot Tool
-   - Task 1.1: Set up Tesseract.js lazy loading
-   - Task 1.2: Implement screenshot capture
+1. Complete Feature 1: OCR + Screenshot Tool
+   - Task 1.12: E2E test for screenshot workflow (last remaining task)
 
 ### Short-Term (Next 2-3 weeks)
 
@@ -167,7 +182,7 @@
 - ✅ npm run build (copies src/ → Output/)
 - ✅ Extension loads from Output/
 - ✅ All existing features working
-- ✅ 94/94 unit tests passing
+- ✅ 136/136 unit tests passing (42 OCR tests added)
 - ✅ 11/25 E2E tests passing (selector updates needed)
 
 ---
@@ -210,7 +225,7 @@
 
 ### Phase 2.1: High-Priority (Weeks 2-5)
 
-- [>] OCR + Screenshot Tool (94% - 11.5/12 tasks - Upscaling + UI Complete, Settings/Tests Remain)
+- [>] OCR + Screenshot Tool (98% - 11.5/12 tasks - Settings & Unit Tests Complete, E2E Test Remains)
 - [>] Highlight Menu (85% - 11/13 tasks)
 - [✓] Reading Mode (100% - 13/13 tasks, E2E test pending)
 - [>] Dictionary Lookup (85% - 11/13 tasks)
@@ -274,13 +289,14 @@
 ## 📝 Session Context
 
 **Session Type**: Feature Implementation (Phase 2.1)
-**Working Files**: OCR feature, Keyboard Shortcuts system
-**Last Commit**: b3db016 - feat(ui): add OCR module toggle and comprehensive keyboard shortcuts system
+**Working Files**: OCR settings panel, Unit tests
+**Last Commit**: 4ff73c5 - test(ocr): add comprehensive unit tests for OCR functions (42 tests, 100% pass)
 **Branch**: feature/ocr-screenshot
 
 **Notes**:
 
-- All Phase 0 preparation complete
-- Ready to begin Feature 1 implementation
+- Feature 1 (OCR) is 98% complete - only E2E test remaining
+- 42 unit tests passing for OCR functions
+- Settings panel fully functional (language, confidence, auto-TTS)
+- Ready for E2E testing workflow
 - Follow incremental protocol from DEC-202510-021
-- Build + test after EVERY change to content-simple.js
