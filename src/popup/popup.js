@@ -4,6 +4,15 @@
  */
 
 import { MESSAGE_TYPES } from '../config/constants.js';
+import {
+  DEFAULT_SHORTCUTS,
+  SHORTCUT_LABELS,
+  loadShortcuts,
+  saveShortcuts,
+  resetShortcuts,
+  validateShortcut,
+  eventToShortcut,
+} from '../utils/keyboard-shortcuts.js';
 
 class PopupController {
   constructor() {
@@ -76,6 +85,7 @@ class PopupController {
     };
 
     // Apply visibility for all features (most default to true)
+    toggleSection('ocr-section', 'show_ocr'); // OCR section
     toggleSection('highlight-options-container', 'show_highlighting');
     toggleSection('speed-presets-container', 'show_speed_presets');
     toggleSection('text-customization-section', 'show_text_customization');
@@ -100,6 +110,44 @@ class PopupController {
     this.applyVisibilitySettings();
 
     const optionsContainer = document.getElementById('options-container');
+    const ocrOptionsContainer = document.getElementById('ocr-options-container');
+
+    // ============================================================
+    // OCR ENABLE/DISABLE
+    // ============================================================
+    const ocrEnabled = document.getElementById('ocr-enabled');
+    if (ocrEnabled) {
+      // Initialize OCR settings if they don't exist
+      if (!this.settings.ocr) {
+        this.settings.ocr = {
+          enabled: true,
+          autoActivateReadingMode: true,
+          filterNoise: true,
+          upscaleFactor: 1.5,
+        };
+      }
+
+      ocrEnabled.checked = this.settings.ocr.enabled !== false;
+
+      // Show/hide OCR options based on enabled state
+      if (ocrEnabled.checked) {
+        ocrOptionsContainer.classList.remove('hidden');
+      } else {
+        ocrOptionsContainer.classList.add('hidden');
+      }
+
+      ocrEnabled.addEventListener('change', e => {
+        this.settings.ocr.enabled = e.target.checked;
+        this.saveSettings();
+
+        // Toggle OCR options visibility
+        if (e.target.checked) {
+          ocrOptionsContainer.classList.remove('hidden');
+        } else {
+          ocrOptionsContainer.classList.add('hidden');
+        }
+      });
+    }
 
     // TTS Enable/Disable
     const ttsEnabled = document.getElementById('tts-enabled');
@@ -497,6 +545,13 @@ class PopupController {
 
               <div class="feature-item">
                 <label class="feature-label">
+                  <input type="checkbox" id="show-ocr" checked>
+                  <span>OCR - Text from Images</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
                   <input type="checkbox" id="show-highlighting" checked>
                   <span>Text Highlighting</span>
                 </label>
@@ -597,22 +652,49 @@ class PopupController {
           <!-- Keyboard Tab -->
           <div id="tab-keyboard" class="tab-content">
             <h3>Keyboard Shortcuts</h3>
-            <p class="tab-description">Quick reference for keyboard controls</p>
+            <p class="tab-description">Customize keyboard shortcuts for extension features</p>
 
-            <div class="shortcut-list">
-              <div class="shortcut-item">
-                <span class="shortcut-key">Space</span>
-                <span class="shortcut-desc">Pause / Resume reading</span>
-              </div>
+            <div class="shortcuts-warning" style="margin-bottom: 16px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+              <strong style="color: #856404;">⚠️ Important:</strong>
+              <span style="color: #856404; font-size: 13px;">Shortcuts must include a modifier key (Ctrl, Alt, or Shift). Chrome reserved shortcuts cannot be used.</span>
+            </div>
 
-              <div class="shortcut-item">
-                <span class="shortcut-key">+ or =</span>
-                <span class="shortcut-desc">Increase reading speed</span>
-              </div>
+            <div class="shortcuts-table-container">
+              <table class="shortcuts-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid #e0e0e0;">
+                    <th style="text-align: left; padding: 12px 8px; font-size: 14px; color: #666;">Feature</th>
+                    <th style="text-align: left; padding: 12px 8px; font-size: 14px; color: #666;">Shortcut</th>
+                    <th style="text-align: center; padding: 12px 8px; font-size: 14px; color: #666;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="shortcuts-table-body">
+                  <!-- Shortcuts will be populated dynamically -->
+                </tbody>
+              </table>
+            </div>
 
-              <div class="shortcut-item">
-                <span class="shortcut-key">-</span>
-                <span class="shortcut-desc">Decrease reading speed</span>
+            <div class="shortcuts-actions" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px;">
+              <button id="btn-reset-shortcuts" class="modal-btn modal-btn-secondary" style="padding: 8px 16px; font-size: 14px;">
+                Reset to Defaults
+              </button>
+            </div>
+
+            <!-- Recording Mode Overlay (hidden by default) -->
+            <div id="shortcut-recording-overlay" class="recording-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; align-items: center; justify-content: center;">
+              <div class="recording-box" style="background: white; padding: 32px; border-radius: 12px; text-align: center; max-width: 400px;">
+                <h3 style="margin: 0 0 16px 0; color: #333;">Recording Shortcut</h3>
+                <p style="margin: 0 0 20px 0; color: #666;">Press your desired key combination...</p>
+                <div id="recording-display" style="padding: 16px; background: #f5f5f5; border-radius: 8px; font-size: 20px; font-weight: bold; color: #333; margin-bottom: 16px; min-height: 60px; display: flex; align-items: center; justify-content: center;">
+                  Waiting...
+                </div>
+                <div id="recording-error" style="color: #dc3545; font-size: 13px; margin-bottom: 16px; min-height: 20px;">
+                  <!-- Error messages appear here -->
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                  <button id="btn-recording-cancel" class="modal-btn modal-btn-secondary">Cancel</button>
+                  <button id="btn-recording-save" class="modal-btn modal-btn-primary" disabled>Save</button>
+                </div>
               </div>
             </div>
           </div>
@@ -736,6 +818,7 @@ class PopupController {
     };
 
     // Load all feature visibility checkboxes (most default to true)
+    loadCheckbox('show-ocr', 'show_ocr'); // OCR
     loadCheckbox('show-highlighting', 'show_highlighting');
     loadCheckbox('show-speed-presets', 'show_speed_presets');
     loadCheckbox('show-text-customization', 'show_text_customization');
@@ -763,6 +846,162 @@ class PopupController {
     if (debugMode) {
       debugMode.checked = this.settings.appearance?.debug_mode === true;
     }
+
+    // Load keyboard shortcuts
+    this.loadKeyboardShortcuts();
+  }
+
+  async loadKeyboardShortcuts() {
+    const shortcuts = await loadShortcuts();
+    const tbody = document.getElementById('shortcuts-table-body');
+
+    if (!tbody) return;
+
+    // Clear existing rows
+    tbody.innerHTML = '';
+
+    // Create a row for each shortcut
+    for (const [key, shortcut] of Object.entries(shortcuts)) {
+      const row = document.createElement('tr');
+      row.style.cssText = 'border-bottom: 1px solid #e0e0e0;';
+
+      row.innerHTML = `
+        <td style="padding: 12px 8px; font-size: 14px;">${SHORTCUT_LABELS[key] || key}</td>
+        <td style="padding: 12px 8px;">
+          <span class="shortcut-display" data-key="${key}" style="
+            display: inline-block;
+            padding: 6px 12px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+          ">${shortcut}</span>
+        </td>
+        <td style="padding: 12px 8px; text-align: center;">
+          <button class="btn-edit-shortcut" data-key="${key}" style="
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+          ">Edit</button>
+        </td>
+      `;
+
+      tbody.appendChild(row);
+    }
+
+    // Add event listeners to edit buttons
+    document.querySelectorAll('.btn-edit-shortcut').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const key = e.target.getAttribute('data-key');
+        this.startShortcutRecording(key, shortcuts);
+      });
+    });
+
+    // Reset shortcuts button
+    const resetBtn = document.getElementById('btn-reset-shortcuts');
+    if (resetBtn) {
+      resetBtn.onclick = async () => {
+        if (confirm('Reset all keyboard shortcuts to defaults?')) {
+          await resetShortcuts();
+          this.loadKeyboardShortcuts();
+          this.updateStatus('Shortcuts reset to defaults');
+        }
+      };
+    }
+  }
+
+  startShortcutRecording(featureKey, currentShortcuts) {
+    const overlay = document.getElementById('shortcut-recording-overlay');
+    const display = document.getElementById('recording-display');
+    const errorDiv = document.getElementById('recording-error');
+    const saveBtn = document.getElementById('btn-recording-save');
+    const cancelBtn = document.getElementById('btn-recording-cancel');
+
+    if (!overlay) return;
+
+    // Show overlay
+    overlay.style.display = 'flex';
+
+    // Reset state
+    display.textContent = 'Waiting...';
+    errorDiv.textContent = '';
+    saveBtn.disabled = true;
+
+    let recordedShortcut = null;
+    let isValid = false;
+
+    // Keyboard event handler
+    const handleKeyPress = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Convert event to shortcut string
+      recordedShortcut = eventToShortcut(e);
+      display.textContent = recordedShortcut;
+
+      // Validate shortcut
+      const validation = validateShortcut(recordedShortcut, currentShortcuts, featureKey);
+
+      if (validation.valid) {
+        errorDiv.textContent = '';
+        errorDiv.style.color = '#28a745';
+        errorDiv.textContent = '✓ Valid shortcut';
+        saveBtn.disabled = false;
+        isValid = true;
+      } else {
+        errorDiv.style.color = '#dc3545';
+        errorDiv.textContent = validation.error;
+        saveBtn.disabled = true;
+        isValid = false;
+      }
+    };
+
+    // Add keyboard listener
+    document.addEventListener('keydown', handleKeyPress);
+
+    // Cancel button
+    const cancelHandler = () => {
+      document.removeEventListener('keydown', handleKeyPress);
+      overlay.style.display = 'none';
+    };
+    cancelBtn.onclick = cancelHandler;
+
+    // Save button
+    saveBtn.onclick = async () => {
+      if (isValid && recordedShortcut) {
+        // Update shortcuts
+        currentShortcuts[featureKey] = recordedShortcut;
+        await saveShortcuts(currentShortcuts);
+
+        // Update display
+        const display = document.querySelector(`.shortcut-display[data-key="${featureKey}"]`);
+        if (display) {
+          display.textContent = recordedShortcut;
+        }
+
+        // Close overlay
+        document.removeEventListener('keydown', handleKeyPress);
+        overlay.style.display = 'none';
+
+        this.updateStatus(`Shortcut updated: ${SHORTCUT_LABELS[featureKey]}`);
+      }
+    };
+
+    // Close on escape (but not record it)
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        cancelHandler();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
   }
 
   saveModalSettings() {
@@ -786,6 +1025,7 @@ class PopupController {
     };
 
     // Save all feature visibility settings
+    saveCheckbox('show-ocr', 'show_ocr'); // OCR
     saveCheckbox('show-highlighting', 'show_highlighting');
     saveCheckbox('show-speed-presets', 'show_speed_presets');
     saveCheckbox('show-text-customization', 'show_text_customization');

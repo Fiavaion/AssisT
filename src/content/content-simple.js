@@ -60,6 +60,7 @@ import {
   highlightWordByWord,
   cleanupWordByWord,
 } from '../core/dom/highlighting.js';
+import { registerShortcut } from '../utils/keyboard-shortcuts.js';
 import { dyslexia_initialize } from '../content/features/dyslexia.js';
 import '../features/readingGuide/readingGuide.js'; // Self-initializing module
 import '../features/screenOverlay/screenOverlay.js'; // Self-initializing module
@@ -665,25 +666,28 @@ document.addEventListener(
       }
     }
 
-    // Alt+O - Trigger OCR
-    if (e.altKey && e.key === 'o') {
-      e.preventDefault();
-      e.stopPropagation();
-
-      console.log('[AssisT] OCR keyboard shortcut triggered (Alt+O)');
-
-      if (window.assistFeatures && window.assistFeatures.ocr) {
-        // Call performOCR which will show the screenshot UI modal
-        window.assistFeatures.ocr.performOCR();
-        showToast('📸 OCR: Select screenshot mode');
-      } else {
-        console.error('[AssisT] OCR feature not available');
-        showToast('❌ OCR feature not initialized');
-      }
-    }
+    // OCR keyboard shortcut is now dynamically registered via shortcuts manager
+    // See initialization code below this event listener
   },
   true
 ); // Use capture phase for better priority
+
+// ============================================================
+// KEYBOARD SHORTCUTS REGISTRATION
+// ============================================================
+// Register dynamic keyboard shortcuts from shortcuts manager
+registerShortcut('ocr_activate', () => {
+  console.log('[AssisT] OCR keyboard shortcut triggered');
+
+  if (window.assistFeatures && window.assistFeatures.ocr) {
+    // Call performOCR which will show the screenshot UI modal
+    window.assistFeatures.ocr.performOCR();
+    showToast('📸 OCR: Select screenshot mode');
+  } else {
+    console.error('[AssisT] OCR feature not available');
+    showToast('❌ OCR feature not initialized');
+  }
+});
 
 // ============================================================
 // EXTRACTION DOCUMENTATION

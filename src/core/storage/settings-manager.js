@@ -32,6 +32,7 @@ const DEFAULT_SETTINGS = {
     enabled: false,
   },
   ocr: {
+    enabled: true, // Enable/disable OCR feature
     autoActivateReadingMode: true, // Automatically activate reading mode before OCR capture
     filterNoise: true, // Remove cookie notices, social embeds, ads, and UI clutter from OCR text
     upscaleFactor: 1.5, // Image upscaling for better OCR accuracy (1.5 = 150%, 2.0 = 200%)
@@ -48,6 +49,14 @@ const DEFAULT_SETTINGS = {
     fontSize: '16px',
     lineSpacing: 1.5,
     letterSpacing: 0,
+  },
+  keyboardShortcuts: {
+    tts_play_pause: 'Ctrl+Shift+Space',
+    tts_stop: 'Ctrl+Shift+S',
+    ocr_activate: 'Alt+O',
+    reading_mode_toggle: 'Ctrl+Shift+R',
+    reading_mode_exit: 'Escape',
+    dictionary_lookup: 'Ctrl+Shift+D',
   },
 };
 

@@ -9,7 +9,7 @@
 
 ### Feature 1: OCR + Screenshot Tool
 
-**Status**: `[>]` In Progress (92% - Reading Mode Integration Complete, Settings/Tests Remain)
+**Status**: `[>]` In Progress (94% - Upscaling & Adaptive Quality Complete, Settings/Tests Remain)
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
@@ -28,9 +28,9 @@
 - [x] 1.9a: Auto-activate Reading Mode before OCR capture (with toggle in settings)
 - [x] 1.9b: Fix OCR TTS default voice to match extension settings (Google UK Female)
 - [x] 1.9c: Image upscaling for better OCR accuracy (1.5x default scale factor)
-- [ ] 1.10: Settings panel (language, confidence, auto-TTS, upscale factor)
-- [ ] 1.10a: Add upscale factor slider in OCR settings (Low 1.0x, Medium 1.5x, High 2.0x)
-- [ ] 1.10b: Adaptive upscaling for PDFs (skip upscale for PDF.js, apply to screenshots)
+- [x] 1.10a: Add upscale factor slider in OCR settings (Low 1.0x, Medium 1.5x, High 2.0x)
+- [x] 1.10b: Adaptive upscaling for PDFs (skip upscale for PDF.js, apply to screenshots)
+- [ ] 1.10: Settings panel (language, confidence, auto-TTS)
 - [ ] 1.11: Unit tests for OCR functions
 - [ ] 1.12: E2E test for screenshot workflow
 
