@@ -1,6 +1,6 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-11-21
+**Last Updated**: 2025-11-22
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 In Progress)
 **Current Phase**: Phase 2.1 - High-Priority Core Features
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
@@ -11,7 +11,7 @@
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: 🚧 13% Complete (3/24 features in progress, 28 tasks done)
+**Phase 2 (Feature Expansion)**: 🚧 15% Complete (3/24 features in progress, 31 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 1 week (preparation)
@@ -31,6 +31,18 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 007 (2025-11-22)
+
+**OCR Refinements & Reading Mode Integration - Complete**
+
+- [x] Fixed Reading Mode auto-activation timing (now happens BEFORE screenshot UI)
+- [x] Added OCR settings toggle in popup (auto-activate Reading Mode)
+- [x] Changed Reading Mode default font to Arial for better OCR accuracy
+- [x] Fixed OCR TTS to use same default voice as extension-level TTS (Google UK Female)
+- [x] Added 500ms render delay for Reading Mode before OCR capture
+
+**Commit**: Pending (uncommitted changes)
 
 ### Phase 2 Session 006 (2025-11-21)
 
@@ -75,11 +87,11 @@
 
 ## 🚧 In Progress
 
-**Session**: Phase 2 Session 3 Complete (Full Auto Mode)
+**Session**: Phase 2 Session 007 Complete (OCR Refinements)
 **Features Started**: 3 (OCR, Highlight Menu, Reading Mode)
-**Next Feature**: Feature 4 - Dictionary Lookup
+**Next Feature**: Complete OCR settings/tests, then Feature 5 - Annotations
 **Started**: 2025-11-21
-**Overall Progress**: 28/~150 tasks (19%)
+**Overall Progress**: 31/~150 tasks (21%)
 
 ---
 
@@ -180,9 +192,9 @@
 
 ### Phase 2.1: High-Priority (Weeks 2-5)
 
-- [>] OCR + Screenshot Tool (85% - 10/12 tasks - Media Player Complete)
-- [>] Highlight Menu (69% - 9/13 tasks)
-- [✓] Reading Mode (100% - 12/12 tasks, E2E test pending)
+- [>] OCR + Screenshot Tool (92% - 11/12 tasks - Auto Reading Mode + TTS Voice Fixed)
+- [>] Highlight Menu (85% - 11/13 tasks)
+- [✓] Reading Mode (100% - 13/13 tasks, E2E test pending)
 - [>] Dictionary Lookup (85% - 11/13 tasks)
 
 ### Phase 2.2: Writing & Organization (Weeks 6-9)

@@ -849,6 +849,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'TRIGGER_OCR':
+      // Trigger OCR workflow
+      console.log('[AssisT] Triggering OCR from popup button');
+      if (window.assistFeatures && window.assistFeatures.ocr) {
+        // Call OCR asynchronously
+        window.assistFeatures.ocr.performOCR()
+          .then(result => {
+            if (result) {
+              console.log('[AssisT] OCR completed successfully');
+              sendResponse({ success: true, textLength: result.text.length });
+            } else {
+              console.log('[AssisT] OCR canceled or failed');
+              sendResponse({ success: false, error: 'OCR canceled' });
+            }
+          })
+          .catch(error => {
+            console.error('[AssisT] OCR error:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true; // Will respond asynchronously
+      } else {
+        console.error('[AssisT] OCR feature not available');
+        sendResponse({ success: false, error: 'OCR not initialized' });
+      }
+      break;
+
     default:
       console.warn('[AssisT] Unknown message type:', message.type);
       sendResponse({ success: false, error: 'Unknown message type' });

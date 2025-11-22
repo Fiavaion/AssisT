@@ -30,7 +30,7 @@ let readingMode_originalContent = null;
 const readingMode_settings = {
   enabled: true,
   backgroundColor: '#FBF8F3', // Cream
-  fontFamily: 'OpenDyslexic, Georgia, serif',
+  fontFamily: 'Arial, Helvetica, sans-serif', // Standard font for better OCR accuracy
   fontSize: '18px',
   lineHeight: '1.6',
   maxWidth: '800px',

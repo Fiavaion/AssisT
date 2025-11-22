@@ -3,13 +3,13 @@
 **Timeline**: 12-16 weeks (Weeks 2-16)
 **Status**: In Progress
 **Current Phase**: Phase 1 - High Priority Features
-**Last Updated**: 2025-11-21
+**Last Updated**: 2025-11-22
 
 ## Phase 1: High-Priority Core Features (Weeks 2-5)
 
 ### Feature 1: OCR + Screenshot Tool
 
-**Status**: `[>]` In Progress (92% - PDF Support Added, Settings/Tests Remain)
+**Status**: `[>]` In Progress (92% - Reading Mode Integration Complete, Settings/Tests Remain)
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
@@ -25,6 +25,8 @@
 - [x] 1.7: TTS integration for extracted text (Full media player with play/pause/stop/speed/chunking)
 - [x] 1.8: Copy to clipboard functionality
 - [x] 1.9: Save as TXT file
+- [x] 1.9a: Auto-activate Reading Mode before OCR capture (with toggle in settings)
+- [x] 1.9b: Fix OCR TTS default voice to match extension settings (Google UK Female)
 - [ ] 1.10: Settings panel (language, confidence, auto-TTS)
 - [ ] 1.11: Unit tests for OCR functions
 - [ ] 1.12: E2E test for screenshot workflow
@@ -54,7 +56,7 @@
 
 ### Feature 3: Reading Mode
 
-**Status**: `[✓]` Complete (100% - 12/12 tasks, E2E test pending)
+**Status**: `[✓]` Complete (100% - 13/13 tasks, E2E test pending)
 **Estimated**: 1 week
 **Priority**: MEDIUM
 **Dependencies**: None
@@ -71,9 +73,10 @@
 - [x] 3.8: Toggle button in popup (Enter/Exit)
 - [x] 3.9: Keyboard shortcut (Ctrl+Shift+R)
 - [x] 3.10: ESC key to exit
-- [x] 3.11: Font customization (OpenDyslexic font)
+- [x] 3.11: Font customization (OpenDyslexic font → Arial for OCR accuracy)
 - [x] 3.12: Settings persistence
-- [ ] 3.13: E2E test on Canvas pages
+- [x] 3.13: OCR integration (auto-activation before screenshot)
+- [ ] 3.14: E2E test on Canvas pages
 
 ### Feature 4: Dictionary Lookup
 

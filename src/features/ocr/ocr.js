@@ -156,6 +156,39 @@ function ocr_cleanup() {
 // ============================================================================
 
 /**
+ * Detects if the current page is a PDF
+ *
+ * @returns {Object} PDF detection result
+ */
+function ocr_detectPDF() {
+  const url = window.location.href;
+
+  // Chrome's built-in PDF viewer
+  const isChromePDFViewer = url.includes('chrome-extension://') && url.includes('.pdf');
+
+  // Direct PDF URL
+  const isDirectPDF = url.endsWith('.pdf') || url.includes('.pdf?') || url.includes('.pdf#');
+
+  // Canvas LMS embedded PDF (in iframe)
+  const isCanvasEmbedded = url.includes('instructure.com') &&
+    (document.querySelector('iframe[src*=".pdf"]') ||
+     document.querySelector('embed[type="application/pdf"]'));
+
+  // PDF.js viewer
+  const isPDFJS = document.querySelector('#viewer.pdfViewer') !== null ||
+    window.PDFViewerApplication !== undefined;
+
+  return {
+    isPDF: isChromePDFViewer || isDirectPDF || isCanvasEmbedded || isPDFJS,
+    type: isChromePDFViewer ? 'chrome-viewer' :
+          isPDFJS ? 'pdfjs' :
+          isCanvasEmbedded ? 'canvas-embedded' :
+          isDirectPDF ? 'direct' : 'none',
+    url,
+  };
+}
+
+/**
  * Captures a screenshot of the current visible tab
  *
  * @returns {Promise<string>} Data URL of the captured screenshot
@@ -184,6 +217,190 @@ async function ocr_captureVisibleTab() {
 }
 
 /**
+ * Fetches PDF data as ArrayBuffer (handles local files and URLs)
+ *
+ * @param {string} pdfUrl - PDF URL (can be file://, http://, or chrome-extension://)
+ * @returns {Promise<ArrayBuffer>} PDF data as ArrayBuffer
+ */
+async function ocr_fetchPDFData(pdfUrl) {
+  console.log(`[OCR] Fetching PDF data from: ${pdfUrl}`);
+
+  // For file:// URLs (local files), use background script to fetch
+  // Content scripts can't access file:// URLs due to CORS
+  if (pdfUrl.startsWith('file://')) {
+    console.log('[OCR] Local file detected, requesting PDF data from background script...');
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'FETCH_PDF',
+        url: pdfUrl
+      });
+
+      if (response && response.success && response.data) {
+        // Convert Array back to ArrayBuffer (background script sends Array due to message passing limitations)
+        const uint8Array = new Uint8Array(response.data);
+        const arrayBuffer = uint8Array.buffer;
+        console.log(`[OCR] Received PDF data from background: ${arrayBuffer.byteLength} bytes`);
+        return arrayBuffer;
+      } else {
+        throw new Error(response?.error || 'Background script failed to fetch PDF');
+      }
+    } catch (error) {
+      console.error('[OCR] Background fetch failed:', error);
+      throw error;
+    }
+  }
+
+  // For HTTP/HTTPS URLs, use fetch
+  try {
+    const response = await fetch(pdfUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    console.log(`[OCR] Fetched PDF data: ${arrayBuffer.byteLength} bytes`);
+    return arrayBuffer;
+  } catch (error) {
+    console.error('[OCR] fetch() failed:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Captures a PDF using PDF.js headless rendering (all pages)
+ *
+ * @param {Object} pdfInfo - PDF detection information
+ * @returns {Promise<Array<string>>} Array of data URLs for each PDF page
+ */
+async function ocr_capturePDFWithPDFJS(pdfInfo) {
+  console.log(`[OCR] Using PDF.js headless rendering for full PDF capture...`);
+
+  try {
+    // Dynamically import PDF.js
+    const pdfjsLib = await import('pdfjs-dist');
+
+    // Set worker path
+    pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('node_modules/pdfjs-dist/build/pdf.worker.min.mjs');
+
+    // Get the PDF URL
+    let pdfUrl = pdfInfo.url;
+
+    // For Chrome PDF viewer, extract the actual PDF URL from the chrome-extension:// URL
+    if (pdfInfo.type === 'chrome-viewer') {
+      // Chrome PDF viewer URL format: chrome-extension://[id]/[hash].pdf?[original-url]
+      const urlParams = new URLSearchParams(window.location.search);
+      pdfUrl = urlParams.get('url') || pdfInfo.url;
+    }
+
+    console.log(`[OCR] Loading PDF from: ${pdfUrl}`);
+
+    // Fetch PDF data as ArrayBuffer (handles CORS issues with local files)
+    const pdfData = await ocr_fetchPDFData(pdfUrl);
+
+    // Load the PDF document from ArrayBuffer
+    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+    const pdf = await loadingTask.promise;
+
+    console.log(`[OCR] PDF loaded: ${pdf.numPages} pages`);
+
+    const pageImages = [];
+
+    // Render each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      console.log(`[OCR] Rendering page ${pageNum}/${pdf.numPages}...`);
+
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for better OCR quality
+
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const context = canvas.getContext('2d');
+
+      // Render page to canvas
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+
+      // Convert to data URL
+      const dataUrl = canvas.toDataURL('image/png');
+      pageImages.push(dataUrl);
+
+      console.log(`[OCR] Page ${pageNum} rendered (${viewport.width}x${viewport.height})`);
+    }
+
+    console.log(`[OCR] Successfully rendered all ${pdf.numPages} pages`);
+    return pageImages;
+
+  } catch (error) {
+    console.error('[OCR] PDF.js rendering failed:', error);
+    throw new Error(`PDF rendering failed: ${error.message}`);
+  }
+}
+
+/**
+ * Captures a PDF page using specialized PDF handling
+ *
+ * @param {Object} pdfInfo - PDF detection information
+ * @returns {Promise<string|Array<string>>} Data URL of captured page, or array of data URLs for multi-page PDFs
+ */
+async function ocr_capturePDFPage(pdfInfo) {
+  console.log(`[OCR] Capturing PDF page (type: ${pdfInfo.type})...`);
+
+  // For Chrome PDF viewer, PDF.js, or direct PDFs
+  // Use PDF.js headless rendering to capture ALL pages automatically
+  if (pdfInfo.type === 'chrome-viewer' || pdfInfo.type === 'pdfjs' || pdfInfo.type === 'direct') {
+    console.log('[OCR] Using PDF.js headless rendering for multi-page capture');
+
+    try {
+      // Render all PDF pages using PDF.js
+      const pageImages = await ocr_capturePDFWithPDFJS(pdfInfo);
+
+      // Return array of page images for multi-page OCR processing
+      // Each page will be processed individually to avoid Tesseract's size limits
+      console.log(`[OCR] Rendered ${pageImages.length} PDF page(s) for OCR processing`);
+      return pageImages;
+
+    } catch (error) {
+      console.warn('[OCR] PDF.js rendering failed, falling back to visible capture:', error);
+      // Fallback to visible page capture
+      return await ocr_captureVisibleTab();
+    }
+  }
+
+  // Canvas embedded PDF - try to find the embed/iframe
+  if (pdfInfo.type === 'canvas-embedded') {
+    console.log('[OCR] Canvas embedded PDF detected');
+
+    const pdfEmbed = document.querySelector('iframe[src*=".pdf"]') ||
+                     document.querySelector('embed[type="application/pdf"]');
+
+    if (pdfEmbed) {
+      console.log('[OCR] Found PDF embed element, capturing visible area');
+      // For embedded PDFs, just capture what's visible
+      return await ocr_captureVisibleTab();
+    }
+  }
+
+  // Fallback: just capture the visible area
+  console.log('[OCR] Using fallback capture method for PDF');
+  return await ocr_captureVisibleTab();
+}
+
+/**
+ * Helper to load an image from a data URL
+ */
+function ocr_loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = dataUrl;
+  });
+}
+
+/**
  * Captures a full-page screenshot by scrolling and stitching
  *
  * @returns {Promise<string>} Data URL of the full-page screenshot
@@ -193,17 +410,44 @@ async function ocr_captureFullPage() {
   try {
     console.log('[OCR] Starting full-page capture...');
 
-    const originalScrollY = window.scrollY;
-    const originalScrollX = window.scrollX;
+    // Detect if this is a PDF
+    const pdfInfo = ocr_detectPDF();
+    if (pdfInfo.isPDF) {
+      console.log(`[OCR] PDF detected (type: ${pdfInfo.type})`);
+      return await ocr_capturePDFPage(pdfInfo);
+    }
 
-    // Get page dimensions
-    const pageHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-    const pageWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+    // Check if reading mode is active
+    const readingModeOverlay = document.getElementById('assist-reading-mode-overlay');
+    const isReadingMode = readingModeOverlay && window.assistFeatures?.readingMode?.isActive();
+
+    let scrollContainer, originalScrollY, originalScrollX, pageHeight, pageWidth;
+
+    if (isReadingMode) {
+      // Reading mode is active - scroll the overlay instead
+      console.log('[OCR] Reading mode detected - capturing reading mode content');
+      scrollContainer = readingModeOverlay;
+      originalScrollY = scrollContainer.scrollTop;
+      originalScrollX = scrollContainer.scrollLeft;
+      pageHeight = scrollContainer.scrollHeight;
+      pageWidth = scrollContainer.scrollWidth;
+    } else {
+      // Normal page scrolling
+      scrollContainer = window;
+      originalScrollY = window.scrollY;
+      originalScrollX = window.scrollX;
+      pageHeight = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight
+      );
+      pageWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+    }
+
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
     console.log(
-      `[OCR] Page dimensions: ${pageWidth}x${pageHeight}, Viewport: ${viewportWidth}x${viewportHeight}`
+      `[OCR] ${isReadingMode ? 'Reading mode' : 'Page'} dimensions: ${pageWidth}x${pageHeight}, Viewport: ${viewportWidth}x${viewportHeight}`
     );
 
     // Calculate number of screenshots needed
@@ -213,7 +457,14 @@ async function ocr_captureFullPage() {
     // Capture screenshots by scrolling
     for (let i = 0; i < rows; i++) {
       const scrollY = i * viewportHeight;
-      window.scrollTo(0, scrollY);
+
+      if (isReadingMode) {
+        // Scroll the reading mode overlay (it's an HTMLElement)
+        readingModeOverlay.scrollTop = scrollY;
+      } else {
+        // Scroll the window
+        window.scrollTo(0, scrollY);
+      }
 
       // Wait for scroll to complete
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -230,7 +481,11 @@ async function ocr_captureFullPage() {
     }
 
     // Restore original scroll position
-    window.scrollTo(originalScrollX, originalScrollY);
+    if (isReadingMode) {
+      readingModeOverlay.scrollTop = originalScrollY;
+    } else {
+      window.scrollTo(originalScrollX, originalScrollY);
+    }
 
     // If only one screenshot, return it directly
     if (screenshots.length === 1) {
@@ -489,6 +744,12 @@ async function ocr_cropImage(imageDataUrl, x, y, width, height) {
  * Shows screenshot capture UI with options
  */
 async function ocr_showScreenshotUI() {
+  // Check reading mode status
+  const isReadingMode = window.assistFeatures?.readingMode?.isActive() || false;
+
+  // Check PDF status
+  const pdfInfo = ocr_detectPDF();
+
   // Create modal overlay
   const overlay = document.createElement('div');
   overlay.id = 'assist-ocr-screenshot-ui';
@@ -515,8 +776,20 @@ async function ocr_showScreenshotUI() {
     max-width: 400px;
   `;
 
+  // Reading mode status message
+  const readingModeStatus = isReadingMode
+    ? '<div style="margin-bottom: 16px; padding: 12px; background: #e7f3ff; border-left: 4px solid #007bff; border-radius: 4px;"><strong>📖 Reading Mode Active</strong><br><span style="font-size: 13px; color: #555;">OCR will capture the clean reading view</span></div>'
+    : '';
+
+  // PDF status message
+  const pdfStatus = pdfInfo.isPDF
+    ? `<div style="margin-bottom: 16px; padding: 12px; background: #e7f9e7; border-left: 4px solid #28a745; border-radius: 4px;"><strong>📄 PDF Document Detected</strong><br><span style="font-size: 13px; color: #555;">Type: ${pdfInfo.type === 'chrome-viewer' ? 'Chrome PDF Viewer' : pdfInfo.type === 'pdfjs' ? 'PDF.js Viewer' : pdfInfo.type === 'canvas-embedded' ? 'Canvas Embedded PDF' : 'Direct PDF'}</span><br><span style="font-size: 12px; color: #28a745; font-weight: bold;">✓ Automatic multi-page capture enabled</span><br><span style="font-size: 12px; color: #666;">All pages will be rendered and captured automatically using PDF.js</span></div>`
+    : '';
+
   panel.innerHTML = `
     <h2 style="margin: 0 0 16px 0; font-size: 20px;">Screenshot for OCR</h2>
+    ${readingModeStatus}
+    ${pdfStatus}
     <p style="margin: 0 0 24px 0; color: #666;">Choose how to capture the screenshot:</p>
     <button id="assist-ocr-visible" style="
       width: 100%;
@@ -625,6 +898,7 @@ async function ocr_showScreenshotUI() {
  * @param {Object} options - OCR options
  * @param {string} options.lang - Language code (default: 'eng')
  * @param {number} options.confidenceThreshold - Minimum confidence (0-100, default: 50)
+ * @param {boolean} options.filterNoise - Remove UI clutter (default: from settings)
  * @returns {Promise<Object>} OCR result with text and confidence
  */
 async function ocr_recognizeText(imageDataUrl, options = {}) {
@@ -670,10 +944,27 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
     await worker.terminate();
 
     // Filter by confidence threshold
-    const filteredText = ocr_filterByConfidence(result, confidenceThreshold);
+    let filteredText = ocr_filterByConfidence(result, confidenceThreshold);
+
+    // Check if noise filtering is enabled (from settings or explicit option)
+    let shouldFilterNoise = options.filterNoise;
+    if (shouldFilterNoise === undefined) {
+      // Load from settings if not explicitly provided
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        const settingsResult = await chrome.storage.local.get('assist_settings');
+        shouldFilterNoise = settingsResult.assist_settings?.ocr?.filterNoise ?? true;
+      } else {
+        shouldFilterNoise = true; // Default to true
+      }
+    }
+
+    // Remove noise patterns (cookie notices, social embeds, etc.)
+    if (shouldFilterNoise) {
+      filteredText = ocr_removeNoisePatterns(filteredText);
+    }
 
     console.log(`[OCR] Recognition complete. Confidence: ${result.data.confidence.toFixed(1)}%`);
-    console.log(`[OCR] Extracted ${result.data.text.length} characters`);
+    console.log(`[OCR] Extracted ${result.data.text.length} characters (cleaned: ${filteredText.length})`);
 
     return {
       text: filteredText,
@@ -709,6 +1000,173 @@ function ocr_filterByConfidence(result, threshold) {
 }
 
 /**
+ * Removes common UI noise patterns from OCR text
+ * Targets: cookie notices, social media embeds, permission prompts, ads, navigation
+ *
+ * @param {string} text - Raw OCR text
+ * @returns {string} Cleaned text suitable for TTS reading
+ */
+function ocr_removeNoisePatterns(text) {
+  // Patterns to remove (accessibility-focused - reduce cognitive load)
+  const noisePatterns = [
+    // Cookie and privacy notices
+    /This content is loaded from [^.]+\.\s*We need your (consent|permission)[^.]+\./gi,
+    /We (use|need) (cookies?|your consent|permission)[^.]+\./gi,
+    /For more information visit[^.]+Privacy Policy[^.]*\./gi,
+    /By continuing to use this site[^.]+cookies?[^.]*\./gi,
+    /Accept (all )?cookies?/gi,
+    /Cookie (Settings?|Preferences?|Policy)/gi,
+    /Manage cookie (settings?|preferences?)/gi,
+
+    // Social media embed notices
+    /This content is (from|provided by|embedded from) (Twitter|Facebook|Instagram|YouTube|TikTok|LinkedIn)[^.]*\./gi,
+    /(Twitter|Facebook|Instagram|YouTube|TikTok) content may use cookies[^.]*\./gi,
+    /View (this )?post on (Instagram|Facebook|Twitter)/gi,
+    /A post shared by[^.]+/gi,
+
+    // GDPR and compliance
+    /We and our partners (use|store|process) (data|information)[^.]+\./gi,
+    /You can (change|manage) your preferences?[^.]+\./gi,
+    /To learn more[^.]+privacy[^.]*\./gi,
+    /Click here to (accept|manage|opt-out)[^.]*\./gi,
+
+    // Advertisement indicators
+    /Advertisement/gi,
+    /Sponsored (content|post|by)/gi,
+    /\[?Ad\]?(\s*-\s*|\s+)/gi,
+
+    // Navigation and UI elements
+    /Click to (expand|collapse|show|hide)/gi,
+    /Skip to (main )?content/gi,
+    /Back to top/gi,
+    /Show (more|less)/gi,
+    /Load more/gi,
+    /Read (more|less)/gi,
+
+    // Common UI buttons/links (often misread)
+    /Share (this|on|via)/gi,
+    /Follow us on/gi,
+    /Subscribe (now|to)/gi,
+
+    // Accessibility widgets (ironically cluttering for TTS users)
+    /Accessibility (menu|options|settings)/gi,
+    /Change text size/gi,
+    /High contrast mode/gi,
+
+    // Timestamps that add no value
+    /Posted \d+\s+(second|minute|hour|day|week|month|year)s?\s+ago/gi,
+    /Updated:?\s+\d+[/-]\d+[/-]\d+/gi,
+
+    // Common filler phrases
+    /Click here/gi,
+    /Learn more\s*$/gim,
+    /Find out more\s*$/gim,
+  ];
+
+  let cleaned = text;
+
+  // Apply all noise removal patterns
+  noisePatterns.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, '');
+  });
+
+  // Remove excessive whitespace and normalize
+  cleaned = cleaned
+    .replace(/\n{3,}/g, '\n\n') // Max 2 consecutive newlines
+    .replace(/[ \t]+/g, ' ') // Normalize spaces
+    .replace(/\n\s+\n/g, '\n\n') // Remove whitespace-only lines
+    .trim();
+
+  // Log what was filtered (for debugging and improvement)
+  const removedLength = text.length - cleaned.length;
+  if (removedLength > 0) {
+    console.log(`[OCR] Removed ${removedLength} characters of noise (${((removedLength / text.length) * 100).toFixed(1)}%)`);
+  }
+
+  return cleaned;
+}
+
+/**
+ * Shows a progress modal for multi-page OCR processing
+ *
+ * @param {number} totalPages - Total number of pages to process
+ * @returns {HTMLElement} Progress modal element
+ */
+function ocr_showProgressModal(totalPages) {
+  const overlay = document.createElement('div');
+  overlay.id = 'assist-ocr-progress-modal';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  `;
+
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    max-width: 500px;
+    width: 90%;
+    padding: 32px;
+  `;
+
+  modal.innerHTML = `
+    <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: #333;">Processing OCR</h2>
+    <p id="ocr-progress-text" style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+      Processing page 0 of ${totalPages}...
+    </p>
+    <div style="background: #e0e0e0; border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 12px;">
+      <div id="ocr-progress-bar" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+    </div>
+    <p id="ocr-progress-eta" style="margin: 0; color: #999; font-size: 13px; text-align: center;">
+      Estimating time remaining...
+    </p>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  return overlay;
+}
+
+/**
+ * Updates the progress modal
+ *
+ * @param {HTMLElement} modal - Progress modal element
+ * @param {number} currentPage - Current page being processed
+ * @param {number} totalPages - Total pages
+ * @param {number} estimatedSeconds - Estimated seconds remaining
+ */
+function ocr_updateProgress(modal, currentPage, totalPages, estimatedSeconds) {
+  const progressBar = modal.querySelector('#ocr-progress-bar');
+  const progressText = modal.querySelector('#ocr-progress-text');
+  const progressETA = modal.querySelector('#ocr-progress-eta');
+
+  const percentage = (currentPage / totalPages) * 100;
+  progressBar.style.width = `${percentage}%`;
+
+  progressText.textContent = `Processing page ${currentPage} of ${totalPages}...`;
+
+  // Format time remaining
+  if (estimatedSeconds < 60) {
+    progressETA.textContent = `Estimated time remaining: ${estimatedSeconds} seconds`;
+  } else {
+    const minutes = Math.floor(estimatedSeconds / 60);
+    const seconds = estimatedSeconds % 60;
+    progressETA.textContent = `Estimated time remaining: ${minutes}m ${seconds}s`;
+  }
+}
+
+/**
  * Main OCR workflow - captures screenshot and performs OCR
  *
  * @param {Object} options - OCR options
@@ -716,20 +1174,105 @@ function ocr_filterByConfidence(result, threshold) {
  */
 async function ocr_performOCR(options = {}) {
   try {
-    // Show screenshot UI
     console.log('[OCR] Starting OCR workflow...');
+
+    // Check if we should auto-activate reading mode (default: true)
+    let readingModeWasActivated = false;
+    let shouldAutoActivateReadingMode = true; // Default to true
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const result = await chrome.storage.local.get('assist_settings');
+      const ocrSettings = result.assist_settings?.ocr || {};
+
+      // Check setting (default to true if not set)
+      shouldAutoActivateReadingMode = ocrSettings.autoActivateReadingMode !== false;
+    }
+
+    // Auto-activate reading mode BEFORE screenshot capture (if enabled and available)
+    if (shouldAutoActivateReadingMode && window.assistFeatures?.readingMode) {
+      const isReadingModeActive = window.assistFeatures.readingMode.isActive();
+
+      if (!isReadingModeActive) {
+        console.log('[OCR] Auto-activating reading mode before capture...');
+        await window.assistFeatures.readingMode.enter();
+        readingModeWasActivated = true;
+
+        // Wait for reading mode to fully render
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Show screenshot UI (will capture reading mode if active)
     const imageDataUrl = await ocr_showScreenshotUI();
 
     if (!imageDataUrl) {
       console.log('[OCR] Screenshot canceled');
+
+      // Exit reading mode if we activated it
+      if (readingModeWasActivated && window.assistFeatures?.readingMode) {
+        window.assistFeatures.readingMode.exit();
+      }
+
       return null;
     }
 
-    // Perform OCR
-    const result = await ocr_recognizeText(imageDataUrl, options);
+    // Handle multi-page PDF (array of images) vs single image (string)
+    let result;
+    if (Array.isArray(imageDataUrl)) {
+      console.log(`[OCR] Processing multi-page PDF with ${imageDataUrl.length} pages...`);
 
-    // Show result modal
-    await ocr_showResultModal(result, imageDataUrl);
+      // Show progress modal
+      const progressModal = ocr_showProgressModal(imageDataUrl.length);
+
+      // Process each page individually and concatenate results
+      const pageResults = [];
+      const startTime = Date.now();
+
+      for (let i = 0; i < imageDataUrl.length; i++) {
+        console.log(`[OCR] Processing page ${i + 1}/${imageDataUrl.length}...`);
+
+        // Update progress
+        const elapsed = (Date.now() - startTime) / 1000; // seconds
+        const avgTimePerPage = i > 0 ? elapsed / i : 15; // Estimate 15s for first page
+        const remainingPages = imageDataUrl.length - i;
+        const estimatedTimeRemaining = Math.ceil(avgTimePerPage * remainingPages);
+
+        ocr_updateProgress(progressModal, i + 1, imageDataUrl.length, estimatedTimeRemaining);
+
+        const pageResult = await ocr_recognizeText(imageDataUrl[i], options);
+        pageResults.push(pageResult);
+      }
+
+      // Close progress modal
+      progressModal.remove();
+
+      // Concatenate all page texts
+      const combinedText = pageResults.map(r => r.text).join('\n\n--- Page Break ---\n\n');
+      const avgConfidence = pageResults.reduce((sum, r) => sum + r.confidence, 0) / pageResults.length;
+
+      result = {
+        text: combinedText,
+        originalText: pageResults.map(r => r.originalText).join('\n\n--- Page Break ---\n\n'),
+        confidence: avgConfidence,
+        pages: pageResults.length,
+        pageResults: pageResults
+      };
+
+      console.log(`[OCR] Multi-page processing complete. Total: ${result.text.length} characters, Avg confidence: ${avgConfidence.toFixed(1)}%`);
+    } else {
+      // Single image OCR
+      result = await ocr_recognizeText(imageDataUrl, options);
+    }
+
+    // Show result modal (use first page image for multi-page PDFs)
+    const displayImage = Array.isArray(imageDataUrl) ? imageDataUrl[0] : imageDataUrl;
+    await ocr_showResultModal(result, displayImage);
+
+    // Exit reading mode if we activated it
+    if (readingModeWasActivated && window.assistFeatures?.readingMode) {
+      console.log('[OCR] Exiting auto-activated reading mode');
+      window.assistFeatures.readingMode.exit();
+    }
 
     return result;
   } catch (error) {
@@ -900,7 +1443,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
         <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">
           Confidence: ${result.confidence.toFixed(1)}% |
           ${result.text.length.toLocaleString()} characters |
-          ${ocrMediaPlayer.chunks.length} chunk${ocrMediaPlayer.chunks.length > 1 ? 's' : ''}
+          ${ocrMediaPlayer.chunks.length} chunk${ocrMediaPlayer.chunks.length > 1 ? 's' : ''}${result.pages ? ` | ${result.pages} page${result.pages > 1 ? 's' : ''}` : ''}
         </p>
       </div>
       <button id="assist-ocr-close" style="
@@ -1349,11 +1892,25 @@ function ocr_playChunk(chunkIndex, playPauseBtn) {
       utterance.pitch = userPitch;
       utterance.volume = userVolume;
 
-      // Try to use user's preferred voice
+      // Try to use user's preferred voice, or fallback to Google UK Female
       if (userVoiceName && userVoiceName !== 'default') {
         const selectedVoice = voices.find(v => v.name === userVoiceName);
         if (selectedVoice) {
           utterance.voice = selectedVoice;
+        }
+      } else {
+        // Default to Google UK Female voice (same as extension-level TTS)
+        // Preference order: Google UK Female > UK Female > Any English Female
+        const defaultVoice =
+          voices.find(
+            v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
+          ) ||
+          voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
+          voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
+
+        if (defaultVoice) {
+          utterance.voice = defaultVoice;
+          console.log('[OCR] Using default voice:', defaultVoice.name);
         }
       }
 
