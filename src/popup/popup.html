@@ -305,6 +305,172 @@
         </div>
         <!-- End ocr-options-container -->
 
+        <!-- ========================================================== -->
+        <!-- HIGHLIGHT MENU FEATURE -->
+        <!-- ========================================================== -->
+        <section id="highlight-menu-section" class="control-section">
+          <div class="toggle-control main-toggle">
+            <label for="highlight-menu-enabled" class="toggle-label">
+              <span class="label-text">Enable Highlight Menu</span>
+              <label class="toggle-switch" for="highlight-menu-enabled">
+                <input
+                  type="checkbox"
+                  id="highlight-menu-enabled"
+                  data-testid="highlight-menu-toggle"
+                  role="switch"
+                  aria-label="Enable floating toolbar on text selection"
+                  checked
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </label>
+          </div>
+        </section>
+
+        <!-- Highlight Menu Options Container -->
+        <div id="highlight-menu-options-container" class="options-container">
+          <section class="control-section">
+            <p class="feature-description" style="font-size: 13px; color: #666; margin: 0 0 12px 0">
+              Show quick actions when you select text
+            </p>
+
+            <!-- Button Toggles -->
+            <div style="margin-top: 12px">
+              <p style="font-size: 13px; color: #555; margin-bottom: 8px; font-weight: 500">
+                Toolbar Buttons
+              </p>
+
+              <div class="toggle-control" style="margin-bottom: 8px">
+                <label for="highlight-menu-show-tts" class="toggle-label">
+                  <span class="label-text" style="font-size: 13px">Read Aloud (TTS)</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="highlight-menu-show-tts"
+                      role="switch"
+                      aria-label="Show TTS button in highlight menu"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="toggle-control" style="margin-bottom: 8px">
+                <label for="highlight-menu-show-dictionary" class="toggle-label">
+                  <span class="label-text" style="font-size: 13px">Dictionary</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="highlight-menu-show-dictionary"
+                      role="switch"
+                      aria-label="Show dictionary button in highlight menu"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="toggle-control" style="margin-bottom: 8px">
+                <label for="highlight-menu-show-translate" class="toggle-label">
+                  <span class="label-text" style="font-size: 13px">Translate</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="highlight-menu-show-translate"
+                      role="switch"
+                      aria-label="Show translate button in highlight menu"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="toggle-control" style="margin-bottom: 8px">
+                <label for="highlight-menu-show-search" class="toggle-label">
+                  <span class="label-text" style="font-size: 13px">Search</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="highlight-menu-show-search"
+                      role="switch"
+                      aria-label="Show search button in highlight menu"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="toggle-control" style="margin-bottom: 8px">
+                <label for="highlight-menu-show-annotate" class="toggle-label">
+                  <span class="label-text" style="font-size: 13px">Annotate</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="highlight-menu-show-annotate"
+                      role="switch"
+                      aria-label="Show annotate button in highlight menu"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="toggle-control">
+                <label for="highlight-menu-show-copy" class="toggle-label">
+                  <span class="label-text" style="font-size: 13px">Copy</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="highlight-menu-show-copy"
+                      role="switch"
+                      aria-label="Show copy button in highlight menu"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Auto-hide Delay Slider -->
+            <div style="margin-top: 16px">
+              <label
+                for="highlight-menu-auto-hide-delay"
+                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
+              >
+                Auto-hide Delay
+              </label>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="font-size: 11px; color: #999; min-width: 35px">1s</span>
+                <input
+                  type="range"
+                  id="highlight-menu-auto-hide-delay"
+                  min="1000"
+                  max="10000"
+                  step="1000"
+                  value="5000"
+                  style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd"
+                  aria-label="Auto-hide delay in seconds"
+                />
+                <span style="font-size: 11px; color: #999; min-width: 35px">10s</span>
+              </div>
+              <p
+                class="setting-description"
+                style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center"
+              >
+                <span id="highlight-menu-delay-label">5 seconds</span> - Toolbar hides after
+                inactivity
+              </p>
+            </div>
+          </section>
+        </div>
+        <!-- End highlight-menu-options-container -->
+
         <!-- TTS Enable/Disable -->
         <section class="control-section">
           <div class="toggle-control main-toggle">
