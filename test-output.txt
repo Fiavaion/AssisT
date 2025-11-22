@@ -1,0 +1,14 @@
+
+> assist-adaptive-edtech@0.1.0 test:e2e
+> playwright test tests/e2e/ocr-screenshot.spec.js
+
+
+Running 22 tests using 1 worker
+
+  x   1 [chromium-extension] › tests\e2e\ocr-screenshot.spec.js:29:3 › OCR - Basic Activation › should enable OCR from popup (1.5s)
+  x   2 [chromium-extension] › tests\e2e\ocr-screenshot.spec.js:47:3 › OCR - Basic Activation › should show OCR settings when enabled (30.6s)
+  x   3 [chromium-extension] › tests\e2e\ocr-screenshot.spec.js:59:3 › OCR - Basic Activation › should trigger OCR capture from popup button (30.5s)
+  x   4 [chromium-extension] › tests\e2e\ocr-screenshot.spec.js:83:3 › OCR - Settings Configuration › should configure OCR language (30.5s)
+  x   5 [chromium-extension] › tests\e2e\ocr-screenshot.spec.js:100:3 › OCR - Settings Configuration › should adjust confidence threshold (30.5s)
+  x   6 [chromium-extension] › tests\e2e\ocr-screenshot.spec.js:115:3 › OCR - Settings Configuration › should configure upscale factor for better OCR accuracy (30.5s)
+  x   7 [chromium-extension] › tests\e2e\ocr-screenshot.spec.js:134:3 › OCR - Settings Configuration › should toggle auto-activate reading mode (0ms)
