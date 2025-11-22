@@ -36,7 +36,7 @@
 
 ### Feature 2: Highlight Menu
 
-**Status**: `[>]` In Progress (92% - 12/13 tasks)
+**Status**: `[✓]` Complete (100% - 13/13 tasks)
 **Estimated**: 1 week
 **Priority**: HIGH
 **Dependencies**: Dictionary (4), Translation (6)
@@ -56,7 +56,7 @@
 - [x] 2.10: Keyboard navigation (Tab/Arrow keys)
 - [x] 2.11: Auto-hide after 5 seconds
 - [x] 2.12: Settings (enable/disable buttons, timeout)
-- [ ] 2.13: E2E test for menu workflow
+- [x] 2.13: E2E test for menu workflow
 
 ### Feature 3: Reading Mode
 

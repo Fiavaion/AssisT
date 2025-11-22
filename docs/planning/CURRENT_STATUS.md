@@ -202,9 +202,9 @@
 
 ## 🚧 In Progress
 
-**Session**: Phase 2 Session 013 (Annotations Feature - AI Sub-Agent Pilot)
-**Features Started**: 5 (OCR ✓, Highlight Menu ✓, Reading Mode ✓, Dictionary ✓, Annotations 🚧)
-**Next Task**: Feature 5 - Annotations database (Task 5.1-5.3) with AI sub-agent
+**Session**: Phase 2 Session 013 (Highlight Menu E2E Test)
+**Features Started**: 4 (OCR ✓, Highlight Menu 🚧, Reading Mode ✓, Dictionary ✓)
+**Current Task**: Task 2.13 - E2E test for Highlight Menu workflow
 **Started**: 2025-11-22
 **Overall Progress**: 40/~150 tasks (27%)
 
