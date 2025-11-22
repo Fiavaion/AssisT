@@ -93,6 +93,65 @@
         </div>
       </section>
 
+      <!-- ========================================================== -->
+      <!-- OCR FEATURE -->
+      <!-- ========================================================== -->
+      <section class="control-section ocr-section">
+        <h2 class="section-title">📸 OCR - Text from Images</h2>
+        <p class="feature-description" style="font-size: 13px; color: #666; margin: 8px 0 16px 0;">
+          Extract text from PDFs, images, and screenshots to read aloud
+        </p>
+        <button
+          id="btn-trigger-ocr"
+          data-testid="ocr-button"
+          class="control-btn primary full-width"
+          aria-label="Start OCR capture"
+          style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+          "
+          onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)'"
+          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
+        >
+          <span style="font-size: 20px;">📸</span>
+          <span>Capture & Read Text</span>
+        </button>
+
+        <!-- OCR Settings -->
+        <div class="feature-settings" style="margin-top: 16px;">
+          <div class="toggle-control">
+            <label for="ocr-auto-reading-mode" class="toggle-label">
+              <span class="label-text">Auto-activate Reading Mode</span>
+              <div class="toggle-switch">
+                <input
+                  type="checkbox"
+                  id="ocr-auto-reading-mode"
+                  data-testid="ocr-auto-reading-mode-toggle"
+                  role="switch"
+                  aria-label="Automatically activate reading mode before OCR capture"
+                  checked
+                />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
+          <p class="setting-description" style="font-size: 12px; color: #999; margin: 4px 0 0 0;">
+            Automatically switch to clean reading view before capturing text
+          </p>
+        </div>
+      </section>
+
       <!-- Main Controls -->
       <main class="popup-main">
         <!-- TTS Enable/Disable -->

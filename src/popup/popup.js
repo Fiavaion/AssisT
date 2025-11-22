@@ -136,6 +136,57 @@ class PopupController {
       this.updateStatus('Reading page...', 'speaking');
     });
 
+    // ============================================================
+    // OCR FEATURE: TRIGGER OCR CAPTURE
+    // ============================================================
+    const btnTriggerOCR = document.getElementById('btn-trigger-ocr');
+    if (btnTriggerOCR) {
+      btnTriggerOCR.addEventListener('click', async () => {
+        console.log('[Popup] OCR button clicked');
+        this.updateStatus('Starting OCR...', 'processing');
+
+        try {
+          // Send message to content script to trigger OCR
+          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+            type: 'TRIGGER_OCR'
+          });
+
+          if (response && response.success) {
+            this.updateStatus('OCR complete!', 'success');
+          } else {
+            this.updateStatus('OCR failed', 'error');
+          }
+        } catch (error) {
+          console.error('[Popup] OCR trigger failed:', error);
+          this.updateStatus('OCR error: ' + error.message, 'error');
+        }
+      });
+    }
+
+    // ============================================================
+    // OCR SETTINGS: AUTO-ACTIVATE READING MODE
+    // ============================================================
+    const ocrAutoReadingMode = document.getElementById('ocr-auto-reading-mode');
+    if (ocrAutoReadingMode) {
+      // Initialize OCR settings if they don't exist
+      if (!this.settings.ocr) {
+        this.settings.ocr = {
+          autoActivateReadingMode: true,
+          filterNoise: true,
+        };
+      }
+
+      // Set initial state from settings
+      ocrAutoReadingMode.checked = this.settings.ocr.autoActivateReadingMode !== false;
+
+      // Handle toggle changes
+      ocrAutoReadingMode.addEventListener('change', e => {
+        this.settings.ocr.autoActivateReadingMode = e.target.checked;
+        this.saveSettings();
+        console.log('[Popup] OCR auto-activate reading mode:', e.target.checked);
+      });
+    }
+
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.addEventListener('change', e => {

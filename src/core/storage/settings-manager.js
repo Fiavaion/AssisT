@@ -31,6 +31,10 @@ const DEFAULT_SETTINGS = {
   stt: {
     enabled: false,
   },
+  ocr: {
+    autoActivateReadingMode: true, // Automatically activate reading mode before OCR capture
+    filterNoise: true, // Remove cookie notices, social embeds, ads, and UI clutter from OCR text
+  },
   waiAdapt: {
     textSpacing: false,
     focusMode: {
