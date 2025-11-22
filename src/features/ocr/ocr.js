@@ -706,6 +706,46 @@ async function ocr_captureRegion() {
 }
 
 /**
+ * Upscales an image for better OCR accuracy
+ *
+ * @param {string} imageDataUrl - Source image data URL
+ * @param {number} scaleFactor - Scale multiplier (e.g., 1.5 for 150%, 2.0 for 200%)
+ * @returns {Promise<string>} Upscaled image data URL
+ */
+async function ocr_upscaleImage(imageDataUrl, scaleFactor = 1.5) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scaledWidth = Math.floor(img.width * scaleFactor);
+      const scaledHeight = Math.floor(img.height * scaleFactor);
+
+      canvas.width = scaledWidth;
+      canvas.height = scaledHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Use high-quality image rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      // Draw upscaled image
+      ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+
+      const upscaledDataUrl = canvas.toDataURL('image/png');
+      console.log(`[OCR] Upscaled image from ${img.width}x${img.height} to ${scaledWidth}x${scaledHeight} (${scaleFactor}x)`);
+      resolve(upscaledDataUrl);
+    };
+
+    img.onerror = () => {
+      reject(new Error('Failed to load image for upscaling'));
+    };
+
+    img.src = imageDataUrl;
+  });
+}
+
+/**
  * Crops an image to a specific region
  *
  * @param {string} imageDataUrl - Source image data URL
@@ -899,15 +939,25 @@ async function ocr_showScreenshotUI() {
  * @param {string} options.lang - Language code (default: 'eng')
  * @param {number} options.confidenceThreshold - Minimum confidence (0-100, default: 50)
  * @param {boolean} options.filterNoise - Remove UI clutter (default: from settings)
+ * @param {number} options.upscaleFactor - Image upscaling factor for better accuracy (default: 1.5)
+ * @param {boolean} options.skipUpscaling - Skip upscaling (e.g., for PDF.js pre-rendered images)
  * @returns {Promise<Object>} OCR result with text and confidence
  */
 async function ocr_recognizeText(imageDataUrl, options = {}) {
-  const { lang = 'eng', confidenceThreshold = 50 } = options;
+  const { lang = 'eng', confidenceThreshold = 50, upscaleFactor = 1.5, skipUpscaling = false } = options;
 
   try {
     console.log(
-      `[OCR] Starting text recognition (lang: ${lang}, threshold: ${confidenceThreshold}%)`
+      `[OCR] Starting text recognition (lang: ${lang}, threshold: ${confidenceThreshold}%, upscale: ${skipUpscaling ? 'skipped' : upscaleFactor + 'x'})`
     );
+
+    // Upscale image for better OCR accuracy (unless it's already high-quality like PDF.js renders)
+    let processedImage = imageDataUrl;
+    if (!skipUpscaling && upscaleFactor > 1.0) {
+      processedImage = await ocr_upscaleImage(imageDataUrl, upscaleFactor);
+    } else if (skipUpscaling) {
+      console.log('[OCR] Skipping upscaling (image already high-quality)');
+    }
 
     // Lazy load Tesseract
     const Tesseract = await ocr_loadTesseract();
@@ -936,9 +986,9 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
       preserve_interword_spaces: '1', // Better word spacing detection
     });
 
-    // Perform OCR
+    // Perform OCR on the upscaled image
     console.log('[OCR] Recognizing text...');
-    const result = await worker.recognize(imageDataUrl);
+    const result = await worker.recognize(processedImage);
 
     // Terminate worker
     await worker.terminate();
@@ -1228,6 +1278,9 @@ async function ocr_performOCR(options = {}) {
       const pageResults = [];
       const startTime = Date.now();
 
+      // PDF.js already renders at 2.0x scale, so skip upscaling for PDF pages
+      const pdfOptions = { ...options, skipUpscaling: true };
+
       for (let i = 0; i < imageDataUrl.length; i++) {
         console.log(`[OCR] Processing page ${i + 1}/${imageDataUrl.length}...`);
 
@@ -1239,7 +1292,7 @@ async function ocr_performOCR(options = {}) {
 
         ocr_updateProgress(progressModal, i + 1, imageDataUrl.length, estimatedTimeRemaining);
 
-        const pageResult = await ocr_recognizeText(imageDataUrl[i], options);
+        const pageResult = await ocr_recognizeText(imageDataUrl[i], pdfOptions);
         pageResults.push(pageResult);
       }
 

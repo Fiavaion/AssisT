@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS = {
   ocr: {
     autoActivateReadingMode: true, // Automatically activate reading mode before OCR capture
     filterNoise: true, // Remove cookie notices, social embeds, ads, and UI clutter from OCR text
+    upscaleFactor: 1.5, // Image upscaling for better OCR accuracy (1.5 = 150%, 2.0 = 200%)
   },
   waiAdapt: {
     textSpacing: false,
