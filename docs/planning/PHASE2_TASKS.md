@@ -30,7 +30,7 @@
 - [x] 1.9c: Image upscaling for better OCR accuracy (1.5x default scale factor)
 - [x] 1.10a: Add upscale factor slider in OCR settings (Low 1.0x, Medium 1.5x, High 2.0x)
 - [x] 1.10b: Adaptive upscaling for PDFs (skip upscale for PDF.js, apply to screenshots)
-- [ ] 1.10: Settings panel (language, confidence, auto-TTS)
+- [x] 1.10: Settings panel (language, confidence, auto-TTS)
 - [ ] 1.11: Unit tests for OCR functions
 - [ ] 1.12: E2E test for screenshot workflow
 

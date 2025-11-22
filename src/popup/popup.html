@@ -204,6 +204,103 @@
                 for small text
               </p>
             </div>
+
+            <!-- OCR Language Selection -->
+            <div style="margin-top: 12px">
+              <label
+                for="ocr-language"
+                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
+              >
+                OCR Language
+              </label>
+              <select
+                id="ocr-language"
+                data-testid="ocr-language-select"
+                aria-label="Select OCR recognition language"
+                style="
+                  width: 100%;
+                  padding: 8px;
+                  font-size: 13px;
+                  border: 1px solid #ddd;
+                  border-radius: 4px;
+                  background: white;
+                  color: #333;
+                  cursor: pointer;
+                "
+              >
+                <option value="eng" selected>English</option>
+                <option value="spa">Spanish</option>
+                <option value="fra">French</option>
+                <option value="deu">German</option>
+                <option value="ita">Italian</option>
+                <option value="por">Portuguese</option>
+                <option value="nld">Dutch</option>
+                <option value="pol">Polish</option>
+                <option value="rus">Russian</option>
+                <option value="chi_sim">Chinese (Simplified)</option>
+                <option value="chi_tra">Chinese (Traditional)</option>
+                <option value="jpn">Japanese</option>
+                <option value="kor">Korean</option>
+                <option value="ara">Arabic</option>
+              </select>
+              <p
+                class="setting-description"
+                style="font-size: 11px; color: #999; margin: 4px 0 0 0"
+              >
+                Select the language for text recognition
+              </p>
+            </div>
+
+            <!-- OCR Confidence Threshold Slider -->
+            <div style="margin-top: 12px">
+              <label
+                for="ocr-confidence-threshold"
+                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
+              >
+                Confidence Threshold
+              </label>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="font-size: 11px; color: #999; min-width: 35px">Low</span>
+                <input
+                  type="range"
+                  id="ocr-confidence-threshold"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value="60"
+                  style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd"
+                  aria-label="OCR confidence threshold percentage"
+                />
+                <span style="font-size: 11px; color: #999; min-width: 35px">High</span>
+              </div>
+              <p
+                class="setting-description"
+                style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center"
+              >
+                <span id="ocr-confidence-label">60%</span> - Filter out low-confidence text
+              </p>
+            </div>
+
+            <!-- Auto-TTS Toggle -->
+            <div class="toggle-control" style="margin-top: 12px">
+              <label for="ocr-auto-tts" class="toggle-label">
+                <span class="label-text">Auto-play TTS</span>
+                <div class="toggle-switch">
+                  <input
+                    type="checkbox"
+                    id="ocr-auto-tts"
+                    data-testid="ocr-auto-tts-toggle"
+                    role="switch"
+                    aria-label="Automatically start text-to-speech after OCR completes"
+                    checked
+                  />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <p class="setting-description" style="font-size: 12px; color: #999; margin: 4px 0 0 0">
+              Automatically start reading extracted text aloud
+            </p>
           </section>
         </div>
         <!-- End ocr-options-container -->
