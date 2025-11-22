@@ -282,6 +282,95 @@ class PopupController {
       });
     }
 
+    // ============================================================
+    // OCR SETTINGS: LANGUAGE SELECTION
+    // ============================================================
+    const ocrLanguageSelect = document.getElementById('ocr-language');
+    if (ocrLanguageSelect) {
+      // Initialize default if not set
+      if (!this.settings.ocr) {
+        this.settings.ocr = {
+          autoActivateReadingMode: true,
+          filterNoise: true,
+          upscaleFactor: 1.5,
+          language: 'eng',
+          confidenceThreshold: 60,
+          autoTTS: true,
+        };
+      }
+
+      // Set initial state from settings
+      ocrLanguageSelect.value = this.settings.ocr.language || 'eng';
+
+      // Handle language changes
+      ocrLanguageSelect.addEventListener('change', e => {
+        this.settings.ocr.language = e.target.value;
+        this.saveSettings();
+        console.log('[Popup] OCR language changed to:', e.target.value);
+      });
+    }
+
+    // ============================================================
+    // OCR SETTINGS: CONFIDENCE THRESHOLD SLIDER
+    // ============================================================
+    const ocrConfidenceSlider = document.getElementById('ocr-confidence-threshold');
+    const ocrConfidenceLabel = document.getElementById('ocr-confidence-label');
+    if (ocrConfidenceSlider && ocrConfidenceLabel) {
+      // Initialize default if not set
+      if (!this.settings.ocr) {
+        this.settings.ocr = {
+          autoActivateReadingMode: true,
+          filterNoise: true,
+          upscaleFactor: 1.5,
+          language: 'eng',
+          confidenceThreshold: 60,
+          autoTTS: true,
+        };
+      }
+
+      // Set initial state from settings
+      const initialConfidence = this.settings.ocr.confidenceThreshold ?? 60;
+      ocrConfidenceSlider.value = initialConfidence;
+      ocrConfidenceLabel.textContent = `${initialConfidence}%`;
+
+      // Handle slider changes
+      ocrConfidenceSlider.addEventListener('input', e => {
+        const confidence = parseInt(e.target.value, 10);
+        ocrConfidenceLabel.textContent = `${confidence}%`;
+        this.settings.ocr.confidenceThreshold = confidence;
+        this.saveSettings();
+        console.log('[Popup] OCR confidence threshold:', confidence);
+      });
+    }
+
+    // ============================================================
+    // OCR SETTINGS: AUTO-TTS TOGGLE
+    // ============================================================
+    const ocrAutoTTS = document.getElementById('ocr-auto-tts');
+    if (ocrAutoTTS) {
+      // Initialize OCR settings if they don't exist
+      if (!this.settings.ocr) {
+        this.settings.ocr = {
+          autoActivateReadingMode: true,
+          filterNoise: true,
+          upscaleFactor: 1.5,
+          language: 'eng',
+          confidenceThreshold: 60,
+          autoTTS: true,
+        };
+      }
+
+      // Set initial state from settings
+      ocrAutoTTS.checked = this.settings.ocr.autoTTS !== false;
+
+      // Handle toggle changes
+      ocrAutoTTS.addEventListener('change', e => {
+        this.settings.ocr.autoTTS = e.target.checked;
+        this.saveSettings();
+        console.log('[Popup] OCR auto-TTS:', e.target.checked);
+      });
+    }
+
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.addEventListener('change', e => {

@@ -1226,17 +1226,30 @@ async function ocr_performOCR(options = {}) {
   try {
     console.log('[OCR] Starting OCR workflow...');
 
-    // Check if we should auto-activate reading mode (default: true)
+    // Load OCR settings from storage
     let readingModeWasActivated = false;
     let shouldAutoActivateReadingMode = true; // Default to true
+    let ocrLanguage = 'eng'; // Default language
+    let ocrConfidenceThreshold = 60; // Default confidence threshold
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const result = await chrome.storage.local.get('assist_settings');
       const ocrSettings = result.assist_settings?.ocr || {};
 
-      // Check setting (default to true if not set)
+      // Load all OCR settings
       shouldAutoActivateReadingMode = ocrSettings.autoActivateReadingMode !== false;
+      ocrLanguage = ocrSettings.language || 'eng';
+      ocrConfidenceThreshold = ocrSettings.confidenceThreshold ?? 60;
+
+      console.log(`[OCR] Settings loaded - Language: ${ocrLanguage}, Confidence: ${ocrConfidenceThreshold}%`);
     }
+
+    // Merge settings into options (options parameter takes precedence)
+    const mergedOptions = {
+      lang: ocrLanguage,
+      confidenceThreshold: ocrConfidenceThreshold,
+      ...options, // User-provided options override settings
+    };
 
     // Auto-activate reading mode BEFORE screenshot capture (if enabled and available)
     if (shouldAutoActivateReadingMode && window.assistFeatures?.readingMode) {
@@ -1279,7 +1292,7 @@ async function ocr_performOCR(options = {}) {
       const startTime = Date.now();
 
       // PDF.js already renders at 2.0x scale, so skip upscaling for PDF pages
-      const pdfOptions = { ...options, skipUpscaling: true };
+      const pdfOptions = { ...mergedOptions, skipUpscaling: true };
 
       for (let i = 0; i < imageDataUrl.length; i++) {
         console.log(`[OCR] Processing page ${i + 1}/${imageDataUrl.length}...`);
@@ -1314,7 +1327,7 @@ async function ocr_performOCR(options = {}) {
       console.log(`[OCR] Multi-page processing complete. Total: ${result.text.length} characters, Avg confidence: ${avgConfidence.toFixed(1)}%`);
     } else {
       // Single image OCR
-      result = await ocr_recognizeText(imageDataUrl, options);
+      result = await ocr_recognizeText(imageDataUrl, mergedOptions);
     }
 
     // Show result modal (use first page image for multi-page PDFs)
@@ -1919,6 +1932,23 @@ async function ocr_showResultModal(result, imageDataUrl) {
       }
     };
     document.addEventListener('keydown', handleEsc);
+
+    // Auto-play TTS if enabled in settings
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get('assist_settings', result => {
+        const autoTTS = result.assist_settings?.ocr?.autoTTS ?? true; // Default to true
+        if (autoTTS && result.text) {
+          // Auto-start playback after a brief delay to ensure modal is fully rendered
+          setTimeout(() => {
+            const playPauseBtn = document.getElementById('ocr-play-pause');
+            if (playPauseBtn && !ocrMediaPlayer.isPlaying) {
+              console.log('[OCR] Auto-starting TTS playback (auto-TTS enabled)');
+              playPauseBtn.click(); // Simulate clicking the play button
+            }
+          }, 300);
+        }
+      });
+    }
   });
 }
 
