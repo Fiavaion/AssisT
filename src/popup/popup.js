@@ -173,6 +173,7 @@ class PopupController {
         this.settings.ocr = {
           autoActivateReadingMode: true,
           filterNoise: true,
+          upscaleFactor: 1.5,
         };
       }
 
@@ -184,6 +185,45 @@ class PopupController {
         this.settings.ocr.autoActivateReadingMode = e.target.checked;
         this.saveSettings();
         console.log('[Popup] OCR auto-activate reading mode:', e.target.checked);
+      });
+    }
+
+    // ============================================================
+    // OCR SETTINGS: UPSCALE FACTOR SLIDER
+    // ============================================================
+    const ocrUpscaleSlider = document.getElementById('ocr-upscale-factor');
+    const ocrUpscaleLabel = document.getElementById('ocr-upscale-label');
+    if (ocrUpscaleSlider && ocrUpscaleLabel) {
+      // Initialize default if not set
+      if (!this.settings.ocr) {
+        this.settings.ocr = {
+          autoActivateReadingMode: true,
+          filterNoise: true,
+          upscaleFactor: 1.5,
+        };
+      }
+
+      // Get quality label for upscale factor
+      const getQualityLabel = factor => {
+        if (factor <= 1.0) return 'Low (1.0x)';
+        if (factor <= 1.4) return 'Medium-Low (1.3x)';
+        if (factor <= 1.6) return 'Medium (1.5x)';
+        if (factor <= 1.8) return 'Medium-High (1.8x)';
+        return 'High (2.0x)';
+      };
+
+      // Set initial state from settings
+      const initialFactor = this.settings.ocr.upscaleFactor ?? 1.5;
+      ocrUpscaleSlider.value = initialFactor;
+      ocrUpscaleLabel.textContent = getQualityLabel(initialFactor);
+
+      // Handle slider changes
+      ocrUpscaleSlider.addEventListener('input', e => {
+        const factor = parseFloat(e.target.value);
+        ocrUpscaleLabel.textContent = getQualityLabel(factor);
+        this.settings.ocr.upscaleFactor = factor;
+        this.saveSettings();
+        console.log('[Popup] OCR upscale factor:', factor);
       });
     }
 

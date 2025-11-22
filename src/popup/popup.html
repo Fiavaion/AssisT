@@ -149,6 +149,30 @@
           <p class="setting-description" style="font-size: 12px; color: #999; margin: 4px 0 0 0;">
             Automatically switch to clean reading view before capturing text
           </p>
+
+          <!-- OCR Image Quality Slider -->
+          <div style="margin-top: 12px;">
+            <label for="ocr-upscale-factor" style="display: block; font-size: 13px; color: #555; margin-bottom: 6px;">
+              OCR Image Quality
+            </label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; color: #999; min-width: 35px;">Low</span>
+              <input
+                type="range"
+                id="ocr-upscale-factor"
+                min="1.0"
+                max="2.0"
+                step="0.1"
+                value="1.5"
+                style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd;"
+                aria-label="OCR image upscaling factor"
+              />
+              <span style="font-size: 11px; color: #999; min-width: 35px;">High</span>
+            </div>
+            <p class="setting-description" style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center;">
+              <span id="ocr-upscale-label">Medium (1.5x)</span> - Higher quality improves accuracy for small text
+            </p>
+          </div>
         </div>
       </section>
 
