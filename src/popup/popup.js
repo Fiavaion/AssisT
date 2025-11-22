@@ -5,7 +5,6 @@
 
 import { MESSAGE_TYPES } from '../config/constants.js';
 import {
-  DEFAULT_SHORTCUTS,
   SHORTCUT_LABELS,
   loadShortcuts,
   saveShortcuts,
@@ -196,7 +195,7 @@ class PopupController {
         try {
           // Send message to content script to trigger OCR
           const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: 'TRIGGER_OCR'
+            type: 'TRIGGER_OCR',
           });
 
           if (response && response.success) {
@@ -253,10 +252,18 @@ class PopupController {
 
       // Get quality label for upscale factor
       const getQualityLabel = factor => {
-        if (factor <= 1.0) return 'Low (1.0x)';
-        if (factor <= 1.4) return 'Medium-Low (1.3x)';
-        if (factor <= 1.6) return 'Medium (1.5x)';
-        if (factor <= 1.8) return 'Medium-High (1.8x)';
+        if (factor <= 1.0) {
+          return 'Low (1.0x)';
+        }
+        if (factor <= 1.4) {
+          return 'Medium-Low (1.3x)';
+        }
+        if (factor <= 1.6) {
+          return 'Medium (1.5x)';
+        }
+        if (factor <= 1.8) {
+          return 'Medium-High (1.8x)';
+        }
         return 'High (2.0x)';
       };
 
@@ -546,7 +553,7 @@ class PopupController {
               <div class="feature-item">
                 <label class="feature-label">
                   <input type="checkbox" id="show-ocr" checked>
-                  <span>OCR - Text from Images</span>
+                  <span>OCR</span>
                 </label>
               </div>
 
@@ -855,7 +862,9 @@ class PopupController {
     const shortcuts = await loadShortcuts();
     const tbody = document.getElementById('shortcuts-table-body');
 
-    if (!tbody) return;
+    if (!tbody) {
+      return;
+    }
 
     // Clear existing rows
     tbody.innerHTML = '';
@@ -898,7 +907,7 @@ class PopupController {
 
     // Add event listeners to edit buttons
     document.querySelectorAll('.btn-edit-shortcut').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', e => {
         const key = e.target.getAttribute('data-key');
         this.startShortcutRecording(key, shortcuts);
       });
@@ -924,7 +933,9 @@ class PopupController {
     const saveBtn = document.getElementById('btn-recording-save');
     const cancelBtn = document.getElementById('btn-recording-cancel');
 
-    if (!overlay) return;
+    if (!overlay) {
+      return;
+    }
 
     // Show overlay
     overlay.style.display = 'flex';
@@ -938,7 +949,7 @@ class PopupController {
     let isValid = false;
 
     // Keyboard event handler
-    const handleKeyPress = (e) => {
+    const handleKeyPress = e => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -995,7 +1006,7 @@ class PopupController {
     };
 
     // Close on escape (but not record it)
-    const escapeHandler = (e) => {
+    const escapeHandler = e => {
       if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         cancelHandler();
         document.removeEventListener('keydown', escapeHandler);
