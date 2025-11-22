@@ -85,6 +85,7 @@ class PopupController {
 
     // Apply visibility for all features (most default to true)
     toggleSection('ocr-section', 'show_ocr'); // OCR section
+    toggleSection('highlight-menu-section', 'show_highlight_menu'); // Highlight Menu section
     toggleSection('highlight-options-container', 'show_highlighting');
     toggleSection('speed-presets-container', 'show_speed_presets');
     toggleSection('text-customization-section', 'show_text_customization');
@@ -371,6 +372,112 @@ class PopupController {
       });
     }
 
+    // ============================================================
+    // HIGHLIGHT MENU ENABLE/DISABLE
+    // ============================================================
+    const highlightMenuEnabled = document.getElementById('highlight-menu-enabled');
+    const highlightMenuOptionsContainer = document.getElementById(
+      'highlight-menu-options-container'
+    );
+
+    if (highlightMenuEnabled && highlightMenuOptionsContainer) {
+      // Initialize Highlight Menu settings if they don't exist
+      if (!this.settings.highlightMenu) {
+        this.settings.highlightMenu = {
+          enabled: true,
+          showTTS: true,
+          showDictionary: true,
+          showTranslate: true,
+          showSearch: true,
+          showAnnotate: true,
+          showCopy: true,
+          autoHideDelay: 5000,
+        };
+      }
+
+      highlightMenuEnabled.checked = this.settings.highlightMenu.enabled !== false;
+
+      // Show/hide options based on enabled state
+      if (highlightMenuEnabled.checked) {
+        highlightMenuOptionsContainer.classList.remove('hidden');
+      } else {
+        highlightMenuOptionsContainer.classList.add('hidden');
+      }
+
+      highlightMenuEnabled.addEventListener('change', e => {
+        this.settings.highlightMenu.enabled = e.target.checked;
+        this.saveSettings();
+
+        // Toggle options visibility
+        if (e.target.checked) {
+          highlightMenuOptionsContainer.classList.remove('hidden');
+        } else {
+          highlightMenuOptionsContainer.classList.add('hidden');
+        }
+
+        console.log('[Popup] Highlight Menu enabled:', e.target.checked);
+      });
+    }
+
+    // ============================================================
+    // HIGHLIGHT MENU SETTINGS: BUTTON TOGGLES
+    // ============================================================
+    const buttonToggles = [
+      { id: 'highlight-menu-show-tts', key: 'showTTS' },
+      { id: 'highlight-menu-show-dictionary', key: 'showDictionary' },
+      { id: 'highlight-menu-show-translate', key: 'showTranslate' },
+      { id: 'highlight-menu-show-search', key: 'showSearch' },
+      { id: 'highlight-menu-show-annotate', key: 'showAnnotate' },
+      { id: 'highlight-menu-show-copy', key: 'showCopy' },
+    ];
+
+    buttonToggles.forEach(({ id, key }) => {
+      const toggle = document.getElementById(id);
+      if (toggle) {
+        // Initialize settings
+        if (!this.settings.highlightMenu) {
+          this.settings.highlightMenu = {};
+        }
+
+        // Set initial checked state
+        toggle.checked = this.settings.highlightMenu[key] !== false;
+
+        // Add change listener
+        toggle.addEventListener('change', e => {
+          this.settings.highlightMenu[key] = e.target.checked;
+          this.saveSettings();
+          console.log(`[Popup] Highlight Menu ${key}:`, e.target.checked);
+        });
+      }
+    });
+
+    // ============================================================
+    // HIGHLIGHT MENU SETTINGS: AUTO-HIDE DELAY SLIDER
+    // ============================================================
+    const highlightMenuDelaySlider = document.getElementById('highlight-menu-auto-hide-delay');
+    const highlightMenuDelayLabel = document.getElementById('highlight-menu-delay-label');
+
+    if (highlightMenuDelaySlider && highlightMenuDelayLabel) {
+      // Initialize default if not set
+      if (!this.settings.highlightMenu) {
+        this.settings.highlightMenu = { autoHideDelay: 5000 };
+      }
+
+      // Set initial value
+      const delayValue = this.settings.highlightMenu.autoHideDelay || 5000;
+      highlightMenuDelaySlider.value = delayValue;
+      highlightMenuDelayLabel.textContent = `${delayValue / 1000} second${delayValue === 1000 ? '' : 's'}`;
+
+      // Add input listener
+      highlightMenuDelaySlider.addEventListener('input', e => {
+        const delay = parseInt(e.target.value);
+        highlightMenuDelayLabel.textContent = `${delay / 1000} second${delay === 1000 ? '' : 's'}`;
+        this.settings.highlightMenu.autoHideDelay = delay;
+        this.saveSettings();
+        console.log('[Popup] Highlight Menu auto-hide delay:', delay);
+      });
+    }
+
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.addEventListener('change', e => {
@@ -648,6 +755,13 @@ class PopupController {
 
               <div class="feature-item">
                 <label class="feature-label">
+                  <input type="checkbox" id="show-highlight-menu" checked>
+                  <span>Highlight Menu</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
                   <input type="checkbox" id="show-highlighting" checked>
                   <span>Text Highlighting</span>
                 </label>
@@ -915,6 +1029,7 @@ class PopupController {
 
     // Load all feature visibility checkboxes (most default to true)
     loadCheckbox('show-ocr', 'show_ocr'); // OCR
+    loadCheckbox('show-highlight-menu', 'show_highlight_menu'); // Highlight Menu
     loadCheckbox('show-highlighting', 'show_highlighting');
     loadCheckbox('show-speed-presets', 'show_speed_presets');
     loadCheckbox('show-text-customization', 'show_text_customization');
@@ -1126,6 +1241,7 @@ class PopupController {
 
     // Save all feature visibility settings
     saveCheckbox('show-ocr', 'show_ocr'); // OCR
+    saveCheckbox('show-highlight-menu', 'show_highlight_menu'); // Highlight Menu
     saveCheckbox('show-highlighting', 'show_highlighting');
     saveCheckbox('show-speed-presets', 'show_speed_presets');
     saveCheckbox('show-text-customization', 'show_text_customization');
