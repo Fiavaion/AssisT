@@ -12,6 +12,7 @@ import {
   validateShortcut,
   eventToShortcut,
 } from '../utils/keyboard-shortcuts.js';
+import { migrateAnnotations } from '../features/annotations/migration-manager.js';
 
 class PopupController {
   constructor() {
@@ -2306,6 +2307,32 @@ class PopupController {
     });
 
     console.log('[Popup] Dyslexia Mode initialized');
+
+    // ============================================================
+    // ANNOTATIONS: STORAGE MODE MIGRATION
+    // ============================================================
+    const annotationsStorageMode = document.getElementById('annotations-storage-mode');
+    if (annotationsStorageMode) {
+      let previousMode = this.settings.annotations?.storageMode || 'local';
+
+      annotationsStorageMode.addEventListener('change', async e => {
+        const newMode = e.target.value;
+
+        // If mode actually changed, trigger migration
+        if (newMode !== previousMode) {
+          await this.handleStorageMigration(previousMode, newMode);
+          previousMode = newMode;
+        }
+      });
+    }
+
+    // Migration modal close button
+    const btnMigrationClose = document.getElementById('btn-migration-close');
+    if (btnMigrationClose) {
+      btnMigrationClose.addEventListener('click', () => {
+        this.closeMigrationModal();
+      });
+    }
   }
 
   // ============================================================
@@ -2681,6 +2708,192 @@ class PopupController {
     } catch (error) {
       console.error('[Profiles] Import error:', error);
       alert('Error importing profiles: ' + error.message);
+    }
+  }
+
+  // ============================================================
+  // ANNOTATIONS STORAGE MIGRATION
+  // ============================================================
+
+  /**
+   * Handle storage mode migration for annotations
+   * @param {string} fromMode - Source storage mode
+   * @param {string} toMode - Target storage mode
+   */
+  async handleStorageMigration(fromMode, toMode) {
+    console.log(`[Popup] Migrating annotations from ${fromMode} to ${toMode}`);
+
+    // Show migration modal
+    this.showMigrationModal();
+
+    try {
+      // Perform migration with progress callback
+      const result = await migrateAnnotations(fromMode, toMode, {
+        clearSource: true,
+        onProgress: progress => {
+          this.updateMigrationProgress(progress);
+        },
+      });
+
+      if (result.success) {
+        console.log(`[Popup] Migration successful: ${result.count} annotations migrated`);
+        this.updateMigrationComplete(result.count, toMode);
+      } else {
+        console.error('[Popup] Migration failed:', result.error);
+        this.updateMigrationError(result.error);
+      }
+    } catch (error) {
+      console.error('[Popup] Migration exception:', error);
+      this.updateMigrationError(error.message);
+    }
+  }
+
+  /**
+   * Show migration modal
+   */
+  showMigrationModal() {
+    const modal = document.getElementById('migration-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+
+      // Reset modal state
+      const closeBtn = document.getElementById('btn-migration-close');
+      if (closeBtn) {
+        closeBtn.style.display = 'none';
+      }
+
+      // Reset progress
+      const progressFill = document.getElementById('migration-progress-fill');
+      const progressText = document.getElementById('migration-progress-text');
+      if (progressFill) {
+        progressFill.style.width = '0%';
+      }
+      if (progressText) {
+        progressText.textContent = '0%';
+      }
+    }
+  }
+
+  /**
+   * Close migration modal
+   */
+  closeMigrationModal() {
+    const modal = document.getElementById('migration-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+
+      // Reload settings to reflect migration
+      this.loadSettings();
+    }
+  }
+
+  /**
+   * Update migration progress in modal
+   * @param {Object} progress - Progress information
+   */
+  updateMigrationProgress(progress) {
+    const { status, current, total, message } = progress;
+
+    // Update message
+    const messageEl = document.getElementById('migration-message');
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+
+    // Calculate percentage
+    let percentage = 0;
+    if (total > 0) {
+      percentage = Math.round((current / total) * 100);
+    } else if (status === 'complete') {
+      percentage = 100;
+    }
+
+    // Update progress bar
+    const progressFill = document.getElementById('migration-progress-fill');
+    const progressText = document.getElementById('migration-progress-text');
+    if (progressFill) {
+      progressFill.style.width = `${percentage}%`;
+    }
+    if (progressText) {
+      progressText.textContent = `${percentage}%`;
+    }
+
+    // Update details
+    const detailsEl = document.getElementById('migration-details');
+    if (detailsEl) {
+      if (total > 0) {
+        detailsEl.textContent = `${current} of ${total} annotations processed`;
+      } else {
+        detailsEl.textContent = '';
+      }
+    }
+  }
+
+  /**
+   * Update migration modal on completion
+   * @param {number} count - Number of annotations migrated
+   * @param {string} toMode - Target storage mode
+   */
+  updateMigrationComplete(count, toMode) {
+    const messageEl = document.getElementById('migration-message');
+    if (messageEl) {
+      if (count === 0) {
+        messageEl.textContent = 'No annotations to migrate';
+      } else {
+        const storageLabel = toMode === 'indexeddb' ? 'IndexedDB' : 'Chrome Local Storage';
+        messageEl.textContent = `Successfully migrated ${count} annotation${count === 1 ? '' : 's'} to ${storageLabel}`;
+      }
+    }
+
+    // Show completion (100%)
+    const progressFill = document.getElementById('migration-progress-fill');
+    const progressText = document.getElementById('migration-progress-text');
+    if (progressFill) {
+      progressFill.style.width = '100%';
+    }
+    if (progressText) {
+      progressText.textContent = '100%';
+    }
+
+    // Clear details
+    const detailsEl = document.getElementById('migration-details');
+    if (detailsEl) {
+      detailsEl.textContent = '';
+    }
+
+    // Show close button
+    const closeBtn = document.getElementById('btn-migration-close');
+    if (closeBtn) {
+      closeBtn.style.display = '';
+    }
+  }
+
+  /**
+   * Update migration modal on error
+   * @param {string} error - Error message
+   */
+  updateMigrationError(error) {
+    const messageEl = document.getElementById('migration-message');
+    if (messageEl) {
+      messageEl.textContent = `Migration failed: ${error}`;
+    }
+
+    // Show error state (red progress bar)
+    const progressFill = document.getElementById('migration-progress-fill');
+    if (progressFill) {
+      progressFill.style.background = 'linear-gradient(90deg, #f44336 0%, #d32f2f 100%)';
+    }
+
+    // Clear details
+    const detailsEl = document.getElementById('migration-details');
+    if (detailsEl) {
+      detailsEl.textContent = 'Please try again or contact support if the issue persists.';
+    }
+
+    // Show close button
+    const closeBtn = document.getElementById('btn-migration-close');
+    if (closeBtn) {
+      closeBtn.style.display = '';
     }
   }
 }
