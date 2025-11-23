@@ -920,6 +920,30 @@ class PopupController {
               </div>
 
               <div class="feature-section-header">
+                <span>📝 Annotations & Notes</span>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-annotations" checked>
+                  <span>Annotations & Sticky Notes</span>
+                </label>
+              </div>
+
+              <div class="feature-item" style="margin-left: 24px; margin-top: 8px;">
+                <label class="feature-label" style="font-size: 13px; color: #666;">
+                  <span>📦 Storage Mode:</span>
+                </label>
+                <select id="annotations-storage-mode" class="storage-mode-select" style="margin-top: 6px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; width: 100%; max-width: 300px;">
+                  <option value="local">Chrome Local Storage (Default)</option>
+                  <option value="indexeddb">IndexedDB (For large collections)</option>
+                </select>
+                <p style="margin: 6px 0 0 0; font-size: 12px; color: #888; line-height: 1.4;">
+                  Local storage is faster but limited. IndexedDB supports unlimited annotations.
+                </p>
+              </div>
+
+              <div class="feature-section-header">
                 <span>🎓 LMS Integration</span>
               </div>
 
@@ -1136,6 +1160,13 @@ class PopupController {
     loadCheckbox('show-moodle-integration', 'show_moodle_integration', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-google-classroom-integration', 'show_google_classroom_integration', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
+    loadCheckbox('show-annotations', 'show_annotations'); // Annotations
+
+    // Load annotations storage mode
+    const storageMode = document.getElementById('annotations-storage-mode');
+    if (storageMode) {
+      storageMode.value = this.settings.annotations?.storageMode || 'local';
+    }
 
     // Appearance settings
     const compactMode = document.getElementById('compact-mode');
@@ -1349,6 +1380,16 @@ class PopupController {
     saveCheckbox('show-moodle-integration', 'show_moodle_integration');
     saveCheckbox('show-google-classroom-integration', 'show_google_classroom_integration');
     saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
+    saveCheckbox('show-annotations', 'show_annotations'); // Annotations
+
+    // Save annotations storage mode
+    const storageMode = document.getElementById('annotations-storage-mode');
+    if (storageMode) {
+      if (!this.settings.annotations) {
+        this.settings.annotations = {};
+      }
+      this.settings.annotations.storageMode = storageMode.value;
+    }
 
     // Save appearance settings
     const compactMode = document.getElementById('compact-mode');
