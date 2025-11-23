@@ -1383,8 +1383,14 @@ class PopupController {
     saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     saveCheckbox('show-annotations', 'show_annotations'); // Annotations
 
-    // NOTE: Storage mode is NOT saved here - it's saved by the migration handler
-    // after successfully migrating annotations between storage modes
+    // Save annotations storage mode
+    const storageMode = document.getElementById('annotations-storage-mode');
+    if (storageMode) {
+      if (!this.settings.annotations) {
+        this.settings.annotations = {};
+      }
+      this.settings.annotations.storageMode = storageMode.value;
+    }
 
     // Save appearance settings
     const compactMode = document.getElementById('compact-mode');
@@ -2307,20 +2313,31 @@ class PopupController {
     // ============================================================
     const annotationsStorageMode = document.getElementById('annotations-storage-mode');
     if (annotationsStorageMode) {
+      // Track the last committed mode
+      let committedMode = this.settings.annotations?.storageMode || 'local';
+
       annotationsStorageMode.addEventListener('change', async e => {
         const newMode = e.target.value;
-        // Get current mode from settings (most up-to-date source)
-        const currentMode = this.settings.annotations?.storageMode || 'local';
 
         console.warn('[Popup] Storage mode change detected:', {
-          currentMode,
+          committedMode,
           newMode,
-          willMigrate: newMode !== currentMode,
+          willMigrate: newMode !== committedMode,
         });
 
         // If mode actually changed, trigger migration
-        if (newMode !== currentMode) {
-          await this.handleStorageMigration(currentMode, newMode);
+        if (newMode !== committedMode) {
+          // Revert dropdown to old value while migration runs
+          e.target.value = committedMode;
+
+          // Run migration
+          await this.handleStorageMigration(committedMode, newMode);
+
+          // Migration updates settings, so update our committed tracking
+          committedMode = newMode;
+
+          // Update dropdown to new value after successful migration
+          e.target.value = newMode;
         }
       });
     }
