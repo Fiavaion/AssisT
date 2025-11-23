@@ -4,14 +4,14 @@
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2.1 Complete)
 **Current Phase**: Phase 2.2 - Writing & Organization Tools
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/ocr-screenshot (10 commits ahead)
+**Current Branch**: feature/annotations-sticky-notes (2 commits)
 
 ---
 
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: 🚧 17% Complete (4/24 features complete, 51 tasks done)
+**Phase 2 (Feature Expansion)**: 🚧 18% Complete (4/24 features, 53/~150 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 2 weeks
@@ -22,15 +22,38 @@
 ## 🎯 Current Step
 
 **Phase**: 2.2 - Writing & Organization Tools
-**Step**: Feature 5 - Annotations & Sticky Notes (Ready to start)
-**Next Task**: Task 5.1 - Storage mode dropdown (local vs IndexedDB)
+**Step**: Feature 5 - Annotations & Sticky Notes (In Progress - 2/18 tasks)
+**Next Task**: Task 5.3 - Auto-migration between storage modes
 
-**Status**: ✅ Phase 2.1 Complete - Ready for Phase 2.2
+**Status**: 🚧 Annotations storage infrastructure complete
 **Blocker**: None
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 014 (2025-11-23)
+
+**Annotations Storage Infrastructure - Complete**
+
+- [x] Task 5.1: Storage mode dropdown (local vs IndexedDB)
+- [x] Task 5.2: Dexie.js IndexedDB setup
+- [x] Feature 5: Annotations started (2/18 tasks complete)
+
+**Key Accomplishments**:
+
+- Created unified storage adapter architecture (BaseStorageAdapter interface)
+- Implemented DexieStorageAdapter with IndexedDB schema (indexed: url, tags, color)
+- Implemented LocalStorageAdapter with chrome.storage.local
+- Added storage mode UI in Advanced Options → Features → Annotations
+- Factory function for adapter selection: `getStorageAdapter(mode)`
+- +626 lines of code added
+- 197/197 unit tests passing (100%)
+
+**Commits**:
+
+- `cc7c4b0` - feat(ui): add storage mode dropdown for annotations in Advanced Options
+- `57a7a0d` - feat(ui): implement Dexie.js IndexedDB storage adapters for annotations
 
 ### Phase 2 Session 013 (2025-11-22)
 
@@ -220,12 +243,12 @@
 
 ## 🚧 In Progress
 
-**Session**: Phase 2 Session 014 (Ready to Start)
-**Features Started**: 4 complete (OCR ✓, Highlight Menu ✓, Reading Mode ✓, Dictionary ✓)
-**Next Feature**: Feature 5 - Annotations & Sticky Notes
-**Next Task**: Task 5.1 - Storage mode dropdown (local vs IndexedDB)
-**Started**: 2025-11-23 (Next session)
-**Overall Progress**: 51/~150 tasks (34%)
+**Session**: Phase 2 Session 015 (Next)
+**Features In Progress**: Feature 5 - Annotations & Sticky Notes (2/18 tasks)
+**Features Complete**: 4 (OCR ✓, Highlight Menu ✓, Reading Mode ✓, Dictionary ✓)
+**Next Task**: Task 5.3 - Auto-migration between storage modes
+**Started**: 2025-11-23
+**Overall Progress**: 53/~150 tasks (35%)
 
 ---
 
@@ -233,10 +256,10 @@
 
 ### Immediate (Next Session)
 
-1. Start Feature 5: Annotations & Sticky Notes
-   - Task 5.1: Storage mode dropdown (local vs IndexedDB)
-   - Task 5.2: Dexie.js IndexedDB setup
+1. Continue Feature 5: Annotations & Sticky Notes
    - Task 5.3: Auto-migration between storage modes
+   - Task 5.4: Sticky note creation (draggable div)
+   - Task 5.5: contentEditable rich text
 
 ### Short-Term (Next 2-3 weeks)
 
@@ -389,16 +412,17 @@
 
 ## 📝 Session Context
 
-**Session Type**: Phase Transition (2.1 → 2.2)
-**Working Files**: Session documentation
-**Last Commit**: 91a6c54 - test(test): add comprehensive Highlight Menu E2E tests (11 tests, 100% pass)
-**Branch**: feature/ocr-screenshot
+**Session Type**: Feature Development (Annotations Storage)
+**Working Files**: src/features/annotations/storage-adapter.js, src/popup/popup.js
+**Last Commit**: 57a7a0d - feat(ui): implement Dexie.js IndexedDB storage adapters for annotations
+**Branch**: feature/annotations-sticky-notes
 
 **Notes**:
 
 - Phase 2.1 is 100% complete - all 4 features finished
+- Phase 2.2 started - Annotations storage infrastructure complete
 - 197/197 unit tests passing (100%)
 - 41/63 E2E tests passing (65%)
-- Ready to begin Phase 2.2 (Annotations & Sticky Notes)
-- Follow incremental protocol from DEC-202510-021
-- Consider new branch for Phase 2.2 features
+- Storage adapters ready: LocalStorageAdapter + DexieStorageAdapter
+- Next: Implement migration logic (Task 5.3)
+- Following incremental protocol from DEC-202510-021
