@@ -22,15 +22,41 @@
 ## 🎯 Current Step
 
 **Phase**: 2.2 - Writing & Organization Tools
-**Step**: Feature 5 - Annotations & Sticky Notes (In Progress - 2/18 tasks)
-**Next Task**: Task 5.3 - Auto-migration between storage modes
+**Step**: Feature 5 - Annotations & Sticky Notes (In Progress - 3/18 tasks)
+**Next Task**: Task 5.4 - Sticky note creation (draggable div)
 
-**Status**: 🚧 Annotations storage infrastructure complete
+**Status**: 🚧 Annotations storage & migration complete
 **Blocker**: None
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 015 (2025-11-23)
+
+**Annotations Auto-Migration - Complete**
+
+- [x] Task 5.3: Auto-migration between storage modes
+- [x] Feature 5: Annotations continued (3/18 tasks complete)
+
+**Key Accomplishments**:
+
+- Created migration manager with progress callbacks
+- Implemented migration modal UI with real-time progress
+- Fixed event listener timing (attach after modal creation)
+- Committed mode tracking to prevent race conditions
+- +470 lines of migration infrastructure
+- 197/197 unit tests passing (100%)
+- Created HANDOFF.md for PC transfer (533 lines)
+
+**Commits**:
+
+- `e13d6ae` - feat(ui): implement auto-migration between storage modes
+- `633589a` - fix(ui): trigger migration on storage mode change
+- `4022243` - fix(ui): properly handle storage mode change
+- `d52a642` - fix(ui): attach migration event listener after modal creation
+- `5a05b4d` - docs(docs): end Phase 2 session 015
+- `98ea36b` - docs(docs): add comprehensive project transfer document
 
 ### Phase 2 Session 014 (2025-11-23)
 
