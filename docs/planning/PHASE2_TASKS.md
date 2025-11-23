@@ -111,7 +111,7 @@
 
 ### Feature 5: Annotations & Sticky Notes
 
-**Status**: `[>]` In Progress (1/18 tasks)
+**Status**: `[>]` In Progress (2/18 tasks)
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
@@ -120,7 +120,7 @@
 **Tasks**:
 
 - [x] 5.1: Storage mode dropdown (local vs IndexedDB)
-- [ ] 5.2: Dexie.js IndexedDB setup
+- [x] 5.2: Dexie.js IndexedDB setup
 - [ ] 5.3: Auto-migration between storage modes
 - [ ] 5.4: Sticky note creation (draggable div)
 - [ ] 5.5: contentEditable rich text
