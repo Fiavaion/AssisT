@@ -58,6 +58,12 @@ const DEFAULT_SETTINGS = {
     reading_mode_exit: 'Escape',
     dictionary_lookup: 'Ctrl+Shift+D',
   },
+  annotations: {
+    enabled: true, // Enable/disable annotations feature
+    storageMode: 'local', // 'local' (chrome.storage.local) or 'indexeddb' (Dexie)
+    maxLocalEntries: 100, // Max annotations in local storage before suggesting IndexedDB
+    autoMigrate: true, // Auto-migrate between storage modes when switching
+  },
 };
 
 /**
@@ -123,13 +129,10 @@ class SettingsManager {
    * console.log(settings.tts.enabled);
    */
   async loadSettings() {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get('assist_settings', (result) => {
+    return new Promise(resolve => {
+      chrome.storage.sync.get('assist_settings', result => {
         if (result.assist_settings) {
-          this.currentSettings = this.mergeSettings(
-            DEFAULT_SETTINGS,
-            result.assist_settings
-          );
+          this.currentSettings = this.mergeSettings(DEFAULT_SETTINGS, result.assist_settings);
         } else {
           this.currentSettings = { ...DEFAULT_SETTINGS };
         }
@@ -178,10 +181,7 @@ class SettingsManager {
   async updateSettings(updatedSettings, merge = true) {
     // Update in-memory cache
     if (merge) {
-      this.currentSettings = this.mergeSettings(
-        this.currentSettings,
-        updatedSettings
-      );
+      this.currentSettings = this.mergeSettings(this.currentSettings, updatedSettings);
     } else {
       this.currentSettings = updatedSettings;
     }
@@ -193,7 +193,7 @@ class SettingsManager {
     });
 
     // Debounce storage write
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       clearTimeout(this.saveDebounceTimer);
       this.saveDebounceTimer = setTimeout(() => {
         chrome.storage.sync.set({ assist_settings: this.currentSettings }, () => {
@@ -238,7 +238,7 @@ class SettingsManager {
    */
   async resetSettings() {
     this.currentSettings = { ...DEFAULT_SETTINGS };
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       chrome.storage.sync.set({ assist_settings: this.currentSettings }, () => {
         resolve(this.currentSettings);
       });
@@ -253,7 +253,7 @@ class SettingsManager {
    * await settingsManager.clearStorage();
    */
   async clearStorage() {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       chrome.storage.sync.remove('assist_settings', () => {
         this.currentSettings = { ...DEFAULT_SETTINGS };
         resolve();
@@ -313,7 +313,7 @@ class SettingsManager {
    */
   emit(event, data) {
     if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach((callback) => {
+      this.listeners.get(event).forEach(callback => {
         try {
           callback(data);
         } catch (err) {
@@ -335,7 +335,7 @@ class SettingsManager {
   mergeSettings(target, source) {
     const result = { ...target };
 
-    Object.keys(source).forEach((key) => {
+    Object.keys(source).forEach(key => {
       if (
         source[key] &&
         typeof source[key] === 'object' &&
