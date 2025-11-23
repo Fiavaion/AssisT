@@ -1166,7 +1166,40 @@ class PopupController {
     // Load annotations storage mode
     const storageMode = document.getElementById('annotations-storage-mode');
     if (storageMode) {
-      storageMode.value = this.settings.annotations?.storageMode || 'local';
+      const currentMode = this.settings.annotations?.storageMode || 'local';
+      storageMode.value = currentMode;
+
+      // Attach migration event listener (must happen after modal is created)
+      console.warn('[Popup] Attaching storage mode change listener. Current mode:', currentMode);
+
+      // Track the last committed mode
+      let committedMode = currentMode;
+
+      storageMode.addEventListener('change', async e => {
+        console.warn('[Popup] ⚡ CHANGE EVENT FIRED');
+        const newMode = e.target.value;
+
+        console.warn('[Popup] Storage mode change detected:', {
+          committedMode,
+          newMode,
+          willMigrate: newMode !== committedMode,
+        });
+
+        // If mode actually changed, trigger migration
+        if (newMode !== committedMode) {
+          // Revert dropdown to old value while migration runs
+          e.target.value = committedMode;
+
+          // Run migration
+          await this.handleStorageMigration(committedMode, newMode);
+
+          // Migration updates settings, so update our committed tracking
+          committedMode = newMode;
+
+          // Update dropdown to new value after successful migration
+          e.target.value = newMode;
+        }
+      });
     }
 
     // Appearance settings
@@ -2309,38 +2342,10 @@ class PopupController {
     console.log('[Popup] Dyslexia Mode initialized');
 
     // ============================================================
-    // ANNOTATIONS: STORAGE MODE MIGRATION
+    // ANNOTATIONS: MIGRATION MODAL CLOSE BUTTON
     // ============================================================
-    const annotationsStorageMode = document.getElementById('annotations-storage-mode');
-    if (annotationsStorageMode) {
-      // Track the last committed mode
-      let committedMode = this.settings.annotations?.storageMode || 'local';
-
-      annotationsStorageMode.addEventListener('change', async e => {
-        const newMode = e.target.value;
-
-        console.warn('[Popup] Storage mode change detected:', {
-          committedMode,
-          newMode,
-          willMigrate: newMode !== committedMode,
-        });
-
-        // If mode actually changed, trigger migration
-        if (newMode !== committedMode) {
-          // Revert dropdown to old value while migration runs
-          e.target.value = committedMode;
-
-          // Run migration
-          await this.handleStorageMigration(committedMode, newMode);
-
-          // Migration updates settings, so update our committed tracking
-          committedMode = newMode;
-
-          // Update dropdown to new value after successful migration
-          e.target.value = newMode;
-        }
-      });
-    }
+    // Note: Storage mode migration event listener is attached in loadModalSettings()
+    // after the Advanced Options modal is created (the dropdown doesn't exist here)
 
     // Migration modal close button
     const btnMigrationClose = document.getElementById('btn-migration-close');
