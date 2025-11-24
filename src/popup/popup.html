@@ -1914,6 +1914,44 @@
         </section>
 
         <!-- ========================================================== -->
+        <!-- PHASE 2.2 FEATURE: ANNOTATIONS & STICKY NOTES -->
+        <!-- ========================================================== -->
+        <section class="control-section" id="annotations-section">
+          <div class="toggle-control">
+            <label for="annotations-enabled" class="toggle-label">
+              <span class="label-text">📝 Annotations & Sticky Notes</span>
+              <div class="toggle-switch">
+                <input
+                  type="checkbox"
+                  id="annotations-enabled"
+                  data-testid="annotations-toggle"
+                  role="switch"
+                  aria-label="Enable Annotations and Sticky Notes"
+                />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
+          <p class="feature-description hidden" id="annotations-description">
+            Create sticky notes and annotations on any webpage. Notes persist across page reloads.
+          </p>
+
+          <!-- Annotations Options (shows when enabled) -->
+          <div id="annotations-options" class="annotations-options hidden">
+            <button
+              id="btn-create-sticky-note"
+              data-testid="create-sticky-note-button"
+              class="control-btn primary full-width"
+              aria-label="Create a new sticky note"
+              style="margin-top: 10px"
+            >
+              <span class="btn-icon">📌</span>
+              <span class="btn-text">Create Sticky Note</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ========================================================== -->
         <!-- SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE -->
         <!-- ========================================================== -->
         <section class="control-section" id="dyslexia-mode-section">

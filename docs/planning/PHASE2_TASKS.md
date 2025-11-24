@@ -111,7 +111,7 @@
 
 ### Feature 5: Annotations & Sticky Notes
 
-**Status**: `[>]` In Progress (3/18 tasks)
+**Status**: `[>]` In Progress (8/18 tasks)
 **Estimated**: 2-3 weeks
 **Priority**: HIGH
 **Dependencies**: None
@@ -122,11 +122,11 @@
 - [x] 5.1: Storage mode dropdown (local vs IndexedDB)
 - [x] 5.2: Dexie.js IndexedDB setup
 - [x] 5.3: Auto-migration between storage modes
-- [ ] 5.4: Sticky note creation (draggable div)
-- [ ] 5.5: contentEditable rich text
-- [ ] 5.6: Color picker (5 colors)
-- [ ] 5.7: Resize handles
-- [ ] 5.8: Pin to URL functionality
+- [x] 5.4: Sticky note creation (draggable div)
+- [x] 5.5: contentEditable rich text (with formatting toolbar: Bold, Italic, Underline, Lists)
+- [x] 5.6: Color picker (5 colors: Yellow, Blue, Green, Pink, Purple)
+- [x] 5.7: Resize handles (mouse drag + keyboard +/- keys)
+- [x] 5.8: Pin to URL functionality (notes load only on creation page)
 - [ ] 5.9: Inline annotations (highlight + comment)
 - [ ] 5.10: Annotation sidebar panel
 - [ ] 5.11: Tags for organization
