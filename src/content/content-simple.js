@@ -71,7 +71,10 @@ import '../features/ocr/ocr.js'; // Self-initializing OCR module with Tesseract.
 import '../features/highlightMenu/highlightMenu.js'; // Self-initializing highlight menu with text selection actions
 import '../features/readingMode/readingMode.js'; // Self-initializing reading mode with Mozilla Readability
 import '../features/dictionary/dictionary.js'; // Self-initializing dictionary lookup with Free Dictionary API
+import '../features/translation/translation-api.js'; // Self-initializing translation API with LibreTranslate and Google Translate support
 import '../features/annotations/sticky-note.js'; // Self-initializing sticky notes with draggable functionality and storage persistence
+import '../features/annotations/inline-annotations.js'; // Self-initializing inline annotations with text highlighting and comments
+import '../features/annotations/annotation-sidebar.js'; // Self-initializing annotation sidebar panel with real-time sync
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
@@ -859,7 +862,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('[AssisT] Triggering OCR from popup button');
       if (window.assistFeatures && window.assistFeatures.ocr) {
         // Call OCR asynchronously
-        window.assistFeatures.ocr.performOCR()
+        window.assistFeatures.ocr
+          .performOCR()
           .then(result => {
             if (result) {
               console.log('[AssisT] OCR completed successfully');
