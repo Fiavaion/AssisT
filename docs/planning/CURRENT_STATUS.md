@@ -1,17 +1,17 @@
 # AssisT Extension - Current Status
 
 **Last Updated**: 2025-11-24
-**Version**: v0.1.0 (Phase 1 Complete, Phase 2.1 Complete)
-**Current Phase**: Phase 2.2 - Writing & Organization Tools
+**Version**: v0.1.0 (Phase 1 Complete, Phase 2.1 Complete, Phase 2.2 Complete)
+**Current Phase**: Phase 2.3 - UX Enhancements
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/text-statistics (Feature 7 in progress)
+**Current Branch**: feature/text-statistics (Feature 7 complete - ready for merge)
 
 ---
 
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: 🚧 42% Complete (6/24 features, 96/~150 tasks done)
+**Phase 2 (Feature Expansion)**: 🚧 50% Complete (7/24 features, 111/~150 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 2 weeks
@@ -21,16 +21,65 @@
 
 ## 🎯 Current Step
 
-**Phase**: 2.2 - Writing & Organization Tools
-**Step**: Feature 7 - Text Statistics (In Progress - 0/15 tasks)
-**Current Task**: Task 7.1 - Word count algorithm
+**Phase**: 2.3 - UX Enhancements
+**Step**: Feature 9 - Font Library Expansion (Pending - 0/9 tasks)
+**Next Task**: Task 9.1 - Download Lexend font files
 
-**Status**: 🚀 Starting Feature 7 implementation
+**Status**: ✅ Feature 7 complete - Phase 2.2 finished (100%)
 **Blocker**: None
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 018 (2025-11-24)
+
+**Feature 7: Text Statistics - Complete (15/15 tasks, 100%)**
+
+**Key Accomplishments**:
+
+1. **Core Statistics Engine (Tasks 7.1-7.7)**:
+   - Implemented 7 counting algorithms (words, characters, sentences, paragraphs, reading time, unique words, avg word length)
+   - TextStats class with singleton pattern
+   - Zero external dependencies (pure JavaScript)
+   - Configurable reading speed (default 225 WPM)
+   - Target word count progress tracking
+
+2. **UI Components (Tasks 7.8-7.14)**:
+   - Floating badge (bottom-right, toggle visibility)
+   - Full stats modal with 3 scope modes (selection/page/document)
+   - Target progress bar with color coding (red/blue/green/orange)
+   - Keyboard shortcut (Ctrl+Shift+W / Cmd+Shift+W)
+   - Auto-update on typing (500ms debounced)
+   - Chrome storage integration
+
+3. **Testing (Task 7.15)**:
+   - 59 comprehensive unit tests (100% pass rate)
+   - Coverage: initialization, algorithms, settings, edge cases
+   - Test time: 1.822s
+
+**Files Created**:
+
+- textStats.js (318 lines) - Core statistics engine
+- textStats-ui.js (644 lines) - Floating badge + modal UI
+- textStats.test.js (348 lines) - 59 unit tests
+
+**Files Modified**:
+
+- content-simple.js - Added textStats-ui import (line 80)
+
+**Commits**:
+
+- `84c2979` - feat(textStats): add core text statistics engine with 7 counting algorithms
+- `2a6760f` - feat(textStats): complete text statistics feature with UI and tests
+- `fa8c260` - docs(planning): mark Feature 7 complete
+
+**Build Status**: ✅ Successful (395.13 KB bundle, 71.28 KB gzip)
+
+**Phase 2.2 Completion**: ✅ 100% (3/3 features complete)
+- Feature 5: Annotations (94%)
+- Feature 6: Translation (100%)
+- Feature 7: Text Statistics (100%)
 
 ### Phase 2 Session 017 (2025-11-24)
 
@@ -448,12 +497,12 @@
 
 ## 🚧 In Progress
 
-**Session**: Phase 2 Session 018 (Current)
-**Features In Progress**: Feature 7 - Text Statistics
-**Features Complete**: 6 (OCR ✓, Highlight Menu ✓, Reading Mode ✓, Dictionary ✓, Annotations 94% ✓, Translation 100% ✓)
-**Current Task**: Task 7.1 - Word count algorithm
-**Started**: 2025-11-24
-**Overall Progress**: 96/~150 tasks (64%)
+**Session**: Phase 2 Session 019 (Next)
+**Features In Progress**: None (Phase 2.2 complete)
+**Features Complete**: 7 (OCR ✓, Highlight Menu ✓, Reading Mode ✓, Dictionary ✓, Annotations 94% ✓, Translation 100% ✓, Text Statistics 100% ✓)
+**Next Task**: Feature 9 - Font Library Expansion (Task 9.1)
+**Started**: Pending
+**Overall Progress**: 111/~150 tasks (74%)
 
 ---
 
