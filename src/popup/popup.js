@@ -713,6 +713,11 @@ class PopupController {
     // ============================================================
     this.setupDyslexiaMode();
 
+    // ============================================================
+    // PHASE 2.2 FEATURE: ANNOTATIONS & STICKY NOTES
+    // ============================================================
+    this.setupAnnotations();
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', e => {
       e.preventDefault();
@@ -2916,6 +2921,76 @@ class PopupController {
     if (closeBtn) {
       closeBtn.style.display = '';
     }
+  }
+
+  // ============================================================
+  // ANNOTATIONS: STICKY NOTES
+  // ============================================================
+  setupAnnotations() {
+    // Initialize settings if not present
+    if (!this.settings.annotations) {
+      this.settings.annotations = {
+        enabled: false,
+      };
+    }
+
+    const annotationsEnabled = document.getElementById('annotations-enabled');
+    const annotationsDescription = document.getElementById('annotations-description');
+    const annotationsOptions = document.getElementById('annotations-options');
+    const createNoteButton = document.getElementById('btn-create-sticky-note');
+
+    // Set initial state
+    annotationsEnabled.checked = this.settings.annotations.enabled || false;
+
+    // Show/hide description and options based on enabled state
+    if (annotationsEnabled.checked) {
+      annotationsDescription.classList.remove('hidden');
+      annotationsOptions.classList.remove('hidden');
+    } else {
+      annotationsDescription.classList.add('hidden');
+      annotationsOptions.classList.add('hidden');
+    }
+
+    // Toggle event
+    annotationsEnabled.addEventListener('change', e => {
+      this.settings.annotations.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle description and options visibility
+      if (e.target.checked) {
+        annotationsDescription.classList.remove('hidden');
+        annotationsOptions.classList.remove('hidden');
+      } else {
+        annotationsDescription.classList.add('hidden');
+        annotationsOptions.classList.add('hidden');
+      }
+    });
+
+    // Create sticky note button
+    createNoteButton.addEventListener('click', async () => {
+      if (!this.currentTab) {
+        this.updateStatus('No active tab', 'error');
+        return;
+      }
+
+      try {
+        // Send message to content script to create a sticky note
+        await chrome.tabs.sendMessage(this.currentTab.id, {
+          action: 'createStickyNote',
+          x: null, // Will be centered by content script
+          y: null,
+          content: '',
+          color: 'yellow',
+        });
+
+        this.updateStatus('Sticky note created!', 'success');
+      } catch (error) {
+        console.error('[Popup] Error creating sticky note:', error);
+        this.updateStatus('Error: Please reload the page', 'error');
+      }
+    });
+
+    console.log('[Popup] Annotations initialized');
   }
 }
 
