@@ -26,17 +26,13 @@
 // ============================================================================
 
 const API_CONFIG = {
-  libre: {
-    baseUrl: 'https://libretranslate.com',
+  mymemory: {
+    baseUrl: 'https://api.mymemory.translated.net',
     endpoints: {
-      translate: '/translate',
-      detect: '/detect',
-      languages: '/languages',
+      translate: '/get',
     },
-  },
-  google: {
-    baseUrl: 'https://translation.googleapis.com/language/translate/v2',
-    requiresKey: true,
+    requiresKey: false,
+    dailyLimit: 10000, // 10,000 words/day per IP (free)
   },
 };
 
@@ -45,8 +41,6 @@ const API_CONFIG = {
 // ============================================================================
 
 let translation_settings = {
-  preferredEngine: 'libre', // 'libre' or 'google'
-  googleApiKey: '', // user-provided
   cacheEnabled: true,
   cacheDuration: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
   maxCacheSize: 100, // max cached translations
@@ -385,137 +379,166 @@ async function translation_getSupportedLanguages() {
 }
 
 // ============================================================================
-// TRANSLATION - LIBRETRANSLATE
+// TRANSLATION - MYMEMORY (FREE, NO API KEY)
 // ============================================================================
 
 /**
- * Translates text using LibreTranslate API
+ * Translates text using MyMemory Translation API (completely free, no API key required)
+ *
+ * MyMemory provides 10,000 words/day per IP address for free
+ * Perfect for educational accessibility tools
+ *
+ * Note: MyMemory has a 500 character limit per request, so longer texts are split into chunks
  *
  * @param {string} text - Text to translate
- * @param {string} targetLang - Target language code
- * @param {string} sourceLang - Source language code (default: 'auto')
+ * @param {string} targetLang - Target language code (ISO 639-1, e.g. 'es', 'fr')
+ * @param {string} sourceLang - Source language code (default: 'en')
  * @returns {Promise<Object>} Translation result {translatedText, engine, fromCache}
  * @throws {Error} If translation fails
  */
-async function translation_translateWithLibre(text, targetLang, sourceLang = 'auto') {
-  console.log(`[Translation] LibreTranslate: ${sourceLang} → ${targetLang}`);
+async function translation_translateWithMyMemory(text, targetLang, sourceLang = 'en') {
+  console.log(`[Translation] MyMemory: ${sourceLang} → ${targetLang}`);
 
-  const requestBody = {
-    q: text,
-    source: sourceLang,
-    target: targetLang,
-    format: 'text',
-  };
+  // MyMemory has a 500 character limit - split long texts into chunks
+  const MAX_CHUNK_SIZE = 450; // Leave some room for safety
 
-  const response = await fetch(
-    `${API_CONFIG.libre.baseUrl}${API_CONFIG.libre.endpoints.translate}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-
-    // Check for quota exceeded
-    if (
-      response.status === 429 ||
-      errorText.includes('quota') ||
-      errorText.includes('rate limit')
-    ) {
-      throw new Error('QUOTA_EXCEEDED');
-    }
-
-    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+  if (text.length <= MAX_CHUNK_SIZE) {
+    // Single request for short texts
+    return await translation_translateChunkWithMyMemory(text, targetLang, sourceLang);
   }
 
-  const data = await response.json();
+  // Split into chunks by sentences to maintain context
+  const chunks = translation_splitTextIntoChunks(text, MAX_CHUNK_SIZE);
+  console.log(`[Translation] Splitting text into ${chunks.length} chunks`);
 
-  if (!data.translatedText) {
-    throw new Error('No translated text in response');
+  // Translate each chunk
+  const translatedChunks = [];
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`[Translation] Translating chunk ${i + 1}/${chunks.length}`);
+    const result = await translation_translateChunkWithMyMemory(chunks[i], targetLang, sourceLang);
+    translatedChunks.push(result.translatedText);
+
+    // Small delay between requests to avoid rate limiting
+    if (i < chunks.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
   }
 
-  console.log(`[Translation] LibreTranslate success: ${data.translatedText.substring(0, 50)}...`);
+  // Combine chunks
+  const combinedTranslation = translatedChunks.join(' ');
 
   return {
-    translatedText: data.translatedText,
-    engine: 'libre',
+    translatedText: combinedTranslation,
+    engine: 'mymemory',
     fromCache: false,
   };
 }
 
-// ============================================================================
-// TRANSLATION - GOOGLE TRANSLATE
-// ============================================================================
-
 /**
- * Translates text using Google Translate API
- * Requires API key from user settings
+ * Translates a single chunk of text (max 500 chars)
  *
- * @param {string} text - Text to translate
+ * @param {string} text - Text chunk to translate
  * @param {string} targetLang - Target language code
- * @param {string} sourceLang - Source language code (default: 'auto')
- * @returns {Promise<Object>} Translation result {translatedText, engine, fromCache}
- * @throws {Error} If translation fails or API key is missing/invalid
+ * @param {string} sourceLang - Source language code
+ * @returns {Promise<Object>} Translation result
+ * @throws {Error} If translation fails
  */
-async function translation_translateWithGoogle(text, targetLang, sourceLang = 'auto') {
-  console.log(`[Translation] Google Translate: ${sourceLang} → ${targetLang}`);
+async function translation_translateChunkWithMyMemory(text, targetLang, sourceLang) {
+  // MyMemory uses "source|target" format for langpair
+  const langpair = `${sourceLang}|${targetLang}`;
 
-  // Check if API key is configured
-  if (!translation_settings.googleApiKey) {
-    throw new Error('MISSING_API_KEY');
-  }
+  // Build URL with query parameters
+  const url = `${API_CONFIG.mymemory.baseUrl}${API_CONFIG.mymemory.endpoints.translate}?q=${encodeURIComponent(text)}&langpair=${langpair}`;
 
-  const params = new URLSearchParams({
-    key: translation_settings.googleApiKey,
-    q: text,
-    target: targetLang,
-  });
-
-  // Add source language if not auto-detect
-  if (sourceLang !== 'auto') {
-    params.append('source', sourceLang);
-  }
-
-  const response = await fetch(`${API_CONFIG.google.baseUrl}?${params.toString()}`, {
-    method: 'POST',
+  const response = await fetch(url, {
+    method: 'GET',
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-
-    // Check for invalid API key
-    if (response.status === 400 || response.status === 403 || errorText.includes('API key')) {
-      throw new Error('INVALID_API_KEY');
-    }
-
-    // Check for quota exceeded
-    if (response.status === 429 || errorText.includes('quota')) {
-      throw new Error('QUOTA_EXCEEDED');
-    }
-
-    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
   const data = await response.json();
 
-  if (!data.data || !data.data.translations || data.data.translations.length === 0) {
-    throw new Error('No translations in response');
+  // Debug: Log the full response
+  console.log('[Translation] MyMemory API response:', JSON.stringify(data, null, 2));
+
+  // Check for quota exceeded
+  if (data.quotaFinished === true) {
+    throw new Error('QUOTA_EXCEEDED');
   }
 
-  const translatedText = data.data.translations[0].translatedText;
+  // Check response status
+  if (data.responseStatus !== 200) {
+    throw new Error(`Translation failed: ${data.responseDetails || 'Unknown error'}`);
+  }
 
-  console.log(`[Translation] Google Translate success: ${translatedText.substring(0, 50)}...`);
+  // MyMemory returns 'translatedText' field
+  const translatedText = data.translatedText || data.responseData?.translatedText;
+
+  if (!translatedText) {
+    console.error('[Translation] No translatedText in response. Full response:', data);
+    throw new Error('No translated text in response');
+  }
+
+  console.log(`[Translation] MyMemory success: ${translatedText.substring(0, 50)}...`);
 
   return {
-    translatedText,
-    engine: 'google',
+    translatedText: translatedText,
+    engine: 'mymemory',
     fromCache: false,
   };
+}
+
+/**
+ * Splits text into chunks while trying to preserve sentence boundaries
+ *
+ * @param {string} text - Text to split
+ * @param {number} maxChunkSize - Maximum size of each chunk
+ * @returns {Array<string>} Array of text chunks
+ */
+function translation_splitTextIntoChunks(text, maxChunkSize) {
+  const chunks = [];
+  let currentChunk = '';
+
+  // Split by sentences (simple heuristic)
+  const sentences = text.split(/([.!?]+\s+)/);
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+
+    // If adding this sentence would exceed the limit, save current chunk and start new one
+    if (currentChunk.length + sentence.length > maxChunkSize) {
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+
+      // If a single sentence is too long, split it by words
+      if (sentence.length > maxChunkSize) {
+        const words = sentence.split(' ');
+        for (const word of words) {
+          if (currentChunk.length + word.length + 1 > maxChunkSize) {
+            chunks.push(currentChunk.trim());
+            currentChunk = word;
+          } else {
+            currentChunk += (currentChunk ? ' ' : '') + word;
+          }
+        }
+      } else {
+        currentChunk = sentence;
+      }
+    } else {
+      currentChunk += sentence;
+    }
+  }
+
+  // Add remaining chunk
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
 }
 
 // ============================================================================
@@ -523,17 +546,22 @@ async function translation_translateWithGoogle(text, targetLang, sourceLang = 'a
 // ============================================================================
 
 /**
- * Translates text using preferred engine with automatic fallback
+ * Translates text using MyMemory (free, no API key required)
  *
  * @param {string} text - Text to translate
  * @param {string} targetLang - Target language code (e.g., 'es', 'fr', 'de')
- * @param {string} sourceLang - Source language code (default: 'auto')
+ * @param {string} sourceLang - Source language code (default: 'en')
  * @returns {Promise<Object>} Translation result {translatedText, engine, fromCache, error}
  */
-async function translation_translate(text, targetLang, sourceLang = 'auto') {
+async function translation_translate(text, targetLang, sourceLang = 'en') {
   // Initialize if needed
   if (!translation_isInitialized) {
     await translation_init();
+  }
+
+  // MyMemory doesn't support 'auto' - default to English
+  if (sourceLang === 'auto' || !sourceLang) {
+    sourceLang = 'en';
   }
 
   console.log(
@@ -543,106 +571,45 @@ async function translation_translate(text, targetLang, sourceLang = 'auto') {
   // Check cache first
   const cached = translation_getCachedTranslation(text, targetLang);
   if (cached) {
-    console.log(`[Translation] Returning cached result (engine: ${cached.engine})`);
+    console.log(`[Translation] Returning cached result`);
     return {
       translatedText: cached.result,
-      engine: cached.engine,
+      engine: 'mymemory',
       fromCache: true,
     };
   }
 
-  // Determine primary and fallback engines
-  const primaryEngine = translation_settings.preferredEngine;
-  const fallbackEngine = primaryEngine === 'libre' ? 'google' : 'libre';
-
-  console.log(`[Translation] Primary: ${primaryEngine}, Fallback: ${fallbackEngine}`);
-
-  // Try primary engine
+  // Translate using MyMemory (free, no API key required)
   try {
-    let result;
-
-    if (primaryEngine === 'libre') {
-      result = await translation_translateWithLibre(text, targetLang, sourceLang);
-    } else {
-      result = await translation_translateWithGoogle(text, targetLang, sourceLang);
-    }
+    const result = await translation_translateWithMyMemory(text, targetLang, sourceLang);
 
     // Cache the result
     await translation_cacheTranslation(text, targetLang, result.translatedText, result.engine);
 
     return result;
-  } catch (primaryError) {
-    console.warn(`[Translation] Primary engine (${primaryEngine}) failed:`, primaryError.message);
+  } catch (error) {
+    console.error(`[Translation] MyMemory translation failed:`, error.message);
 
-    // Handle specific errors without fallback
-    if (primaryError.message === 'MISSING_API_KEY') {
-      return {
-        translatedText: null,
-        engine: primaryEngine,
-        fromCache: false,
-        error: 'Google Translate API key is invalid. Please check your key in settings.',
-      };
+    // Return user-friendly error message
+    let errorMessage;
+
+    if (error.message === 'QUOTA_EXCEEDED') {
+      errorMessage = 'Daily translation limit reached (10,000 words). Please try again tomorrow.';
+    } else if (
+      error.message.includes('NetworkError') ||
+      error.message.includes('Failed to fetch')
+    ) {
+      errorMessage = 'Translation failed. Check your internet connection and try again.';
+    } else {
+      errorMessage = `Translation failed: ${error.message}`;
     }
 
-    if (primaryError.message === 'INVALID_API_KEY') {
-      return {
-        translatedText: null,
-        engine: primaryEngine,
-        fromCache: false,
-        error: 'Google Translate API key is invalid. Please check your key in settings.',
-      };
-    }
-
-    // Try fallback engine (with one retry for network errors)
-    console.log(`[Translation] Trying fallback engine: ${fallbackEngine}`);
-
-    try {
-      let result;
-
-      if (fallbackEngine === 'libre') {
-        result = await translation_translateWithLibre(text, targetLang, sourceLang);
-      } else {
-        result = await translation_translateWithGoogle(text, targetLang, sourceLang);
-      }
-
-      // Cache the result
-      await translation_cacheTranslation(text, targetLang, result.translatedText, result.engine);
-
-      console.log(`[Translation] Fallback engine (${fallbackEngine}) succeeded`);
-      return result;
-    } catch (fallbackError) {
-      console.error(
-        `[Translation] Fallback engine (${fallbackEngine}) also failed:`,
-        fallbackError.message
-      );
-
-      // Return user-friendly error message
-      let errorMessage;
-
-      if (fallbackError.message === 'QUOTA_EXCEEDED') {
-        errorMessage =
-          'Translation quota exceeded. Try again tomorrow or switch to Google Translate in settings.';
-      } else if (
-        fallbackError.message === 'MISSING_API_KEY' ||
-        fallbackError.message === 'INVALID_API_KEY'
-      ) {
-        errorMessage = 'Google Translate API key is invalid. Please check your key in settings.';
-      } else if (
-        fallbackError.message.includes('NetworkError') ||
-        fallbackError.message.includes('Failed to fetch')
-      ) {
-        errorMessage = 'Translation failed. Check your internet connection and try again.';
-      } else {
-        errorMessage = `Translation failed: ${fallbackError.message}`;
-      }
-
-      return {
-        translatedText: null,
-        engine: null,
-        fromCache: false,
-        error: errorMessage,
-      };
-    }
+    return {
+      translatedText: null,
+      engine: 'mymemory',
+      fromCache: false,
+      error: errorMessage,
+    };
   }
 }
 
