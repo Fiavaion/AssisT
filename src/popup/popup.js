@@ -1093,6 +1093,107 @@ class PopupController {
               </div>
 
               <div class="feature-section-header">
+                <span>🌐 Translation</span>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-translation" checked>
+                  <span>Translation Features</span>
+                </label>
+              </div>
+
+              <!-- Translation Settings Section -->
+              <div class="feature-item" style="margin-left: 24px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;">
+                <label class="feature-label" style="font-size: 13px; color: #666; font-weight: 500;">
+                  <span>⚙️ Translation Settings:</span>
+                </label>
+
+                <!-- Engine Selector -->
+                <div style="margin-top: 10px;">
+                  <label style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
+                    Translation Engine
+                  </label>
+                  <div style="display: flex; gap: 16px; margin-top: 8px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                      <input type="radio" name="translation-engine" id="translation-engine-libre" value="libre" checked style="margin-right: 6px;">
+                      <span style="font-size: 13px;">LibreTranslate (Free)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                      <input type="radio" name="translation-engine" id="translation-engine-google" value="google" style="margin-right: 6px;">
+                      <span style="font-size: 13px;">Google Translate</span>
+                    </label>
+                  </div>
+                  <p style="margin: 4px 0 0 0; font-size: 11px; color: #888;">
+                    LibreTranslate is free but may have rate limits. Google requires an API key.
+                  </p>
+                </div>
+
+                <!-- Google API Key Input -->
+                <div id="google-api-key-container" style="margin-top: 12px; display: none;">
+                  <label for="translation-google-api-key" style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
+                    Google Translate API Key
+                  </label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="password" id="translation-google-api-key" placeholder="Enter API key (AIza...)" style="flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-family: monospace;">
+                    <button id="translation-toggle-api-key" type="button" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 12px;">
+                      Show
+                    </button>
+                    <span id="translation-api-key-status" style="font-size: 16px; min-width: 20px; text-align: center;"></span>
+                  </div>
+                  <p style="margin: 4px 0 0 0; font-size: 11px; color: #888;">
+                    Get your API key from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: #2196F3;">Google Cloud Console</a>
+                  </p>
+                </div>
+
+                <!-- Default Target Language -->
+                <div style="margin-top: 12px;">
+                  <label for="translation-default-language" style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
+                    Default Target Language
+                  </label>
+                  <select id="translation-default-language" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; width: 100%; max-width: 300px;">
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="nl">Dutch</option>
+                    <option value="pl">Polish</option>
+                    <option value="ru">Russian</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="ar">Arabic</option>
+                    <option value="hi">Hindi</option>
+                  </select>
+                </div>
+
+                <!-- Cache Toggle -->
+                <div style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="translation-cache-enabled" checked style="cursor: pointer;">
+                  <label for="translation-cache-enabled" style="font-size: 12px; color: #555; cursor: pointer;">
+                    Enable translation cache (faster, reduces API calls)
+                  </label>
+                </div>
+
+                <!-- Cache Duration Slider -->
+                <div id="translation-cache-settings" style="margin-top: 12px;">
+                  <label for="translation-cache-duration" style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
+                    Cache Duration: <span id="translation-cache-duration-label">7 days</span>
+                  </label>
+                  <input type="range" id="translation-cache-duration" min="1" max="30" value="7" step="1" style="width: 100%; max-width: 300px;">
+                </div>
+
+                <!-- Clear Cache Button -->
+                <div style="margin-top: 12px;">
+                  <button id="translation-clear-cache" type="button" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 12px; color: #666;">
+                    Clear Cache (<span id="translation-cache-count">0</span> items)
+                  </button>
+                </div>
+              </div>
+
+              <div class="feature-section-header">
                 <span>🎓 LMS Integration</span>
               </div>
 
@@ -1421,6 +1522,187 @@ class PopupController {
       });
     }
 
+    // ============================================================
+    // LOAD TRANSLATION SETTINGS
+    // ============================================================
+
+    // Load translation visibility toggle
+    loadCheckbox('show-translation', 'show_translation');
+
+    // Initialize translation settings if they don't exist
+    if (!this.settings.translationSettings) {
+      this.settings.translationSettings = {
+        preferredEngine: 'libre',
+        googleApiKey: '',
+        cacheEnabled: true,
+        cacheDuration: 7,
+        defaultTargetLanguage: 'en',
+      };
+    }
+
+    // Load engine selection
+    const engineLibre = document.getElementById('translation-engine-libre');
+    const engineGoogle = document.getElementById('translation-engine-google');
+    const googleApiKeyContainer = document.getElementById('google-api-key-container');
+
+    if (engineLibre && engineGoogle) {
+      const preferredEngine = this.settings.translationSettings.preferredEngine || 'libre';
+      if (preferredEngine === 'libre') {
+        engineLibre.checked = true;
+      } else {
+        engineGoogle.checked = true;
+      }
+
+      // Show/hide Google API key input based on selection
+      if (googleApiKeyContainer) {
+        googleApiKeyContainer.style.display = preferredEngine === 'google' ? 'block' : 'none';
+      }
+
+      // Add event listeners for engine selection
+      engineLibre.addEventListener('change', () => {
+        if (googleApiKeyContainer) {
+          googleApiKeyContainer.style.display = 'none';
+        }
+        this.settings.translationSettings.preferredEngine = 'libre';
+        this.saveSettings();
+        console.log('[Popup] Translation engine changed to: LibreTranslate');
+      });
+
+      engineGoogle.addEventListener('change', () => {
+        if (googleApiKeyContainer) {
+          googleApiKeyContainer.style.display = 'block';
+        }
+        this.settings.translationSettings.preferredEngine = 'google';
+        this.saveSettings();
+        console.log('[Popup] Translation engine changed to: Google Translate');
+      });
+    }
+
+    // Load Google API key
+    const googleApiKeyInput = document.getElementById('translation-google-api-key');
+    const googleApiKeyToggle = document.getElementById('translation-toggle-api-key');
+    const googleApiKeyStatus = document.getElementById('translation-api-key-status');
+
+    if (googleApiKeyInput) {
+      googleApiKeyInput.value = this.settings.translationSettings.googleApiKey || '';
+
+      // Validate API key format
+      const validateApiKey = key => {
+        const apiKeyPattern = /^AIza[A-Za-z0-9_-]{35}$/;
+        return apiKeyPattern.test(key);
+      };
+
+      // Update status indicator
+      const updateApiKeyStatus = key => {
+        if (!key) {
+          googleApiKeyStatus.textContent = '';
+        } else if (validateApiKey(key)) {
+          googleApiKeyStatus.textContent = '✓';
+          googleApiKeyStatus.style.color = '#4caf50';
+        } else {
+          googleApiKeyStatus.textContent = '✗';
+          googleApiKeyStatus.style.color = '#f44336';
+        }
+      };
+
+      // Initial status
+      updateApiKeyStatus(googleApiKeyInput.value);
+
+      // Add event listener for API key input
+      googleApiKeyInput.addEventListener('input', e => {
+        this.settings.translationSettings.googleApiKey = e.target.value;
+        updateApiKeyStatus(e.target.value);
+        this.saveSettings();
+        console.log('[Popup] Translation Google API key updated');
+      });
+
+      // Toggle password visibility
+      if (googleApiKeyToggle) {
+        googleApiKeyToggle.addEventListener('click', () => {
+          if (googleApiKeyInput.type === 'password') {
+            googleApiKeyInput.type = 'text';
+            googleApiKeyToggle.textContent = 'Hide';
+          } else {
+            googleApiKeyInput.type = 'password';
+            googleApiKeyToggle.textContent = 'Show';
+          }
+        });
+      }
+    }
+
+    // Load default target language
+    const defaultLanguageSelect = document.getElementById('translation-default-language');
+    if (defaultLanguageSelect) {
+      defaultLanguageSelect.value = this.settings.translationSettings.defaultTargetLanguage || 'en';
+
+      defaultLanguageSelect.addEventListener('change', e => {
+        this.settings.translationSettings.defaultTargetLanguage = e.target.value;
+        this.saveSettings();
+        console.log('[Popup] Translation default target language:', e.target.value);
+      });
+    }
+
+    // Load cache enabled toggle
+    const cacheEnabledToggle = document.getElementById('translation-cache-enabled');
+    const cacheSettingsDiv = document.getElementById('translation-cache-settings');
+
+    if (cacheEnabledToggle) {
+      cacheEnabledToggle.checked = this.settings.translationSettings.cacheEnabled !== false;
+
+      // Show/hide cache settings based on toggle
+      if (cacheSettingsDiv) {
+        cacheSettingsDiv.style.display = cacheEnabledToggle.checked ? 'block' : 'none';
+      }
+
+      cacheEnabledToggle.addEventListener('change', e => {
+        this.settings.translationSettings.cacheEnabled = e.target.checked;
+        if (cacheSettingsDiv) {
+          cacheSettingsDiv.style.display = e.target.checked ? 'block' : 'none';
+        }
+        this.saveSettings();
+        console.log('[Popup] Translation cache enabled:', e.target.checked);
+      });
+    }
+
+    // Load cache duration slider
+    const cacheDurationSlider = document.getElementById('translation-cache-duration');
+    const cacheDurationLabel = document.getElementById('translation-cache-duration-label');
+
+    if (cacheDurationSlider && cacheDurationLabel) {
+      const duration = this.settings.translationSettings.cacheDuration || 7;
+      cacheDurationSlider.value = duration;
+      cacheDurationLabel.textContent = `${duration} day${duration === 1 ? '' : 's'}`;
+
+      cacheDurationSlider.addEventListener('input', e => {
+        const days = parseInt(e.target.value);
+        cacheDurationLabel.textContent = `${days} day${days === 1 ? '' : 's'}`;
+        this.settings.translationSettings.cacheDuration = days;
+        this.saveSettings();
+        console.log('[Popup] Translation cache duration:', days);
+      });
+    }
+
+    // Load cache count and clear cache button
+    const clearCacheButton = document.getElementById('translation-clear-cache');
+    const cacheCountSpan = document.getElementById('translation-cache-count');
+
+    if (clearCacheButton && cacheCountSpan) {
+      // Get cache count from storage
+      chrome.storage.local.get('translationCache', result => {
+        const cacheCount = result.translationCache
+          ? Object.keys(result.translationCache).length
+          : 0;
+        cacheCountSpan.textContent = cacheCount;
+      });
+
+      clearCacheButton.addEventListener('click', async () => {
+        await chrome.storage.local.set({ translationCache: {} });
+        cacheCountSpan.textContent = '0';
+        console.log('[Popup] Translation cache cleared');
+        alert('Translation cache cleared successfully!');
+      });
+    }
+
     // Appearance settings
     const compactMode = document.getElementById('compact-mode');
     if (compactMode) {
@@ -1634,6 +1916,7 @@ class PopupController {
     saveCheckbox('show-google-classroom-integration', 'show_google_classroom_integration');
     saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     saveCheckbox('show-annotations', 'show_annotations'); // Annotations
+    saveCheckbox('show-translation', 'show_translation'); // Translation
 
     // Save annotations storage mode
     const storageMode = document.getElementById('annotations-storage-mode');
