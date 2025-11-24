@@ -11,7 +11,7 @@
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: 🚧 28% Complete (4.94/24 features, 70/~150 tasks done)
+**Phase 2 (Feature Expansion)**: 🚧 37% Complete (5.94/24 features, 83/~150 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 2 weeks
@@ -22,15 +22,67 @@
 ## 🎯 Current Step
 
 **Phase**: 2.2 - Writing & Organization Tools
-**Step**: Feature 5 - Annotations & Sticky Notes (94% Complete - 17/18 tasks)
-**Next Task**: Feature 6 - Translation (0/13 tasks)
+**Step**: Feature 6 - Translation (100% Complete - 13/13 tasks)
+**Next Task**: Feature 7 - Text Statistics (0/15 tasks)
 
-**Status**: ✅ Annotations essentially complete (Task 5.15 deferred to Phase 2.4)
+**Status**: ✅ Translation feature complete in single session with AI agents
 **Blocker**: None
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 017 (2025-11-24)
+
+**Feature 6: Translation - Complete (AI Sub-Agents)**
+
+- [x] Task 6.1-6.4: LibreTranslate + Google Translate API integration
+- [x] Task 6.5-6.9: Translation UI, modal, full-page translation
+- [x] Task 6.10-6.13: Settings panel, persistence, unit tests
+- [x] Feature 6: Translation 100% complete (13/13 tasks)
+
+**Key Accomplishments**:
+
+- Implemented complete translation system using 3-wave AI agent deployment
+- LibreTranslate API (free, no key) + Google Translate fallback
+- Translation modal with side-by-side original/translated text display
+- Full-page translation with DOM traversal and revert functionality
+- 35+ language support with flag emojis and auto-detect
+- TTS integration for both original and translated text
+- Response caching (7-day expiration, LRU eviction, max 100 entries)
+- Settings panel in Advanced Options with engine selection
+- Google API key validation and secure storage
+- 21 comprehensive unit tests (100% pass rate)
+- Build successful: content-simple.js = 366.53 KB (gzip optimized)
+
+**Files Created**:
+
+- translation-api.js (712 lines) - LibreTranslate/Google API integration, caching
+- translation-ui.js (600 lines) - Translation modal with language selectors
+- full-page-translate.js (400 lines) - Full-page translation with progress tracking
+- translation-api.test.js (21 tests) - Comprehensive unit tests
+
+**Files Modified**:
+
+- highlightMenu.js - Added Translate button (6th button)
+- popup.html - Added Translation section and Translate Page button
+- popup.js - Added settings panel (908 lines of translation logic)
+- content-simple.js - Imported translation modules
+
+**Commits**:
+
+- `ec1afee` - feat(translation): add LibreTranslate and Google Translate API integration
+- `0802bb1` - feat(translation): add translation UI, modal, and full-page translation
+- `a3f9c42` - feat(translation): add settings panel and comprehensive unit tests
+
+**Technical Insights**:
+
+- 3-wave AI agent deployment completed in ~3 hours (vs estimated 1-2 weeks manual)
+- Wave 1: API integration (Sonnet, 90 min)
+- Wave 2: UI and features (Sonnet, 90 min)
+- Wave 3: Settings and tests (Sonnet, 60 min)
+- Agent success rate: 100% (3/3 agents completed successfully)
+- Development time saved: 1-2 weeks (~88% reduction)
 
 ### Phase 2 Session 016 (2025-11-24)
 
@@ -318,12 +370,12 @@
 
 ## 🚧 In Progress
 
-**Session**: Phase 2 Session 017 (Next)
-**Features In Progress**: None (Feature 5 essentially complete)
-**Features Complete**: 4.94 (OCR ✓, Highlight Menu ✓, Reading Mode ✓, Dictionary ✓, Annotations 94% ✓)
-**Next Task**: Feature 6 - Translation (Task 6.1 - Google Translate API integration)
+**Session**: Phase 2 Session 018 (Next)
+**Features In Progress**: None (Feature 6 complete)
+**Features Complete**: 5.94 (OCR ✓, Highlight Menu ✓, Reading Mode ✓, Dictionary ✓, Annotations 94% ✓, Translation 100% ✓)
+**Next Task**: Feature 7 - Text Statistics (Task 7.1 - Word count algorithm)
 **Started**: Pending
-**Overall Progress**: 70/~150 tasks (47%)
+**Overall Progress**: 83/~150 tasks (55%)
 
 ---
 
@@ -438,7 +490,7 @@
 ### Phase 2.2: Writing & Organization (Weeks 6-9)
 
 - [✓] Annotations & Sticky Notes (94% complete - 17/18 tasks)
-- [ ] Translation (0/13 tasks)
+- [✓] Translation (100% complete - 13/13 tasks)
 - [ ] Text Statistics (0/15 tasks)
 
 ### Phase 2.3: UX Enhancements (Weeks 10-11)

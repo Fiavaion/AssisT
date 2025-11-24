@@ -141,27 +141,29 @@
 
 ### Feature 6: Translation
 
-**Status**: `[ ]` Pending
+**Status**: `[✓]` Complete (13/13 tasks - 100%)
 **Estimated**: 1-2 weeks
+**Actual Time**: 1 session (~3 hours with AI agents)
 **Priority**: MEDIUM
 **Dependencies**: Highlight Menu (2)
-**Agent Config**: `task-agent-config.json` → Tasks 6.1-6.4, 6.5-6.9 (2 sub-agents)
+**Agent Config**: `task-agent-config.json` → Tasks 6.1-6.4, 6.5-6.9, 6.10-6.13 (3 sub-agents)
+**Implementation**: AI sub-agents used for all tasks (3-wave parallel execution)
 
 **Tasks**:
 
-- [ ] 6.1: LibreTranslate API integration
-- [ ] 6.2: API error handling (quota exceeded)
-- [ ] 6.3: Settings dropdown (engine selection)
-- [ ] 6.4: Google Translate API key input
-- [ ] 6.5: Language selector UI (auto-detect + target)
-- [ ] 6.6: Translation modal (original + translated)
-- [ ] 6.7: TTS integration (read translated text)
-- [ ] 6.8: Copy translation to clipboard
-- [ ] 6.9: Full-page translation (in-place replacement)
-- [ ] 6.10: Revert to original button
-- [ ] 6.11: 30+ language support
-- [ ] 6.12: Settings persistence
-- [ ] 6.13: Unit tests with mocked API
+- [x] 6.1: LibreTranslate API integration - AI agent
+- [x] 6.2: API error handling (quota exceeded) - AI agent
+- [x] 6.3: Settings dropdown (engine selection) - AI agent
+- [x] 6.4: Google Translate API key input - AI agent
+- [x] 6.5: Language selector UI (auto-detect + target) - AI agent
+- [x] 6.6: Translation modal (original + translated) - AI agent
+- [x] 6.7: TTS integration (read translated text) - AI agent
+- [x] 6.8: Copy translation to clipboard - AI agent
+- [x] 6.9: Full-page translation (in-place replacement) - AI agent
+- [x] 6.10: Revert to original button - AI agent
+- [x] 6.11: 30+ language support (35 languages) - AI agent
+- [x] 6.12: Settings persistence - AI agent
+- [x] 6.13: Unit tests with mocked API (21 tests passing) - AI agent
 
 ### Feature 7: Text Statistics
 
