@@ -77,6 +77,7 @@ import '../features/translation/full-page-translate.js'; // Self-initializing fu
 import '../features/annotations/sticky-note.js'; // Self-initializing sticky notes with draggable functionality and storage persistence
 import '../features/annotations/inline-annotations.js'; // Self-initializing inline annotations with text highlighting and comments
 import '../features/annotations/annotation-sidebar.js'; // Self-initializing annotation sidebar panel with real-time sync
+import '../features/textStats/textStats-ui.js'; // Self-initializing text statistics with floating badge and modal
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners

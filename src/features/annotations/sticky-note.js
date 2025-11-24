@@ -22,6 +22,7 @@
  */
 
 import { getStorageAdapter } from './storage-adapter.js';
+import { createTagInput, renderTagPills } from './tag-manager.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -39,6 +40,25 @@ const activeNotes = new Map();
 /** @type {Object|null} Currently dragging note state */
 let dragState = null;
 
+/** @type {Object} Annotation settings */
+let annotationSettings = {
+  defaultColor: 'yellow',
+  defaultNoteSize: 'medium',
+  autoSave: true,
+  showBadge: true,
+  sidebarAutoOpen: true,
+};
+
+/**
+ * Default size mappings for notes
+ * @type {Object<string, {width: number, height: number}>}
+ */
+const noteSizeMap = {
+  small: { width: 150, height: 100 },
+  medium: { width: 200, height: 200 },
+  large: { width: 300, height: 250 },
+};
+
 // ============================================================
 // INITIALIZATION
 // ============================================================
@@ -46,6 +66,7 @@ let dragState = null;
 /**
  * Initialize the sticky note system
  * - Load storage adapter based on settings
+ * - Load annotation settings
  * - Load existing notes for current URL
  * - Set up Chrome message listeners
  */
@@ -53,6 +74,9 @@ async function initializeStickyNotes() {
   console.log('[StickyNotes] Initializing...');
 
   try {
+    // Load annotation settings
+    await loadAnnotationSettings();
+
     // Load storage mode from settings
     await loadStorageMode();
 
@@ -69,10 +93,31 @@ async function initializeStickyNotes() {
     // Listen for storage mode changes
     chrome.storage.local.onChanged.addListener(handleStorageChange);
 
-    console.log('[StickyNotes] Initialized successfully');
+    console.log('[StickyNotes] Initialized successfully with settings:', annotationSettings);
   } catch (error) {
     console.error('[StickyNotes] Initialization failed:', error);
   }
+}
+
+/**
+ * Load annotation settings from chrome.storage.local
+ */
+async function loadAnnotationSettings() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(['annotations'], result => {
+      if (result.annotations) {
+        annotationSettings = {
+          defaultColor: result.annotations.defaultColor || 'yellow',
+          defaultNoteSize: result.annotations.defaultNoteSize || 'medium',
+          autoSave: result.annotations.autoSave !== false,
+          showBadge: result.annotations.showBadge !== false,
+          sidebarAutoOpen: result.annotations.sidebarAutoOpen !== false,
+        };
+      }
+      console.log('[StickyNotes] Loaded annotation settings:', annotationSettings);
+      resolve();
+    });
+  });
 }
 
 /**
@@ -118,25 +163,39 @@ async function loadNotesForCurrentPage() {
  * @param {number} options.x - X position in pixels
  * @param {number} options.y - Y position in pixels
  * @param {string} [options.content=''] - Initial content
- * @param {string} [options.color='yellow'] - Note color
+ * @param {string} [options.color] - Note color (uses default from settings if not provided)
+ * @param {Array<string>} [options.tags=[]] - Tags for the note
  * @returns {Promise<Object>} Created note data
  */
-export async function createStickyNote({ x, y, content = '', color = 'yellow' }) {
+export async function createStickyNote({ x, y, content = '', color = null, tags = [] }) {
   try {
+    // Use default color from settings if not provided
+    const noteColor = color || annotationSettings.defaultColor || 'yellow';
+
+    // Get size dimensions from settings
+    const sizeName = annotationSettings.defaultNoteSize || 'medium';
+    const sizeDimensions = noteSizeMap[sizeName] || noteSizeMap.medium;
+
     const noteData = {
       type: 'note',
       url: window.location.href,
       x,
       y,
       content,
-      color,
-      width: 200, // Default width
-      height: 200, // Default height
+      color: noteColor,
+      width: sizeDimensions.width,
+      height: sizeDimensions.height,
+      tags: tags || [],
     };
 
     // Save to storage
     const savedNote = await storageAdapter.create(noteData);
-    console.log('[StickyNotes] Created note:', savedNote.id);
+    console.log('[StickyNotes] Created note:', savedNote.id, {
+      color: noteColor,
+      size: sizeName,
+      dimensions: sizeDimensions,
+      tags: tags,
+    });
 
     // Render on page
     renderStickyNote(savedNote);
@@ -232,6 +291,23 @@ function renderStickyNote(note) {
     toolbar.classList.add('visible');
   });
 
+  // Create tags container
+  const tagsContainer = document.createElement('div');
+  tagsContainer.className = 'assist-sticky-note-tags';
+  tagsContainer.setAttribute('role', 'group');
+  tagsContainer.setAttribute('aria-label', 'Note tags');
+
+  // Render tags if any
+  if (note.tags && note.tags.length > 0) {
+    renderTagPills(note.tags, tagsContainer);
+  }
+
+  // Add click handler to edit tags
+  tagsContainer.addEventListener('click', e => {
+    e.stopPropagation();
+    openTagEditModal(note.id, note.tags || []);
+  });
+
   // Create resize handle
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'assist-sticky-note-resize-handle';
@@ -244,6 +320,7 @@ function renderStickyNote(note) {
   noteElement.appendChild(header);
   noteElement.appendChild(toolbar);
   noteElement.appendChild(content);
+  noteElement.appendChild(tagsContainer);
   noteElement.appendChild(resizeHandle);
 
   // Add drag event listeners
@@ -776,6 +853,105 @@ async function deleteStickyNote(noteId) {
 }
 
 // ============================================================
+// TAG EDITING MODAL
+// ============================================================
+
+/**
+ * Open modal to edit tags for a note
+ * @param {number} noteId - Note ID
+ * @param {Array<string>} currentTags - Current tags
+ */
+function openTagEditModal(noteId, currentTags = []) {
+  // Close existing modal
+  const existingModal = document.getElementById('assist-tag-edit-modal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create modal
+  const modal = document.createElement('div');
+  modal.id = 'assist-tag-edit-modal';
+  modal.className = 'assist-tag-edit-modal-overlay';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'tag-modal-title');
+
+  modal.innerHTML = `
+    <div class="assist-tag-edit-modal" role="document">
+      <div class="assist-tag-edit-modal-header">
+        <h3 id="tag-modal-title">Edit Tags</h3>
+        <button class="assist-tag-edit-modal-close" aria-label="Close modal">×</button>
+      </div>
+      <div class="assist-tag-edit-modal-body">
+        <label class="assist-tag-edit-label">Tags:</label>
+        <div id="tag-input-container"></div>
+        <p class="assist-tag-edit-help">Press Enter or comma to add tags. Backspace to remove last tag.</p>
+      </div>
+      <div class="assist-tag-edit-modal-footer">
+        <button class="assist-tag-edit-btn assist-tag-edit-btn-cancel" aria-label="Cancel">Cancel</button>
+        <button class="assist-tag-edit-btn assist-tag-edit-btn-save" aria-label="Save tags">Save</button>
+      </div>
+    </div>
+  `;
+
+  // Attach event listeners
+  const closeBtn = modal.querySelector('.assist-tag-edit-modal-close');
+  const cancelBtn = modal.querySelector('.assist-tag-edit-btn-cancel');
+  const saveBtn = modal.querySelector('.assist-tag-edit-btn-save');
+
+  // Create tag input
+  const tagInputContainer = modal.querySelector('#tag-input-container');
+  const tagInput = createTagInput(tagInputContainer, currentTags);
+
+  closeBtn.addEventListener('click', () => modal.remove());
+  cancelBtn.addEventListener('click', () => modal.remove());
+
+  saveBtn.addEventListener('click', async () => {
+    const newTags = tagInput.getTags();
+    try {
+      // Update note with new tags
+      await storageAdapter.update(noteId, { tags: newTags });
+
+      // Update UI
+      const noteElement = activeNotes.get(noteId);
+      if (noteElement) {
+        const tagsContainer = noteElement.querySelector('.assist-sticky-note-tags');
+        if (tagsContainer) {
+          tagsContainer.innerHTML = '';
+          if (newTags.length > 0) {
+            renderTagPills(newTags, tagsContainer);
+          }
+        }
+      }
+
+      modal.remove();
+      console.log('[StickyNotes] Updated tags for note:', noteId, newTags);
+    } catch (error) {
+      console.error('[StickyNotes] Error updating tags:', error);
+      alert('Failed to save tags. Please try again.');
+    }
+  });
+
+  // Close on overlay click
+  modal.addEventListener('click', e => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+
+  // Keyboard navigation
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      modal.remove();
+    }
+  });
+
+  document.body.appendChild(modal);
+
+  console.log('[StickyNotes] Tag edit modal opened');
+}
+
+// ============================================================
 // MESSAGE HANDLERS
 // ============================================================
 
@@ -791,7 +967,10 @@ function handleMessage(message, sender, sendResponse) {
     const x = message.x || window.innerWidth / 2 - 100;
     const y = message.y || window.innerHeight / 2 - 100;
 
-    createStickyNote({ x, y, content: message.content || '', color: message.color || 'yellow' })
+    // Use provided color or fall back to settings (which will handle default)
+    const color = message.color || null;
+
+    createStickyNote({ x, y, content: message.content || '', color })
       .then(note => {
         sendResponse({ success: true, noteId: note.id });
       })
@@ -828,7 +1007,7 @@ function handleMessage(message, sender, sendResponse) {
 }
 
 /**
- * Handle storage changes (storage mode switch)
+ * Handle storage changes (storage mode switch or annotation settings change)
  * @param {Object} changes - Changed keys
  */
 function handleStorageChange(changes) {
@@ -844,6 +1023,25 @@ function handleStorageChange(changes) {
     activeNotes.forEach(noteElement => noteElement.remove());
     activeNotes.clear();
     loadNotesForCurrentPage();
+  }
+
+  // Reload annotation settings if they changed
+  if (changes.annotations) {
+    const newSettings = changes.annotations.newValue;
+    console.log('[StickyNotes] Annotation settings changed:', newSettings);
+
+    // Update global annotation settings
+    if (newSettings) {
+      annotationSettings = {
+        defaultColor: newSettings.defaultColor || 'yellow',
+        defaultNoteSize: newSettings.defaultNoteSize || 'medium',
+        autoSave: newSettings.autoSave !== false,
+        showBadge: newSettings.showBadge !== false,
+        sidebarAutoOpen: newSettings.sidebarAutoOpen !== false,
+      };
+
+      console.log('[StickyNotes] Updated annotation settings:', annotationSettings);
+    }
   }
 }
 
@@ -1119,6 +1317,161 @@ function injectStyles() {
     .assist-sticky-note:focus {
       outline: 3px solid #3b82f6;
       outline-offset: 3px;
+    }
+
+    /* Tags container */
+    .assist-sticky-note-tags {
+      padding: 8px 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 32px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .assist-sticky-note-tags:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    .assist-sticky-note-tags:empty:before {
+      content: 'Click to add tags...';
+      color: #9ca3af;
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    /* Tag edit modal */
+    .assist-tag-edit-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      animation: assist-modal-fade-in 0.2s ease-out;
+    }
+
+    .assist-tag-edit-modal {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      width: 90%;
+      max-width: 450px;
+      animation: assist-modal-slide-in 0.3s ease-out;
+    }
+
+    .assist-tag-edit-modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .assist-tag-edit-modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .assist-tag-edit-modal-close {
+      background: transparent;
+      border: none;
+      font-size: 28px;
+      font-weight: 300;
+      color: #6b7280;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.15s;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .assist-tag-edit-modal-close:hover {
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    .assist-tag-edit-modal-close:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .assist-tag-edit-modal-body {
+      padding: 24px;
+    }
+
+    .assist-tag-edit-label {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    .assist-tag-edit-help {
+      margin: 8px 0 0;
+      font-size: 12px;
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .assist-tag-edit-modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .assist-tag-edit-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .assist-tag-edit-btn-cancel {
+      background: white;
+      color: #374151;
+      border: 2px solid #e5e7eb;
+    }
+
+    .assist-tag-edit-btn-cancel:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    .assist-tag-edit-btn-save {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .assist-tag-edit-btn-save:hover {
+      background: #2563eb;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .assist-tag-edit-btn:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
     }
   `;
 

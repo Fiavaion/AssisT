@@ -167,7 +167,7 @@
 
 ### Feature 7: Text Statistics
 
-**Status**: `[ ]` Pending
+**Status**: `[>]` In Progress
 **Estimated**: 0.5 weeks
 **Priority**: LOW
 **Dependencies**: None
@@ -175,13 +175,13 @@
 
 **Tasks**:
 
-- [ ] 7.1: Word count algorithm
-- [ ] 7.2: Character count (with/without spaces)
-- [ ] 7.3: Sentence count
-- [ ] 7.4: Paragraph count
-- [ ] 7.5: Reading time estimate (200-250 WPM)
-- [ ] 7.6: Unique words count
-- [ ] 7.7: Average word length
+- [x] 7.1: Word count algorithm
+- [x] 7.2: Character count (with/without spaces)
+- [x] 7.3: Sentence count
+- [x] 7.4: Paragraph count
+- [x] 7.5: Reading time estimate (200-250 WPM)
+- [x] 7.6: Unique words count
+- [x] 7.7: Average word length
 - [ ] 7.8: Floating badge (toggle visibility)
 - [ ] 7.9: Full stats modal on click
 - [ ] 7.10: Stats for selected text / page / document
