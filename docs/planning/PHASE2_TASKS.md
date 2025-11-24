@@ -167,7 +167,7 @@
 
 ### Feature 7: Text Statistics
 
-**Status**: `[>]` In Progress
+**Status**: `[✓]` Complete
 **Estimated**: 0.5 weeks
 **Priority**: LOW
 **Dependencies**: None
@@ -182,14 +182,14 @@
 - [x] 7.5: Reading time estimate (200-250 WPM)
 - [x] 7.6: Unique words count
 - [x] 7.7: Average word length
-- [ ] 7.8: Floating badge (toggle visibility)
-- [ ] 7.9: Full stats modal on click
-- [ ] 7.10: Stats for selected text / page / document
-- [ ] 7.11: Target word count progress bar
-- [ ] 7.12: Color coding (red/yellow/green)
-- [ ] 7.13: Keyboard shortcut (Ctrl+Shift+W)
-- [ ] 7.14: Auto-update on typing (debounced)
-- [ ] 7.15: Unit tests for counting algorithms
+- [x] 7.8: Floating badge (toggle visibility)
+- [x] 7.9: Full stats modal on click
+- [x] 7.10: Stats for selected text / page / document
+- [x] 7.11: Target word count progress bar
+- [x] 7.12: Color coding (red/yellow/green)
+- [x] 7.13: Keyboard shortcut (Ctrl+Shift+W)
+- [x] 7.14: Auto-update on typing (debounced)
+- [x] 7.15: Unit tests for counting algorithms (59 tests, 100% pass)
 
 ---
 
