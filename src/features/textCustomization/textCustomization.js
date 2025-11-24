@@ -34,12 +34,6 @@ let textCustomization_enabled = false;
 let textCustomization_styleElement = null;
 
 /**
- * Reference to the link element for external font loading
- * @type {HTMLLinkElement|null}
- */
-let textCustomization_fontLinkElement = null;
-
-/**
  * Current text customization settings
  * @type {Object}
  * @property {string} fontFamily - Selected font family
