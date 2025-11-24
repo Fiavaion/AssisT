@@ -72,6 +72,8 @@ import '../features/highlightMenu/highlightMenu.js'; // Self-initializing highli
 import '../features/readingMode/readingMode.js'; // Self-initializing reading mode with Mozilla Readability
 import '../features/dictionary/dictionary.js'; // Self-initializing dictionary lookup with Free Dictionary API
 import '../features/translation/translation-api.js'; // Self-initializing translation API with LibreTranslate and Google Translate support
+import '../features/translation/translation-ui.js'; // Self-initializing translation UI modal with TTS and clipboard integration
+import '../features/translation/full-page-translate.js'; // Self-initializing full-page translation with DOM traversal and batch translation
 import '../features/annotations/sticky-note.js'; // Self-initializing sticky notes with draggable functionality and storage persistence
 import '../features/annotations/inline-annotations.js'; // Self-initializing inline annotations with text highlighting and comments
 import '../features/annotations/annotation-sidebar.js'; // Self-initializing annotation sidebar panel with real-time sync
@@ -881,6 +883,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else {
         console.error('[AssisT] OCR feature not available');
         sendResponse({ success: false, error: 'OCR not initialized' });
+      }
+      break;
+
+    case 'TRANSLATE_PAGE':
+      // Trigger full-page translation
+      console.log('[AssisT] Triggering full-page translation from popup button');
+      if (window.assistFeatures && window.assistFeatures.fullPageTranslate) {
+        const targetLang = message.targetLang || 'en';
+        // Call translate asynchronously
+        window.assistFeatures.fullPageTranslate
+          .translate(targetLang, 'auto')
+          .then(() => {
+            console.log('[AssisT] Full-page translation completed successfully');
+            sendResponse({ success: true });
+          })
+          .catch(error => {
+            console.error('[AssisT] Translation error:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true; // Will respond asynchronously
+      } else {
+        console.error('[AssisT] Full-page translate feature not available');
+        sendResponse({ success: false, error: 'Translation not initialized' });
       }
       break;
 
