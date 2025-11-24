@@ -215,9 +215,11 @@ function formatPDF(citation) {
  * @returns {string}
  */
 function formatAuthors(authors) {
-  if (authors.length === 0) return 'Anon.';
+  if (authors.length === 0) {
+    return 'Anon.';
+  }
 
-  const formatted = authors.map((author) => formatAuthorHarvard(author));
+  const formatted = authors.map(author => formatAuthorHarvard(author));
 
   if (formatted.length === 1) {
     return formatted[0];
@@ -240,7 +242,9 @@ function formatAuthors(authors) {
  * @returns {string}
  */
 function formatAccessDate(dateString) {
-  if (!dateString) return 'Date unknown';
+  if (!dateString) {
+    return 'Date unknown';
+  }
 
   const date = new Date(dateString);
   const day = date.getDate();
@@ -257,7 +261,9 @@ function formatAccessDate(dateString) {
  * @returns {string}
  */
 function formatFullDate(dateString) {
-  if (!dateString) return 'Date unknown';
+  if (!dateString) {
+    return 'Date unknown';
+  }
 
   const date = new Date(dateString);
   const day = date.getDate();
@@ -272,11 +278,21 @@ function formatFullDate(dateString) {
  * @returns {string}
  */
 function getSocialMediaPlatform(url) {
-  if (url.includes('twitter.com') || url.includes('x.com')) return 'Twitter/X';
-  if (url.includes('facebook.com')) return 'Facebook';
-  if (url.includes('instagram.com')) return 'Instagram';
-  if (url.includes('linkedin.com')) return 'LinkedIn';
-  if (url.includes('tiktok.com')) return 'TikTok';
+  if (url.includes('twitter.com') || url.includes('x.com')) {
+    return 'Twitter/X';
+  }
+  if (url.includes('facebook.com')) {
+    return 'Facebook';
+  }
+  if (url.includes('instagram.com')) {
+    return 'Instagram';
+  }
+  if (url.includes('linkedin.com')) {
+    return 'LinkedIn';
+  }
+  if (url.includes('tiktok.com')) {
+    return 'TikTok';
+  }
   return 'Social Media';
 }
 
@@ -305,7 +321,7 @@ export function formatBibliography(citations) {
   });
 
   // Format each citation
-  const references = sorted.map((citation) => formatReference(citation));
+  const references = sorted.map(citation => formatReference(citation));
 
   return references.join('\n\n');
 }
