@@ -32,12 +32,27 @@
  * @type {Object}
  */
 export const DEFAULT_SHORTCUTS = {
+  // TTS Controls
   tts_play_pause: 'Ctrl+Shift+Space',
   tts_stop: 'Ctrl+Shift+S',
+
+  // Reading & Accessibility
   ocr_activate: 'Alt+O',
-  reading_mode_toggle: 'Ctrl+Shift+R',
+  reading_mode_toggle: 'Alt+R',
   reading_mode_exit: 'Escape',
-  dictionary_lookup: 'Ctrl+Shift+D',
+  dictionary_lookup: 'Alt+Shift+D',
+  text_stats_toggle: 'Ctrl+Shift+W',
+  highlight_menu_toggle: 'Ctrl+Shift+H',
+
+  // Writing Tools
+  sticky_note_create: 'Alt+N',
+  translation_toggle: 'Alt+T',
+
+  // Display Modes
+  focus_mode_toggle: 'Alt+F',
+  reading_guide_toggle: 'Alt+G',
+  screen_overlay_toggle: 'Alt+Shift+O',
+  dyslexia_mode_toggle: 'Alt+Y',
 };
 
 /**
@@ -46,12 +61,27 @@ export const DEFAULT_SHORTCUTS = {
  * @type {Object}
  */
 export const SHORTCUT_LABELS = {
+  // TTS Controls
   tts_play_pause: 'TTS: Play/Pause',
   tts_stop: 'TTS: Stop',
+
+  // Reading & Accessibility
   ocr_activate: 'OCR: Activate Screenshot',
   reading_mode_toggle: 'Reading Mode: Toggle',
   reading_mode_exit: 'Reading Mode: Exit',
   dictionary_lookup: 'Dictionary: Lookup Selected Text',
+  text_stats_toggle: 'Text Statistics: Toggle Display',
+  highlight_menu_toggle: 'Highlight Menu: Toggle',
+
+  // Writing Tools
+  sticky_note_create: 'Sticky Notes: Create New Note',
+  translation_toggle: 'Translation: Toggle',
+
+  // Display Modes
+  focus_mode_toggle: 'Focus Mode: Toggle',
+  reading_guide_toggle: 'Reading Guide: Toggle',
+  screen_overlay_toggle: 'Screen Overlay: Toggle',
+  dyslexia_mode_toggle: 'Dyslexia Mode: Toggle',
 };
 
 /**
@@ -137,11 +167,12 @@ export const CHROME_RESERVED_SHORTCUTS = [
  */
 export function parseShortcut(shortcut) {
   const parts = shortcut.split('+').map(p => p.trim());
+  const lowerParts = parts.map(p => p.toLowerCase());
 
   return {
-    ctrl: parts.includes('Ctrl'),
-    alt: parts.includes('Alt'),
-    shift: parts.includes('Shift'),
+    ctrl: lowerParts.includes('ctrl'),
+    alt: lowerParts.includes('alt'),
+    shift: lowerParts.includes('shift'),
     key: parts[parts.length - 1], // Last part is always the key
   };
 }
