@@ -365,7 +365,14 @@ function translationUI_createColumn(label, text, type, langCode) {
     ttsButton.style.background = 'none';
     ttsButton.style.transform = 'scale(1)';
   };
-  ttsButton.onclick = () => translationUI_speakText(text, langCode);
+
+  // Store reference to textarea ID for accessing current text
+  const textareaId = `assist-translation-${type}-text`;
+  ttsButton.onclick = () => {
+    const textarea = document.getElementById(textareaId);
+    const currentText = textarea ? textarea.textContent : text;
+    translationUI_speakText(currentText, langCode);
+  };
 
   actions.appendChild(ttsButton);
 
