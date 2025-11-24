@@ -94,7 +94,7 @@ export function createCitation(data = {}) {
  * @returns {string}
  */
 function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -143,7 +143,11 @@ export function detectCitationType(url, metadata) {
     return CitationType.VIDEO;
   }
 
-  if (url.includes('twitter.com') || url.includes('facebook.com') || url.includes('instagram.com')) {
+  if (
+    url.includes('twitter.com') ||
+    url.includes('facebook.com') ||
+    url.includes('instagram.com')
+  ) {
     return CitationType.SOCIAL_MEDIA;
   }
 
@@ -175,7 +179,9 @@ export function detectCitationType(url, metadata) {
  * @returns {Array<string>}
  */
 export function parseAuthors(authorString) {
-  if (!authorString) return [];
+  if (!authorString) {
+    return [];
+  }
 
   // Split by "and" first, then by semicolons
   const authors = authorString
@@ -220,7 +226,9 @@ export function formatAuthorHarvard(authorName) {
  * @returns {string} - Year (YYYY) or empty string
  */
 export function extractYear(dateString) {
-  if (!dateString) return '';
+  if (!dateString) {
+    return '';
+  }
 
   const match = dateString.match(/\d{4}/);
   return match ? match[0] : '';
@@ -234,7 +242,10 @@ export function extractYear(dateString) {
  */
 export function createCitationKey(citation) {
   const author = citation.authors[0] || 'Anon';
-  const lastName = author.split(',')[0].trim().replace(/[^a-zA-Z0-9]/g, '');
+  const lastName = author
+    .split(',')[0]
+    .trim()
+    .replace(/[^a-zA-Z0-9]/g, '');
   const year = extractYear(citation.publicationDate) || extractYear(citation.accessDate);
   const shortTitle = citation.title
     .split(/\s+/)

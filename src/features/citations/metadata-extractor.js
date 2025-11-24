@@ -35,15 +35,19 @@ export function extractMetadata(doc = document) {
  */
 function extractOpenGraph(doc) {
   const ogTags = doc.querySelectorAll('meta[property^="og:"], meta[property^="article:"]');
-  if (ogTags.length === 0) return null;
+  if (ogTags.length === 0) {
+    return null;
+  }
 
   const og = {};
-  ogTags.forEach((tag) => {
+  ogTags.forEach(tag => {
     const property = tag.getAttribute('property');
     const content = tag.getAttribute('content');
     if (property && content) {
       // Convert property to camelCase: og:title -> ogTitle
-      const key = property.replace(/:/g, '_').replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+      const key = property
+        .replace(/:/g, '_')
+        .replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
       og[key] = content;
     }
   });
@@ -58,15 +62,19 @@ function extractOpenGraph(doc) {
  */
 function extractDublinCore(doc) {
   const dcTags = doc.querySelectorAll('meta[name^="DC."], meta[name^="dc."]');
-  if (dcTags.length === 0) return null;
+  if (dcTags.length === 0) {
+    return null;
+  }
 
   const dc = {};
-  dcTags.forEach((tag) => {
+  dcTags.forEach(tag => {
     const name = tag.getAttribute('name');
     const content = tag.getAttribute('content');
     if (name && content) {
       // Convert name to camelCase: DC.title -> dcTitle
-      const key = name.replace(/^DC\./i, 'dc').replace(/\.([a-z])/g, (_, letter) => letter.toUpperCase());
+      const key = name
+        .replace(/^DC\./i, 'dc')
+        .replace(/\.([a-z])/g, (_, letter) => letter.toUpperCase());
       dc[key] = content;
     }
   });
@@ -81,7 +89,9 @@ function extractDublinCore(doc) {
  */
 function extractJSONLD(doc) {
   const jsonLDScripts = doc.querySelectorAll('script[type="application/ld+json"]');
-  if (jsonLDScripts.length === 0) return null;
+  if (jsonLDScripts.length === 0) {
+    return null;
+  }
 
   try {
     // Try to find Schema.org Article or WebPage
@@ -91,9 +101,14 @@ function extractJSONLD(doc) {
       // Handle @graph arrays
       if (data['@graph']) {
         const article = data['@graph'].find(
-          (item) => item['@type'] === 'Article' || item['@type'] === 'WebPage' || item['@type'] === 'NewsArticle'
+          item =>
+            item['@type'] === 'Article' ||
+            item['@type'] === 'WebPage' ||
+            item['@type'] === 'NewsArticle'
         );
-        if (article) return article;
+        if (article) {
+          return article;
+        }
       }
 
       // Handle direct objects
@@ -116,10 +131,14 @@ function extractJSONLD(doc) {
  */
 function extractCOinS(doc) {
   const coinsSpan = doc.querySelector('span.Z3988');
-  if (!coinsSpan) return null;
+  if (!coinsSpan) {
+    return null;
+  }
 
   const title = coinsSpan.getAttribute('title');
-  if (!title) return null;
+  if (!title) {
+    return null;
+  }
 
   const coins = {};
   const params = new URLSearchParams(title);
@@ -166,7 +185,9 @@ function extractDOI(doc) {
   );
   if (doiMeta) {
     const content = doiMeta.getAttribute('content');
-    if (content) return content.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, '');
+    if (content) {
+      return content.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, '');
+    }
   }
 
   // Check for DOI in page text (common patterns)
@@ -218,8 +239,7 @@ export function mergeMetadata(metadata, url = window.location.href) {
   const authorSources = [
     metadata.jsonLD?.author?.name,
     metadata.jsonLD?.author,
-    metadata.openGraph?.articleAuthor ||
-      metadata.openGraph?.ogArticleAuthor,
+    metadata.openGraph?.articleAuthor || metadata.openGraph?.ogArticleAuthor,
     metadata.dublinCore?.dcCreator,
     metadata.coins?.author,
     metadata.html?.author,
@@ -273,7 +293,9 @@ export function mergeMetadata(metadata, url = window.location.href) {
  * @returns {Array<string>}
  */
 function parseAuthorString(authorString) {
-  if (!authorString) return [];
+  if (!authorString) {
+    return [];
+  }
 
   return authorString
     .split(/\s+and\s+|\s*;\s*|\s*,\s*(?=[A-Z])/)

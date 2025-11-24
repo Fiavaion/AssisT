@@ -78,6 +78,7 @@ import '../features/annotations/sticky-note.js'; // Self-initializing sticky not
 import '../features/annotations/inline-annotations.js'; // Self-initializing inline annotations with text highlighting and comments
 import '../features/annotations/annotation-sidebar.js'; // Self-initializing annotation sidebar panel with real-time sync
 import '../features/textStats/textStats-ui.js'; // Self-initializing text statistics with floating badge and modal
+import { initCitation } from '../features/citations/citation-integration.js'; // Citation system with metadata extraction and storage
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
@@ -842,6 +843,9 @@ registerShortcut('ocr_activate', () => {
 // Initialize the Dyslexia Mode feature module
 dyslexia_initialize();
 
+// Initialize the Citation feature module
+initCitation();
+
 // ============================================================
 // MESSAGE LISTENER FOR POPUP COMMANDS
 // ============================================================
@@ -907,6 +911,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else {
         console.error('[AssisT] Full-page translate feature not available');
         sendResponse({ success: false, error: 'Translation not initialized' });
+      }
+      break;
+
+    case 'SAVE_CITATION':
+      // Extract and save citation for current page
+      console.log('[AssisT] Triggering citation save from popup button');
+      if (window.assistFeatures && window.assistFeatures.citation) {
+        // Call saveCitation asynchronously
+        window.assistFeatures.citation
+          .saveCitationFromCurrentPage()
+          .then(citation => {
+            console.log('[AssisT] Citation saved successfully:', citation);
+            sendResponse({ success: true, citation });
+          })
+          .catch(error => {
+            console.error('[AssisT] Citation save error:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true; // Will respond asynchronously
+      } else {
+        console.error('[AssisT] Citation feature not available');
+        sendResponse({ success: false, error: 'Citation not initialized' });
       }
       break;
 

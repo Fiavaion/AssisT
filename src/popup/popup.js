@@ -652,6 +652,83 @@ class PopupController {
       });
     }
 
+    // ============================================================
+    // CITATION: ENABLE/DISABLE TOGGLE
+    // ============================================================
+    const citationEnabled = document.getElementById('citation-enabled');
+    const citationOptionsContainer = document.getElementById('citation-options-container');
+
+    if (citationEnabled && citationOptionsContainer) {
+      // Set initial state from settings
+      citationEnabled.checked = this.settings.citation?.enabled !== false; // Default to true
+
+      // Initial visibility
+      if (citationEnabled.checked) {
+        citationOptionsContainer.classList.remove('hidden');
+      } else {
+        citationOptionsContainer.classList.add('hidden');
+      }
+
+      // Handle toggle
+      citationEnabled.addEventListener('change', e => {
+        if (!this.settings.citation) {
+          this.settings.citation = { enabled: true };
+        }
+        this.settings.citation.enabled = e.target.checked;
+        this.saveSettings();
+
+        // Toggle options visibility
+        if (e.target.checked) {
+          citationOptionsContainer.classList.remove('hidden');
+        } else {
+          citationOptionsContainer.classList.add('hidden');
+        }
+
+        console.log('[Popup] Citation enabled:', e.target.checked);
+      });
+    }
+
+    // ============================================================
+    // CITATION: SAVE CITATION BUTTON
+    // ============================================================
+    const btnSaveCitation = document.getElementById('btn-save-citation');
+
+    if (btnSaveCitation) {
+      btnSaveCitation.addEventListener('click', async () => {
+        console.log('[Popup] Save Citation button clicked');
+        this.updateStatus('Extracting citation...', 'processing');
+
+        try {
+          // Send message to content script to extract and save citation
+          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+            type: 'SAVE_CITATION',
+          });
+
+          if (response && response.success) {
+            this.updateStatus('Citation saved!', 'success');
+          } else {
+            this.updateStatus('Failed to save citation', 'error');
+          }
+        } catch (error) {
+          console.error('[Popup] Citation save failed:', error);
+          this.updateStatus('Citation error: ' + error.message, 'error');
+        }
+      });
+    }
+
+    // ============================================================
+    // CITATION: CITATION MANAGER BUTTON
+    // ============================================================
+    const btnCitationManager = document.getElementById('btn-citation-manager');
+
+    if (btnCitationManager) {
+      btnCitationManager.addEventListener('click', () => {
+        console.log('[Popup] Citation Manager button clicked');
+        // TODO: Open citation manager page (Feature 11.6)
+        this.updateStatus('Citation manager coming soon!', 'info');
+      });
+    }
+
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.addEventListener('change', e => {

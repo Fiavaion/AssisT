@@ -27,26 +27,51 @@ chrome.runtime.onInstalled.addListener(async details => {
     console.log('[AssisT] Extension updated from', details.previousVersion);
     // Handle migration if needed
   }
+
+  // Create context menu for citation capture
+  chrome.contextMenus.create({
+    id: 'save-citation',
+    title: 'Save Citation',
+    contexts: ['page', 'link'],
+  });
+});
+
+// Context menu click handler
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'save-citation') {
+    console.log('[AssisT] Context menu "Save Citation" clicked');
+
+    // Send message to content script to save citation
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        type: 'SAVE_CITATION',
+      });
+
+      if (response && response.success) {
+        console.log('[AssisT] Citation saved via context menu');
+      } else {
+        console.error('[AssisT] Citation save failed via context menu');
+      }
+    } catch (error) {
+      console.error('[AssisT] Context menu citation error:', error);
+    }
+  }
 });
 
 // Message handling from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle screenshot capture requests
   if (message.action === 'CAPTURE_SCREENSHOT') {
-    chrome.tabs.captureVisibleTab(
-      null,
-      { format: message.options?.format || 'png' },
-      dataUrl => {
-        if (chrome.runtime.lastError) {
-          sendResponse({
-            success: false,
-            error: chrome.runtime.lastError.message,
-          });
-        } else {
-          sendResponse({ success: true, dataUrl });
-        }
+    chrome.tabs.captureVisibleTab(null, { format: message.options?.format || 'png' }, dataUrl => {
+      if (chrome.runtime.lastError) {
+        sendResponse({
+          success: false,
+          error: chrome.runtime.lastError.message,
+        });
+      } else {
+        sendResponse({ success: true, dataUrl });
       }
-    );
+    });
     return true; // Keep channel open for async response
   }
 
@@ -88,113 +113,138 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Handle special PAGE_DOWN command for multi-page PDF capture
     if (message.scrollY === 'PAGE_DOWN') {
-      chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        func: () => {
-          console.log('[PDF Page Down] Simulating Page Down keypress');
+      chrome.scripting
+        .executeScript({
+          target: { tabId: tabId },
+          func: () => {
+            console.log('[PDF Page Down] Simulating Page Down keypress');
 
-          // Try multiple methods to trigger page navigation
+            // Try multiple methods to trigger page navigation
 
-          // Method 1: Dispatch actual keyboard event (Page Down key)
-          const pageDownEvent = new KeyboardEvent('keydown', {
-            key: 'PageDown',
-            code: 'PageDown',
-            keyCode: 34,
-            which: 34,
-            bubbles: true,
-            cancelable: true
-          });
-          document.dispatchEvent(pageDownEvent);
-
-          // Method 2: Try arrow down multiple times (one page worth)
-          for (let i = 0; i < 10; i++) {
-            const arrowDownEvent = new KeyboardEvent('keydown', {
-              key: 'ArrowDown',
-              code: 'ArrowDown',
-              keyCode: 40,
-              which: 40,
+            // Method 1: Dispatch actual keyboard event (Page Down key)
+            const pageDownEvent = new KeyboardEvent('keydown', {
+              key: 'PageDown',
+              code: 'PageDown',
+              keyCode: 34,
+              which: 34,
               bubbles: true,
-              cancelable: true
+              cancelable: true,
             });
-            document.dispatchEvent(arrowDownEvent);
-          }
+            document.dispatchEvent(pageDownEvent);
 
-          // Method 3: Try scrollBy as fallback
-          window.scrollBy(0, window.innerHeight);
+            // Method 2: Try arrow down multiple times (one page worth)
+            for (let i = 0; i < 10; i++) {
+              const arrowDownEvent = new KeyboardEvent('keydown', {
+                key: 'ArrowDown',
+                code: 'ArrowDown',
+                keyCode: 40,
+                which: 40,
+                bubbles: true,
+                cancelable: true,
+              });
+              document.dispatchEvent(arrowDownEvent);
+            }
 
-          const newY = window.scrollY;
-          console.log('[PDF Page Down] Result scroll position:', newY);
-          return newY;
-        }
-      })
-      .then((results) => {
-        const actualScrollY = results && results[0] && results[0].result !== undefined ? results[0].result : -1;
-        console.log('[AssisT] PDF Page Down result:', actualScrollY);
-        sendResponse({ success: true, actualScrollY });
-      })
-      .catch(error => {
-        console.error('[AssisT] PDF Page Down failed:', error);
-        sendResponse({ success: false, error: error.message });
-      });
+            // Method 3: Try scrollBy as fallback
+            window.scrollBy(0, window.innerHeight);
+
+            const newY = window.scrollY;
+            console.log('[PDF Page Down] Result scroll position:', newY);
+            return newY;
+          },
+        })
+        .then(results => {
+          const actualScrollY =
+            results && results[0] && results[0].result !== undefined ? results[0].result : -1;
+          console.log('[AssisT] PDF Page Down result:', actualScrollY);
+          sendResponse({ success: true, actualScrollY });
+        })
+        .catch(error => {
+          console.error('[AssisT] PDF Page Down failed:', error);
+          sendResponse({ success: false, error: error.message });
+        });
 
       return true; // Keep channel open for async response
     }
 
     // Handle numeric scroll position (legacy support)
-    chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      func: (scrollY) => {
-        console.log('[PDF Scroll Injection] Attempting to scroll to', scrollY);
-        console.log('[PDF Scroll Injection] Initial state - window.scrollY:', window.scrollY, 'docElement.scrollTop:', document.documentElement.scrollTop);
+    chrome.scripting
+      .executeScript({
+        target: { tabId: tabId },
+        func: scrollY => {
+          console.log('[PDF Scroll Injection] Attempting to scroll to', scrollY);
+          console.log(
+            '[PDF Scroll Injection] Initial state - window.scrollY:',
+            window.scrollY,
+            'docElement.scrollTop:',
+            document.documentElement.scrollTop
+          );
 
-        // Try window.scrollTo first
-        window.scrollTo(0, scrollY);
-        console.log('[PDF Scroll Injection] After window.scrollTo:', window.scrollY);
+          // Try window.scrollTo first
+          window.scrollTo(0, scrollY);
+          console.log('[PDF Scroll Injection] After window.scrollTo:', window.scrollY);
 
-        // Try scrollingElement (best practice for cross-browser compatibility)
-        if (window.scrollY === 0 && scrollY > 0 && document.scrollingElement) {
-          console.log('[PDF Scroll Injection] Trying document.scrollingElement');
-          document.scrollingElement.scrollTop = scrollY;
-          console.log('[PDF Scroll Injection] After scrollingElement:', document.scrollingElement.scrollTop);
-        }
+          // Try scrollingElement (best practice for cross-browser compatibility)
+          if (window.scrollY === 0 && scrollY > 0 && document.scrollingElement) {
+            console.log('[PDF Scroll Injection] Trying document.scrollingElement');
+            document.scrollingElement.scrollTop = scrollY;
+            console.log(
+              '[PDF Scroll Injection] After scrollingElement:',
+              document.scrollingElement.scrollTop
+            );
+          }
 
-        // Try documentElement
-        if (window.scrollY === 0 && scrollY > 0) {
-          console.log('[PDF Scroll Injection] Trying document.documentElement');
-          document.documentElement.scrollTop = scrollY;
-          console.log('[PDF Scroll Injection] After documentElement:', document.documentElement.scrollTop);
-        }
+          // Try documentElement
+          if (window.scrollY === 0 && scrollY > 0) {
+            console.log('[PDF Scroll Injection] Trying document.documentElement');
+            document.documentElement.scrollTop = scrollY;
+            console.log(
+              '[PDF Scroll Injection] After documentElement:',
+              document.documentElement.scrollTop
+            );
+          }
 
-        // Try body
-        if (window.scrollY === 0 && scrollY > 0 && document.body) {
-          console.log('[PDF Scroll Injection] Trying document.body');
-          document.body.scrollTop = scrollY;
-          console.log('[PDF Scroll Injection] After body:', document.body?.scrollTop);
-        }
+          // Try body
+          if (window.scrollY === 0 && scrollY > 0 && document.body) {
+            console.log('[PDF Scroll Injection] Trying document.body');
+            document.body.scrollTop = scrollY;
+            console.log('[PDF Scroll Injection] After body:', document.body?.scrollTop);
+          }
 
-        // Try scrollBy as last resort
-        if (window.scrollY === 0 && scrollY > 0) {
-          console.log('[PDF Scroll Injection] Trying window.scrollBy');
-          window.scrollBy(0, scrollY);
-          console.log('[PDF Scroll Injection] After scrollBy:', window.scrollY);
-        }
+          // Try scrollBy as last resort
+          if (window.scrollY === 0 && scrollY > 0) {
+            console.log('[PDF Scroll Injection] Trying window.scrollBy');
+            window.scrollBy(0, scrollY);
+            console.log('[PDF Scroll Injection] After scrollBy:', window.scrollY);
+          }
 
-        const actualScroll = window.scrollY || document.documentElement.scrollTop || document.scrollingElement?.scrollTop || document.body?.scrollTop || 0;
-        console.log('[PDF Scroll Injection] Final scroll position:', actualScroll);
-        console.log('[PDF Scroll Injection] ScrollHeight:', document.documentElement.scrollHeight, 'ClientHeight:', document.documentElement.clientHeight);
-        return actualScroll;
-      },
-      args: [message.scrollY]
-    })
-    .then((results) => {
-      const actualScrollY = results && results[0] && results[0].result !== undefined ? results[0].result : -1;
-      console.log('[AssisT] PDF scroll injection result:', actualScrollY);
-      sendResponse({ success: true, actualScrollY });
-    })
-    .catch(error => {
-      console.error('[AssisT] PDF scroll failed:', error);
-      sendResponse({ success: false, error: error.message });
-    });
+          const actualScroll =
+            window.scrollY ||
+            document.documentElement.scrollTop ||
+            document.scrollingElement?.scrollTop ||
+            document.body?.scrollTop ||
+            0;
+          console.log('[PDF Scroll Injection] Final scroll position:', actualScroll);
+          console.log(
+            '[PDF Scroll Injection] ScrollHeight:',
+            document.documentElement.scrollHeight,
+            'ClientHeight:',
+            document.documentElement.clientHeight
+          );
+          return actualScroll;
+        },
+        args: [message.scrollY],
+      })
+      .then(results => {
+        const actualScrollY =
+          results && results[0] && results[0].result !== undefined ? results[0].result : -1;
+        console.log('[AssisT] PDF scroll injection result:', actualScrollY);
+        sendResponse({ success: true, actualScrollY });
+      })
+      .catch(error => {
+        console.error('[AssisT] PDF scroll failed:', error);
+        sendResponse({ success: false, error: error.message });
+      });
 
     return true; // Keep channel open for async response
   }

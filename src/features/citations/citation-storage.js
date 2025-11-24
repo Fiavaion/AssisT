@@ -85,13 +85,13 @@ export const CitationStorage = {
 
     // Filter by tags
     if (options.tags && options.tags.length > 0) {
-      collection = collection.filter((citation) =>
-        options.tags.some((tag) => citation.tags.includes(tag))
+      collection = collection.filter(citation =>
+        options.tags.some(tag => citation.tags.includes(tag))
       );
     }
 
     // Get all citations
-    let citations = await collection.toArray();
+    const citations = await collection.toArray();
 
     // Sort
     const sortBy = options.sortBy || 'createdAt';
@@ -182,10 +182,10 @@ export const CitationStorage = {
     const lowerQuery = query.toLowerCase();
     const allCitations = await db.citations.toArray();
 
-    return allCitations.filter((citation) => {
+    return allCitations.filter(citation => {
       return (
         citation.title.toLowerCase().includes(lowerQuery) ||
-        citation.authors.some((author) => author.toLowerCase().includes(lowerQuery)) ||
+        citation.authors.some(author => author.toLowerCase().includes(lowerQuery)) ||
         citation.publisher?.toLowerCase().includes(lowerQuery) ||
         citation.notes?.toLowerCase().includes(lowerQuery)
       );
@@ -200,8 +200,8 @@ export const CitationStorage = {
     const citations = await db.citations.toArray();
     const tagSet = new Set();
 
-    citations.forEach((citation) => {
-      citation.tags.forEach((tag) => tagSet.add(tag));
+    citations.forEach(citation => {
+      citation.tags.forEach(tag => tagSet.add(tag));
     });
 
     return Array.from(tagSet).sort();
@@ -243,7 +243,8 @@ export const CitationStorage = {
     }
 
     // Regenerate IDs to avoid conflicts
-    const citationsWithoutIds = citations.map((citation) => {
+    const citationsWithoutIds = citations.map(citation => {
+      // eslint-disable-next-line no-unused-vars
       const { id, ...rest } = citation;
       return rest;
     });

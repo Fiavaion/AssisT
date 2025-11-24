@@ -17,7 +17,8 @@
     "activeTab",
     "scripting",
     "tabs",
-    "downloads"
+    "downloads",
+    "contextMenus"
   ],
 
   "host_permissions": [
