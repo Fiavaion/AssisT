@@ -425,13 +425,19 @@ function highlightMenu_handleDictionary() {
 }
 
 /**
- * Handles Translate action (placeholder for Feature 6)
+ * Handles Translate action
  */
 function highlightMenu_handleTranslate() {
   console.log('[HighlightMenu] Translate action triggered');
-  alert(
-    `Translate: "${highlightMenu_selectedText}"\n\n(Feature 6 - Translation will be implemented later)`
-  );
+
+  // Check if translation UI is available
+  if (window.assistFeatures?.translationUI) {
+    window.assistFeatures.translationUI.openModal(highlightMenu_selectedText, 'auto', 'en');
+  } else {
+    console.warn('[HighlightMenu] Translation UI not loaded');
+    alert('Translation feature not available. Please reload the page.');
+  }
+
   highlightMenu_hide();
 }
 
@@ -446,13 +452,28 @@ function highlightMenu_handleSearch() {
 }
 
 /**
- * Handles Annotate action (placeholder for Feature 5)
+ * Handles Annotate action
  */
 function highlightMenu_handleAnnotate() {
   console.log('[HighlightMenu] Annotate action triggered');
-  alert(
-    `Add annotation for: "${highlightMenu_selectedText}"\n\n(Feature 5 - Annotations will be implemented later)`
-  );
+
+  // Check if inline annotations feature is available
+  if (window.assistFeatures?.inlineAnnotations) {
+    const { openAnnotationModal, getPositionFromRange } = window.assistFeatures.inlineAnnotations;
+
+    // Get position data from current selection
+    if (highlightMenu_selectionRange) {
+      const position = getPositionFromRange(highlightMenu_selectionRange);
+      openAnnotationModal(null, highlightMenu_selectedText, position);
+    } else {
+      console.warn('[HighlightMenu] No selection range available');
+      alert('Please select text again to annotate.');
+    }
+  } else {
+    console.warn('[HighlightMenu] Inline Annotations feature not loaded');
+    alert('Annotations feature not available. Please reload the page.');
+  }
+
   highlightMenu_hide();
 }
 

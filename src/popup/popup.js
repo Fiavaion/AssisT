@@ -566,6 +566,92 @@ class PopupController {
       });
     }
 
+    // ============================================================
+    // TRANSLATION SETTINGS
+    // ============================================================
+    const translationEnabled = document.getElementById('translation-enabled');
+    const translationOptionsContainer = document.getElementById('translation-options-container');
+
+    if (translationEnabled && translationOptionsContainer) {
+      // Initialize default settings
+      if (!this.settings.translation) {
+        this.settings.translation = {
+          enabled: true,
+          targetLanguage: 'en',
+        };
+      }
+
+      // Set initial checked state
+      translationEnabled.checked = this.settings.translation.enabled !== false;
+
+      // Show/hide options based on enabled state
+      if (translationEnabled.checked) {
+        translationOptionsContainer.classList.remove('hidden');
+      } else {
+        translationOptionsContainer.classList.add('hidden');
+      }
+
+      translationEnabled.addEventListener('change', e => {
+        this.settings.translation.enabled = e.target.checked;
+        this.saveSettings();
+
+        // Toggle options visibility
+        if (e.target.checked) {
+          translationOptionsContainer.classList.remove('hidden');
+        } else {
+          translationOptionsContainer.classList.add('hidden');
+        }
+
+        console.log('[Popup] Translation enabled:', e.target.checked);
+      });
+    }
+
+    // ============================================================
+    // TRANSLATION: TRANSLATE PAGE BUTTON
+    // ============================================================
+    const btnTranslatePage = document.getElementById('btn-translate-page');
+    const targetLanguageSelect = document.getElementById('translation-target-language');
+
+    if (btnTranslatePage && targetLanguageSelect) {
+      // Set initial target language from settings
+      targetLanguageSelect.value = this.settings.translation?.targetLanguage || 'en';
+
+      // Handle target language change
+      targetLanguageSelect.addEventListener('change', e => {
+        if (!this.settings.translation) {
+          this.settings.translation = { enabled: true };
+        }
+        this.settings.translation.targetLanguage = e.target.value;
+        this.saveSettings();
+        console.log('[Popup] Translation target language:', e.target.value);
+      });
+
+      // Handle translate page button click
+      btnTranslatePage.addEventListener('click', async () => {
+        console.log('[Popup] Translate Page button clicked');
+        this.updateStatus('Translating page...', 'processing');
+
+        const targetLang = targetLanguageSelect.value;
+
+        try {
+          // Send message to content script to trigger full-page translation
+          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+            type: 'TRANSLATE_PAGE',
+            targetLang: targetLang,
+          });
+
+          if (response && response.success) {
+            this.updateStatus('Page translated!', 'success');
+          } else {
+            this.updateStatus('Translation failed', 'error');
+          }
+        } catch (error) {
+          console.error('[Popup] Translation trigger failed:', error);
+          this.updateStatus('Translation error: ' + error.message, 'error');
+        }
+      });
+    }
+
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
     voiceSelect.addEventListener('change', e => {
@@ -949,6 +1035,63 @@ class PopupController {
                 </p>
               </div>
 
+              <!-- Annotation Settings Section -->
+              <div class="feature-item" style="margin-left: 24px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;">
+                <label class="feature-label" style="font-size: 13px; color: #666; font-weight: 500;">
+                  <span>⚙️ Annotation Settings:</span>
+                </label>
+
+                <!-- Default Color -->
+                <div style="margin-top: 10px;">
+                  <label for="annotations-default-color" style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
+                    Default Color for New Notes
+                  </label>
+                  <select id="annotations-default-color" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; width: 100%; max-width: 300px;">
+                    <option value="yellow">💛 Yellow (Recommended)</option>
+                    <option value="blue">💙 Blue</option>
+                    <option value="green">💚 Green</option>
+                    <option value="pink">💗 Pink</option>
+                    <option value="purple">💜 Purple</option>
+                  </select>
+                </div>
+
+                <!-- Default Note Size -->
+                <div style="margin-top: 10px;">
+                  <label for="annotations-default-size" style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
+                    Default Note Size
+                  </label>
+                  <select id="annotations-default-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; width: 100%; max-width: 300px;">
+                    <option value="small">📦 Small (150x100px)</option>
+                    <option value="medium">📦 Medium (200x200px)</option>
+                    <option value="large">📦 Large (300x250px)</option>
+                  </select>
+                </div>
+
+                <!-- Auto-save Toggle -->
+                <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="annotations-auto-save" checked style="cursor: pointer;">
+                  <label for="annotations-auto-save" style="font-size: 12px; color: #555; cursor: pointer;">
+                    Auto-save annotations (saves immediately on changes)
+                  </label>
+                </div>
+
+                <!-- Show Badge Toggle -->
+                <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="annotations-show-badge" checked style="cursor: pointer;">
+                  <label for="annotations-show-badge" style="font-size: 12px; color: #555; cursor: pointer;">
+                    Show annotation count badge
+                  </label>
+                </div>
+
+                <!-- Sidebar Auto-open Toggle -->
+                <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="annotations-sidebar-auto-open" checked style="cursor: pointer;">
+                  <label for="annotations-sidebar-auto-open" style="font-size: 12px; color: #555; cursor: pointer;">
+                    Auto-open sidebar on annotation click
+                  </label>
+                </div>
+              </div>
+
               <div class="feature-section-header">
                 <span>🎓 LMS Integration</span>
               </div>
@@ -1207,6 +1350,77 @@ class PopupController {
       });
     }
 
+    // ============================================================
+    // LOAD ANNOTATION SETTINGS
+    // ============================================================
+
+    // Initialize annotation settings if they don't exist
+    if (!this.settings.annotations) {
+      this.settings.annotations = {
+        storageMode: 'local',
+        defaultColor: 'yellow',
+        defaultNoteSize: 'medium',
+        autoSave: true,
+        showBadge: true,
+        sidebarAutoOpen: true,
+      };
+    }
+
+    // Load Default Color setting
+    const defaultColorSelect = document.getElementById('annotations-default-color');
+    if (defaultColorSelect) {
+      defaultColorSelect.value = this.settings.annotations.defaultColor || 'yellow';
+      defaultColorSelect.addEventListener('change', e => {
+        this.settings.annotations.defaultColor = e.target.value;
+        this.saveSettings();
+        console.log('[Popup] Annotation default color changed to:', e.target.value);
+      });
+    }
+
+    // Load Default Note Size setting
+    const defaultSizeSelect = document.getElementById('annotations-default-size');
+    if (defaultSizeSelect) {
+      defaultSizeSelect.value = this.settings.annotations.defaultNoteSize || 'medium';
+      defaultSizeSelect.addEventListener('change', e => {
+        this.settings.annotations.defaultNoteSize = e.target.value;
+        this.saveSettings();
+        console.log('[Popup] Annotation default size changed to:', e.target.value);
+      });
+    }
+
+    // Load Auto-save Toggle
+    const autoSaveToggle = document.getElementById('annotations-auto-save');
+    if (autoSaveToggle) {
+      autoSaveToggle.checked = this.settings.annotations.autoSave !== false;
+      autoSaveToggle.addEventListener('change', e => {
+        this.settings.annotations.autoSave = e.target.checked;
+        this.saveSettings();
+        console.log('[Popup] Annotation auto-save:', e.target.checked);
+      });
+    }
+
+    // Load Show Badge Toggle
+    const showBadgeToggle = document.getElementById('annotations-show-badge');
+    if (showBadgeToggle) {
+      showBadgeToggle.checked = this.settings.annotations.showBadge !== false;
+      showBadgeToggle.addEventListener('change', e => {
+        this.settings.annotations.showBadge = e.target.checked;
+        this.saveSettings();
+        console.log('[Popup] Annotation show badge:', e.target.checked);
+      });
+    }
+
+    // Load Sidebar Auto-open Toggle
+    const sidebarAutoOpenToggle = document.getElementById('annotations-sidebar-auto-open');
+    if (sidebarAutoOpenToggle) {
+      sidebarAutoOpenToggle.checked = this.settings.annotations.sidebarAutoOpen !== false;
+      sidebarAutoOpenToggle.addEventListener('change', e => {
+        this.settings.annotations.sidebarAutoOpen = e.target.checked;
+        this.saveSettings();
+        console.log('[Popup] Annotation sidebar auto-open:', e.target.checked);
+      });
+    }
+
     // Appearance settings
     const compactMode = document.getElementById('compact-mode');
     if (compactMode) {
@@ -1428,6 +1642,47 @@ class PopupController {
         this.settings.annotations = {};
       }
       this.settings.annotations.storageMode = storageMode.value;
+    }
+
+    // Save annotation settings
+    const defaultColorSelect = document.getElementById('annotations-default-color');
+    if (defaultColorSelect) {
+      if (!this.settings.annotations) {
+        this.settings.annotations = {};
+      }
+      this.settings.annotations.defaultColor = defaultColorSelect.value;
+    }
+
+    const defaultSizeSelect = document.getElementById('annotations-default-size');
+    if (defaultSizeSelect) {
+      if (!this.settings.annotations) {
+        this.settings.annotations = {};
+      }
+      this.settings.annotations.defaultNoteSize = defaultSizeSelect.value;
+    }
+
+    const autoSaveToggle = document.getElementById('annotations-auto-save');
+    if (autoSaveToggle) {
+      if (!this.settings.annotations) {
+        this.settings.annotations = {};
+      }
+      this.settings.annotations.autoSave = autoSaveToggle.checked;
+    }
+
+    const showBadgeToggle = document.getElementById('annotations-show-badge');
+    if (showBadgeToggle) {
+      if (!this.settings.annotations) {
+        this.settings.annotations = {};
+      }
+      this.settings.annotations.showBadge = showBadgeToggle.checked;
+    }
+
+    const sidebarAutoOpenToggle = document.getElementById('annotations-sidebar-auto-open');
+    if (sidebarAutoOpenToggle) {
+      if (!this.settings.annotations) {
+        this.settings.annotations = {};
+      }
+      this.settings.annotations.sidebarAutoOpen = sidebarAutoOpenToggle.checked;
     }
 
     // Save appearance settings
@@ -2938,6 +3193,7 @@ class PopupController {
     const annotationsDescription = document.getElementById('annotations-description');
     const annotationsOptions = document.getElementById('annotations-options');
     const createNoteButton = document.getElementById('btn-create-sticky-note');
+    const viewAnnotationsButton = document.getElementById('btn-view-annotations');
 
     // Set initial state
     annotationsEnabled.checked = this.settings.annotations.enabled || false;
@@ -2986,6 +3242,26 @@ class PopupController {
         this.updateStatus('Sticky note created!', 'success');
       } catch (error) {
         console.error('[Popup] Error creating sticky note:', error);
+        this.updateStatus('Error: Please reload the page', 'error');
+      }
+    });
+
+    // View annotations button
+    viewAnnotationsButton.addEventListener('click', async () => {
+      if (!this.currentTab) {
+        this.updateStatus('No active tab', 'error');
+        return;
+      }
+
+      try {
+        // Send message to content script to toggle annotation sidebar
+        await chrome.tabs.sendMessage(this.currentTab.id, {
+          type: 'toggleAnnotationSidebar',
+        });
+
+        this.updateStatus('Sidebar toggled', 'success');
+      } catch (error) {
+        console.error('[Popup] Error toggling sidebar:', error);
         this.updateStatus('Error: Please reload the page', 'error');
       }
     });
