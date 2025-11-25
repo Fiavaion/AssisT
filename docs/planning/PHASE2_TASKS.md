@@ -272,11 +272,13 @@
 
 ### Feature 11.2: Citation Formatting (Cite Them Right)
 
-**Status**: `[ ]` Pending
+**Status**: `[>]` In Progress
 **Estimated**: 1 week
+**Actual**: Started 2025-11-24 (Session 022)
 **Priority**: HIGH
-**Dependencies**: 11.1
+**Dependencies**: 11.1 ✓
 **Agent Config**: `task-agent-config.json` → Tasks 11.2.1-11.2.8, 11.2.9-11.2.12 (2 sub-agents)
+**Note**: Harvard formatter already exists from Feature 11.1.EXTRA (334 lines, 16 tests)
 
 **Tasks**:
 

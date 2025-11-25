@@ -22,11 +22,12 @@
 ## 🎯 Current Step
 
 **Phase**: 2.4 - Citation & Research Management
-**Step**: Feature 11.1 - Citation Capture & Metadata Extraction (Complete - 13/13 tasks)
-**Next Task**: Feature 11.2 - Citation Formatting (Cite Them Right)
+**Step**: Feature 11.2 - Citation Formatting (Cite Them Right) (In Progress - 0/12 tasks)
+**Previous**: Feature 11.1 - Citation Capture & Metadata Extraction (Complete - 13/13 tasks)
 
-**Status**: ✅ Feature 11.1 complete (100% - 13/13 tasks finished in session 021)
+**Status**: 🚧 Feature 11.2 in progress (started session 022)
 **Blocker**: None
+**Note**: Harvard formatter pre-existing (334 lines, 16 tests) - mainly need UI integration
 
 ---
 
