@@ -9,10 +9,11 @@
  * includes proper z-index management to avoid interfering with interactive elements.
  *
  * @module screenOverlay
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -184,85 +185,57 @@ function screenOverlay_disable() {
 // STORAGE & PERSISTENCE
 // ============================================================
 
+/** @type {Object} Default settings for screen overlay */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+  color: '#FFF4E6',
+  opacity: 0.3,
+};
+
 /**
- * Initializes screen overlay from stored settings.
- *
- * Loads the user's previous screen overlay configuration from Chrome storage
- * and applies it on page load. If the feature was enabled previously, it
- * will be re-enabled automatically.
- *
- * Storage Structure:
- * ```
- * assist_settings.screenOverlay = {
- *   enabled: boolean,
- *   color: string (hex color),
- *   opacity: number (0-1)
- * }
- * ```
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
+ */
+function applySettings(settings, isInit = false) {
+  const wasEnabled = screenOverlay_enabled;
+  const newEnabled = settings.enabled || false;
+
+  // Update settings
+  screenOverlay_settings.color = settings.color || DEFAULT_SETTINGS.color;
+  screenOverlay_settings.opacity = settings.opacity || DEFAULT_SETTINGS.opacity;
+
+  // Handle enable/disable
+  if (newEnabled && !wasEnabled) {
+    screenOverlay_enable();
+  } else if (!newEnabled && wasEnabled) {
+    screenOverlay_disable();
+  } else if (newEnabled && !isInit) {
+    // Update style if already enabled (but not on init, as enable() handles it)
+    screenOverlay_update();
+  }
+
+  console.log(
+    `[ScreenOverlay] Settings ${isInit ? 'loaded' : 'updated'}:`,
+    newEnabled,
+    screenOverlay_settings
+  );
+}
+
+/**
+ * Initialize screen overlay using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
  *
  * WCAG Considerations:
  * - Respects user preferences saved from previous sessions
- * - Logs settings for debugging and monitoring
- *
- * @private
- * @returns {void}
- */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.screenOverlay) {
-    const soSettings = result.assist_settings.screenOverlay;
-    screenOverlay_enabled = soSettings.enabled || false;
-    screenOverlay_settings.color = soSettings.color || '#FFF4E6';
-    screenOverlay_settings.opacity = soSettings.opacity || 0.3;
-
-    if (screenOverlay_enabled) {
-      screenOverlay_enable();
-    }
-
-    console.log('[ScreenOverlay] Settings loaded:', screenOverlay_enabled, screenOverlay_settings);
-  }
-});
-
-/**
- * Listens for storage changes and updates overlay accordingly.
- *
- * Monitors the Chrome storage API for changes to assist_settings.screenOverlay
- * and applies updates in real-time. Handles:
- * - Enable/disable toggling
- * - Color and opacity adjustments
- * - Smooth transitions between states
- *
- * WCAG Considerations:
  * - Real-time updates allow users to see changes immediately
- * - Maintains visual consistency across all pages
- * - Logs changes for debugging and accessibility monitoring
- *
- * @private
- * @returns {void}
  */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.screenOverlay) {
-    const soSettings = changes.assist_settings.newValue.screenOverlay;
-
-    const wasEnabled = screenOverlay_enabled;
-    const newEnabled = soSettings.enabled || false;
-
-    // Update settings
-    screenOverlay_settings.color = soSettings.color || '#FFF4E6';
-    screenOverlay_settings.opacity = soSettings.opacity || 0.3;
-
-    // Handle enable/disable
-    if (newEnabled && !wasEnabled) {
-      screenOverlay_enable();
-    } else if (!newEnabled && wasEnabled) {
-      screenOverlay_disable();
-    } else if (newEnabled) {
-      // Update style if already enabled
-      screenOverlay_update();
-    }
-
-    console.log('[ScreenOverlay] Settings updated:', newEnabled, screenOverlay_settings);
-  }
-});
+initFeatureSettings(
+  'screenOverlay',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
 // ============================================================
 // EXPORTS

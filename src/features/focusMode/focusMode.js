@@ -7,6 +7,7 @@
  * neurodivergent conditions.
  *
  * @module focusMode
+ * @version 1.1.0
  * @requires ../../core/ui/toast.js
  *
  * Features:
@@ -35,6 +36,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { readingGuide_disable, readingGuide_getEnabled } from '../readingGuide/readingGuide.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
 // MODULE STATE
@@ -285,65 +287,55 @@ function focusMode_handleMouseMove(event) {
 // INITIALIZATION & STORAGE LISTENERS
 // ============================================================
 
-/**
- * Initializes focus mode settings from Chrome storage.
- *
- * Loads settings on script initialization and automatically enables
- * the focus mode if it was previously enabled.
- *
- * @listens storage#onChanged
- */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.focusMode) {
-    const fmSettings = result.assist_settings.focusMode;
-    focusMode_enabled = fmSettings.enabled || false;
-    focusMode_settings.boxWidth = fmSettings.boxWidth || 400;
-    focusMode_settings.boxHeight = fmSettings.boxHeight || 100;
-    focusMode_settings.overlayOpacity = fmSettings.overlayOpacity || 0.7;
-
-    if (focusMode_enabled) {
-      focusMode_enable();
-    }
-
-    console.log('[FocusMode] Settings loaded:', focusMode_enabled, focusMode_settings);
-  }
-});
+/** @type {Object} Default settings for focus mode */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+  boxWidth: 400,
+  boxHeight: 100,
+  overlayOpacity: 0.7,
+};
 
 /**
- * Listens for changes to Chrome storage and updates focus mode settings.
- *
- * Updates are applied in real-time:
- * - Enables/disables focus mode based on settings
- * - Updates window style properties (size, opacity)
- * - Handles enable/disable transitions
- *
- * @listens storage#onChanged
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.focusMode) {
-    const fmSettings = changes.assist_settings.newValue.focusMode;
+function applySettings(settings, isInit = false) {
+  const wasEnabled = focusMode_enabled;
+  const newEnabled = settings.enabled || false;
 
-    const wasEnabled = focusMode_enabled;
-    const newEnabled = fmSettings.enabled || false;
+  // Update settings
+  focusMode_settings.boxWidth = settings.boxWidth || DEFAULT_SETTINGS.boxWidth;
+  focusMode_settings.boxHeight = settings.boxHeight || DEFAULT_SETTINGS.boxHeight;
+  focusMode_settings.overlayOpacity = settings.overlayOpacity || DEFAULT_SETTINGS.overlayOpacity;
 
-    // Update settings
-    focusMode_settings.boxWidth = fmSettings.boxWidth || 400;
-    focusMode_settings.boxHeight = fmSettings.boxHeight || 100;
-    focusMode_settings.overlayOpacity = fmSettings.overlayOpacity || 0.7;
-
-    // Handle enable/disable
-    if (newEnabled && !wasEnabled) {
-      focusMode_enable();
-    } else if (!newEnabled && wasEnabled) {
-      focusMode_disable();
-    } else if (newEnabled) {
-      // Update style if already enabled
-      focusMode_updateStyle();
-    }
-
-    console.log('[FocusMode] Settings updated:', newEnabled, focusMode_settings);
+  // Handle enable/disable
+  if (newEnabled && !wasEnabled) {
+    focusMode_enable();
+  } else if (!newEnabled && wasEnabled) {
+    focusMode_disable();
+  } else if (newEnabled && !isInit) {
+    // Update style if already enabled (but not on init, as enable() handles it)
+    focusMode_updateStyle();
   }
-});
+
+  console.log(
+    `[FocusMode] Settings ${isInit ? 'loaded' : 'updated'}:`,
+    newEnabled,
+    focusMode_settings
+  );
+}
+
+/**
+ * Initialize focus mode using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
+ */
+initFeatureSettings(
+  'focusMode',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
 // ============================================================
 // EXPORTS
