@@ -12,6 +12,7 @@ import { CitationStorage } from './citation-storage.js';
 import { showCitationEditModal, showSuccessToast, showErrorToast } from './citation-ui.js';
 import { enrichMetadataWithDOI } from './crossref-api.js';
 import { openBibliographyManager } from './bibliography-manager.js';
+import { openProjectManager } from './project-manager.js';
 
 /**
  * Save citation from current page with user confirmation
@@ -115,6 +116,7 @@ export function initCitation() {
     hasCurrentPageCitation,
     getCitationsForCurrentPage,
     openBibliographyManager,
+    openProjectManager,
   };
 
   console.log('[Citation] Citation feature initialized');
@@ -127,4 +129,5 @@ export default {
   hasCurrentPageCitation,
   getCitationsForCurrentPage,
   openBibliographyManager,
+  openProjectManager,
 };
