@@ -978,6 +978,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'GET_CITATIONS':
+      // Get all citations and projects for popup panel
+      console.log('[AssisT] Getting citations for popup panel');
+      if (window.assistFeatures && window.assistFeatures.citation) {
+        Promise.all([
+          window.assistFeatures.citation.getAllCitations(),
+          window.assistFeatures.citation.getAllProjects(),
+        ])
+          .then(([citations, projects]) => {
+            console.log('[AssisT] Citations retrieved:', citations.length);
+            sendResponse({ success: true, citations, projects });
+          })
+          .catch(error => {
+            console.error('[AssisT] Get citations error:', error);
+            sendResponse({ success: false, error: error.message, citations: [], projects: [] });
+          });
+        return true; // Will respond asynchronously
+      } else {
+        console.log('[AssisT] Citation feature not available, returning empty');
+        sendResponse({
+          success: false,
+          error: 'Citation not initialized',
+          citations: [],
+          projects: [],
+        });
+      }
+      break;
+
     default:
       console.warn('[AssisT] Unknown message type:', message.type);
       sendResponse({ success: false, error: 'Unknown message type' });

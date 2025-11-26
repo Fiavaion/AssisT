@@ -725,33 +725,122 @@
               <span>Save Citation</span>
             </button>
 
-            <!-- Citation Manager Button -->
+            <!-- Citation Action Buttons Row -->
+            <div style="display: flex; gap: 8px; margin-bottom: 8px">
+              <!-- Citation Manager Button -->
+              <button
+                id="btn-citation-manager"
+                data-testid="citation-manager-button"
+                class="control-btn secondary"
+                aria-label="Open full citation library"
+                style="
+                  flex: 1;
+                  background: white;
+                  color: #333;
+                  border: 1px solid #ddd;
+                  padding: 8px 12px;
+                  border-radius: 6px;
+                  font-size: 12px;
+                  font-weight: 500;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  transition: all 0.2s;
+                "
+                onmouseover="this.style.background='#f5f5f5'; this.style.borderColor='#ccc'"
+                onmouseout="this.style.background='white'; this.style.borderColor='#ddd'"
+              >
+                <span style="font-size: 14px">📚</span>
+                <span>Library</span>
+              </button>
+
+              <!-- Projects Button -->
+              <button
+                id="btn-citation-projects"
+                data-testid="citation-projects-button"
+                class="control-btn secondary"
+                aria-label="Manage citation projects"
+                style="
+                  flex: 1;
+                  background: white;
+                  color: #333;
+                  border: 1px solid #ddd;
+                  padding: 8px 12px;
+                  border-radius: 6px;
+                  font-size: 12px;
+                  font-weight: 500;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  transition: all 0.2s;
+                "
+                onmouseover="this.style.background='#f5f5f5'; this.style.borderColor='#ccc'"
+                onmouseout="this.style.background='white'; this.style.borderColor='#ddd'"
+              >
+                <span style="font-size: 14px">📁</span>
+                <span>Projects</span>
+              </button>
+            </div>
+
+            <!-- Expand/Collapse Citation Panel Button -->
             <button
-              id="btn-citation-manager"
-              data-testid="citation-manager-button"
-              class="control-btn secondary full-width"
-              aria-label="Open citation manager"
+              id="btn-expand-citations"
+              data-testid="expand-citations-button"
+              class="control-btn"
+              aria-label="Expand citation panel"
+              aria-expanded="false"
+              aria-controls="citation-manager-panel"
               style="
-                background: white;
-                color: #333;
-                border: 1px solid #ddd;
-                padding: 10px 16px;
-                border-radius: 8px;
-                font-size: 14px;
+                width: 100%;
+                background: #fffbeb;
+                color: #b45309;
+                border: 1px solid #fcd34d;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 12px;
                 font-weight: 500;
                 cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                gap: 8px;
+                gap: 6px;
                 transition: all 0.2s;
               "
-              onmouseover="this.style.background='#f5f5f5'; this.style.borderColor='#ccc'"
-              onmouseout="this.style.background='white'; this.style.borderColor='#ddd'"
+              onmouseover="this.style.background='#fef3c7'"
+              onmouseout="this.style.background='#fffbeb'"
             >
-              <span style="font-size: 16px">📋</span>
-              <span>View Citations</span>
+              <span id="expand-citations-icon" style="font-size: 12px; transition: transform 0.2s"
+                >▼</span
+              >
+              <span id="expand-citations-text">Show Quick View</span>
+              <span
+                id="citation-count-badge"
+                style="
+                  background: #f59e0b;
+                  color: white;
+                  padding: 2px 6px;
+                  border-radius: 10px;
+                  font-size: 10px;
+                  font-weight: 600;
+                "
+                >0</span
+              >
             </button>
+
+            <!-- Citation Manager Panel (hidden by default) -->
+            <div
+              id="citation-manager-panel"
+              class="citation-manager-panel-container"
+              role="region"
+              aria-label="Citation quick view panel"
+              style="display: none"
+            >
+              <!-- Panel content will be injected by CitationManagerPanel component -->
+            </div>
           </section>
         </div>
         <!-- End citation-options-container -->

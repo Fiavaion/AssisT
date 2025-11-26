@@ -13,12 +13,15 @@ import {
   eventToShortcut,
 } from '../utils/keyboard-shortcuts.js';
 import { migrateAnnotations } from '../features/annotations/migration-manager.js';
+import { CitationManagerPanel } from './citation-manager-panel.js';
 
 class PopupController {
   constructor() {
     this.settings = null;
     this.currentTab = null;
     this.isInitialized = false;
+    this.citationPanel = null;
+    this.citationPanelExpanded = false;
   }
 
   async initialize() {
@@ -706,6 +709,12 @@ class PopupController {
 
           if (response && response.success) {
             this.updateStatus('Citation saved!', 'success');
+            // Refresh citation count
+            await this.updateCitationCount();
+            // Refresh panel if expanded
+            if (this.citationPanelExpanded && this.citationPanel) {
+              await this.citationPanel.loadCitations();
+            }
           } else {
             this.updateStatus('Failed to save citation', 'error');
           }
@@ -742,6 +751,36 @@ class PopupController {
         }
       });
     }
+
+    // ============================================================
+    // CITATION: PROJECTS BUTTON
+    // ============================================================
+    const btnCitationProjects = document.getElementById('btn-citation-projects');
+
+    if (btnCitationProjects) {
+      btnCitationProjects.addEventListener('click', async () => {
+        console.log('[Popup] Citation Projects button clicked');
+        try {
+          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+            type: 'OPEN_PROJECT_MANAGER',
+          });
+          if (response?.success) {
+            this.updateStatus('Opening Projects...', 'info');
+            setTimeout(() => window.close(), 300);
+          } else {
+            throw new Error(response?.error || 'Failed to open');
+          }
+        } catch (error) {
+          console.error('[Popup] Error opening project manager:', error);
+          this.updateStatus('Failed to open Projects', 'error');
+        }
+      });
+    }
+
+    // ============================================================
+    // CITATION: EXPAND/COLLAPSE PANEL
+    // ============================================================
+    this.setupCitationPanel();
 
     // Voice selection
     const voiceSelect = document.getElementById('voice-select');
@@ -3641,6 +3680,86 @@ class PopupController {
     });
 
     console.log('[Popup] Annotations initialized');
+  }
+
+  // ============================================================
+  // CITATION: QUICK VIEW PANEL
+  // ============================================================
+  setupCitationPanel() {
+    const expandBtn = document.getElementById('btn-expand-citations');
+    const panelContainer = document.getElementById('citation-manager-panel');
+    const expandIcon = document.getElementById('expand-citations-icon');
+    const expandText = document.getElementById('expand-citations-text');
+
+    if (!expandBtn || !panelContainer) {
+      console.log('[Popup] Citation panel elements not found');
+      return;
+    }
+
+    // Initialize the citation manager panel
+    this.citationPanel = new CitationManagerPanel(panelContainer, {
+      onStatusUpdate: (msg, type) => this.updateStatus(msg, type),
+      currentTab: this.currentTab,
+    });
+
+    // Load citation count initially
+    this.updateCitationCount();
+
+    // Expand/collapse button handler
+    expandBtn.addEventListener('click', async () => {
+      this.citationPanelExpanded = !this.citationPanelExpanded;
+
+      if (this.citationPanelExpanded) {
+        // Expand
+        panelContainer.style.display = 'block';
+        expandIcon.style.transform = 'rotate(180deg)';
+        expandText.textContent = 'Hide Quick View';
+        expandBtn.setAttribute('aria-expanded', 'true');
+
+        // Initialize and show panel
+        await this.citationPanel.initialize();
+      } else {
+        // Collapse
+        panelContainer.style.display = 'none';
+        expandIcon.style.transform = 'rotate(0deg)';
+        expandText.textContent = 'Show Quick View';
+        expandBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    // Keyboard support
+    expandBtn.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        expandBtn.click();
+      }
+    });
+
+    console.log('[Popup] Citation panel initialized');
+  }
+
+  async updateCitationCount() {
+    const countBadge = document.getElementById('citation-count-badge');
+    if (!countBadge || !this.currentTab) {
+      return;
+    }
+
+    try {
+      const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+        type: 'GET_CITATIONS',
+      });
+
+      if (response && response.success) {
+        const count = response.citations?.length || 0;
+        countBadge.textContent = count;
+        countBadge.title = `${count} citation${count === 1 ? '' : 's'} saved`;
+      } else {
+        countBadge.textContent = '0';
+      }
+    } catch (error) {
+      console.log('[Popup] Could not get citation count:', error.message);
+      countBadge.textContent = '0';
+    }
   }
 }
 
