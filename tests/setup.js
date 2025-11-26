@@ -40,8 +40,17 @@ beforeEach(() => {
   jest.clearAllMocks();
 
   // Reset chrome.storage mocks to default behavior
-  chrome.storage.local.get.mockResolvedValue({});
-  chrome.storage.local.set.mockResolvedValue(undefined);
-  chrome.storage.local.remove.mockResolvedValue(undefined);
-  chrome.storage.local.clear.mockResolvedValue(undefined);
+  // Check if methods exist before calling mockResolvedValue (test files may override chrome object)
+  if (chrome?.storage?.local?.get?.mockResolvedValue) {
+    chrome.storage.local.get.mockResolvedValue({});
+  }
+  if (chrome?.storage?.local?.set?.mockResolvedValue) {
+    chrome.storage.local.set.mockResolvedValue(undefined);
+  }
+  if (chrome?.storage?.local?.remove?.mockResolvedValue) {
+    chrome.storage.local.remove.mockResolvedValue(undefined);
+  }
+  if (chrome?.storage?.local?.clear?.mockResolvedValue) {
+    chrome.storage.local.clear.mockResolvedValue(undefined);
+  }
 });

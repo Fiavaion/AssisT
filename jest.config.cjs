@@ -9,10 +9,16 @@ module.exports = {
 
   // Transform ES modules with Babel
   transform: {
-    '^.+\\.js$': ['babel-jest', {
+    '^.+\\.(js|mjs)$': ['babel-jest', {
       presets: [['@babel/preset-env', { targets: { node: 'current' } }]]
     }]
   },
+
+  // Allow Jest to transform ESM packages in node_modules
+  // Dexie uses ESM exports that Jest can't parse without transformation
+  transformIgnorePatterns: [
+    'node_modules/(?!(dexie)/)'
+  ],
 
   // Module name mapper for CSS and other non-JS imports
   moduleNameMapper: {
