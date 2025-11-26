@@ -1,6 +1,7 @@
 /**
  * @fileoverview Text Customization Feature Module
  * @module features/textCustomization
+ * @version 1.1.0
  *
  * Provides text customization capabilities for improved readability and accessibility.
  * Implements WCAG 2.2 SC 1.4.12 (Text Spacing) compliance with customizable typography.
@@ -16,6 +17,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
 // MODULE STATE
@@ -32,6 +34,12 @@ let textCustomization_enabled = false;
  * @type {HTMLStyleElement|null}
  */
 let textCustomization_styleElement = null;
+
+/**
+ * Reference to the font link element for loading external fonts
+ * @type {HTMLLinkElement|null}
+ */
+let textCustomization_fontLinkElement = null;
 
 /**
  * Current text customization settings
@@ -217,86 +225,65 @@ function textCustomization_remove() {
 // CHROME STORAGE INTEGRATION
 // ============================================================
 
-/**
- * Loads text customization settings from Chrome storage on module initialization.
- *
- * Retrieves persisted settings and applies them if text customization was
- * previously enabled. This ensures settings persist across browser sessions.
- *
- * @private
- * @returns {void}
- */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.textCustomization) {
-    const tcSettings = result.assist_settings.textCustomization;
-    textCustomization_enabled = tcSettings.enabled || false;
-    textCustomization_settings.fontFamily = tcSettings.fontFamily || 'system';
-    textCustomization_settings.lineSpacing = tcSettings.lineSpacing || 1.5;
-    textCustomization_settings.letterSpacing = tcSettings.letterSpacing || 0.12;
-    textCustomization_settings.wordSpacing = tcSettings.wordSpacing || 0.16;
-    textCustomization_settings.paragraphSpacing = tcSettings.paragraphSpacing || 2.0;
-
-    if (textCustomization_enabled) {
-      textCustomization_apply();
-    }
-
-    console.log(
-      '[TextCustomization] Settings loaded:',
-      textCustomization_enabled,
-      textCustomization_settings
-    );
-  }
-});
+/** @type {Object} Default settings for text customization */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+  fontFamily: 'system',
+  lineSpacing: 1.5,
+  letterSpacing: 0.12,
+  wordSpacing: 0.16,
+  paragraphSpacing: 2.0,
+};
 
 /**
- * Listens for storage changes and updates text customization accordingly.
- *
- * Monitors the Chrome storage API for changes to assist_settings.textCustomization
- * and applies updates in real-time. Handles:
- * - Enable/disable toggling with toast notifications
- * - Font family, spacing, and typography adjustments
- * - Smooth application of new settings
- *
- * WCAG Considerations:
- * - Real-time updates allow users to see changes immediately
- * - Toast notifications provide feedback for enable/disable actions
- * - Maintains text spacing compliance across setting changes
- *
- * @private
- * @returns {void}
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.textCustomization) {
-    const tcSettings = changes.assist_settings.newValue.textCustomization;
+function applySettings(settings, isInit = false) {
+  const wasEnabled = textCustomization_enabled;
+  const newEnabled = settings.enabled || false;
 
-    const wasEnabled = textCustomization_enabled;
-    textCustomization_enabled = tcSettings.enabled || false;
-    textCustomization_settings.fontFamily = tcSettings.fontFamily || 'system';
-    textCustomization_settings.lineSpacing = tcSettings.lineSpacing || 1.5;
-    textCustomization_settings.letterSpacing = tcSettings.letterSpacing || 0.12;
-    textCustomization_settings.wordSpacing = tcSettings.wordSpacing || 0.16;
-    textCustomization_settings.paragraphSpacing = tcSettings.paragraphSpacing || 2.0;
+  // Update all settings
+  textCustomization_enabled = newEnabled;
+  textCustomization_settings.fontFamily = settings.fontFamily || DEFAULT_SETTINGS.fontFamily;
+  textCustomization_settings.lineSpacing = settings.lineSpacing || DEFAULT_SETTINGS.lineSpacing;
+  textCustomization_settings.letterSpacing =
+    settings.letterSpacing || DEFAULT_SETTINGS.letterSpacing;
+  textCustomization_settings.wordSpacing = settings.wordSpacing || DEFAULT_SETTINGS.wordSpacing;
+  textCustomization_settings.paragraphSpacing =
+    settings.paragraphSpacing || DEFAULT_SETTINGS.paragraphSpacing;
 
-    // Apply or remove based on enabled state
-    if (textCustomization_enabled) {
-      textCustomization_apply();
-      if (!wasEnabled) {
-        showToast('Text Customization enabled');
-      }
-    } else {
-      textCustomization_remove();
-      if (wasEnabled) {
-        showToast('Text Customization disabled');
-      }
+  // Apply or remove based on enabled state
+  if (newEnabled) {
+    textCustomization_apply();
+    if (!wasEnabled && !isInit) {
+      showToast('Text Customization enabled');
     }
-
-    console.log(
-      '[TextCustomization] Settings updated:',
-      textCustomization_enabled,
-      textCustomization_settings
-    );
+  } else {
+    textCustomization_remove();
+    if (wasEnabled && !isInit) {
+      showToast('Text Customization disabled');
+    }
   }
-});
+
+  console.log(
+    `[TextCustomization] Settings ${isInit ? 'loaded' : 'updated'}:`,
+    newEnabled,
+    textCustomization_settings
+  );
+}
+
+/**
+ * Initialize text customization using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
+ */
+initFeatureSettings(
+  'textCustomization',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
 // ============================================================
 // EXPORTS

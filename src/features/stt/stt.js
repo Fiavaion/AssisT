@@ -8,10 +8,12 @@
  * - Self-initializing module with automatic cleanup
  *
  * @module features/stt/stt
+ * @version 1.1.0
  */
 
 import { isTextInput } from './validation.js';
 import { showToast } from '../../core/ui/toast.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
 // STT STATE MANAGEMENT
@@ -303,91 +305,86 @@ function stt_setupFieldListeners() {
 // CHROME STORAGE INTEGRATION (Self-Initializing)
 // ============================================================
 
-/**
- * Load STT settings from Chrome storage on module initialization
- *
- * This listener runs automatically when the module loads.
- * It retrieves saved settings and initializes STT if enabled.
- */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.stt) {
-    const sttSettings = result.assist_settings.stt;
-    stt_enabled = sttSettings.enabled || false;
-    stt_settings.continuous =
-      sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
-    stt_settings.interimResults =
-      sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
-    stt_settings.language = sttSettings.language || 'en-US';
-    stt_settings.autoCapitalize =
-      sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
-    stt_settings.punctuationCommands =
-      sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
-    stt_settings.floatingButton =
-      sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
-
-    if (stt_enabled) {
-      stt_initialize();
-    }
-
-    console.log('[STT] Settings loaded:', stt_enabled, stt_settings);
-  } else {
-    console.log('[STT] Feature disabled by default');
-  }
-});
+/** @type {Object} Default settings for STT */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+  continuousMode: true,
+  interimResults: true,
+  language: 'en-US',
+  autoCapitalize: true,
+  punctuationCommands: true,
+  floatingButton: true,
+};
 
 /**
- * Listen for real-time STT settings changes from Chrome storage
- *
- * This listener runs automatically and handles:
- * - Enable/disable state changes
- * - Settings updates while STT is active
- * - Controller reinitialization when needed
- *
- * @param {Object} changes - Storage changes object
- * @param {string} areaName - Storage area name ('local', 'sync', etc.)
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.stt) {
-    const sttSettings = changes.assist_settings.newValue.stt;
-    const newEnabled = sttSettings.enabled || false;
+function applySettings(settings, isInit = false) {
+  const wasEnabled = stt_enabled;
+  const newEnabled = settings.enabled || false;
 
-    // Update settings
-    stt_settings.continuous =
-      sttSettings.continuousMode !== undefined ? sttSettings.continuousMode : true;
-    stt_settings.interimResults =
-      sttSettings.interimResults !== undefined ? sttSettings.interimResults : true;
-    stt_settings.language = sttSettings.language || 'en-US';
-    stt_settings.autoCapitalize =
-      sttSettings.autoCapitalize !== undefined ? sttSettings.autoCapitalize : true;
-    stt_settings.punctuationCommands =
-      sttSettings.punctuationCommands !== undefined ? sttSettings.punctuationCommands : true;
-    stt_settings.floatingButton =
-      sttSettings.floatingButton !== undefined ? sttSettings.floatingButton : true;
+  // Update settings (handle both old and new key names)
+  stt_settings.continuous =
+    settings.continuousMode !== undefined
+      ? settings.continuousMode
+      : DEFAULT_SETTINGS.continuousMode;
+  stt_settings.interimResults =
+    settings.interimResults !== undefined
+      ? settings.interimResults
+      : DEFAULT_SETTINGS.interimResults;
+  stt_settings.language = settings.language || DEFAULT_SETTINGS.language;
+  stt_settings.autoCapitalize =
+    settings.autoCapitalize !== undefined
+      ? settings.autoCapitalize
+      : DEFAULT_SETTINGS.autoCapitalize;
+  stt_settings.punctuationCommands =
+    settings.punctuationCommands !== undefined
+      ? settings.punctuationCommands
+      : DEFAULT_SETTINGS.punctuationCommands;
+  stt_settings.floatingButton =
+    settings.floatingButton !== undefined
+      ? settings.floatingButton
+      : DEFAULT_SETTINGS.floatingButton;
 
-    // Handle enable/disable
-    if (newEnabled && !stt_enabled) {
-      stt_enabled = true;
-      stt_initialize();
+  // Handle enable/disable
+  if (newEnabled && !wasEnabled) {
+    stt_enabled = true;
+    stt_initialize();
+    if (!isInit) {
       showToast('🎤 Speech-to-Text enabled');
-    } else if (!newEnabled && stt_enabled) {
-      stt_enabled = false;
-      stt_cleanup();
-      showToast('Speech-to-Text disabled');
-    } else if (newEnabled && stt_controller) {
-      // Update controller settings if already initialized
-      stt_controller.updateSettings({
-        continuous: stt_settings.continuous,
-        interimResults: stt_settings.interimResults,
-        language: stt_settings.language,
-        autoCapitalize: stt_settings.autoCapitalize,
-        punctuationCommands: stt_settings.punctuationCommands,
-      });
-      console.log('[STT] Settings updated');
     }
-
-    console.log('[STT] Settings changed:', newEnabled, stt_settings);
+  } else if (!newEnabled && wasEnabled) {
+    stt_enabled = false;
+    stt_cleanup();
+    if (!isInit) {
+      showToast('Speech-to-Text disabled');
+    }
+  } else if (newEnabled && stt_controller && !isInit) {
+    // Update controller settings if already initialized
+    stt_controller.updateSettings({
+      continuous: stt_settings.continuous,
+      interimResults: stt_settings.interimResults,
+      language: stt_settings.language,
+      autoCapitalize: stt_settings.autoCapitalize,
+      punctuationCommands: stt_settings.punctuationCommands,
+    });
   }
-});
+
+  console.log(`[STT] Settings ${isInit ? 'loaded' : 'changed'}:`, newEnabled, stt_settings);
+}
+
+/**
+ * Initialize STT using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
+ */
+initFeatureSettings(
+  'stt',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
 // ============================================================
 // EXPORTS

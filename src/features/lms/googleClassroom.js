@@ -13,12 +13,14 @@
  * - Real-time settings updates via storage change listener
  *
  * @module features/lms/googleClassroom
+ * @version 1.1.0
  * @requires core/ui/toast
  * @requires chrome.storage
  * @requires chrome.runtime
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -373,49 +375,47 @@ function googleClassroom_removeFAB() {
  *   }
  * }
  */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.googleClassroomIntegration) {
-    const gciSettings = result.assist_settings.googleClassroomIntegration;
-    googleClassroom_enabled = gciSettings.enabled || false;
-
-    if (googleClassroom_enabled) {
-      googleClassroom_initialize();
-    }
-
-    console.log('[GoogleClassroom] Settings loaded:', googleClassroom_enabled);
-  } else {
-    console.log('[GoogleClassroom] Integration disabled by default');
-  }
-});
+/** @type {Object} Default settings for Google Classroom integration */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+};
 
 /**
- * Listens for Google Classroom integration settings updates
- *
- * Responds to real-time changes in Chrome Storage, enabling or disabling
- * the integration and providing user feedback via toast notifications.
- *
- * @listens chrome.storage.onChanged
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.googleClassroomIntegration) {
-    const gciSettings = changes.assist_settings.newValue.googleClassroomIntegration;
-    const newEnabled = gciSettings.enabled || false;
+function applySettings(settings, isInit = false) {
+  const wasEnabled = googleClassroom_enabled;
+  const newEnabled = settings.enabled || false;
 
-    if (newEnabled && !googleClassroom_enabled) {
-      // Enable integration
-      googleClassroom_enabled = true;
-      googleClassroom_initialize();
+  if (newEnabled && !wasEnabled) {
+    googleClassroom_enabled = true;
+    googleClassroom_initialize();
+    if (!isInit) {
       showToast('🎒 Google Classroom Integration enabled');
-    } else if (!newEnabled && googleClassroom_enabled) {
-      // Disable integration
-      googleClassroom_enabled = false;
-      googleClassroom_removeFAB();
+    }
+  } else if (!newEnabled && wasEnabled) {
+    googleClassroom_enabled = false;
+    googleClassroom_removeFAB();
+    if (!isInit) {
       showToast('Google Classroom Integration disabled');
     }
-
-    console.log('[GoogleClassroom] Settings updated:', newEnabled);
   }
-});
+
+  console.log(`[GoogleClassroom] Settings ${isInit ? 'loaded' : 'updated'}:`, newEnabled);
+}
+
+/**
+ * Initialize Google Classroom integration using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
+ */
+initFeatureSettings(
+  'googleClassroomIntegration',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
 // ============================================================
 // EXPORTS
@@ -436,5 +436,5 @@ export {
   googleClassroom_readContent,
   googleClassroom_readPosts,
   googleClassroom_readClasswork,
-  googleClassroom_removeFAB
+  googleClassroom_removeFAB,
 };

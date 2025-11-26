@@ -1,6 +1,7 @@
 /**
  * @fileoverview Moodle LMS Integration Feature Module
  * @module features/lms/moodle
+ * @version 1.1.0
  * @description Provides integration with Moodle LMS including assignment, forum, and page readers
  * with floating action button (FAB) UI for content accessibility.
  *
@@ -31,6 +32,7 @@
 
 // === IMPORTS ===
 import { showToast } from '../../core/ui/toast.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // === MODULE STATE ===
 
@@ -342,55 +344,47 @@ export function moodle_removeFAB() {
 
 // === SETTINGS MANAGEMENT ===
 
-/**
- * Load Moodle Integration settings from Chrome storage
- * @description
- * - Reads assist_settings.moodleIntegration from chrome.storage.local
- * - Sets moodle_enabled flag
- * - Auto-initializes features if enabled
- * @listens chrome.storage.local.get - On module load
- */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.moodleIntegration) {
-    const miSettings = result.assist_settings.moodleIntegration;
-    moodle_enabled = miSettings.enabled || false;
-
-    if (moodle_enabled) {
-      moodle_initialize();
-    }
-
-    console.log('[Moodle] Settings loaded:', moodle_enabled);
-  } else {
-    console.log('[Moodle] Integration disabled by default');
-  }
-});
+/** @type {Object} Default settings for Moodle integration */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+};
 
 /**
- * Listen for Moodle Integration settings updates
- * @description
- * - Monitors assist_settings.moodleIntegration changes
- * - Enables/disables features dynamically
- * - Shows user feedback toasts on state changes
- * @listens chrome.storage.onChanged - Real-time settings updates
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.moodleIntegration) {
-    const miSettings = changes.assist_settings.newValue.moodleIntegration;
-    const newEnabled = miSettings.enabled || false;
+function applySettings(settings, isInit = false) {
+  const wasEnabled = moodle_enabled;
+  const newEnabled = settings.enabled || false;
 
-    if (newEnabled && !moodle_enabled) {
-      moodle_enabled = true;
-      moodle_initialize();
+  if (newEnabled && !wasEnabled) {
+    moodle_enabled = true;
+    moodle_initialize();
+    if (!isInit) {
       showToast('📚 Moodle Integration enabled');
-    } else if (!newEnabled && moodle_enabled) {
-      moodle_enabled = false;
-      moodle_removeFAB();
+    }
+  } else if (!newEnabled && wasEnabled) {
+    moodle_enabled = false;
+    moodle_removeFAB();
+    if (!isInit) {
       showToast('Moodle Integration disabled');
     }
-
-    console.log('[Moodle] Settings updated:', newEnabled);
   }
-});
+
+  console.log(`[Moodle] Settings ${isInit ? 'loaded' : 'updated'}:`, newEnabled);
+}
+
+/**
+ * Initialize Moodle integration using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
+ */
+initFeatureSettings(
+  'moodleIntegration',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
 // === GLOBAL EXPORTS FOR WINDOW SCOPE ===
 // Export key functions to window for access by other modules if needed
