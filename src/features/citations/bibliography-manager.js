@@ -22,6 +22,7 @@ import {
 } from './citation-formatter.js';
 import { showSuccessToast, showErrorToast, showCitationEditModal } from './citation-ui.js';
 import { openProjectManager } from './project-manager.js';
+import { SourceEvaluator, openCraapTest } from './source-evaluator.js';
 
 /**
  * Bibliography Manager class
@@ -308,11 +309,18 @@ class BibliographyManager {
     const reference = formatReference(citation);
     const dateStr = citation.createdAt ? new Date(citation.createdAt).toLocaleDateString() : '';
 
+    // Calculate credibility score
+    const evaluation = SourceEvaluator.calculateCredibilityScore(citation, citation.craapScores);
+    const badgeHTML = this.renderCredibilityBadge(evaluation);
+
     return `
       <div class="bib-card" data-id="${citation.id}">
         <div class="bib-card-header">
           <span class="bib-card-type">${this.getTypeIcon(citation.type)} ${citation.type || 'webpage'}</span>
-          <span class="bib-card-date">${dateStr}</span>
+          <div class="bib-card-header-right">
+            ${badgeHTML}
+            <span class="bib-card-date">${dateStr}</span>
+          </div>
         </div>
         <h3 class="bib-card-title">${this.escapeHTML(citation.title)}</h3>
         <p class="bib-card-authors">${this.escapeHTML(citation.authors.join(', ') || 'Unknown author')}</p>
@@ -327,6 +335,7 @@ class BibliographyManager {
         </div>
         <div class="bib-card-actions">
           <button class="bib-action-btn bib-edit-btn" title="Edit citation">✏️ Edit</button>
+          <button class="bib-action-btn bib-evaluate-btn" title="Evaluate source quality">📊 Evaluate</button>
           <button class="bib-action-btn bib-copy-btn" title="Copy reference">📋 Copy</button>
           <button class="bib-action-btn bib-delete-btn" title="Delete citation">🗑️ Delete</button>
         </div>
@@ -340,6 +349,20 @@ class BibliographyManager {
             : ''
         }
       </div>
+    `;
+  }
+
+  /**
+   * Render credibility badge
+   */
+  renderCredibilityBadge(evaluation) {
+    const { score, level } = evaluation;
+    return `
+      <span class="bib-credibility-badge"
+            style="background: ${level.color};"
+            title="${level.label}: ${score}/100">
+        ${level.icon} ${score}
+      </span>
     `;
   }
 
@@ -406,6 +429,22 @@ class BibliographyManager {
             this.filterAndRender();
             showSuccessToast('Citation updated!');
           }
+        }
+      });
+    });
+
+    // Evaluate button (CRAAP test)
+    container.querySelectorAll('.bib-evaluate-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const card = btn.closest('.bib-card');
+        const citation = this.citations.find(c => String(c.id) === card.dataset.id);
+        if (citation) {
+          openCraapTest(citation, async () => {
+            this.citations = await CitationStorage.getAll();
+            this.filterAndRender();
+            showSuccessToast('Source evaluation saved!');
+          });
         }
       });
     });
@@ -696,6 +735,23 @@ class BibliographyManager {
       .bib-card-date {
         font-size: 12px;
         color: #999;
+      }
+
+      .bib-card-header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .bib-credibility-badge {
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
 
       .bib-card-title {
