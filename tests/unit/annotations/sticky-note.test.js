@@ -10,26 +10,17 @@
  * 7. Settings integration
  */
 
-import { createStickyNote, deleteStickyNote } from '../../../src/features/annotations/sticky-note.js';
+import { createStickyNote, deleteStickyNote, initializeStickyNotes } from '../../../src/features/annotations/sticky-note.js';
 import * as storageAdapter from '../../../src/features/annotations/storage-adapter.js';
 
-// Mock chrome APIs
-global.chrome = {
-  storage: {
-    local: {
-      get: jest.fn(),
-      set: jest.fn(),
-      onChanged: {
-        addListener: jest.fn()
-      }
-    }
-  },
-  runtime: {
-    onMessage: {
-      addListener: jest.fn()
-    }
-  }
-};
+// Extend chrome API mocks (setup.js provides base mock)
+// Add onChanged listener which is needed by sticky-note.js
+if (!global.chrome.storage.local.onChanged) {
+  global.chrome.storage.local.onChanged = { addListener: jest.fn() };
+}
+if (!global.chrome.runtime.onMessage) {
+  global.chrome.runtime.onMessage = { addListener: jest.fn() };
+}
 
 // Mock DOM
 document.body.innerHTML = '<div id="test-container"></div>';
@@ -46,7 +37,7 @@ jest.mock('../../../src/features/annotations/tag-manager.js', () => ({
 describe('Sticky Note Creation', () => {
   let mockAdapter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     document.body.innerHTML = '<div id="test-container"></div>';
 
@@ -78,6 +69,9 @@ describe('Sticky Note Creation', () => {
         callback({});
       }
     });
+
+    // Re-initialize after mocks are set up
+    await initializeStickyNotes();
   });
 
   test('should create sticky note with default settings', async () => {
@@ -182,12 +176,11 @@ describe('Sticky Note Creation', () => {
   });
 
   test('should use current window location as URL', async () => {
-    window.location.href = 'https://example.com/test';
-
+    // JSDOM defaults to http://localhost/ - we verify the module uses window.location.href
     const mockNote = {
       id: 1,
       type: 'note',
-      url: 'https://example.com/test',
+      url: window.location.href, // Use actual JSDOM location
       x: 100,
       y: 200,
       content: '',
@@ -203,7 +196,7 @@ describe('Sticky Note Creation', () => {
 
     expect(mockAdapter.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: 'https://example.com/test'
+        url: window.location.href // Verify module uses current location
       })
     );
   });
@@ -218,7 +211,7 @@ describe('Sticky Note Creation', () => {
 describe('Sticky Note Deletion', () => {
   let mockAdapter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     document.body.innerHTML = '<div id="test-container"></div>';
 
@@ -240,6 +233,9 @@ describe('Sticky Note Deletion', () => {
         }
       });
     });
+
+    // Re-initialize after mocks are set up
+    await initializeStickyNotes();
   });
 
   test('should delete sticky note from storage', async () => {
@@ -297,6 +293,9 @@ describe('Sticky Note Settings', () => {
       });
     });
 
+    // Re-initialize to load new settings
+    await initializeStickyNotes();
+
     const mockNote = {
       id: 1,
       type: 'note',
@@ -332,6 +331,9 @@ describe('Sticky Note Settings', () => {
       });
     });
 
+    // Re-initialize to load new settings
+    await initializeStickyNotes();
+
     const mockNote = {
       id: 1,
       type: 'note',
@@ -363,6 +365,9 @@ describe('Sticky Note Settings', () => {
         annotationStorageMode: 'local'
       });
     });
+
+    // Re-initialize to load new settings
+    await initializeStickyNotes();
 
     const mockNote = {
       id: 1,
@@ -493,6 +498,9 @@ describe('Sticky Note Content', () => {
       });
     });
 
+    // Re-initialize to load mocks
+    await initializeStickyNotes();
+
     await createStickyNote({ x: 100, y: 200, content: '' });
 
     expect(mockAdapter.create).toHaveBeenCalledWith(
@@ -530,6 +538,9 @@ describe('Sticky Note Content', () => {
       });
     });
 
+    // Re-initialize to load mocks
+    await initializeStickyNotes();
+
     await createStickyNote({ x: 100, y: 200, content: htmlContent });
 
     expect(mockAdapter.create).toHaveBeenCalledWith(
@@ -543,7 +554,7 @@ describe('Sticky Note Content', () => {
 describe('Sticky Note Error Handling', () => {
   let mockAdapter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockAdapter = {
       create: jest.fn(),
       update: jest.fn(),
@@ -559,6 +570,9 @@ describe('Sticky Note Error Handling', () => {
         annotations: { defaultColor: 'yellow', defaultNoteSize: 'medium' }
       });
     });
+
+    // Re-initialize after mocks are set up
+    await initializeStickyNotes();
   });
 
   test('should handle storage quota errors', async () => {

@@ -443,8 +443,9 @@ describe('CSV Export', () => {
     const result = exportToCSV(annotations);
 
     expect(result).toContain('Annotation');
-    expect(result).toContain('Highlighted: "Important text"');
-    expect(result).toContain('Comment: "Review this"');
+    // CSV escapes inner quotes by doubling them
+    expect(result).toContain('Highlighted: ""Important text""');
+    expect(result).toContain('Comment: ""Review this""');
   });
 
   test('should escape CSV special characters', () => {

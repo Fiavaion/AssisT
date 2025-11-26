@@ -14,22 +14,19 @@ import {
   createInlineAnnotation,
   openAnnotationModal,
   getPositionFromRange,
-  deleteAnnotation
+  deleteAnnotation,
+  initializeInlineAnnotations
 } from '../../../src/features/annotations/inline-annotations.js';
 import * as storageAdapter from '../../../src/features/annotations/storage-adapter.js';
 
-// Mock chrome APIs
-global.chrome = {
-  storage: {
-    local: {
-      get: jest.fn(),
-      set: jest.fn(),
-      onChanged: {
-        addListener: jest.fn()
-      }
-    }
-  }
-};
+// Extend chrome API mocks (setup.js provides base mock)
+// Add onChanged listener which is needed by inline-annotations.js
+if (!global.chrome.storage.local.onChanged) {
+  global.chrome.storage.local.onChanged = { addListener: jest.fn() };
+}
+if (!global.chrome.runtime.onMessage) {
+  global.chrome.runtime.onMessage = { addListener: jest.fn() };
+}
 
 // Mock DOM
 document.body.innerHTML = '<div id="test-container"><p id="test-paragraph">This is test text for annotations.</p></div>';
@@ -46,7 +43,7 @@ jest.mock('../../../src/features/annotations/tag-manager.js', () => ({
 describe('Inline Annotation Creation', () => {
   let mockAdapter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     document.body.innerHTML = '<div id="test-container"><p id="test-para">This is test text.</p></div>';
 
@@ -62,6 +59,9 @@ describe('Inline Annotation Creation', () => {
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({ annotationStorageMode: 'local' });
     });
+
+    // Re-initialize after mocks are set up
+    await initializeInlineAnnotations();
   });
 
   test('should create inline annotation with position data', async () => {
@@ -157,12 +157,11 @@ describe('Inline Annotation Creation', () => {
   });
 
   test('should use current window location as URL', async () => {
-    window.location.href = 'https://example.com/page';
-
+    // JSDOM defaults to http://localhost/ - we verify the module uses window.location.href
     const mockAnnotation = {
       id: 1,
       type: 'annotation',
-      url: 'https://example.com/page',
+      url: window.location.href, // Use actual JSDOM location
       selectedText: 'test',
       comment: '',
       color: 'yellow',
@@ -179,7 +178,7 @@ describe('Inline Annotation Creation', () => {
 
     expect(mockAdapter.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: 'https://example.com/page'
+        url: window.location.href // Verify module uses current location
       })
     );
   });
@@ -226,7 +225,7 @@ describe('Inline Annotation Creation', () => {
 describe('Annotation Deletion', () => {
   let mockAdapter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     document.body.innerHTML = '<div id="test-container"></div>';
 
@@ -242,6 +241,9 @@ describe('Annotation Deletion', () => {
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({ annotationStorageMode: 'local' });
     });
+
+    // Re-initialize after mocks are set up
+    await initializeInlineAnnotations();
   });
 
   test('should delete annotation from storage', async () => {
@@ -526,7 +528,7 @@ describe('Annotation Rendering', () => {
 describe('Error Handling', () => {
   let mockAdapter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockAdapter = {
       create: jest.fn(),
       update: jest.fn(),
@@ -539,6 +541,9 @@ describe('Error Handling', () => {
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({ annotationStorageMode: 'local' });
     });
+
+    // Re-initialize after mocks are set up
+    await initializeInlineAnnotations();
   });
 
   test('should handle invalid position data', async () => {
