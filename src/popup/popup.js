@@ -722,10 +722,24 @@ class PopupController {
     const btnCitationManager = document.getElementById('btn-citation-manager');
 
     if (btnCitationManager) {
-      btnCitationManager.addEventListener('click', () => {
+      btnCitationManager.addEventListener('click', async () => {
         console.log('[Popup] Citation Manager button clicked');
-        // TODO: Open citation manager page (Feature 11.6)
-        this.updateStatus('Citation manager coming soon!', 'info');
+        try {
+          // Send direct message to open bibliography manager
+          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+            type: 'OPEN_BIBLIOGRAPHY_MANAGER',
+          });
+          if (response?.success) {
+            this.updateStatus('Opening Citation Library...', 'info');
+            // Close popup after a brief delay
+            setTimeout(() => window.close(), 300);
+          } else {
+            throw new Error(response?.error || 'Failed to open');
+          }
+        } catch (error) {
+          console.error('[Popup] Error opening citation manager:', error);
+          this.updateStatus('Failed to open Citation Library', 'error');
+        }
       });
     }
 

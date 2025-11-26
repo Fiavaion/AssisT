@@ -11,6 +11,7 @@ import { extractMetadata, mergeMetadata, isPDF, extractPDFMetadata } from './met
 import { CitationStorage } from './citation-storage.js';
 import { showCitationEditModal, showSuccessToast, showErrorToast } from './citation-ui.js';
 import { enrichMetadataWithDOI } from './crossref-api.js';
+import { openBibliographyManager } from './bibliography-manager.js';
 
 /**
  * Save citation from current page with user confirmation
@@ -113,6 +114,7 @@ export function initCitation() {
     getCitationCountForCurrentPage,
     hasCurrentPageCitation,
     getCitationsForCurrentPage,
+    openBibliographyManager,
   };
 
   console.log('[Citation] Citation feature initialized');
@@ -124,4 +126,5 @@ export default {
   getCitationCountForCurrentPage,
   hasCurrentPageCitation,
   getCitationsForCurrentPage,
+  openBibliographyManager,
 };
