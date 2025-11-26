@@ -21,6 +21,7 @@ import {
   formatReferenceHTML,
 } from './citation-formatter.js';
 import { showSuccessToast, showErrorToast, showCitationEditModal } from './citation-ui.js';
+import { openProjectManager } from './project-manager.js';
 
 /**
  * Bibliography Manager class
@@ -124,6 +125,11 @@ class BibliographyManager {
         </div>
 
         <div class="bib-footer">
+          <div class="bib-footer-left">
+            <button class="bib-projects-btn" title="Open Project Manager">
+              📁 Projects
+            </button>
+          </div>
           <div class="bib-export-section">
             <span class="bib-export-label">Export Bibliography:</span>
             <button class="bib-export-btn" data-format="copy" title="Copy to clipboard">
@@ -194,6 +200,15 @@ class BibliographyManager {
         this.exportBibliography(format);
       });
     });
+
+    // Projects button - opens Project Manager
+    const projectsBtn = overlay.querySelector('.bib-projects-btn');
+    if (projectsBtn) {
+      projectsBtn.addEventListener('click', async () => {
+        this.close();
+        await openProjectManager();
+      });
+    }
   }
 
   /**
@@ -822,6 +837,36 @@ class BibliographyManager {
         border-top: 1px solid #e0e0e0;
         background: #f9f9f9;
         border-radius: 0 0 12px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .bib-footer-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .bib-projects-btn {
+        padding: 8px 16px;
+        border: 1px solid #9c27b0;
+        background: white;
+        color: #9c27b0;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .bib-projects-btn:hover {
+        background: #9c27b0;
+        color: white;
       }
 
       .bib-export-section {

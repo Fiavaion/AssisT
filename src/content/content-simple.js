@@ -957,6 +957,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'OPEN_PROJECT_MANAGER':
+      // Open the project manager modal
+      console.log('[AssisT] Opening Project Manager from popup button');
+      if (window.assistFeatures && window.assistFeatures.citation) {
+        window.assistFeatures.citation
+          .openProjectManager()
+          .then(() => {
+            console.log('[AssisT] Project Manager opened');
+            sendResponse({ success: true });
+          })
+          .catch(error => {
+            console.error('[AssisT] Project Manager error:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true; // Will respond asynchronously
+      } else {
+        console.error('[AssisT] Citation feature not available');
+        sendResponse({ success: false, error: 'Citation not initialized' });
+      }
+      break;
+
     default:
       console.warn('[AssisT] Unknown message type:', message.type);
       sendResponse({ success: false, error: 'Unknown message type' });
