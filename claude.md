@@ -102,6 +102,65 @@ When encountering ANY bug (UI, logic, integration, build):
 - THIRD ACTION: Check CSS (`pointer-events`, `z-index`) and DOM structure
 - See `LESSONS_UI_EVENT_HANDLING.md` for full playbook
 
+---
+
+🧠 OPUS 4.5 ENHANCED CAPABILITIES
+
+**Model-Specific Optimizations**: When running with Claude Opus 4.5, the following constraints are relaxed to leverage enhanced reasoning capabilities.
+
+### Multi-File Changes (Relaxed from ONE-CHANGE-AT-A-TIME)
+
+The original protocol required modifying only ONE file at a time. With Opus 4.5:
+
+- **ALLOWED**: Modify 2-3 related files in a single logical change
+  - Example: New module + its integration point + its test file
+  - Example: Rename function across up to 5 files
+  - Example: Extract code to new file + update imports
+- **STILL REQUIRED**: Run `npm run build` after each logical change
+- **STILL REQUIRED**: Test in Chrome after build
+- **STILL FORBIDDEN**: Large architectural refactors without user approval
+- **STILL FORBIDDEN**: Changing more than 5 files simultaneously
+
+### Debugging Protocol (Relaxed from 5-Minute Rule)
+
+The original protocol required switching strategies after 5 minutes. With Opus 4.5:
+
+- **Extended to 10-minute rule** for complex bugs
+- **ALLOWED**: Read and reason about code before adding debug logging (60-120 seconds)
+- **ALLOWED**: Form hypothesis through code analysis, then verify with targeted logging
+- **STILL REQUIRED**: If 10 minutes pass without progress, escalate or pivot
+- **STILL REQUIRED**: Document findings for user context
+
+### Sub-Agent Task Prompts (Simplified)
+
+Sub-agent prompts can be more concise with Opus 4.5:
+
+- **Focus on WHAT** to build, trust model to determine HOW
+- **Remove** explicit line count estimates (artificial constraint)
+- **Remove** detailed CSS specifications (follow existing patterns)
+- **Remove** explicit function signatures (let model determine optimal design)
+- **Keep** integration points, file locations, and accessibility requirements
+
+### Refactoring Capabilities
+
+With Opus 4.5's enhanced reasoning:
+
+- **ALLOWED**: Use `/refactor` command for coordinated multi-file changes
+- **ALLOWED**: Extract modules with confidence in dependency tracking
+- **STILL REQUIRED**: Create safety net (git stash or branch) before refactoring
+- **STILL REQUIRED**: Verify tests pass before and after refactoring
+
+### When to Fall Back to Conservative Mode
+
+Use the original strict constraints when:
+
+- Working on critical/production code paths
+- Debugging issues that have already consumed significant time
+- Making changes requested by user that seem risky
+- Unsure about the impact of changes
+
+---
+
 🚀 Automated Versioning and Rollback Setup
 To facilitate automatic progress versioning and reliable rollback capability, use the following steps to set up the push alias:
 
