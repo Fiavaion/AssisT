@@ -36,6 +36,7 @@ class BibliographyManager {
     this.searchQuery = '';
     this.sortBy = 'createdAt';
     this.sortOrder = 'desc';
+    this.minQualityScore = 0;
   }
 
   /**
@@ -107,6 +108,14 @@ class BibliographyManager {
               aria-label="Search citations"
             />
           </div>
+          <div class="bib-filter-container">
+            <select id="bib-quality-filter" aria-label="Filter by quality">
+              <option value="all">All Quality Levels</option>
+              <option value="75">High Quality (75+)</option>
+              <option value="50">Medium+ (50+)</option>
+              <option value="0">Show All</option>
+            </select>
+          </div>
           <div class="bib-sort-container">
             <select id="bib-sort" aria-label="Sort citations">
               <option value="createdAt-desc">Newest First</option>
@@ -115,8 +124,11 @@ class BibliographyManager {
               <option value="title-desc">Title (Z-A)</option>
               <option value="author-asc">Author (A-Z)</option>
               <option value="author-desc">Author (Z-A)</option>
+              <option value="quality-desc">Quality (High First)</option>
+              <option value="quality-asc">Quality (Low First)</option>
             </select>
           </div>
+          <button class="bib-summary-btn" title="View Quality Summary">📊</button>
         </div>
 
         <div class="bib-content">
@@ -193,6 +205,22 @@ class BibliographyManager {
       this.filterAndRender();
     });
 
+    // Quality filter select
+    const qualityFilter = overlay.querySelector('#bib-quality-filter');
+    if (qualityFilter) {
+      qualityFilter.addEventListener('change', e => {
+        const value = e.target.value;
+        this.minQualityScore = value === 'all' ? 0 : parseInt(value, 10);
+        this.filterAndRender();
+      });
+    }
+
+    // Summary button - shows quality distribution
+    const summaryBtn = overlay.querySelector('.bib-summary-btn');
+    if (summaryBtn) {
+      summaryBtn.addEventListener('click', () => this.showQualitySummary());
+    }
+
     // Export buttons
     const exportBtns = overlay.querySelectorAll('.bib-export-btn');
     exportBtns.forEach(btn => {
@@ -236,6 +264,15 @@ class BibliographyManager {
       this.filteredCitations = [...this.citations];
     }
 
+    // Quality filter
+    if (this.minQualityScore > 0) {
+      this.filteredCitations = this.filteredCitations.filter(citation => {
+        const score =
+          citation.credibilityScore ?? SourceEvaluator.calculateCredibilityScore(citation).score;
+        return score >= this.minQualityScore;
+      });
+    }
+
     // Sort
     this.filteredCitations.sort((a, b) => {
       let aVal, bVal;
@@ -248,6 +285,10 @@ class BibliographyManager {
         case 'author':
           aVal = a.authors[0]?.toLowerCase() || '';
           bVal = b.authors[0]?.toLowerCase() || '';
+          break;
+        case 'quality':
+          aVal = a.credibilityScore ?? SourceEvaluator.calculateCredibilityScore(a).score;
+          bVal = b.credibilityScore ?? SourceEvaluator.calculateCredibilityScore(b).score;
           break;
         default:
           aVal = a.createdAt || 0;
@@ -558,6 +599,99 @@ class BibliographyManager {
   }
 
   /**
+   * Show quality summary modal
+   */
+  showQualitySummary() {
+    const summary = SourceEvaluator.getEvaluationSummary(this.citations);
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'bib-summary-overlay';
+    overlay.innerHTML = `
+      <div class="bib-summary-modal">
+        <div class="bib-summary-header">
+          <h3>📊 Source Quality Summary</h3>
+          <button class="bib-summary-close" aria-label="Close">✕</button>
+        </div>
+        <div class="bib-summary-content">
+          <div class="bib-summary-stats">
+            <div class="bib-stat">
+              <span class="bib-stat-value">${summary.total}</span>
+              <span class="bib-stat-label">Total Sources</span>
+            </div>
+            <div class="bib-stat">
+              <span class="bib-stat-value">${summary.averageScore}</span>
+              <span class="bib-stat-label">Avg. Quality</span>
+            </div>
+          </div>
+
+          <div class="bib-quality-bars">
+            <div class="bib-quality-bar">
+              <div class="bib-bar-label">
+                <span style="color: #4caf50;">✓ High Quality (75+)</span>
+                <span>${summary.distribution.high}</span>
+              </div>
+              <div class="bib-bar-track">
+                <div class="bib-bar-fill" style="width: ${summary.total > 0 ? (summary.distribution.high / summary.total) * 100 : 0}%; background: #4caf50;"></div>
+              </div>
+            </div>
+            <div class="bib-quality-bar">
+              <div class="bib-bar-label">
+                <span style="color: #ff9800;">! Medium Quality (50-74)</span>
+                <span>${summary.distribution.medium}</span>
+              </div>
+              <div class="bib-bar-track">
+                <div class="bib-bar-fill" style="width: ${summary.total > 0 ? (summary.distribution.medium / summary.total) * 100 : 0}%; background: #ff9800;"></div>
+              </div>
+            </div>
+            <div class="bib-quality-bar">
+              <div class="bib-bar-label">
+                <span style="color: #f44336;">✗ Low Quality (<50)</span>
+                <span>${summary.distribution.low}</span>
+              </div>
+              <div class="bib-bar-track">
+                <div class="bib-bar-fill" style="width: ${summary.total > 0 ? (summary.distribution.low / summary.total) * 100 : 0}%; background: #f44336;"></div>
+              </div>
+            </div>
+          </div>
+
+          ${
+            Object.keys(summary.byType).length > 0
+              ? `
+            <div class="bib-type-summary">
+              <h4>By Source Type</h4>
+              ${Object.entries(summary.byType)
+                .sort((a, b) => b[1].count - a[1].count)
+                .map(
+                  ([type, data]) => `
+                <div class="bib-type-row">
+                  <span class="bib-type-name">${type}</span>
+                  <span class="bib-type-count">${data.count}</span>
+                  <span class="bib-type-score">avg: ${data.averageScore}</span>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          `
+              : ''
+          }
+        </div>
+      </div>
+    `;
+
+    // Event listeners
+    overlay.querySelector('.bib-summary-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    });
+
+    document.body.appendChild(overlay);
+  }
+
+  /**
    * Escape HTML to prevent XSS
    */
   escapeHTML(str) {
@@ -683,13 +817,159 @@ class BibliographyManager {
         box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
       }
 
-      .bib-sort-container select {
+      .bib-sort-container select,
+      .bib-filter-container select {
         padding: 10px 14px;
         border: 1px solid #d0d0d0;
         border-radius: 8px;
         font-size: 14px;
         background: white;
         cursor: pointer;
+      }
+
+      .bib-summary-btn {
+        padding: 10px 14px;
+        border: 1px solid #d0d0d0;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        font-size: 16px;
+        transition: all 0.2s;
+      }
+
+      .bib-summary-btn:hover {
+        background: #e3f2fd;
+        border-color: #2196f3;
+      }
+
+      /* Summary Modal Styles */
+      .bib-summary-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999998;
+      }
+
+      .bib-summary-modal {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 450px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      }
+
+      .bib-summary-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .bib-summary-header h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .bib-summary-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: #666;
+      }
+
+      .bib-summary-content {
+        padding: 20px;
+      }
+
+      .bib-summary-stats {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 24px;
+      }
+
+      .bib-stat {
+        flex: 1;
+        text-align: center;
+        padding: 16px;
+        background: #f5f5f5;
+        border-radius: 8px;
+      }
+
+      .bib-stat-value {
+        display: block;
+        font-size: 32px;
+        font-weight: 700;
+        color: #2196f3;
+      }
+
+      .bib-stat-label {
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+      }
+
+      .bib-quality-bars {
+        margin-bottom: 24px;
+      }
+
+      .bib-quality-bar {
+        margin-bottom: 12px;
+      }
+
+      .bib-bar-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      .bib-bar-track {
+        height: 8px;
+        background: #e0e0e0;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .bib-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s;
+      }
+
+      .bib-type-summary h4 {
+        margin: 0 0 12px;
+        font-size: 14px;
+        color: #666;
+      }
+
+      .bib-type-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+      }
+
+      .bib-type-name {
+        text-transform: capitalize;
+      }
+
+      .bib-type-count {
+        color: #666;
+      }
+
+      .bib-type-score {
+        color: #2196f3;
+        font-weight: 500;
       }
 
       .bib-content {
