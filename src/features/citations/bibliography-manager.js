@@ -23,6 +23,7 @@ import {
 import { showSuccessToast, showErrorToast, showCitationEditModal } from './citation-ui.js';
 import { openProjectManager } from './project-manager.js';
 import { SourceEvaluator, openCraapTest } from './source-evaluator.js';
+import { exportCitations, importCitations, createBackup } from './citation-export.js';
 
 /**
  * Bibliography Manager class
@@ -142,17 +143,32 @@ class BibliographyManager {
             <button class="bib-projects-btn" title="Open Project Manager">
               📁 Projects
             </button>
+            <div class="bib-import-container">
+              <button class="bib-import-btn" title="Import citations">
+                📥 Import
+              </button>
+              <input type="file" id="bib-import-file" accept=".ris,.bib,.json" hidden />
+            </div>
+            <button class="bib-backup-btn" title="Backup all citations">
+              💾 Backup
+            </button>
           </div>
           <div class="bib-export-section">
-            <span class="bib-export-label">Export Bibliography:</span>
+            <span class="bib-export-label">Export:</span>
             <button class="bib-export-btn" data-format="copy" title="Copy to clipboard">
               📋 Copy
             </button>
             <button class="bib-export-btn" data-format="txt" title="Download as TXT">
               📄 TXT
             </button>
-            <button class="bib-export-btn" data-format="html" title="Download as HTML">
-              🌐 HTML
+            <button class="bib-export-btn" data-format="bibtex" title="Download as BibTeX">
+              🎓 BibTeX
+            </button>
+            <button class="bib-export-btn" data-format="ris" title="Download as RIS (Zotero)">
+              📚 RIS
+            </button>
+            <button class="bib-export-btn" data-format="json" title="Download as JSON">
+              { } JSON
             </button>
           </div>
         </div>
@@ -229,6 +245,32 @@ class BibliographyManager {
         this.exportBibliography(format);
       });
     });
+
+    // Import button
+    const importBtn = overlay.querySelector('.bib-import-btn');
+    const importFile = overlay.querySelector('#bib-import-file');
+    if (importBtn && importFile) {
+      importBtn.addEventListener('click', () => importFile.click());
+      importFile.addEventListener('change', async e => {
+        if (e.target.files?.length > 0) {
+          try {
+            await importCitations(e.target.files[0]);
+            // Refresh citations
+            this.citations = await CitationStorage.getAll();
+            this.filterAndRender();
+          } catch {
+            // Error handled in importCitations
+          }
+          e.target.value = ''; // Reset file input
+        }
+      });
+    }
+
+    // Backup button
+    const backupBtn = overlay.querySelector('.bib-backup-btn');
+    if (backupBtn) {
+      backupBtn.addEventListener('click', () => createBackup());
+    }
 
     // Projects button - opens Project Manager
     const projectsBtn = overlay.querySelector('.bib-projects-btn');
@@ -532,6 +574,14 @@ class BibliographyManager {
         const htmlContent = this.generateHTMLBibliography();
         this.downloadFile(htmlContent, 'bibliography.html', 'text/html');
         showSuccessToast('Bibliography downloaded as HTML');
+        break;
+
+      case 'bibtex':
+      case 'ris':
+      case 'json':
+      case 'csv':
+        // Use the export module for these formats
+        exportCitations(format, this.filteredCitations);
         break;
     }
   }
@@ -1203,6 +1253,32 @@ class BibliographyManager {
       .bib-projects-btn:hover {
         background: #9c27b0;
         color: white;
+      }
+
+      .bib-import-btn,
+      .bib-backup-btn {
+        padding: 8px 16px;
+        border: 1px solid #2196f3;
+        background: white;
+        color: #2196f3;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .bib-import-btn:hover,
+      .bib-backup-btn:hover {
+        background: #2196f3;
+        color: white;
+      }
+
+      .bib-import-container {
+        display: flex;
+        align-items: center;
       }
 
       .bib-export-section {
