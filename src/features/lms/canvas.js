@@ -6,12 +6,14 @@
  * on detected page type.
  *
  * @module features/lms/canvas
+ * @version 1.1.0
  * @requires core/ui/toast
  * @requires chrome.storage API
  * @requires chrome.runtime API
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 /**
  * Global state for Canvas integration
@@ -218,7 +220,7 @@ export function initializeCanvasModule(readText, settings) {
 let quizHelper_enabled = false;
 let quizHelper_questions = [];
 let quizHelper_currentIndex = -1;
-let quizHelper_settings = {
+const quizHelper_settings = {
   readAnswers: true,
   autoRead: false,
   highlightQuestion: true,
@@ -522,96 +524,99 @@ function quizHelper_cleanup() {
   console.log('[QuizHelper] Cleanup complete');
 }
 
+/** @type {Object} Default settings for Canvas integration */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+  quizHelper: {
+    enabled: false,
+    readAnswers: true,
+    autoRead: false,
+    highlightQuestion: true,
+    highlightColor: '#4A90E2',
+    keyboardNavigation: true,
+  },
+};
+
 /**
- * Chrome Storage initialization
- * @description Loads Canvas integration settings from chrome.storage.local
- * and initializes features if enabled
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.canvasIntegration) {
-    const ciSettings = result.assist_settings.canvasIntegration;
-    canvas_enabled = ciSettings.enabled || false;
+function applySettings(settings, isInit = false) {
+  const wasEnabled = canvas_enabled;
+  const newEnabled = settings.enabled || false;
 
-    // Load Quiz Helper settings
-    const qhSettings = ciSettings.quizHelper;
-    if (typeof qhSettings === 'object') {
-      quizHelper_enabled = qhSettings.enabled || false;
-      quizHelper_settings.readAnswers = qhSettings.readAnswers !== false;
-      quizHelper_settings.autoRead = qhSettings.autoRead || false;
-      quizHelper_settings.highlightQuestion = qhSettings.highlightQuestion !== false;
-      quizHelper_settings.highlightColor = qhSettings.highlightColor || '#4A90E2';
-      quizHelper_settings.keyboardNavigation = qhSettings.keyboardNavigation !== false;
-    } else if (qhSettings !== undefined) {
-      quizHelper_enabled = qhSettings || false;
-    }
+  // Load Quiz Helper settings
+  const qhSettings = settings.quizHelper;
+  const wasQHEnabled = quizHelper_enabled;
 
-    if (canvas_enabled) {
-      canvas_initialize();
-    }
-
-    console.log('[Canvas] Settings loaded - Canvas:', canvas_enabled, 'QuizHelper:', quizHelper_enabled);
-  } else {
-    console.log('[Canvas] Integration disabled by default');
+  if (typeof qhSettings === 'object') {
+    quizHelper_settings.readAnswers = qhSettings.readAnswers !== false;
+    quizHelper_settings.autoRead = qhSettings.autoRead || false;
+    quizHelper_settings.highlightQuestion = qhSettings.highlightQuestion !== false;
+    quizHelper_settings.highlightColor =
+      qhSettings.highlightColor || DEFAULT_SETTINGS.quizHelper.highlightColor;
+    quizHelper_settings.keyboardNavigation = qhSettings.keyboardNavigation !== false;
   }
-});
 
-/**
- * Chrome Storage change listener
- * @description Listens for changes to Canvas integration settings and
- * dynamically enables/disables features without requiring page reload
- */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.canvasIntegration) {
-    const ciSettings = changes.assist_settings.newValue.canvasIntegration;
-    const newEnabled = ciSettings.enabled || false;
-
-    // Handle Canvas integration enable/disable
-    if (newEnabled && !canvas_enabled) {
-      canvas_enabled = true;
-      canvas_initialize();
+  // Handle Canvas integration enable/disable
+  if (newEnabled && !wasEnabled) {
+    canvas_enabled = true;
+    canvas_initialize();
+    if (!isInit) {
       showToast('🎓 Canvas Integration enabled');
-    } else if (!newEnabled && canvas_enabled) {
-      canvas_enabled = false;
-      canvas_removeFAB();
-      quizHelper_cleanup();
+    }
+  } else if (!newEnabled && wasEnabled) {
+    canvas_enabled = false;
+    canvas_removeFAB();
+    quizHelper_cleanup();
+    if (!isInit) {
       showToast('Canvas Integration disabled');
     }
+  }
 
-    // Handle Quiz Helper settings updates
-    const qhSettings = ciSettings.quizHelper;
-    if (qhSettings) {
-      const wasEnabled = quizHelper_enabled;
+  // Handle Quiz Helper settings updates (only if Canvas is enabled)
+  if (qhSettings && canvas_enabled) {
+    const newQHEnabled =
+      typeof qhSettings === 'object' ? qhSettings.enabled || false : qhSettings || false;
 
-      if (typeof qhSettings === 'object') {
-        const newQHEnabled = qhSettings.enabled || false;
-
-        // Update settings
-        quizHelper_settings.readAnswers = qhSettings.readAnswers !== false;
-        quizHelper_settings.autoRead = qhSettings.autoRead || false;
-        quizHelper_settings.highlightQuestion = qhSettings.highlightQuestion !== false;
-        quizHelper_settings.highlightColor = qhSettings.highlightColor || '#4A90E2';
-        quizHelper_settings.keyboardNavigation = qhSettings.keyboardNavigation !== false;
-
-        // Handle enable/disable
-        if (newQHEnabled && !wasEnabled && canvas_enabled) {
-          quizHelper_enabled = true;
-          canvas_initializeQuizHelper();
-        } else if (!newQHEnabled && wasEnabled) {
-          quizHelper_enabled = false;
-          quizHelper_cleanup();
-          showToast('Quiz Helper disabled');
-        } else if (newQHEnabled && wasEnabled) {
-          // Settings changed, reinitialize
-          quizHelper_cleanup();
-          canvas_initializeQuizHelper();
-        }
-
-        console.log('[QuizHelper] Settings updated:', newQHEnabled, quizHelper_settings);
-      } else {
-        quizHelper_enabled = qhSettings || false;
+    if (newQHEnabled && !wasQHEnabled) {
+      quizHelper_enabled = true;
+      canvas_initializeQuizHelper();
+    } else if (!newQHEnabled && wasQHEnabled) {
+      quizHelper_enabled = false;
+      quizHelper_cleanup();
+      if (!isInit) {
+        showToast('Quiz Helper disabled');
       }
+    } else if (newQHEnabled && wasQHEnabled && !isInit) {
+      // Settings changed, reinitialize
+      quizHelper_cleanup();
+      canvas_initializeQuizHelper();
     }
 
-    console.log('[Canvas] Settings updated - Canvas:', newEnabled, 'QuizHelper:', quizHelper_enabled);
+    if (typeof qhSettings !== 'object') {
+      quizHelper_enabled = qhSettings || false;
+    } else {
+      quizHelper_enabled = newQHEnabled;
+    }
   }
-});
+
+  console.log(
+    `[Canvas] Settings ${isInit ? 'loaded' : 'updated'} - Canvas:`,
+    newEnabled,
+    'QuizHelper:',
+    quizHelper_enabled
+  );
+}
+
+/**
+ * Initialize Canvas integration using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
+ */
+initFeatureSettings(
+  'canvasIntegration',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
