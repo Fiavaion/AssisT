@@ -5,11 +5,13 @@
  * helping neurodivergent students maintain focus and track their reading position.
  *
  * @module readingGuide
+ * @version 1.1.0
  * @requires ../core/ui/toast.js
  */
 
 import { showToast } from '../../core/ui/toast.js';
 import { focusMode_disable, focusMode_getEnabled } from '../focusMode/focusMode.js';
+import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
 // MODULE STATE
@@ -182,61 +184,55 @@ function readingGuide_handleMouseMove(event) {
 // INITIALIZATION & STORAGE LISTENERS
 // ============================================================
 
-/**
- * Initializes reading guide settings from Chrome storage.
- *
- * Loads settings on script initialization and automatically enables
- * the reading guide if it was previously enabled.
- */
-chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.readingGuide) {
-    const rgSettings = result.assist_settings.readingGuide;
-    readingGuide_enabled = rgSettings.enabled || false;
-    readingGuide_settings.lineColor = rgSettings.lineColor || '#000000';
-    readingGuide_settings.lineThickness = rgSettings.lineThickness || 3;
-    readingGuide_settings.lineOpacity = rgSettings.lineOpacity || 0.7;
-
-    if (readingGuide_enabled) {
-      readingGuide_enable();
-    }
-
-    console.log('[ReadingGuide] Settings loaded:', readingGuide_enabled, readingGuide_settings);
-  }
-});
+/** @type {Object} Default settings for reading guide */
+const DEFAULT_SETTINGS = {
+  enabled: false,
+  lineColor: '#000000',
+  lineThickness: 3,
+  lineOpacity: 0.7,
+};
 
 /**
- * Listens for changes to Chrome storage and updates reading guide settings.
- *
- * Updates are applied in real-time:
- * - Enables/disables the reading guide based on settings
- * - Updates line style properties (color, thickness, opacity)
- * - Handles enable/disable transitions
+ * Applies settings from storage to the module state
+ * @param {Object} settings - Settings object from storage
+ * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.readingGuide) {
-    const rgSettings = changes.assist_settings.newValue.readingGuide;
+function applySettings(settings, isInit = false) {
+  const wasEnabled = readingGuide_enabled;
+  const newEnabled = settings.enabled || false;
 
-    const wasEnabled = readingGuide_enabled;
-    const newEnabled = rgSettings.enabled || false;
+  // Update settings
+  readingGuide_settings.lineColor = settings.lineColor || DEFAULT_SETTINGS.lineColor;
+  readingGuide_settings.lineThickness = settings.lineThickness || DEFAULT_SETTINGS.lineThickness;
+  readingGuide_settings.lineOpacity = settings.lineOpacity || DEFAULT_SETTINGS.lineOpacity;
 
-    // Update settings
-    readingGuide_settings.lineColor = rgSettings.lineColor || '#000000';
-    readingGuide_settings.lineThickness = rgSettings.lineThickness || 3;
-    readingGuide_settings.lineOpacity = rgSettings.lineOpacity || 0.7;
-
-    // Handle enable/disable
-    if (newEnabled && !wasEnabled) {
-      readingGuide_enable();
-    } else if (!newEnabled && wasEnabled) {
-      readingGuide_disable();
-    } else if (newEnabled) {
-      // Update style if already enabled
-      readingGuide_updateStyle();
-    }
-
-    console.log('[ReadingGuide] Settings updated:', newEnabled, readingGuide_settings);
+  // Handle enable/disable
+  if (newEnabled && !wasEnabled) {
+    readingGuide_enable();
+  } else if (!newEnabled && wasEnabled) {
+    readingGuide_disable();
+  } else if (newEnabled && !isInit) {
+    // Update style if already enabled (but not on init, as enable() handles it)
+    readingGuide_updateStyle();
   }
-});
+
+  console.log(
+    `[ReadingGuide] Settings ${isInit ? 'loaded' : 'updated'}:`,
+    newEnabled,
+    readingGuide_settings
+  );
+}
+
+/**
+ * Initialize reading guide using centralized storage utility.
+ * Uses initFeatureSettings for consistent storage access pattern.
+ */
+initFeatureSettings(
+  'readingGuide',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
 // ============================================================
 // EXPORTS
