@@ -8,7 +8,7 @@
  */
 
 import { extractMetadata, mergeMetadata, isPDF, extractPDFMetadata } from './metadata-extractor.js';
-import { CitationStorage } from './citation-storage.js';
+import { CitationStorage, ProjectStorage } from './citation-storage.js';
 import { showCitationEditModal, showSuccessToast, showErrorToast } from './citation-ui.js';
 import { enrichMetadataWithDOI } from './crossref-api.js';
 import { openBibliographyManager } from './bibliography-manager.js';
@@ -100,6 +100,22 @@ export async function getCitationsForCurrentPage() {
 }
 
 /**
+ * Get all citations from storage
+ * @returns {Promise<Array>}
+ */
+export async function getAllCitations() {
+  return await CitationStorage.getAll();
+}
+
+/**
+ * Get all projects from storage
+ * @returns {Promise<Array>}
+ */
+export async function getAllProjects() {
+  return await ProjectStorage.getAll();
+}
+
+/**
  * Initialize citation feature
  */
 export function initCitation() {
@@ -115,6 +131,8 @@ export function initCitation() {
     getCitationCountForCurrentPage,
     hasCurrentPageCitation,
     getCitationsForCurrentPage,
+    getAllCitations,
+    getAllProjects,
     openBibliographyManager,
     openProjectManager,
   };
@@ -128,6 +146,8 @@ export default {
   getCitationCountForCurrentPage,
   hasCurrentPageCitation,
   getCitationsForCurrentPage,
+  getAllCitations,
+  getAllProjects,
   openBibliographyManager,
   openProjectManager,
 };
