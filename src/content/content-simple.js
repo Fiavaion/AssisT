@@ -936,6 +936,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'OPEN_BIBLIOGRAPHY_MANAGER':
+      // Open the bibliography manager modal
+      console.log('[AssisT] Opening Bibliography Manager from popup button');
+      if (window.assistFeatures && window.assistFeatures.citation) {
+        window.assistFeatures.citation
+          .openBibliographyManager()
+          .then(() => {
+            console.log('[AssisT] Bibliography Manager opened');
+            sendResponse({ success: true });
+          })
+          .catch(error => {
+            console.error('[AssisT] Bibliography Manager error:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true; // Will respond asynchronously
+      } else {
+        console.error('[AssisT] Citation feature not available');
+        sendResponse({ success: false, error: 'Citation not initialized' });
+      }
+      break;
+
     default:
       console.warn('[AssisT] Unknown message type:', message.type);
       sendResponse({ success: false, error: 'Unknown message type' });
