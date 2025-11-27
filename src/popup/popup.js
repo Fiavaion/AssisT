@@ -1026,6 +1026,21 @@ class PopupController {
     this.setupDarkMode();
 
     // ============================================================
+    // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
+    // ============================================================
+    this.setupSimplify();
+
+    // ============================================================
+    // NEURODIVERGENT PROFILE FEATURE: READING PROGRESS
+    // ============================================================
+    this.setupReadingProgress();
+
+    // ============================================================
+    // NEURODIVERGENT PROFILE FEATURE: POMODORO TIMER
+    // ============================================================
+    this.setupPomodoro();
+
+    // ============================================================
     // SPRINT 4 FEATURE: CANVAS INTEGRATION
     // ============================================================
     this.setupCanvasIntegration();
@@ -2846,6 +2861,244 @@ class PopupController {
   }
 
   // ============================================================
+  // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
+  // ============================================================
+  setupSimplify() {
+    if (!this.settings.simplify) {
+      this.settings.simplify = {
+        enabled: false,
+        intensity: 'moderate',
+        focusMainContent: true,
+        hideAds: true,
+        hideSidebars: true,
+        hideComments: true,
+        hideRelated: true,
+        hideFooters: true,
+        hideSocialButtons: true,
+        hidePopups: true,
+        hideAnimations: true,
+      };
+    }
+
+    const simplifyEnabled = document.getElementById('simplify-enabled');
+    const simplifyDescription = document.getElementById('simplify-description');
+    const simplifyOptions = document.getElementById('simplify-options');
+
+    simplifyEnabled.checked = this.settings.simplify.enabled || false;
+
+    if (simplifyEnabled.checked) {
+      simplifyDescription.classList.remove('hidden');
+      simplifyOptions.classList.remove('hidden');
+    } else {
+      simplifyDescription.classList.add('hidden');
+      simplifyOptions.classList.add('hidden');
+    }
+
+    simplifyEnabled.addEventListener('change', e => {
+      this.settings.simplify.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        simplifyDescription.classList.remove('hidden');
+        simplifyOptions.classList.remove('hidden');
+      } else {
+        simplifyDescription.classList.add('hidden');
+        simplifyOptions.classList.add('hidden');
+      }
+    });
+
+    const intensitySelect = document.getElementById('simplify-intensity');
+    intensitySelect.value = this.settings.simplify.intensity || 'moderate';
+    intensitySelect.addEventListener('change', e => {
+      this.settings.simplify.intensity = e.target.value;
+      this.saveSettings();
+    });
+
+    const focusContentToggle = document.getElementById('simplify-focus-content');
+    focusContentToggle.checked = this.settings.simplify.focusMainContent !== false;
+    focusContentToggle.addEventListener('change', e => {
+      this.settings.simplify.focusMainContent = e.target.checked;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Simplified Interface initialized');
+  }
+
+  // ============================================================
+  // NEURODIVERGENT PROFILE FEATURE: READING PROGRESS
+  // ============================================================
+  setupReadingProgress() {
+    if (!this.settings.readingProgress) {
+      this.settings.readingProgress = {
+        enabled: false,
+        position: 'top',
+        height: 4,
+        color: '#4CAF50',
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        showPercentage: false,
+        smoothScroll: true,
+        hideOnComplete: false,
+      };
+    }
+
+    const progressEnabled = document.getElementById('reading-progress-enabled');
+    const progressDescription = document.getElementById('reading-progress-description');
+    const progressOptions = document.getElementById('reading-progress-options');
+
+    progressEnabled.checked = this.settings.readingProgress.enabled || false;
+
+    if (progressEnabled.checked) {
+      progressDescription.classList.remove('hidden');
+      progressOptions.classList.remove('hidden');
+    } else {
+      progressDescription.classList.add('hidden');
+      progressOptions.classList.add('hidden');
+    }
+
+    progressEnabled.addEventListener('change', e => {
+      this.settings.readingProgress.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        progressDescription.classList.remove('hidden');
+        progressOptions.classList.remove('hidden');
+      } else {
+        progressDescription.classList.add('hidden');
+        progressOptions.classList.add('hidden');
+      }
+    });
+
+    const positionSelect = document.getElementById('reading-progress-position');
+    positionSelect.value = this.settings.readingProgress.position || 'top';
+    positionSelect.addEventListener('change', e => {
+      this.settings.readingProgress.position = e.target.value;
+      this.saveSettings();
+    });
+
+    const colorSelect = document.getElementById('reading-progress-color');
+    colorSelect.value = this.settings.readingProgress.color || '#4CAF50';
+    colorSelect.addEventListener('change', e => {
+      this.settings.readingProgress.color = e.target.value;
+      this.saveSettings();
+    });
+
+    const percentageToggle = document.getElementById('reading-progress-percentage');
+    percentageToggle.checked = this.settings.readingProgress.showPercentage || false;
+    percentageToggle.addEventListener('change', e => {
+      this.settings.readingProgress.showPercentage = e.target.checked;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Reading Progress initialized');
+  }
+
+  // ============================================================
+  // NEURODIVERGENT PROFILE FEATURE: POMODORO TIMER
+  // ============================================================
+  setupPomodoro() {
+    if (!this.settings.pomodoro) {
+      this.settings.pomodoro = {
+        enabled: false,
+        workDuration: 25,
+        shortBreakDuration: 5,
+        longBreakDuration: 15,
+        sessionsUntilLongBreak: 4,
+        autoStartBreaks: false,
+        autoStartWork: false,
+        showNotifications: true,
+        playSound: true,
+        position: 'bottom-right',
+      };
+    }
+
+    const pomodoroEnabled = document.getElementById('pomodoro-enabled');
+    const pomodoroDescription = document.getElementById('pomodoro-description');
+    const pomodoroOptions = document.getElementById('pomodoro-options');
+
+    pomodoroEnabled.checked = this.settings.pomodoro.enabled || false;
+
+    if (pomodoroEnabled.checked) {
+      pomodoroDescription.classList.remove('hidden');
+      pomodoroOptions.classList.remove('hidden');
+    } else {
+      pomodoroDescription.classList.add('hidden');
+      pomodoroOptions.classList.add('hidden');
+    }
+
+    pomodoroEnabled.addEventListener('change', e => {
+      this.settings.pomodoro.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        pomodoroDescription.classList.remove('hidden');
+        pomodoroOptions.classList.remove('hidden');
+      } else {
+        pomodoroDescription.classList.add('hidden');
+        pomodoroOptions.classList.add('hidden');
+      }
+    });
+
+    // Work Duration slider
+    const workSlider = document.getElementById('pomodoro-work-duration');
+    const workValue = document.getElementById('pomodoro-work-value');
+    workSlider.value = this.settings.pomodoro.workDuration || 25;
+    workValue.textContent = `${workSlider.value} min`;
+    workSlider.addEventListener('input', e => {
+      workValue.textContent = `${e.target.value} min`;
+      this.settings.pomodoro.workDuration = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    // Break Duration slider
+    const breakSlider = document.getElementById('pomodoro-break-duration');
+    const breakValue = document.getElementById('pomodoro-break-value');
+    breakSlider.value = this.settings.pomodoro.shortBreakDuration || 5;
+    breakValue.textContent = `${breakSlider.value} min`;
+    breakSlider.addEventListener('input', e => {
+      breakValue.textContent = `${e.target.value} min`;
+      this.settings.pomodoro.shortBreakDuration = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    // Long Break slider
+    const longBreakSlider = document.getElementById('pomodoro-long-break');
+    const longBreakValue = document.getElementById('pomodoro-long-break-value');
+    longBreakSlider.value = this.settings.pomodoro.longBreakDuration || 15;
+    longBreakValue.textContent = `${longBreakSlider.value} min`;
+    longBreakSlider.addEventListener('input', e => {
+      longBreakValue.textContent = `${e.target.value} min`;
+      this.settings.pomodoro.longBreakDuration = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    // Position select
+    const positionSelect = document.getElementById('pomodoro-position');
+    positionSelect.value = this.settings.pomodoro.position || 'bottom-right';
+    positionSelect.addEventListener('change', e => {
+      this.settings.pomodoro.position = e.target.value;
+      this.saveSettings();
+    });
+
+    // Auto-start breaks toggle
+    const autoBreaksToggle = document.getElementById('pomodoro-auto-start-breaks');
+    autoBreaksToggle.checked = this.settings.pomodoro.autoStartBreaks || false;
+    autoBreaksToggle.addEventListener('change', e => {
+      this.settings.pomodoro.autoStartBreaks = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Sound toggle
+    const soundToggle = document.getElementById('pomodoro-sound');
+    soundToggle.checked = this.settings.pomodoro.playSound !== false;
+    soundToggle.addEventListener('change', e => {
+      this.settings.pomodoro.playSound = e.target.checked;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Pomodoro Timer initialized');
+  }
+
+  // ============================================================
   // SPRINT 4 FEATURE: CANVAS INTEGRATION
   // ============================================================
   setupCanvasIntegration() {
@@ -3414,6 +3667,198 @@ class PopupController {
           focusMode: { enabled: true, dimAmount: 0.9 },
           screenOverlay: { enabled: false },
           canvasIntegration: { enabled: false },
+        },
+      },
+      // ============================================================
+      // NEURODIVERGENT-FOCUSED PROFILES (Phase 2.6)
+      // ============================================================
+      'ADHD Focus': {
+        name: 'ADHD Focus',
+        description: 'Structured intervals, reduced distractions, and clear visual progress',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 1.2, highlightEnabled: true, wordByWordEnabled: true },
+          textCustomization: { enabled: true, fontSize: 16, lineHeight: 1.6, fontFamily: 'lexend' },
+          readingGuide: { enabled: true, lineColor: '#4A90E2', opacity: 0.6 },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: false },
+          simplify: { enabled: true, intensity: 'moderate', focusMainContent: true },
+          readingProgress: {
+            enabled: true,
+            position: 'top',
+            color: '#4CAF50',
+            showPercentage: true,
+          },
+          pomodoro: {
+            enabled: true,
+            workDuration: 25,
+            shortBreakDuration: 5,
+            longBreakDuration: 15,
+            autoStartBreaks: true,
+            playSound: true,
+          },
+          reducedMotion: { enabled: false },
+          mediaControl: { enabled: true },
+          darkMode: { enabled: false },
+        },
+      },
+      'Autism Comfort': {
+        name: 'Autism Comfort',
+        description: 'Predictable environment with sensory-friendly settings',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 0.9, highlightEnabled: true, wordByWordEnabled: false },
+          textCustomization: {
+            enabled: true,
+            fontSize: 18,
+            lineHeight: 1.8,
+            fontFamily: 'atkinson-hyperlegible',
+          },
+          readingGuide: { enabled: false },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: true, color: '#FFF4E6', opacity: 0.15 },
+          simplify: { enabled: true, intensity: 'aggressive', focusMainContent: true },
+          readingProgress: {
+            enabled: true,
+            position: 'top',
+            color: '#9C27B0',
+            showPercentage: false,
+          },
+          pomodoro: {
+            enabled: true,
+            workDuration: 30,
+            shortBreakDuration: 10,
+            longBreakDuration: 20,
+            autoStartBreaks: false,
+            playSound: false, // Avoid unexpected sounds
+          },
+          reducedMotion: { enabled: true, respectSystemPreference: true },
+          mediaControl: { enabled: true },
+          darkMode: { enabled: false, respectSystemPreference: true },
+        },
+      },
+      'Dyslexia Support': {
+        name: 'Dyslexia Support',
+        description: 'Optimized fonts, spacing, and reading aids for dyslexic users',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 1.0, highlightEnabled: true, wordByWordEnabled: true },
+          textCustomization: {
+            enabled: true,
+            fontSize: 18,
+            lineHeight: 2.0,
+            letterSpacing: 0.12,
+            wordSpacing: 0.16,
+            fontFamily: 'opendyslexic',
+          },
+          readingGuide: { enabled: true, lineColor: '#000000', opacity: 0.5 },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: true, color: '#FFF59D', opacity: 0.2 },
+          simplify: { enabled: true, intensity: 'light', focusMainContent: false },
+          readingProgress: {
+            enabled: true,
+            position: 'top',
+            color: '#2196F3',
+            showPercentage: true,
+          },
+          pomodoro: { enabled: false },
+          reducedMotion: { enabled: false },
+          mediaControl: { enabled: false },
+          darkMode: { enabled: false },
+        },
+      },
+      'Sensory Sensitive': {
+        name: 'Sensory Sensitive',
+        description: 'Minimal animations, muted colors, and calming interface',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 0.8, highlightEnabled: true, highlightOpacity: 0.5 },
+          textCustomization: {
+            enabled: true,
+            fontSize: 16,
+            lineHeight: 1.6,
+            fontFamily: 'verdana',
+          },
+          readingGuide: { enabled: false },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: true, color: '#E1BEE7', opacity: 0.15 },
+          simplify: { enabled: true, intensity: 'aggressive', focusMainContent: true },
+          readingProgress: { enabled: false },
+          pomodoro: { enabled: false },
+          reducedMotion: { enabled: true, respectSystemPreference: false }, // Always reduce motion
+          mediaControl: { enabled: true },
+          darkMode: { enabled: false, respectSystemPreference: true },
+        },
+      },
+      'Night Study': {
+        name: 'Night Study',
+        description: 'Dark mode with reduced eye strain for late-night studying',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 1.0, highlightEnabled: true, highlightColor: '#FFD700' },
+          textCustomization: { enabled: true, fontSize: 17, lineHeight: 1.7, fontFamily: 'lexend' },
+          readingGuide: { enabled: false },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: false },
+          simplify: { enabled: true, intensity: 'moderate', focusMainContent: true },
+          readingProgress: {
+            enabled: true,
+            position: 'top',
+            color: '#FF9800',
+            showPercentage: true,
+          },
+          pomodoro: {
+            enabled: true,
+            workDuration: 45,
+            shortBreakDuration: 10,
+            longBreakDuration: 20,
+            autoStartBreaks: true,
+            playSound: true,
+          },
+          reducedMotion: { enabled: true },
+          mediaControl: { enabled: true },
+          darkMode: { enabled: true, preset: 'dark-gray', respectSystemPreference: false },
+        },
+      },
+      'Anxiety Calm': {
+        name: 'Anxiety Calm',
+        description: 'Distraction-free reading with gentle pacing and progress indicators',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 0.85, highlightEnabled: true, wordByWordEnabled: true },
+          textCustomization: {
+            enabled: true,
+            fontSize: 18,
+            lineHeight: 1.9,
+            fontFamily: 'atkinson-hyperlegible',
+          },
+          readingGuide: { enabled: true, lineColor: '#90EE90', opacity: 0.4 },
+          focusMode: { enabled: true, dimAmount: 0.5 },
+          screenOverlay: { enabled: true, color: '#C8E6C9', opacity: 0.1 },
+          simplify: { enabled: true, intensity: 'aggressive', focusMainContent: true },
+          readingProgress: {
+            enabled: true,
+            position: 'bottom',
+            color: '#4CAF50',
+            showPercentage: false,
+          },
+          pomodoro: {
+            enabled: true,
+            workDuration: 20,
+            shortBreakDuration: 5,
+            longBreakDuration: 15,
+            autoStartBreaks: false,
+            playSound: false,
+          },
+          reducedMotion: { enabled: true },
+          mediaControl: { enabled: true },
+          darkMode: { enabled: false, respectSystemPreference: true },
         },
       },
     };

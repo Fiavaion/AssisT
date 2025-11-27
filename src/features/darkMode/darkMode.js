@@ -373,10 +373,16 @@ function applySettings(settings, isInit = false) {
     darkMode_currentPreset = settings.preset;
   }
 
-  // If respectSystemPreference is enabled and system prefers dark, auto-enable
+  // Determine if dark mode should be enabled
+  // CRITICAL: Only enable if user has explicitly enabled the feature.
+  // respectSystemPreference controls whether to follow system dark/light AFTER
+  // the user has enabled dark mode, not whether to auto-enable based on system.
   let shouldEnable = settings.enabled || false;
-  if (settings.respectSystemPreference && darkMode_systemPreference()) {
-    shouldEnable = true;
+
+  // If enabled AND respectSystemPreference is true, follow system preference
+  // This means: user enabled dark mode, but wants it to follow system light/dark
+  if (settings.enabled && settings.respectSystemPreference) {
+    shouldEnable = darkMode_systemPreference();
   }
 
   // Handle enable/disable
