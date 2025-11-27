@@ -1,7 +1,8 @@
 # AssisT Extension - Home PC Restart Guide
 
 **Created:** 2025-11-27
-**Last Session:** Feature/citation-capture branch - Neurodivergent Profile Features
+**Last Session:** Feature/citation-capture branch - Neurodivergent Profile Features (COMPLETE)
+**Updated:** 2025-11-27 - Session 027 - All Phase 2.6 features implemented
 
 ---
 
@@ -129,23 +130,38 @@ npm run test:e2e
 
 ### Branch: `feature/citation-capture`
 
-### Completed Features (This Session)
+### Completed Features (Sessions 026-027)
 
-| Feature                  | Status      | Files                                         |
-| ------------------------ | ----------- | --------------------------------------------- |
-| Extended Font Library    | ✅ Complete | `src/content/features/text-customization.js`  |
-| Reduced Motion Mode      | ✅ Complete | `src/features/reducedMotion/reducedMotion.js` |
-| Auto-play Media Blocking | ✅ Complete | `src/features/mediaControl/mediaControl.js`   |
-| True Dark Mode           | ✅ Complete | `src/features/darkMode/darkMode.js`           |
+| Feature                    | Status      | Files                                                |
+| -------------------------- | ----------- | ---------------------------------------------------- |
+| Extended Font Library      | ✅ Complete | `src/content/features/text-customization.js`         |
+| Reduced Motion Mode        | ✅ Complete | `src/features/reducedMotion/reducedMotion.js`        |
+| Auto-play Media Blocking   | ✅ Complete | `src/features/mediaControl/mediaControl.js`          |
+| True Dark Mode             | ✅ Complete | `src/features/darkMode/darkMode.js`                  |
+| Pomodoro Timer             | ✅ Complete | `src/features/pomodoro/pomodoro.js`                  |
+| Reading Progress Bar       | ✅ Complete | `src/features/readingProgress/readingProgress.js`    |
+| Simplified Interface Mode  | ✅ Complete | `src/features/simplify/simplify.js`                  |
+| Profile System Enhancement | ✅ Complete | `src/popup/popup.js` (6 new neurodivergent profiles) |
 
-### Remaining Features
+### New Neurodivergent Profiles Added
 
-| Feature                    | Priority           | Complexity |
-| -------------------------- | ------------------ | ---------- |
-| Pomodoro Timer             | Next               | MEDIUM     |
-| Reading Progress Bar       | After Pomodoro     | LOW        |
-| Simplified Interface Mode  | After Progress Bar | MEDIUM     |
-| Profile System Enhancement | After all features | MEDIUM     |
+| Profile Name      | Target Users              | Key Features                                  |
+| ----------------- | ------------------------- | --------------------------------------------- |
+| ADHD Focus        | ADHD users                | Pomodoro, Progress Bar, Simplified Interface  |
+| Autism Comfort    | Autism spectrum users     | Reduced Motion, No Auto-sounds, Calm Colors   |
+| Dyslexia Support  | Dyslexic users            | OpenDyslexic font, Wide spacing, Progress Bar |
+| Sensory Sensitive | Sensory processing issues | No animations, Muted colors, Media blocking   |
+| Night Study       | Late-night learners       | Dark Mode, Pomodoro, Reduced eye strain       |
+| Anxiety Calm      | Anxiety/stress management | Gentle pacing, Focus Mode, Calming colors     |
+
+### Phase 2.6 Status: COMPLETE
+
+All features implemented and integrated:
+
+- ✅ 7/7 new features built
+- ✅ 6 new neurodivergent profiles added
+- ✅ All 623 tests passing
+- ✅ Build successful (599KB content script)
 
 ### Implementation Plan Location
 
@@ -229,24 +245,24 @@ git commit -m "feat(scope): description"
 
 ## Resume Development
 
-### To Continue Neurodivergent Profile Features:
+### Phase 2.6 COMPLETE - Next Steps
 
-1. **Next Task:** Create Pomodoro Timer feature
-   - Location: `src/features/pomodoro/`
-   - Files: `pomodoro-timer.js`, `pomodoro-ui.js`
-   - Add toggle to `src/popup/popup.html`
-   - Add handler to `src/popup/popup.js`
+All neurodivergent profile features have been implemented. Potential future work:
 
-2. **Follow the pattern from completed features:**
-   - Import from `../../core/ui/toast.js`
-   - Import from `../../content/utils/storage-utils.js`
-   - Use `initFeatureSettings()` for storage
-   - Add import to `src/content/content-simple.js`
+1. **Testing & QA:**
+   - Test all new features on actual Canvas/Moodle pages
+   - Verify Pomodoro timer works across page navigations
+   - Test profile switching applies all settings correctly
 
-3. **After all features complete:**
-   - Create 6 new neurodivergent profiles
-   - Update profile metadata structure
-   - Add profile descriptions and icons
+2. **Documentation:**
+   - Add user guide for new features
+   - Document neurodivergent profile benefits
+
+3. **Future Enhancements:**
+   - Add profile icons/avatars
+   - Create profile descriptions tooltip in dropdown
+   - Add profile export/import for individual profiles
+   - Consider profile recommendations based on user behavior
 
 ---
 
@@ -258,4 +274,59 @@ git commit -m "feat(scope): description"
 
 ---
 
-_Last updated: 2025-11-27 - Session ended with 4/7 new features complete_
+## Claude Code: First Task on Restart
+
+When restarting this project with Claude Code, give the following instructions:
+
+```
+Read the restartHome.md file, then:
+1. Run `npm run build` to build the extension
+2. Run `npm test` to verify all tests pass
+3. Output a summary of:
+   - Build status
+   - Test results
+   - Current branch and recent commits
+   - Completed features this phase
+   - Remaining features to implement
+```
+
+### Expected Summary Output
+
+**Build Status:** ✅ Successful (599 KB content script)
+
+**Tests:** ✅ 623/623 passing
+
+**Current Branch:** `feature/citation-capture`
+
+**Sessions 026-027 Accomplishments:**
+| Feature | Status | Location |
+|---------|--------|----------|
+| Extended Font Library | ✅ Complete | `src/content/features/text-customization.js` |
+| Reduced Motion Mode | ✅ Complete | `src/features/reducedMotion/reducedMotion.js` |
+| Auto-play Media Blocking | ✅ Complete | `src/features/mediaControl/mediaControl.js` |
+| True Dark Mode | ✅ Complete | `src/features/darkMode/darkMode.js` |
+| Pomodoro Timer | ✅ Complete | `src/features/pomodoro/pomodoro.js` |
+| Reading Progress Bar | ✅ Complete | `src/features/readingProgress/readingProgress.js` |
+| Simplified Interface Mode | ✅ Complete | `src/features/simplify/simplify.js` |
+| Profile System (6 profiles) | ✅ Complete | `src/popup/popup.js` |
+
+**Phase 2.6 Status:** COMPLETE (7/7 features + 6 profiles)
+
+**New Neurodivergent Profiles:**
+
+- ADHD Focus
+- Autism Comfort
+- Dyslexia Support
+- Sensory Sensitive
+- Night Study
+- Anxiety Calm
+
+**Next Steps:**
+
+1. Merge feature branch to main when ready
+2. Manual testing on Canvas/Moodle/Google Classroom
+3. Consider creating user documentation
+
+---
+
+_Last updated: 2025-11-27 - Session 027 - Phase 2.6 COMPLETE_

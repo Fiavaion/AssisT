@@ -1592,6 +1592,270 @@
                 </div>
               </div>
             </section>
+
+            <!-- Simplified Interface -->
+            <section class="control-section" id="simplify-section">
+              <div class="toggle-control">
+                <label for="simplify-enabled" class="toggle-label">
+                  <span class="label-text">🧹 Simplified Interface</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="simplify-enabled"
+                      data-testid="simplify-toggle"
+                      role="switch"
+                      aria-label="Enable simplified interface"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="simplify-description">
+                Hide ads, sidebars, and distractions
+              </p>
+              <div id="simplify-options" class="simplify-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="simplify-intensity">Intensity</label>
+                  </h3>
+                  <select
+                    id="simplify-intensity"
+                    data-testid="simplify-intensity-select"
+                    class="voice-select"
+                    aria-label="Select simplification intensity"
+                  >
+                    <option value="light">Light (ads & popups only)</option>
+                    <option value="moderate" selected>Moderate (recommended)</option>
+                    <option value="aggressive">Aggressive (main content only)</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="simplify-focus-content" class="toggle-label">
+                      <span class="label-text">Highlight Main Content</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="simplify-focus-content"
+                          data-testid="simplify-focus-content-toggle"
+                          role="switch"
+                          aria-label="Focus on main content"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Reading Progress Bar -->
+            <section class="control-section" id="reading-progress-section">
+              <div class="toggle-control">
+                <label for="reading-progress-enabled" class="toggle-label">
+                  <span class="label-text">📊 Reading Progress</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="reading-progress-enabled"
+                      data-testid="reading-progress-toggle"
+                      role="switch"
+                      aria-label="Enable reading progress bar"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="reading-progress-description">
+                Shows how far you've read on the page
+              </p>
+              <div id="reading-progress-options" class="reading-progress-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="reading-progress-position">Position</label>
+                  </h3>
+                  <select
+                    id="reading-progress-position"
+                    data-testid="reading-progress-position-select"
+                    class="voice-select"
+                    aria-label="Select progress bar position"
+                  >
+                    <option value="top" selected>Top of page</option>
+                    <option value="bottom">Bottom of page</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="reading-progress-color">Bar Color</label>
+                  </h3>
+                  <select
+                    id="reading-progress-color"
+                    data-testid="reading-progress-color-select"
+                    class="voice-select"
+                    aria-label="Select progress bar color"
+                  >
+                    <option value="#4CAF50" selected>Green</option>
+                    <option value="#2196F3">Blue</option>
+                    <option value="#FF9800">Orange</option>
+                    <option value="#9C27B0">Purple</option>
+                    <option value="#E91E63">Pink</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="reading-progress-percentage" class="toggle-label">
+                      <span class="label-text">Show Percentage</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="reading-progress-percentage"
+                          data-testid="reading-progress-percentage-toggle"
+                          role="switch"
+                          aria-label="Show percentage indicator"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Pomodoro Timer -->
+            <section class="control-section" id="pomodoro-section">
+              <div class="toggle-control">
+                <label for="pomodoro-enabled" class="toggle-label">
+                  <span class="label-text">🍅 Pomodoro Timer</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="pomodoro-enabled"
+                      data-testid="pomodoro-toggle"
+                      role="switch"
+                      aria-label="Enable Pomodoro timer"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="pomodoro-description">
+                Structured work/break intervals for focus
+              </p>
+              <div id="pomodoro-options" class="pomodoro-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="pomodoro-work-duration">Work Duration</label>
+                    <span class="control-value" id="pomodoro-work-value">25 min</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="pomodoro-work-duration"
+                      data-testid="pomodoro-work-slider"
+                      class="slider"
+                      min="5"
+                      max="60"
+                      step="5"
+                      value="25"
+                      aria-label="Work duration in minutes"
+                    />
+                    <div class="slider-labels"><span>5 min</span><span>60 min</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="pomodoro-break-duration">Break Duration</label>
+                    <span class="control-value" id="pomodoro-break-value">5 min</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="pomodoro-break-duration"
+                      data-testid="pomodoro-break-slider"
+                      class="slider"
+                      min="1"
+                      max="30"
+                      step="1"
+                      value="5"
+                      aria-label="Break duration in minutes"
+                    />
+                    <div class="slider-labels"><span>1 min</span><span>30 min</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="pomodoro-long-break">Long Break</label>
+                    <span class="control-value" id="pomodoro-long-break-value">15 min</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="pomodoro-long-break"
+                      data-testid="pomodoro-long-break-slider"
+                      class="slider"
+                      min="5"
+                      max="45"
+                      step="5"
+                      value="15"
+                      aria-label="Long break duration in minutes"
+                    />
+                    <div class="slider-labels"><span>5 min</span><span>45 min</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="pomodoro-position">Timer Position</label>
+                  </h3>
+                  <select
+                    id="pomodoro-position"
+                    data-testid="pomodoro-position-select"
+                    class="voice-select"
+                    aria-label="Select timer position"
+                  >
+                    <option value="bottom-right" selected>Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="pomodoro-auto-start-breaks" class="toggle-label">
+                      <span class="label-text">Auto-start Breaks</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="pomodoro-auto-start-breaks"
+                          data-testid="pomodoro-auto-breaks-toggle"
+                          role="switch"
+                          aria-label="Auto-start break sessions"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="pomodoro-sound" class="toggle-label">
+                      <span class="label-text">Sound Notifications</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="pomodoro-sound"
+                          data-testid="pomodoro-sound-toggle"
+                          role="switch"
+                          aria-label="Enable sound notifications"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
 
