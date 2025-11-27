@@ -1016,6 +1016,11 @@ class PopupController {
     this.setupReducedMotion();
 
     // ============================================================
+    // NEURODIVERGENT PROFILE FEATURE: AUTO-PLAY BLOCKING
+    // ============================================================
+    this.setupMediaControl();
+
+    // ============================================================
     // SPRINT 4 FEATURE: CANVAS INTEGRATION
     // ============================================================
     this.setupCanvasIntegration();
@@ -2739,6 +2744,44 @@ class PopupController {
     });
 
     console.log('[Popup] Reduced Motion initialized');
+  }
+
+  // ============================================================
+  // NEURODIVERGENT PROFILE FEATURE: AUTO-PLAY BLOCKING
+  // ============================================================
+  setupMediaControl() {
+    if (!this.settings.mediaControl) {
+      this.settings.mediaControl = {
+        enabled: false,
+        blockVideos: true,
+        blockAudios: true,
+        showIndicator: true,
+      };
+    }
+
+    const mediaControlEnabled = document.getElementById('media-control-enabled');
+    const mediaControlDescription = document.getElementById('media-control-description');
+
+    mediaControlEnabled.checked = this.settings.mediaControl.enabled || false;
+
+    if (mediaControlEnabled.checked) {
+      mediaControlDescription.classList.remove('hidden');
+    } else {
+      mediaControlDescription.classList.add('hidden');
+    }
+
+    mediaControlEnabled.addEventListener('change', e => {
+      this.settings.mediaControl.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        mediaControlDescription.classList.remove('hidden');
+      } else {
+        mediaControlDescription.classList.add('hidden');
+      }
+    });
+
+    console.log('[Popup] Media Control initialized');
   }
 
   // ============================================================
