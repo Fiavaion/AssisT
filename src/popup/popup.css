@@ -1407,3 +1407,204 @@ body {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
 }
+
+/* ============================================ */
+/* ACCORDION SECTIONS                           */
+/* Clean, accessible collapsible sections       */
+/* ============================================ */
+
+.accordion-section {
+  margin-bottom: 4px;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background: white;
+  border: 1px solid var(--border);
+}
+
+.accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, var(--surface) 0%, #fff 100%);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: var(--transition);
+  text-align: left;
+}
+
+.accordion-header:hover {
+  background: linear-gradient(135deg, var(--primary-light) 0%, #fff 100%);
+}
+
+.accordion-header:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.accordion-header[aria-expanded='true'] {
+  background: linear-gradient(135deg, var(--primary-light) 0%, #e3f2fd 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+.accordion-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accordion-icon-left {
+  font-size: 18px;
+}
+
+.accordion-icon {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.accordion-header[aria-expanded='true'] .accordion-icon {
+  transform: rotate(180deg);
+  color: var(--primary-color);
+}
+
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  background: white;
+}
+
+.accordion-content[data-expanded='true'] {
+  max-height: 2000px;
+}
+
+/* Accordion content padding */
+.accordion-content > .control-section:first-child {
+  padding-top: 8px;
+}
+
+.accordion-content > .control-section:last-child,
+.accordion-content > .options-container:last-child {
+  padding-bottom: 8px;
+}
+
+.accordion-content .control-section {
+  padding: 4px 12px;
+}
+
+.accordion-content .options-container {
+  padding: 0 12px;
+}
+
+/* Reading Mode Options Container */
+.reading-mode-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+  opacity: 1;
+}
+
+.reading-mode-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Annotations Options Container */
+.annotations-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+  opacity: 1;
+}
+
+.annotations-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Screen Overlay Options Container */
+.screen-overlay-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+  opacity: 1;
+}
+
+.screen-overlay-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Quiz Helper Options Container */
+.quiz-helper-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+  opacity: 1;
+}
+
+.quiz-helper-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Moodle Integration Options Container */
+.moodle-integration-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+  opacity: 1;
+}
+
+.moodle-integration-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Google Classroom Integration Options Container */
+.google-classroom-integration-options {
+  max-height: 2000px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+  opacity: 1;
+}
+
+.google-classroom-integration-options.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Full Width Button */
+.control-btn.full-width {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Secondary Button Style */
+.control-btn.secondary {
+  background: white;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.control-btn.secondary:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+}

@@ -1464,6 +1464,51 @@
                 </div>
               </div>
             </section>
+
+            <!-- Reduced Motion -->
+            <section class="control-section" id="reduced-motion-section">
+              <div class="toggle-control">
+                <label for="reduced-motion-enabled" class="toggle-label">
+                  <span class="label-text">🛑 Reduced Motion</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="reduced-motion-enabled"
+                      data-testid="reduced-motion-toggle"
+                      role="switch"
+                      aria-label="Enable reduced motion"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="reduced-motion-description">
+                Disables animations for sensory comfort
+              </p>
+              <div id="reduced-motion-options" class="reduced-motion-options hidden">
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="reduced-motion-system" class="toggle-label">
+                      <span class="label-text">Follow System Setting</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="reduced-motion-system"
+                          data-testid="reduced-motion-system-toggle"
+                          role="switch"
+                          aria-label="Follow system reduced motion setting"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description" style="margin-top: 4px; font-size: 11px">
+                    Auto-enable when OS prefers reduced motion
+                  </p>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
 

@@ -1011,6 +1011,11 @@ class PopupController {
     this.setupScreenOverlay();
 
     // ============================================================
+    // NEURODIVERGENT PROFILE FEATURE: REDUCED MOTION
+    // ============================================================
+    this.setupReducedMotion();
+
+    // ============================================================
     // SPRINT 4 FEATURE: CANVAS INTEGRATION
     // ============================================================
     this.setupCanvasIntegration();
@@ -2686,6 +2691,54 @@ class PopupController {
     });
 
     console.log('[Popup] Screen Overlay initialized');
+  }
+
+  // ============================================================
+  // NEURODIVERGENT PROFILE FEATURE: REDUCED MOTION
+  // ============================================================
+  setupReducedMotion() {
+    if (!this.settings.reducedMotion) {
+      this.settings.reducedMotion = {
+        enabled: false,
+        respectSystemPreference: true,
+      };
+    }
+
+    const reducedMotionEnabled = document.getElementById('reduced-motion-enabled');
+    const reducedMotionDescription = document.getElementById('reduced-motion-description');
+    const reducedMotionOptions = document.getElementById('reduced-motion-options');
+
+    reducedMotionEnabled.checked = this.settings.reducedMotion.enabled || false;
+
+    if (reducedMotionEnabled.checked) {
+      reducedMotionDescription.classList.remove('hidden');
+      reducedMotionOptions.classList.remove('hidden');
+    } else {
+      reducedMotionDescription.classList.add('hidden');
+      reducedMotionOptions.classList.add('hidden');
+    }
+
+    reducedMotionEnabled.addEventListener('change', e => {
+      this.settings.reducedMotion.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        reducedMotionDescription.classList.remove('hidden');
+        reducedMotionOptions.classList.remove('hidden');
+      } else {
+        reducedMotionDescription.classList.add('hidden');
+        reducedMotionOptions.classList.add('hidden');
+      }
+    });
+
+    const systemToggle = document.getElementById('reduced-motion-system');
+    systemToggle.checked = this.settings.reducedMotion.respectSystemPreference !== false;
+    systemToggle.addEventListener('change', e => {
+      this.settings.reducedMotion.respectSystemPreference = e.target.checked;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Reduced Motion initialized');
   }
 
   // ============================================================
