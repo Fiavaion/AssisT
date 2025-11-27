@@ -1021,6 +1021,11 @@ class PopupController {
     this.setupMediaControl();
 
     // ============================================================
+    // NEURODIVERGENT PROFILE FEATURE: DARK MODE
+    // ============================================================
+    this.setupDarkMode();
+
+    // ============================================================
     // SPRINT 4 FEATURE: CANVAS INTEGRATION
     // ============================================================
     this.setupCanvasIntegration();
@@ -2782,6 +2787,62 @@ class PopupController {
     });
 
     console.log('[Popup] Media Control initialized');
+  }
+
+  // ============================================================
+  // NEURODIVERGENT PROFILE FEATURE: DARK MODE
+  // ============================================================
+  setupDarkMode() {
+    if (!this.settings.darkMode) {
+      this.settings.darkMode = {
+        enabled: false,
+        preset: 'dark-gray',
+        respectSystemPreference: true,
+      };
+    }
+
+    const darkModeEnabled = document.getElementById('dark-mode-enabled');
+    const darkModeDescription = document.getElementById('dark-mode-description');
+    const darkModeOptions = document.getElementById('dark-mode-options');
+
+    darkModeEnabled.checked = this.settings.darkMode.enabled || false;
+
+    if (darkModeEnabled.checked) {
+      darkModeDescription.classList.remove('hidden');
+      darkModeOptions.classList.remove('hidden');
+    } else {
+      darkModeDescription.classList.add('hidden');
+      darkModeOptions.classList.add('hidden');
+    }
+
+    darkModeEnabled.addEventListener('change', e => {
+      this.settings.darkMode.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        darkModeDescription.classList.remove('hidden');
+        darkModeOptions.classList.remove('hidden');
+      } else {
+        darkModeDescription.classList.add('hidden');
+        darkModeOptions.classList.add('hidden');
+      }
+    });
+
+    const presetSelect = document.getElementById('dark-mode-preset');
+    presetSelect.value = this.settings.darkMode.preset || 'dark-gray';
+    presetSelect.addEventListener('change', e => {
+      this.settings.darkMode.preset = e.target.value;
+      this.saveSettings();
+    });
+
+    const systemToggle = document.getElementById('dark-mode-system');
+    systemToggle.checked = this.settings.darkMode.respectSystemPreference !== false;
+    systemToggle.addEventListener('change', e => {
+      this.settings.darkMode.respectSystemPreference = e.target.checked;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Dark Mode initialized');
   }
 
   // ============================================================
