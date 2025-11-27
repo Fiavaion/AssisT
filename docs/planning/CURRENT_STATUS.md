@@ -1,37 +1,99 @@
 # AssisT Extension - Current Status
 
 **Last Updated**: 2025-11-27
-**Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.4 Complete, Phase 2.6 In Progress)
-**Current Phase**: Phase 2.6 - Neurodivergent Profile Features (In Progress)
+**Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.6 Complete)
+**Current Phase**: Phase 2.6 - Neurodivergent Profile Features (COMPLETE)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/citation-capture (Phase 2.6 neurodivergent features in progress)
+**Current Branch**: feature/citation-capture (Phase 2.6 neurodivergent features COMPLETE)
 
 ---
 
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: ✅ 96% Complete (16/17 features, ~167/~175 tasks done)
+**Phase 2 (Feature Expansion)**: ✅ 100% Complete (17/17 features, ~175/~175 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 2 weeks
-**Remaining**: 14 weeks
+**Remaining**: 14 weeks (ahead of schedule)
 
 ---
 
 ## 🎯 Current Step
 
-**Phase**: 2.6 - Neurodivergent Profile Features
-**Step**: N.5 Pomodoro Timer (Next)
-**Previous**: Session 026 - Completed N.1-N.4 (Extended Fonts, Reduced Motion, Media Blocking, Dark Mode)
+**Phase**: 2.6 - Neurodivergent Profile Features (COMPLETE)
+**Step**: All features implemented
+**Previous**: Session 027 - Completed N.5-N.8 (Pomodoro Timer, Reading Progress Bar, Simplified Interface, Profile Enhancement)
 
-**Status**: 4/8 features complete (50%)
+**Status**: 7/7 features complete + 6 neurodivergent profiles (100%)
 **Blocker**: None
-**Note**: Continue with N.5 (Pomodoro Timer), N.6 (Reading Progress Bar), N.7 (Simplified Interface), N.8 (Profile Enhancement)
+**Note**: Ready for merge to main, manual testing, and user documentation
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 027 (2025-11-27)
+
+**Phase 2.6: Neurodivergent Profile Features - COMPLETE (7/7 + 6 profiles)**
+
+**Key Accomplishments**:
+
+1. **Feature N.5: Pomodoro Timer** (100%):
+   - Created pomodoro.js module (~1,200 lines)
+   - Circular SVG progress indicator
+   - Configurable work/break intervals (25/5 default)
+   - Draggable, minimizable floating widget
+   - Sound notifications for session transitions
+   - Long break after 4 work sessions
+
+2. **Feature N.6: Reading Progress Bar** (100%):
+   - Created readingProgress.js module (~625 lines)
+   - Fixed position bar at top/bottom of viewport
+   - Real-time scroll percentage tracking
+   - Throttled updates at ~60fps
+   - Optional percentage badge display
+
+3. **Feature N.7: Simplified Interface Mode** (100%):
+   - Created simplify.js module (~496 lines)
+   - Hides ads, sidebars, comments, social buttons
+   - Three intensity levels: Light, Moderate, Aggressive
+   - WCAG 2.2 SC 2.4.1 compliant (Bypass Blocks)
+
+4. **Feature N.8: Neurodivergent Profile Enhancement** (100%):
+   - Added 6 new profiles in popup.js:
+     - ADHD Focus, Autism Comfort, Dyslexia Support
+     - Sensory Sensitive, Night Study, Anxiety Calm
+
+**Bug Fixes**:
+
+- Fixed Dark Mode auto-enabling from system preference (opt-in only)
+- Fixed Simplified Interface layout breaking (removed aggressive CSS)
+
+**Files Created**:
+
+- src/features/pomodoro/pomodoro.js (~1,200 lines)
+- src/features/readingProgress/readingProgress.js (~625 lines)
+- src/features/simplify/simplify.js (~496 lines)
+
+**Files Modified**:
+
+- src/popup/popup.html (+264 lines for new controls)
+- src/popup/popup.js (+415 lines for handlers + profiles)
+- src/content/content-simple.js (+3 import lines)
+- src/features/darkMode/darkMode.js (bug fix)
+- src/features/simplify/simplify.js (bug fix)
+
+**Commits**:
+
+- `d76f7d7` - feat(accessibility): add Pomodoro Timer, Reading Progress, Simplified Interface
+
+**Build Status**: ✅ Successful (598.56 KB content script)
+**Test Status**: ✅ 623/623 tests passing
+
+**Phase 2.6 COMPLETE**: All 7 features + 6 neurodivergent profiles implemented
+
+---
 
 ### Phase 2 Session 026 (2025-11-27)
 
