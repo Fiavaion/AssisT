@@ -1,10 +1,10 @@
 # AssisT Extension - Current Status
 
 **Last Updated**: 2025-11-27
-**Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.4 Complete)
-**Current Phase**: Phase 2.5 - Testing & Documentation (In Progress)
+**Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.4 Complete, Phase 2.6 In Progress)
+**Current Phase**: Phase 2.6 - Neurodivergent Profile Features (In Progress)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/citation-capture (Phase 2.5 testing in progress)
+**Current Branch**: feature/citation-capture (Phase 2.6 neurodivergent features in progress)
 
 ---
 
@@ -21,17 +21,87 @@
 
 ## 🎯 Current Step
 
-**Phase**: 2.5 - Testing & Documentation
-**Step**: Bug fix - Highlight Menu toolbar button settings
-**Previous**: Session 025 - Fixed storage key mismatch
+**Phase**: 2.6 - Neurodivergent Profile Features
+**Step**: N.5 Pomodoro Timer (Next)
+**Previous**: Session 026 - Completed N.1-N.4 (Extended Fonts, Reduced Motion, Media Blocking, Dark Mode)
 
-**Status**: ✅ Testing Tasks updated - 10/12 complete
+**Status**: 4/8 features complete (50%)
 **Blocker**: None
-**Note**: Continue with T.8 (Reading Mode E2E), T.11 (Performance benchmarks), T.12 (WCAG audit), or D.1-D.7 (Documentation)
+**Note**: Continue with N.5 (Pomodoro Timer), N.6 (Reading Progress Bar), N.7 (Simplified Interface), N.8 (Profile Enhancement)
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 026 (2025-11-27)
+
+**Phase 2.6: Neurodivergent Profile Features - 4/8 Features Complete**
+
+**Key Accomplishments**:
+
+1. **Feature N.1: Extended Font Library** (100%):
+   - Added 4 new accessibility fonts via Google Fonts CDN
+   - Atkinson Hyperlegible (Braille Institute)
+   - Andika (SIL literacy font)
+   - Comic Neue (open-source Comic Sans alternative)
+   - Updated font dropdown in popup.html with tooltips
+   - Added font loading functions in text-customization.js
+
+2. **Feature N.2: Reduced Motion Mode** (100%):
+   - Created reducedMotion.js module (196 lines)
+   - CSS injection to disable all animations/transitions
+   - Respects prefers-reduced-motion system preference
+   - Toggle in Page Display section
+   - WCAG 2.1 SC 2.3.3 compliant
+
+3. **Feature N.3: Auto-play Media Blocking** (100%):
+   - Created mediaControl.js module (280 lines)
+   - MutationObserver for dynamic media elements
+   - Blocks autoplay on video/audio elements
+   - Whitelist for user-initiated playback
+   - Toggle in Page Display section
+   - WCAG 2.1 SC 1.4.2 compliant
+
+4. **Feature N.4: True Dark Mode** (100%):
+   - Created darkMode.js module (340 lines)
+   - 4 theme presets: AMOLED Black, Dark Gray, Navy Blue, Sepia Dark
+   - Preserves images/videos from color inversion
+   - Respects prefers-color-scheme system preference
+   - Toggle and preset selector in Page Display section
+
+**Files Created**:
+
+- src/features/reducedMotion/reducedMotion.js (196 lines)
+- src/features/mediaControl/mediaControl.js (280 lines)
+- src/features/darkMode/darkMode.js (340 lines)
+- docs/restartHome.md (restart guide for home PC)
+
+**Files Modified**:
+
+- src/content/features/text-customization.js (+80 lines for new fonts)
+- src/content/content-simple.js (+3 import lines)
+- src/popup/popup.html (+180 lines for new controls)
+- src/popup/popup.js (+150 lines for new handlers)
+- docs/planning/PHASE2_TASKS.md (added Phase 2.6 section)
+
+**Commits**:
+
+- `feat(accessibility): add extended font library with 6 accessibility fonts`
+- `feat(accessibility): add Reduced Motion mode for sensory-sensitive users`
+- `feat(accessibility): add Auto-play Media Blocking for sensory comfort`
+- `feat(accessibility): add True Dark Mode with 4 theme presets`
+
+**Build Status**: ✅ Successful (558 KB content script)
+**Test Status**: ✅ 623/623 tests passing
+
+**Plan File**: `C:\Users\Media Admin\.claude\plans\precious-juggling-fern.md`
+
+**Remaining Features**:
+
+- N.5: Pomodoro Timer (MEDIUM complexity)
+- N.6: Reading Progress Bar (LOW complexity)
+- N.7: Simplified Interface Mode (MEDIUM complexity)
+- N.8: Neurodivergent Profile Enhancement (HIGH priority, depends on N.1-N.7)
 
 ### Phase 2 Session 025 (2025-11-27)
 

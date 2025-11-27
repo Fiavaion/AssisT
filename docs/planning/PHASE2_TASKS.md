@@ -460,12 +460,156 @@
 **Phase 2.3 (UX Enhancements)**: 100% (2/2 features) - Font Library, Keyboard Shortcuts
 **Phase 2.4 (Citation Management)**: 100% (6/6 features) - 11.1 through 11.6 complete
 
-**Current Phase**: Phase 2.5 - Testing & Documentation
+**Current Phase**: Phase 2.6 - Neurodivergent Profile Features
 **Testing Progress**: 11/12 tasks complete (623 unit tests, 74+ E2E tests)
-**Next Milestone**: T.11 (Performance benchmarks), T.12 (WCAG audit), or D.1-D.7 (Documentation)
+**Neurodivergent Features**: 4/7 complete (Extended Fonts, Reduced Motion, Media Blocking, Dark Mode)
+**Next Milestone**: N.5 Pomodoro Timer, N.6 Reading Progress Bar, N.7 Simplified Interface
 
-**Estimated Completion**: Week 16
+**Estimated Completion**: Week 18
 **Actual Completion**: Phase 2.4 complete Week 2 (ahead of schedule)
+
+---
+
+## Phase 2.6: Neurodivergent Profile Features (Weeks 17-18)
+
+### Feature N.1: Extended Font Library
+
+**Status**: `[✓]` Complete (100%)
+**Estimated**: 1 day
+**Actual**: 30 minutes
+**Priority**: LOW
+**Dependencies**: None
+
+**Tasks**:
+
+- [x] N.1.1: Add Atkinson Hyperlegible font (Google Fonts CDN)
+- [x] N.1.2: Add Andika font (Google Fonts CDN)
+- [x] N.1.3: Add Comic Neue font (Google Fonts CDN)
+- [x] N.1.4: Update font dropdown in popup.html
+- [x] N.1.5: Add font loading functions in text-customization.js
+
+### Feature N.2: Reduced Motion Mode
+
+**Status**: `[✓]` Complete (100%)
+**Estimated**: 1 day
+**Actual**: 45 minutes
+**Priority**: LOW
+**Dependencies**: None
+
+**Tasks**:
+
+- [x] N.2.1: Create reducedMotion.js module
+- [x] N.2.2: CSS injection to disable animations/transitions
+- [x] N.2.3: Respect prefers-reduced-motion system preference
+- [x] N.2.4: Add toggle in popup.html
+- [x] N.2.5: Add handler in popup.js
+
+### Feature N.3: Auto-play Media Blocking
+
+**Status**: `[✓]` Complete (100%)
+**Estimated**: 1 day
+**Actual**: 45 minutes
+**Priority**: LOW
+**Dependencies**: None
+
+**Tasks**:
+
+- [x] N.3.1: Create mediaControl.js module
+- [x] N.3.2: MutationObserver for dynamic media elements
+- [x] N.3.3: Block autoplay on video/audio elements
+- [x] N.3.4: Whitelist user-initiated playback
+- [x] N.3.5: Add toggle in popup.html
+- [x] N.3.6: Add handler in popup.js
+
+### Feature N.4: True Dark Mode
+
+**Status**: `[✓]` Complete (100%)
+**Estimated**: 2 days
+**Actual**: 1 hour
+**Priority**: MEDIUM
+**Dependencies**: None
+
+**Tasks**:
+
+- [x] N.4.1: Create darkMode.js module
+- [x] N.4.2: AMOLED Black preset
+- [x] N.4.3: Dark Gray preset
+- [x] N.4.4: Navy Blue preset
+- [x] N.4.5: Sepia Dark preset
+- [x] N.4.6: Preserve images/videos from inversion
+- [x] N.4.7: Respect prefers-color-scheme system preference
+- [x] N.4.8: Add toggle and preset selector in popup.html
+- [x] N.4.9: Add handler in popup.js
+
+### Feature N.5: Pomodoro Timer
+
+**Status**: `[ ]` Pending
+**Estimated**: 2-3 days
+**Priority**: MEDIUM
+**Dependencies**: None
+
+**Tasks**:
+
+- [ ] N.5.1: Create pomodoro-timer.js module
+- [ ] N.5.2: Create pomodoro-ui.js for floating widget
+- [ ] N.5.3: Configurable work/break intervals (default 25/5)
+- [ ] N.5.4: Draggable, minimizable widget
+- [ ] N.5.5: Gentle notification when break needed
+- [ ] N.5.6: Session statistics tracking
+- [ ] N.5.7: Add settings in popup.html
+- [ ] N.5.8: Add handler in popup.js
+
+### Feature N.6: Reading Progress Bar
+
+**Status**: `[ ]` Pending
+**Estimated**: 1 day
+**Priority**: LOW
+**Dependencies**: None
+
+**Tasks**:
+
+- [ ] N.6.1: Create progress-bar.js module
+- [ ] N.6.2: Fixed bar at top/bottom of viewport
+- [ ] N.6.3: Color-coded progress (configurable)
+- [ ] N.6.4: Estimated reading time display
+- [ ] N.6.5: Add toggle in popup.html
+- [ ] N.6.6: Add handler in popup.js
+
+### Feature N.7: Simplified Interface Mode
+
+**Status**: `[ ]` Pending
+**Estimated**: 2-3 days
+**Priority**: MEDIUM
+**Dependencies**: None
+
+**Tasks**:
+
+- [ ] N.7.1: Create simplified-mode.js module
+- [ ] N.7.2: CSS rules to hide common ad selectors
+- [ ] N.7.3: Remove social media embeds
+- [ ] N.7.4: Hide sidebars, footers, comments
+- [ ] N.7.5: Complexity slider (light/medium/aggressive)
+- [ ] N.7.6: Add settings in popup.html
+- [ ] N.7.7: Add handler in popup.js
+
+### Feature N.8: Neurodivergent Profile Enhancement
+
+**Status**: `[ ]` Pending
+**Estimated**: 2-3 days
+**Priority**: HIGH
+**Dependencies**: N.1-N.7
+
+**Tasks**:
+
+- [ ] N.8.1: Profile metadata structure (icon, description, recommendedFor)
+- [ ] N.8.2: Reading Support profile (Lexend, bionic reading, warm overlay)
+- [ ] N.8.3: Focus Mode Plus profile (Pomodoro, focus mode, progress bar)
+- [ ] N.8.4: Sensory Comfort profile (Reduced motion, media blocking, dark mode)
+- [ ] N.8.5: Visual Clarity profile (Overlays, large spacing, reading guide)
+- [ ] N.8.6: Listening Mode profile (Slow TTS, visual sync, word highlighting)
+- [ ] N.8.7: Keyboard Navigator profile (Shortcuts, larger targets, STT)
+- [ ] N.8.8: Profile UI updates (icons, descriptions, tags)
+- [ ] N.8.9: Migration for existing users
 
 ---
 
