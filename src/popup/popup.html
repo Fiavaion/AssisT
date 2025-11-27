@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AssisT - TTS Controls</title>
+    <title>AssisT - Learning Support</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -43,12 +43,10 @@
             <span class="header-btn-icon">⚙️</span>
           </button>
         </div>
-        <p class="subtitle">Text-to-Speech Controls</p>
+        <p class="subtitle">Learning Support Tools</p>
       </header>
 
-      <!-- ========================================================== -->
-      <!-- SPRINT 7 FEATURE: USER PROFILES -->
-      <!-- ========================================================== -->
+      <!-- Profile Section -->
       <section class="profile-section">
         <div class="profile-selector-container">
           <label for="profile-select" class="profile-label">👤 Profile:</label>
@@ -61,7 +59,6 @@
             <option value="Default">Default</option>
           </select>
         </div>
-
         <div class="profile-actions">
           <button
             id="btn-save-profile"
@@ -95,2318 +92,1835 @@
 
       <!-- Main Controls -->
       <main class="popup-main">
-        <!-- ========================================================== -->
-        <!-- OCR FEATURE -->
-        <!-- ========================================================== -->
-        <section id="ocr-section" class="control-section ocr-section">
-          <div class="toggle-control main-toggle">
-            <label for="ocr-enabled" class="toggle-label">
-              <span class="label-text">Enable OCR</span>
-              <label class="toggle-switch" for="ocr-enabled">
-                <input
-                  type="checkbox"
-                  id="ocr-enabled"
-                  data-testid="ocr-toggle"
-                  role="switch"
-                  aria-label="Enable OCR"
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            </label>
-          </div>
-        </section>
-
-        <!-- OCR Options Container (shows when OCR enabled) -->
-        <div id="ocr-options-container" class="options-container hidden">
-          <section class="control-section">
-            <p class="feature-description" style="font-size: 13px; color: #666; margin: 0 0 12px 0">
-              Extract text from PDFs, images, and screenshots to read aloud
-            </p>
-            <button
-              id="btn-trigger-ocr"
-              data-testid="ocr-button"
-              class="control-btn primary full-width"
-              aria-label="Start OCR capture"
-              style="
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                border: none;
-                padding: 12px 20px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: 600;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                transition:
-                  transform 0.2s,
-                  box-shadow 0.2s;
-              "
-              onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)'"
-              onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
-            >
-              <span style="font-size: 20px">📸</span>
-              <span>Capture & Read Text</span>
-            </button>
-          </section>
-
-          <!-- OCR Settings -->
-          <section class="control-section">
-            <div class="toggle-control">
-              <label for="ocr-auto-reading-mode" class="toggle-label">
-                <span class="label-text">Auto-activate Reading Mode</span>
-                <div class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    id="ocr-auto-reading-mode"
-                    data-testid="ocr-auto-reading-mode-toggle"
-                    role="switch"
-                    aria-label="Automatically activate reading mode before OCR capture"
-                    checked
-                  />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-            </div>
-            <p class="setting-description" style="font-size: 12px; color: #999; margin: 4px 0 0 0">
-              Automatically switch to clean reading view before capturing text
-            </p>
-
-            <!-- OCR Image Quality Slider -->
-            <div style="margin-top: 12px">
-              <label
-                for="ocr-upscale-factor"
-                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
-              >
-                OCR Image Quality
-              </label>
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span style="font-size: 11px; color: #999; min-width: 35px">Low</span>
-                <input
-                  type="range"
-                  id="ocr-upscale-factor"
-                  min="1.0"
-                  max="2.0"
-                  step="0.1"
-                  value="1.5"
-                  style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd"
-                  aria-label="OCR image upscaling factor"
-                />
-                <span style="font-size: 11px; color: #999; min-width: 35px">High</span>
-              </div>
-              <p
-                class="setting-description"
-                style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center"
-              >
-                <span id="ocr-upscale-label">Medium (1.5x)</span> - Higher quality improves accuracy
-                for small text
-              </p>
-            </div>
-
-            <!-- OCR Language Selection -->
-            <div style="margin-top: 12px">
-              <label
-                for="ocr-language"
-                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
-              >
-                OCR Language
-              </label>
-              <select
-                id="ocr-language"
-                data-testid="ocr-language-select"
-                aria-label="Select OCR recognition language"
-                style="
-                  width: 100%;
-                  padding: 8px;
-                  font-size: 13px;
-                  border: 1px solid #ddd;
-                  border-radius: 4px;
-                  background: white;
-                  color: #333;
-                  cursor: pointer;
-                "
-              >
-                <option value="eng" selected>English</option>
-                <option value="spa">Spanish</option>
-                <option value="fra">French</option>
-                <option value="deu">German</option>
-                <option value="ita">Italian</option>
-                <option value="por">Portuguese</option>
-                <option value="nld">Dutch</option>
-                <option value="pol">Polish</option>
-                <option value="rus">Russian</option>
-                <option value="chi_sim">Chinese (Simplified)</option>
-                <option value="chi_tra">Chinese (Traditional)</option>
-                <option value="jpn">Japanese</option>
-                <option value="kor">Korean</option>
-                <option value="ara">Arabic</option>
-              </select>
-              <p
-                class="setting-description"
-                style="font-size: 11px; color: #999; margin: 4px 0 0 0"
-              >
-                Select the language for text recognition
-              </p>
-            </div>
-
-            <!-- OCR Confidence Threshold Slider -->
-            <div style="margin-top: 12px">
-              <label
-                for="ocr-confidence-threshold"
-                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
-              >
-                Confidence Threshold
-              </label>
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span style="font-size: 11px; color: #999; min-width: 35px">Low</span>
-                <input
-                  type="range"
-                  id="ocr-confidence-threshold"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value="60"
-                  style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd"
-                  aria-label="OCR confidence threshold percentage"
-                />
-                <span style="font-size: 11px; color: #999; min-width: 35px">High</span>
-              </div>
-              <p
-                class="setting-description"
-                style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center"
-              >
-                <span id="ocr-confidence-label">60%</span> - Filter out low-confidence text
-              </p>
-            </div>
-
-            <!-- Auto-TTS Toggle -->
-            <div class="toggle-control" style="margin-top: 12px">
-              <label for="ocr-auto-tts" class="toggle-label">
-                <span class="label-text">Auto-play TTS</span>
-                <div class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    id="ocr-auto-tts"
-                    data-testid="ocr-auto-tts-toggle"
-                    role="switch"
-                    aria-label="Automatically start text-to-speech after OCR completes"
-                    checked
-                  />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-            </div>
-            <p class="setting-description" style="font-size: 12px; color: #999; margin: 4px 0 0 0">
-              Automatically start reading extracted text aloud
-            </p>
-          </section>
-        </div>
-        <!-- End ocr-options-container -->
-
-        <!-- ========================================================== -->
-        <!-- HIGHLIGHT MENU FEATURE -->
-        <!-- ========================================================== -->
-        <section id="highlight-menu-section" class="control-section">
-          <div class="toggle-control main-toggle">
-            <label for="highlight-menu-enabled" class="toggle-label">
-              <span class="label-text">Enable Highlight Menu</span>
-              <label class="toggle-switch" for="highlight-menu-enabled">
-                <input
-                  type="checkbox"
-                  id="highlight-menu-enabled"
-                  data-testid="highlight-menu-toggle"
-                  role="switch"
-                  aria-label="Enable floating toolbar on text selection"
-                  checked
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            </label>
-          </div>
-        </section>
-
-        <!-- Highlight Menu Options Container -->
-        <div id="highlight-menu-options-container" class="options-container">
-          <section class="control-section">
-            <p class="feature-description" style="font-size: 13px; color: #666; margin: 0 0 12px 0">
-              Show quick actions when you select text
-            </p>
-
-            <!-- Button Toggles -->
-            <div style="margin-top: 12px">
-              <p style="font-size: 13px; color: #555; margin-bottom: 8px; font-weight: 500">
-                Toolbar Buttons
-              </p>
-
-              <div class="toggle-control" style="margin-bottom: 8px">
-                <label for="highlight-menu-show-tts" class="toggle-label">
-                  <span class="label-text" style="font-size: 13px">Read Aloud (TTS)</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="highlight-menu-show-tts"
-                      role="switch"
-                      aria-label="Show TTS button in highlight menu"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="toggle-control" style="margin-bottom: 8px">
-                <label for="highlight-menu-show-dictionary" class="toggle-label">
-                  <span class="label-text" style="font-size: 13px">Dictionary</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="highlight-menu-show-dictionary"
-                      role="switch"
-                      aria-label="Show dictionary button in highlight menu"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="toggle-control" style="margin-bottom: 8px">
-                <label for="highlight-menu-show-translate" class="toggle-label">
-                  <span class="label-text" style="font-size: 13px">Translate</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="highlight-menu-show-translate"
-                      role="switch"
-                      aria-label="Show translate button in highlight menu"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="toggle-control" style="margin-bottom: 8px">
-                <label for="highlight-menu-show-search" class="toggle-label">
-                  <span class="label-text" style="font-size: 13px">Search</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="highlight-menu-show-search"
-                      role="switch"
-                      aria-label="Show search button in highlight menu"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="toggle-control" style="margin-bottom: 8px">
-                <label for="highlight-menu-show-annotate" class="toggle-label">
-                  <span class="label-text" style="font-size: 13px">Annotate</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="highlight-menu-show-annotate"
-                      role="switch"
-                      aria-label="Show annotate button in highlight menu"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="toggle-control">
-                <label for="highlight-menu-show-copy" class="toggle-label">
-                  <span class="label-text" style="font-size: 13px">Copy</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="highlight-menu-show-copy"
-                      role="switch"
-                      aria-label="Show copy button in highlight menu"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <!-- Auto-hide Delay Slider -->
-            <div style="margin-top: 16px">
-              <label
-                for="highlight-menu-auto-hide-delay"
-                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
-              >
-                Auto-hide Delay
-              </label>
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span style="font-size: 11px; color: #999; min-width: 35px">1s</span>
-                <input
-                  type="range"
-                  id="highlight-menu-auto-hide-delay"
-                  min="1000"
-                  max="10000"
-                  step="1000"
-                  value="5000"
-                  style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd"
-                  aria-label="Auto-hide delay in seconds"
-                />
-                <span style="font-size: 11px; color: #999; min-width: 35px">10s</span>
-              </div>
-              <p
-                class="setting-description"
-                style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center"
-              >
-                <span id="highlight-menu-delay-label">5 seconds</span> - Toolbar hides after
-                inactivity
-              </p>
-            </div>
-          </section>
-        </div>
-        <!-- End highlight-menu-options-container -->
-
-        <!-- ========================================================== -->
-        <!-- DICTIONARY FEATURE -->
-        <!-- ========================================================== -->
-        <section id="dictionary-section" class="control-section">
-          <div class="toggle-control main-toggle">
-            <label for="dictionary-enabled" class="toggle-label">
-              <span class="label-text">Enable Dictionary</span>
-              <label class="toggle-switch" for="dictionary-enabled">
-                <input
-                  type="checkbox"
-                  id="dictionary-enabled"
-                  data-testid="dictionary-toggle"
-                  role="switch"
-                  aria-label="Enable dictionary lookup for selected words"
-                  checked
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            </label>
-          </div>
-        </section>
-
-        <!-- Dictionary Options Container -->
-        <div id="dictionary-options-container" class="options-container">
-          <section class="control-section">
-            <p class="feature-description" style="font-size: 13px; color: #666; margin: 0 0 12px 0">
-              Look up word definitions, synonyms, and pronunciations
-            </p>
-
-            <!-- Auto-lookup on Double-click Toggle -->
-            <div class="toggle-control" style="margin-top: 12px">
-              <label for="dictionary-auto-lookup" class="toggle-label">
-                <span class="label-text">Auto-lookup on Double-click</span>
-                <div class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    id="dictionary-auto-lookup"
-                    data-testid="dictionary-auto-lookup-toggle"
-                    role="switch"
-                    aria-label="Automatically show dictionary when double-clicking words"
-                    checked
-                  />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-            </div>
-            <p class="setting-description" style="font-size: 12px; color: #999; margin: 4px 0 0 0">
-              Automatically show definition when you double-click a word
-            </p>
-
-            <!-- Cache Size Slider -->
-            <div style="margin-top: 16px">
-              <label
-                for="dictionary-cache-size"
-                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
-              >
-                Cache Size
-              </label>
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span style="font-size: 11px; color: #999; min-width: 35px">10</span>
-                <input
-                  type="range"
-                  id="dictionary-cache-size"
-                  min="10"
-                  max="200"
-                  step="10"
-                  value="50"
-                  style="flex: 1; height: 4px; border-radius: 2px; outline: none; background: #ddd"
-                  aria-label="Dictionary cache size in entries"
-                />
-                <span style="font-size: 11px; color: #999; min-width: 35px">200</span>
-              </div>
-              <p
-                class="setting-description"
-                style="font-size: 11px; color: #999; margin: 4px 0 0 0; text-align: center"
-              >
-                <span id="dictionary-cache-label">50 entries</span> - Save definitions to reduce API
-                calls
-              </p>
-            </div>
-          </section>
-        </div>
-        <!-- End dictionary-options-container -->
-
-        <!-- ========================================================== -->
-        <!-- FEATURE 6: TRANSLATION -->
-        <!-- ========================================================== -->
-        <section id="translation-section" class="control-section">
-          <div class="toggle-control main-toggle">
-            <label for="translation-enabled" class="toggle-label">
-              <span class="label-text">Enable Translation</span>
-              <label class="toggle-switch" for="translation-enabled">
-                <input
-                  type="checkbox"
-                  id="translation-enabled"
-                  data-testid="translation-toggle"
-                  role="switch"
-                  aria-label="Enable translation features"
-                  checked
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            </label>
-          </div>
-        </section>
-
-        <!-- Translation Options Container -->
-        <div id="translation-options-container" class="options-container">
-          <section class="control-section">
-            <p class="feature-description" style="font-size: 13px; color: #666; margin: 0 0 12px 0">
-              Translate selected text or entire pages using LibreTranslate (free) or Google
-              Translate
-            </p>
-
-            <!-- Translate Page Button -->
-            <button
-              id="btn-translate-page"
-              data-testid="translate-page-button"
-              class="control-btn primary full-width"
-              aria-label="Translate entire page"
-              style="
-                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                color: white;
-                border: none;
-                padding: 12px 20px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: 600;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                transition:
-                  transform 0.2s,
-                  box-shadow 0.2s;
-                margin-bottom: 12px;
-              "
-              onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.4)'"
-              onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
-            >
-              <span style="font-size: 20px">🌐</span>
-              <span>Translate Page</span>
-            </button>
-
-            <!-- Target Language Selector -->
-            <div style="margin-top: 12px">
-              <label
-                for="translation-target-language"
-                style="display: block; font-size: 13px; color: #555; margin-bottom: 6px"
-              >
-                Target Language
-              </label>
-              <select
-                id="translation-target-language"
-                data-testid="translation-target-language-select"
-                aria-label="Select target language for translation"
-                style="
-                  width: 100%;
-                  padding: 8px;
-                  font-size: 13px;
-                  border: 1px solid #ddd;
-                  border-radius: 4px;
-                  background: white;
-                  color: #333;
-                  cursor: pointer;
-                "
-              >
-                <option value="en">🇬🇧 English</option>
-                <option value="es">🇪🇸 Spanish</option>
-                <option value="fr">🇫🇷 French</option>
-                <option value="de">🇩🇪 German</option>
-                <option value="it">🇮🇹 Italian</option>
-                <option value="pt">🇵🇹 Portuguese</option>
-                <option value="nl">🇳🇱 Dutch</option>
-                <option value="pl">🇵🇱 Polish</option>
-                <option value="ru">🇷🇺 Russian</option>
-                <option value="zh">🇨🇳 Chinese</option>
-                <option value="ja">🇯🇵 Japanese</option>
-                <option value="ko">🇰🇷 Korean</option>
-                <option value="ar">🇸🇦 Arabic</option>
-                <option value="hi">🇮🇳 Hindi</option>
-              </select>
-              <p
-                class="setting-description"
-                style="font-size: 11px; color: #999; margin: 4px 0 0 0"
-              >
-                Select the language to translate the entire page to
-              </p>
-            </div>
-          </section>
-        </div>
-        <!-- End translation-options-container -->
-
-        <!-- ========================================================== -->
-        <!-- CITATION FEATURE -->
-        <!-- ========================================================== -->
-        <section id="citation-section" class="control-section citation-section">
-          <div class="toggle-control main-toggle">
-            <label for="citation-enabled" class="toggle-label">
-              <span class="label-text">Enable Citations</span>
-              <label class="toggle-switch" for="citation-enabled">
-                <input
-                  type="checkbox"
-                  id="citation-enabled"
-                  data-testid="citation-toggle"
-                  role="switch"
-                  aria-label="Enable citation features"
-                  checked
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            </label>
-          </div>
-        </section>
-
-        <!-- Citation Options Container -->
-        <div id="citation-options-container" class="options-container">
-          <section class="control-section">
-            <p class="feature-description" style="font-size: 13px; color: #666; margin: 0 0 12px 0">
-              Save citations from web pages with automatic metadata extraction
-            </p>
-
-            <!-- Save Citation Button -->
-            <button
-              id="btn-save-citation"
-              data-testid="save-citation-button"
-              class="control-btn primary full-width"
-              aria-label="Save citation for current page"
-              style="
-                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                color: white;
-                border: none;
-                padding: 12px 20px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: 600;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                transition:
-                  transform 0.2s,
-                  box-shadow 0.2s;
-                margin-bottom: 12px;
-              "
-              onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.4)'"
-              onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
-            >
-              <span style="font-size: 20px">📚</span>
-              <span>Save Citation</span>
-            </button>
-
-            <!-- Citation Action Buttons Row -->
-            <div style="display: flex; gap: 8px; margin-bottom: 8px">
-              <!-- Citation Manager Button -->
-              <button
-                id="btn-citation-manager"
-                data-testid="citation-manager-button"
-                class="control-btn secondary"
-                aria-label="Open full citation library"
-                style="
-                  flex: 1;
-                  background: white;
-                  color: #333;
-                  border: 1px solid #ddd;
-                  padding: 8px 12px;
-                  border-radius: 6px;
-                  font-size: 12px;
-                  font-weight: 500;
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 6px;
-                  transition: all 0.2s;
-                "
-                onmouseover="this.style.background='#f5f5f5'; this.style.borderColor='#ccc'"
-                onmouseout="this.style.background='white'; this.style.borderColor='#ddd'"
-              >
-                <span style="font-size: 14px">📚</span>
-                <span>Library</span>
-              </button>
-
-              <!-- Projects Button -->
-              <button
-                id="btn-citation-projects"
-                data-testid="citation-projects-button"
-                class="control-btn secondary"
-                aria-label="Manage citation projects"
-                style="
-                  flex: 1;
-                  background: white;
-                  color: #333;
-                  border: 1px solid #ddd;
-                  padding: 8px 12px;
-                  border-radius: 6px;
-                  font-size: 12px;
-                  font-weight: 500;
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 6px;
-                  transition: all 0.2s;
-                "
-                onmouseover="this.style.background='#f5f5f5'; this.style.borderColor='#ccc'"
-                onmouseout="this.style.background='white'; this.style.borderColor='#ddd'"
-              >
-                <span style="font-size: 14px">📁</span>
-                <span>Projects</span>
-              </button>
-            </div>
-
-            <!-- Expand/Collapse Citation Panel Button -->
-            <button
-              id="btn-expand-citations"
-              data-testid="expand-citations-button"
-              class="control-btn"
-              aria-label="Expand citation panel"
-              aria-expanded="false"
-              aria-controls="citation-manager-panel"
-              style="
-                width: 100%;
-                background: #fffbeb;
-                color: #b45309;
-                border: 1px solid #fcd34d;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 500;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                transition: all 0.2s;
-              "
-              onmouseover="this.style.background='#fef3c7'"
-              onmouseout="this.style.background='#fffbeb'"
-            >
-              <span id="expand-citations-icon" style="font-size: 12px; transition: transform 0.2s"
-                >▼</span
-              >
-              <span id="expand-citations-text">Show Quick View</span>
-              <span
-                id="citation-count-badge"
-                style="
-                  background: #f59e0b;
-                  color: white;
-                  padding: 2px 6px;
-                  border-radius: 10px;
-                  font-size: 10px;
-                  font-weight: 600;
-                "
-                >0</span
-              >
-            </button>
-
-            <!-- Citation Manager Panel (hidden by default) -->
-            <div
-              id="citation-manager-panel"
-              class="citation-manager-panel-container"
-              role="region"
-              aria-label="Citation quick view panel"
-              style="display: none"
-            >
-              <!-- Panel content will be injected by CitationManagerPanel component -->
-            </div>
-          </section>
-        </div>
-        <!-- End citation-options-container -->
-
-        <!-- TTS Enable/Disable -->
-        <section class="control-section">
-          <div class="toggle-control main-toggle">
-            <label for="tts-enabled" class="toggle-label">
-              <span class="label-text">Enable TTS</span>
-              <label class="toggle-switch" for="tts-enabled">
-                <input
-                  type="checkbox"
-                  id="tts-enabled"
-                  data-testid="tts-toggle"
-                  role="switch"
-                  aria-label="Enable Text-to-Speech"
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            </label>
-          </div>
-        </section>
-
-        <!-- Options Container (shows when TTS enabled) -->
-        <div id="options-container" class="options-container hidden">
-          <!-- ========================================================== -->
-          <!-- SPRINT 6 FEATURE: READ ENTIRE PAGE (HIDDEN - FUTURE ITERATION) -->
-          <!-- ========================================================== -->
-          <section class="control-section hidden" id="read-page-section">
-            <h2 class="section-title">📖 Read Entire Page</h2>
-            <p class="feature-description">Reads main content, skipping navigation and menus</p>
-            <button
-              id="btn-read-page"
-              data-testid="read-page-button"
-              class="control-btn primary full-width"
-              aria-label="Read entire page content"
-            >
-              <span class="btn-icon">📖</span>
-              <span class="btn-text">Read Page</span>
-            </button>
-          </section>
-
-          <!-- Voice Selection -->
-          <section class="control-section">
-            <h2 class="section-title">
-              <label for="voice-select">Voice</label>
-            </h2>
-            <select
-              id="voice-select"
-              data-testid="tts-voice-select"
-              class="voice-select"
-              aria-label="Select voice"
-            >
-              <option value="">Loading voices...</option>
-            </select>
-          </section>
-
-          <!-- Rate Control -->
-          <section class="control-section">
-            <h2 class="section-title">
-              <label for="rate-slider">Speed</label>
-              <span class="control-value" id="rate-value">1.0x</span>
-            </h2>
-            <div class="slider-control">
-              <input
-                type="range"
-                id="rate-slider"
-                data-testid="tts-speed-slider"
-                class="slider"
-                min="0.5"
-                max="2.0"
-                step="0.1"
-                value="1.0"
-                aria-label="Adjust reading speed"
-                aria-valuemin="0.5"
-                aria-valuemax="2.0"
-                aria-valuenow="1.0"
-              />
-              <div class="slider-labels">
-                <span>Slower</span>
-                <span>Faster</span>
-              </div>
-            </div>
-
-            <!-- Speed Presets (Sprint 2 Feature) -->
-            <div id="speed-presets-container" class="speed-presets-container">
-              <div class="preset-buttons">
-                <button
-                  class="preset-btn"
-                  data-speed="0.5"
-                  data-testid="speed-preset-0.5"
-                  aria-label="Set speed to 0.5x"
-                >
-                  0.5x
-                </button>
-                <button
-                  class="preset-btn"
-                  data-speed="1.0"
-                  data-testid="speed-preset-1.0"
-                  aria-label="Set speed to 1.0x"
-                >
-                  1.0x
-                </button>
-                <button
-                  class="preset-btn"
-                  data-speed="1.5"
-                  data-testid="speed-preset-1.5"
-                  aria-label="Set speed to 1.5x"
-                >
-                  1.5x
-                </button>
-                <button
-                  class="preset-btn"
-                  data-speed="2.0"
-                  data-testid="speed-preset-2.0"
-                  aria-label="Set speed to 2.0x"
-                >
-                  2.0x
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <!-- Pitch Control -->
-          <section class="control-section">
-            <h2 class="section-title">
-              <label for="pitch-slider">Pitch</label>
-              <span class="control-value" id="pitch-value">1.0</span>
-            </h2>
-            <div class="slider-control">
-              <input
-                type="range"
-                id="pitch-slider"
-                data-testid="tts-pitch-slider"
-                class="slider"
-                min="0.5"
-                max="2.0"
-                step="0.1"
-                value="1.0"
-                aria-label="Adjust voice pitch"
-                aria-valuemin="0.5"
-                aria-valuemax="2.0"
-                aria-valuenow="1.0"
-              />
-              <div class="slider-labels">
-                <span>Lower</span>
-                <span>Higher</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Volume Control -->
-          <section class="control-section">
-            <h2 class="section-title">
-              <label for="volume-slider">Volume</label>
-              <span class="control-value" id="volume-value">100%</span>
-            </h2>
-            <div class="slider-control">
-              <input
-                type="range"
-                id="volume-slider"
-                data-testid="tts-volume-slider"
-                class="slider"
-                min="0"
-                max="1"
-                step="0.1"
-                value="1"
-                aria-label="Adjust volume"
-                aria-valuemin="0"
-                aria-valuemax="1"
-                aria-valuenow="1"
-              />
-              <div class="slider-labels">
-                <span>🔇</span>
-                <span>🔊</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Highlighting Toggle -->
-          <section class="control-section">
-            <div class="toggle-control">
-              <label for="highlight-enabled" class="toggle-label">
-                <span class="label-text">Text Highlighting</span>
-                <div class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    id="highlight-enabled"
-                    data-testid="tts-highlight-toggle"
-                    role="switch"
-                    aria-label="Enable text highlighting"
-                    checked
-                  />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-            </div>
-          </section>
-
-          <!-- Highlighting Options Container (shows when highlighting enabled) -->
-          <div id="highlight-options-container" class="highlight-options-container">
-            <!-- Highlight Color -->
+        <!-- ============================================================ -->
+        <!-- SECTION 1: READING HELP (Most commonly used) -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="reading">
+          <button
+            class="accordion-header"
+            aria-expanded="true"
+            aria-controls="reading-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">🔊</span>
+              Reading Help
+            </span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div id="reading-content" class="accordion-content" role="region">
+            <!-- TTS Enable/Disable -->
             <section class="control-section">
-              <h2 class="section-title">
-                <label for="highlight-color">Highlight Color</label>
-              </h2>
-              <select
-                id="highlight-color"
-                data-testid="tts-highlight-color-select"
-                class="voice-select"
-                aria-label="Select highlight color"
-              >
-                <option value="#FFFF00">Yellow (High Contrast)</option>
-                <option value="#FFEB3B">Bright Yellow</option>
-                <option value="#FFD700">Gold</option>
-                <option value="#90EE90">Light Green</option>
-                <option value="#87CEEB">Sky Blue</option>
-                <option value="#FFB6C1">Light Pink</option>
-                <option value="#DDA0DD">Plum</option>
-                <option value="#F0E68C">Khaki</option>
-              </select>
-            </section>
-
-            <!-- Highlight Opacity -->
-            <section class="control-section">
-              <h2 class="section-title">
-                <label for="highlight-opacity">Highlight Opacity</label>
-                <span class="control-value" id="opacity-value">70%</span>
-              </h2>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="highlight-opacity"
-                  data-testid="tts-highlight-opacity-slider"
-                  class="slider"
-                  min="0.1"
-                  max="1"
-                  step="0.1"
-                  value="0.7"
-                  aria-label="Adjust highlight opacity"
-                  aria-valuemin="0.1"
-                  aria-valuemax="1"
-                  aria-valuenow="0.7"
-                />
-                <div class="slider-labels">
-                  <span>Transparent</span>
-                  <span>Solid</span>
-                </div>
+              <div class="toggle-control main-toggle">
+                <label for="tts-enabled" class="toggle-label">
+                  <span class="label-text">🔊 Read Aloud (TTS)</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="tts-enabled"
+                      data-testid="tts-toggle"
+                      role="switch"
+                      aria-label="Enable Text-to-Speech"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
               </div>
             </section>
 
-            <!-- Word-by-Word Highlighting (Sprint 2 Feature) -->
-            <section class="control-section">
-              <div class="toggle-control">
-                <label for="word-by-word-enabled" class="toggle-label">
-                  <span class="label-text">Word-by-Word Highlighting</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="word-by-word-enabled"
-                      data-testid="tts-word-by-word-toggle"
-                      role="switch"
-                      aria-label="Enable word-by-word highlighting"
-                    />
-                    <span class="toggle-slider"></span>
+            <!-- TTS Options Container -->
+            <div id="options-container" class="options-container hidden">
+              <!-- Read Entire Page (Hidden for future) -->
+              <section class="control-section hidden" id="read-page-section">
+                <h2 class="section-title">📖 Read Entire Page</h2>
+                <p class="feature-description">Reads main content, skipping navigation and menus</p>
+                <button
+                  id="btn-read-page"
+                  data-testid="read-page-button"
+                  class="control-btn primary full-width"
+                  aria-label="Read entire page content"
+                >
+                  <span class="btn-icon">📖</span>
+                  <span class="btn-text">Read Page</span>
+                </button>
+              </section>
+
+              <!-- Voice Selection -->
+              <section class="control-section">
+                <h2 class="section-title">
+                  <label for="voice-select">Voice</label>
+                </h2>
+                <select
+                  id="voice-select"
+                  data-testid="tts-voice-select"
+                  class="voice-select"
+                  aria-label="Select voice"
+                >
+                  <option value="">Loading voices...</option>
+                </select>
+              </section>
+
+              <!-- Rate Control -->
+              <section class="control-section">
+                <h2 class="section-title">
+                  <label for="rate-slider">Speed</label>
+                  <span class="control-value" id="rate-value">1.0x</span>
+                </h2>
+                <div class="slider-control">
+                  <input
+                    type="range"
+                    id="rate-slider"
+                    data-testid="tts-speed-slider"
+                    class="slider"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value="1.0"
+                    aria-label="Adjust reading speed"
+                  />
+                  <div class="slider-labels">
+                    <span>Slower</span>
+                    <span>Faster</span>
                   </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Highlight each word as it's spoken for improved focus
-              </p>
-            </section>
-          </div>
-          <!-- End highlight-options-container -->
-        </div>
-        <!-- End options-container -->
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 3 FEATURE: TEXT CUSTOMIZATION -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="text-customization-section">
-          <div class="toggle-control">
-            <label for="text-customization-enabled" class="toggle-label">
-              <span class="label-text">✨ Text Customization</span>
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="text-customization-enabled"
-                  data-testid="text-customization-toggle"
-                  role="switch"
-                  aria-label="Enable text customization"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="text-customization-description">
-            Adjust font and spacing for better readability (WCAG 2.2 SC 1.4.12)
-          </p>
-
-          <!-- Text Customization Options (shows when enabled) -->
-          <div id="text-customization-options" class="text-customization-options hidden">
-            <!-- Font Selection -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="text-font-family">Font Family</label>
-              </h3>
-              <select
-                id="text-font-family"
-                data-testid="text-font-select"
-                class="voice-select"
-                aria-label="Select font family"
-              >
-                <option value="system">System Default</option>
-                <option value="lexend">Lexend (highly readable)</option>
-                <option value="atkinson-hyperlegible">Atkinson Hyperlegible (low vision)</option>
-                <option value="opendyslexic">OpenDyslexic (dyslexia-friendly)</option>
-                <option value="comic-sans">Comic Sans MS</option>
-                <option value="arial">Arial</option>
-                <option value="verdana">Verdana</option>
-              </select>
-            </div>
-
-            <!-- Line Spacing -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="text-line-spacing">Line Spacing</label>
-                <span class="control-value" id="text-line-spacing-value">1.5</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="text-line-spacing"
-                  data-testid="text-line-spacing-slider"
-                  class="slider"
-                  min="1.0"
-                  max="3.0"
-                  step="0.1"
-                  value="1.5"
-                  aria-label="Adjust line spacing"
-                  aria-valuemin="1.0"
-                  aria-valuemax="3.0"
-                  aria-valuenow="1.5"
-                />
-                <div class="slider-labels">
-                  <span>Tight</span>
-                  <span>Loose</span>
                 </div>
-              </div>
-            </div>
-
-            <!-- Letter Spacing -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="text-letter-spacing">Letter Spacing</label>
-                <span class="control-value" id="text-letter-spacing-value">12%</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="text-letter-spacing"
-                  data-testid="text-letter-spacing-slider"
-                  class="slider"
-                  min="0"
-                  max="50"
-                  step="1"
-                  value="12"
-                  aria-label="Adjust letter spacing"
-                  aria-valuemin="0"
-                  aria-valuemax="50"
-                  aria-valuenow="12"
-                />
-                <div class="slider-labels">
-                  <span>Normal</span>
-                  <span>Wide</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Word Spacing -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="text-word-spacing">Word Spacing</label>
-                <span class="control-value" id="text-word-spacing-value">16%</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="text-word-spacing"
-                  data-testid="text-word-spacing-slider"
-                  class="slider"
-                  min="0"
-                  max="50"
-                  step="1"
-                  value="16"
-                  aria-label="Adjust word spacing"
-                  aria-valuemin="0"
-                  aria-valuemax="50"
-                  aria-valuenow="16"
-                />
-                <div class="slider-labels">
-                  <span>Normal</span>
-                  <span>Wide</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Paragraph Spacing -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="text-paragraph-spacing">Paragraph Spacing</label>
-                <span class="control-value" id="text-paragraph-spacing-value">2.0em</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="text-paragraph-spacing"
-                  data-testid="text-paragraph-spacing-slider"
-                  class="slider"
-                  min="1.0"
-                  max="4.0"
-                  step="0.1"
-                  value="2.0"
-                  aria-label="Adjust paragraph spacing"
-                  aria-valuemin="1.0"
-                  aria-valuemax="4.0"
-                  aria-valuenow="2.0"
-                />
-                <div class="slider-labels">
-                  <span>Tight</span>
-                  <span>Loose</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- End text-customization-options -->
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 3 FEATURE: READING GUIDE -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="reading-guide-section">
-          <div class="toggle-control">
-            <label for="reading-guide-enabled" class="toggle-label">
-              <span class="label-text">📏 Reading Guide</span>
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="reading-guide-enabled"
-                  data-testid="reading-guide-toggle"
-                  role="switch"
-                  aria-label="Enable reading guide"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="reading-guide-description">
-            Horizontal line follows your mouse to help track reading position
-          </p>
-
-          <!-- Reading Guide Options (shows when enabled) -->
-          <div id="reading-guide-options" class="reading-guide-options hidden">
-            <!-- Line Color -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="reading-guide-color">Line Color</label>
-              </h3>
-              <select
-                id="reading-guide-color"
-                data-testid="reading-guide-color-select"
-                class="voice-select"
-                aria-label="Select line color"
-              >
-                <option value="#000000">Black</option>
-                <option value="#FF0000">Red</option>
-                <option value="#0000FF">Blue</option>
-                <option value="#00FF00">Green</option>
-                <option value="#FF00FF">Magenta</option>
-                <option value="#FFA500">Orange</option>
-              </select>
-            </div>
-
-            <!-- Line Thickness -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="reading-guide-thickness">Line Thickness</label>
-                <span class="control-value" id="reading-guide-thickness-value">3px</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="reading-guide-thickness"
-                  data-testid="reading-guide-thickness-slider"
-                  class="slider"
-                  min="1"
-                  max="10"
-                  step="1"
-                  value="3"
-                  aria-label="Adjust line thickness"
-                  aria-valuemin="1"
-                  aria-valuemax="10"
-                  aria-valuenow="3"
-                />
-                <div class="slider-labels">
-                  <span>Thin</span>
-                  <span>Thick</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Line Opacity -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="reading-guide-opacity">Line Opacity</label>
-                <span class="control-value" id="reading-guide-opacity-value">70%</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="reading-guide-opacity"
-                  data-testid="reading-guide-opacity-slider"
-                  class="slider"
-                  min="0.1"
-                  max="1"
-                  step="0.1"
-                  value="0.7"
-                  aria-label="Adjust line opacity"
-                  aria-valuemin="0.1"
-                  aria-valuemax="1"
-                  aria-valuenow="0.7"
-                />
-                <div class="slider-labels">
-                  <span>Transparent</span>
-                  <span>Solid</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- End reading-guide-options -->
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 3 FEATURE: FOCUS MODE -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="focus-mode-section">
-          <div class="toggle-control">
-            <label for="focus-mode-enabled" class="toggle-label">
-              <span class="label-text">🎯 Focus Mode</span>
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="focus-mode-enabled"
-                  data-testid="focus-mode-toggle"
-                  role="switch"
-                  aria-label="Enable focus mode"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="focus-mode-description">
-            Adjustable reading window with darkened overlay to reduce distractions
-          </p>
-
-          <!-- Focus Mode Options (shows when enabled) -->
-          <div id="focus-mode-options" class="focus-mode-options hidden">
-            <!-- Box Width -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="focus-mode-width">Window Width</label>
-                <span class="control-value" id="focus-mode-width-value">400px</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="focus-mode-width"
-                  data-testid="focus-mode-width-slider"
-                  class="slider"
-                  min="150"
-                  max="800"
-                  step="5"
-                  value="400"
-                />
-                <div class="slider-labels">
-                  <span>Narrow</span>
-                  <span>Wide</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Box Height -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="focus-mode-height">Window Height</label>
-                <span class="control-value" id="focus-mode-height-value">100px</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="focus-mode-height"
-                  data-testid="focus-mode-height-slider"
-                  class="slider"
-                  min="50"
-                  max="250"
-                  step="5"
-                  value="100"
-                />
-                <div class="slider-labels">
-                  <span>Short</span>
-                  <span>Tall</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Overlay Opacity -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="focus-mode-opacity">Overlay Darkness</label>
-                <span class="control-value" id="focus-mode-opacity-value">70%</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="focus-mode-opacity"
-                  data-testid="focus-mode-opacity-slider"
-                  class="slider"
-                  min="0.1"
-                  max="1"
-                  step="0.1"
-                  value="0.7"
-                />
-                <div class="slider-labels">
-                  <span>Light</span>
-                  <span>Dark</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- End focus-mode-options -->
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 6 FEATURE: SCREEN COLOR OVERLAY -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="screen-overlay-section">
-          <div class="toggle-control">
-            <label for="screen-overlay-enabled" class="toggle-label">
-              <span class="label-text">🎨 Screen Color Overlay</span>
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="screen-overlay-enabled"
-                  data-testid="screen-overlay-toggle"
-                  role="switch"
-                  aria-label="Enable screen color overlay"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="screen-overlay-description">
-            Add a color tint to reduce eye strain and improve readability
-          </p>
-
-          <!-- Screen Overlay Options (shows when enabled) -->
-          <div id="screen-overlay-options" class="screen-overlay-options hidden">
-            <!-- Overlay Color -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="screen-overlay-color">Overlay Color</label>
-              </h3>
-              <select
-                id="screen-overlay-color"
-                data-testid="screen-overlay-color-select"
-                class="voice-select"
-                aria-label="Select overlay color"
-              >
-                <option value="#FFE4C4">Warm Sepia (recommended)</option>
-                <option value="#FFF59D">Soft Yellow</option>
-                <option value="#FFCCBC">Peach</option>
-                <option value="#F0D9B5">Cream</option>
-                <option value="#B3E5FC">Cool Blue</option>
-                <option value="#C8E6C9">Soft Green</option>
-                <option value="#F8BBD0">Light Pink</option>
-                <option value="#E1BEE7">Lavender</option>
-              </select>
-            </div>
-
-            <!-- Overlay Opacity -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="screen-overlay-opacity">Overlay Intensity</label>
-                <span class="control-value" id="screen-overlay-opacity-value">30%</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="screen-overlay-opacity"
-                  data-testid="screen-overlay-opacity-slider"
-                  class="slider"
-                  min="0.1"
-                  max="0.9"
-                  step="0.1"
-                  value="0.3"
-                  aria-label="Adjust overlay intensity"
-                  aria-valuemin="0.1"
-                  aria-valuemax="0.9"
-                  aria-valuenow="0.3"
-                />
-                <div class="slider-labels">
-                  <span>Subtle</span>
-                  <span>Strong</span>
-                </div>
-              </div>
-              <p class="feature-description">Adjust the strength of the color tint</p>
-            </div>
-          </div>
-          <!-- End screen-overlay-options -->
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 4 FEATURE: CANVAS LMS INTEGRATION -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="canvas-integration-section">
-          <div class="toggle-control">
-            <label for="canvas-integration-enabled" class="toggle-label">
-              <span class="label-text"
-                >🎓 Canvas Integration <span class="experimental-badge">EXPERIMENTAL</span></span
-              >
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="canvas-integration-enabled"
-                  data-testid="canvas-toggle"
-                  role="switch"
-                  aria-label="Enable Canvas LMS integration (Experimental feature)"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="canvas-integration-description">
-            <strong>⚠️ Experimental:</strong> Enhanced features for Canvas LMS: assignment reader,
-            quiz helper, keyboard navigation
-          </p>
-
-          <!-- Canvas Integration Options (shows when enabled) -->
-          <div id="canvas-integration-options" class="canvas-integration-options hidden">
-            <!-- Assignment Reader -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="canvas-assignment-reader" class="toggle-label">
-                  <span class="label-text">Assignment Reader</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="canvas-assignment-reader"
-                      data-testid="canvas-assignment-reader-toggle"
-                      role="switch"
-                      aria-label="Enable assignment auto-reader"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
+                <div id="speed-presets-container" class="speed-presets-container">
+                  <div class="preset-buttons">
+                    <button
+                      class="preset-btn"
+                      data-speed="0.5"
+                      data-testid="speed-preset-0.5"
+                      aria-label="Set speed to 0.5x"
+                    >
+                      0.5x
+                    </button>
+                    <button
+                      class="preset-btn"
+                      data-speed="1.0"
+                      data-testid="speed-preset-1.0"
+                      aria-label="Set speed to 1.0x"
+                    >
+                      1.0x
+                    </button>
+                    <button
+                      class="preset-btn"
+                      data-speed="1.5"
+                      data-testid="speed-preset-1.5"
+                      aria-label="Set speed to 1.5x"
+                    >
+                      1.5x
+                    </button>
+                    <button
+                      class="preset-btn"
+                      data-speed="2.0"
+                      data-testid="speed-preset-2.0"
+                      aria-label="Set speed to 2.0x"
+                    >
+                      2.0x
+                    </button>
                   </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Auto-detect Canvas assignments and add read-aloud button
-              </p>
-            </div>
+                </div>
+              </section>
 
-            <!-- Quiz Helper -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="canvas-quiz-helper" class="toggle-label">
-                  <span class="label-text">📝 Quiz Helper</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="canvas-quiz-helper"
-                      data-testid="canvas-quiz-helper-toggle"
-                      role="switch"
-                      aria-label="Enable quiz helper"
-                    />
-                    <span class="toggle-slider"></span>
+              <!-- Pitch Control -->
+              <section class="control-section">
+                <h2 class="section-title">
+                  <label for="pitch-slider">Pitch</label>
+                  <span class="control-value" id="pitch-value">1.0</span>
+                </h2>
+                <div class="slider-control">
+                  <input
+                    type="range"
+                    id="pitch-slider"
+                    data-testid="tts-pitch-slider"
+                    class="slider"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value="1.0"
+                    aria-label="Adjust voice pitch"
+                  />
+                  <div class="slider-labels">
+                    <span>Lower</span>
+                    <span>Higher</span>
                   </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Read quiz questions aloud and navigate with keyboard
-              </p>
+                </div>
+              </section>
 
-              <!-- Quiz Helper Sub-options (shows when enabled) -->
-              <div
-                id="quiz-helper-options"
-                class="quiz-helper-options hidden"
-                style="margin-left: 15px; margin-top: 10px"
-              >
-                <!-- Read Answer Options -->
-                <div class="control-subsection">
+              <!-- Volume Control -->
+              <section class="control-section">
+                <h2 class="section-title">
+                  <label for="volume-slider">Volume</label>
+                  <span class="control-value" id="volume-value">100%</span>
+                </h2>
+                <div class="slider-control">
+                  <input
+                    type="range"
+                    id="volume-slider"
+                    data-testid="tts-volume-slider"
+                    class="slider"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value="1"
+                    aria-label="Adjust volume"
+                  />
+                  <div class="slider-labels">
+                    <span>🔇</span>
+                    <span>🔊</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Highlighting Toggle -->
+              <section class="control-section">
+                <div class="toggle-control">
+                  <label for="highlight-enabled" class="toggle-label">
+                    <span class="label-text">Text Highlighting</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="highlight-enabled"
+                        data-testid="tts-highlight-toggle"
+                        role="switch"
+                        aria-label="Enable text highlighting"
+                        checked
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+              </section>
+
+              <!-- Highlighting Options -->
+              <div id="highlight-options-container" class="highlight-options-container">
+                <section class="control-section">
+                  <h2 class="section-title">
+                    <label for="highlight-color">Highlight Color</label>
+                  </h2>
+                  <select
+                    id="highlight-color"
+                    data-testid="tts-highlight-color-select"
+                    class="voice-select"
+                    aria-label="Select highlight color"
+                  >
+                    <option value="#FFFF00">Yellow (High Contrast)</option>
+                    <option value="#FFEB3B">Bright Yellow</option>
+                    <option value="#FFD700">Gold</option>
+                    <option value="#90EE90">Light Green</option>
+                    <option value="#87CEEB">Sky Blue</option>
+                    <option value="#FFB6C1">Light Pink</option>
+                    <option value="#DDA0DD">Plum</option>
+                    <option value="#F0E68C">Khaki</option>
+                  </select>
+                </section>
+
+                <section class="control-section">
+                  <h2 class="section-title">
+                    <label for="highlight-opacity">Highlight Opacity</label>
+                    <span class="control-value" id="opacity-value">70%</span>
+                  </h2>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="highlight-opacity"
+                      data-testid="tts-highlight-opacity-slider"
+                      class="slider"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value="0.7"
+                      aria-label="Adjust highlight opacity"
+                    />
+                    <div class="slider-labels">
+                      <span>Transparent</span>
+                      <span>Solid</span>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="control-section">
                   <div class="toggle-control">
-                    <label for="quiz-read-answers" class="toggle-label">
-                      <span class="label-text" style="font-size: 13px">Read Answer Options</span>
+                    <label for="word-by-word-enabled" class="toggle-label">
+                      <span class="label-text">Word-by-Word Highlighting</span>
                       <div class="toggle-switch">
                         <input
                           type="checkbox"
-                          id="quiz-read-answers"
-                          data-testid="canvas-quiz-read-answers-toggle"
+                          id="word-by-word-enabled"
+                          data-testid="tts-word-by-word-toggle"
                           role="switch"
-                          aria-label="Read answer options aloud"
-                          checked
+                          aria-label="Enable word-by-word highlighting"
                         />
                         <span class="toggle-slider"></span>
                       </div>
                     </label>
                   </div>
-                </div>
+                  <p class="feature-description">Highlight each word as it's spoken</p>
+                </section>
+              </div>
+            </div>
 
-                <!-- Auto-Read on Focus -->
+            <!-- Reading Mode -->
+            <section class="control-section" id="reading-mode-section">
+              <div class="toggle-control">
+                <label for="reading-mode-enabled" class="toggle-label">
+                  <span class="label-text">📖 Reading Mode</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="reading-mode-enabled"
+                      data-testid="reading-mode-toggle"
+                      role="switch"
+                      aria-label="Enable Reading Mode"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="reading-mode-description">
+                Clean reading view (Ctrl+Shift+R)
+              </p>
+              <div id="reading-mode-options" class="reading-mode-options hidden">
+                <button
+                  id="btn-toggle-reading-mode"
+                  data-testid="toggle-reading-mode-button"
+                  class="control-btn primary full-width"
+                  aria-label="Toggle Reading Mode"
+                  style="margin-top: 8px"
+                >
+                  <span class="btn-icon">📖</span>
+                  <span class="btn-text">Enter Reading Mode</span>
+                </button>
+              </div>
+            </section>
+
+            <!-- Dyslexia Mode -->
+            <section class="control-section" id="dyslexia-mode-section">
+              <div class="toggle-control">
+                <label for="dyslexia-mode-enabled" class="toggle-label">
+                  <span class="label-text">✨ Dyslexia Mode</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="dyslexia-mode-enabled"
+                      data-testid="dyslexia-toggle"
+                      role="switch"
+                      aria-label="Enable Dyslexia Reading Mode"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="dyslexia-mode-description">
+                Bionic reading, syllable colors, grammar colors
+              </p>
+              <div id="dyslexia-mode-options" class="dyslexia-mode-options hidden">
                 <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="quiz-auto-read" class="toggle-label">
-                      <span class="label-text" style="font-size: 13px">Auto-Read on Focus</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="quiz-auto-read"
-                          data-testid="canvas-quiz-auto-read-toggle"
-                          role="switch"
-                          aria-label="Auto-read questions when focused"
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
+                  <h3 class="subsection-title">Reading Enhancement</h3>
+                  <div class="control-subsection" style="margin-bottom: 8px">
+                    <label class="toggle-label" style="cursor: pointer">
+                      <input
+                        type="radio"
+                        name="dyslexia-feature"
+                        id="dyslexia-bionic"
+                        data-testid="dyslexia-bionic-radio"
+                        value="bionic"
+                        checked
+                        style="margin-right: 8px"
+                      />
+                      <span class="label-text">🔤 Bionic Reading</span>
                     </label>
                   </div>
-                  <p class="feature-description" style="font-size: 11px">
-                    Automatically read question when you navigate to it
+                  <div class="control-subsection" style="margin-bottom: 8px">
+                    <label class="toggle-label" style="cursor: pointer">
+                      <input
+                        type="radio"
+                        name="dyslexia-feature"
+                        id="dyslexia-syllable"
+                        data-testid="dyslexia-syllable-radio"
+                        value="syllable"
+                        style="margin-right: 8px"
+                      />
+                      <span class="label-text">📝 Syllable Colors</span>
+                    </label>
+                  </div>
+                  <div class="control-subsection">
+                    <label class="toggle-label" style="cursor: pointer">
+                      <input
+                        type="radio"
+                        name="dyslexia-feature"
+                        id="dyslexia-grammar"
+                        data-testid="dyslexia-grammar-radio"
+                        value="grammar"
+                        style="margin-right: 8px"
+                      />
+                      <span class="label-text">🎨 Grammar Colors</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="dyslexia-intensity">Color Intensity</label>
+                    <span class="control-value" id="dyslexia-intensity-value">70%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="dyslexia-intensity"
+                      data-testid="dyslexia-intensity-slider"
+                      class="slider"
+                      min="0.5"
+                      max="1.0"
+                      step="0.1"
+                      value="0.7"
+                      aria-label="Adjust color intensity"
+                    />
+                    <div class="slider-labels"><span>Subtle</span><span>Strong</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- OCR Feature -->
+            <section id="ocr-section" class="control-section">
+              <div class="toggle-control main-toggle">
+                <label for="ocr-enabled" class="toggle-label">
+                  <span class="label-text">📸 Read from Images (OCR)</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="ocr-enabled"
+                      data-testid="ocr-toggle"
+                      role="switch"
+                      aria-label="Enable OCR"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+            </section>
+            <div id="ocr-options-container" class="options-container hidden">
+              <section class="control-section">
+                <p class="feature-description">Extract text from PDFs, images, and screenshots</p>
+                <button
+                  id="btn-trigger-ocr"
+                  data-testid="ocr-button"
+                  class="control-btn primary full-width"
+                  aria-label="Start OCR capture"
+                >
+                  <span class="btn-icon">📸</span>
+                  <span class="btn-text">Capture & Read</span>
+                </button>
+              </section>
+              <section class="control-section">
+                <div class="toggle-control">
+                  <label for="ocr-auto-reading-mode" class="toggle-label">
+                    <span class="label-text">Auto Reading Mode</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="ocr-auto-reading-mode"
+                        data-testid="ocr-auto-reading-mode-toggle"
+                        role="switch"
+                        aria-label="Auto reading mode"
+                        checked
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <div class="slider-control" style="margin-top: 12px">
+                  <label for="ocr-upscale-factor" class="section-title">Image Quality</label>
+                  <input
+                    type="range"
+                    id="ocr-upscale-factor"
+                    min="1.0"
+                    max="2.0"
+                    step="0.1"
+                    value="1.5"
+                    class="slider"
+                    aria-label="OCR image quality"
+                  />
+                  <p class="feature-description" style="text-align: center">
+                    <span id="ocr-upscale-label">Medium (1.5x)</span>
                   </p>
                 </div>
-
-                <!-- Highlight Current Question -->
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="quiz-highlight-question" class="toggle-label">
-                      <span class="label-text" style="font-size: 13px"
-                        >Highlight Current Question</span
-                      >
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="quiz-highlight-question"
-                          data-testid="canvas-quiz-highlight-toggle"
-                          role="switch"
-                          aria-label="Highlight current question"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                <!-- Question Highlight Color -->
-                <div class="control-subsection">
-                  <h3 class="subsection-title" style="font-size: 13px">
-                    <label for="quiz-highlight-color">Highlight Color</label>
-                  </h3>
+                <div style="margin-top: 12px">
+                  <label for="ocr-language" class="section-title">Language</label>
                   <select
-                    id="quiz-highlight-color"
-                    data-testid="canvas-quiz-highlight-color-select"
+                    id="ocr-language"
+                    data-testid="ocr-language-select"
                     class="voice-select"
-                    aria-label="Select question highlight color"
+                    aria-label="OCR language"
                   >
-                    <option value="#4A90E2">Blue (recommended)</option>
-                    <option value="#FF6B6B">Red</option>
-                    <option value="#4ECDC4">Teal</option>
-                    <option value="#95E1D3">Mint</option>
-                    <option value="#FFD93D">Yellow</option>
-                    <option value="#6BCF7F">Green</option>
+                    <option value="eng" selected>English</option>
+                    <option value="spa">Spanish</option>
+                    <option value="fra">French</option>
+                    <option value="deu">German</option>
+                    <option value="ita">Italian</option>
+                    <option value="por">Portuguese</option>
+                    <option value="nld">Dutch</option>
+                    <option value="pol">Polish</option>
+                    <option value="rus">Russian</option>
+                    <option value="chi_sim">Chinese (Simplified)</option>
+                    <option value="chi_tra">Chinese (Traditional)</option>
+                    <option value="jpn">Japanese</option>
+                    <option value="kor">Korean</option>
+                    <option value="ara">Arabic</option>
                   </select>
                 </div>
+                <div class="slider-control" style="margin-top: 12px">
+                  <label for="ocr-confidence-threshold" class="section-title">Confidence</label>
+                  <input
+                    type="range"
+                    id="ocr-confidence-threshold"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value="60"
+                    class="slider"
+                    aria-label="OCR confidence"
+                  />
+                  <p class="feature-description" style="text-align: center">
+                    <span id="ocr-confidence-label">60%</span>
+                  </p>
+                </div>
+                <div class="toggle-control" style="margin-top: 12px">
+                  <label for="ocr-auto-tts" class="toggle-label">
+                    <span class="label-text">Auto-play TTS</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="ocr-auto-tts"
+                        data-testid="ocr-auto-tts-toggle"
+                        role="switch"
+                        aria-label="Auto TTS"
+                        checked
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
 
-                <!-- Keyboard Navigation -->
+        <!-- ============================================================ -->
+        <!-- SECTION 2: WRITING HELP -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="writing">
+          <button
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="writing-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">✍️</span>
+              Writing Help
+            </span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div id="writing-content" class="accordion-content" role="region">
+            <!-- Speech-to-Text -->
+            <section class="control-section" id="stt-section">
+              <div class="toggle-control">
+                <label for="stt-enabled" class="toggle-label">
+                  <span class="label-text"
+                    >🎤 Speech-to-Text <span class="experimental-badge">BETA</span></span
+                  >
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="stt-enabled"
+                      data-testid="stt-toggle"
+                      role="switch"
+                      aria-label="Enable Speech-to-Text"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="stt-description">
+                Type using your voice in any text field
+              </p>
+              <div id="stt-options" class="stt-options hidden">
                 <div class="control-subsection">
                   <div class="toggle-control">
-                    <label for="quiz-keyboard-nav" class="toggle-label">
-                      <span class="label-text" style="font-size: 13px">Keyboard Navigation</span>
+                    <label for="stt-continuous-mode" class="toggle-label">
+                      <span class="label-text">Continuous Mode</span>
                       <div class="toggle-switch">
                         <input
                           type="checkbox"
-                          id="quiz-keyboard-nav"
-                          data-testid="canvas-quiz-keyboard-nav-toggle"
+                          id="stt-continuous-mode"
+                          data-testid="stt-continuous-mode-toggle"
                           role="switch"
-                          aria-label="Enable keyboard navigation"
+                          aria-label="Continuous listening"
                           checked
                         />
                         <span class="toggle-slider"></span>
                       </div>
                     </label>
                   </div>
-                  <p class="feature-description" style="font-size: 11px">
-                    ↑/↓: Navigate questions | Enter: Read question
+                  <p class="feature-description">Keep listening for long text</p>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title"><label for="stt-language">Language</label></h3>
+                  <select
+                    id="stt-language"
+                    data-testid="stt-language-select"
+                    class="voice-select"
+                    aria-label="Recognition language"
+                  >
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="en-AU">English (Australia)</option>
+                    <option value="en-CA">English (Canada)</option>
+                    <option value="es-ES">Spanish (Spain)</option>
+                    <option value="es-MX">Spanish (Mexico)</option>
+                    <option value="fr-FR">French</option>
+                    <option value="de-DE">German</option>
+                    <option value="it-IT">Italian</option>
+                    <option value="pt-BR">Portuguese (Brazil)</option>
+                    <option value="pt-PT">Portuguese (Portugal)</option>
+                    <option value="nl-NL">Dutch</option>
+                    <option value="ja-JP">Japanese</option>
+                    <option value="ko-KR">Korean</option>
+                    <option value="zh-CN">Chinese (Simplified)</option>
+                    <option value="zh-TW">Chinese (Traditional)</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-punctuation-commands" class="toggle-label">
+                      <span class="label-text">Punctuation Commands</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-punctuation-commands"
+                          data-testid="stt-punctuation-toggle"
+                          role="switch"
+                          aria-label="Punctuation commands"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description">Say "period", "comma", "new line"</p>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-auto-capitalize" class="toggle-label">
+                      <span class="label-text">Auto-Capitalize</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-auto-capitalize"
+                          data-testid="stt-auto-capitalize-toggle"
+                          role="switch"
+                          aria-label="Auto capitalize"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-interim-results" class="toggle-label">
+                      <span class="label-text">Show Interim Results</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-interim-results"
+                          data-testid="stt-interim-results-toggle"
+                          role="switch"
+                          aria-label="Show interim results"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-floating-button" class="toggle-label">
+                      <span class="label-text">Show Microphone Button</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-floating-button"
+                          data-testid="stt-floating-button-toggle"
+                          role="switch"
+                          aria-label="Show mic button"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Annotations -->
+            <section class="control-section" id="annotations-section">
+              <div class="toggle-control">
+                <label for="annotations-enabled" class="toggle-label">
+                  <span class="label-text">📝 Sticky Notes</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="annotations-enabled"
+                      data-testid="annotations-toggle"
+                      role="switch"
+                      aria-label="Enable Sticky Notes"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="annotations-description">
+                Add notes to any webpage
+              </p>
+              <div id="annotations-options" class="annotations-options hidden">
+                <button
+                  id="btn-create-sticky-note"
+                  data-testid="create-sticky-note-button"
+                  class="control-btn primary full-width"
+                  aria-label="Create sticky note"
+                  style="margin-top: 8px"
+                >
+                  <span class="btn-icon">📌</span>
+                  <span class="btn-text">Create Note</span>
+                </button>
+                <button
+                  id="btn-view-annotations"
+                  data-testid="view-annotations-button"
+                  class="control-btn secondary full-width"
+                  aria-label="View annotations"
+                  style="margin-top: 6px"
+                >
+                  <span class="btn-icon">📋</span>
+                  <span class="btn-text">View All Notes</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 3: LOOK UP WORDS -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="lookup">
+          <button
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="lookup-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">📚</span>
+              Look Up Words
+            </span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div id="lookup-content" class="accordion-content" role="region">
+            <!-- Dictionary -->
+            <section id="dictionary-section" class="control-section">
+              <div class="toggle-control main-toggle">
+                <label for="dictionary-enabled" class="toggle-label">
+                  <span class="label-text">📖 Dictionary</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="dictionary-enabled"
+                      data-testid="dictionary-toggle"
+                      role="switch"
+                      aria-label="Enable dictionary"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+            </section>
+            <div id="dictionary-options-container" class="options-container">
+              <section class="control-section">
+                <p class="feature-description">Look up word definitions and pronunciations</p>
+                <div class="toggle-control" style="margin-top: 12px">
+                  <label for="dictionary-auto-lookup" class="toggle-label">
+                    <span class="label-text">Auto-lookup on Double-click</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="dictionary-auto-lookup"
+                        data-testid="dictionary-auto-lookup-toggle"
+                        role="switch"
+                        aria-label="Auto lookup"
+                        checked
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <div class="slider-control" style="margin-top: 12px">
+                  <label for="dictionary-cache-size" class="section-title">Cache Size</label>
+                  <input
+                    type="range"
+                    id="dictionary-cache-size"
+                    min="10"
+                    max="200"
+                    step="10"
+                    value="50"
+                    class="slider"
+                    aria-label="Cache size"
+                  />
+                  <p class="feature-description" style="text-align: center">
+                    <span id="dictionary-cache-label">50 entries</span>
                   </p>
                 </div>
-              </div>
-              <!-- End quiz-helper-options -->
+              </section>
             </div>
 
-            <!-- Keyboard Navigation (Future) -->
-            <div class="control-subsection disabled">
-              <div class="toggle-control">
-                <label for="canvas-keyboard-nav" class="toggle-label">
-                  <span class="label-text">Enhanced Keyboard Nav (Coming Soon)</span>
+            <!-- Translation -->
+            <section id="translation-section" class="control-section">
+              <div class="toggle-control main-toggle">
+                <label for="translation-enabled" class="toggle-label">
+                  <span class="label-text">🌐 Translation</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
-                      id="canvas-keyboard-nav"
-                      data-testid="canvas-keyboard-nav-toggle"
+                      id="translation-enabled"
+                      data-testid="translation-toggle"
                       role="switch"
-                      aria-label="Enable enhanced keyboard navigation"
-                      disabled
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Navigate Canvas modules and assignments with keyboard shortcuts
-              </p>
-            </div>
-          </div>
-          <!-- End canvas-integration-options -->
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 9 FEATURE: MOODLE LMS INTEGRATION -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="moodle-integration-section">
-          <div class="toggle-control">
-            <label for="moodle-integration-enabled" class="toggle-label">
-              <span class="label-text"
-                >📚 Moodle Integration <span class="experimental-badge">EXPERIMENTAL</span></span
-              >
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="moodle-integration-enabled"
-                  data-testid="moodle-toggle"
-                  role="switch"
-                  aria-label="Enable Moodle LMS integration (Experimental feature)"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="moodle-integration-description">
-            <strong>⚠️ Experimental:</strong> Enhanced features for Moodle LMS: assignment reader,
-            forum reader, page resource reader
-          </p>
-
-          <!-- Moodle Integration Options (shows when enabled) -->
-          <div id="moodle-integration-options" class="moodle-integration-options hidden">
-            <!-- Assignment Reader -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="moodle-assignment-reader" class="toggle-label">
-                  <span class="label-text">📄 Assignment Reader</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="moodle-assignment-reader"
-                      data-testid="moodle-assignment-reader-toggle"
-                      role="switch"
-                      aria-label="Enable Moodle assignment auto-reader"
+                      aria-label="Enable translation"
                       checked
                     />
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
               </div>
-              <p class="feature-description">
-                Auto-detect Moodle assignments and add read-aloud button
-              </p>
+            </section>
+            <div id="translation-options-container" class="options-container">
+              <section class="control-section">
+                <p class="feature-description">Translate selected text or entire pages</p>
+                <button
+                  id="btn-translate-page"
+                  data-testid="translate-page-button"
+                  class="control-btn primary full-width"
+                  aria-label="Translate page"
+                  style="margin: 8px 0"
+                >
+                  <span class="btn-icon">🌐</span>
+                  <span class="btn-text">Translate Page</span>
+                </button>
+                <div style="margin-top: 12px">
+                  <label for="translation-target-language" class="section-title"
+                    >Target Language</label
+                  >
+                  <select
+                    id="translation-target-language"
+                    data-testid="translation-target-language-select"
+                    class="voice-select"
+                    aria-label="Target language"
+                  >
+                    <option value="en">🇬🇧 English</option>
+                    <option value="es">🇪🇸 Spanish</option>
+                    <option value="fr">🇫🇷 French</option>
+                    <option value="de">🇩🇪 German</option>
+                    <option value="it">🇮🇹 Italian</option>
+                    <option value="pt">🇵🇹 Portuguese</option>
+                    <option value="nl">🇳🇱 Dutch</option>
+                    <option value="pl">🇵🇱 Polish</option>
+                    <option value="ru">🇷🇺 Russian</option>
+                    <option value="zh">🇨🇳 Chinese</option>
+                    <option value="ja">🇯🇵 Japanese</option>
+                    <option value="ko">🇰🇷 Korean</option>
+                    <option value="ar">🇸🇦 Arabic</option>
+                    <option value="hi">🇮🇳 Hindi</option>
+                  </select>
+                </div>
+              </section>
             </div>
 
-            <!-- Forum Reader -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="moodle-forum-reader" class="toggle-label">
-                  <span class="label-text">💬 Forum Reader</span>
+            <!-- Highlight Menu -->
+            <section id="highlight-menu-section" class="control-section">
+              <div class="toggle-control main-toggle">
+                <label for="highlight-menu-enabled" class="toggle-label">
+                  <span class="label-text">✨ Quick Actions Menu</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
-                      id="moodle-forum-reader"
-                      data-testid="moodle-forum-reader-toggle"
+                      id="highlight-menu-enabled"
+                      data-testid="highlight-menu-toggle"
                       role="switch"
-                      aria-label="Enable Moodle forum post reader"
+                      aria-label="Enable highlight menu"
                       checked
                     />
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
               </div>
-              <p class="feature-description">Read forum posts and discussions aloud</p>
-            </div>
-
-            <!-- Page Reader -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="moodle-page-reader" class="toggle-label">
-                  <span class="label-text">📖 Page Reader</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="moodle-page-reader"
-                      data-testid="moodle-page-reader-toggle"
-                      role="switch"
-                      aria-label="Enable Moodle page resource reader"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
+            </section>
+            <div id="highlight-menu-options-container" class="options-container">
+              <section class="control-section">
+                <p class="feature-description">Show quick actions when you select text</p>
+                <div style="margin-top: 12px">
+                  <p class="subsection-title">Toolbar Buttons</p>
+                  <div class="toggle-control" style="margin-bottom: 6px">
+                    <label for="highlight-menu-show-tts" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px">Read Aloud</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="highlight-menu-show-tts"
+                          role="switch"
+                          aria-label="Show TTS"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
                   </div>
-                </label>
-              </div>
-              <p class="feature-description">Read page resources and course materials</p>
-            </div>
-
-            <!-- Quiz Helper (Future) -->
-            <div class="control-subsection disabled">
-              <div class="toggle-control">
-                <label for="moodle-quiz-helper" class="toggle-label">
-                  <span class="label-text">📝 Quiz Helper (Coming Soon)</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="moodle-quiz-helper"
-                      data-testid="moodle-quiz-helper-toggle"
-                      role="switch"
-                      aria-label="Enable Moodle quiz helper"
-                      disabled
-                    />
-                    <span class="toggle-slider"></span>
+                  <div class="toggle-control" style="margin-bottom: 6px">
+                    <label for="highlight-menu-show-dictionary" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px">Dictionary</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="highlight-menu-show-dictionary"
+                          role="switch"
+                          aria-label="Show dictionary"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
                   </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Read quiz questions aloud and navigate with keyboard
-              </p>
+                  <div class="toggle-control" style="margin-bottom: 6px">
+                    <label for="highlight-menu-show-translate" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px">Translate</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="highlight-menu-show-translate"
+                          role="switch"
+                          aria-label="Show translate"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="toggle-control" style="margin-bottom: 6px">
+                    <label for="highlight-menu-show-search" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px">Search</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="highlight-menu-show-search"
+                          role="switch"
+                          aria-label="Show search"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="toggle-control" style="margin-bottom: 6px">
+                    <label for="highlight-menu-show-annotate" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px">Annotate</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="highlight-menu-show-annotate"
+                          role="switch"
+                          aria-label="Show annotate"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="toggle-control">
+                    <label for="highlight-menu-show-copy" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px">Copy</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="highlight-menu-show-copy"
+                          role="switch"
+                          aria-label="Show copy"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="slider-control" style="margin-top: 12px">
+                  <label for="highlight-menu-auto-hide-delay" class="section-title"
+                    >Auto-hide Delay</label
+                  >
+                  <input
+                    type="range"
+                    id="highlight-menu-auto-hide-delay"
+                    min="1000"
+                    max="10000"
+                    step="1000"
+                    value="5000"
+                    class="slider"
+                    aria-label="Auto-hide delay"
+                  />
+                  <p class="feature-description" style="text-align: center">
+                    <span id="highlight-menu-delay-label">5 seconds</span>
+                  </p>
+                </div>
+              </section>
             </div>
           </div>
-          <!-- End moodle-integration-options -->
-        </section>
+        </div>
 
-        <!-- ========================================================== -->
-        <!-- SPRINT 9 FEATURE: GOOGLE CLASSROOM INTEGRATION -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="google-classroom-integration-section">
-          <div class="toggle-control">
-            <label for="google-classroom-integration-enabled" class="toggle-label">
-              <span class="label-text"
-                >🎒 Google Classroom <span class="experimental-badge">EXPERIMENTAL</span></span
-              >
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="google-classroom-integration-enabled"
-                  data-testid="classroom-toggle"
-                  role="switch"
-                  aria-label="Enable Google Classroom integration (Experimental feature)"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="google-classroom-integration-description">
-            <strong>⚠️ Experimental:</strong> Enhanced features for Google Classroom: assignment
-            reader, stream reader, classwork reader
-          </p>
-
-          <!-- Google Classroom Integration Options (shows when enabled) -->
-          <div
-            id="google-classroom-integration-options"
-            class="google-classroom-integration-options hidden"
+        <!-- ============================================================ -->
+        <!-- SECTION 4: PAGE DISPLAY -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="display">
+          <button
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="display-content"
+            tabindex="0"
           >
-            <!-- Assignment Reader -->
-            <div class="control-subsection">
+            <span class="accordion-title">
+              <span class="accordion-icon-left">🎨</span>
+              Page Display
+            </span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div id="display-content" class="accordion-content" role="region">
+            <!-- Text Customization -->
+            <section class="control-section" id="text-customization-section">
               <div class="toggle-control">
-                <label for="google-classroom-assignment-reader" class="toggle-label">
-                  <span class="label-text">📄 Assignment Reader</span>
+                <label for="text-customization-enabled" class="toggle-label">
+                  <span class="label-text">✨ Text Customization</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
-                      id="google-classroom-assignment-reader"
-                      data-testid="classroom-assignment-reader-toggle"
+                      id="text-customization-enabled"
+                      data-testid="text-customization-toggle"
                       role="switch"
-                      aria-label="Enable Google Classroom assignment reader"
-                      checked
+                      aria-label="Enable text customization"
                     />
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
               </div>
-              <p class="feature-description">
-                Auto-detect Google Classroom assignments and add read-aloud button
+              <p class="feature-description hidden" id="text-customization-description">
+                Adjust font and spacing
               </p>
-            </div>
-
-            <!-- Stream Reader -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="google-classroom-stream-reader" class="toggle-label">
-                  <span class="label-text">📢 Stream Reader</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="google-classroom-stream-reader"
-                      data-testid="classroom-stream-reader-toggle"
-                      role="switch"
-                      aria-label="Enable Google Classroom stream post reader"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">Read stream posts and announcements aloud</p>
-            </div>
-
-            <!-- Classwork Reader -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="google-classroom-classwork-reader" class="toggle-label">
-                  <span class="label-text">📚 Classwork Reader</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="google-classroom-classwork-reader"
-                      data-testid="classroom-classwork-reader-toggle"
-                      role="switch"
-                      aria-label="Enable Google Classroom classwork reader"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">Read classwork items and materials</p>
-            </div>
-          </div>
-          <!-- End google-classroom-integration-options -->
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT) -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="stt-section">
-          <div class="toggle-control">
-            <label for="stt-enabled" class="toggle-label">
-              <span class="label-text"
-                >🎤 Speech-to-Text <span class="experimental-badge">EXPERIMENTAL</span></span
-              >
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="stt-enabled"
-                  data-testid="stt-toggle"
-                  role="switch"
-                  aria-label="Enable Speech-to-Text (Experimental feature)"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="stt-description">
-            <strong>⚠️ Experimental:</strong> Type using your voice in any text field - mic button
-            appears on focus
-          </p>
-
-          <!-- STT Options (shows when enabled) -->
-          <div id="stt-options" class="stt-options hidden">
-            <!-- Continuous Mode Toggle -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="stt-continuous-mode" class="toggle-label">
-                  <span class="label-text">Continuous Mode</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="stt-continuous-mode"
-                      data-testid="stt-continuous-mode-toggle"
-                      role="switch"
-                      aria-label="Enable continuous listening mode"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Keep listening for long-form writing (stops when you click mic button)
-              </p>
-            </div>
-
-            <!-- Language Selection -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="stt-language">Language</label>
-              </h3>
-              <select
-                id="stt-language"
-                data-testid="stt-language-select"
-                class="voice-select"
-                aria-label="Select recognition language"
-              >
-                <option value="en-US">English (US)</option>
-                <option value="en-GB">English (UK)</option>
-                <option value="en-AU">English (Australia)</option>
-                <option value="en-CA">English (Canada)</option>
-                <option value="es-ES">Spanish (Spain)</option>
-                <option value="es-MX">Spanish (Mexico)</option>
-                <option value="fr-FR">French</option>
-                <option value="de-DE">German</option>
-                <option value="it-IT">Italian</option>
-                <option value="pt-BR">Portuguese (Brazil)</option>
-                <option value="pt-PT">Portuguese (Portugal)</option>
-                <option value="nl-NL">Dutch</option>
-                <option value="ja-JP">Japanese</option>
-                <option value="ko-KR">Korean</option>
-                <option value="zh-CN">Chinese (Simplified)</option>
-                <option value="zh-TW">Chinese (Traditional)</option>
-              </select>
-            </div>
-
-            <!-- Punctuation Commands -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="stt-punctuation-commands" class="toggle-label">
-                  <span class="label-text">Punctuation Commands</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="stt-punctuation-commands"
-                      data-testid="stt-punctuation-toggle"
-                      role="switch"
-                      aria-label="Enable punctuation voice commands"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Say "period", "comma", "new line" to add punctuation
-              </p>
-            </div>
-
-            <!-- Auto Capitalize -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="stt-auto-capitalize" class="toggle-label">
-                  <span class="label-text">Auto-Capitalize</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="stt-auto-capitalize"
-                      data-testid="stt-auto-capitalize-toggle"
-                      role="switch"
-                      aria-label="Enable auto-capitalization"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">
-                Automatically capitalize first word of each sentence
-              </p>
-            </div>
-
-            <!-- Interim Results -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="stt-interim-results" class="toggle-label">
-                  <span class="label-text">Show Interim Results</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="stt-interim-results"
-                      data-testid="stt-interim-results-toggle"
-                      role="switch"
-                      aria-label="Show partial transcription results"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">Display text as you speak (before it's finalized)</p>
-            </div>
-
-            <!-- Floating Button -->
-            <div class="control-subsection">
-              <div class="toggle-control">
-                <label for="stt-floating-button" class="toggle-label">
-                  <span class="label-text">Show Microphone Button</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="stt-floating-button"
-                      data-testid="stt-floating-button-toggle"
-                      role="switch"
-                      aria-label="Show floating microphone button"
-                      checked
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description">Display mic icon when text field is focused</p>
-            </div>
-          </div>
-          <!-- End stt-options -->
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- PHASE 2 FEATURE 3: READING MODE -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="reading-mode-section">
-          <div class="toggle-control">
-            <label for="reading-mode-enabled" class="toggle-label">
-              <span class="label-text">📖 Reading Mode</span>
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="reading-mode-enabled"
-                  data-testid="reading-mode-toggle"
-                  role="switch"
-                  aria-label="Enable Reading Mode"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="reading-mode-description">
-            Distraction-free article reader with clean typography (Ctrl+Shift+R to toggle, ESC to
-            exit)
-          </p>
-
-          <!-- Reading Mode Action Button (shows when enabled) -->
-          <div id="reading-mode-options" class="reading-mode-options hidden">
-            <button
-              id="btn-toggle-reading-mode"
-              data-testid="toggle-reading-mode-button"
-              class="control-btn primary full-width"
-              aria-label="Toggle Reading Mode"
-              style="margin-top: 10px"
-            >
-              <span class="btn-icon">📖</span>
-              <span class="btn-text">Enter Reading Mode</span>
-            </button>
-          </div>
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- PHASE 2.2 FEATURE: ANNOTATIONS & STICKY NOTES -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="annotations-section">
-          <div class="toggle-control">
-            <label for="annotations-enabled" class="toggle-label">
-              <span class="label-text">📝 Annotations & Sticky Notes</span>
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="annotations-enabled"
-                  data-testid="annotations-toggle"
-                  role="switch"
-                  aria-label="Enable Annotations and Sticky Notes"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="annotations-description">
-            Create sticky notes and annotations on any webpage. Notes persist across page reloads.
-          </p>
-
-          <!-- Annotations Options (shows when enabled) -->
-          <div id="annotations-options" class="annotations-options hidden">
-            <button
-              id="btn-create-sticky-note"
-              data-testid="create-sticky-note-button"
-              class="control-btn primary full-width"
-              aria-label="Create a new sticky note"
-              style="margin-top: 10px"
-            >
-              <span class="btn-icon">📌</span>
-              <span class="btn-text">Create Sticky Note</span>
-            </button>
-            <button
-              id="btn-view-annotations"
-              data-testid="view-annotations-button"
-              class="control-btn secondary full-width"
-              aria-label="View all annotations on this page"
-              style="margin-top: 8px"
-            >
-              <span class="btn-icon">📋</span>
-              <span class="btn-text">View Annotations</span>
-            </button>
-          </div>
-        </section>
-
-        <!-- ========================================================== -->
-        <!-- SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE -->
-        <!-- ========================================================== -->
-        <section class="control-section" id="dyslexia-mode-section">
-          <div class="toggle-control">
-            <label for="dyslexia-mode-enabled" class="toggle-label">
-              <span class="label-text">✨ Dyslexia Reading Mode</span>
-              <div class="toggle-switch">
-                <input
-                  type="checkbox"
-                  id="dyslexia-mode-enabled"
-                  data-testid="dyslexia-toggle"
-                  role="switch"
-                  aria-label="Enable Dyslexia Reading Mode"
-                />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-          </div>
-          <p class="feature-description hidden" id="dyslexia-mode-description">
-            Specialized reading enhancements for dyslexia: bionic reading, syllable highlighting,
-            grammar colors
-          </p>
-
-          <!-- Dyslexia Mode Options (shows when enabled) -->
-          <div id="dyslexia-mode-options" class="dyslexia-mode-options hidden">
-            <!-- Feature Selection -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">Reading Enhancement</h3>
-              <p class="feature-description" style="margin-bottom: 10px">
-                Choose one reading enhancement method (only one can be active at a time)
-              </p>
-
-              <!-- Bionic Reading -->
-              <div class="control-subsection" style="margin-bottom: 10px">
-                <label class="toggle-label" style="cursor: pointer">
-                  <input
-                    type="radio"
-                    name="dyslexia-feature"
-                    id="dyslexia-bionic"
-                    data-testid="dyslexia-bionic-radio"
-                    value="bionic"
-                    checked
-                    style="margin-right: 8px"
-                  />
-                  <span class="label-text">🔤 Bionic Reading</span>
-                </label>
-                <p class="feature-description" style="margin-left: 24px; font-size: 11px">
-                  Bold first letters of words to guide eye movement (improves reading speed 20-30%)
-                </p>
-              </div>
-
-              <!-- Syllable Highlighting -->
-              <div class="control-subsection" style="margin-bottom: 10px">
-                <label class="toggle-label" style="cursor: pointer">
-                  <input
-                    type="radio"
-                    name="dyslexia-feature"
-                    id="dyslexia-syllable"
-                    data-testid="dyslexia-syllable-radio"
-                    value="syllable"
-                    style="margin-right: 8px"
-                  />
-                  <span class="label-text">📝 Syllable Highlighting</span>
-                </label>
-                <p class="feature-description" style="margin-left: 24px; font-size: 11px">
-                  Alternate colors between syllables (e.g.,
-                  <span style="background: #b3e5fc; padding: 0 2px">syl</span
-                  ><span style="background: #fff9c4; padding: 0 2px">la</span
-                  ><span style="background: #b3e5fc; padding: 0 2px">ble</span>)
-                </p>
-              </div>
-
-              <!-- Grammar Colors -->
-              <div class="control-subsection">
-                <label class="toggle-label" style="cursor: pointer">
-                  <input
-                    type="radio"
-                    name="dyslexia-feature"
-                    id="dyslexia-grammar"
-                    data-testid="dyslexia-grammar-radio"
-                    value="grammar"
-                    style="margin-right: 8px"
-                  />
-                  <span class="label-text">🎨 Grammar Colors</span>
-                </label>
-                <p class="feature-description" style="margin-left: 24px; font-size: 11px">
-                  Color-code words by part of speech:
-                  <span
-                    style="background: rgba(33, 150, 243, 0.2); padding: 0 3px; border-radius: 2px"
-                    >nouns</span
+              <div id="text-customization-options" class="text-customization-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title"><label for="text-font-family">Font</label></h3>
+                  <select
+                    id="text-font-family"
+                    data-testid="text-font-select"
+                    class="voice-select"
+                    aria-label="Select font"
                   >
-                  <span
-                    style="background: rgba(76, 175, 80, 0.2); padding: 0 3px; border-radius: 2px"
-                    >verbs</span
-                  >
-                  <span
-                    style="background: rgba(156, 39, 176, 0.2); padding: 0 3px; border-radius: 2px"
-                    >adjectives</span
-                  >
-                </p>
-              </div>
-            </div>
-
-            <!-- Color Intensity Slider -->
-            <div class="control-subsection">
-              <h3 class="subsection-title">
-                <label for="dyslexia-intensity">Color Intensity</label>
-                <span class="control-value" id="dyslexia-intensity-value">70%</span>
-              </h3>
-              <div class="slider-control">
-                <input
-                  type="range"
-                  id="dyslexia-intensity"
-                  data-testid="dyslexia-intensity-slider"
-                  class="slider"
-                  min="0.5"
-                  max="1.0"
-                  step="0.1"
-                  value="0.7"
-                  aria-label="Adjust color intensity"
-                  aria-valuemin="0.5"
-                  aria-valuemax="1.0"
-                  aria-valuenow="0.7"
-                />
-                <div class="slider-labels">
-                  <span>Subtle</span>
-                  <span>Strong</span>
+                    <option value="system">System Default</option>
+                    <option value="lexend">Lexend (highly readable)</option>
+                    <option value="atkinson-hyperlegible">Atkinson Hyperlegible</option>
+                    <option value="opendyslexic">OpenDyslexic</option>
+                    <option value="comic-sans">Comic Sans MS</option>
+                    <option value="arial">Arial</option>
+                    <option value="verdana">Verdana</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="text-line-spacing">Line Spacing</label>
+                    <span class="control-value" id="text-line-spacing-value">1.5</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="text-line-spacing"
+                      data-testid="text-line-spacing-slider"
+                      class="slider"
+                      min="1.0"
+                      max="3.0"
+                      step="0.1"
+                      value="1.5"
+                      aria-label="Line spacing"
+                    />
+                    <div class="slider-labels"><span>Tight</span><span>Loose</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="text-letter-spacing">Letter Spacing</label>
+                    <span class="control-value" id="text-letter-spacing-value">12%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="text-letter-spacing"
+                      data-testid="text-letter-spacing-slider"
+                      class="slider"
+                      min="0"
+                      max="50"
+                      step="1"
+                      value="12"
+                      aria-label="Letter spacing"
+                    />
+                    <div class="slider-labels"><span>Normal</span><span>Wide</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="text-word-spacing">Word Spacing</label>
+                    <span class="control-value" id="text-word-spacing-value">16%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="text-word-spacing"
+                      data-testid="text-word-spacing-slider"
+                      class="slider"
+                      min="0"
+                      max="50"
+                      step="1"
+                      value="16"
+                      aria-label="Word spacing"
+                    />
+                    <div class="slider-labels"><span>Normal</span><span>Wide</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="text-paragraph-spacing">Paragraph Spacing</label>
+                    <span class="control-value" id="text-paragraph-spacing-value">2.0em</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="text-paragraph-spacing"
+                      data-testid="text-paragraph-spacing-slider"
+                      class="slider"
+                      min="1.0"
+                      max="4.0"
+                      step="0.1"
+                      value="2.0"
+                      aria-label="Paragraph spacing"
+                    />
+                    <div class="slider-labels"><span>Tight</span><span>Loose</span></div>
+                  </div>
                 </div>
               </div>
-              <p class="feature-description">
-                Adjust color saturation for highlighting and grammar colors
+            </section>
+
+            <!-- Reading Guide -->
+            <section class="control-section" id="reading-guide-section">
+              <div class="toggle-control">
+                <label for="reading-guide-enabled" class="toggle-label">
+                  <span class="label-text">📏 Reading Guide</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="reading-guide-enabled"
+                      data-testid="reading-guide-toggle"
+                      role="switch"
+                      aria-label="Enable reading guide"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="reading-guide-description">
+                Line follows your mouse
               </p>
+              <div id="reading-guide-options" class="reading-guide-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="reading-guide-color">Line Color</label>
+                  </h3>
+                  <select
+                    id="reading-guide-color"
+                    data-testid="reading-guide-color-select"
+                    class="voice-select"
+                    aria-label="Line color"
+                  >
+                    <option value="#000000">Black</option>
+                    <option value="#FF0000">Red</option>
+                    <option value="#0000FF">Blue</option>
+                    <option value="#00FF00">Green</option>
+                    <option value="#FF00FF">Magenta</option>
+                    <option value="#FFA500">Orange</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="reading-guide-thickness">Line Thickness</label>
+                    <span class="control-value" id="reading-guide-thickness-value">3px</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="reading-guide-thickness"
+                      data-testid="reading-guide-thickness-slider"
+                      class="slider"
+                      min="1"
+                      max="10"
+                      step="1"
+                      value="3"
+                      aria-label="Line thickness"
+                    />
+                    <div class="slider-labels"><span>Thin</span><span>Thick</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="reading-guide-opacity">Line Opacity</label>
+                    <span class="control-value" id="reading-guide-opacity-value">70%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="reading-guide-opacity"
+                      data-testid="reading-guide-opacity-slider"
+                      class="slider"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value="0.7"
+                      aria-label="Line opacity"
+                    />
+                    <div class="slider-labels"><span>Transparent</span><span>Solid</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Focus Mode -->
+            <section class="control-section" id="focus-mode-section">
+              <div class="toggle-control">
+                <label for="focus-mode-enabled" class="toggle-label">
+                  <span class="label-text">🎯 Focus Mode</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="focus-mode-enabled"
+                      data-testid="focus-mode-toggle"
+                      role="switch"
+                      aria-label="Enable focus mode"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="focus-mode-description">
+                Reading window with dark overlay
+              </p>
+              <div id="focus-mode-options" class="focus-mode-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="focus-mode-width">Window Width</label>
+                    <span class="control-value" id="focus-mode-width-value">400px</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="focus-mode-width"
+                      data-testid="focus-mode-width-slider"
+                      class="slider"
+                      min="150"
+                      max="800"
+                      step="5"
+                      value="400"
+                    />
+                    <div class="slider-labels"><span>Narrow</span><span>Wide</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="focus-mode-height">Window Height</label>
+                    <span class="control-value" id="focus-mode-height-value">100px</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="focus-mode-height"
+                      data-testid="focus-mode-height-slider"
+                      class="slider"
+                      min="50"
+                      max="250"
+                      step="5"
+                      value="100"
+                    />
+                    <div class="slider-labels"><span>Short</span><span>Tall</span></div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="focus-mode-opacity">Overlay Darkness</label>
+                    <span class="control-value" id="focus-mode-opacity-value">70%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="focus-mode-opacity"
+                      data-testid="focus-mode-opacity-slider"
+                      class="slider"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value="0.7"
+                    />
+                    <div class="slider-labels"><span>Light</span><span>Dark</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Screen Color Overlay -->
+            <section class="control-section" id="screen-overlay-section">
+              <div class="toggle-control">
+                <label for="screen-overlay-enabled" class="toggle-label">
+                  <span class="label-text">🎨 Screen Color Overlay</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="screen-overlay-enabled"
+                      data-testid="screen-overlay-toggle"
+                      role="switch"
+                      aria-label="Enable screen overlay"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="screen-overlay-description">
+                Color tint to reduce eye strain
+              </p>
+              <div id="screen-overlay-options" class="screen-overlay-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="screen-overlay-color">Overlay Color</label>
+                  </h3>
+                  <select
+                    id="screen-overlay-color"
+                    data-testid="screen-overlay-color-select"
+                    class="voice-select"
+                    aria-label="Overlay color"
+                  >
+                    <option value="#FFE4C4">Warm Sepia (recommended)</option>
+                    <option value="#FFF59D">Soft Yellow</option>
+                    <option value="#FFCCBC">Peach</option>
+                    <option value="#F0D9B5">Cream</option>
+                    <option value="#B3E5FC">Cool Blue</option>
+                    <option value="#C8E6C9">Soft Green</option>
+                    <option value="#F8BBD0">Light Pink</option>
+                    <option value="#E1BEE7">Lavender</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="screen-overlay-opacity">Overlay Intensity</label>
+                    <span class="control-value" id="screen-overlay-opacity-value">30%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="screen-overlay-opacity"
+                      data-testid="screen-overlay-opacity-slider"
+                      class="slider"
+                      min="0.1"
+                      max="0.9"
+                      step="0.1"
+                      value="0.3"
+                      aria-label="Overlay intensity"
+                    />
+                    <div class="slider-labels"><span>Subtle</span><span>Strong</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 5: SCHOOL TOOLS -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="school">
+          <button
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="school-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">🎓</span>
+              School Tools
+            </span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div id="school-content" class="accordion-content" role="region">
+            <!-- Citation Feature -->
+            <section id="citation-section" class="control-section citation-section">
+              <div class="toggle-control main-toggle">
+                <label for="citation-enabled" class="toggle-label">
+                  <span class="label-text">📚 Citations</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="citation-enabled"
+                      data-testid="citation-toggle"
+                      role="switch"
+                      aria-label="Enable citations"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+            </section>
+            <div id="citation-options-container" class="options-container">
+              <section class="control-section">
+                <p class="feature-description">Save citations from web pages</p>
+                <button
+                  id="btn-save-citation"
+                  data-testid="save-citation-button"
+                  class="control-btn primary full-width"
+                  aria-label="Save citation"
+                  style="margin: 8px 0"
+                >
+                  <span class="btn-icon">📚</span>
+                  <span class="btn-text">Save Citation</span>
+                </button>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px">
+                  <button
+                    id="btn-citation-manager"
+                    data-testid="citation-manager-button"
+                    class="control-btn secondary"
+                    aria-label="Citation library"
+                    style="flex: 1; padding: 6px 8px; font-size: 11px"
+                  >
+                    <span>📚 Library</span>
+                  </button>
+                  <button
+                    id="btn-citation-projects"
+                    data-testid="citation-projects-button"
+                    class="control-btn secondary"
+                    aria-label="Citation projects"
+                    style="flex: 1; padding: 6px 8px; font-size: 11px"
+                  >
+                    <span>📁 Projects</span>
+                  </button>
+                </div>
+                <button
+                  id="btn-expand-citations"
+                  data-testid="expand-citations-button"
+                  class="control-btn"
+                  aria-label="Expand citation panel"
+                  aria-expanded="false"
+                  aria-controls="citation-manager-panel"
+                  style="
+                    width: 100%;
+                    background: #fffbeb;
+                    color: #b45309;
+                    border: 1px solid #fcd34d;
+                    padding: 6px 8px;
+                    font-size: 11px;
+                  "
+                >
+                  <span id="expand-citations-icon" style="font-size: 10px">▼</span>
+                  <span id="expand-citations-text">Quick View</span>
+                  <span
+                    id="citation-count-badge"
+                    style="
+                      background: #f59e0b;
+                      color: white;
+                      padding: 1px 5px;
+                      border-radius: 8px;
+                      font-size: 9px;
+                      font-weight: 600;
+                      margin-left: 4px;
+                    "
+                    >0</span
+                  >
+                </button>
+                <div
+                  id="citation-manager-panel"
+                  class="citation-manager-panel-container"
+                  role="region"
+                  aria-label="Citation quick view panel"
+                  style="display: none"
+                ></div>
+              </section>
             </div>
 
-            <!-- Performance Note -->
-            <div
-              class="control-subsection"
-              style="
-                background: rgba(255, 152, 0, 0.1);
-                padding: 10px;
-                border-radius: 6px;
-                border-left: 3px solid #ff9800;
-              "
-            >
-              <p class="feature-description" style="font-size: 11px; margin: 0">
-                <strong>⚡ Performance Note:</strong> Dyslexia Mode processes all text on the page.
-                Large pages may take a few seconds to transform. Grammar Colors takes longest
-                (~300ms) due to NLP processing.
+            <!-- Canvas Integration -->
+            <section class="control-section" id="canvas-integration-section">
+              <div class="toggle-control">
+                <label for="canvas-integration-enabled" class="toggle-label">
+                  <span class="label-text"
+                    >🎓 Canvas LMS <span class="experimental-badge">BETA</span></span
+                  >
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="canvas-integration-enabled"
+                      data-testid="canvas-toggle"
+                      role="switch"
+                      aria-label="Enable Canvas integration"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="canvas-integration-description">
+                Assignment reader, quiz helper
               </p>
-            </div>
+              <div id="canvas-integration-options" class="canvas-integration-options hidden">
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="canvas-assignment-reader" class="toggle-label">
+                      <span class="label-text">Assignment Reader</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="canvas-assignment-reader"
+                          data-testid="canvas-assignment-reader-toggle"
+                          role="switch"
+                          aria-label="Assignment reader"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="canvas-quiz-helper" class="toggle-label">
+                      <span class="label-text">📝 Quiz Helper</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="canvas-quiz-helper"
+                          data-testid="canvas-quiz-helper-toggle"
+                          role="switch"
+                          aria-label="Quiz helper"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <div
+                    id="quiz-helper-options"
+                    class="quiz-helper-options hidden"
+                    style="margin-left: 12px; margin-top: 8px"
+                  >
+                    <div class="control-subsection">
+                      <div class="toggle-control">
+                        <label for="quiz-read-answers" class="toggle-label">
+                          <span class="label-text" style="font-size: 12px">Read Answers</span>
+                          <div class="toggle-switch">
+                            <input
+                              type="checkbox"
+                              id="quiz-read-answers"
+                              data-testid="canvas-quiz-read-answers-toggle"
+                              role="switch"
+                              aria-label="Read answers"
+                              checked
+                            />
+                            <span class="toggle-slider"></span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="control-subsection">
+                      <div class="toggle-control">
+                        <label for="quiz-auto-read" class="toggle-label">
+                          <span class="label-text" style="font-size: 12px">Auto-Read on Focus</span>
+                          <div class="toggle-switch">
+                            <input
+                              type="checkbox"
+                              id="quiz-auto-read"
+                              data-testid="canvas-quiz-auto-read-toggle"
+                              role="switch"
+                              aria-label="Auto read"
+                            />
+                            <span class="toggle-slider"></span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="control-subsection">
+                      <div class="toggle-control">
+                        <label for="quiz-highlight-question" class="toggle-label">
+                          <span class="label-text" style="font-size: 12px">Highlight Question</span>
+                          <div class="toggle-switch">
+                            <input
+                              type="checkbox"
+                              id="quiz-highlight-question"
+                              data-testid="canvas-quiz-highlight-toggle"
+                              role="switch"
+                              aria-label="Highlight question"
+                              checked
+                            />
+                            <span class="toggle-slider"></span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="control-subsection">
+                      <h3 class="subsection-title" style="font-size: 12px">
+                        <label for="quiz-highlight-color">Highlight Color</label>
+                      </h3>
+                      <select
+                        id="quiz-highlight-color"
+                        data-testid="canvas-quiz-highlight-color-select"
+                        class="voice-select"
+                        aria-label="Question highlight color"
+                      >
+                        <option value="#4A90E2">Blue</option>
+                        <option value="#FF6B6B">Red</option>
+                        <option value="#4ECDC4">Teal</option>
+                        <option value="#95E1D3">Mint</option>
+                        <option value="#FFD93D">Yellow</option>
+                        <option value="#6BCF7F">Green</option>
+                      </select>
+                    </div>
+                    <div class="control-subsection">
+                      <div class="toggle-control">
+                        <label for="quiz-keyboard-nav" class="toggle-label">
+                          <span class="label-text" style="font-size: 12px"
+                            >Keyboard Navigation</span
+                          >
+                          <div class="toggle-switch">
+                            <input
+                              type="checkbox"
+                              id="quiz-keyboard-nav"
+                              data-testid="canvas-quiz-keyboard-nav-toggle"
+                              role="switch"
+                              aria-label="Keyboard nav"
+                              checked
+                            />
+                            <span class="toggle-slider"></span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="control-subsection disabled">
+                  <div class="toggle-control">
+                    <label for="canvas-keyboard-nav" class="toggle-label">
+                      <span class="label-text">Enhanced Keyboard Nav (Coming)</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="canvas-keyboard-nav"
+                          data-testid="canvas-keyboard-nav-toggle"
+                          role="switch"
+                          aria-label="Enhanced keyboard"
+                          disabled
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Moodle Integration -->
+            <section class="control-section" id="moodle-integration-section">
+              <div class="toggle-control">
+                <label for="moodle-integration-enabled" class="toggle-label">
+                  <span class="label-text"
+                    >📚 Moodle LMS <span class="experimental-badge">BETA</span></span
+                  >
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="moodle-integration-enabled"
+                      data-testid="moodle-toggle"
+                      role="switch"
+                      aria-label="Enable Moodle integration"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="moodle-integration-description">
+                Assignment, forum, page readers
+              </p>
+              <div id="moodle-integration-options" class="moodle-integration-options hidden">
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="moodle-assignment-reader" class="toggle-label">
+                      <span class="label-text">📄 Assignment Reader</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="moodle-assignment-reader"
+                          data-testid="moodle-assignment-reader-toggle"
+                          role="switch"
+                          aria-label="Assignment reader"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="moodle-forum-reader" class="toggle-label">
+                      <span class="label-text">💬 Forum Reader</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="moodle-forum-reader"
+                          data-testid="moodle-forum-reader-toggle"
+                          role="switch"
+                          aria-label="Forum reader"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="moodle-page-reader" class="toggle-label">
+                      <span class="label-text">📖 Page Reader</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="moodle-page-reader"
+                          data-testid="moodle-page-reader-toggle"
+                          role="switch"
+                          aria-label="Page reader"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection disabled">
+                  <div class="toggle-control">
+                    <label for="moodle-quiz-helper" class="toggle-label">
+                      <span class="label-text">📝 Quiz Helper (Coming)</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="moodle-quiz-helper"
+                          data-testid="moodle-quiz-helper-toggle"
+                          role="switch"
+                          aria-label="Quiz helper"
+                          disabled
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Google Classroom Integration -->
+            <section class="control-section" id="google-classroom-integration-section">
+              <div class="toggle-control">
+                <label for="google-classroom-integration-enabled" class="toggle-label">
+                  <span class="label-text"
+                    >🎒 Google Classroom <span class="experimental-badge">BETA</span></span
+                  >
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="google-classroom-integration-enabled"
+                      data-testid="classroom-toggle"
+                      role="switch"
+                      aria-label="Enable Google Classroom"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="google-classroom-integration-description">
+                Assignment, stream, classwork readers
+              </p>
+              <div
+                id="google-classroom-integration-options"
+                class="google-classroom-integration-options hidden"
+              >
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="google-classroom-assignment-reader" class="toggle-label">
+                      <span class="label-text">📄 Assignment Reader</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="google-classroom-assignment-reader"
+                          data-testid="classroom-assignment-reader-toggle"
+                          role="switch"
+                          aria-label="Assignment reader"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="google-classroom-stream-reader" class="toggle-label">
+                      <span class="label-text">📢 Stream Reader</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="google-classroom-stream-reader"
+                          data-testid="classroom-stream-reader-toggle"
+                          role="switch"
+                          aria-label="Stream reader"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="google-classroom-classwork-reader" class="toggle-label">
+                      <span class="label-text">📚 Classwork Reader</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="google-classroom-classwork-reader"
+                          data-testid="classroom-classwork-reader-toggle"
+                          role="switch"
+                          aria-label="Classwork reader"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-          <!-- End dyslexia-mode-options -->
-        </section>
+        </div>
       </main>
 
       <!-- Footer -->
@@ -2425,9 +1939,11 @@
       </footer>
     </div>
 
-    <!-- ========================================================== -->
-    <!-- MODAL: SAVE PROFILE -->
-    <!-- ========================================================== -->
+    <!-- ============================================================ -->
+    <!-- MODALS -->
+    <!-- ============================================================ -->
+
+    <!-- Save Profile Modal -->
     <div id="save-profile-modal" class="modal hidden">
       <div class="modal-overlay"></div>
       <div class="modal-content">
@@ -2443,7 +1959,6 @@
             maxlength="50"
             aria-label="Enter profile name"
           />
-
           <p class="modal-description">This will save all current settings:</p>
           <ul class="modal-list">
             <li>TTS settings (voice, speed, pitch, volume)</li>
@@ -2473,9 +1988,7 @@
       </div>
     </div>
 
-    <!-- ========================================================== -->
-    <!-- MODAL: DELETE PROFILE CONFIRMATION -->
-    <!-- ========================================================== -->
+    <!-- Delete Profile Modal -->
     <div id="delete-profile-modal" class="modal hidden">
       <div class="modal-overlay"></div>
       <div class="modal-content">
@@ -2514,9 +2027,7 @@
       style="display: none"
     />
 
-    <!-- ========================================================== -->
-    <!-- MODAL: ANNOTATION MIGRATION -->
-    <!-- ========================================================== -->
+    <!-- Migration Modal -->
     <div id="migration-modal" class="modal hidden">
       <div class="modal-overlay"></div>
       <div class="modal-content">
@@ -2567,9 +2078,7 @@
           <p
             id="migration-details"
             style="margin: 8px 0 0 0; font-size: 12px; color: #666; text-align: center"
-          >
-            <!-- Progress details -->
-          </p>
+          ></p>
         </div>
         <div class="modal-actions">
           <button

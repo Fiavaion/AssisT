@@ -22,16 +22,33 @@
 ## 🎯 Current Step
 
 **Phase**: 2.5 - Testing & Documentation
-**Step**: Citation testing complete (T.5, T.10) - 79 new tests added
-**Previous**: Session 024 - Citation unit and E2E tests
+**Step**: Bug fix - Highlight Menu toolbar button settings
+**Previous**: Session 025 - Fixed storage key mismatch
 
-**Status**: ✅ Citation tests complete - 623 total tests passing
+**Status**: ✅ Highlight Menu settings bug fixed
 **Blocker**: None
 **Note**: Continue with remaining testing (T.1-T.4, T.6-T.9, T.11-T.12) or documentation (D.1-D.7)
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 025 (2025-11-27)
+
+**Bug Fix: Highlight Menu Toolbar Button Settings**
+
+**Problem**: The 6 toolbar button visibility toggles (Read Aloud, Dictionary, Translate, Search, Annotate, Copy) in the popup were not affecting which buttons appeared on the floating highlight menu.
+
+**Root Cause**: Storage key mismatch - popup.js saved to main settings object, but highlightMenu.js read from `highlightMenuSettings` key.
+
+**Solution**: Added `saveHighlightMenuSettings()` method to popup.js that writes directly to the correct storage key.
+
+**Files Modified**:
+
+- src/popup/popup.js (+20 lines) - Added saveHighlightMenuSettings() method
+- src/popup/popup.html (6 fixes) - Fixed nested `<label>` elements
+
+**Status**: ✅ User verified working
 
 ### Phase 2 Session 024 (2025-11-27)
 
@@ -901,11 +918,11 @@
 
 ## 📝 Session Context
 
-**Session Type**: Phase 2.4 Complete (Session 023 Complete)
-**Working Files**: None (Phase 2.4 complete)
-**Last Commit**: 9cafcf5 - docs(docs): complete Phase 2.4 with Feature 11.6
-**Next Commit**: Testing or merge to main
-**Branch**: feature/citation-capture (ready for merge or more testing)
+**Session Type**: Phase 2.5 Testing & Bug Fixes (Session 025 Complete)
+**Working Files**: popup.js, popup.html
+**Last Commit**: d6ecadf - docs(docs): end Phase 2 session 024
+**Next Commit**: Session 025 bug fix commit
+**Branch**: feature/citation-capture
 
 **Notes**:
 
