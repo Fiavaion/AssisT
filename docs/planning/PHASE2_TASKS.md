@@ -415,8 +415,9 @@
 
 ### Testing Tasks
 
-**Status**: `[ ]` Pending
+**Status**: `[>]` In Progress
 **Estimated**: 2 weeks (ongoing)
+**Actual**: Started 2025-11-27 (Session 024)
 
 **Tasks**:
 
@@ -424,12 +425,12 @@
 - [ ] T.2: Unit tests for all dictionary functions
 - [ ] T.3: Unit tests for all translation functions
 - [ ] T.4: Unit tests for all annotation CRUD
-- [ ] T.5: Unit tests for all citation functions
+- [x] T.5: Unit tests for all citation functions (64 tests in citation-export.test.js, source-evaluator.test.js)
 - [ ] T.6: E2E test for OCR workflow
 - [ ] T.7: E2E test for Highlight Menu
 - [ ] T.8: E2E test for Reading Mode
 - [ ] T.9: E2E test for annotations
-- [ ] T.10: E2E test for citation capture
+- [x] T.10: E2E test for citation capture (15 tests in citations.test.js)
 - [ ] T.11: Performance benchmarks (<300ms targets)
 - [ ] T.12: WCAG 2.2 AA accessibility audit
 
@@ -460,7 +461,7 @@
 **Phase 2.4 (Citation Management)**: 100% (6/6 features) - 11.1 through 11.6 complete
 
 **Current Phase**: Phase 2.5 - Testing & Documentation
-**Next Milestone**: Unit tests for citation modules (T.5)
+**Next Milestone**: Remaining unit tests (T.1-T.4) or documentation (D.1-D.7)
 
 **Estimated Completion**: Week 16
 **Actual Completion**: Phase 2.4 complete Week 2 (ahead of schedule)

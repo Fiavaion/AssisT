@@ -1,17 +1,17 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-11-26
+**Last Updated**: 2025-11-27
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.4 Complete)
 **Current Phase**: Phase 2.5 - Testing & Documentation (In Progress)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/citation-capture (Phase 2.4 complete, Phase 2.5 testing started)
+**Current Branch**: feature/citation-capture (Phase 2.5 testing in progress)
 
 ---
 
 ## 📊 Overall Progress
 
 **Phase 1 (Core MVP)**: ✅ 100% Complete (10 features shipped)
-**Phase 2 (Feature Expansion)**: ✅ 95% Complete (16/17 features, ~165/~175 tasks done)
+**Phase 2 (Feature Expansion)**: ✅ 96% Complete (16/17 features, ~167/~175 tasks done)
 
 **Total Timeline**: 16 weeks
 **Elapsed Time**: 2 weeks
@@ -22,16 +22,58 @@
 ## 🎯 Current Step
 
 **Phase**: 2.5 - Testing & Documentation
-**Step**: Completed Phase 2.4 - all 6 Citation features implemented
-**Previous**: Feature 11.6 - Citation UI Design (Complete)
+**Step**: Citation testing complete (T.5, T.10) - 79 new tests added
+**Previous**: Session 024 - Citation unit and E2E tests
 
-**Status**: ✅ Phase 2.4 Complete - all Citation features (11.1-11.6) implemented
+**Status**: ✅ Citation tests complete - 623 total tests passing
 **Blocker**: None
-**Note**: Ready for Phase 2.5 testing and documentation
+**Note**: Continue with remaining testing (T.1-T.4, T.6-T.9, T.11-T.12) or documentation (D.1-D.7)
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 024 (2025-11-27)
+
+**Phase 2.5 Testing - Citation Tests Complete**
+
+**Key Accomplishments**:
+
+1. **Unit Tests for Citation Export** (64 tests):
+   - JSON export with metadata preservation
+   - CSV export with proper escaping
+   - BibTeX export for articles, books, misc types
+   - RIS export with author formatting, DOI, pages, tags
+   - Round-trip export/import verification
+
+2. **Unit Tests for Source Evaluator** (28 tests):
+   - Domain scoring (edu, gov, org, academic publishers)
+   - Auto indicators (DOI, ISBN, peer review, recency)
+   - Credibility scoring with CRAAP integration
+   - Quality badge HTML generation
+
+3. **E2E Tests for Citation UI** (15 tests):
+   - Citation section visibility and toggle
+   - Save/Manager/Projects buttons
+   - Quick view panel expand/collapse
+   - ARIA labels and keyboard accessibility
+   - State persistence after reload
+
+**Files Created**:
+
+- tests/unit/citations/citation-export.test.js (+358 lines)
+- tests/unit/citations/source-evaluator.test.js (+299 lines)
+- tests/e2e/citations.test.js (+268 lines)
+
+**Total**: +925 lines of test code
+
+**Commits**:
+
+- `38ddc0d` - test(test): add unit tests for citation export and source evaluator
+- `be85866` - test(test): add E2E tests for citation UI components
+
+**Build Status**: ✅ Successful (541 KB content script)
+**Test Status**: ✅ 623/623 tests passing (+64 from previous session)
 
 ### Phase 2 Session 023 (2025-11-26)
 
