@@ -1,5 +1,5 @@
 /**
- * Speech-to-Text Controller (Sprint 5)
+ * Speech-to-Text Controller (Sprint 5 + Phase 2.7 Enhancement)
  * Handles voice recognition using Web Speech API
  *
  * Features:
@@ -8,9 +8,15 @@
  * - Punctuation voice commands
  * - Auto-capitalization
  * - Text insertion into input fields
+ * - Voice editing commands (delete, undo, redo, replace)
+ * - Voice navigation commands (cursor movement)
+ * - Voice formatting commands (bold, italic, etc.)
  *
  * @module STTController
+ * @version 2.0.0 (Phase 2.7 Enhancement)
  */
+
+import { CommandParser, CommandType } from './command-parser.js';
 
 export class STTController {
   constructor(options = {}) {
@@ -21,6 +27,7 @@ export class STTController {
       autoCapitalize: options.autoCapitalize !== undefined ? options.autoCapitalize : true,
       punctuationCommands:
         options.punctuationCommands !== undefined ? options.punctuationCommands : true,
+      voiceCommands: options.voiceCommands !== undefined ? options.voiceCommands : true,
       maxAlternatives: options.maxAlternatives || 1,
     };
 
@@ -29,8 +36,16 @@ export class STTController {
     this.isPaused = false;
     this.targetElement = null;
     this.lastTranscript = '';
+    this.lastDictation = ''; // Track last dictated text for "delete that" / "replace that"
     this.interimTranscript = '';
     this.finalTranscript = '';
+
+    // Initialize command parser for voice commands
+    this.commandParser = new CommandParser({
+      enabled: this.settings.voiceCommands,
+      onCommandExecuted: result => this.handleCommandExecuted(result),
+      onError: error => this.onError(error),
+    });
 
     // Callbacks
     this.onStart = options.onStart || (() => {});
@@ -38,6 +53,7 @@ export class STTController {
     this.onResult = options.onResult || (() => {});
     this.onError = options.onError || (() => {});
     this.onInterimResult = options.onInterimResult || (() => {});
+    this.onCommandExecuted = options.onCommandExecuted || (() => {}); // Callback for voice commands
 
     // Punctuation command mappings
     this.punctuationCommands = {
@@ -248,27 +264,330 @@ export class STTController {
 
     // Process final results
     if (finalTranscript) {
-      let processedText = finalTranscript;
+      // First, check for voice commands if enabled
+      if (this.settings.voiceCommands) {
+        const commandResult = this.commandParser.parse(finalTranscript);
 
-      // Process punctuation commands if enabled
-      if (this.settings.punctuationCommands) {
-        processedText = this.processPunctuationCommands(processedText);
+        if (commandResult.type !== CommandType.TEXT) {
+          // Execute the voice command
+          this.executeCommand(commandResult);
+
+          // If there's remaining text after the command, process it
+          if (commandResult.remainingText) {
+            this.processAndInsertText(commandResult.remainingText);
+          }
+          return;
+        }
       }
 
-      // Auto-capitalize if enabled
-      if (this.settings.autoCapitalize) {
-        processedText = this.capitalizeFirstWord(processedText);
-      }
-
-      // Insert text into target element
-      if (this.targetElement) {
-        this.insertText(this.targetElement, processedText);
-      }
-
-      this.finalTranscript += processedText;
-      this.lastTranscript = processedText;
-      this.onResult(processedText, this.finalTranscript);
+      // No command detected - process as regular text
+      this.processAndInsertText(finalTranscript);
     }
+  }
+
+  /**
+   * Process and insert text (with punctuation and capitalization)
+   * @param {string} text - Text to process and insert
+   */
+  processAndInsertText(text) {
+    let processedText = text;
+
+    // Process punctuation commands if enabled
+    if (this.settings.punctuationCommands) {
+      processedText = this.processPunctuationCommands(processedText);
+    }
+
+    // Auto-capitalize if enabled
+    if (this.settings.autoCapitalize) {
+      processedText = this.capitalizeFirstWord(processedText);
+    }
+
+    // Save to history for undo/redo
+    if (this.targetElement) {
+      this.commandParser.saveToHistory(this.targetElement);
+    }
+
+    // Insert text into target element
+    if (this.targetElement) {
+      this.insertText(this.targetElement, processedText);
+    }
+
+    // Track last dictation for "delete that" / "replace that" commands
+    this.lastDictation = processedText;
+
+    this.finalTranscript += processedText;
+    this.lastTranscript = processedText;
+    this.onResult(processedText, this.finalTranscript);
+  }
+
+  /**
+   * Execute a parsed voice command
+   * @param {Object} commandResult - Parsed command from CommandParser
+   */
+  executeCommand(commandResult) {
+    const { type, params } = commandResult;
+
+    console.log(`[STT] Executing voice command: ${type}`, params);
+
+    switch (type) {
+      case CommandType.DELETE:
+        this.commandParser.executeDelete(this.targetElement, params, this.lastDictation);
+        break;
+
+      case CommandType.UNDO:
+        if (params.action === 'undo') {
+          this.commandParser.undo(this.targetElement, params.count);
+        } else if (params.action === 'redo') {
+          this.commandParser.redo(this.targetElement, params.count);
+        }
+        break;
+
+      case CommandType.REDO:
+        this.commandParser.redo(this.targetElement, params.count);
+        break;
+
+      case CommandType.REPLACE:
+        this.commandParser.executeReplace(this.targetElement, params, this.lastDictation);
+        break;
+
+      case CommandType.SELECT:
+        this.commandParser.executeSelect(this.targetElement, params);
+        break;
+
+      case CommandType.NAVIGATE:
+        this.executeNavigate(params);
+        break;
+
+      case CommandType.FORMAT:
+        this.executeFormat(params);
+        break;
+
+      default:
+        console.warn(`[STT] Unknown command type: ${type}`);
+    }
+  }
+
+  /**
+   * Execute navigation command
+   * @param {Object} params - Navigation parameters
+   */
+  executeNavigate(params) {
+    if (!this.targetElement) {
+      return;
+    }
+
+    const element = this.targetElement;
+    const isTextArea = element.tagName === 'TEXTAREA' || element.tagName === 'INPUT';
+    const text = isTextArea ? element.value : element.textContent;
+
+    switch (params.action) {
+      case 'goto':
+        if (params.position === 'start') {
+          if (isTextArea) {
+            element.selectionStart = 0;
+            element.selectionEnd = 0;
+          }
+        } else if (params.position === 'end') {
+          if (isTextArea) {
+            element.selectionStart = text.length;
+            element.selectionEnd = text.length;
+          }
+        } else if (params.position === 'line' && params.line) {
+          const lines = text.split('\n');
+          let charPos = 0;
+          for (let i = 0; i < Math.min(params.line - 1, lines.length); i++) {
+            charPos += lines[i].length + 1;
+          }
+          if (isTextArea) {
+            element.selectionStart = charPos;
+            element.selectionEnd = charPos;
+          }
+        }
+        break;
+
+      case 'move':
+        if (isTextArea) {
+          let pos = element.selectionStart;
+          const moveAmount = params.count || 1;
+
+          if (params.direction === 'left') {
+            if (params.unit === 'word') {
+              // Move left by words
+              for (let i = 0; i < moveAmount; i++) {
+                const before = text.slice(0, pos);
+                const match = before.match(/\S+\s*$/);
+                pos = match ? pos - match[0].length : 0;
+              }
+            } else {
+              pos = Math.max(0, pos - moveAmount);
+            }
+          } else if (params.direction === 'right') {
+            if (params.unit === 'word') {
+              for (let i = 0; i < moveAmount; i++) {
+                const after = text.slice(pos);
+                const match = after.match(/^\s*\S+/);
+                pos = match ? pos + match[0].length : text.length;
+              }
+            } else {
+              pos = Math.min(text.length, pos + moveAmount);
+            }
+          } else if (params.direction === 'up' || params.direction === 'down') {
+            const lines = text.split('\n');
+            let currentLine = 0;
+            let charCount = 0;
+            for (let i = 0; i < lines.length; i++) {
+              if (charCount + lines[i].length >= pos) {
+                currentLine = i;
+                break;
+              }
+              charCount += lines[i].length + 1;
+            }
+
+            const colPos = pos - charCount;
+            const targetLine =
+              params.direction === 'up'
+                ? Math.max(0, currentLine - moveAmount)
+                : Math.min(lines.length - 1, currentLine + moveAmount);
+
+            let newPos = 0;
+            for (let i = 0; i < targetLine; i++) {
+              newPos += lines[i].length + 1;
+            }
+            newPos += Math.min(colPos, lines[targetLine].length);
+            pos = newPos;
+          }
+
+          element.selectionStart = pos;
+          element.selectionEnd = pos;
+        }
+        break;
+
+      case 'find':
+        if (params.text) {
+          const searchPos = text.indexOf(params.text, element.selectionEnd);
+          if (searchPos !== -1) {
+            if (isTextArea) {
+              element.selectionStart = searchPos;
+              element.selectionEnd = searchPos + params.text.length;
+            }
+            this.lastSearchText = params.text;
+            this.lastSearchPos = searchPos;
+          }
+        }
+        break;
+
+      case 'findNext':
+        if (this.lastSearchText) {
+          const searchPos = text.indexOf(this.lastSearchText, (this.lastSearchPos || 0) + 1);
+          if (searchPos !== -1) {
+            if (isTextArea) {
+              element.selectionStart = searchPos;
+              element.selectionEnd = searchPos + this.lastSearchText.length;
+            }
+            this.lastSearchPos = searchPos;
+          }
+        }
+        break;
+
+      case 'findPrevious':
+        if (this.lastSearchText) {
+          const searchPos = text.lastIndexOf(
+            this.lastSearchText,
+            (this.lastSearchPos || text.length) - 1
+          );
+          if (searchPos !== -1) {
+            if (isTextArea) {
+              element.selectionStart = searchPos;
+              element.selectionEnd = searchPos + this.lastSearchText.length;
+            }
+            this.lastSearchPos = searchPos;
+          }
+        }
+        break;
+    }
+
+    element.focus();
+    this.handleCommandExecuted({
+      type: CommandType.NAVIGATE,
+      message: `Navigated: ${params.action}`,
+    });
+  }
+
+  /**
+   * Execute formatting command
+   * @param {Object} params - Format parameters
+   */
+  executeFormat(params) {
+    if (!this.targetElement) {
+      return;
+    }
+
+    const element = this.targetElement;
+    const isContentEditable = element.isContentEditable;
+
+    // Formatting only works for contentEditable elements (rich text)
+    if (!isContentEditable) {
+      // For plain text, we can still handle some commands
+      if (params.format === 'paragraph' || params.format === 'newline') {
+        const text = params.format === 'paragraph' ? '\n\n' : '\n';
+        this.insertText(element, text);
+        return;
+      }
+
+      this.handleCommandExecuted({
+        type: CommandType.FORMAT,
+        message: 'Formatting not supported in plain text fields',
+      });
+      return;
+    }
+
+    // Execute rich text formatting using execCommand
+    switch (params.format) {
+      case 'bold':
+        document.execCommand('bold', false, null);
+        break;
+      case 'italic':
+        document.execCommand('italic', false, null);
+        break;
+      case 'underline':
+        document.execCommand('underline', false, null);
+        break;
+      case 'paragraph':
+        document.execCommand('insertParagraph', false, null);
+        break;
+      case 'newline':
+        document.execCommand('insertLineBreak', false, null);
+        break;
+      case 'bulletList':
+        document.execCommand('insertUnorderedList', false, null);
+        break;
+      case 'numberedList':
+        document.execCommand('insertOrderedList', false, null);
+        break;
+      case 'heading':
+        if (params.level >= 1 && params.level <= 6) {
+          document.execCommand('formatBlock', false, `h${params.level}`);
+        }
+        break;
+      case 'quote':
+      case 'blockquote':
+        document.execCommand('formatBlock', false, 'blockquote');
+        break;
+    }
+
+    this.handleCommandExecuted({
+      type: CommandType.FORMAT,
+      message: `Applied: ${params.format}`,
+    });
+  }
+
+  /**
+   * Handle command execution feedback
+   * @param {Object} result - Command result
+   */
+  handleCommandExecuted(result) {
+    console.log(`[STT] Command executed: ${result.message}`);
+    this.onCommandExecuted(result);
   }
 
   /**
@@ -430,7 +749,20 @@ export class STTController {
       }
     }
 
+    // Update command parser settings
+    if (this.commandParser && newSettings.voiceCommands !== undefined) {
+      this.commandParser.updateSettings({ enabled: newSettings.voiceCommands });
+    }
+
     console.log('[STT] Settings updated:', this.settings);
+  }
+
+  /**
+   * Get available voice commands
+   * @returns {Array} List of available commands by category
+   */
+  getAvailableCommands() {
+    return this.commandParser ? this.commandParser.getAvailableCommands() : [];
   }
 
   /**
@@ -458,10 +790,16 @@ export class STTController {
       this.recognition = null;
     }
 
+    // Cleanup command parser
+    if (this.commandParser) {
+      this.commandParser.destroy();
+    }
+
     this.isRecording = false;
     this.isPaused = false;
     this.targetElement = null;
     this.lastTranscript = '';
+    this.lastDictation = '';
     this.interimTranscript = '';
     this.finalTranscript = '';
 
