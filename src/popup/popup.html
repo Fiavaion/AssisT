@@ -711,6 +711,55 @@
                 </div>
                 <div class="control-subsection">
                   <div class="toggle-control">
+                    <label for="stt-voice-commands" class="toggle-label">
+                      <span class="label-text">Voice Editing Commands</span>
+                      <span
+                        class="badge badge-new"
+                        style="
+                          background: linear-gradient(135deg, #ff6b35, #f7931e);
+                          color: white;
+                          font-size: 10px;
+                          padding: 2px 6px;
+                          border-radius: 4px;
+                          margin-left: 6px;
+                        "
+                        >NEW</span
+                      >
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-voice-commands"
+                          data-testid="stt-voice-commands-toggle"
+                          role="switch"
+                          aria-label="Voice editing commands"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description">Delete, undo, replace, select by voice</p>
+                  <button
+                    type="button"
+                    id="stt-show-commands"
+                    class="btn-link"
+                    aria-label="View all voice commands"
+                    style="
+                      font-size: 12px;
+                      color: #4a90d9;
+                      cursor: pointer;
+                      background: none;
+                      border: none;
+                      padding: 0;
+                      margin-top: 4px;
+                      text-decoration: underline;
+                    "
+                  >
+                    View all voice commands →
+                  </button>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
                     <label for="stt-auto-capitalize" class="toggle-label">
                       <span class="label-text">Auto-Capitalize</span>
                       <div class="toggle-switch">

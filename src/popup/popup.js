@@ -3324,6 +3324,29 @@ class PopupController {
       this.saveSettings();
     });
 
+    // Voice Editing Commands (Phase 2.7)
+    const voiceCommandsCheckbox = document.getElementById('stt-voice-commands');
+    if (voiceCommandsCheckbox) {
+      // Initialize voiceCommands setting if not present
+      if (this.settings.stt.voiceCommands === undefined) {
+        this.settings.stt.voiceCommands = true;
+      }
+      voiceCommandsCheckbox.checked = this.settings.stt.voiceCommands !== false;
+      voiceCommandsCheckbox.addEventListener('change', e => {
+        this.settings.stt.voiceCommands = e.target.checked;
+        this.saveSettings();
+        this.sendCommandToTab({ command: 'UPDATE_STT_SETTINGS', settings: this.settings.stt });
+      });
+
+      // Show Commands button
+      const showCommandsBtn = document.getElementById('stt-show-commands');
+      if (showCommandsBtn) {
+        showCommandsBtn.addEventListener('click', () => {
+          this.showVoiceCommandsModal();
+        });
+      }
+    }
+
     // Auto Capitalize
     const autoCapitalizeCheckbox = document.getElementById('stt-auto-capitalize');
     autoCapitalizeCheckbox.checked = this.settings.stt.autoCapitalize !== false;
@@ -3349,6 +3372,135 @@ class PopupController {
     });
 
     console.log('[Popup] STT initialized');
+  }
+
+  /**
+   * Show Voice Commands Modal (Phase 2.7)
+   * Displays all available voice editing commands in a modal dialog
+   */
+  showVoiceCommandsModal() {
+    // Remove any existing modal
+    const existingModal = document.getElementById('voice-commands-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Create modal HTML
+    const modal = document.createElement('div');
+    modal.id = 'voice-commands-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    `;
+
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    `;
+
+    modalContent.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 style="margin: 0; font-size: 20px; color: #333;">Voice Commands Reference</h2>
+        <button id="close-voice-commands-modal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+      </div>
+      <p style="color: #666; margin-bottom: 16px; font-size: 14px;">Speak any of these commands while dictating to edit your text by voice.</p>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: #4a90d9; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Delete Commands</h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #444;">
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Delete last word"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Delete last 3 words"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Delete last sentence"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Delete that"</code> or <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Scratch that"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Delete all"</code></li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: #4a90d9; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Undo / Redo</h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #444;">
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Undo"</code> or <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Undo that"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Undo 3 times"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Redo"</code></li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: #4a90d9; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Replace Commands</h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #444;">
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Replace hello with goodbye"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Change word to phrase"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Correct mispelling to misspelling"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Replace that with new text"</code></li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: #4a90d9; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Select Commands</h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #444;">
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Select all"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Select last word"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Select last 5 words"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Select last sentence"</code></li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: #4a90d9; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Navigation Commands</h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #444;">
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Go to beginning"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Go to end"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Move left 3 words"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Find hello"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Next"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Previous"</code></li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: #4a90d9; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Formatting Commands <span style="font-size: 11px; color: #999;">(Rich text editors only)</span></h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #444;">
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Bold that"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Italic that"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Underline that"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"New paragraph"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"New line"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Bullet point"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Numbered list"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Heading 1"</code> through <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Heading 6"</code></li>
+        </ul>
+      </div>
+
+      <div style="background: #f0f7ff; padding: 12px; border-radius: 8px; font-size: 12px; color: #555;">
+        <strong>Tip:</strong> You can also use punctuation commands like <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"period"</code>, <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"comma"</code>, <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"question mark"</code>, and <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"new line"</code> while dictating.
+      </div>
+    `;
+
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+
+    // Close modal handlers
+    const closeBtn = document.getElementById('close-voice-commands-modal');
+    closeBtn.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', e => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+    document.addEventListener('keydown', function closeOnEsc(e) {
+      if (e.key === 'Escape') {
+        modal.remove();
+        document.removeEventListener('keydown', closeOnEsc);
+      }
+    });
   }
 
   // ============================================================

@@ -2,9 +2,9 @@
 
 **Last Updated**: 2025-11-27
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.6 Complete)
-**Current Phase**: Phase 2.6 - Neurodivergent Profile Features (COMPLETE)
+**Current Phase**: Phase 2.7 - State-of-the-Art STT Enhancement (IN PROGRESS)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/citation-capture (Phase 2.6 neurodivergent features COMPLETE)
+**Current Branch**: feature/citation-capture (Phase 2.7 STT Enhancement starting)
 
 ---
 
@@ -21,17 +21,79 @@
 
 ## 🎯 Current Step
 
-**Phase**: 2.6 - Neurodivergent Profile Features (COMPLETE)
-**Step**: All features implemented
-**Previous**: Session 027 - Completed N.5-N.8 (Pomodoro Timer, Reading Progress Bar, Simplified Interface, Profile Enhancement)
+**Phase**: 2.7 - State-of-the-Art STT Enhancement (IN PROGRESS)
+**Step**: S.1, S.2, S.6 Complete - Next: S.5 Custom Vocabulary
+**Previous**: Session 028 - Completed Voice Editing Commands (3/9 features)
 
-**Status**: 7/7 features complete + 6 neurodivergent profiles (100%)
+**Status**: 3/9 features complete (S.1 ✓, S.2 ✓, S.6 ✓)
 **Blocker**: None
-**Note**: Ready for merge to main, manual testing, and user documentation
+**Goal**: Transform basic dictation to world-class assistive technology rivaling Dragon NaturallySpeaking
+
+**Completed Features**:
+
+- S.1: Voice Editing Commands (100%) - delete, undo, redo, replace, select
+- S.2: Voice Navigation Commands (100%) - go to, move, find, next/previous
+- S.6: Formatting Commands (100%) - bold, italic, lists, headings
+
+**Remaining Features**:
+
+1. S.5: Custom Vocabulary & Word Lists - HIGH
+2. S.7: Neurodivergent STT Profiles - HIGH
+3. S.3: Smart Auto-Punctuation - MEDIUM
+4. S.4: Confidence Feedback - MEDIUM
+5. S.8: Advanced Recognition Engine - LOW
+6. S.9: STT Testing & Documentation - HIGH
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 028 (2025-11-27)
+
+**Phase 2.7: State-of-the-Art STT Enhancement - 3/9 Features Complete**
+
+**Key Accomplishments**:
+
+1. **Feature S.1: Voice Editing Commands** (100%):
+   - Created command-parser.js module (~750 lines)
+   - Delete: "Delete last word", "Delete 3 words", "Delete that", "Scratch that"
+   - Undo/Redo: "Undo", "Undo 3 times", "Redo"
+   - Replace: "Replace X with Y", "Change X to Y", "Correct X to Y"
+   - Select: "Select all", "Select last 5 words", "Select sentence"
+   - History tracking for undo/redo support
+
+2. **Feature S.2: Voice Navigation Commands** (100%):
+   - "Go to beginning" / "Go to end"
+   - "Move left/right [N] words"
+   - "Move up/down [N] lines"
+   - "Go to line [N]"
+   - "Find [word]" / "Next" / "Previous"
+
+3. **Feature S.6: Formatting Commands** (100%):
+   - "Bold that" / "Italic that" / "Underline that"
+   - "New paragraph" / "New line"
+   - "Bullet point" / "Numbered list"
+   - "Heading 1" through "Heading 6"
+   - Rich text editor support (Canvas, contentEditable)
+
+**Files Created**:
+
+- src/engines/stt/command-parser.js (~750 lines)
+
+**Files Modified**:
+
+- src/engines/stt/stt-controller.js (+230 lines)
+- src/popup/popup.html (+28 lines)
+- src/popup/popup.js (+145 lines for modal + handlers)
+
+**Commits**:
+
+- `feat(stt): add voice editing commands with command parser (Phase 2.7)`
+
+**Build Status**: ✅ Successful (598.73 KB content script)
+**Voice Commands**: 60+ commands implemented
+
+---
 
 ### Phase 2 Session 027 (2025-11-27)
 

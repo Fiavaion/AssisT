@@ -453,21 +453,22 @@
 
 ## Progress Tracking
 
-**Overall Progress**: 100% (17/17 features complete, 11/12 testing tasks complete)
+**Overall Progress**: 94% (17/17 Phase 2.1-2.6 features complete, Phase 2.7 STT Enhancement starting)
 
 **Phase 2.1 (High-Priority)**: 100% (4/4 features) - OCR, Highlight Menu, Reading Mode, Dictionary
 **Phase 2.2 (Writing & Organization)**: 100% (3/3 features) - Annotations 94%, Translation, Text Statistics
 **Phase 2.3 (UX Enhancements)**: 100% (2/2 features) - Font Library, Keyboard Shortcuts
 **Phase 2.4 (Citation Management)**: 100% (6/6 features) - 11.1 through 11.6 complete
 **Phase 2.6 (Neurodivergent Features)**: 100% (7/7 features + 6 profiles)
+**Phase 2.7 (STT Enhancement)**: 33% (3/9 features complete) - S.1 ✓, S.2 ✓, S.6 ✓
 
-**Current Phase**: Phase 2.6 - COMPLETE
+**Current Phase**: Phase 2.7 - State-of-the-Art STT Enhancement
 **Testing Progress**: 11/12 tasks complete (623 unit tests, 74+ E2E tests)
-**Neurodivergent Features**: 7/7 complete + 6 new profiles
-**Next Steps**: Merge to main, manual testing, user documentation
+**STT Enhancement Goal**: Transform basic dictation to world-class assistive technology
+**Next Steps**: S.3 Smart Punctuation, S.5 Custom Vocabulary, S.7 Neurodivergent Profiles
 
-**Estimated Completion**: Week 18
-**Actual Completion**: Phase 2.6 complete Week 2 (significantly ahead of schedule)
+**Estimated Completion**: Week 22
+**Phase 2.6 Completion**: Week 2 (significantly ahead of schedule)
 
 ---
 
@@ -615,6 +616,172 @@
 - [x] N.8.7: Anxiety Calm profile (Gentle pacing, Focus Mode, Calming colors)
 - [x] N.8.8: Profile integrated into existing dropdown UI
 - [x] N.8.9: Migration handled by existing profile loading logic
+
+---
+
+## Phase 2.7: State-of-the-Art Speech-to-Text Enhancement (Weeks 19-22)
+
+**Goal**: Transform STT from basic dictation to world-class assistive technology rivaling Dragon NaturallySpeaking, Google Docs Voice Typing, and specialized AT tools.
+
+### Feature S.1: Voice Editing Commands
+
+**Status**: `[✓]` Complete (100%)
+**Estimated**: 3-4 days
+**Actual**: 2 hours
+**Priority**: HIGH
+**Dependencies**: None
+
+**Tasks**:
+
+- [x] S.1.1: Create command parser with pattern matching (750+ lines)
+- [x] S.1.2: "Delete last word" / "Delete last [N] words"
+- [x] S.1.3: "Delete last sentence" / "Delete last paragraph"
+- [x] S.1.4: "Undo" / "Undo that" / "Redo"
+- [x] S.1.5: "Replace [word] with [word]" / "Change [phrase] to [phrase]"
+- [x] S.1.6: "Delete that" (removes last dictation)
+- [x] S.1.7: "Scratch that" (alias for delete that)
+- [x] S.1.8: "Select all" / "Select last word" / "Select last sentence"
+- [x] S.1.9: Command feedback with toast notifications (via onCommandExecuted callback)
+- [x] S.1.10: Settings toggle for voice commands (enable/disable)
+
+### Feature S.2: Voice Navigation Commands
+
+**Status**: `[✓]` Complete (100%)
+**Estimated**: 2-3 days
+**Actual**: Included in S.1 (integrated)
+**Priority**: HIGH
+**Dependencies**: S.1 ✓
+
+**Tasks**:
+
+- [x] S.2.1: "Go to beginning" / "Go to end"
+- [x] S.2.2: "Move left [N] words" / "Move right [N] words"
+- [x] S.2.3: "Move up [N] lines" / "Move down [N] lines"
+- [x] S.2.4: "Go to line [N]" (for numbered content)
+- [x] S.2.5: "Find [word]" / "Next" / "Previous"
+- [ ] S.2.6: Cursor position indicator overlay (deferred - optional)
+- [x] S.2.7: Visual feedback for navigation actions (via onCommandExecuted callback)
+
+### Feature S.3: Smart Auto-Punctuation
+
+**Status**: `[ ]` Pending
+**Estimated**: 2-3 days
+**Priority**: MEDIUM
+**Dependencies**: None
+
+**Tasks**:
+
+- [ ] S.3.1: Automatic period detection (pause-based)
+- [ ] S.3.2: Question mark detection (rising intonation patterns)
+- [ ] S.3.3: Comma detection (natural pauses, conjunctions)
+- [ ] S.3.4: Exclamation detection (emphasis patterns)
+- [ ] S.3.5: Smart capitalization after punctuation
+- [ ] S.3.6: Toggle between manual/auto punctuation modes
+- [ ] S.3.7: Punctuation confidence thresholds
+
+### Feature S.4: Confidence & Quality Feedback
+
+**Status**: `[ ]` Pending
+**Estimated**: 1-2 days
+**Priority**: MEDIUM
+**Dependencies**: None
+
+**Tasks**:
+
+- [ ] S.4.1: Display confidence score (0-100%) for each phrase
+- [ ] S.4.2: Color-coded confidence (green/yellow/red)
+- [ ] S.4.3: Minimum confidence threshold slider
+- [ ] S.4.4: Low-confidence word highlighting
+- [ ] S.4.5: Alternative suggestions for low-confidence words
+- [ ] S.4.6: Recognition accuracy statistics tracking
+- [ ] S.4.7: Session statistics (words/minute, accuracy %)
+
+### Feature S.5: Custom Vocabulary & Word Lists
+
+**Status**: `[ ]` Pending
+**Estimated**: 2-3 days
+**Priority**: HIGH
+**Dependencies**: None
+
+**Tasks**:
+
+- [ ] S.5.1: Custom word list storage (IndexedDB)
+- [ ] S.5.2: Add word UI in settings panel
+- [ ] S.5.3: Import vocabulary from text file
+- [ ] S.5.4: Export vocabulary to text file
+- [ ] S.5.5: Subject-specific presets (Medical, Legal, Academic, STEM)
+- [ ] S.5.6: Auto-learn from corrections
+- [ ] S.5.7: Phonetic spelling hints (pronunciation guide)
+
+### Feature S.6: Formatting Commands
+
+**Status**: `[✓]` Complete (100%)
+**Estimated**: 2 days
+**Actual**: Included in S.1 (integrated)
+**Priority**: MEDIUM
+**Dependencies**: S.1 ✓
+
+**Tasks**:
+
+- [x] S.6.1: "Bold that" / "Italicize that" / "Underline that"
+- [x] S.6.2: "New paragraph" / "New line"
+- [x] S.6.3: "Bullet point" / "Numbered list"
+- [x] S.6.4: "Heading [1-6]" for structure
+- [x] S.6.5: "Quote that" / "Block quote"
+- [x] S.6.6: Rich text editor detection (Canvas, Google Docs)
+- [x] S.6.7: Fallback to markdown for plain text fields
+
+### Feature S.7: Neurodivergent STT Profiles
+
+**Status**: `[ ]` Pending
+**Estimated**: 1-2 days
+**Priority**: HIGH
+**Dependencies**: S.1-S.6
+
+**Tasks**:
+
+- [ ] S.7.1: ADHD Profile (faster response, minimal distractions, large visual feedback)
+- [ ] S.7.2: Dyslexia Profile (phonetic mode, extra pause time, simple commands)
+- [ ] S.7.3: Anxiety Profile (calm colors, gentle sounds, forgiving timing)
+- [ ] S.7.4: Motor Impairment Profile (longer hold times, voice-only activation)
+- [ ] S.7.5: Low Vision Profile (large mic button, high contrast, audio feedback)
+- [ ] S.7.6: Autism Profile (predictable behavior, no surprises, literal commands)
+- [ ] S.7.7: Profile quick-switch keyboard shortcut
+
+### Feature S.8: Advanced Recognition Engine
+
+**Status**: `[ ]` Pending
+**Estimated**: 3-4 days
+**Priority**: LOW (future enhancement)
+**Dependencies**: None
+
+**Tasks**:
+
+- [ ] S.8.1: Whisper.cpp WebAssembly integration (offline mode)
+- [ ] S.8.2: Azure Speech Services option (for institutions)
+- [ ] S.8.3: Engine fallback chain (Whisper → Web Speech → Azure)
+- [ ] S.8.4: Latency optimization (<100ms target)
+- [ ] S.8.5: Background noise cancellation
+- [ ] S.8.6: Multi-speaker voice identification (future)
+
+### Feature S.9: STT Testing & Documentation
+
+**Status**: `[ ]` Pending
+**Estimated**: 2-3 days
+**Priority**: HIGH
+**Dependencies**: S.1-S.7
+
+**Tasks**:
+
+- [ ] S.9.1: Unit tests for command parser (50+ tests)
+- [ ] S.9.2: Unit tests for STT controller (40+ tests)
+- [ ] S.9.3: Unit tests for vocabulary manager (20+ tests)
+- [ ] S.9.4: E2E tests for dictation workflow
+- [ ] S.9.5: E2E tests for voice commands
+- [ ] S.9.6: Performance benchmarks (<200ms latency)
+- [ ] S.9.7: Create STT_USER_GUIDE.md
+- [ ] S.9.8: Create VOICE_COMMANDS_REFERENCE.md
+- [ ] S.9.9: WCAG 2.2 AA accessibility audit for STT
 
 ---
 
