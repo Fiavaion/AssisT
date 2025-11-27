@@ -36,6 +36,7 @@ class PopupController {
 
     // Setup UI
     this.setupEventListeners();
+    this.setupAccordions();
     this.updateUI();
     this.loadVoices();
 
@@ -69,6 +70,25 @@ class PopupController {
       console.log('[Popup] Settings saved');
     } catch (error) {
       console.error('[Popup] Error saving settings:', error);
+    }
+  }
+
+  /**
+   * Save highlight menu settings to the separate key that the feature reads
+   * The highlightMenu.js feature reads from 'highlightMenuSettings' in chrome.storage.local
+   */
+  async saveHighlightMenuSettings() {
+    if (!this.settings.highlightMenu) {
+      return;
+    }
+
+    try {
+      await chrome.storage.local.set({
+        highlightMenuSettings: this.settings.highlightMenu,
+      });
+      console.log('[Popup] Highlight Menu settings saved to storage:', this.settings.highlightMenu);
+    } catch (error) {
+      console.error('[Popup] Error saving highlight menu settings:', error);
     }
   }
 
@@ -108,6 +128,78 @@ class PopupController {
     toggleSection('dyslexia-mode-section', 'show_dyslexia_mode');
 
     console.log('[Popup] Visibility settings applied:', visibility);
+  }
+
+  /**
+   * Initialize accordion sections for cleaner UI organization
+   */
+  setupAccordions() {
+    const accordionSections = document.querySelectorAll('.accordion-section');
+    const savedState = this.loadAccordionState();
+
+    accordionSections.forEach(section => {
+      const header = section.querySelector('.accordion-header');
+      const content = section.querySelector('.accordion-content');
+      const sectionId = section.dataset.section;
+
+      if (!header || !content) {
+        return;
+      }
+
+      // Set initial state based on saved preferences or defaults
+      // Default: "reading" section is expanded
+      const isExpanded =
+        savedState[sectionId] !== undefined ? savedState[sectionId] : sectionId === 'reading';
+
+      this.setAccordionState(header, content, isExpanded);
+
+      // Click handler
+      header.addEventListener('click', () => {
+        const currentlyExpanded = header.getAttribute('aria-expanded') === 'true';
+        this.setAccordionState(header, content, !currentlyExpanded);
+        this.saveAccordionState();
+      });
+
+      // Keyboard handler
+      header.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const currentlyExpanded = header.getAttribute('aria-expanded') === 'true';
+          this.setAccordionState(header, content, !currentlyExpanded);
+          this.saveAccordionState();
+        }
+      });
+    });
+  }
+
+  setAccordionState(header, content, expanded) {
+    header.setAttribute('aria-expanded', expanded.toString());
+    content.setAttribute('data-expanded', expanded.toString());
+  }
+
+  loadAccordionState() {
+    try {
+      const saved = localStorage.getItem('assist_accordion_state');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveAccordionState() {
+    const state = {};
+    document.querySelectorAll('.accordion-section').forEach(section => {
+      const header = section.querySelector('.accordion-header');
+      const sectionId = section.dataset.section;
+      if (header && sectionId) {
+        state[sectionId] = header.getAttribute('aria-expanded') === 'true';
+      }
+    });
+    try {
+      localStorage.setItem('assist_accordion_state', JSON.stringify(state));
+    } catch {
+      // Ignore storage errors
+    }
   }
 
   setupEventListeners() {
@@ -412,6 +504,8 @@ class PopupController {
       highlightMenuEnabled.addEventListener('change', e => {
         this.settings.highlightMenu.enabled = e.target.checked;
         this.saveSettings();
+        // Also save to highlightMenuSettings for the feature to read
+        this.saveHighlightMenuSettings();
 
         // Toggle options visibility
         if (e.target.checked) {
@@ -438,6 +532,7 @@ class PopupController {
 
     buttonToggles.forEach(({ id, key }) => {
       const toggle = document.getElementById(id);
+      console.log(`[Popup] Looking for toggle ${id}:`, toggle ? 'FOUND' : 'NOT FOUND');
       if (toggle) {
         // Initialize settings
         if (!this.settings.highlightMenu) {
@@ -446,11 +541,15 @@ class PopupController {
 
         // Set initial checked state
         toggle.checked = this.settings.highlightMenu[key] !== false;
+        console.log(`[Popup] Toggle ${id} initial state:`, toggle.checked);
 
         // Add change listener
         toggle.addEventListener('change', e => {
+          console.log(`[Popup] Toggle ${id} CHANGED to:`, e.target.checked);
           this.settings.highlightMenu[key] = e.target.checked;
           this.saveSettings();
+          // Also save to highlightMenuSettings for the feature to read
+          this.saveHighlightMenuSettings();
           console.log(`[Popup] Highlight Menu ${key}:`, e.target.checked);
         });
       }
@@ -479,6 +578,8 @@ class PopupController {
         highlightMenuDelayLabel.textContent = `${delay / 1000} second${delay === 1000 ? '' : 's'}`;
         this.settings.highlightMenu.autoHideDelay = delay;
         this.saveSettings();
+        // Also save to highlightMenuSettings for the feature to read
+        this.saveHighlightMenuSettings();
         console.log('[Popup] Highlight Menu auto-hide delay:', delay);
       });
     }
