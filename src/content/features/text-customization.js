@@ -18,13 +18,17 @@ const textCustomization_settings = {
   paragraphSpacing: 2.0,
 };
 
-// Font map for CSS generation
+// Font map for CSS generation - Extended accessibility font library
 const textCustomization_fontMap = {
   system: 'inherit',
   lexend: '"Lexend", -apple-system, system-ui, sans-serif',
+  'atkinson-hyperlegible': '"Atkinson Hyperlegible", Arial, sans-serif',
   opendyslexic: '"OpenDyslexic", Arial, sans-serif',
+  andika: '"Andika", Arial, sans-serif',
+  'comic-neue': '"Comic Neue", "Comic Sans MS", cursive',
   'comic-sans': '"Comic Sans MS", "Comic Sans", cursive',
   arial: 'Arial, Helvetica, sans-serif',
+  verdana: 'Verdana, Geneva, sans-serif',
 };
 
 /**
@@ -38,6 +42,22 @@ function textCustomization_loadLexend() {
       'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap';
     document.head.appendChild(textCustomization_fontLinkElement);
     console.log('[TextCustomization] Lexend font loaded from Google Fonts');
+  }
+}
+
+/**
+ * Load Atkinson Hyperlegible font from Google Fonts
+ * Designed by Braille Institute for maximum legibility
+ */
+function textCustomization_loadAtkinsonHyperlegible() {
+  if (!document.getElementById('assist-atkinson-font')) {
+    const link = document.createElement('link');
+    link.id = 'assist-atkinson-font';
+    link.rel = 'stylesheet';
+    link.href =
+      'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap';
+    document.head.appendChild(link);
+    console.log('[TextCustomization] Atkinson Hyperlegible font loaded from Google Fonts');
   }
 }
 
@@ -68,16 +88,61 @@ function textCustomization_loadOpenDyslexic() {
 }
 
 /**
+ * Load Andika font from Google Fonts
+ * SIL font designed for literacy and beginning readers
+ */
+function textCustomization_loadAndika() {
+  if (!document.getElementById('assist-andika-font')) {
+    const link = document.createElement('link');
+    link.id = 'assist-andika-font';
+    link.rel = 'stylesheet';
+    link.href =
+      'https://fonts.googleapis.com/css2?family=Andika:ital,wght@0,400;0,700;1,400;1,700&display=swap';
+    document.head.appendChild(link);
+    console.log('[TextCustomization] Andika font loaded from Google Fonts');
+  }
+}
+
+/**
+ * Load Comic Neue font from Google Fonts
+ * Open-source alternative to Comic Sans with better readability
+ */
+function textCustomization_loadComicNeue() {
+  if (!document.getElementById('assist-comic-neue-font')) {
+    const link = document.createElement('link');
+    link.id = 'assist-comic-neue-font';
+    link.rel = 'stylesheet';
+    link.href =
+      'https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap';
+    document.head.appendChild(link);
+    console.log('[TextCustomization] Comic Neue font loaded from Google Fonts');
+  }
+}
+
+/**
  * Generate CSS for text customization
  */
 function textCustomization_generateCSS() {
   const font = textCustomization_fontMap[textCustomization_settings.fontFamily] || 'inherit';
 
-  // Load fonts if needed
-  if (textCustomization_settings.fontFamily === 'lexend') {
-    textCustomization_loadLexend();
-  } else if (textCustomization_settings.fontFamily === 'opendyslexic') {
-    textCustomization_loadOpenDyslexic();
+  // Load fonts if needed based on selection
+  switch (textCustomization_settings.fontFamily) {
+    case 'lexend':
+      textCustomization_loadLexend();
+      break;
+    case 'atkinson-hyperlegible':
+      textCustomization_loadAtkinsonHyperlegible();
+      break;
+    case 'opendyslexic':
+      textCustomization_loadOpenDyslexic();
+      break;
+    case 'andika':
+      textCustomization_loadAndika();
+      break;
+    case 'comic-neue':
+      textCustomization_loadComicNeue();
+      break;
+    // System fonts (arial, verdana, comic-sans) don't need loading
   }
 
   // Generate CSS with high specificity and !important to override Canvas styles
@@ -139,7 +204,9 @@ function textCustomization_remove() {
  * Handle settings changes
  */
 function textCustomization_handleSettingsChange(newSettings) {
-  if (!newSettings.textCustomization) return;
+  if (!newSettings.textCustomization) {
+    return;
+  }
 
   const tcSettings = newSettings.textCustomization;
   const wasEnabled = textCustomization_enabled;
@@ -163,7 +230,11 @@ function textCustomization_handleSettingsChange(newSettings) {
     }
   }
 
-  console.log('[TextCustomization] Settings updated:', textCustomization_enabled, textCustomization_settings);
+  console.log(
+    '[TextCustomization] Settings updated:',
+    textCustomization_enabled,
+    textCustomization_settings
+  );
 }
 
 /**
@@ -187,7 +258,11 @@ export async function textCustomization_initialize() {
       textCustomization_apply();
     }
 
-    console.log('[TextCustomization] Settings loaded:', textCustomization_enabled, textCustomization_settings);
+    console.log(
+      '[TextCustomization] Settings loaded:',
+      textCustomization_enabled,
+      textCustomization_settings
+    );
   }
 
   // Listen for settings changes
