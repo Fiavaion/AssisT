@@ -78,6 +78,7 @@ import '../features/annotations/sticky-note.js'; // Self-initializing sticky not
 import '../features/annotations/inline-annotations.js'; // Self-initializing inline annotations with text highlighting and comments
 import '../features/annotations/annotation-sidebar.js'; // Self-initializing annotation sidebar panel with real-time sync
 import '../features/reducedMotion/reducedMotion.js'; // Self-initializing reduced motion for sensory-sensitive users
+import '../features/mediaControl/mediaControl.js'; // Self-initializing auto-play blocking for sensory comfort
 import '../features/textStats/textStats-ui.js'; // Self-initializing text statistics with floating badge and modal
 import { initCitation } from '../features/citations/citation-integration.js'; // Citation system with metadata extraction and storage
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
