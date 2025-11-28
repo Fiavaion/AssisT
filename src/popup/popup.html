@@ -701,6 +701,71 @@
                     <option value="zh-TW">Chinese (Traditional)</option>
                   </select>
                 </div>
+                <!-- Recognition Engine Selection (Phase 2.8 - S.8) -->
+                <div class="control-subsection" id="stt-engine-section">
+                  <h3 class="subsection-title">
+                    <label for="stt-engine">Recognition Engine</label>
+                    <span
+                      class="badge badge-new"
+                      style="
+                        background: linear-gradient(135deg, #f59e0b, #d97706);
+                        color: white;
+                        font-size: 10px;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        margin-left: 6px;
+                      "
+                      >NEW</span
+                    >
+                  </h3>
+                  <select
+                    id="stt-engine"
+                    data-testid="stt-engine-select"
+                    class="voice-select"
+                    aria-label="Speech recognition engine"
+                  >
+                    <option value="auto">Auto (Best Available)</option>
+                    <option value="whisper">Whisper (Offline)</option>
+                    <option value="web-speech">Web Speech API</option>
+                    <option value="azure">Azure Speech (Cloud)</option>
+                  </select>
+                  <div id="stt-engine-status" class="engine-status" style="margin-top: 8px; font-size: 11px;">
+                    <span id="stt-engine-indicator" class="engine-indicator" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 6px;"></span>
+                    <span id="stt-engine-name">Web Speech API</span>
+                    <span id="stt-engine-offline-badge" class="hidden" style="background: #059669; color: white; font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-left: 6px;">OFFLINE</span>
+                  </div>
+                </div>
+                <div class="control-subsection" id="stt-offline-section">
+                  <div class="toggle-control">
+                    <label for="stt-prefer-offline" class="toggle-label">
+                      <span class="label-text">Prefer Offline Mode</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-prefer-offline"
+                          data-testid="stt-prefer-offline-toggle"
+                          role="switch"
+                          aria-label="Prefer offline recognition"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description">
+                    Use Whisper when available for privacy and offline use
+                  </p>
+                </div>
+                <!-- Whisper Model Download Progress (hidden by default) -->
+                <div id="stt-whisper-download" class="control-subsection hidden">
+                  <div class="download-progress">
+                    <span class="download-label">Downloading Whisper model...</span>
+                    <div class="progress-bar" style="height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 6px;">
+                      <div id="stt-whisper-progress" class="progress-fill" style="height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #059669); border-radius: 3px; transition: width 0.3s;"></div>
+                    </div>
+                    <span id="stt-whisper-progress-text" class="progress-text" style="font-size: 10px; color: #666; margin-top: 4px; display: block;">0%</span>
+                  </div>
+                </div>
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-punctuation-commands" class="toggle-label">
