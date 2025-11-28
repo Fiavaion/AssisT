@@ -148,7 +148,7 @@ const pomodoro_settings = {
   autoStartWork: false,
   showNotifications: true,
   playSound: true,
-  position: 'bottom-right',
+  position: 'bottom-left',
 };
 
 /** @type {Object} Default settings for Pomodoro Timer */
@@ -162,7 +162,7 @@ const DEFAULT_SETTINGS = {
   autoStartWork: false,
   showNotifications: true,
   playSound: true,
-  position: 'bottom-right',
+  position: 'bottom-left',
 };
 
 // ============================================================

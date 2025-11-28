@@ -16,6 +16,7 @@ const screenOverlay_settings = {
 
 /**
  * Create screen overlay element
+ * Uses mix-blend-mode to tint the page while preserving text legibility
  */
 function screenOverlay_create() {
   if (screenOverlay_element) {
@@ -24,6 +25,9 @@ function screenOverlay_create() {
 
   screenOverlay_element = document.createElement('div');
   screenOverlay_element.id = 'assist-screen-overlay';
+
+  // Use multiply blend mode for better text legibility
+  // This darkens white backgrounds while keeping text readable
   screenOverlay_element.style.cssText = `
     position: fixed;
     top: 0;
@@ -34,11 +38,12 @@ function screenOverlay_create() {
     opacity: ${screenOverlay_settings.opacity};
     pointer-events: none;
     z-index: 999999;
+    mix-blend-mode: multiply;
     transition: background-color 0.3s ease, opacity 0.3s ease;
   `;
 
   document.body.appendChild(screenOverlay_element);
-  console.log('[ScreenOverlay] Overlay element created');
+  console.log('[ScreenOverlay] Overlay element created with multiply blend mode');
 }
 
 /**
@@ -87,7 +92,9 @@ function screenOverlay_disable() {
  * Handle settings changes
  */
 function screenOverlay_handleSettingsChange(newSettings) {
-  if (!newSettings.screenOverlay) return;
+  if (!newSettings.screenOverlay) {
+    return;
+  }
 
   const soSettings = newSettings.screenOverlay;
   const wasEnabled = screenOverlay_enabled;
