@@ -24,10 +24,17 @@ async function enableAnnotationsFeature(popupPage) {
   await popupPage.waitForLoadState('domcontentloaded');
   await popupPage.waitForTimeout(500);
 
-  // Find and enable Annotations toggle
+  // Find the Annotations toggle
   const annotationsToggle = popupPage.locator('#annotations-enabled');
   await annotationsToggle.scrollIntoViewIfNeeded();
-  await annotationsToggle.check({ force: true });
+
+  // Check if already enabled, if not click to enable
+  const isChecked = await annotationsToggle.isChecked();
+  if (!isChecked) {
+    // Use click() instead of check() for custom toggle switches
+    await annotationsToggle.click();
+    await popupPage.waitForTimeout(100);
+  }
 
   // Verify it's enabled
   expect(await annotationsToggle.isChecked()).toBe(true);
