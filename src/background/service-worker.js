@@ -60,6 +60,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 // Message handling from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle opening discovery quiz page
+  if (message.action === 'OPEN_DISCOVERY_QUIZ') {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('src/pages/discovery/discovery.html'),
+    });
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Handle opening demo page
+  if (message.action === 'OPEN_DEMO_PAGE') {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('src/pages/demo/demo.html'),
+    });
+    sendResponse({ success: true });
+    return false;
+  }
+
   // Handle screenshot capture requests
   if (message.action === 'CAPTURE_SCREENSHOT') {
     chrome.tabs.captureVisibleTab(null, { format: message.options?.format || 'png' }, dataUrl => {
