@@ -4,8 +4,8 @@
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE)
 **Current Phase**: Phase 2 COMPLETE - Ready for Release
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/citation-capture (Phase 2 COMPLETE)
-**Session**: Phase 2 Session 041 (Performance Benchmarks & WCAG Audit)
+**Current Branch**: main (Phase 2 COMPLETE + S.8 Advanced Recognition)
+**Session**: Phase 2 Session 042 (S.8 Advanced Recognition Engine)
 
 ---
 
@@ -22,11 +22,11 @@
 
 ## 🎯 Current Step
 
-**Phase**: 2.7 - State-of-the-Art STT Enhancement (IN PROGRESS)
-**Step**: S.4 Confidence & Quality Feedback - COMPLETE
-**Previous**: Session 031 - Completed Smart Auto-Punctuation (6/9 features)
+**Phase**: 2.7 - State-of-the-Art STT Enhancement - ✅ COMPLETE
+**Step**: S.8 Advanced Recognition Engine - COMPLETE
+**Previous**: Session 041 - Performance Benchmarks & WCAG Audit
 
-**Status**: 8/9 features complete (S.1 ✓, S.2 ✓, S.3 ✓, S.4 ✓, S.5 ✓, S.6 ✓, S.7 ✓, S.9 ✓)
+**Status**: 9/9 features complete (S.1-S.9 ALL COMPLETE)
 **Blocker**: None
 **Goal**: Transform basic dictation to world-class assistive technology rivaling Dragon NaturallySpeaking
 
@@ -39,15 +39,82 @@
 - S.5: Custom Vocabulary (100%) - word lists, presets, auto-learn, import/export
 - S.6: Formatting Commands (100%) - bold, italic, lists, headings
 - S.7: Neurodivergent STT Profiles (100%) - 6 profiles + quick-switch
+- S.8: Advanced Recognition Engine (100%) - Whisper WASM, Azure, Web Speech, fallback chain
 - S.9: STT Testing & Documentation (100%) - 356 unit tests, user guides
 
-**Remaining Features**:
-
-1. S.8: Advanced Recognition Engine - LOW (future enhancement - deferred)
+**Phase 2.7 Status**: ✅ 100% COMPLETE (9/9 features)
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 042 (2025-11-28)
+
+**S.8: Advanced Recognition Engine - COMPLETE**
+
+**Key Accomplishments**:
+
+1. **Multi-Engine STT Architecture** (100%):
+   - Created modular engine system with automatic fallback chain
+   - Base engine interface with EngineStatus, EngineType, RecognitionResult
+   - Engine manager for selection, registration, and failover
+   - Network-aware engine selection (offline mode support)
+
+2. **Whisper.cpp WebAssembly Engine** (100%):
+   - Local offline speech recognition using Whisper AI
+   - Web Worker for WASM processing (non-blocking)
+   - IndexedDB model caching for fast subsequent loads
+   - 5 model sizes (Tiny 75MB → Large 1.5GB)
+   - Voice Activity Detection (VAD) support
+
+3. **Azure Speech Services Engine** (100%):
+   - Microsoft Azure cloud recognition integration
+   - Dynamic SDK loading (on-demand)
+   - Credential storage via chrome.storage
+   - 3 recognition modes: Interactive, Conversation, Dictation
+
+4. **Web Speech API Engine** (100%):
+   - Wrapper for browser's built-in Web Speech API
+   - Extracted from original STT controller
+   - Continuous recognition with auto-restart
+
+5. **Enhanced STT Controller** (100%):
+   - Multi-engine controller using engine manager
+   - Backward compatible with existing STT features
+   - Unified API for all engine types
+
+6. **Popup UI Integration** (100%):
+   - Engine selection dropdown (Auto/Whisper/Web Speech/Azure)
+   - Whisper model selection and download progress
+   - Azure credentials configuration
+   - Engine status indicator
+
+**Files Created**:
+
+- src/engines/stt/engines/base-engine.js (~200 lines)
+- src/engines/stt/engines/engine-manager.js (~350 lines)
+- src/engines/stt/engines/web-speech-engine.js (~350 lines)
+- src/engines/stt/engines/whisper-engine.js (~500 lines)
+- src/engines/stt/engines/azure-engine.js (~400 lines)
+- src/engines/stt/engines/index.js (~125 lines)
+- src/engines/stt/stt-controller-enhanced.js (~600 lines)
+- docs/sessions/phase2-session-042.md
+
+**Files Modified**:
+
+- src/popup/popup.html (+70 lines engine selection UI)
+- src/popup/popup.js (+100 lines engine settings handlers)
+- docs/planning/PHASE2_TASKS.md (S.8 status → complete)
+
+**Total**: ~2,670 lines of new STT engine code
+
+**Build Status**: ✅ Successful
+**E2E Tests**: 2 passing, 5 skipped (21.6s)
+**Commit**: `a13cdfc` - feat(stt): implement S.8 Advanced Recognition Engine
+
+**Deferred**: S.8.6 Multi-speaker voice identification (deferred to v2)
+
+---
 
 ### Phase 2 Session 041 (2025-11-28)
 
