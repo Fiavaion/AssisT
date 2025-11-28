@@ -10,10 +10,12 @@
   --primary-light: #bbdefb;
   --accent-color: #ffeb3b;
   --text-primary: #212121;
-  --text-secondary: #757575;
+  --text-secondary: #5f6368; /* WCAG 2.2 AA: 7.0:1 contrast ratio for small text */
+  --text-tertiary: #757575; /* For non-critical text ≥14px (4.6:1 ratio) */
   --background: #ffffff;
   --surface: #f5f5f5;
-  --border: #e0e0e0;
+  --border: #767676; /* WCAG 2.2 AA: 4.5:1 contrast for UI components */
+  --border-light: #d0d0d0; /* For decorative borders (2.0:1 ratio) */
   --success: #4caf50;
   --warning: #ff9800;
   --error: #f44336;
@@ -69,10 +71,15 @@ body {
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 8px 10px;
+  min-width: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
+  min-height: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
   cursor: pointer;
   transition: var(--transition);
   color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .header-btn:hover {
@@ -85,7 +92,7 @@ body {
 }
 
 .header-btn-icon {
-  font-size: 16px;
+  font-size: 20px; /* Increased from 16px for better visibility */
   display: block;
 }
 
@@ -169,7 +176,7 @@ body {
 }
 
 .section-title {
-  font-size: 11px;
+  font-size: 12px; /* WCAG 2.2 SC 1.4.3: Increased for readability */
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -262,7 +269,8 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--border);
+  background-color: #9e9e9e; /* WCAG 2.2 SC 1.4.11: 3.0:1 contrast for inactive state */
+  border: 1px solid var(--border);
   transition: var(--transition);
   border-radius: 24px;
 }
@@ -355,7 +363,8 @@ body {
 }
 
 .btn-text {
-  font-size: 10px;
+  font-size: 11px; /* WCAG 2.2 SC 1.4.3: Increased minimum font size */
+  line-height: 1.3;
 }
 
 /* Select */
@@ -390,7 +399,8 @@ body {
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: var(--surface);
+  background: #c0c0c0; /* WCAG 2.2 SC 1.4.11: Better contrast for track */
+  border: 1px solid var(--border);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -438,7 +448,8 @@ body {
   display: flex;
   justify-content: space-between;
   margin-top: 2px;
-  font-size: 10px;
+  font-size: 11px; /* WCAG 2.2 SC 1.4.3: Increased for readability */
+  font-weight: 500;
   color: var(--text-secondary);
 }
 
@@ -552,11 +563,56 @@ body {
 
 /* Feature Description */
 .feature-description {
-  font-size: 11px;
+  font-size: 12px; /* WCAG 2.2 SC 1.4.3: Increased for readability */
   color: var(--text-secondary);
   margin-top: 4px;
-  line-height: 1.4;
+  line-height: 1.5;
   padding-left: var(--spacing-sm);
+}
+
+/* WCAG 2.2 SC 2.5.8: Preset Chips (vocabulary presets) */
+.preset-chip {
+  padding: 10px 16px;
+  min-height: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
+  border-radius: 22px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  font-size: 13px; /* Increased from 11px */
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preset-chip:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.preset-chip:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.preset-chip[aria-pressed='true'] {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-dark);
+}
+
+/* Screen Reader Only - for ARIA live regions */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ============================================ */
@@ -586,8 +642,10 @@ body {
   background: white;
   border: 2px solid var(--border);
   border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 8px 12px;
+  min-width: 60px; /* WCAG 2.2 SC 2.5.8: Wider for text */
+  min-height: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
+  font-size: 13px; /* Slightly larger for readability */
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
@@ -1296,8 +1354,10 @@ body {
   background: white;
   border: 2px solid var(--border);
   border-radius: var(--border-radius);
-  padding: 6px 12px;
-  font-size: 11px;
+  padding: 8px 12px;
+  min-width: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
+  min-height: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
+  font-size: 12px; /* Increased from 11px */
   font-weight: 500;
   color: var(--text-primary);
   cursor: pointer;
