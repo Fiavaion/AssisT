@@ -387,6 +387,37 @@ initFeatureSettings(
 );
 
 // ============================================================
+// EXPOSE STT FOR CONTENT SCRIPT INTEGRATION (S.7)
+// ============================================================
+
+/**
+ * Expose STT controller through window.assistFeatures for content script access
+ * This enables profile switching and other commands from popup
+ */
+if (typeof window !== 'undefined') {
+  window.assistFeatures = window.assistFeatures || {};
+  window.assistFeatures.stt = {
+    get enabled() {
+      return stt_enabled;
+    },
+    get controller() {
+      return stt_controller;
+    },
+    get micButton() {
+      return stt_micButton;
+    },
+    get settings() {
+      return stt_settings;
+    },
+    // Methods for external control
+    initialize: stt_initialize,
+    cleanup: stt_cleanup,
+    loadModules: stt_loadModules,
+  };
+  console.log('[STT] Exposed to window.assistFeatures');
+}
+
+// ============================================================
 // EXPORTS
 // ============================================================
 

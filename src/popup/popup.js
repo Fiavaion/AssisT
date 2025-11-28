@@ -4324,7 +4324,7 @@ class PopupController {
         },
       },
       // ============================================================
-      // NEURODIVERGENT-FOCUSED PROFILES (Phase 2.6)
+      // NEURODIVERGENT-FOCUSED PROFILES (Phase 2.6 + S.7 STT)
       // ============================================================
       'ADHD Focus': {
         name: 'ADHD Focus',
@@ -4355,6 +4355,15 @@ class PopupController {
           reducedMotion: { enabled: false },
           mediaControl: { enabled: true },
           darkMode: { enabled: false },
+          // S.7.1: ADHD STT Profile - fast response, minimal distractions
+          stt: {
+            enabled: true,
+            profile: 'adhd',
+            silenceTimeout: 800,
+            buttonSize: 'large',
+            animations: false,
+            audioFeedback: false,
+          },
         },
       },
       'Autism Comfort': {
@@ -4391,6 +4400,16 @@ class PopupController {
           reducedMotion: { enabled: true, respectSystemPreference: true },
           mediaControl: { enabled: true },
           darkMode: { enabled: false, respectSystemPreference: true },
+          // S.7.6: Autism STT Profile - predictable, literal commands
+          stt: {
+            enabled: true,
+            profile: 'autism',
+            interimResults: false, // Final results only - no changing text
+            commandMode: 'literal',
+            commandPrefix: 'do',
+            animations: false,
+            audioFeedback: true,
+          },
         },
       },
       'Dyslexia Support': {
@@ -4422,6 +4441,16 @@ class PopupController {
           reducedMotion: { enabled: false },
           mediaControl: { enabled: false },
           darkMode: { enabled: false },
+          // S.7.2: Dyslexia STT Profile - extra pause time, simple commands
+          stt: {
+            enabled: true,
+            profile: 'dyslexia',
+            silenceTimeout: 3000, // Extra time to think
+            maxAlternatives: 3, // More phonetic alternatives
+            commandMode: 'simple',
+            spellingCorrection: true,
+            audioFeedback: true,
+          },
         },
       },
       'Sensory Sensitive': {
@@ -4446,6 +4475,16 @@ class PopupController {
           reducedMotion: { enabled: true, respectSystemPreference: false }, // Always reduce motion
           mediaControl: { enabled: true },
           darkMode: { enabled: false, respectSystemPreference: true },
+          // S.7.3: Anxiety/Sensory STT Profile - calm colors, no alarming sounds
+          stt: {
+            enabled: true,
+            profile: 'anxiety',
+            silenceTimeout: 4000, // Forgiving timing
+            animations: true, // Smooth, calming
+            audioFeedback: true,
+            audioVolume: 0.2, // Very quiet
+            errorSounds: false, // No alarming sounds
+          },
         },
       },
       'Night Study': {
@@ -4513,6 +4552,98 @@ class PopupController {
           reducedMotion: { enabled: true },
           mediaControl: { enabled: true },
           darkMode: { enabled: false, respectSystemPreference: true },
+          // S.7.3: Anxiety STT Profile - calm, forgiving, no pressure
+          stt: {
+            enabled: true,
+            profile: 'anxiety',
+            silenceTimeout: 4000, // Very forgiving
+            speechTimeout: 30000, // Extended - take your time
+            animations: true, // Smooth, calming
+            audioFeedback: true,
+            audioVolume: 0.2,
+            errorSounds: false, // No alarming sounds
+            flashOnRecognition: false, // No sudden flashes
+          },
+        },
+      },
+      // S.7.4: Motor Impairment Profile - voice-only, large targets
+      'Motor Impairment': {
+        name: 'Motor Impairment',
+        description: 'Voice-only activation, large touch targets, patient timing',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: { enabled: true, rate: 1.0, highlightEnabled: true },
+          textCustomization: { enabled: true, fontSize: 18, lineHeight: 1.8 },
+          readingGuide: { enabled: false },
+          focusMode: { enabled: false },
+          screenOverlay: { enabled: false },
+          simplify: { enabled: false },
+          readingProgress: { enabled: false },
+          pomodoro: { enabled: false },
+          reducedMotion: { enabled: false },
+          mediaControl: { enabled: false },
+          darkMode: { enabled: false },
+          stt: {
+            enabled: true,
+            profile: 'motor-impairment',
+            continuous: true, // Continuous to avoid re-clicking
+            silenceTimeout: 5000, // Very long - no rush
+            speechTimeout: 60000, // Extended dictation
+            buttonSize: 'xlarge',
+            holdToActivate: true,
+            holdDuration: 500,
+            voiceActivation: true,
+            voiceActivationPhrase: 'start dictation',
+            voiceDeactivationPhrase: 'stop dictation',
+            audioFeedback: true,
+            hapticFeedback: true,
+          },
+        },
+      },
+      // S.7.5: Low Vision Profile - large buttons, high contrast, audio feedback
+      'Low Vision STT': {
+        name: 'Low Vision STT',
+        description: 'Extra-large mic button, high contrast, comprehensive audio feedback',
+        isDefault: true,
+        createdAt: timestamp,
+        settings: {
+          tts: {
+            enabled: true,
+            rate: 0.9,
+            highlightEnabled: true,
+            highlightColor: '#FFEB3B',
+            highlightOpacity: 0.9,
+          },
+          textCustomization: {
+            enabled: true,
+            fontSize: 24,
+            lineHeight: 2.0,
+            letterSpacing: 0.15,
+            wordSpacing: 0.2,
+          },
+          readingGuide: { enabled: true, lineColor: '#FF0000', opacity: 0.8 },
+          focusMode: { enabled: true, dimAmount: 0.9 },
+          screenOverlay: { enabled: false },
+          simplify: { enabled: false },
+          readingProgress: { enabled: false },
+          pomodoro: { enabled: false },
+          reducedMotion: { enabled: false },
+          mediaControl: { enabled: false },
+          darkMode: { enabled: false },
+          stt: {
+            enabled: true,
+            profile: 'low-vision',
+            buttonSize: 'xlarge',
+            buttonSizePx: 96, // Very large
+            highContrast: true,
+            audioFeedback: true,
+            audioVolume: 0.7, // Louder
+            speakTranscript: true, // Read back what was typed
+            hapticFeedback: true,
+            announceState: true,
+            transcriptFontSize: 24,
+          },
         },
       },
     };
@@ -4603,8 +4734,46 @@ class PopupController {
     // Save settings
     await this.saveSettings();
 
+    // Apply STT profile if present (S.7 Neurodivergent STT Profiles)
+    if (profile.settings.stt && profile.settings.stt.profile) {
+      await this.profiles_applySTTProfile(name, profile.settings.stt);
+    }
+
     // Reload popup to reflect changes
     window.location.reload();
+  }
+
+  /**
+   * Apply STT profile to content script (S.7)
+   * @param {string} profileName - Name of the user profile
+   * @param {Object} sttSettings - STT settings from the profile
+   */
+  async profiles_applySTTProfile(profileName, sttSettings) {
+    try {
+      // Save STT profile preference
+      await chrome.storage.local.set({
+        assist_stt_profile: {
+          type: sttSettings.profile,
+          profileName: profileName,
+          customizations: sttSettings,
+          savedAt: new Date().toISOString(),
+        },
+      });
+
+      // Send message to content script to apply the profile
+      if (this.currentTab?.id) {
+        await chrome.tabs.sendMessage(this.currentTab.id, {
+          type: 'STT_COMMAND',
+          command: 'applyProfile',
+          profileType: sttSettings.profile,
+          customizations: sttSettings,
+        });
+      }
+
+      console.log('[Profiles] STT profile applied:', sttSettings.profile);
+    } catch (error) {
+      console.error('[Profiles] Failed to apply STT profile:', error);
+    }
   }
 
   profiles_showSaveModal() {

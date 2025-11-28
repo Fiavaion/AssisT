@@ -741,20 +741,29 @@
 
 ### Feature S.7: Neurodivergent STT Profiles
 
-**Status**: `[ ]` Pending
+**Status**: `[x]` COMPLETE
 **Estimated**: 1-2 days
 **Priority**: HIGH
 **Dependencies**: S.1-S.6
+**Completed**: 2025-11-28
+
+**Implementation**:
+
+- Created `src/engines/stt/stt-profiles.js` with comprehensive profile system
+- Added 7 specialized profiles (Default + 6 neurodivergent profiles)
+- Integrated with popup.js profile system (9 profiles now include STT settings)
+- Added STT_COMMAND message handling in content-simple.js
+- Created 66 unit tests in `tests/unit/stt/stt-profiles.test.js`
 
 **Tasks**:
 
-- [ ] S.7.1: ADHD Profile (faster response, minimal distractions, large visual feedback)
-- [ ] S.7.2: Dyslexia Profile (phonetic mode, extra pause time, simple commands)
-- [ ] S.7.3: Anxiety Profile (calm colors, gentle sounds, forgiving timing)
-- [ ] S.7.4: Motor Impairment Profile (longer hold times, voice-only activation)
-- [ ] S.7.5: Low Vision Profile (large mic button, high contrast, audio feedback)
-- [ ] S.7.6: Autism Profile (predictable behavior, no surprises, literal commands)
-- [ ] S.7.7: Profile quick-switch keyboard shortcut
+- [x] S.7.1: ADHD Profile (faster response, minimal distractions, large visual feedback)
+- [x] S.7.2: Dyslexia Profile (phonetic mode, extra pause time, simple commands)
+- [x] S.7.3: Anxiety Profile (calm colors, gentle sounds, forgiving timing)
+- [x] S.7.4: Motor Impairment Profile (longer hold times, voice-only activation)
+- [x] S.7.5: Low Vision Profile (large mic button, high contrast, audio feedback)
+- [x] S.7.6: Autism Profile (predictable behavior, no surprises, literal commands)
+- [x] S.7.7: Profile quick-switch keyboard shortcut (Ctrl+Shift+P)
 
 ### Feature S.8: Advanced Recognition Engine
 
