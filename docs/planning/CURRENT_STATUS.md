@@ -2,10 +2,10 @@
 
 **Last Updated**: 2025-11-28
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.8 Complete)
-**Current Phase**: Phase 2.8 - Discovery Quiz Feature (COMPLETE)
+**Current Phase**: Phase 2.8 - Feature Polish (COMPLETE)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/citation-capture (Phase 2.8 Discovery Quiz COMPLETE)
-**Session**: Phase 2 Session 038 (Discovery Quiz Implementation)
+**Current Branch**: feature/citation-capture (Phase 2.8 Feature Polish COMPLETE)
+**Session**: Phase 2 Session 039 (Sticky Note TTS/STT & UI Improvements)
 
 ---
 
@@ -48,6 +48,39 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 039 (2025-11-28)
+
+**Sticky Note TTS/STT & UI Improvements - COMPLETE**
+
+**Key Accomplishments**:
+
+1. **TTS Button for Sticky Notes** (100%):
+   - Added read aloud button to sticky note toolbar
+   - Respects extension-level TTS settings (voice, rate, pitch, volume)
+   - Stop/resume functionality with visual feedback
+
+2. **STT Button for Sticky Notes** (100%):
+   - Added voice input button for dictation into notes
+   - Appends dictated text on new line if note has existing content
+   - Detects and matches existing text formatting (bold/italic/underline)
+   - Recording animation and visual feedback
+
+3. **Enlarged UI** (100%):
+   - Note dimensions: 280x280px (up from 200x200px)
+   - Header buttons: 32px (up from 24px)
+   - Toolbar buttons: 34x34px with 16px font
+   - Content area: 16px font, 14px 16px padding
+   - Tags container: larger padding, 14px font
+   - Color picker: larger buttons with 16px font
+
+**Files Modified**:
+
+- src/features/annotations/sticky-note.js (~280 lines)
+
+**Build Status**: ✅ Successful
+
+---
 
 ### Phase 2 Session 038 (2025-11-28)
 
