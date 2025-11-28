@@ -3324,6 +3324,66 @@ class PopupController {
       this.saveSettings();
     });
 
+    // Auto-Punctuation (Phase 2.7 - S.3)
+    const autoPunctuationCheckbox = document.getElementById('stt-auto-punctuation');
+    const autoPunctuationModeSection = document.getElementById('auto-punctuation-mode-section');
+    const autoPunctuationModeSelect = document.getElementById('stt-auto-punctuation-mode');
+
+    if (autoPunctuationCheckbox) {
+      // Initialize autoPunctuation setting if not present
+      if (this.settings.stt.autoPunctuation === undefined) {
+        this.settings.stt.autoPunctuation = true;
+      }
+      if (this.settings.stt.autoPunctuationMode === undefined) {
+        this.settings.stt.autoPunctuationMode = 'auto';
+      }
+
+      autoPunctuationCheckbox.checked = this.settings.stt.autoPunctuation !== false;
+      autoPunctuationModeSelect.value = this.settings.stt.autoPunctuationMode || 'auto';
+
+      // Show/hide mode section based on enabled state
+      if (autoPunctuationModeSection) {
+        autoPunctuationModeSection.style.display = autoPunctuationCheckbox.checked
+          ? 'block'
+          : 'none';
+      }
+
+      autoPunctuationCheckbox.addEventListener('change', e => {
+        this.settings.stt.autoPunctuation = e.target.checked;
+        this.saveSettings();
+
+        // Show/hide mode section
+        if (autoPunctuationModeSection) {
+          autoPunctuationModeSection.style.display = e.target.checked ? 'block' : 'none';
+        }
+
+        // Notify content script
+        this.sendCommandToTab({
+          command: 'UPDATE_STT_SETTINGS',
+          settings: {
+            autoPunctuation: e.target.checked,
+            autoPunctuationMode: this.settings.stt.autoPunctuationMode,
+          },
+        });
+      });
+
+      if (autoPunctuationModeSelect) {
+        autoPunctuationModeSelect.addEventListener('change', e => {
+          this.settings.stt.autoPunctuationMode = e.target.value;
+          this.saveSettings();
+
+          // Notify content script
+          this.sendCommandToTab({
+            command: 'UPDATE_STT_SETTINGS',
+            settings: {
+              autoPunctuation: this.settings.stt.autoPunctuation,
+              autoPunctuationMode: e.target.value,
+            },
+          });
+        });
+      }
+    }
+
     // Voice Editing Commands (Phase 2.7)
     const voiceCommandsCheckbox = document.getElementById('stt-voice-commands');
     if (voiceCommandsCheckbox) {

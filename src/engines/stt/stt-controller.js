@@ -20,6 +20,11 @@
 import { CommandParser, CommandType } from './command-parser.js';
 import { VocabularyManager, VocabularyPresets } from './vocabulary-manager.js';
 import { STTProfileManager, STTProfileType, mapNeurodivergentProfile } from './stt-profiles.js';
+import {
+  AutoPunctuator,
+  PunctuationType,
+  DEFAULT_CONFIG as AUTO_PUNCT_CONFIG,
+} from './auto-punctuation.js';
 
 export class STTController {
   constructor(options = {}) {
@@ -33,6 +38,9 @@ export class STTController {
       voiceCommands: options.voiceCommands !== undefined ? options.voiceCommands : true,
       maxAlternatives: options.maxAlternatives || 1,
       vocabularyEnabled: options.vocabularyEnabled !== undefined ? options.vocabularyEnabled : true,
+      // Auto-punctuation settings (Phase 2.7 - S.3)
+      autoPunctuation: options.autoPunctuation !== undefined ? options.autoPunctuation : true,
+      autoPunctuationMode: options.autoPunctuationMode || 'auto', // 'auto', 'assisted', 'manual'
     };
 
     this.recognition = null;
@@ -57,6 +65,15 @@ export class STTController {
       this.initializeVocabulary(options.vocabularyOptions || {});
     }
 
+    // Initialize auto-punctuator (Phase 2.7 - S.3)
+    this.autoPunctuator = null;
+    if (this.settings.autoPunctuation) {
+      this.initializeAutoPunctuation(options.autoPunctuationOptions || {});
+    }
+
+    // Timing tracking for auto-punctuation
+    this.lastResultTimestamp = 0;
+
     // Callbacks
     this.onStart = options.onStart || (() => {});
     this.onEnd = options.onEnd || (() => {});
@@ -64,6 +81,7 @@ export class STTController {
     this.onError = options.onError || (() => {});
     this.onInterimResult = options.onInterimResult || (() => {});
     this.onCommandExecuted = options.onCommandExecuted || (() => {}); // Callback for voice commands
+    this.onPunctuationAdded = options.onPunctuationAdded || (() => {}); // Callback for auto-punctuation
 
     // Punctuation command mappings
     this.punctuationCommands = {
@@ -251,6 +269,8 @@ export class STTController {
   handleResult(event) {
     let interimTranscript = '';
     let finalTranscript = '';
+    let avgConfidence = 0;
+    let confidenceCount = 0;
 
     // Process all results
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -259,11 +279,18 @@ export class STTController {
 
       if (event.results[i].isFinal) {
         finalTranscript += transcript;
+        avgConfidence += confidence || 1.0;
+        confidenceCount++;
         console.log(`[STT] Final transcript: "${transcript}" (confidence: ${confidence})`);
       } else {
         interimTranscript += transcript;
         console.log(`[STT] Interim transcript: "${transcript}"`);
       }
+    }
+
+    // Calculate average confidence
+    if (confidenceCount > 0) {
+      avgConfidence /= confidenceCount;
     }
 
     // Update interim results
@@ -284,31 +311,58 @@ export class STTController {
 
           // If there's remaining text after the command, process it
           if (commandResult.remainingText) {
-            this.processAndInsertText(commandResult.remainingText);
+            this.processAndInsertText(commandResult.remainingText, {
+              confidence: avgConfidence,
+              isFinal: true,
+            });
           }
           return;
         }
       }
 
       // No command detected - process as regular text
-      this.processAndInsertText(finalTranscript);
+      this.processAndInsertText(finalTranscript, {
+        confidence: avgConfidence,
+        isFinal: true,
+      });
     }
   }
 
   /**
    * Process and insert text (with punctuation and capitalization)
    * @param {string} text - Text to process and insert
+   * @param {Object} metadata - Optional metadata from recognition event
    */
-  processAndInsertText(text) {
+  processAndInsertText(text, metadata = {}) {
     let processedText = text;
 
-    // Process punctuation commands if enabled
+    // Process manual punctuation commands if enabled (spoken "period", "comma", etc.)
     if (this.settings.punctuationCommands) {
       processedText = this.processPunctuationCommands(processedText);
     }
 
-    // Auto-capitalize if enabled
-    if (this.settings.autoCapitalize) {
+    // Apply auto-punctuation if enabled (Phase 2.7 - S.3)
+    if (this.autoPunctuator && this.autoPunctuator.isEnabled()) {
+      const currentTime = Date.now();
+      const punctResult = this.autoPunctuator.process(processedText, {
+        timestamp: currentTime,
+        confidence: metadata.confidence || 1.0,
+        isFinal: metadata.isFinal !== false,
+      });
+      processedText = punctResult.text;
+
+      // Notify about auto-punctuation
+      if (punctResult.punctuation !== PunctuationType.NONE) {
+        this.onPunctuationAdded({
+          type: punctResult.punctuation,
+          confidence: punctResult.confidence,
+          text: processedText,
+        });
+      }
+
+      this.lastResultTimestamp = currentTime;
+    } else if (this.settings.autoCapitalize) {
+      // Only apply basic capitalization if auto-punctuation is disabled
       processedText = this.capitalizeFirstWord(processedText);
     }
 
@@ -957,6 +1011,12 @@ export class STTController {
       this.vocabularyManager = null;
     }
 
+    // Cleanup auto-punctuation
+    if (this.autoPunctuator) {
+      this.autoPunctuator.destroy();
+      this.autoPunctuator = null;
+    }
+
     this.isRecording = false;
     this.isPaused = false;
     this.targetElement = null;
@@ -1119,7 +1179,117 @@ export class STTController {
       this.vocabularyManager.trackCorrection(original, corrected);
     }
   }
+
+  // ==========================================
+  // Auto-Punctuation Management (Phase 2.7 - S.3)
+  // ==========================================
+
+  /**
+   * Initialize auto-punctuation engine
+   * @param {Object} options - Auto-punctuation options
+   */
+  initializeAutoPunctuation(options = {}) {
+    try {
+      this.autoPunctuator = new AutoPunctuator({
+        enabled: this.settings.autoPunctuation,
+        mode: this.settings.autoPunctuationMode,
+        ...options,
+        onPunctuationAdded: result => {
+          console.log(
+            `[STT] Auto-punctuation: ${result.type} (confidence: ${result.confidence.toFixed(2)})`
+          );
+        },
+      });
+      console.log('[STT] Auto-punctuation engine initialized');
+    } catch (error) {
+      console.error('[STT] Failed to initialize auto-punctuation:', error);
+    }
+  }
+
+  /**
+   * Enable/disable auto-punctuation
+   * @param {boolean} enabled
+   */
+  setAutoPunctuationEnabled(enabled) {
+    this.settings.autoPunctuation = enabled;
+    if (this.autoPunctuator) {
+      this.autoPunctuator.setEnabled(enabled);
+    } else if (enabled) {
+      this.initializeAutoPunctuation();
+    }
+  }
+
+  /**
+   * Set auto-punctuation mode
+   * @param {string} mode - 'auto', 'assisted', or 'manual'
+   */
+  setAutoPunctuationMode(mode) {
+    this.settings.autoPunctuationMode = mode;
+    if (this.autoPunctuator) {
+      this.autoPunctuator.setMode(mode);
+    }
+  }
+
+  /**
+   * Get auto-punctuation mode
+   * @returns {string} Current mode
+   */
+  getAutoPunctuationMode() {
+    return this.autoPunctuator ? this.autoPunctuator.getMode() : this.settings.autoPunctuationMode;
+  }
+
+  /**
+   * Check if auto-punctuation is enabled
+   * @returns {boolean}
+   */
+  isAutoPunctuationEnabled() {
+    return this.autoPunctuator ? this.autoPunctuator.isEnabled() : false;
+  }
+
+  /**
+   * Update auto-punctuation configuration
+   * @param {Object} config - Configuration options
+   */
+  updateAutoPunctuationConfig(config) {
+    if (this.autoPunctuator) {
+      this.autoPunctuator.updateConfig(config);
+    }
+  }
+
+  /**
+   * Get auto-punctuation statistics
+   * @returns {Object} Statistics
+   */
+  getAutoPunctuationStats() {
+    return this.autoPunctuator
+      ? this.autoPunctuator.getStats()
+      : {
+          periodsAdded: 0,
+          commasAdded: 0,
+          questionsAdded: 0,
+          exclamationsAdded: 0,
+          capitalizations: 0,
+        };
+  }
+
+  /**
+   * Reset auto-punctuation state (e.g., when starting new dictation)
+   */
+  resetAutoPunctuation() {
+    if (this.autoPunctuator) {
+      this.autoPunctuator.reset();
+    }
+    this.lastResultTimestamp = 0;
+  }
+
+  /**
+   * Get auto-punctuation configuration
+   * @returns {Object} Current configuration
+   */
+  getAutoPunctuationConfig() {
+    return this.autoPunctuator ? this.autoPunctuator.getConfig() : AUTO_PUNCT_CONFIG;
+  }
 }
 
 export default STTController;
-export { VocabularyPresets };
+export { VocabularyPresets, PunctuationType };
