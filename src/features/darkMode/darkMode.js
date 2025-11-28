@@ -113,8 +113,8 @@ function darkMode_getPresetCSS(presetKey) {
 /**
  * Generates the dark mode CSS.
  *
- * Uses CSS filter inversion with hue rotation to create dark mode,
- * while preserving images, videos, and other media.
+ * Uses aggressive background-color overrides similar to screenOverlay
+ * to ensure complete coverage of all page elements.
  *
  * @function darkMode_generateCSS
  * @param {string} presetKey - The preset to use
@@ -127,102 +127,161 @@ function darkMode_generateCSS(presetKey) {
     /* Dark Mode - AssisT Extension */
     ${darkMode_getPresetCSS(presetKey)}
 
-    /* Apply dark background to html and body */
-    html,
-    body {
+    /* Base: Apply dark background to html and body */
+    html, body {
       background-color: ${preset.bgPrimary} !important;
       color: ${preset.textPrimary} !important;
     }
 
-    /* Generic element darkening */
-    *:not(img):not(video):not(iframe):not(canvas):not(svg):not([class*="assist-"]) {
-      background-color: inherit;
-      border-color: ${preset.border} !important;
+    /* Aggressive background override for ALL common container elements */
+    main, article, section, div, aside, nav, header, footer, span,
+    .content, .container, .wrapper, .page, .post, .entry,
+    [class*="content"], [class*="article"], [class*="main"],
+    [class*="body"], [class*="wrapper"], [class*="container"],
+    [class*="sidebar"], [class*="panel"], [class*="card"],
+    [class*="box"], [class*="block"], [class*="section"],
+    [class*="header"], [class*="footer"], [class*="nav"],
+    [class*="menu"], [class*="list"], [class*="item"],
+    [class*="row"], [class*="col"], [class*="grid"],
+    [class*="layout"], [class*="page"], [class*="view"],
+    [class*="modal"], [class*="dialog"], [class*="popup"],
+    [class*="dropdown"], [class*="tooltip"], [class*="popover"],
+    ul, ol, li, dl, dt, dd, table, thead, tbody, tfoot, tr {
+      background-color: ${preset.bgPrimary} !important;
     }
 
-    /* Text elements */
-    p, span, div, li, td, th, label, a,
-    h1, h2, h3, h4, h5, h6 {
+    /* Secondary background for nested/card-like elements */
+    .card, .panel, .modal, .modal-content, .modal-body, .modal-header, .modal-footer,
+    .dropdown-menu, .popover, .tooltip-inner,
+    td, th, blockquote, figure, fieldset, legend,
+    [class*="widget"], [class*="tile"], [class*="thumbnail"] {
+      background-color: ${preset.bgSecondary} !important;
+    }
+
+    /* Target elements with white/light inline backgrounds */
+    *[style*="background-color: white"],
+    *[style*="background-color: #fff"],
+    *[style*="background-color: #FFF"],
+    *[style*="background-color: #ffffff"],
+    *[style*="background-color: #FFFFFF"],
+    *[style*="background-color: rgb(255"],
+    *[style*="background: white"],
+    *[style*="background: #fff"],
+    *[style*="background: #FFF"],
+    *[style*="background: rgb(255"] {
+      background-color: ${preset.bgPrimary} !important;
+    }
+
+    /* Text colors - primary text */
+    p, span, div, li, td, th, label,
+    h1, h2, h3, h4, h5, h6,
+    article, section, main, aside,
+    blockquote, figcaption, legend,
+    dt, dd, address {
+      color: ${preset.textPrimary} !important;
+    }
+
+    /* Links - use accent color */
+    a, a:visited {
+      color: ${preset.accent} !important;
+    }
+
+    a:hover, a:focus {
       color: ${preset.textPrimary} !important;
     }
 
     /* Secondary text */
     .text-muted, .text-secondary, small, .caption,
-    figcaption, cite, time {
+    figcaption, cite, time, .subtitle, .meta,
+    [class*="muted"], [class*="secondary"], [class*="hint"],
+    [class*="caption"], [class*="subtitle"] {
       color: ${preset.textSecondary} !important;
     }
 
-    /* Links */
-    a:not([class*="btn"]) {
-      color: ${preset.accent} !important;
-    }
-
-    /* Inputs and form elements */
-    input, textarea, select, button {
+    /* Form elements - slightly lighter background */
+    input, textarea, select {
       background-color: ${preset.bgSecondary} !important;
       color: ${preset.textPrimary} !important;
       border-color: ${preset.border} !important;
     }
 
-    /* Tables */
-    table, tr, td, th {
+    /* Buttons - keep distinct */
+    button, [type="button"], [type="submit"], [type="reset"],
+    .btn, [class*="button"] {
       background-color: ${preset.bgSecondary} !important;
+      color: ${preset.textPrimary} !important;
       border-color: ${preset.border} !important;
     }
 
-    /* Cards, panels, modals */
-    .card, .panel, .modal, .modal-content,
-    .dropdown-menu, .popover, .tooltip {
-      background-color: ${preset.bgSecondary} !important;
+    /* Borders for all elements */
+    *, *::before, *::after {
       border-color: ${preset.border} !important;
-    }
-
-    /* Navigation */
-    nav, header, footer, aside,
-    .navbar, .sidebar, .menu {
-      background-color: ${preset.bgSecondary} !important;
     }
 
     /* Code blocks */
-    pre, code {
-      background-color: ${preset.bgPrimary} !important;
+    pre, code, kbd, samp {
+      background-color: ${preset.bgSecondary} !important;
       color: ${preset.textSecondary} !important;
     }
 
-    /* Preserve media elements - don't invert */
-    img, video, iframe, canvas, svg,
-    [style*="background-image"],
-    picture, figure img {
-      /* Keep original colors */
+    /* DO NOT affect media elements - preserve their original appearance */
+    img, video, canvas, svg, picture, iframe,
+    [style*="background-image"] {
+      background-color: transparent !important;
     }
 
-    /* Canvas LMS specific */
+    /* Canvas LMS specific overrides */
     .ic-app-header,
     .ic-app-header__main-navigation,
     #left-side,
-    .navigation-tray {
-      background-color: ${preset.bgSecondary} !important;
+    .navigation-tray,
+    .ic-Layout-contentMain,
+    .ic-Layout-columns,
+    #content,
+    #main {
+      background-color: ${preset.bgPrimary} !important;
     }
 
     .user_content,
     .assignment-description,
-    .quiz-instructions {
+    .quiz-instructions,
+    .ic-RichContentEditor {
       background-color: ${preset.bgPrimary} !important;
       color: ${preset.textPrimary} !important;
+    }
+
+    /* Don't affect extension UI */
+    .assist-toast,
+    [id^="assist-"] {
+      background-color: revert !important;
+      color: revert !important;
+      border-color: revert !important;
     }
 
     /* Scrollbar styling */
     ::-webkit-scrollbar {
       background-color: ${preset.bgPrimary};
+      width: 12px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background-color: ${preset.bgPrimary};
     }
 
     ::-webkit-scrollbar-thumb {
       background-color: ${preset.border};
-      border-radius: 4px;
+      border-radius: 6px;
+      border: 2px solid ${preset.bgPrimary};
     }
 
     ::-webkit-scrollbar-thumb:hover {
       background-color: ${preset.textSecondary};
+    }
+
+    /* Selection styling */
+    ::selection {
+      background-color: ${preset.accent} !important;
+      color: ${preset.bgPrimary} !important;
     }
   `;
 }
