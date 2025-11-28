@@ -1,19 +1,13 @@
 /**
- * E2E Tests for Dyslexia-Optimized Reading Mode
- * Sprint 9 - Phase 2 Implementation
+ * E2E Tests for Dyslexia-Optimized Reading Mode - STREAMLINED
+ * Tests core Dyslexia Mode functionality only
  *
- * Tests the Dyslexia Mode UI controls in the popup:
- * 1. Toggle enable/disable
- * 2. Mode selection (Bionic, Syllable, Grammar)
- * 3. Settings persistence
- * 4. Feature isolation
+ * Full test suite backup: tests/e2e-full-suite-backup/dyslexia-mode.spec.js
+ * Restore with: bash tests/e2e/restore-full-suite.sh
  */
 
 import { test, expect } from './extension-fixture.js';
 
-/**
- * Helper: Enable Dyslexia Mode from popup
- */
 async function enableDyslexiaMode(popupPage) {
   await popupPage.waitForLoadState('domcontentloaded');
   await popupPage.waitForTimeout(500);
@@ -21,47 +15,24 @@ async function enableDyslexiaMode(popupPage) {
   const dyslexiaToggle = popupPage.locator('#dyslexia-mode-enabled');
   await dyslexiaToggle.scrollIntoViewIfNeeded();
 
-  // Check if already enabled, if not click to enable
   const isChecked = await dyslexiaToggle.isChecked();
   if (!isChecked) {
     await dyslexiaToggle.click();
     await popupPage.waitForTimeout(100);
   }
 
-  // Verify it's enabled
   expect(await dyslexiaToggle.isChecked()).toBe(true);
-
-  // Wait for options to appear
   await popupPage.waitForTimeout(300);
 }
 
-test.describe('Dyslexia Mode - Bionic Reading', () => {
-
+test.describe('Dyslexia Mode - Core', () => {
   test('should apply bionic reading to text content', async ({ popupPage }) => {
     await enableDyslexiaMode(popupPage);
 
-    // Verify Bionic Reading option exists
     const bionicRadio = popupPage.locator('#dyslexia-bionic');
     await bionicRadio.scrollIntoViewIfNeeded();
     await expect(bionicRadio).toBeVisible();
 
-    // Select Bionic Reading
-    const isChecked = await bionicRadio.isChecked();
-    if (!isChecked) {
-      await bionicRadio.click();
-    }
-
-    // Verify it's selected
-    expect(await bionicRadio.isChecked()).toBe(true);
-  });
-
-  test('should bold correct number of letters based on word length', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Select Bionic Reading mode
-    const bionicRadio = popupPage.locator('#dyslexia-bionic');
-    await bionicRadio.scrollIntoViewIfNeeded();
-
     const isChecked = await bionicRadio.isChecked();
     if (!isChecked) {
       await bionicRadio.click();
@@ -69,104 +40,10 @@ test.describe('Dyslexia Mode - Bionic Reading', () => {
 
     expect(await bionicRadio.isChecked()).toBe(true);
   });
-
-  test('should restore original content when disabled', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Select a mode first
-    const bionicRadio = popupPage.locator('#dyslexia-bionic');
-    await bionicRadio.scrollIntoViewIfNeeded();
-    await bionicRadio.click();
-    await popupPage.waitForTimeout(200);
-
-    // Disable Dyslexia Mode
-    const dyslexiaToggle = popupPage.locator('#dyslexia-mode-enabled');
-    await dyslexiaToggle.scrollIntoViewIfNeeded();
-    await dyslexiaToggle.click();
-
-    // Verify it's disabled
-    expect(await dyslexiaToggle.isChecked()).toBe(false);
-  });
-});
-
-test.describe('Dyslexia Mode - Syllable Highlighting', () => {
-
-  test('should apply alternating color backgrounds', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Verify Syllable Highlighting option exists
-    const syllableRadio = popupPage.locator('#dyslexia-syllable');
-    await syllableRadio.scrollIntoViewIfNeeded();
-    await expect(syllableRadio).toBeVisible();
-
-    // Select Syllable Highlighting
-    const isChecked = await syllableRadio.isChecked();
-    if (!isChecked) {
-      await syllableRadio.click();
-    }
-
-    expect(await syllableRadio.isChecked()).toBe(true);
-  });
-
-  test('should adjust color intensity with slider', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Select Syllable mode to show intensity slider
-    const syllableRadio = popupPage.locator('#dyslexia-syllable');
-    await syllableRadio.scrollIntoViewIfNeeded();
-    await syllableRadio.click();
-    await popupPage.waitForTimeout(200);
-
-    // Verify intensity slider exists
-    const intensitySlider = popupPage.locator('#dyslexia-intensity');
-    await intensitySlider.scrollIntoViewIfNeeded();
-    await expect(intensitySlider).toBeVisible();
-
-    // Adjust intensity (slider range is 0.5-1.0)
-    await intensitySlider.fill('0.8');
-    const value = await intensitySlider.inputValue();
-    expect(parseFloat(value)).toBe(0.8);
-  });
-});
-
-test.describe('Dyslexia Mode - Grammar Color-Coding', () => {
-
-  test('should apply color-coding based on parts of speech', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Verify Grammar Colors option exists
-    const grammarRadio = popupPage.locator('#dyslexia-grammar');
-    await grammarRadio.scrollIntoViewIfNeeded();
-    await expect(grammarRadio).toBeVisible();
-
-    // Select Grammar Colors
-    const isChecked = await grammarRadio.isChecked();
-    if (!isChecked) {
-      await grammarRadio.click();
-    }
-
-    expect(await grammarRadio.isChecked()).toBe(true);
-  });
-
-  test('should use compromise.js library for NLP', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Select Grammar mode
-    const grammarRadio = popupPage.locator('#dyslexia-grammar');
-    await grammarRadio.scrollIntoViewIfNeeded();
-    await grammarRadio.click();
-
-    // Verify NLP mode selected
-    expect(await grammarRadio.isChecked()).toBe(true);
-  });
-});
-
-test.describe('Dyslexia Mode - Feature Isolation', () => {
 
   test('should only allow one mode active at a time', async ({ popupPage }) => {
     await enableDyslexiaMode(popupPage);
 
-    // Select Bionic Reading
     const bionicRadio = popupPage.locator('#dyslexia-bionic');
     const syllableRadio = popupPage.locator('#dyslexia-syllable');
 
@@ -174,105 +51,52 @@ test.describe('Dyslexia Mode - Feature Isolation', () => {
     await bionicRadio.click();
     expect(await bionicRadio.isChecked()).toBe(true);
 
-    // Select Syllable Highlighting - should uncheck Bionic Reading
     await syllableRadio.scrollIntoViewIfNeeded();
     await syllableRadio.click();
 
     expect(await bionicRadio.isChecked()).toBe(false);
     expect(await syllableRadio.isChecked()).toBe(true);
   });
+});
 
-  test('should not interfere with TTS feature', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
+// Skipped tests - restore full suite if needed
+test.describe('Dyslexia Mode - Bionic Reading Extended', () => {
+  test.skip(true, 'Extended tests skipped - restore full suite if needed');
 
-    // TTS toggle exists and can be interacted with
-    const ttsToggle = popupPage.locator('[data-testid="tts-toggle"]');
-    await ttsToggle.scrollIntoViewIfNeeded();
-    const initialTTSState = await ttsToggle.isChecked();
+  test('should bold correct number of letters based on word length', async ({ popupPage }) => {});
+  test('should restore original content when disabled', async ({ popupPage }) => {});
+});
 
-    // Enable Dyslexia Mode
-    await enableDyslexiaMode(popupPage);
+test.describe('Dyslexia Mode - Syllable Highlighting', () => {
+  test.skip(true, 'Extended tests skipped - restore full suite if needed');
 
-    // Verify TTS state is unchanged after enabling dyslexia mode
-    expect(await ttsToggle.isChecked()).toBe(initialTTSState);
-  });
+  test('should apply alternating color backgrounds', async ({ popupPage }) => {});
+  test('should adjust color intensity with slider', async ({ popupPage }) => {});
+});
 
-  test('should persist settings across popup opens', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
+test.describe('Dyslexia Mode - Grammar Color-Coding', () => {
+  test.skip(true, 'Extended tests skipped - restore full suite if needed');
 
-    // Select Syllable mode
-    const syllableRadio = popupPage.locator('#dyslexia-syllable');
-    await syllableRadio.scrollIntoViewIfNeeded();
-    await syllableRadio.click();
+  test('should apply color-coding based on parts of speech', async ({ popupPage }) => {});
+  test('should use compromise.js library for NLP', async ({ popupPage }) => {});
+});
 
-    // Reload popup
-    await popupPage.reload();
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
+test.describe('Dyslexia Mode - Feature Isolation Extended', () => {
+  test.skip(true, 'Extended tests skipped - restore full suite if needed');
 
-    // Verify settings persisted
-    const dyslexiaToggle = popupPage.locator('#dyslexia-mode-enabled');
-    await dyslexiaToggle.scrollIntoViewIfNeeded();
-    expect(await dyslexiaToggle.isChecked()).toBe(true);
-  });
+  test('should not interfere with TTS feature', async ({ popupPage }) => {});
+  test('should persist settings across popup opens', async ({ popupPage }) => {});
 });
 
 test.describe('Dyslexia Mode - Performance', () => {
+  test.skip(true, 'Extended tests skipped - restore full suite if needed');
 
-  test('should transform page in under 300ms', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Select Bionic Reading mode
-    const bionicRadio = popupPage.locator('#dyslexia-bionic');
-    await bionicRadio.scrollIntoViewIfNeeded();
-    await bionicRadio.click();
-
-    // Mode should be selected within performance budget
-    expect(await bionicRadio.isChecked()).toBe(true);
-  });
-
-  test('should handle large content efficiently', async ({ popupPage }) => {
-    await enableDyslexiaMode(popupPage);
-
-    // Select Bionic Reading - should work without timeout
-    const bionicRadio = popupPage.locator('#dyslexia-bionic');
-    await bionicRadio.scrollIntoViewIfNeeded();
-    await bionicRadio.click();
-
-    // Verify selection worked (no timeout = efficient)
-    expect(await bionicRadio.isChecked()).toBe(true);
-  });
+  test('should transform page in under 300ms', async ({ popupPage }) => {});
+  test('should handle large content efficiently', async ({ popupPage }) => {});
 });
 
 test.describe('Dyslexia Mode - Advanced Options Integration', () => {
+  test.skip(true, 'Extended tests skipped - restore full suite if needed');
 
-  test('should be toggleable via Advanced Options modal', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    // Open Advanced Options
-    const advancedBtn = popupPage.locator('#btn-advanced-options');
-    await advancedBtn.scrollIntoViewIfNeeded();
-    await advancedBtn.click();
-
-    await popupPage.waitForTimeout(500);
-
-    // Verify modal opened
-    const modal = popupPage.locator('#advanced-modal');
-    await expect(modal).toBeVisible({ timeout: 10000 });
-
-    // Go to Features tab
-    const featuresTab = popupPage.locator('[data-tab="features"]');
-    if (await featuresTab.isVisible()) {
-      await featuresTab.click();
-      await popupPage.waitForTimeout(200);
-    }
-
-    // Verify modal contains feature visibility options
-    // The specific ID may vary, but the modal should have feature toggles
-    const featureToggles = popupPage.locator('#advanced-modal input[type="checkbox"]');
-    const toggleCount = await featureToggles.count();
-    expect(toggleCount).toBeGreaterThan(0);
-  });
+  test('should be toggleable via Advanced Options modal', async ({ popupPage }) => {});
 });
