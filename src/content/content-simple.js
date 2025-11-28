@@ -1012,6 +1012,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'GET_STT_STATS':
+      // Phase 2.7 - S.4: Get STT confidence statistics from popup
+      if (window.assistFeatures && window.assistFeatures.stt && window.assistFeatures.stt.controller) {
+        const stats = window.assistFeatures.stt.controller.getConfidenceStats();
+        sendResponse({ success: true, stats });
+      } else {
+        sendResponse({
+          success: true,
+          stats: {
+            duration: 0,
+            totalWords: 0,
+            wordsPerMinute: 0,
+            averageConfidence: 0,
+          },
+        });
+      }
+      break;
+
     case 'STT_COMMAND':
       // S.7: STT Profile commands
       console.log('[AssisT] STT Command received:', message.command);
@@ -1053,6 +1071,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (sttFeature.controller && sttFeature.controller.getAvailableProfiles) {
               const profiles = sttFeature.controller.getAvailableProfiles();
               sendResponse({ success: true, profiles });
+            } else {
+              sendResponse({ success: false, error: 'STT not initialized' });
+            }
+            break;
+          case 'getStats':
+            // Phase 2.7 - S.4: Get confidence feedback statistics
+            if (sttFeature.controller && sttFeature.controller.getConfidenceStats) {
+              const stats = sttFeature.controller.getConfidenceStats();
+              sendResponse({ success: true, stats });
+            } else {
+              sendResponse({
+                success: true,
+                stats: {
+                  duration: 0,
+                  totalWords: 0,
+                  wordsPerMinute: 0,
+                  averageConfidence: 0,
+                },
+              });
+            }
+            break;
+          case 'updateConfidenceConfig':
+            // Phase 2.7 - S.4: Update confidence feedback settings
+            if (sttFeature.controller && sttFeature.controller.updateConfidenceFeedbackConfig) {
+              sttFeature.controller.updateConfidenceFeedbackConfig(message.config || {});
+              sendResponse({ success: true });
+            } else {
+              sendResponse({ success: false, error: 'STT not initialized' });
+            }
+            break;
+          case 'resetSession':
+            // Phase 2.7 - S.4: Reset confidence session
+            if (sttFeature.controller && sttFeature.controller.resetConfidenceSession) {
+              sttFeature.controller.resetConfidenceSession();
+              sendResponse({ success: true });
             } else {
               sendResponse({ success: false, error: 'STT not initialized' });
             }

@@ -25,6 +25,11 @@ import {
   PunctuationType,
   DEFAULT_CONFIG as AUTO_PUNCT_CONFIG,
 } from './auto-punctuation.js';
+import {
+  ConfidenceFeedback,
+  ConfidenceLevel,
+  DEFAULT_CONFIG as CONFIDENCE_CONFIG,
+} from './confidence-feedback.js';
 
 export class STTController {
   constructor(options = {}) {
@@ -41,6 +46,13 @@ export class STTController {
       // Auto-punctuation settings (Phase 2.7 - S.3)
       autoPunctuation: options.autoPunctuation !== undefined ? options.autoPunctuation : true,
       autoPunctuationMode: options.autoPunctuationMode || 'auto', // 'auto', 'assisted', 'manual'
+      // Confidence feedback settings (Phase 2.7 - S.4)
+      confidenceFeedback:
+        options.confidenceFeedback !== undefined ? options.confidenceFeedback : true,
+      confidenceThreshold: options.confidenceThreshold || 0.6,
+      highlightLowConfidence:
+        options.highlightLowConfidence !== undefined ? options.highlightLowConfidence : true,
+      showAlternatives: options.showAlternatives !== undefined ? options.showAlternatives : true,
     };
 
     this.recognition = null;
@@ -71,6 +83,12 @@ export class STTController {
       this.initializeAutoPunctuation(options.autoPunctuationOptions || {});
     }
 
+    // Initialize confidence feedback (Phase 2.7 - S.4)
+    this.confidenceFeedback = null;
+    if (this.settings.confidenceFeedback) {
+      this.initializeConfidenceFeedback(options.confidenceFeedbackOptions || {});
+    }
+
     // Timing tracking for auto-punctuation
     this.lastResultTimestamp = 0;
 
@@ -82,6 +100,9 @@ export class STTController {
     this.onInterimResult = options.onInterimResult || (() => {});
     this.onCommandExecuted = options.onCommandExecuted || (() => {}); // Callback for voice commands
     this.onPunctuationAdded = options.onPunctuationAdded || (() => {}); // Callback for auto-punctuation
+    this.onConfidenceUpdate = options.onConfidenceUpdate || (() => {}); // Callback for confidence feedback
+    this.onLowConfidence = options.onLowConfidence || (() => {}); // Callback for low confidence warning
+    this.onStatsUpdate = options.onStatsUpdate || (() => {}); // Callback for session stats update
 
     // Punctuation command mappings
     this.punctuationCommands = {
@@ -378,6 +399,29 @@ export class STTController {
 
     // Track last dictation for "delete that" / "replace that" commands
     this.lastDictation = processedText;
+
+    // Track confidence feedback (Phase 2.7 - S.4)
+    if (this.confidenceFeedback && this.confidenceFeedback.isEnabled()) {
+      const result = this.confidenceFeedback.addResult({
+        transcript: processedText,
+        confidence: metadata.confidence || 0,
+        isFinal: metadata.isFinal !== false,
+        alternatives: metadata.alternatives || [],
+      });
+
+      // Fire confidence update callback
+      this.onConfidenceUpdate(result);
+
+      // Check for low confidence warning
+      if (!result.meetsThreshold(this.settings.confidenceThreshold)) {
+        this.onLowConfidence(result);
+
+        // Show confidence badge if target element exists
+        if (this.targetElement && this.settings.highlightLowConfidence) {
+          this.confidenceFeedback.showBadge(this.targetElement, result);
+        }
+      }
+    }
 
     this.finalTranscript += processedText;
     this.lastTranscript = processedText;
@@ -1017,6 +1061,12 @@ export class STTController {
       this.autoPunctuator = null;
     }
 
+    // Cleanup confidence feedback
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.destroy();
+      this.confidenceFeedback = null;
+    }
+
     this.isRecording = false;
     this.isPaused = false;
     this.targetElement = null;
@@ -1289,7 +1339,190 @@ export class STTController {
   getAutoPunctuationConfig() {
     return this.autoPunctuator ? this.autoPunctuator.getConfig() : AUTO_PUNCT_CONFIG;
   }
+
+  // ==========================================
+  // Confidence Feedback Management (Phase 2.7 - S.4)
+  // ==========================================
+
+  /**
+   * Initialize confidence feedback engine
+   * @param {Object} options - Confidence feedback options
+   */
+  initializeConfidenceFeedback(options = {}) {
+    try {
+      this.confidenceFeedback = new ConfidenceFeedback({
+        enabled: this.settings.confidenceFeedback,
+        minThreshold: this.settings.confidenceThreshold,
+        highlightLowConfidence: this.settings.highlightLowConfidence,
+        showAlternatives: this.settings.showAlternatives,
+        maxAlternatives: this.settings.maxAlternatives,
+        ...options,
+        onConfidenceUpdate: result => {
+          console.log(
+            `[STT] Confidence: ${result.getPercentage()}% (${result.getLevel()})`
+          );
+          this.onConfidenceUpdate(result);
+        },
+        onLowConfidence: result => {
+          console.log(
+            `[STT] Low confidence warning: "${result.transcript}" (${result.getPercentage()}%)`
+          );
+          this.onLowConfidence(result);
+        },
+        onStatsUpdate: stats => {
+          this.onStatsUpdate(stats);
+        },
+      });
+      console.log('[STT] Confidence feedback engine initialized');
+    } catch (error) {
+      console.error('[STT] Failed to initialize confidence feedback:', error);
+    }
+  }
+
+  /**
+   * Enable/disable confidence feedback
+   * @param {boolean} enabled
+   */
+  setConfidenceFeedbackEnabled(enabled) {
+    this.settings.confidenceFeedback = enabled;
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.setEnabled(enabled);
+    } else if (enabled) {
+      this.initializeConfidenceFeedback();
+    }
+  }
+
+  /**
+   * Check if confidence feedback is enabled
+   * @returns {boolean}
+   */
+  isConfidenceFeedbackEnabled() {
+    return this.confidenceFeedback ? this.confidenceFeedback.isEnabled() : false;
+  }
+
+  /**
+   * Set minimum confidence threshold
+   * @param {number} threshold - Threshold (0-1)
+   */
+  setConfidenceThreshold(threshold) {
+    this.settings.confidenceThreshold = threshold;
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.setMinThreshold(threshold);
+    }
+  }
+
+  /**
+   * Get minimum confidence threshold
+   * @returns {number}
+   */
+  getConfidenceThreshold() {
+    return this.confidenceFeedback
+      ? this.confidenceFeedback.getMinThreshold()
+      : this.settings.confidenceThreshold;
+  }
+
+  /**
+   * Update confidence feedback configuration
+   * @param {Object} config - Configuration options
+   */
+  updateConfidenceFeedbackConfig(config) {
+    if (config.enabled !== undefined) {
+      this.settings.confidenceFeedback = config.enabled;
+    }
+    if (config.confidenceThreshold !== undefined) {
+      this.settings.confidenceThreshold = config.confidenceThreshold;
+    }
+    if (config.highlightLowConfidence !== undefined) {
+      this.settings.highlightLowConfidence = config.highlightLowConfidence;
+    }
+    if (config.showAlternatives !== undefined) {
+      this.settings.showAlternatives = config.showAlternatives;
+    }
+
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.updateConfig({
+        enabled: this.settings.confidenceFeedback,
+        minThreshold: this.settings.confidenceThreshold,
+        highlightLowConfidence: this.settings.highlightLowConfidence,
+        showAlternatives: this.settings.showAlternatives,
+      });
+    }
+  }
+
+  /**
+   * Get confidence feedback statistics
+   * @returns {Object} Statistics
+   */
+  getConfidenceStats() {
+    return this.confidenceFeedback
+      ? this.confidenceFeedback.getStats()
+      : {
+          duration: 0,
+          totalWords: 0,
+          totalResults: 0,
+          wordsPerMinute: 0,
+          averageConfidence: 0,
+          acceptanceRate: 0,
+          correctionRate: 0,
+          confidenceDistribution: { high: 0, medium: 0, low: 0 },
+        };
+  }
+
+  /**
+   * Reset confidence feedback session
+   */
+  resetConfidenceSession() {
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.resetSession();
+    }
+  }
+
+  /**
+   * Mark a result as corrected (for accuracy tracking)
+   * @param {string} resultId - Result ID
+   * @param {string} correctedText - Corrected text
+   */
+  markResultCorrected(resultId, correctedText) {
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.markCorrected(resultId, correctedText);
+    }
+  }
+
+  /**
+   * Show stats panel
+   */
+  showConfidenceStatsPanel() {
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.showStatsPanel();
+    }
+  }
+
+  /**
+   * Hide stats panel
+   */
+  hideConfidenceStatsPanel() {
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.hideStatsPanel();
+    }
+  }
+
+  /**
+   * Toggle stats panel visibility
+   */
+  toggleConfidenceStatsPanel() {
+    if (this.confidenceFeedback) {
+      this.confidenceFeedback.toggleStatsPanel();
+    }
+  }
+
+  /**
+   * Get confidence feedback configuration
+   * @returns {Object} Current configuration
+   */
+  getConfidenceFeedbackConfig() {
+    return this.confidenceFeedback ? this.confidenceFeedback.getConfig() : CONFIDENCE_CONFIG;
+  }
 }
 
 export default STTController;
-export { VocabularyPresets, PunctuationType };
+export { VocabularyPresets, PunctuationType, ConfidenceLevel };

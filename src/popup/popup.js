@@ -3384,6 +3384,161 @@ class PopupController {
       }
     }
 
+    // Confidence Feedback (Phase 2.7 - S.4)
+    const confidenceFeedbackCheckbox = document.getElementById('stt-confidence-feedback');
+    const confidenceThresholdSlider = document.getElementById('stt-confidence-threshold');
+    const confidenceThresholdValue = document.getElementById('stt-confidence-threshold-value');
+    const confidenceThresholdSection = document.getElementById('confidence-threshold-section');
+    const highlightLowConfidenceCheckbox = document.getElementById('stt-highlight-low-confidence');
+    const showAlternativesCheckbox = document.getElementById('stt-show-alternatives');
+    const showStatsBtn = document.getElementById('stt-show-stats');
+    const statsSummary = document.getElementById('stt-stats-summary');
+
+    if (confidenceFeedbackCheckbox) {
+      // Initialize confidence settings if not present
+      if (this.settings.stt.confidenceFeedback === undefined) {
+        this.settings.stt.confidenceFeedback = true;
+      }
+      if (this.settings.stt.confidenceThreshold === undefined) {
+        this.settings.stt.confidenceThreshold = 60;
+      }
+      if (this.settings.stt.highlightLowConfidence === undefined) {
+        this.settings.stt.highlightLowConfidence = true;
+      }
+      if (this.settings.stt.showAlternatives === undefined) {
+        this.settings.stt.showAlternatives = true;
+      }
+
+      // Set initial values
+      confidenceFeedbackCheckbox.checked = this.settings.stt.confidenceFeedback !== false;
+      if (confidenceThresholdSlider) {
+        confidenceThresholdSlider.value = this.settings.stt.confidenceThreshold || 60;
+        if (confidenceThresholdValue) {
+          confidenceThresholdValue.textContent = `${this.settings.stt.confidenceThreshold || 60}%`;
+        }
+      }
+      if (highlightLowConfidenceCheckbox) {
+        highlightLowConfidenceCheckbox.checked = this.settings.stt.highlightLowConfidence !== false;
+      }
+      if (showAlternativesCheckbox) {
+        showAlternativesCheckbox.checked = this.settings.stt.showAlternatives !== false;
+      }
+
+      // Show/hide threshold section based on enabled state
+      if (confidenceThresholdSection) {
+        confidenceThresholdSection.style.display = confidenceFeedbackCheckbox.checked
+          ? 'block'
+          : 'none';
+      }
+
+      // Confidence feedback toggle handler
+      confidenceFeedbackCheckbox.addEventListener('change', e => {
+        this.settings.stt.confidenceFeedback = e.target.checked;
+        this.saveSettings();
+
+        // Show/hide threshold section
+        if (confidenceThresholdSection) {
+          confidenceThresholdSection.style.display = e.target.checked ? 'block' : 'none';
+        }
+
+        // Notify content script
+        this.sendCommandToTab({
+          command: 'UPDATE_STT_SETTINGS',
+          settings: {
+            confidenceFeedback: e.target.checked,
+            confidenceThreshold: this.settings.stt.confidenceThreshold / 100,
+            highlightLowConfidence: this.settings.stt.highlightLowConfidence,
+            showAlternatives: this.settings.stt.showAlternatives,
+          },
+        });
+      });
+
+      // Threshold slider handler
+      if (confidenceThresholdSlider) {
+        confidenceThresholdSlider.addEventListener('input', e => {
+          const value = parseInt(e.target.value);
+          if (confidenceThresholdValue) {
+            confidenceThresholdValue.textContent = `${value}%`;
+          }
+          // Update color based on value
+          const color =
+            value >= 85 ? '#22c55e' : value >= 60 ? '#eab308' : '#ef4444';
+          confidenceThresholdValue.style.color = color;
+        });
+
+        confidenceThresholdSlider.addEventListener('change', e => {
+          this.settings.stt.confidenceThreshold = parseInt(e.target.value);
+          this.saveSettings();
+
+          // Notify content script
+          this.sendCommandToTab({
+            command: 'UPDATE_STT_SETTINGS',
+            settings: {
+              confidenceFeedback: this.settings.stt.confidenceFeedback,
+              confidenceThreshold: parseInt(e.target.value) / 100,
+              highlightLowConfidence: this.settings.stt.highlightLowConfidence,
+              showAlternatives: this.settings.stt.showAlternatives,
+            },
+          });
+        });
+      }
+
+      // Highlight low confidence toggle
+      if (highlightLowConfidenceCheckbox) {
+        highlightLowConfidenceCheckbox.addEventListener('change', e => {
+          this.settings.stt.highlightLowConfidence = e.target.checked;
+          this.saveSettings();
+
+          this.sendCommandToTab({
+            command: 'UPDATE_STT_SETTINGS',
+            settings: {
+              highlightLowConfidence: e.target.checked,
+            },
+          });
+        });
+      }
+
+      // Show alternatives toggle
+      if (showAlternativesCheckbox) {
+        showAlternativesCheckbox.addEventListener('change', e => {
+          this.settings.stt.showAlternatives = e.target.checked;
+          this.saveSettings();
+
+          this.sendCommandToTab({
+            command: 'UPDATE_STT_SETTINGS',
+            settings: {
+              showAlternatives: e.target.checked,
+            },
+          });
+        });
+      }
+
+      // Show stats button handler
+      if (showStatsBtn) {
+        showStatsBtn.addEventListener('click', async () => {
+          // Toggle stats summary visibility
+          if (statsSummary) {
+            const isVisible = statsSummary.style.display !== 'none';
+            statsSummary.style.display = isVisible ? 'none' : 'block';
+
+            if (!isVisible) {
+              // Request stats from content script
+              try {
+                const response = await this.sendCommandToTab({
+                  command: 'GET_STT_STATS',
+                });
+                if (response && response.stats) {
+                  this.updateSTTStatsDisplay(response.stats);
+                }
+              } catch {
+                console.log('[STT Stats] No response from content script');
+              }
+            }
+          }
+        });
+      }
+    }
+
     // Voice Editing Commands (Phase 2.7)
     const voiceCommandsCheckbox = document.getElementById('stt-voice-commands');
     if (voiceCommandsCheckbox) {
@@ -4063,6 +4218,28 @@ class PopupController {
         document.removeEventListener('keydown', closeOnEsc);
       }
     });
+  }
+
+  /**
+   * Update STT statistics display (Phase 2.7 - S.4)
+   * @param {Object} stats - Statistics object from content script
+   */
+  updateSTTStatsDisplay(stats) {
+    const wpmEl = document.getElementById('stt-stats-wpm');
+    const accuracyEl = document.getElementById('stt-stats-accuracy');
+    const wordsEl = document.getElementById('stt-stats-words');
+    const durationEl = document.getElementById('stt-stats-duration');
+
+    if (wpmEl) wpmEl.textContent = stats.wordsPerMinute || 0;
+    if (accuracyEl) {
+      const accuracy = stats.averageConfidence || 0;
+      accuracyEl.textContent = `${accuracy}%`;
+      // Color based on accuracy
+      const color = accuracy >= 85 ? '#22c55e' : accuracy >= 60 ? '#eab308' : '#ef4444';
+      accuracyEl.style.color = color;
+    }
+    if (wordsEl) wordsEl.textContent = stats.totalWords || 0;
+    if (durationEl) durationEl.textContent = `${stats.duration || 0}m`;
   }
 
   // ============================================================
