@@ -413,6 +413,50 @@ function createRichTextToolbar(noteId) {
     toolbar.appendChild(button);
   });
 
+  // Add separator
+  const separator = document.createElement('span');
+  separator.className = 'assist-toolbar-separator';
+  separator.setAttribute('aria-hidden', 'true');
+  toolbar.appendChild(separator);
+
+  // Add TTS (Read Aloud) button
+  const ttsBtn = document.createElement('button');
+  ttsBtn.className = 'assist-toolbar-btn assist-toolbar-btn-tts';
+  ttsBtn.innerHTML = '🔊';
+  ttsBtn.title = 'Read note aloud';
+  ttsBtn.setAttribute('aria-label', 'Read note aloud');
+  ttsBtn.setAttribute('type', 'button');
+  ttsBtn.dataset.noteId = noteId;
+
+  ttsBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
+  });
+
+  ttsBtn.addEventListener('click', () => {
+    speakNoteContent(noteId, ttsBtn);
+  });
+
+  toolbar.appendChild(ttsBtn);
+
+  // Add STT (Voice Input) button
+  const sttBtn = document.createElement('button');
+  sttBtn.className = 'assist-toolbar-btn assist-toolbar-btn-stt';
+  sttBtn.innerHTML = '🎤';
+  sttBtn.title = 'Voice input';
+  sttBtn.setAttribute('aria-label', 'Voice input - dictate into note');
+  sttBtn.setAttribute('type', 'button');
+  sttBtn.dataset.noteId = noteId;
+
+  sttBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
+  });
+
+  sttBtn.addEventListener('click', () => {
+    startNoteDictation(noteId, sttBtn);
+  });
+
+  toolbar.appendChild(sttBtn);
+
   return toolbar;
 }
 
@@ -450,6 +494,265 @@ function handleFormattingShortcuts(e) {
     e.preventDefault();
     executeFormatCommand(command);
   }
+}
+
+// ============================================================
+// TTS (TEXT-TO-SPEECH) FUNCTIONALITY
+// ============================================================
+
+/** @type {SpeechSynthesisUtterance|null} Current TTS utterance */
+let currentUtterance = null;
+
+/** @type {number|null} Currently speaking note ID */
+let speakingNoteId = null;
+
+/**
+ * Speak the content of a sticky note using TTS
+ * @param {number} noteId - Note ID
+ * @param {HTMLElement} button - TTS button element
+ */
+function speakNoteContent(noteId, button) {
+  // Check if already speaking this note - stop if so
+  if (speakingNoteId === noteId && window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    speakingNoteId = null;
+    button.classList.remove('assist-toolbar-btn-active');
+    button.innerHTML = '🔊';
+    button.title = 'Read note aloud';
+    console.log('[StickyNotes] TTS stopped for note:', noteId);
+    return;
+  }
+
+  // Cancel any ongoing speech
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    // Reset previous button state
+    document.querySelectorAll('.assist-toolbar-btn-tts.assist-toolbar-btn-active').forEach(btn => {
+      btn.classList.remove('assist-toolbar-btn-active');
+      btn.innerHTML = '🔊';
+      btn.title = 'Read note aloud';
+    });
+  }
+
+  // Get note content
+  const noteElement = activeNotes.get(noteId);
+  if (!noteElement) {
+    console.error('[StickyNotes] Note not found:', noteId);
+    return;
+  }
+
+  const contentElement = noteElement.querySelector('.assist-sticky-note-content');
+  if (!contentElement) {
+    console.error('[StickyNotes] Content element not found for note:', noteId);
+    return;
+  }
+
+  // Get text content (strips HTML)
+  const text = contentElement.textContent.trim();
+  if (!text) {
+    console.log('[StickyNotes] Note is empty, nothing to read');
+    return;
+  }
+
+  // Create utterance
+  currentUtterance = new SpeechSynthesisUtterance(text);
+  speakingNoteId = noteId;
+
+  // Update button state
+  button.classList.add('assist-toolbar-btn-active');
+  button.innerHTML = '⏹️';
+  button.title = 'Stop reading';
+
+  // Event handlers
+  currentUtterance.onend = () => {
+    speakingNoteId = null;
+    button.classList.remove('assist-toolbar-btn-active');
+    button.innerHTML = '🔊';
+    button.title = 'Read note aloud';
+    console.log('[StickyNotes] TTS finished for note:', noteId);
+  };
+
+  currentUtterance.onerror = error => {
+    console.error('[StickyNotes] TTS error:', error);
+    speakingNoteId = null;
+    button.classList.remove('assist-toolbar-btn-active');
+    button.innerHTML = '🔊';
+    button.title = 'Read note aloud';
+  };
+
+  // Start speaking
+  window.speechSynthesis.speak(currentUtterance);
+  console.log('[StickyNotes] TTS started for note:', noteId);
+}
+
+// ============================================================
+// STT (SPEECH-TO-TEXT) FUNCTIONALITY
+// ============================================================
+
+/** @type {SpeechRecognition|null} Current STT recognition instance */
+let currentRecognition = null;
+
+/** @type {number|null} Currently recording note ID */
+let recordingNoteId = null;
+
+/**
+ * Start speech-to-text dictation for a sticky note
+ * @param {number} noteId - Note ID
+ * @param {HTMLElement} button - STT button element
+ */
+function startNoteDictation(noteId, button) {
+  // Check if already recording this note - stop if so
+  if (recordingNoteId === noteId && currentRecognition) {
+    currentRecognition.stop();
+    return;
+  }
+
+  // Stop any ongoing recognition
+  if (currentRecognition) {
+    currentRecognition.stop();
+    // Reset previous button state
+    document.querySelectorAll('.assist-toolbar-btn-stt.assist-toolbar-btn-active').forEach(btn => {
+      btn.classList.remove('assist-toolbar-btn-active');
+      btn.innerHTML = '🎤';
+      btn.title = 'Voice input';
+    });
+  }
+
+  // Check for Speech Recognition support
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.error('[StickyNotes] Speech Recognition not supported');
+    alert('Speech recognition is not supported in this browser.');
+    return;
+  }
+
+  // Get note element
+  const noteElement = activeNotes.get(noteId);
+  if (!noteElement) {
+    console.error('[StickyNotes] Note not found:', noteId);
+    return;
+  }
+
+  const contentElement = noteElement.querySelector('.assist-sticky-note-content');
+  if (!contentElement) {
+    console.error('[StickyNotes] Content element not found for note:', noteId);
+    return;
+  }
+
+  // Create recognition instance
+  currentRecognition = new SpeechRecognition();
+  currentRecognition.continuous = true;
+  currentRecognition.interimResults = true;
+  currentRecognition.lang = 'en-US';
+
+  recordingNoteId = noteId;
+
+  // Update button state
+  button.classList.add('assist-toolbar-btn-active');
+  button.innerHTML = '⏹️';
+  button.title = 'Stop recording';
+
+  // Track interim vs final results
+  let finalTranscript = '';
+
+  currentRecognition.onresult = event => {
+    let interimTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    // Show interim results in a subtle way (we could add visual feedback here)
+    console.log('[StickyNotes] STT interim:', interimTranscript);
+    console.log('[StickyNotes] STT final:', finalTranscript);
+  };
+
+  currentRecognition.onend = () => {
+    // Append final transcript to note content
+    if (finalTranscript.trim()) {
+      appendToNoteContent(noteId, contentElement, finalTranscript.trim());
+    }
+
+    // Reset state
+    recordingNoteId = null;
+    currentRecognition = null;
+    button.classList.remove('assist-toolbar-btn-active');
+    button.innerHTML = '🎤';
+    button.title = 'Voice input';
+    console.log('[StickyNotes] STT ended for note:', noteId);
+  };
+
+  currentRecognition.onerror = event => {
+    console.error('[StickyNotes] STT error:', event.error);
+
+    // Handle specific errors
+    if (event.error === 'not-allowed') {
+      alert('Microphone access denied. Please allow microphone access in your browser settings.');
+    } else if (event.error !== 'aborted') {
+      console.error('[StickyNotes] Speech recognition error:', event.error);
+    }
+
+    // Reset state
+    recordingNoteId = null;
+    currentRecognition = null;
+    button.classList.remove('assist-toolbar-btn-active');
+    button.innerHTML = '🎤';
+    button.title = 'Voice input';
+  };
+
+  // Start recognition
+  try {
+    currentRecognition.start();
+    console.log('[StickyNotes] STT started for note:', noteId);
+  } catch (error) {
+    console.error('[StickyNotes] Failed to start STT:', error);
+    recordingNoteId = null;
+    currentRecognition = null;
+    button.classList.remove('assist-toolbar-btn-active');
+    button.innerHTML = '🎤';
+    button.title = 'Voice input';
+  }
+}
+
+/**
+ * Append dictated text to note content
+ * If note has existing content, add text on a new line
+ * @param {number} noteId - Note ID
+ * @param {HTMLElement} contentElement - Content div element
+ * @param {string} text - Text to append
+ */
+function appendToNoteContent(noteId, contentElement, text) {
+  // Get current content (as text to check if empty)
+  const currentText = contentElement.textContent.trim();
+
+  if (currentText) {
+    // Note has content - add on new line
+    // Add a line break then the new text
+    contentElement.innerHTML += '<br>' + escapeHtml(text);
+  } else {
+    // Note is empty - just set the text
+    contentElement.innerHTML = escapeHtml(text);
+  }
+
+  // Save the updated content
+  saveNoteContent(noteId, contentElement.innerHTML);
+  console.log('[StickyNotes] Appended dictated text to note:', noteId);
+}
+
+/**
+ * Escape HTML to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped HTML
+ */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // ============================================================
@@ -1252,6 +1555,45 @@ function injectStyles() {
     .assist-toolbar-btn:focus {
       outline: 2px solid #3b82f6;
       outline-offset: 2px;
+    }
+
+    /* Toolbar separator */
+    .assist-toolbar-separator {
+      width: 1px;
+      height: 20px;
+      background: rgba(0, 0, 0, 0.15);
+      margin: 0 4px;
+      align-self: center;
+    }
+
+    /* TTS/STT button active states */
+    .assist-toolbar-btn-active {
+      background: #3b82f6 !important;
+      color: white !important;
+      border-color: #2563eb !important;
+    }
+
+    .assist-toolbar-btn-active:hover {
+      background: #2563eb !important;
+    }
+
+    /* TTS button specific */
+    .assist-toolbar-btn-tts {
+      font-size: 12px;
+    }
+
+    /* STT button specific - recording animation */
+    .assist-toolbar-btn-stt.assist-toolbar-btn-active {
+      animation: assist-pulse-recording 1.5s ease-in-out infinite;
+    }
+
+    @keyframes assist-pulse-recording {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+      }
     }
 
     .assist-sticky-note-content {
