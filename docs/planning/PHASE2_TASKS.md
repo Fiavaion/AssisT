@@ -436,18 +436,21 @@
 
 ### Documentation Tasks
 
-**Status**: `[ ]` Pending
+**Status**: `[>]` In Progress
 **Estimated**: 1 week
+**Actual**: Completed 2025-11-28 (Session 034)
 
 **Tasks**:
 
-- [ ] D.1: Create CITATION_SYSTEM_GUIDE.md
-- [ ] D.2: Create FEATURE_COMPARISON_HELPERBIRD.md
-- [ ] D.3: Update TESTING_GUIDE.md with new features
-- [ ] D.4: Create OCR_USAGE_GUIDE.md
-- [ ] D.5: Create ANNOTATION_GUIDE.md
-- [ ] D.6: Update README.md with Phase 2 completion
-- [ ] D.7: Create KEYBOARD_SHORTCUTS_REFERENCE.md
+- [x] D.1: Create CITATION_SYSTEM_GUIDE.md (completed Session 023)
+- [ ] D.2: Create FEATURE_COMPARISON_HELPERBIRD.md (deferred - optional)
+- [ ] D.3: Update TESTING_GUIDE.md with new features (deferred - optional)
+- [ ] D.4: Create OCR_USAGE_GUIDE.md (deferred - optional)
+- [ ] D.5: Create ANNOTATION_GUIDE.md (deferred - optional)
+- [x] D.6: Update README.md with Phase 2 completion
+- [x] D.7: Create KEYBOARD_SHORTCUTS_REFERENCE.md
+- [x] D.8: Create VOICE_COMMANDS_REFERENCE.md (added Session 033)
+- [x] D.9: Create STT_USER_GUIDE.md (added Session 033)
 
 ---
 
