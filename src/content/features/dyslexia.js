@@ -5,6 +5,7 @@
 
 import { getSettings, onSettingsChange } from '../utils/storage-utils.js';
 import { showToast } from '../utils/dom-utils.js';
+import nlp from 'compromise';
 
 // Dyslexia Mode State (Feature Isolated)
 let dyslexiaMode_enabled = false;
@@ -163,8 +164,11 @@ function dyslexiaMode_applySyllableHighlighting(element) {
     textNodes.push(node);
   }
 
-  const color1 = `rgba(179, 229, 252, ${dyslexiaMode_settings.colorIntensity * 0.5})`; // Light blue
-  const color2 = `rgba(255, 249, 196, ${dyslexiaMode_settings.colorIntensity * 0.5})`; // Light yellow
+  // More vibrant, visible colors for syllable highlighting
+  // Using higher opacity and more saturated colors for better visibility
+  const intensity = dyslexiaMode_settings.colorIntensity;
+  const color1 = `rgba(100, 181, 246, ${0.3 + intensity * 0.4})`; // Vibrant blue (0.3-0.7 opacity)
+  const color2 = `rgba(255, 213, 79, ${0.3 + intensity * 0.4})`; // Vibrant yellow/gold (0.3-0.7 opacity)
 
   textNodes.forEach(textNode => {
     const text = textNode.textContent;
@@ -200,26 +204,12 @@ function dyslexiaMode_applySyllableHighlighting(element) {
 
 /**
  * Grammar Color-Coding: Color words by part of speech
+ * Uses compromise.js NLP library for part-of-speech tagging
  */
-async function dyslexiaMode_applyGrammarColors(element) {
+function dyslexiaMode_applyGrammarColors(element) {
   if (!element || element.dataset.assistDyslexiaProcessed) {
     return;
   }
-
-  // TEMPORARILY DISABLED: Dynamic import doesn't work in bundled code
-  // TODO: Either inline the library or handle differently
-  console.warn('[DyslexiaMode] Grammar colors feature temporarily disabled - needs library bundling');
-  return;
-
-  // Dynamic import compromise.js
-  // let nlp;
-  // try {
-  //   nlp = (await import(chrome.runtime.getURL('node_modules/compromise/builds/compromise.mjs')))
-  //     .default;
-  // } catch (error) {
-  //   console.error('[DyslexiaMode] Failed to load compromise.js:', error);
-  //   return;
-  // }
 
   // Get text content
   const text = element.textContent;
@@ -227,17 +217,18 @@ async function dyslexiaMode_applyGrammarColors(element) {
     return;
   }
 
-  // Parse with compromise
+  // Parse with compromise NLP library
   const doc = nlp(text);
 
-  // Color mapping (with intensity adjustment)
+  // Color mapping - using vibrant, visible colors with good contrast
   const intensity = dyslexiaMode_settings.colorIntensity;
+  const baseOpacity = 0.25 + intensity * 0.35; // 0.25-0.6 opacity range
   const colors = {
-    noun: `rgba(33, 150, 243, ${intensity * 0.3})`, // Blue
-    verb: `rgba(76, 175, 80, ${intensity * 0.3})`, // Green
-    adjective: `rgba(156, 39, 176, ${intensity * 0.3})`, // Purple
-    adverb: `rgba(255, 152, 0, ${intensity * 0.3})`, // Orange
-    other: `rgba(158, 158, 158, ${intensity * 0.15})`, // Gray
+    noun: `rgba(33, 150, 243, ${baseOpacity})`, // Blue - nouns
+    verb: `rgba(76, 175, 80, ${baseOpacity})`, // Green - verbs
+    adjective: `rgba(156, 39, 176, ${baseOpacity})`, // Purple - adjectives
+    adverb: `rgba(255, 152, 0, ${baseOpacity})`, // Orange - adverbs
+    other: 'transparent', // No background for other words
   };
 
   // Extract parts of speech
@@ -375,7 +366,7 @@ async function dyslexiaMode_apply() {
     } else if (dyslexiaMode_settings.syllableHighlighting) {
       dyslexiaMode_applySyllableHighlighting(element);
     } else if (dyslexiaMode_settings.grammarColors) {
-      await dyslexiaMode_applyGrammarColors(element);
+      dyslexiaMode_applyGrammarColors(element);
     }
 
     dyslexiaMode_processedElements.add(element);
@@ -409,7 +400,9 @@ function dyslexiaMode_remove() {
  * Handle settings changes
  */
 function dyslexiaMode_handleSettingsChange(newSettings) {
-  if (!newSettings.dyslexiaMode) return;
+  if (!newSettings.dyslexiaMode) {
+    return;
+  }
 
   const dmSettings = newSettings.dyslexiaMode;
   const wasEnabled = dyslexiaMode_enabled;
