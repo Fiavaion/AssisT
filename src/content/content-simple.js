@@ -1012,6 +1012,70 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'STT_COMMAND':
+      // S.7: STT Profile commands
+      console.log('[AssisT] STT Command received:', message.command);
+      if (window.assistFeatures && window.assistFeatures.stt) {
+        const sttFeature = window.assistFeatures.stt;
+        switch (message.command) {
+          case 'applyProfile':
+            if (sttFeature.controller && sttFeature.controller.applyProfile) {
+              sttFeature.controller.applyProfile(message.profileType, message.customizations || {});
+              sendResponse({ success: true, profile: message.profileType });
+            } else {
+              // Store profile preference for when STT initializes
+              chrome.storage.local.set({
+                assist_stt_profile: {
+                  type: message.profileType,
+                  customizations: message.customizations || {},
+                },
+              });
+              sendResponse({ success: true, deferred: true, profile: message.profileType });
+            }
+            break;
+          case 'cycleProfile':
+            if (sttFeature.controller && sttFeature.controller.cycleProfile) {
+              const newProfile = sttFeature.controller.cycleProfile();
+              sendResponse({ success: true, profile: newProfile?.name });
+            } else {
+              sendResponse({ success: false, error: 'STT not initialized' });
+            }
+            break;
+          case 'getProfile':
+            if (sttFeature.controller && sttFeature.controller.getCurrentProfile) {
+              const profile = sttFeature.controller.getCurrentProfile();
+              sendResponse({ success: true, profile });
+            } else {
+              sendResponse({ success: false, error: 'STT not initialized' });
+            }
+            break;
+          case 'getAvailableProfiles':
+            if (sttFeature.controller && sttFeature.controller.getAvailableProfiles) {
+              const profiles = sttFeature.controller.getAvailableProfiles();
+              sendResponse({ success: true, profiles });
+            } else {
+              sendResponse({ success: false, error: 'STT not initialized' });
+            }
+            break;
+          default:
+            sendResponse({ success: false, error: 'Unknown STT command: ' + message.command });
+        }
+      } else {
+        // STT not initialized, store profile preference for later
+        if (message.command === 'applyProfile') {
+          chrome.storage.local.set({
+            assist_stt_profile: {
+              type: message.profileType,
+              customizations: message.customizations || {},
+            },
+          });
+          sendResponse({ success: true, deferred: true, profile: message.profileType });
+        } else {
+          sendResponse({ success: false, error: 'STT feature not initialized' });
+        }
+      }
+      break;
+
     default:
       console.warn('[AssisT] Unknown message type:', message.type);
       sendResponse({ success: false, error: 'Unknown message type' });

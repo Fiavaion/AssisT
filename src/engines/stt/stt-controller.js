@@ -19,6 +19,7 @@
 
 import { CommandParser, CommandType } from './command-parser.js';
 import { VocabularyManager, VocabularyPresets } from './vocabulary-manager.js';
+import { STTProfileManager, STTProfileType, mapNeurodivergentProfile } from './stt-profiles.js';
 
 export class STTController {
   constructor(options = {}) {
@@ -764,6 +765,152 @@ export class STTController {
     }
 
     console.log('[STT] Settings updated:', this.settings);
+  }
+
+  /**
+   * Apply STT profile settings (Phase 2.7 - S.7)
+   * @param {string} profileType - Profile type from STTProfileType enum
+   * @param {Object} customizations - Optional customizations
+   */
+  applyProfile(profileType, customizations = {}) {
+    if (!this.profileManager) {
+      this.profileManager = new STTProfileManager({
+        onProfileChange: profile => this.handleProfileChange(profile),
+      });
+    }
+
+    this.profileManager.setProfile(profileType, customizations);
+  }
+
+  /**
+   * Apply profile from neurodivergent profile name
+   * @param {string} profileName - Profile name from popup (e.g., "ADHD Focus")
+   */
+  applyNeurodivergentProfile(profileName) {
+    const sttProfileType = mapNeurodivergentProfile(profileName);
+    this.applyProfile(sttProfileType);
+  }
+
+  /**
+   * Handle profile change from profile manager
+   * @param {Object} profile - New profile configuration
+   */
+  handleProfileChange(profile) {
+    // Apply recognition settings
+    if (profile.recognition) {
+      this.updateSettings({
+        continuous: profile.recognition.continuous,
+        interimResults: profile.recognition.interimResults,
+        maxAlternatives: profile.recognition.maxAlternatives,
+        language: profile.recognition.language,
+      });
+
+      // Store timing settings for use in recognition
+      this.timingSettings = {
+        silenceTimeout: profile.recognition.silenceTimeout,
+        speechTimeout: profile.recognition.speechTimeout,
+        startDelay: profile.recognition.startDelay,
+      };
+    }
+
+    // Apply command settings
+    if (profile.commands && this.commandParser) {
+      this.commandParser.updateSettings({
+        enabled: profile.commands.enabled,
+        mode: profile.commands.mode,
+        commandPrefix: profile.commands.commandPrefix,
+      });
+
+      // Update punctuation commands setting
+      this.settings.punctuationCommands = profile.commands.punctuationCommands;
+    }
+
+    // Apply processing settings
+    if (profile.processing) {
+      this.settings.autoCapitalize = profile.processing.autoCapitalize;
+    }
+
+    // Store UI and feedback settings for external components
+    this.currentProfileUI = profile.ui;
+    this.currentProfileFeedback = profile.feedback;
+    this.currentProfileAccessibility = profile.accessibility;
+
+    // Emit profile change event for UI components
+    if (this.onProfileChange) {
+      this.onProfileChange(profile);
+    }
+
+    console.log('[STT] Profile applied:', profile.name);
+  }
+
+  /**
+   * Get current profile
+   * @returns {Object} Current profile configuration
+   */
+  getCurrentProfile() {
+    return this.profileManager ? this.profileManager.getProfile() : null;
+  }
+
+  /**
+   * Get current profile type
+   * @returns {string} Current profile type
+   */
+  getCurrentProfileType() {
+    return this.profileManager ? this.profileManager.getProfileType() : STTProfileType.DEFAULT;
+  }
+
+  /**
+   * Get all available profiles
+   * @returns {Array} List of profile info objects
+   */
+  getAvailableProfiles() {
+    if (!this.profileManager) {
+      this.profileManager = new STTProfileManager({
+        onProfileChange: profile => this.handleProfileChange(profile),
+      });
+    }
+    return this.profileManager.getProfileList();
+  }
+
+  /**
+   * Cycle to next profile (for keyboard shortcut)
+   * @returns {Object} New active profile
+   */
+  cycleProfile() {
+    if (!this.profileManager) {
+      this.profileManager = new STTProfileManager({
+        onProfileChange: profile => this.handleProfileChange(profile),
+      });
+    }
+    return this.profileManager.cycleProfile();
+  }
+
+  /**
+   * Setup keyboard shortcut for profile quick-switch
+   */
+  setupProfileShortcut() {
+    if (!this.profileManager) {
+      this.profileManager = new STTProfileManager({
+        onProfileChange: profile => this.handleProfileChange(profile),
+      });
+    }
+    this.profileManager.setupKeyboardShortcut();
+  }
+
+  /**
+   * Get UI styles for current profile
+   * @returns {Object} UI configuration
+   */
+  getProfileUI() {
+    return this.currentProfileUI || null;
+  }
+
+  /**
+   * Get feedback settings for current profile
+   * @returns {Object} Feedback configuration
+   */
+  getProfileFeedback() {
+    return this.currentProfileFeedback || null;
   }
 
   /**
