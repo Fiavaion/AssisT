@@ -1087,6 +1087,17 @@ class PopupController {
       });
     });
 
+    // Discovery Quiz button - opens adaptive quiz to discover best tools
+    const btnDiscovery = document.getElementById('btn-discovery');
+    if (btnDiscovery) {
+      btnDiscovery.addEventListener('click', () => {
+        // Open discovery quiz in new tab via service worker
+        chrome.runtime.sendMessage({ action: 'OPEN_DISCOVERY_QUIZ' });
+        // Close the popup
+        window.close();
+      });
+    }
+
     // Options button
     document.getElementById('btn-options').addEventListener('click', () => {
       this.showAdvancedOptions();

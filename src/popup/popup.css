@@ -111,6 +111,48 @@ body {
   margin-top: 2px;
 }
 
+/* Discovery Button */
+.discovery-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: var(--spacing-sm);
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.discovery-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.discovery-btn:active {
+  transform: translateY(0);
+}
+
+.discovery-btn:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.discovery-icon {
+  font-size: 14px;
+}
+
+.discovery-text {
+  font-weight: 600;
+}
+
 /* Main Content */
 .popup-main {
   flex: 1;
