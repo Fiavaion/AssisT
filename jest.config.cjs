@@ -31,7 +31,8 @@ module.exports = {
   // Test match patterns - exclude E2E tests (run with Playwright)
   testMatch: [
     '<rootDir>/tests/unit/**/*.test.js',
-    '<rootDir>/tests/unit/**/*.spec.js'
+    '<rootDir>/tests/unit/**/*.spec.js',
+    '<rootDir>/tests/performance/**/*.test.js'
   ],
 
   // Coverage configuration
