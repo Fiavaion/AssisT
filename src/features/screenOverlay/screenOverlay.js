@@ -31,104 +31,105 @@ const screenOverlay_settings = {
   opacity: 0.3,
 };
 
-// Color presets with their corresponding CSS filter values
-// These apply a color tint WITHOUT obscuring text - matching popup.html options
-const COLOR_FILTERS = {
-  // Warm tones (sepia-based)
-  '#FFE4C4': 'sepia(0.35) saturate(1.1)', // Warm Sepia (recommended)
-  '#FFF59D': 'sepia(0.15) saturate(1.3) brightness(1.02)', // Soft Yellow
-  '#FFCCBC': 'sepia(0.4) saturate(1.15)', // Peach
-  '#F0D9B5': 'sepia(0.25) saturate(1.0)', // Cream
-
-  // Cool tones (hue-rotate based)
-  '#B3E5FC': 'hue-rotate(190deg) saturate(0.4) brightness(1.02)', // Cool Blue
-  '#C8E6C9': 'hue-rotate(100deg) saturate(0.35) brightness(1.02)', // Soft Green
-  '#F8BBD0': 'hue-rotate(330deg) saturate(0.35) brightness(1.02)', // Light Pink
-  '#E1BEE7': 'hue-rotate(280deg) saturate(0.3) brightness(1.02)', // Lavender
-
-  // Legacy/fallback
-  '#FFF4E6': 'sepia(0.3) saturate(1.1)', // Old default
-};
-
 // ============================================================
 // CORE FUNCTIONS
 // ============================================================
 
 /**
- * Get CSS filter string based on color and intensity
- * @returns {string} CSS filter value
- */
-function screenOverlay_getFilter() {
-  const baseFilter = COLOR_FILTERS[screenOverlay_settings.color] || COLOR_FILTERS['#FFE4C4'];
-  const intensity = screenOverlay_settings.opacity; // 0-1 range
-
-  // Scale the filter effect based on intensity
-  // At 0 intensity = no effect, at 1 = full effect
-  if (intensity <= 0.1) {
-    return 'none';
-  }
-
-  // Parse and scale the filter values
-  // For sepia filters
-  if (baseFilter.includes('sepia')) {
-    const sepiaMatch = baseFilter.match(/sepia\(([0-9.]+)\)/);
-    if (sepiaMatch) {
-      const baseSepia = parseFloat(sepiaMatch[1]);
-      const scaledSepia = baseSepia * intensity * 1.5; // Scale with intensity
-      return baseFilter.replace(/sepia\([0-9.]+\)/, `sepia(${scaledSepia.toFixed(2)})`);
-    }
-  }
-
-  // For hue-rotate filters, scale saturation based on intensity
-  if (baseFilter.includes('hue-rotate')) {
-    const satMatch = baseFilter.match(/saturate\(([0-9.]+)\)/);
-    if (satMatch) {
-      const baseSat = parseFloat(satMatch[1]);
-      // Interpolate between 1 (no change) and baseSat based on intensity
-      const scaledSat = 1 + (baseSat - 1) * intensity * 1.5;
-      return baseFilter.replace(/saturate\([0-9.]+\)/, `saturate(${scaledSat.toFixed(2)})`);
-    }
-  }
-
-  return baseFilter;
-}
-
-/**
- * Creates/updates the CSS filter style and applies it to the page.
- * Uses CSS filters on the HTML element instead of an overlay div.
- * This preserves text legibility while tinting the screen.
+ * Creates the screen overlay by directly tinting background colors.
+ * This approach:
+ * - Sets the html/body background to the tint color
+ * - Overrides white/light backgrounds on common elements
+ * - Text color remains unchanged, preserving contrast
  *
  * @function screenOverlay_create
  * @returns {void}
  */
 function screenOverlay_create() {
-  // Remove existing style if present
+  // Remove existing elements
   if (screenOverlay_styleElement) {
     screenOverlay_styleElement.remove();
+    screenOverlay_styleElement = null;
   }
 
-  const filter = screenOverlay_getFilter();
+  const existingOverlay = document.getElementById('assist-screen-overlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
 
-  screenOverlay_styleElement = document.createElement('style');
-  screenOverlay_styleElement.id = 'assist-screen-overlay-style';
-  screenOverlay_styleElement.textContent = `
-    html {
-      filter: ${filter} !important;
-      transition: filter 0.3s ease !important;
+  const existingSvg = document.getElementById('assist-screen-overlay-svg');
+  if (existingSvg) {
+    existingSvg.remove();
+  }
+
+  const color = screenOverlay_settings.color;
+  const intensity = screenOverlay_settings.opacity; // 0-1 range
+
+  // Convert hex to RGB
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+
+  // Blend the tint color with white based on intensity
+  // At intensity 0 = white (255,255,255), at intensity 1 = full tint color
+  // Using 1.0 multiplier so 90% intensity gives ~90% of the tint effect
+  const blendWithWhite = (colorVal, int) => Math.round(255 - (255 - colorVal) * int);
+
+  const bgR = blendWithWhite(r, intensity);
+  const bgG = blendWithWhite(g, intensity);
+  const bgB = blendWithWhite(b, intensity);
+  const bgColor = `rgb(${bgR}, ${bgG}, ${bgB})`;
+
+  // Create style that overrides backgrounds
+  const styleEl = document.createElement('style');
+  styleEl.id = 'assist-screen-overlay';
+  styleEl.textContent = `
+    /* Base background tint */
+    html, body {
+      background-color: ${bgColor} !important;
     }
 
-    /* Ensure extension UI elements are not affected */
+    /* Override white/near-white backgrounds on common elements */
+    /* This uses a broad selector to catch most content containers */
+    main, article, section, div, aside, nav, header, footer,
+    .content, .container, .wrapper, .page, .post, .entry,
+    [class*="content"], [class*="article"], [class*="main"],
+    [class*="body"], [class*="wrapper"], [class*="container"] {
+      background-color: ${bgColor} !important;
+    }
+
+    /* Specifically target elements with white or near-white backgrounds */
+    *[style*="background-color: white"],
+    *[style*="background-color: #fff"],
+    *[style*="background-color: #FFF"],
+    *[style*="background-color: rgb(255"],
+    *[style*="background: white"],
+    *[style*="background: #fff"],
+    *[style*="background: #FFF"] {
+      background-color: ${bgColor} !important;
+    }
+
+    /* Don't affect images, videos, or canvases */
+    img, video, canvas, svg, picture, iframe {
+      background-color: transparent !important;
+    }
+
+    /* Don't affect inputs and form elements (keep them white for usability) */
+    input, textarea, select, button {
+      background-color: revert !important;
+    }
+
+    /* Don't affect extension UI */
     .assist-toast,
-    .assist-popup,
-    [id^="assist-pomodoro"],
-    [id^="assist-sticky"],
-    [id^="assist-annotation"] {
-      filter: none !important;
+    [id^="assist-"] {
+      background-color: revert !important;
     }
   `;
 
-  document.head.appendChild(screenOverlay_styleElement);
-  console.log('[ScreenOverlay] Applied CSS filter:', filter);
+  document.head.appendChild(styleEl);
+  screenOverlay_styleElement = styleEl;
+
+  console.log('[ScreenOverlay] Applied background tint:', bgColor, 'intensity:', intensity);
 }
 
 /**
@@ -152,8 +153,21 @@ function screenOverlay_remove() {
   if (screenOverlay_styleElement) {
     screenOverlay_styleElement.remove();
     screenOverlay_styleElement = null;
-    console.log('[ScreenOverlay] Removed');
   }
+
+  // Also remove SVG filter element
+  const svg = document.getElementById('assist-screen-overlay-svg');
+  if (svg) {
+    svg.remove();
+  }
+
+  // Remove any overlay div (from previous implementations)
+  const overlay = document.getElementById('assist-screen-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+
+  console.log('[ScreenOverlay] Removed');
 }
 
 // ============================================================
