@@ -3371,7 +3371,509 @@ class PopupController {
       this.saveSettings();
     });
 
+    // Custom Vocabulary (Phase 2.7 - S.5)
+    this.initializeVocabulary();
+
     console.log('[Popup] STT initialized');
+  }
+
+  /**
+   * Initialize Custom Vocabulary UI (Phase 2.7 - S.5)
+   * Handles vocabulary presets, word management, import/export
+   */
+  async initializeVocabulary() {
+    // Initialize vocabulary settings if not present
+    if (!this.settings.stt.vocabulary) {
+      this.settings.stt.vocabulary = {
+        autoLearn: true,
+        enabledPresets: [],
+        customWords: [],
+      };
+    }
+
+    // Auto-learn toggle
+    const autoLearnCheckbox = document.getElementById('stt-auto-learn');
+    if (autoLearnCheckbox) {
+      autoLearnCheckbox.checked = this.settings.stt.vocabulary.autoLearn !== false;
+      autoLearnCheckbox.addEventListener('change', e => {
+        this.settings.stt.vocabulary.autoLearn = e.target.checked;
+        this.saveSettings();
+        this.sendCommandToTab({
+          command: 'UPDATE_VOCABULARY_SETTINGS',
+          settings: { autoLearnEnabled: e.target.checked },
+        });
+      });
+    }
+
+    // Vocabulary preset buttons
+    const presetButtons = document.querySelectorAll('.preset-chip');
+    presetButtons.forEach(btn => {
+      const preset = btn.dataset.preset;
+      const isEnabled = this.settings.stt.vocabulary.enabledPresets?.includes(preset);
+
+      // Set initial state
+      this.updatePresetButtonState(btn, isEnabled);
+
+      btn.addEventListener('click', async () => {
+        const currentlyEnabled = btn.getAttribute('aria-pressed') === 'true';
+        const newState = !currentlyEnabled;
+
+        // Update UI immediately for responsiveness
+        this.updatePresetButtonState(btn, newState);
+
+        // Update settings
+        if (newState) {
+          if (!this.settings.stt.vocabulary.enabledPresets) {
+            this.settings.stt.vocabulary.enabledPresets = [];
+          }
+          if (!this.settings.stt.vocabulary.enabledPresets.includes(preset)) {
+            this.settings.stt.vocabulary.enabledPresets.push(preset);
+          }
+        } else {
+          this.settings.stt.vocabulary.enabledPresets =
+            this.settings.stt.vocabulary.enabledPresets.filter(p => p !== preset);
+        }
+
+        this.saveSettings();
+
+        // Send command to content script to load/unload preset
+        this.sendCommandToTab({
+          command: newState ? 'LOAD_VOCABULARY_PRESET' : 'UNLOAD_VOCABULARY_PRESET',
+          preset,
+        });
+
+        // Update word counts
+        this.updateVocabularyStats();
+      });
+    });
+
+    // Add Word button
+    const addWordBtn = document.getElementById('btn-add-vocab-word');
+    if (addWordBtn) {
+      addWordBtn.addEventListener('click', () => {
+        this.showAddVocabularyWordModal();
+      });
+    }
+
+    // Manage Vocabulary button
+    const manageBtn = document.getElementById('btn-manage-vocabulary');
+    if (manageBtn) {
+      manageBtn.addEventListener('click', () => {
+        this.showManageVocabularyModal();
+      });
+    }
+
+    // Import button
+    const importBtn = document.getElementById('btn-import-vocabulary');
+    if (importBtn) {
+      importBtn.addEventListener('click', () => {
+        this.importVocabulary();
+      });
+    }
+
+    // Export button
+    const exportBtn = document.getElementById('btn-export-vocabulary');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        this.exportVocabulary();
+      });
+    }
+
+    // Update initial stats
+    this.updateVocabularyStats();
+
+    console.log('[Popup] Vocabulary controls initialized');
+  }
+
+  /**
+   * Update preset button visual state
+   */
+  updatePresetButtonState(btn, enabled) {
+    btn.setAttribute('aria-pressed', enabled.toString());
+    if (enabled) {
+      btn.style.background = 'linear-gradient(135deg, #4a90d9, #357abd)';
+      btn.style.color = 'white';
+      btn.style.borderColor = '#357abd';
+    } else {
+      btn.style.background = '#f5f5f5';
+      btn.style.color = '#333';
+      btn.style.borderColor = '#ddd';
+    }
+  }
+
+  /**
+   * Update vocabulary statistics display
+   */
+  async updateVocabularyStats() {
+    const customCountEl = document.getElementById('vocab-word-count');
+    const presetCountEl = document.getElementById('vocab-preset-count');
+
+    if (!customCountEl || !presetCountEl) {
+      return;
+    }
+
+    try {
+      // Get counts from content script
+      const response = await this.sendCommandToTabWithResponse({
+        command: 'GET_VOCABULARY_STATS',
+      });
+
+      if (response && response.stats) {
+        customCountEl.textContent = response.stats.customCount || 0;
+        presetCountEl.textContent = response.stats.presetCount || 0;
+      } else {
+        // Fallback to settings
+        customCountEl.textContent = this.settings.stt.vocabulary.customWords?.length || 0;
+
+        let presetCount = 0;
+        const presetSizes = { medical: 48, legal: 38, academic: 31, stem: 43 };
+        for (const preset of this.settings.stt.vocabulary.enabledPresets || []) {
+          presetCount += presetSizes[preset] || 0;
+        }
+        presetCountEl.textContent = presetCount;
+      }
+    } catch (error) {
+      console.warn('[Popup] Could not get vocabulary stats:', error);
+      customCountEl.textContent = this.settings.stt.vocabulary.customWords?.length || 0;
+      presetCountEl.textContent = '0';
+    }
+  }
+
+  /**
+   * Show Add Vocabulary Word Modal
+   */
+  showAddVocabularyWordModal() {
+    const existingModal = document.getElementById('add-vocab-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'add-vocab-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    `;
+
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; padding: 20px; width: 300px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0; font-size: 16px;">Add Custom Word</h3>
+          <button id="close-add-vocab-modal" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Word or Phrase:</label>
+          <input type="text" id="vocab-word-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;" placeholder="e.g., adenocarcinoma">
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Pronunciation Hint (optional):</label>
+          <input type="text" id="vocab-phonetic-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;" placeholder="e.g., ad-uh-no-kar-suh-NO-muh">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="cancel-add-vocab" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 6px; background: #f5f5f5; cursor: pointer;">Cancel</button>
+          <button id="confirm-add-vocab" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: linear-gradient(135deg, #4a90d9, #357abd); color: white; cursor: pointer;">Add Word</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Focus input
+    const wordInput = document.getElementById('vocab-word-input');
+    setTimeout(() => wordInput.focus(), 100);
+
+    // Event handlers
+    const closeModal = () => modal.remove();
+
+    document.getElementById('close-add-vocab-modal').addEventListener('click', closeModal);
+    document.getElementById('cancel-add-vocab').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    document.getElementById('confirm-add-vocab').addEventListener('click', async () => {
+      const word = wordInput.value.trim();
+      const phonetic = document.getElementById('vocab-phonetic-input').value.trim();
+
+      if (!word) {
+        wordInput.style.borderColor = '#e74c3c';
+        wordInput.focus();
+        return;
+      }
+
+      // Add to settings
+      if (!this.settings.stt.vocabulary.customWords) {
+        this.settings.stt.vocabulary.customWords = [];
+      }
+
+      const exists = this.settings.stt.vocabulary.customWords.some(
+        w => w.word.toLowerCase() === word.toLowerCase()
+      );
+
+      if (exists) {
+        alert('This word is already in your vocabulary.');
+        return;
+      }
+
+      this.settings.stt.vocabulary.customWords.push({ word, phonetic });
+      this.saveSettings();
+
+      // Send to content script
+      this.sendCommandToTab({
+        command: 'ADD_VOCABULARY_WORD',
+        word,
+        phonetic,
+      });
+
+      this.updateVocabularyStats();
+      closeModal();
+    });
+
+    // Enter key to submit
+    wordInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        document.getElementById('confirm-add-vocab').click();
+      }
+    });
+  }
+
+  /**
+   * Show Manage Vocabulary Modal
+   */
+  showManageVocabularyModal() {
+    const existingModal = document.getElementById('manage-vocab-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    const customWords = this.settings.stt.vocabulary.customWords || [];
+
+    const modal = document.createElement('div');
+    modal.id = 'manage-vocab-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    `;
+
+    const wordsList =
+      customWords.length > 0
+        ? customWords
+            .map(
+              (w, i) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee;">
+              <div>
+                <span style="font-weight: 500;">${w.word}</span>
+                ${w.phonetic ? `<span style="font-size: 11px; color: #888; margin-left: 8px;">(${w.phonetic})</span>` : ''}
+              </div>
+              <button class="delete-vocab-word" data-index="${i}" style="background: #ff4757; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;">Delete</button>
+            </div>
+          `
+            )
+            .join('')
+        : '<p style="text-align: center; color: #888; padding: 20px;">No custom words added yet.</p>';
+
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; padding: 20px; width: 350px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0; font-size: 16px;">Manage Custom Words</h3>
+          <button id="close-manage-vocab-modal" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="flex: 1; overflow-y: auto; max-height: 300px; border: 1px solid #eee; border-radius: 6px;">
+          ${wordsList}
+        </div>
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <button id="clear-all-vocab" style="flex: 1; padding: 8px; border: 1px solid #e74c3c; border-radius: 6px; background: white; color: #e74c3c; cursor: pointer; font-size: 12px;">Clear All</button>
+          <button id="done-manage-vocab" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: linear-gradient(135deg, #4a90d9, #357abd); color: white; cursor: pointer; font-size: 12px;">Done</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+
+    document.getElementById('close-manage-vocab-modal').addEventListener('click', closeModal);
+    document.getElementById('done-manage-vocab').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    // Delete word buttons
+    modal.querySelectorAll('.delete-vocab-word').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const index = parseInt(btn.dataset.index);
+        const word = this.settings.stt.vocabulary.customWords[index];
+
+        this.settings.stt.vocabulary.customWords.splice(index, 1);
+        this.saveSettings();
+
+        this.sendCommandToTab({
+          command: 'DELETE_VOCABULARY_WORD',
+          word: word.word,
+        });
+
+        this.updateVocabularyStats();
+        closeModal();
+        this.showManageVocabularyModal(); // Refresh modal
+      });
+    });
+
+    // Clear all button
+    document.getElementById('clear-all-vocab').addEventListener('click', () => {
+      if (confirm('Are you sure you want to delete all custom words?')) {
+        this.settings.stt.vocabulary.customWords = [];
+        this.saveSettings();
+
+        this.sendCommandToTab({ command: 'CLEAR_VOCABULARY' });
+
+        this.updateVocabularyStats();
+        closeModal();
+      }
+    });
+  }
+
+  /**
+   * Import vocabulary from file
+   */
+  importVocabulary() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.json';
+
+    input.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) {
+        return;
+      }
+
+      try {
+        const content = await file.text();
+        let words = [];
+
+        if (file.name.endsWith('.json')) {
+          const data = JSON.parse(content);
+          words = Array.isArray(data) ? data : data.vocabulary || [];
+        } else {
+          // Text format: one word per line, optional "word|phonetic" format
+          words = content
+            .split('\n')
+            .filter(line => line.trim())
+            .map(line => {
+              const parts = line.split('|');
+              return {
+                word: parts[0].trim(),
+                phonetic: parts[1] ? parts[1].trim() : '',
+              };
+            });
+        }
+
+        // Add to settings
+        if (!this.settings.stt.vocabulary.customWords) {
+          this.settings.stt.vocabulary.customWords = [];
+        }
+
+        const existingWords = new Set(
+          this.settings.stt.vocabulary.customWords.map(w => w.word.toLowerCase())
+        );
+
+        let addedCount = 0;
+        for (const word of words) {
+          if (!existingWords.has(word.word.toLowerCase())) {
+            this.settings.stt.vocabulary.customWords.push(word);
+            addedCount++;
+          }
+        }
+
+        this.saveSettings();
+
+        // Send to content script
+        this.sendCommandToTab({
+          command: 'IMPORT_VOCABULARY',
+          words: words,
+        });
+
+        this.updateVocabularyStats();
+        alert(`Imported ${addedCount} new words.`);
+      } catch (error) {
+        console.error('[Popup] Import vocabulary failed:', error);
+        alert('Failed to import vocabulary. Please check the file format.');
+      }
+    });
+
+    input.click();
+  }
+
+  /**
+   * Export vocabulary to file
+   */
+  exportVocabulary() {
+    const words = this.settings.stt.vocabulary.customWords || [];
+
+    if (words.length === 0) {
+      alert('No custom words to export.');
+      return;
+    }
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      version: '1.0',
+      vocabulary: words,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `assist-vocabulary-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Send command to tab and wait for response
+   */
+  async sendCommandToTabWithResponse(message, timeout = 1000) {
+    return new Promise(resolve => {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (!tabs[0]?.id) {
+          resolve(null);
+          return;
+        }
+
+        const timeoutId = setTimeout(() => resolve(null), timeout);
+
+        chrome.tabs.sendMessage(tabs[0].id, message, response => {
+          clearTimeout(timeoutId);
+          if (chrome.runtime.lastError) {
+            resolve(null);
+          } else {
+            resolve(response);
+          }
+        });
+      });
+    });
   }
 
   /**

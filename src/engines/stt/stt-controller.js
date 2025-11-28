@@ -11,12 +11,14 @@
  * - Voice editing commands (delete, undo, redo, replace)
  * - Voice navigation commands (cursor movement)
  * - Voice formatting commands (bold, italic, etc.)
+ * - Custom vocabulary support (Phase 2.7 - S.5)
  *
  * @module STTController
- * @version 2.0.0 (Phase 2.7 Enhancement)
+ * @version 2.1.0 (Phase 2.7 Enhancement - Custom Vocabulary)
  */
 
 import { CommandParser, CommandType } from './command-parser.js';
+import { VocabularyManager, VocabularyPresets } from './vocabulary-manager.js';
 
 export class STTController {
   constructor(options = {}) {
@@ -29,6 +31,7 @@ export class STTController {
         options.punctuationCommands !== undefined ? options.punctuationCommands : true,
       voiceCommands: options.voiceCommands !== undefined ? options.voiceCommands : true,
       maxAlternatives: options.maxAlternatives || 1,
+      vocabularyEnabled: options.vocabularyEnabled !== undefined ? options.vocabularyEnabled : true,
     };
 
     this.recognition = null;
@@ -46,6 +49,12 @@ export class STTController {
       onCommandExecuted: result => this.handleCommandExecuted(result),
       onError: error => this.onError(error),
     });
+
+    // Initialize vocabulary manager for custom word recognition (Phase 2.7 - S.5)
+    this.vocabularyManager = null;
+    if (this.settings.vocabularyEnabled) {
+      this.initializeVocabulary(options.vocabularyOptions || {});
+    }
 
     // Callbacks
     this.onStart = options.onStart || (() => {});
@@ -795,6 +804,12 @@ export class STTController {
       this.commandParser.destroy();
     }
 
+    // Cleanup vocabulary manager
+    if (this.vocabularyManager) {
+      this.vocabularyManager.destroy();
+      this.vocabularyManager = null;
+    }
+
     this.isRecording = false;
     this.isPaused = false;
     this.targetElement = null;
@@ -805,6 +820,159 @@ export class STTController {
 
     console.log('[STT] Controller destroyed');
   }
+
+  // ==========================================
+  // Vocabulary Management (Phase 2.7 - S.5)
+  // ==========================================
+
+  /**
+   * Initialize vocabulary manager
+   * @param {Object} options - Vocabulary options
+   */
+  async initializeVocabulary(options = {}) {
+    try {
+      this.vocabularyManager = new VocabularyManager({
+        autoLearnEnabled: options.autoLearnEnabled !== false,
+        autoLearnThreshold: options.autoLearnThreshold || 3,
+        enabledCategories: options.enabledCategories || [VocabularyPresets.CUSTOM],
+        onWordAdded: entry => {
+          console.log(`[STT] Vocabulary word added: ${entry.word}`);
+        },
+        onWordRemoved: entry => {
+          console.log(`[STT] Vocabulary word removed: ${entry.word}`);
+        },
+        onError: error => {
+          console.error('[STT] Vocabulary error:', error);
+        },
+      });
+
+      await this.vocabularyManager.initialize();
+      console.log('[STT] Vocabulary manager initialized');
+    } catch (error) {
+      console.error('[STT] Failed to initialize vocabulary manager:', error);
+    }
+  }
+
+  /**
+   * Load a vocabulary preset
+   * @param {string} preset - Preset name (medical, legal, academic, stem)
+   * @returns {Promise<number>} - Number of words added
+   */
+  async loadVocabularyPreset(preset) {
+    if (!this.vocabularyManager) {
+      console.warn('[STT] Vocabulary manager not initialized');
+      return 0;
+    }
+    return this.vocabularyManager.loadPreset(preset);
+  }
+
+  /**
+   * Unload a vocabulary preset
+   * @param {string} preset - Preset name
+   */
+  async unloadVocabularyPreset(preset) {
+    if (!this.vocabularyManager) {
+      return;
+    }
+    return this.vocabularyManager.unloadPreset(preset);
+  }
+
+  /**
+   * Add a custom word to vocabulary
+   * @param {string} word - Word or phrase
+   * @param {string} phonetic - Optional phonetic hint
+   * @returns {Promise<number>} - Entry ID
+   */
+  async addVocabularyWord(word, phonetic = '') {
+    if (!this.vocabularyManager) {
+      console.warn('[STT] Vocabulary manager not initialized');
+      return null;
+    }
+    return this.vocabularyManager.addWord(word, { phonetic });
+  }
+
+  /**
+   * Delete a word from vocabulary
+   * @param {string} word - Word to delete
+   */
+  async deleteVocabularyWord(word) {
+    if (!this.vocabularyManager) {
+      return false;
+    }
+
+    const entries = await this.vocabularyManager.search(word);
+    const exactMatch = entries.find(e => e.word.toLowerCase() === word.toLowerCase());
+    if (exactMatch) {
+      return this.vocabularyManager.deleteWord(exactMatch.id);
+    }
+    return false;
+  }
+
+  /**
+   * Clear all custom vocabulary
+   */
+  async clearVocabulary() {
+    if (!this.vocabularyManager) {
+      return;
+    }
+    return this.vocabularyManager.clear(VocabularyPresets.CUSTOM);
+  }
+
+  /**
+   * Import vocabulary from file content
+   * @param {Array<{word: string, phonetic?: string}>} words
+   */
+  async importVocabulary(words) {
+    if (!this.vocabularyManager) {
+      return { added: 0, skipped: 0 };
+    }
+    return this.vocabularyManager.addWords(words, VocabularyPresets.CUSTOM);
+  }
+
+  /**
+   * Get vocabulary statistics
+   * @returns {Promise<Object>}
+   */
+  async getVocabularyStats() {
+    if (!this.vocabularyManager) {
+      return { customCount: 0, presetCount: 0 };
+    }
+
+    const stats = await this.vocabularyManager.getStats();
+    return {
+      customCount: stats.byCategory?.[VocabularyPresets.CUSTOM] || 0,
+      presetCount:
+        (stats.byCategory?.[VocabularyPresets.MEDICAL] || 0) +
+        (stats.byCategory?.[VocabularyPresets.LEGAL] || 0) +
+        (stats.byCategory?.[VocabularyPresets.ACADEMIC] || 0) +
+        (stats.byCategory?.[VocabularyPresets.STEM] || 0),
+      totalWords: stats.totalWords,
+      autoLearnedCount: stats.autoLearnedCount,
+    };
+  }
+
+  /**
+   * Update vocabulary settings
+   * @param {Object} settings
+   */
+  async updateVocabularySettings(settings) {
+    if (!this.vocabularyManager) {
+      return;
+    }
+    return this.vocabularyManager.updateSettings(settings);
+  }
+
+  /**
+   * Track a correction for auto-learning
+   * @param {string} original - Original recognized text
+   * @param {string} corrected - User's correction
+   */
+  trackVocabularyCorrection(original, corrected) {
+    if (this.vocabularyManager) {
+      this.vocabularyManager.trackCorrection(original, corrected);
+    }
+  }
 }
 
 export default STTController;
+export { VocabularyPresets };

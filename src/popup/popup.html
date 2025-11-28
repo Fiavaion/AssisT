@@ -812,6 +812,188 @@
                     </label>
                   </div>
                 </div>
+
+                <!-- Custom Vocabulary Section -->
+                <div class="control-subsection vocabulary-section">
+                  <h3 class="subsection-title">
+                    <span>📚 Custom Vocabulary</span>
+                    <span
+                      class="badge badge-new"
+                      style="
+                        background: linear-gradient(135deg, #10b981, #059669);
+                        color: white;
+                        font-size: 10px;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        margin-left: 6px;
+                      "
+                      >NEW</span
+                    >
+                  </h3>
+                  <p class="feature-description">Add specialized terms for better recognition</p>
+
+                  <!-- Auto-learn Toggle -->
+                  <div class="toggle-control" style="margin-top: 8px">
+                    <label for="stt-auto-learn" class="toggle-label">
+                      <span class="label-text">Auto-learn from corrections</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-auto-learn"
+                          data-testid="stt-auto-learn-toggle"
+                          role="switch"
+                          aria-label="Auto-learn vocabulary"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <!-- Vocabulary Presets -->
+                  <div class="vocabulary-presets" style="margin-top: 12px">
+                    <label
+                      class="preset-label"
+                      style="font-size: 12px; margin-bottom: 6px; display: block"
+                      >Subject Presets:</label
+                    >
+                    <div class="preset-chips" style="display: flex; flex-wrap: wrap; gap: 6px">
+                      <button
+                        type="button"
+                        id="vocab-preset-medical"
+                        class="preset-chip"
+                        data-preset="medical"
+                        aria-pressed="false"
+                        style="
+                          padding: 4px 10px;
+                          border-radius: 16px;
+                          border: 1px solid #ddd;
+                          background: #f5f5f5;
+                          font-size: 11px;
+                          cursor: pointer;
+                          transition: all 0.2s;
+                        "
+                      >
+                        🏥 Medical
+                      </button>
+                      <button
+                        type="button"
+                        id="vocab-preset-legal"
+                        class="preset-chip"
+                        data-preset="legal"
+                        aria-pressed="false"
+                        style="
+                          padding: 4px 10px;
+                          border-radius: 16px;
+                          border: 1px solid #ddd;
+                          background: #f5f5f5;
+                          font-size: 11px;
+                          cursor: pointer;
+                          transition: all 0.2s;
+                        "
+                      >
+                        ⚖️ Legal
+                      </button>
+                      <button
+                        type="button"
+                        id="vocab-preset-academic"
+                        class="preset-chip"
+                        data-preset="academic"
+                        aria-pressed="false"
+                        style="
+                          padding: 4px 10px;
+                          border-radius: 16px;
+                          border: 1px solid #ddd;
+                          background: #f5f5f5;
+                          font-size: 11px;
+                          cursor: pointer;
+                          transition: all 0.2s;
+                        "
+                      >
+                        🎓 Academic
+                      </button>
+                      <button
+                        type="button"
+                        id="vocab-preset-stem"
+                        class="preset-chip"
+                        data-preset="stem"
+                        aria-pressed="false"
+                        style="
+                          padding: 4px 10px;
+                          border-radius: 16px;
+                          border: 1px solid #ddd;
+                          background: #f5f5f5;
+                          font-size: 11px;
+                          cursor: pointer;
+                          transition: all 0.2s;
+                        "
+                      >
+                        🔬 STEM
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Custom Word Count -->
+                  <div
+                    class="vocab-stats"
+                    style="
+                      margin-top: 10px;
+                      padding: 8px;
+                      background: #f8f9fa;
+                      border-radius: 6px;
+                      font-size: 11px;
+                      color: #666;
+                    "
+                  >
+                    <span id="vocab-word-count">0</span> custom words
+                    <span style="margin-left: 8px">|</span>
+                    <span id="vocab-preset-count" style="margin-left: 8px">0</span> preset words
+                  </div>
+
+                  <!-- Action Buttons -->
+                  <div class="vocab-actions" style="display: flex; gap: 8px; margin-top: 10px">
+                    <button
+                      type="button"
+                      id="btn-add-vocab-word"
+                      class="control-btn secondary"
+                      style="flex: 1; font-size: 11px; padding: 6px"
+                      aria-label="Add custom word"
+                    >
+                      + Add Word
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-manage-vocabulary"
+                      class="control-btn secondary"
+                      style="flex: 1; font-size: 11px; padding: 6px"
+                      aria-label="Manage vocabulary"
+                    >
+                      Manage
+                    </button>
+                  </div>
+
+                  <!-- Import/Export -->
+                  <div class="vocab-import-export" style="display: flex; gap: 8px; margin-top: 6px">
+                    <button
+                      type="button"
+                      id="btn-import-vocabulary"
+                      class="control-btn tertiary"
+                      style="flex: 1; font-size: 10px; padding: 4px"
+                      aria-label="Import vocabulary"
+                    >
+                      📥 Import
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-export-vocabulary"
+                      class="control-btn tertiary"
+                      style="flex: 1; font-size: 10px; padding: 4px"
+                      aria-label="Export vocabulary"
+                    >
+                      📤 Export
+                    </button>
+                  </div>
+                </div>
               </div>
             </section>
 
