@@ -3327,6 +3327,98 @@ class PopupController {
       this.saveSettings();
     });
 
+    // Recognition Engine Selection (Phase 2.8 - S.8)
+    const engineSelect = document.getElementById('stt-engine');
+    const engineStatusIndicator = document.getElementById('stt-engine-indicator');
+    const engineNameDisplay = document.getElementById('stt-engine-name');
+    const engineOfflineBadge = document.getElementById('stt-engine-offline-badge');
+    const preferOfflineCheckbox = document.getElementById('stt-prefer-offline');
+    // eslint-disable-next-line no-unused-vars
+    const whisperDownloadSection = document.getElementById('stt-whisper-download');
+
+    if (engineSelect) {
+      // Initialize engine settings if not present
+      if (this.settings.stt.engine === undefined) {
+        this.settings.stt.engine = 'auto';
+      }
+      if (this.settings.stt.preferOffline === undefined) {
+        this.settings.stt.preferOffline = true;
+      }
+
+      engineSelect.value = this.settings.stt.engine || 'auto';
+
+      // Update engine status display
+      const updateEngineStatus = (engineType, isOffline = false) => {
+        const engineNames = {
+          'auto': 'Auto (selecting...)',
+          'whisper': 'Whisper (Offline)',
+          'web-speech': 'Web Speech API',
+          'azure': 'Azure Speech Services'
+        };
+
+        if (engineNameDisplay) {
+          engineNameDisplay.textContent = engineNames[engineType] || engineType;
+        }
+
+        if (engineStatusIndicator) {
+          // Green for ready, yellow for loading, red for error
+          engineStatusIndicator.style.background = '#10b981'; // Green by default
+        }
+
+        if (engineOfflineBadge) {
+          if (isOffline || engineType === 'whisper') {
+            engineOfflineBadge.classList.remove('hidden');
+          } else {
+            engineOfflineBadge.classList.add('hidden');
+          }
+        }
+      };
+
+      // Initialize display
+      updateEngineStatus(this.settings.stt.engine, this.settings.stt.engine === 'whisper');
+
+      engineSelect.addEventListener('change', e => {
+        this.settings.stt.engine = e.target.value;
+        this.saveSettings();
+
+        updateEngineStatus(e.target.value, e.target.value === 'whisper');
+
+        // If selecting Whisper and model not loaded, show download progress
+        if (e.target.value === 'whisper' && whisperDownloadSection) {
+          // Check if Whisper is available - for now, just update UI
+          // The actual model download is handled by the content script
+        }
+
+        // Notify content script
+        this.sendCommandToTab({
+          command: 'UPDATE_STT_SETTINGS',
+          settings: {
+            engine: e.target.value,
+            preferOffline: this.settings.stt.preferOffline,
+          },
+        });
+      });
+    }
+
+    // Prefer Offline Mode
+    if (preferOfflineCheckbox) {
+      preferOfflineCheckbox.checked = this.settings.stt.preferOffline !== false;
+
+      preferOfflineCheckbox.addEventListener('change', e => {
+        this.settings.stt.preferOffline = e.target.checked;
+        this.saveSettings();
+
+        // Notify content script
+        this.sendCommandToTab({
+          command: 'UPDATE_STT_SETTINGS',
+          settings: {
+            engine: this.settings.stt.engine,
+            preferOffline: e.target.checked,
+          },
+        });
+      });
+    }
+
     // Punctuation Commands
     const punctuationCheckbox = document.getElementById('stt-punctuation-commands');
     punctuationCheckbox.checked = this.settings.stt.punctuationCommands !== false;
