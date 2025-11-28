@@ -12,6 +12,30 @@
 
 import { test, expect } from './extension-fixture.js';
 
+/**
+ * Helper: Enable OCR feature from popup
+ */
+async function enableOCRFeature(popupPage) {
+  await popupPage.waitForLoadState('domcontentloaded');
+  await popupPage.waitForTimeout(500);
+
+  const ocrToggle = popupPage.locator('#ocr-enabled');
+  await ocrToggle.scrollIntoViewIfNeeded();
+
+  // Check if already enabled, if not click to enable
+  const isChecked = await ocrToggle.isChecked();
+  if (!isChecked) {
+    await ocrToggle.click();
+    await popupPage.waitForTimeout(100);
+  }
+
+  // Verify it's enabled
+  expect(await ocrToggle.isChecked()).toBe(true);
+
+  // Wait for options to appear
+  await popupPage.waitForTimeout(300);
+}
+
 test.describe('OCR - Basic Activation', () => {
 
   test('should enable OCR from popup', async ({ popupPage }) => {
@@ -20,12 +44,16 @@ test.describe('OCR - Basic Activation', () => {
     await popupPage.waitForTimeout(500);
 
     // Verify OCR toggle exists
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
+    const ocrToggle = popupPage.locator('#ocr-enabled');
     await ocrToggle.scrollIntoViewIfNeeded();
     await expect(ocrToggle).toBeVisible();
 
-    // Enable OCR
-    await ocrToggle.check({ force: true });
+    // Enable OCR using click instead of check for custom toggle switches
+    const isChecked = await ocrToggle.isChecked();
+    if (!isChecked) {
+      await ocrToggle.click();
+      await popupPage.waitForTimeout(100);
+    }
     expect(await ocrToggle.isChecked()).toBe(true);
 
     // Verify OCR options become visible
@@ -39,19 +67,10 @@ test.describe('OCR - Basic Activation', () => {
   });
 
   test('should show OCR settings when enabled', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
+    await enableOCRFeature(popupPage);
 
-    // Enable OCR
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-
-    // Wait for options to appear
-    await popupPage.waitForTimeout(300);
-
-    // Verify all settings are visible
-    await expect(popupPage.locator('#ocr-auto-activate-reading')).toBeVisible();
+    // Verify all settings are visible (using correct IDs)
+    await expect(popupPage.locator('#ocr-auto-reading-mode')).toBeVisible();
     await expect(popupPage.locator('#ocr-upscale-factor')).toBeVisible();
     await expect(popupPage.locator('#ocr-language')).toBeVisible();
     await expect(popupPage.locator('#ocr-confidence-threshold')).toBeVisible();
@@ -59,34 +78,20 @@ test.describe('OCR - Basic Activation', () => {
   });
 
   test('should have trigger OCR button when enabled', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    // Enable OCR
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     // Verify trigger button exists and has correct text
     const triggerButton = popupPage.locator('#btn-trigger-ocr');
     await expect(triggerButton).toBeVisible();
     const buttonText = await triggerButton.textContent();
-    expect(buttonText).toContain('Start OCR');
+    expect(buttonText).toContain('Capture');
   });
 });
 
 test.describe('OCR - Settings Configuration', () => {
 
   test('should configure OCR language', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     const languageSelect = popupPage.locator('#ocr-language');
     await languageSelect.scrollIntoViewIfNeeded();
@@ -104,39 +109,27 @@ test.describe('OCR - Settings Configuration', () => {
   });
 
   test('should adjust confidence threshold', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     const confidenceSlider = popupPage.locator('#ocr-confidence-threshold');
-    const confidenceValue = popupPage.locator('#confidence-value');
+    const confidenceLabel = popupPage.locator('#ocr-confidence-label');
 
     await confidenceSlider.scrollIntoViewIfNeeded();
 
     // Set to 80%
     await confidenceSlider.fill('80');
-    expect(await confidenceValue.textContent()).toBe('80%');
+    expect(await confidenceLabel.textContent()).toBe('80%');
 
     // Set to 50%
     await confidenceSlider.fill('50');
-    expect(await confidenceValue.textContent()).toBe('50%');
+    expect(await confidenceLabel.textContent()).toBe('50%');
   });
 
   test('should configure upscale factor for better OCR accuracy', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     const upscaleSlider = popupPage.locator('#ocr-upscale-factor');
-    const upscaleLabel = popupPage.locator('#upscale-label');
+    const upscaleLabel = popupPage.locator('#ocr-upscale-label');
 
     await upscaleSlider.scrollIntoViewIfNeeded();
 
@@ -154,44 +147,38 @@ test.describe('OCR - Settings Configuration', () => {
   });
 
   test('should toggle auto-activate reading mode', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
+    await enableOCRFeature(popupPage);
 
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
-
-    const autoReadingToggle = popupPage.locator('#ocr-auto-activate-reading');
+    const autoReadingToggle = popupPage.locator('#ocr-auto-reading-mode');
     await autoReadingToggle.scrollIntoViewIfNeeded();
 
-    // Enable auto-activate
-    await autoReadingToggle.check({ force: true });
+    // Enable auto-activate (use click for custom toggle)
+    const isChecked = await autoReadingToggle.isChecked();
+    if (!isChecked) {
+      await autoReadingToggle.click();
+    }
     expect(await autoReadingToggle.isChecked()).toBe(true);
 
     // Disable auto-activate
-    await autoReadingToggle.uncheck({ force: true });
+    await autoReadingToggle.click();
     expect(await autoReadingToggle.isChecked()).toBe(false);
   });
 
   test('should toggle auto-TTS', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     const autoTTSToggle = popupPage.locator('#ocr-auto-tts');
     await autoTTSToggle.scrollIntoViewIfNeeded();
 
-    // Enable auto-TTS
-    await autoTTSToggle.check({ force: true });
+    // Enable auto-TTS (use click for custom toggle)
+    const isChecked = await autoTTSToggle.isChecked();
+    if (!isChecked) {
+      await autoTTSToggle.click();
+    }
     expect(await autoTTSToggle.isChecked()).toBe(true);
 
     // Disable auto-TTS
-    await autoTTSToggle.uncheck({ force: true });
+    await autoTTSToggle.click();
     expect(await autoTTSToggle.isChecked()).toBe(false);
   });
 });
@@ -202,20 +189,17 @@ test.describe('OCR - Feature Isolation', () => {
     await popupPage.waitForLoadState('domcontentloaded');
     await popupPage.waitForTimeout(500);
 
-    // Find TTS toggle
-    const ttsToggle = popupPage.locator('#toggle-tts');
+    // Find TTS toggle - TTS is enabled by default, so just verify
+    const ttsToggle = popupPage.locator('[data-testid="tts-toggle"]');
     await ttsToggle.scrollIntoViewIfNeeded();
+    expect(await ttsToggle.isChecked()).toBe(true);
 
-    // Enable TTS
-    await ttsToggle.check({ force: true });
-
-    // Find and enable OCR
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
+    // Enable OCR
+    await enableOCRFeature(popupPage);
 
     // Verify both are enabled
     expect(await ttsToggle.isChecked()).toBe(true);
+    const ocrToggle = popupPage.locator('#ocr-enabled');
     expect(await ocrToggle.isChecked()).toBe(true);
   });
 });
@@ -226,7 +210,7 @@ test.describe('OCR - Accessibility', () => {
     await popupPage.waitForLoadState('domcontentloaded');
     await popupPage.waitForTimeout(500);
 
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
+    const ocrToggle = popupPage.locator('#ocr-enabled');
     await ocrToggle.scrollIntoViewIfNeeded();
 
     // Check ARIA attributes
@@ -236,13 +220,7 @@ test.describe('OCR - Accessibility', () => {
   });
 
   test('should have accessible trigger button', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     const triggerButton = popupPage.locator('#btn-trigger-ocr');
     await triggerButton.scrollIntoViewIfNeeded();
@@ -254,13 +232,7 @@ test.describe('OCR - Accessibility', () => {
   });
 
   test('should have accessible language selector', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     const languageSelect = popupPage.locator('#ocr-language');
     await languageSelect.scrollIntoViewIfNeeded();
@@ -274,37 +246,25 @@ test.describe('OCR - Accessibility', () => {
 test.describe('OCR - Settings Defaults', () => {
 
   test('should have correct default settings', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     // Scroll to each element before checking
     await popupPage.locator('#ocr-language').scrollIntoViewIfNeeded();
     await popupPage.locator('#ocr-confidence-threshold').scrollIntoViewIfNeeded();
     await popupPage.locator('#ocr-upscale-factor').scrollIntoViewIfNeeded();
-    await popupPage.locator('#ocr-auto-activate-reading').scrollIntoViewIfNeeded();
+    await popupPage.locator('#ocr-auto-reading-mode').scrollIntoViewIfNeeded();
     await popupPage.locator('#ocr-auto-tts').scrollIntoViewIfNeeded();
 
     // Verify defaults
     expect(await popupPage.locator('#ocr-language').inputValue()).toBe('eng');
     expect(await popupPage.locator('#ocr-confidence-threshold').inputValue()).toBe('60');
     expect(await popupPage.locator('#ocr-upscale-factor').inputValue()).toBe('1.5');
-    expect(await popupPage.locator('#ocr-auto-activate-reading').isChecked()).toBe(false);
+    expect(await popupPage.locator('#ocr-auto-reading-mode').isChecked()).toBe(false);
     expect(await popupPage.locator('#ocr-auto-tts').isChecked()).toBe(false);
   });
 
   test('should support all 14 languages', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
-
-    const ocrToggle = popupPage.locator('#toggle-ocr-enabled');
-    await ocrToggle.scrollIntoViewIfNeeded();
-    await ocrToggle.check({ force: true });
-    await popupPage.waitForTimeout(300);
+    await enableOCRFeature(popupPage);
 
     const languageSelect = popupPage.locator('#ocr-language');
     await languageSelect.scrollIntoViewIfNeeded();
