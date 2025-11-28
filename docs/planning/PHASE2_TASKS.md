@@ -134,7 +134,7 @@
 - [x] 5.12: Search across all notes - AI agent
 - [x] 5.13: Filter by page/tag/date/color - AI agent
 - [x] 5.14: Export (Markdown, Plain Text, JSON, CSV) - AI agent
-- [ ] 5.15: Link annotations to citations (Feature 11) - Deferred to Phase 2.4
+- [x] 5.15: Link annotations to citations (Feature 11) - Completed Session 043
 - [x] 5.16: Settings persistence - AI agent
 - [x] 5.17: Unit tests for CRUD operations - AI agent (86 tests passing)
 - [x] 5.18: E2E test for note creation - AI agent (23 tests created, needs injection fix)
