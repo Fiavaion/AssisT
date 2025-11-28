@@ -709,6 +709,62 @@
                   </div>
                   <p class="feature-description">Say "period", "comma", "new line"</p>
                 </div>
+                <!-- Auto-Punctuation Settings (Phase 2.7 - S.3) -->
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-auto-punctuation" class="toggle-label">
+                      <span class="label-text">Smart Auto-Punctuation</span>
+                      <span
+                        class="badge badge-new"
+                        style="
+                          background: linear-gradient(135deg, #10b981, #059669);
+                          color: white;
+                          font-size: 10px;
+                          padding: 2px 6px;
+                          border-radius: 4px;
+                          margin-left: 6px;
+                        "
+                        >NEW</span
+                      >
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-auto-punctuation"
+                          data-testid="stt-auto-punctuation-toggle"
+                          role="switch"
+                          aria-label="Smart auto punctuation"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description">
+                    Automatically adds periods, commas, and question marks
+                  </p>
+                </div>
+                <div class="control-subsection" id="auto-punctuation-mode-section">
+                  <label class="control-label" for="stt-auto-punctuation-mode"
+                    >Punctuation Mode</label
+                  >
+                  <select
+                    id="stt-auto-punctuation-mode"
+                    class="dropdown"
+                    data-testid="stt-auto-punctuation-mode"
+                    aria-label="Auto punctuation mode"
+                  >
+                    <option value="auto">Automatic (fully automatic)</option>
+                    <option value="assisted">Assisted (suggestions only)</option>
+                    <option value="manual">Manual (spoken commands only)</option>
+                  </select>
+                  <p
+                    class="feature-description"
+                    style="margin-top: 4px; font-size: 11px; color: #666"
+                  >
+                    Auto: AI adds punctuation based on pauses and patterns<br />
+                    Manual: Say "period", "comma", etc.
+                  </p>
+                </div>
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-voice-commands" class="toggle-label">
