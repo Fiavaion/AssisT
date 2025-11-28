@@ -2,7 +2,7 @@
  * Unit tests for Confidence Feedback Module (Phase 2.7 - S.4)
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// Jest testing framework (not Vitest)
 import {
   ConfidenceFeedback,
   RecognitionResult,
@@ -161,9 +161,9 @@ describe('ConfidenceFeedback Module', () => {
 
     beforeEach(() => {
       mockCallbacks = {
-        onConfidenceUpdate: vi.fn(),
-        onLowConfidence: vi.fn(),
-        onStatsUpdate: vi.fn(),
+        onConfidenceUpdate: jest.fn(),
+        onLowConfidence: jest.fn(),
+        onStatsUpdate: jest.fn(),
       };
       feedback = new ConfidenceFeedback(mockCallbacks);
     });
