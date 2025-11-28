@@ -49,6 +49,14 @@ let annotationSettings = {
   sidebarAutoOpen: true,
 };
 
+/** @type {Object} TTS settings from extension */
+let ttsSettings = {
+  voice: null,
+  rate: 1.0,
+  pitch: 1.0,
+  volume: 1.0,
+};
+
 /**
  * Default size mappings for notes
  * @type {Object<string, {width: number, height: number}>}
@@ -76,6 +84,9 @@ async function initializeStickyNotes() {
   try {
     // Load annotation settings
     await loadAnnotationSettings();
+
+    // Load TTS settings from extension
+    await loadTTSSettings();
 
     // Load storage mode from settings
     await loadStorageMode();
@@ -127,6 +138,49 @@ async function loadStorageMode() {
   return new Promise(resolve => {
     chrome.storage.local.get(['annotationStorageMode'], result => {
       storageMode = result.annotationStorageMode || 'local';
+      resolve();
+    });
+  });
+}
+
+/**
+ * Load TTS settings from extension settings
+ */
+async function loadTTSSettings() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(['assist_settings'], result => {
+      const tts = result.assist_settings?.tts;
+      if (tts) {
+        ttsSettings.rate = tts.rate || 1.0;
+        ttsSettings.pitch = tts.pitch || 1.0;
+        ttsSettings.volume = tts.volume || 1.0;
+        // Load voice after voices are available
+        if (tts.voice && tts.voice !== 'default') {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices.length > 0) {
+            const voice = voices.find(v => v.name === tts.voice);
+            if (voice) {
+              ttsSettings.voice = voice;
+            }
+          } else {
+            // Voices not loaded yet, wait for them
+            window.speechSynthesis.onvoiceschanged = () => {
+              const loadedVoices = window.speechSynthesis.getVoices();
+              const voice = loadedVoices.find(v => v.name === tts.voice);
+              if (voice) {
+                ttsSettings.voice = voice;
+                console.log('[StickyNotes] Loaded TTS voice:', voice.name);
+              }
+            };
+          }
+        }
+        console.log('[StickyNotes] Loaded TTS settings:', {
+          rate: ttsSettings.rate,
+          pitch: ttsSettings.pitch,
+          volume: ttsSettings.volume,
+          voice: tts.voice,
+        });
+      }
       resolve();
     });
   });
@@ -554,14 +608,27 @@ function speakNoteContent(noteId, button) {
     return;
   }
 
-  // Create utterance
+  // Create utterance with extension TTS settings
   currentUtterance = new SpeechSynthesisUtterance(text);
+  currentUtterance.rate = ttsSettings.rate;
+  currentUtterance.pitch = ttsSettings.pitch;
+  currentUtterance.volume = ttsSettings.volume;
+  if (ttsSettings.voice) {
+    currentUtterance.voice = ttsSettings.voice;
+  }
   speakingNoteId = noteId;
 
   // Update button state
   button.classList.add('assist-toolbar-btn-active');
   button.innerHTML = '⏹️';
   button.title = 'Stop reading';
+
+  console.log('[StickyNotes] TTS using settings:', {
+    rate: currentUtterance.rate,
+    pitch: currentUtterance.pitch,
+    volume: currentUtterance.volume,
+    voice: currentUtterance.voice?.name || 'default',
+  });
 
   // Event handlers
   currentUtterance.onend = () => {
@@ -721,7 +788,7 @@ function startNoteDictation(noteId, button) {
 
 /**
  * Append dictated text to note content
- * If note has existing content, add text on a new line
+ * If note has existing content, add text on a new line matching the formatting
  * @param {number} noteId - Note ID
  * @param {HTMLElement} contentElement - Content div element
  * @param {string} text - Text to append
@@ -731,17 +798,82 @@ function appendToNoteContent(noteId, contentElement, text) {
   const currentText = contentElement.textContent.trim();
 
   if (currentText) {
-    // Note has content - add on new line
+    // Note has content - detect formatting and match it
+    const formatting = detectTextFormatting(contentElement);
+    const formattedText = applyFormatting(escapeHtml(text), formatting);
+
     // Add a line break then the new text
-    contentElement.innerHTML += '<br>' + escapeHtml(text);
+    contentElement.innerHTML += '<br>' + formattedText;
   } else {
-    // Note is empty - just set the text
+    // Note is empty - just set the text (plain, user can format later)
     contentElement.innerHTML = escapeHtml(text);
   }
 
   // Save the updated content
   saveNoteContent(noteId, contentElement.innerHTML);
   console.log('[StickyNotes] Appended dictated text to note:', noteId);
+}
+
+/**
+ * Detect text formatting from the last text node in contentElement
+ * @param {HTMLElement} contentElement - Content element
+ * @returns {Object} Formatting state { bold, italic, underline }
+ */
+function detectTextFormatting(contentElement) {
+  const formatting = { bold: false, italic: false, underline: false };
+
+  // Try to detect formatting from the last text node
+  const innerHTML = contentElement.innerHTML;
+
+  // Check if content ends with formatting tags (simplified detection)
+  // Look at what tags are active at the end of the content
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = innerHTML;
+
+  // Walk backwards to find the last text node and its parent formatting
+  const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
+  let lastTextNode = null;
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.textContent.trim()) {
+      lastTextNode = node;
+    }
+  }
+
+  if (lastTextNode) {
+    let parent = lastTextNode.parentElement;
+    while (parent && parent !== tempDiv) {
+      const tagName = parent.tagName.toLowerCase();
+      if (tagName === 'b' || tagName === 'strong') formatting.bold = true;
+      if (tagName === 'i' || tagName === 'em') formatting.italic = true;
+      if (tagName === 'u') formatting.underline = true;
+      parent = parent.parentElement;
+    }
+  }
+
+  return formatting;
+}
+
+/**
+ * Apply formatting to text
+ * @param {string} text - Text to format
+ * @param {Object} formatting - Formatting to apply { bold, italic, underline }
+ * @returns {string} Formatted HTML
+ */
+function applyFormatting(text, formatting) {
+  let result = text;
+
+  if (formatting.bold) {
+    result = `<b>${result}</b>`;
+  }
+  if (formatting.italic) {
+    result = `<i>${result}</i>`;
+  }
+  if (formatting.underline) {
+    result = `<u>${result}</u>`;
+  }
+
+  return result;
 }
 
 /**
@@ -1366,12 +1498,12 @@ function injectStyles() {
   style.textContent = `
     .assist-sticky-note {
       position: fixed;
-      width: 200px;
-      height: 200px;
+      width: 280px;
+      height: 280px;
       background-color: #fef3c7;
       border: 2px solid #fbbf24;
-      border-radius: 4px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       z-index: 999999;
       display: flex;
       flex-direction: column;
@@ -1380,7 +1512,7 @@ function injectStyles() {
     }
 
     .assist-sticky-note:hover {
-      box-shadow: 0 10px 15px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
     }
 
     .assist-sticky-note.assist-dragging {
@@ -1397,11 +1529,11 @@ function injectStyles() {
       position: absolute;
       bottom: 0;
       right: 0;
-      width: 16px;
-      height: 16px;
+      width: 20px;
+      height: 20px;
       cursor: nwse-resize;
       background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.2) 50%);
-      border-bottom-right-radius: 4px;
+      border-bottom-right-radius: 8px;
       transition: background 0.2s;
     }
 
@@ -1415,13 +1547,13 @@ function injectStyles() {
     }
 
     .assist-sticky-note-header {
-      padding: 8px;
+      padding: 10px 12px;
       background-color: rgba(0, 0, 0, 0.05);
       border-bottom: 1px solid rgba(0, 0, 0, 0.1);
       cursor: move;
       display: flex;
       justify-content: flex-end;
-      gap: 4px;
+      gap: 6px;
       user-select: none;
     }
 
@@ -1429,23 +1561,23 @@ function injectStyles() {
     .assist-sticky-note-delete {
       background: transparent;
       border: none;
-      font-size: 16px;
+      font-size: 20px;
       font-weight: bold;
       line-height: 1;
       cursor: pointer;
       padding: 0;
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
+      border-radius: 6px;
       color: #6b7280;
       transition: all 0.2s;
     }
 
     .assist-sticky-note-delete {
-      font-size: 20px;
+      font-size: 24px;
     }
 
     .assist-sticky-note-color-btn:hover,
@@ -1468,26 +1600,26 @@ function injectStyles() {
       position: fixed;
       background: white;
       border: 2px solid #e5e7eb;
-      border-radius: 8px;
+      border-radius: 10px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-      padding: 8px;
+      padding: 10px;
       z-index: 1000000;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      min-width: 140px;
+      gap: 6px;
+      min-width: 160px;
     }
 
     .assist-color-option {
       background: transparent;
       border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 14px;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 16px;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       transition: all 0.15s;
       color: #374151;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1510,8 +1642,8 @@ function injectStyles() {
 
     .assist-sticky-note-toolbar {
       display: flex;
-      gap: 2px;
-      padding: 4px;
+      gap: 4px;
+      padding: 8px 10px;
       background-color: rgba(0, 0, 0, 0.05);
       border-bottom: 1px solid rgba(0, 0, 0, 0.1);
       opacity: 0;
@@ -1522,20 +1654,21 @@ function injectStyles() {
 
     .assist-sticky-note-toolbar.visible {
       opacity: 1;
-      max-height: 40px;
+      max-height: 50px;
     }
 
     .assist-toolbar-btn {
       background: rgba(255, 255, 255, 0.9);
       border: 1px solid rgba(0, 0, 0, 0.1);
-      border-radius: 3px;
-      padding: 4px 8px;
-      font-size: 14px;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 16px;
       font-weight: bold;
       cursor: pointer;
       transition: all 0.15s;
       color: #374151;
-      min-width: 28px;
+      min-width: 34px;
+      height: 34px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1560,9 +1693,9 @@ function injectStyles() {
     /* Toolbar separator */
     .assist-toolbar-separator {
       width: 1px;
-      height: 20px;
+      height: 26px;
       background: rgba(0, 0, 0, 0.15);
-      margin: 0 4px;
+      margin: 0 6px;
       align-self: center;
     }
 
@@ -1579,7 +1712,12 @@ function injectStyles() {
 
     /* TTS button specific */
     .assist-toolbar-btn-tts {
-      font-size: 12px;
+      font-size: 16px;
+    }
+
+    /* STT button specific */
+    .assist-toolbar-btn-stt {
+      font-size: 16px;
     }
 
     /* STT button specific - recording animation */
@@ -1598,9 +1736,9 @@ function injectStyles() {
 
     .assist-sticky-note-content {
       flex: 1;
-      padding: 12px;
+      padding: 14px 16px;
       overflow-y: auto;
-      font-size: 14px;
+      font-size: 16px;
       line-height: 1.5;
       color: #374151;
       outline: none;
@@ -1663,12 +1801,12 @@ function injectStyles() {
 
     /* Tags container */
     .assist-sticky-note-tags {
-      padding: 8px 12px;
+      padding: 10px 14px;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
-      min-height: 32px;
+      gap: 6px;
+      min-height: 38px;
       cursor: pointer;
       transition: background 0.15s;
     }
@@ -1680,7 +1818,7 @@ function injectStyles() {
     .assist-sticky-note-tags:empty:before {
       content: 'Click to add tags...';
       color: #9ca3af;
-      font-size: 12px;
+      font-size: 14px;
       font-style: italic;
     }
 
