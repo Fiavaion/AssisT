@@ -1,10 +1,10 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-11-27
+**Last Updated**: 2025-11-28
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2.1-2.6 Complete)
 **Current Phase**: Phase 2.7 - State-of-the-Art STT Enhancement (IN PROGRESS)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: feature/citation-capture (Phase 2.7 STT Enhancement starting)
+**Current Branch**: feature/citation-capture (Phase 2.7 STT Enhancement in progress)
 
 ---
 
@@ -22,10 +22,10 @@
 ## 🎯 Current Step
 
 **Phase**: 2.7 - State-of-the-Art STT Enhancement (IN PROGRESS)
-**Step**: S.1, S.2, S.6 Complete - Next: S.5 Custom Vocabulary
-**Previous**: Session 028 - Completed Voice Editing Commands (3/9 features)
+**Step**: S.1, S.2, S.5, S.6 Complete - Next: S.7 Neurodivergent STT Profiles
+**Previous**: Session 029 - Completed Custom Vocabulary (4/9 features)
 
-**Status**: 3/9 features complete (S.1 ✓, S.2 ✓, S.6 ✓)
+**Status**: 4/9 features complete (S.1 ✓, S.2 ✓, S.5 ✓, S.6 ✓)
 **Blocker**: None
 **Goal**: Transform basic dictation to world-class assistive technology rivaling Dragon NaturallySpeaking
 
@@ -33,20 +33,64 @@
 
 - S.1: Voice Editing Commands (100%) - delete, undo, redo, replace, select
 - S.2: Voice Navigation Commands (100%) - go to, move, find, next/previous
+- S.5: Custom Vocabulary (100%) - word lists, presets, auto-learn, import/export
 - S.6: Formatting Commands (100%) - bold, italic, lists, headings
 
 **Remaining Features**:
 
-1. S.5: Custom Vocabulary & Word Lists - HIGH
-2. S.7: Neurodivergent STT Profiles - HIGH
-3. S.3: Smart Auto-Punctuation - MEDIUM
-4. S.4: Confidence Feedback - MEDIUM
-5. S.8: Advanced Recognition Engine - LOW
-6. S.9: STT Testing & Documentation - HIGH
+1. S.7: Neurodivergent STT Profiles - HIGH (Next)
+2. S.3: Smart Auto-Punctuation - MEDIUM
+3. S.4: Confidence Feedback - MEDIUM
+4. S.8: Advanced Recognition Engine - LOW
+5. S.9: STT Testing & Documentation - HIGH
 
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 029 (2025-11-28)
+
+**Phase 2.7: State-of-the-Art STT Enhancement - 4/9 Features Complete**
+
+**Key Accomplishments**:
+
+1. **Feature S.5: Custom Vocabulary & Word Lists** (100%):
+   - Created vocabulary-manager.js (~850 lines)
+   - IndexedDB storage via Dexie.js
+   - 4 subject presets: Medical (48), Legal (38), Academic (31), STEM (43) words
+   - Import/export (TXT and JSON formats)
+   - Auto-learn from corrections (threshold-based)
+   - Phonetic pronunciation hints
+   - Similarity matching for suggestions
+
+2. **Popup UI Integration**:
+   - Auto-learn toggle
+   - Subject preset chips (toggle on/off)
+   - Word count statistics display
+   - Add Word modal with phonetic input
+   - Manage Vocabulary modal (view/delete)
+   - Import/Export buttons
+
+3. **STT Controller Integration**:
+   - `initializeVocabulary()`, `loadVocabularyPreset()`, `unloadVocabularyPreset()`
+   - `addVocabularyWord()`, `deleteVocabularyWord()`, `clearVocabulary()`
+   - `getVocabularyStats()`, `trackVocabularyCorrection()`
+
+**Files Created**:
+
+- src/engines/stt/vocabulary-manager.js (~850 lines)
+- tests/unit/stt/vocabulary-manager.test.js (~410 lines)
+
+**Files Modified**:
+
+- src/engines/stt/stt-controller.js (+155 lines)
+- src/popup/popup.html (+130 lines)
+- src/popup/popup.js (+400 lines)
+
+**Build Status**: ✅ Successful
+**Test Status**: 39 vocabulary tests passing
+
+---
 
 ### Phase 2 Session 028 (2025-11-27)
 

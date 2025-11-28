@@ -453,19 +453,19 @@
 
 ## Progress Tracking
 
-**Overall Progress**: 94% (17/17 Phase 2.1-2.6 features complete, Phase 2.7 STT Enhancement starting)
+**Overall Progress**: 96% (17/17 Phase 2.1-2.6 features complete, Phase 2.7 STT Enhancement in progress)
 
 **Phase 2.1 (High-Priority)**: 100% (4/4 features) - OCR, Highlight Menu, Reading Mode, Dictionary
 **Phase 2.2 (Writing & Organization)**: 100% (3/3 features) - Annotations 94%, Translation, Text Statistics
 **Phase 2.3 (UX Enhancements)**: 100% (2/2 features) - Font Library, Keyboard Shortcuts
 **Phase 2.4 (Citation Management)**: 100% (6/6 features) - 11.1 through 11.6 complete
 **Phase 2.6 (Neurodivergent Features)**: 100% (7/7 features + 6 profiles)
-**Phase 2.7 (STT Enhancement)**: 33% (3/9 features complete) - S.1 ✓, S.2 ✓, S.6 ✓
+**Phase 2.7 (STT Enhancement)**: 44% (4/9 features complete) - S.1 ✓, S.2 ✓, S.5 ✓, S.6 ✓
 
 **Current Phase**: Phase 2.7 - State-of-the-Art STT Enhancement
-**Testing Progress**: 11/12 tasks complete (623 unit tests, 74+ E2E tests)
+**Testing Progress**: 11/12 tasks complete (662 unit tests, 74+ E2E tests)
 **STT Enhancement Goal**: Transform basic dictation to world-class assistive technology
-**Next Steps**: S.3 Smart Punctuation, S.5 Custom Vocabulary, S.7 Neurodivergent Profiles
+**Next Steps**: S.3 Smart Punctuation, S.7 Neurodivergent Profiles
 
 **Estimated Completion**: Week 22
 **Phase 2.6 Completion**: Week 2 (significantly ahead of schedule)
@@ -698,20 +698,28 @@
 
 ### Feature S.5: Custom Vocabulary & Word Lists
 
-**Status**: `[ ]` Pending
+**Status**: `[✓]` Complete (100%)
 **Estimated**: 2-3 days
+**Actual**: 1 session (~2 hours)
 **Priority**: HIGH
 **Dependencies**: None
 
 **Tasks**:
 
-- [ ] S.5.1: Custom word list storage (IndexedDB)
-- [ ] S.5.2: Add word UI in settings panel
-- [ ] S.5.3: Import vocabulary from text file
-- [ ] S.5.4: Export vocabulary to text file
-- [ ] S.5.5: Subject-specific presets (Medical, Legal, Academic, STEM)
-- [ ] S.5.6: Auto-learn from corrections
-- [ ] S.5.7: Phonetic spelling hints (pronunciation guide)
+- [x] S.5.1: Custom word list storage (IndexedDB via Dexie.js)
+- [x] S.5.2: Add word UI in settings panel (popup vocabulary section)
+- [x] S.5.3: Import vocabulary from text file (TXT and JSON formats)
+- [x] S.5.4: Export vocabulary to text file (JSON export)
+- [x] S.5.5: Subject-specific presets (Medical 48, Legal 38, Academic 31, STEM 43 words)
+- [x] S.5.6: Auto-learn from corrections (threshold-based learning)
+- [x] S.5.7: Phonetic spelling hints (pronunciation guide support)
+
+**Implementation Notes**:
+
+- Created `vocabulary-manager.js` (800+ lines) with full CRUD, presets, import/export
+- Added vocabulary UI section to popup.html with preset chips and word management
+- Integrated with STT controller for vocabulary word recognition
+- 39 unit tests passing for core vocabulary functionality
 
 ### Feature S.6: Formatting Commands
 
