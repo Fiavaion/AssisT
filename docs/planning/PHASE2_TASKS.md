@@ -417,7 +417,7 @@
 
 **Status**: `[>]` In Progress
 **Estimated**: 2 weeks (ongoing)
-**Actual**: Started 2025-11-27 (Session 024)
+**Actual**: Started 2025-11-27 (Session 024), E2E fixes Session 035
 
 **Tasks**:
 
@@ -426,13 +426,20 @@
 - [x] T.3: Unit tests for all translation functions (21 tests in translation-api.test.js)
 - [x] T.4: Unit tests for all annotation CRUD (188 tests across 5 files)
 - [x] T.5: Unit tests for all citation functions (64 tests in citation-export.test.js, source-evaluator.test.js)
-- [x] T.6: E2E test for OCR workflow (14 tests in ocr.e2e.test.js - task 1.12)
+- [x] T.6: E2E test for OCR workflow (14 tests - selectors fixed Session 035)
 - [x] T.7: E2E test for Highlight Menu (11 tests in highlightMenu.e2e.test.js - task 2.13)
 - [x] T.8: E2E test for Reading Mode (11 tests in reading-mode.test.js)
-- [x] T.9: E2E test for annotations (23 tests created - needs injection fix)
+- [x] T.9: E2E test for annotations (23 tests - toggle pattern fixed Session 035)
 - [x] T.10: E2E test for citation capture (15 tests in citations.test.js)
-- [ ] T.11: Performance benchmarks (<300ms targets)
-- [ ] T.12: WCAG 2.2 AA accessibility audit
+- [x] T.11: E2E test for dyslexia mode (rewritten Session 035 - extension-fixture pattern)
+- [ ] T.12: Performance benchmarks (<300ms targets)
+- [ ] T.13: WCAG 2.2 AA accessibility audit
+
+**E2E Test Status (Session 035)**:
+
+- Unit Tests: 979 passing (100%)
+- E2E Tests: 61 passing, 51 failing (54% pass rate)
+- Fixes applied: Toggle interaction patterns, selector alignment, extension-fixture pattern
 
 ### Documentation Tasks
 
@@ -466,7 +473,7 @@
 **Phase 2.7 (STT Enhancement)**: 67% (6/9 features complete) - S.1 ✓, S.2 ✓, S.3 ✓, S.5 ✓, S.6 ✓, S.7 ✓
 
 **Current Phase**: Phase 2.7 - State-of-the-Art STT Enhancement
-**Testing Progress**: 11/12 tasks complete (721 unit tests, 74+ E2E tests)
+**Testing Progress**: 12/13 tasks complete (979 unit tests, 112 E2E tests - 61 passing)
 **STT Enhancement Goal**: Transform basic dictation to world-class assistive technology
 **Next Steps**: S.4 Confidence Feedback, S.8 Advanced Recognition, S.9 Testing & Documentation
 

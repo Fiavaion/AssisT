@@ -5,6 +5,7 @@
 **Current Phase**: Phase 2.7 - State-of-the-Art STT Enhancement (COMPLETE)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: feature/citation-capture (Phase 2.7 STT Enhancement COMPLETE)
+**Session**: Phase 2 Session 035 (E2E Test Fixes)
 
 ---
 
@@ -47,6 +48,45 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 035 (2025-11-28)
+
+**E2E Test Selector & Toggle Pattern Fixes**
+
+**Key Accomplishments**:
+
+1. **Toggle Interaction Pattern Fix**:
+   - Custom toggle switches need `.click()` not `.check()`
+   - Added pre-check state verification pattern
+   - Fixed annotations, dyslexia mode, OCR tests
+
+2. **Dyslexia Mode Test Rewrite**:
+   - Complete rewrite from broken popup event pattern
+   - Now uses extension-fixture.js pattern
+   - Fixed element ID: `#toggle-dyslexia-mode` → `#dyslexia-mode-enabled`
+   - Fixed slider range: 0-100 → 0.5-1.0
+
+3. **OCR Test Selector Fixes**:
+   - Fixed 5 selector mismatches
+   - `#toggle-ocr-enabled` → `#ocr-enabled`
+   - `#ocr-auto-activate-reading` → `#ocr-auto-reading-mode`
+   - Updated button text assertions
+
+**Files Modified**:
+
+- tests/e2e/annotations.spec.js (toggle helper fix)
+- tests/e2e/dyslexia-mode.spec.js (complete rewrite)
+- tests/e2e/ocr-screenshot.spec.js (selector fixes)
+
+**Test Status**:
+
+- Unit Tests: 979 passing (100%)
+- E2E Tests: 61 passing, 51 failing (54%)
+- Improved from ~58 passing to 61 passing
+
+**Commit**: `09469e4` - fix(test): update E2E test selectors and toggle interaction patterns
+
+---
 
 ### Phase 2 Session 034 (2025-11-28)
 
