@@ -3,7 +3,7 @@
  * Phase 2.7 - S.3: Smart Auto-Punctuation
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// Jest testing framework (not Vitest)
 import {
   AutoPunctuator,
   PunctuationType,
@@ -386,7 +386,7 @@ describe('AutoPunctuator', () => {
 
   describe('Callbacks', () => {
     it('should call onPunctuationAdded callback', () => {
-      const callback = vi.fn();
+      const callback = jest.fn();
       const punctuator2 = new AutoPunctuator({
         onPunctuationAdded: callback,
       });
