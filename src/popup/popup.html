@@ -765,6 +765,180 @@
                     Manual: Say "period", "comma", etc.
                   </p>
                 </div>
+                <!-- Confidence Feedback Settings (Phase 2.7 - S.4) -->
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-confidence-feedback" class="toggle-label">
+                      <span class="label-text">Confidence Feedback</span>
+                      <span
+                        class="badge badge-new"
+                        style="
+                          background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+                          color: white;
+                          font-size: 10px;
+                          padding: 2px 6px;
+                          border-radius: 4px;
+                          margin-left: 6px;
+                        "
+                        >NEW</span
+                      >
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-confidence-feedback"
+                          data-testid="stt-confidence-feedback-toggle"
+                          role="switch"
+                          aria-label="Confidence feedback"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description">
+                    Shows recognition accuracy with color-coded confidence scores
+                  </p>
+                </div>
+                <div class="control-subsection" id="confidence-threshold-section">
+                  <label class="control-label" for="stt-confidence-threshold"
+                    >Minimum Confidence Threshold</label
+                  >
+                  <div style="display: flex; align-items: center; gap: 10px">
+                    <input
+                      type="range"
+                      id="stt-confidence-threshold"
+                      class="slider"
+                      min="0"
+                      max="100"
+                      value="60"
+                      step="5"
+                      data-testid="stt-confidence-threshold"
+                      aria-label="Minimum confidence threshold"
+                      style="flex: 1"
+                    />
+                    <span
+                      id="stt-confidence-threshold-value"
+                      style="
+                        min-width: 45px;
+                        text-align: right;
+                        font-weight: 600;
+                        color: #4a90d9;
+                      "
+                      >60%</span
+                    >
+                  </div>
+                  <p
+                    class="feature-description"
+                    style="margin-top: 4px; font-size: 11px; color: #666"
+                  >
+                    Words below this threshold will be highlighted for review
+                  </p>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-highlight-low-confidence" class="toggle-label">
+                      <span class="label-text">Highlight Low-Confidence Words</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-highlight-low-confidence"
+                          data-testid="stt-highlight-low-confidence-toggle"
+                          role="switch"
+                          aria-label="Highlight low confidence words"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="stt-show-alternatives" class="toggle-label">
+                      <span class="label-text">Show Alternative Suggestions</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stt-show-alternatives"
+                          data-testid="stt-show-alternatives-toggle"
+                          role="switch"
+                          aria-label="Show alternative suggestions"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <button
+                    type="button"
+                    id="stt-show-stats"
+                    class="btn-secondary"
+                    aria-label="View session statistics"
+                    style="
+                      width: 100%;
+                      padding: 10px;
+                      font-size: 13px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 8px;
+                    "
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="18" y1="20" x2="18" y2="10"></line>
+                      <line x1="12" y1="20" x2="12" y2="4"></line>
+                      <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    View Session Statistics
+                  </button>
+                  <div
+                    id="stt-stats-summary"
+                    style="
+                      margin-top: 8px;
+                      padding: 10px;
+                      background: #f8f9fa;
+                      border-radius: 8px;
+                      display: none;
+                    "
+                  >
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 8px;
+                        font-size: 12px;
+                      "
+                    >
+                      <div>
+                        <span style="color: #666">Words/min:</span>
+                        <span id="stt-stats-wpm" style="font-weight: 600">0</span>
+                      </div>
+                      <div>
+                        <span style="color: #666">Accuracy:</span>
+                        <span id="stt-stats-accuracy" style="font-weight: 600">0%</span>
+                      </div>
+                      <div>
+                        <span style="color: #666">Total Words:</span>
+                        <span id="stt-stats-words" style="font-weight: 600">0</span>
+                      </div>
+                      <div>
+                        <span style="color: #666">Duration:</span>
+                        <span id="stt-stats-duration" style="font-weight: 600">0m</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-voice-commands" class="toggle-label">
