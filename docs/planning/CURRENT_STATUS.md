@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2.7 - State-of-the-Art STT Enhancement (COMPLETE)
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: feature/citation-capture (Phase 2.7 STT Enhancement COMPLETE)
-**Session**: Phase 2 Session 035 (E2E Test Fixes)
+**Session**: Phase 2 Session 037 (Discovery Quiz Planning)
 
 ---
 
@@ -48,6 +48,62 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 037 (2025-11-28)
+
+**Discovery Quiz Design Decisions & NCAD Research**
+
+**Key Accomplishments**:
+
+1. **Design Decisions Confirmed**:
+   - Quiz Location: B) Dedicated full tab (confirmed secure - chrome.tabs.create is sandboxed)
+   - Discovery Length: C) Adaptive - 6 core questions + "Tell me more" refinement
+   - Dysgraphia: C) Sub-option under Dyslexia - "Dyslexia (includes writing difficulties)"
+   - Demo Content: A) NCAD-specific content based on real curriculum
+
+2. **NCAD Brand Research**:
+   - Brand guide: "Bold and Curious Thinking, Making and Doing"
+   - Colors: Black/white primary, Orange 2025 (#f36f21)
+   - Typography: Spenser typeface
+   - Four Schools: Design, Education, Fine Art, Visual Culture
+
+3. **Demo Content Strategy**:
+   - Critical Cultures essay brief (Visual Culture theory)
+   - First Year Studio brief (Materials & Process)
+   - Pathway Experience brief (discipline-specific)
+   - Assessment criteria blocks
+
+**Files Created**:
+
+- docs/sessions/phase2-session-037.md
+
+**Session Type**: Planning/Research (no code changes)
+
+**Next**: Discovery Quiz implementation
+
+---
+
+### Phase 2 Session 036 (2025-11-28)
+
+**UI Bug Fixes & Visual Improvements**
+
+**Key Accomplishments**:
+
+1. **Screen Color Overlay** - Complete rewrite using background tinting
+2. **Dyslexia Mode** - Syllable/grammar color fixes
+3. **Dark Mode** - Aggressive element targeting
+4. **Pomodoro Timer** - Default position change to bottom-left
+
+**Files Modified**:
+
+- src/features/screenOverlay/screenOverlay.js
+- src/features/darkMode/darkMode.js
+- src/content/features/dyslexia.js
+- src/features/pomodoro/pomodoro.js
+
+**Commit**: `9a9fd05` - fix(ui): improve dark mode coverage with aggressive element targeting
+
+---
 
 ### Phase 2 Session 035 (2025-11-28)
 
