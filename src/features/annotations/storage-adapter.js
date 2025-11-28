@@ -135,13 +135,58 @@ class DexieStorageAdapter extends BaseStorageAdapter {
     // Define schema (version 1)
     this.db.version(1).stores({
       annotations: '++id, url, type, createdAt, updatedAt, *tags, color',
-      // ++id: auto-incrementing primary key
-      // url: indexed for fast URL lookups
-      // type: 'note' or 'annotation'
-      // createdAt, updatedAt: timestamps for sorting/filtering
-      // *tags: multi-entry index (array of tags)
-      // color: indexed for color-based filtering
     });
+
+    // Version 2: Add projectIds for linking annotations to citation projects (Task 5.15)
+    this.db.version(2).stores({
+      annotations: '++id, url, type, createdAt, updatedAt, *tags, color, *projectIds',
+    });
+  }
+
+  /**
+   * Get annotations linked to a specific project (Task 5.15)
+   */
+  async getByProjectId(projectId) {
+    try {
+      return await this.db.annotations.where('projectIds').equals(projectId).toArray();
+    } catch (error) {
+      console.error(`[DexieAdapter] Error getting annotations for project ${projectId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Link an annotation to a citation project (Task 5.15)
+   */
+  async linkToProject(annotationId, projectId) {
+    try {
+      const annotation = await this.getById(annotationId);
+      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      const projectIds = annotation.projectIds || [];
+      if (!projectIds.includes(projectId)) {
+        projectIds.push(projectId);
+        return await this.update(annotationId, { projectIds });
+      }
+      return annotation;
+    } catch (error) {
+      console.error(`[DexieAdapter] Error linking annotation:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unlink an annotation from a citation project (Task 5.15)
+   */
+  async unlinkFromProject(annotationId, projectId) {
+    try {
+      const annotation = await this.getById(annotationId);
+      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      const projectIds = (annotation.projectIds || []).filter(id => id !== projectId);
+      return await this.update(annotationId, { projectIds });
+    } catch (error) {
+      console.error(`[DexieAdapter] Error unlinking annotation:`, error);
+      throw error;
+    }
   }
 
   async getAll() {
@@ -548,6 +593,47 @@ class LocalStorageAdapter extends BaseStorageAdapter {
       return withIds.length;
     } catch (error) {
       console.error('[LocalAdapter] Error importing annotations:', error);
+      throw error;
+    }
+  }
+
+  /** Get annotations linked to a specific project (Task 5.15) */
+  async getByProjectId(projectId) {
+    try {
+      const annotations = await this._getStorage();
+      return annotations.filter(ann => (ann.projectIds || []).includes(projectId));
+    } catch (error) {
+      console.error(`[LocalAdapter] Error getting annotations for project:`, error);
+      throw error;
+    }
+  }
+
+  /** Link an annotation to a citation project (Task 5.15) */
+  async linkToProject(annotationId, projectId) {
+    try {
+      const annotation = await this.getById(annotationId);
+      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      const projectIds = annotation.projectIds || [];
+      if (!projectIds.includes(projectId)) {
+        projectIds.push(projectId);
+        return await this.update(annotationId, { projectIds });
+      }
+      return annotation;
+    } catch (error) {
+      console.error(`[LocalAdapter] Error linking annotation:`, error);
+      throw error;
+    }
+  }
+
+  /** Unlink an annotation from a citation project (Task 5.15) */
+  async unlinkFromProject(annotationId, projectId) {
+    try {
+      const annotation = await this.getById(annotationId);
+      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      const projectIds = (annotation.projectIds || []).filter(id => id !== projectId);
+      return await this.update(annotationId, { projectIds });
+    } catch (error) {
+      console.error(`[LocalAdapter] Error unlinking annotation:`, error);
       throw error;
     }
   }

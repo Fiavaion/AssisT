@@ -265,29 +265,48 @@ export const CitationStorage = {
 };
 
 /**
- * Project Management API
+ * Project Management API - Enhanced with annotation linking (Task 5.15)
  */
 export const ProjectStorage = {
   /**
    * Create a new project
-   * @param {string} name - Project name
-   * @param {string} description - Project description
-   * @returns {Promise<string>} - Project ID
    */
   async create(name, description = '') {
-    const project = {
-      name,
-      description,
-      createdAt: Date.now(),
-    };
-
+    const project = { name, description, createdAt: Date.now() };
     const id = await db.projects.add(project);
     return String(id);
   },
 
   /**
+   * Get annotations linked to a project (Task 5.15)
+   */
+  async getAnnotations(projectId) {
+    try {
+      const { getStorageAdapter } = await import('../annotations/storage-adapter.js');
+      const result = await new Promise(resolve => {
+        chrome.storage.local.get(['annotationStorageMode'], r => resolve(r));
+      });
+      const storageAdapter = getStorageAdapter(result.annotationStorageMode || 'local');
+      return await storageAdapter.getByProjectId(projectId);
+    } catch (error) {
+      console.error(`[ProjectStorage] Error getting annotations:`, error);
+      return [];
+    }
+  },
+
+  /**
+   * Get all resources (citations + annotations) for a project (Task 5.15)
+   */
+  async getAllResources(projectId) {
+    const [citations, annotations] = await Promise.all([
+      this.getCitations(projectId),
+      this.getAnnotations(projectId),
+    ]);
+    return { citations, annotations };
+  },
+
+  /**
    * Get all projects
-   * @returns {Promise<Array<Object>>}
    */
   async getAll() {
     return await db.projects.toArray();
