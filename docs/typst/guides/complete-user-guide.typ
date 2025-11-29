@@ -1,534 +1,482 @@
 // =============================================================================
-// AssisT Complete User Guide - Compact Edition
-// NCAD Brand Identity Style - Two Column Layout with Cards
+// AssisT Complete User Guide
+// Brand Guideline Style - Clean, Minimal, Sophisticated
 // =============================================================================
 
-// NCAD Color Palette
-#let ncad-black = rgb("#000000")
-#let ncad-white = rgb("#ffffff")
-#let ncad-dark-grey = rgb("#3b3737")
-#let ncad-light-grey = rgb("#938e8c")
-#let ncad-orange = rgb("#f36f21")
+// Color Palette - Inspired by brand guideline aesthetic
+#let brand-olive = rgb("#5C6B4A")
+#let brand-gold = rgb("#C4A962")
+#let brand-cream = rgb("#F5F3EE")
+#let brand-black = rgb("#1A1A1A")
+#let brand-grey = rgb("#6B6B6B")
+#let brand-light-grey = rgb("#E8E6E1")
 
-// Page Setup - Tighter margins for compact layout
+// Page Setup
 #set page(
   paper: "a4",
-  margin: (top: 18mm, bottom: 15mm, left: 15mm, right: 15mm),
+  margin: (top: 20mm, bottom: 18mm, left: 20mm, right: 20mm),
   numbering: "1",
-  number-align: center,
+  number-align: right,
+  fill: white,
 )
 
-// Typography - Slightly smaller for compact layout
-#set text(font: "Arial", size: 9.5pt, fill: ncad-dark-grey)
-#set par(leading: 0.65em, justify: true)
+// Typography
+#set text(font: "Arial", size: 9pt, fill: brand-black)
+#set par(leading: 0.7em, justify: true)
 
-// Heading Styles - More compact
-#show heading.where(level: 1): it => {
-  set text(font: "Arial", size: 16pt, weight: "bold", fill: ncad-black)
-  v(0.6em)
-  block(below: 0.4em)[
-    #it.body
-    #v(-0.2em)
-    #line(length: 100%, stroke: 1.5pt + ncad-orange)
-  ]
+// Section number style
+#let section-num(num) = {
+  text(size: 72pt, fill: brand-light-grey, weight: "bold", font: "Arial")[#num]
 }
 
-#show heading.where(level: 2): it => {
-  set text(font: "Arial", size: 11pt, weight: "bold", fill: ncad-orange)
+// Section header with large number
+#let section(num, title) = {
   v(0.5em)
-  it.body
-  v(0.2em)
+  grid(
+    columns: (50pt, 1fr),
+    gutter: 12pt,
+    align(right + top)[#text(size: 48pt, fill: brand-light-grey, weight: "bold")[#num]],
+    align(left + bottom)[
+      #v(20pt)
+      #text(size: 18pt, weight: "bold", fill: brand-black)[#title]
+      #v(-2pt)
+      #line(length: 40pt, stroke: 2pt + brand-olive)
+    ]
+  )
+  v(0.8em)
 }
 
-// Orange accent for bold text
-#show strong: set text(fill: ncad-orange, weight: "bold")
-
-// Components
-#let kbd(key) = {
-  box(
-    inset: (x: 3pt, y: 1pt),
-    radius: 2pt,
-    fill: rgb("#f0f0f0"),
-    stroke: 0.5pt + ncad-light-grey,
-  )[#text(font: "Consolas", size: 8pt)[#key]]
+// Subsection style
+#show heading.where(level: 2): it => {
+  v(0.6em)
+  text(size: 11pt, weight: "bold", fill: brand-olive)[#it.body]
+  v(0.3em)
 }
 
-// Feature Card - compact box for features
+// Feature card
 #let feature-card(title, content) = {
   block(
     width: 100%,
-    inset: 8pt,
-    radius: 4pt,
-    fill: rgb("#fafafa"),
-    stroke: 0.5pt + ncad-light-grey,
+    inset: 10pt,
+    radius: 3pt,
+    fill: brand-cream,
   )[
-    #text(weight: "bold", size: 10pt, fill: ncad-black)[#title]
-    #v(2pt)
-    #text(size: 9pt)[#content]
+    #text(weight: "bold", size: 9.5pt, fill: brand-black)[#title]
+    #v(4pt)
+    #text(size: 8.5pt, fill: brand-grey)[#content]
   ]
 }
 
-// Tip inline
-#let tip(body) = {
-  text(fill: ncad-orange, weight: "bold", size: 8pt)[TIP: ]
-  text(size: 8pt, style: "italic")[#body]
+// Keyboard shortcut
+#let kbd(key) = {
+  box(
+    inset: (x: 4pt, y: 2pt),
+    radius: 2pt,
+    fill: white,
+    stroke: 0.5pt + brand-light-grey,
+  )[#text(font: "Consolas", size: 8pt, fill: brand-black)[#key]]
 }
 
-// Small section card
-#let info-card(title, items) = {
-  block(
-    width: 100%,
-    inset: 8pt,
-    radius: 4pt,
-    fill: rgb("#fff8f0"),
-    stroke: 1pt + ncad-orange,
-  )[
-    #text(weight: "bold", size: 9pt, fill: ncad-orange)[#title]
-    #v(3pt)
-    #text(size: 8.5pt)[#items]
-  ]
-}
+// Accent text
+#let accent(body) = text(fill: brand-olive, weight: "bold")[#body]
 
 // =============================================================================
-// COVER PAGE - Compact
+// COVER PAGE
 // =============================================================================
+
+#v(4em)
 
 #align(center)[
-  #v(3em)
-  #text(size: 36pt, weight: "bold", fill: ncad-black)[AssisT]
-  #v(0.2em)
-  #text(size: 14pt, fill: ncad-light-grey)[User Guide]
-  #v(0.3em)
-  #line(length: 40%, stroke: 2.5pt + ncad-orange)
-  #v(1.5em)
-  #text(size: 11pt, fill: ncad-dark-grey)[Accessibility tools for reading, writing, and studying]
-  #v(0.5em)
-  #text(size: 9pt, fill: ncad-light-grey)[Version 1.0 • For neurodivergent learners]
+  #text(size: 11pt, fill: brand-grey, tracking: 2pt)[USER GUIDE]
 ]
 
 #v(2em)
 
-// Quick intro on cover page
-#columns(2, gutter: 12pt)[
-  #info-card("What AssisT Does")[
-    • Reads text aloud for you\
-    • Types what you say (voice input)\
-    • Reduces page distractions\
-    • Makes text easier to read\
-    • Helps organize notes\
-    • Translates and explains words
-  ]
+#align(center)[
+  #text(size: 42pt, weight: "bold", fill: brand-black)[ASSIST]
+]
 
-  #colbreak()
+#v(0.5em)
 
-  #info-card("Who It's For")[
-    • Students with dyslexia\
-    • Students with ADHD\
-    • Students with dysgraphia\
-    • Non-native English speakers\
-    • Anyone wanting easier studying
+#align(center)[
+  #line(length: 60pt, stroke: 2.5pt + brand-olive)
+]
+
+#v(3em)
+
+#align(center)[
+  #text(size: 11pt, fill: brand-grey)[
+    Accessibility tools for reading, writing, and studying
   ]
+]
+
+#v(6em)
+
+// Two intro boxes
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 16pt,
+  block(
+    width: 100%,
+    inset: 14pt,
+    radius: 4pt,
+    fill: brand-cream,
+  )[
+    #text(weight: "bold", size: 10pt, fill: brand-olive)[What It Does]
+    #v(6pt)
+    #text(size: 8.5pt, fill: brand-grey)[
+      • Reads text aloud\
+      • Types what you say\
+      • Reduces distractions\
+      • Makes text easier to read\
+      • Organizes your notes\
+      • Translates words
+    ]
+  ],
+  block(
+    width: 100%,
+    inset: 14pt,
+    radius: 4pt,
+    fill: brand-cream,
+  )[
+    #text(weight: "bold", size: 10pt, fill: brand-olive)[Who It's For]
+    #v(6pt)
+    #text(size: 8.5pt, fill: brand-grey)[
+      • Students with dyslexia\
+      • Students with ADHD\
+      • Students with dysgraphia\
+      • Non-native English speakers\
+      • Anyone wanting easier study
+    ]
+  ]
+)
+
+#v(1fr)
+
+#align(center)[
+  #text(size: 8pt, fill: brand-grey)[Version 1.0]
 ]
 
 #pagebreak()
 
 // =============================================================================
-// GETTING STARTED + READING TOOLS
+// CONTENTS
 // =============================================================================
 
-= Getting Started
+#v(1em)
 
-#columns(2, gutter: 12pt)[
-  == Installing AssisT
+#align(right)[
+  #text(size: 24pt, weight: "bold", fill: brand-black)[CONTENTS]
+  #v(-2pt)
+  #align(right)[#line(length: 60pt, stroke: 2pt + brand-olive)]
+]
 
-  + Open *Chrome* or *Edge* browser
+#v(2em)
+
+#set text(size: 9pt)
+
+#grid(
+  columns: (20pt, 1fr, 30pt),
+  row-gutter: 8pt,
+  [01], [GETTING STARTED #box(width: 1fr, repeat[.])], [3],
+  [02], [READING TOOLS #box(width: 1fr, repeat[.])], [3],
+  [03], [WRITING TOOLS #box(width: 1fr, repeat[.])], [4],
+  [04], [FOCUS TOOLS #box(width: 1fr, repeat[.])], [4],
+  [05], [VISUAL COMFORT #box(width: 1fr, repeat[.])], [4],
+  [06], [STUDY TOOLS #box(width: 1fr, repeat[.])], [5],
+  [07], [LANGUAGE TOOLS #box(width: 1fr, repeat[.])], [5],
+  [08], [REFERENCE #box(width: 1fr, repeat[.])], [5],
+)
+
+#pagebreak()
+
+// =============================================================================
+// 01 GETTING STARTED
+// =============================================================================
+
+#section("01", "Getting Started.")
+
+#columns(2, gutter: 16pt)[
+  == Installing
+
+  + Open #accent[Chrome] or #accent[Edge] browser
   + Go to Chrome Web Store
-  + Search for *"AssisT"*
-  + Click *"Add to Chrome"*
-  + Click *"Add Extension"*
+  + Search for #accent["AssisT"]
+  + Click "Add to Chrome"
+  + Click "Add Extension"
 
-  After installing, find the AssisT icon in your toolbar (top-right). Click the puzzle piece if you don't see it.
+  Find the AssisT icon in your toolbar (top-right corner).
 
   #colbreak()
 
   == Discovery Quiz
 
-  Take the 6-question quiz to get personalized tool recommendations.
+  Take 6 questions to get personalized recommendations.
 
   + Click the AssisT icon
-  + Click *"Discover Your Tools"*
-  + Answer 6 questions
+  + Click #accent["Discover Your Tools"]
+  + Answer the questions
   + Review recommendations
-  + Click *"Apply"* to enable
+  + Click "Apply" to enable
 
-  #tip[Retake anytime your needs change.]
+  _Retake anytime your needs change._
 ]
 
-#v(0.5em)
-
-#block(
-  width: 100%,
-  inset: 8pt,
-  radius: 4pt,
-  fill: rgb("#f5f5f5"),
-  stroke: 0.5pt + ncad-light-grey,
-)[
-  #text(weight: "bold", size: 9pt)[The 6 Quiz Questions: ]
-  #text(size: 8.5pt)[
-    *Reading* (screen fatigue?) • *Writing* (typing difficult?) • *Focus* (hard to concentrate?) • *Visual* (bright screens uncomfortable?) • *Organization* (need note help?) • *Language* (need translation?)
-  ]
-]
-
-#v(0.8em)
-
-= Reading Tools
-
-#columns(2, gutter: 12pt)[
-  #feature-card("Read Aloud (Text-to-Speech)")[
-    Have any text read aloud with word highlighting.
-
-    *Use:* Select text → #kbd("Alt+R") or click speaker
-
-    *Controls:* #kbd("Space") pause • #kbd("Esc") stop • Adjust speed/voice in settings
-
-    #tip[Great for proofreading—you'll hear mistakes!]
-  ]
-
-  #v(6pt)
-
-  #feature-card("Reading Mode")[
-    Removes distractions, shows clean text only.
-
-    *Use:* Click AssisT → *Reading Mode* or #kbd("Alt+M")
-
-    Hides ads, sidebars, navigation. Customize font and size in the simplified view.
-  ]
-
-  #colbreak()
-
-  #feature-card("Reading Guide")[
-    Coloured bar follows your mouse to track lines.
-
-    *Use:* Toggle in AssisT popup
-
-    Helps you not lose your place. Adjustable colour and thickness.
-  ]
-
-  #v(6pt)
-
-  #feature-card("Dyslexia-Friendly Font")[
-    Changes text to OpenDyslexic font.
-
-    *Use:* Toggle *"Dyslexia Font"* in popup
-
-    Letters have weighted bottoms—harder to confuse b/d, p/q. Reduces "flipping" effect.
-  ]
-]
-
-#pagebreak()
-
-// =============================================================================
-// WRITING + FOCUS TOOLS
-// =============================================================================
-
-= Writing Tools
-
-#columns(2, gutter: 12pt)[
-  #feature-card("Voice Input (Speech-to-Text)")[
-    Speak and your words appear as text.
-
-    *Use:* Click in text box → #kbd("Alt+V") or mic icon → Speak → #kbd("Esc") to stop
-
-    *Tips:* Speak at normal pace • Say punctuation ("comma", "full stop") • Use quiet environment • External mic works best
-  ]
-
-  #colbreak()
-
-  #feature-card("Voice Commands")[
-    Control writing with spoken commands:
-
-    #table(
-      columns: (1fr, 1fr),
-      inset: 4pt,
-      stroke: none,
-      [*"new line"*], [New line],
-      [*"new paragraph"*], [Blank line + new para],
-      [*"delete that"*], [Delete last phrase],
-      [*"undo"*], [Undo last action],
-    )
-  ]
-]
-
-#v(0.8em)
-
-= Focus Tools
-
-#columns(2, gutter: 12pt)[
-  #feature-card("Focus Mode")[
-    Dims distracting parts of the page.
-
-    *Use:* #kbd("Alt+F") or toggle in popup
-
-    Fades sidebars/ads, highlights main content. Click through faded areas if needed.
-  ]
-
-  #colbreak()
-
-  #feature-card("Pomodoro Timer")[
-    Work in focused bursts with breaks.
-
-    *Cycle:* 25min work → 5min break → Repeat 4× → 15min long break
-
-    *Use:* Open timer panel in popup → Click *Start*
-
-    #tip[Great for ADHD—structured breaks prevent burnout.]
-  ]
-]
-
-#v(0.8em)
-
-= Visual Comfort
-
-#columns(2, gutter: 12pt)[
-  #feature-card("Dark Mode")[
-    Dark pages with light text.
-
-    *Options:* Dim • Dark • High Contrast • Auto (follows system)
-
-    *Use:* Select level in AssisT popup
-  ]
-
-  #v(6pt)
-
-  #feature-card("Colour Overlay")[
-    Adds coloured tint over screen.
-
-    *Use:* Select colour + adjust intensity in popup
-
-    *Popular:* Yellow (reduces glare) • Blue (calming) • Pink • Green
-
-    Helps with visual stress and Irlen syndrome.
-  ]
-
-  #colbreak()
-
-  #feature-card("Text Customization")[
-    Adjust text appearance on any page:
-
-    • *Font size* — larger/smaller
-    • *Line spacing* — between lines
-    • *Letter spacing* — between letters
-    • *Word spacing* — between words
-    • *Font family* — change typeface
-
-    *Use:* Adjust sliders in *Text Settings*
-  ]
-]
-
-#pagebreak()
-
-// =============================================================================
-// STUDY + LANGUAGE TOOLS
-// =============================================================================
-
-= Study Tools
-
-#columns(2, gutter: 12pt)[
-  #feature-card("Annotations")[
-    Add highlights and notes to any webpage.
-
-    *Highlighting:* Select text → Choose colour (yellow/green/blue/pink) → Saved automatically
-
-    *Sticky Notes:* Click anywhere → Type your note → Saved to that page
-
-    View all annotations in sidebar. They appear when you return to the page.
-  ]
-
-  #colbreak()
-
-  #feature-card("Citation Manager")[
-    Save sources with automatic formatting.
-
-    *Save:* Right-click page → *"Save Citation"* or use popup menu
-
-    *Export formats:* Harvard • APA • MLA • Copy to clipboard
-
-    Citation info captured automatically from the page.
-  ]
-]
-
-#v(0.8em)
-
-= Language Tools
-
-#columns(2, gutter: 12pt)[
-  #feature-card("Dictionary")[
-    Look up any word instantly.
-
-    *Use:* Double-click any word → Definition popup appears
-
-    Shows pronunciation, example sentences. Works offline. Builds vocabulary list automatically.
-  ]
-
-  #colbreak()
-
-  #feature-card("Translation")[
-    Translate text or full pages.
-
-    *Quick:* Select text → Click translate icon
-
-    *Full page:* AssisT popup → *Translate Page* → Choose language
-  ]
-]
-
-#v(0.8em)
-
-= Keyboard Shortcuts
+#v(0.6em)
 
 #block(
   width: 100%,
   inset: 10pt,
-  radius: 4pt,
-  fill: rgb("#f5f5f5"),
-  stroke: 0.5pt + ncad-light-grey,
+  radius: 3pt,
+  fill: brand-cream,
 )[
-  #columns(3, gutter: 8pt)[
-    #text(size: 9pt)[
-      #kbd("Alt+R") Read aloud\
-      #kbd("Alt+V") Voice input
-    ]
-    #colbreak()
-    #text(size: 9pt)[
-      #kbd("Alt+M") Reading Mode\
-      #kbd("Alt+F") Focus Mode
-    ]
-    #colbreak()
-    #text(size: 9pt)[
-      #kbd("Esc") Stop TTS/STT\
-      #kbd("Space") Pause/Resume
-    ]
-  ]
-  #v(4pt)
-  #text(size: 8pt, fill: ncad-light-grey)[Customize shortcuts in Settings → Keyboard → Custom Shortcuts]
-]
-
-#pagebreak()
-
-// =============================================================================
-// SETTINGS + TROUBLESHOOTING + QUICK REF
-// =============================================================================
-
-= Settings & Troubleshooting
-
-#columns(2, gutter: 12pt)[
-  == Opening Settings
-
-  Click AssisT icon → Gear icon (⚙️) → Browse categories → Changes save automatically
-
-  == Reset to Defaults
-
-  Settings → Scroll to bottom → *"Reset to Defaults"* → Confirm
-
-  *Note:* Export settings first as backup!
-
-  == Import/Export
-
-  • *Export* — Save settings to file
-  • *Import* — Load from saved file
-
-  Use to transfer between computers.
-
-  #colbreak()
-
-  == Common Issues
-
-  #text(size: 9pt)[
-    *TTS not working?*
-    Check volume • Try different voice • Refresh page • Check audio permission
-
-    *Voice input not working?*
-    Allow mic access • Check mic connected • Speak clearly • Try different browser
-
-    *Features not appearing?*
-    Press #kbd("F5") to refresh • Check enabled in settings • Try different site • Reinstall extension
-
-    *Settings not saving?*
-    Check storage permission • Clear cache • Export as backup
+  #text(weight: "bold", size: 8.5pt, fill: brand-olive)[The 6 Questions]
+  #h(8pt)
+  #text(size: 8pt, fill: brand-grey)[
+    Reading • Writing • Focus • Visual • Organization • Language
   ]
 ]
 
 #v(1em)
 
-= Quick Reference Card
+// =============================================================================
+// 02 READING TOOLS
+// =============================================================================
+
+#section("02", "Reading Tools.")
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 12pt,
+  feature-card("Read Aloud")[
+    Have text read aloud with word highlighting.
+
+    #accent[Use:] Select text → #kbd("Alt+R")
+
+    #kbd("Space") pause · #kbd("Esc") stop
+  ],
+  feature-card("Reading Mode")[
+    Clean view without distractions.
+
+    #accent[Use:] #kbd("Alt+M") or popup toggle
+
+    Hides ads, sidebars, navigation.
+  ],
+  feature-card("Reading Guide")[
+    Coloured bar tracks your reading line.
+
+    #accent[Use:] Toggle in popup
+
+    Adjustable colour and thickness.
+  ],
+  feature-card("Dyslexia Font")[
+    OpenDyslexic font for easier reading.
+
+    #accent[Use:] Toggle in popup
+
+    Weighted letters reduce confusion.
+  ],
+)
+
+#pagebreak()
+
+// =============================================================================
+// 03 WRITING TOOLS
+// =============================================================================
+
+#section("03", "Writing Tools.")
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 12pt,
+  feature-card("Voice Input")[
+    Speak and words appear as text.
+
+    #accent[Use:] #kbd("Alt+V") → Speak → #kbd("Esc")
+
+    Say punctuation: "comma", "full stop"
+  ],
+  feature-card("Voice Commands")[
+    Control writing by speaking.
+
+    "new line" · "new paragraph"\
+    "delete that" · "undo"
+  ],
+)
+
+#v(1em)
+
+// =============================================================================
+// 04 FOCUS TOOLS
+// =============================================================================
+
+#section("04", "Focus Tools.")
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 12pt,
+  feature-card("Focus Mode")[
+    Dims distracting page elements.
+
+    #accent[Use:] #kbd("Alt+F") or popup
+
+    Fades sidebars and ads.
+  ],
+  feature-card("Pomodoro Timer")[
+    Work in focused 25-minute bursts.
+
+    25min work → 5min break → repeat
+
+    Open timer panel in popup.
+  ],
+)
+
+#v(1em)
+
+// =============================================================================
+// 05 VISUAL COMFORT
+// =============================================================================
+
+#section("05", "Visual Comfort.")
+
+#grid(
+  columns: (1fr, 1fr, 1fr),
+  gutter: 10pt,
+  feature-card("Dark Mode")[
+    Dark pages, light text.
+
+    Dim · Dark · High Contrast · Auto
+  ],
+  feature-card("Colour Overlay")[
+    Tinted screen filter.
+
+    Yellow · Blue · Pink · Green
+  ],
+  feature-card("Text Settings")[
+    Adjust font size, spacing, family.
+
+    Use sliders in popup.
+  ],
+)
+
+#pagebreak()
+
+// =============================================================================
+// 06 STUDY TOOLS
+// =============================================================================
+
+#section("06", "Study Tools.")
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 12pt,
+  feature-card("Annotations")[
+    Highlight text and add sticky notes.
+
+    Select text → Choose colour\
+    Click anywhere → Add note
+
+    Saved automatically.
+  ],
+  feature-card("Citation Manager")[
+    Save sources with formatting.
+
+    Right-click → "Save Citation"
+
+    Export: Harvard · APA · MLA
+  ],
+)
+
+#v(1em)
+
+// =============================================================================
+// 07 LANGUAGE TOOLS
+// =============================================================================
+
+#section("07", "Language Tools.")
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 12pt,
+  feature-card("Dictionary")[
+    Look up any word instantly.
+
+    Double-click word → Definition
+
+    Works offline. Builds vocabulary.
+  ],
+  feature-card("Translation")[
+    Translate text or full pages.
+
+    Select text → Translate icon\
+    Or: Popup → Translate Page
+  ],
+)
+
+#v(1em)
+
+// =============================================================================
+// 08 REFERENCE
+// =============================================================================
+
+#section("08", "Reference.")
+
+== Keyboard Shortcuts
 
 #block(
   width: 100%,
   inset: 12pt,
-  radius: 6pt,
-  fill: rgb("#fff8f0"),
-  stroke: 1.5pt + ncad-orange,
+  radius: 3pt,
+  fill: brand-cream,
 )[
-  #columns(4, gutter: 10pt)[
-    #text(weight: "bold", size: 9pt, fill: ncad-orange)[Reading]
-    #text(size: 8.5pt)[
-      TTS: #kbd("Alt+R")\
-      Mode: #kbd("Alt+M")\
-      Guide: Popup\
-      Font: Popup
-    ]
-
-    #colbreak()
-
-    #text(weight: "bold", size: 9pt, fill: ncad-orange)[Writing]
-    #text(size: 8.5pt)[
-      Voice: #kbd("Alt+V")\
-      Stop: #kbd("Esc")\
-      Commands:\
-      Speak them!
-    ]
-
-    #colbreak()
-
-    #text(weight: "bold", size: 9pt, fill: ncad-orange)[Focus]
-    #text(size: 8.5pt)[
-      Focus: #kbd("Alt+F")\
-      Pomodoro:\
-      Open in popup\
-      Motion: Popup
-    ]
-
-    #colbreak()
-
-    #text(weight: "bold", size: 9pt, fill: ncad-orange)[Visual]
-    #text(size: 8.5pt)[
-      Dark: Popup\
-      Overlay: Popup\
-      Text size:\
-      Popup slider
-    ]
-  ]
+  #grid(
+    columns: (1fr, 1fr, 1fr),
+    gutter: 8pt,
+    [#kbd("Alt+R") Read aloud],
+    [#kbd("Alt+M") Reading Mode],
+    [#kbd("Esc") Stop],
+    [#kbd("Alt+V") Voice input],
+    [#kbd("Alt+F") Focus Mode],
+    [#kbd("Space") Pause/Resume],
+  )
 ]
 
-#v(1.5em)
+#v(0.8em)
 
+== Troubleshooting
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 12pt,
+  [
+    #text(weight: "bold", size: 8.5pt)[TTS not working?]\
+    #text(size: 8pt, fill: brand-grey)[Check volume · Try different voice · Refresh]
+  ],
+  [
+    #text(weight: "bold", size: 8.5pt)[Voice input issues?]\
+    #text(size: 8pt, fill: brand-grey)[Allow mic access · Check connection · Speak clearly]
+  ],
+)
+
+#v(1fr)
+
+// Footer
 #align(center)[
   #block(
     inset: 12pt,
-    radius: 6pt,
-    fill: ncad-orange,
+    radius: 4pt,
+    fill: brand-olive,
   )[
-    #text(size: 11pt, weight: "bold", fill: white)[
-      Remember: Start with 1-2 tools. Add more when ready!
+    #text(size: 9pt, weight: "bold", fill: white)[
+      Start with 1-2 tools. Add more when ready.
     ]
   ]
 ]
 
-#v(1.5em)
+#v(1em)
 
 #align(center)[
-  #line(length: 25%, stroke: 1pt + ncad-light-grey)
-  #v(0.5em)
-  #text(size: 8pt, fill: ncad-light-grey)[
-    AssisT Extension • Accessibility for Everyone • assist.ncad.ie
+  #text(size: 7pt, fill: brand-grey)[
+    AssisT Extension · Accessibility for Everyone · assist.ncad.ie
   ]
 ]
