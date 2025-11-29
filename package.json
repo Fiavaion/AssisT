@@ -20,7 +20,9 @@
     "postbuild": "node scripts/inject-popup-scripts.js",
     "prepare": "husky",
     "switch:assist": "node -e \"require('fs').copyFileSync('manifest.assist.json', 'manifest.json')\" && echo Switched to AssisT version",
-    "switch:ncad": "node -e \"require('fs').copyFileSync('manifest.ncad.json', 'manifest.json')\" && echo Switched to @NCAD version"
+    "switch:ncad": "node -e \"require('fs').copyFileSync('manifest.ncad.json', 'manifest.json')\" && echo Switched to @NCAD version",
+    "docs:build": "node scripts/build-docs.cjs",
+    "docs:watch": "node scripts/build-docs.cjs --watch"
   },
   "keywords": [
     "accessibility",

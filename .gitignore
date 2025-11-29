@@ -45,3 +45,6 @@ Thumbs.db
 # Vite build output
 .vite/
 nul
+
+# Documentation output
+docs/typst/output/*.pdf
