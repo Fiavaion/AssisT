@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-11-28
+**Last Updated**: 2025-12-01
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE)
 **Current Phase**: Phase 2 COMPLETE - Ready for Release
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: main (Phase 2 COMPLETE + S.8 Advanced Recognition)
-**Session**: Phase 2 Session 042 (S.8 Advanced Recognition Engine)
+**Session**: Phase 2 Session 046 (PDF Guide, TTS Fix, Discovery Quiz)
 
 ---
 
@@ -47,6 +47,40 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 046 (2025-12-01)
+
+**PDF Guide, Sticky Notes TTS Fix, Discovery Quiz Enhancement**
+
+**Key Accomplishments**:
+
+1. **Compact PDF User Guide** (100%):
+   - Rewrote `complete-user-guide.typ` - reduced from 11 pages to ~4 pages
+   - Removed excessive pagebreaks and full-height color bars
+   - Applied compact two-column layouts with NCAD branding
+
+2. **Sticky Notes TTS Voice Fix** (100%):
+   - Fixed async voice loading timing issue in `sticky-note.js`
+   - Added `ensureVoicesLoaded()` helper with proper `voiceschanged` event handling
+   - Added real-time TTS settings sync via storage change listener
+
+3. **Discovery Quiz Enhancement** (100%):
+   - Expanded "Tell me more" subQuestions from 3 to 7 per question
+   - Total subQuestions: 42 (was 18)
+   - Covers all feature activation reasons across 6 main questions
+
+4. **Tester Distribution**:
+   - Built and copied extension to AssistV2 folder for tester distribution
+
+**Files Modified**:
+
+- docs/typst/guides/complete-user-guide.typ (complete rewrite)
+- src/features/annotations/sticky-note.js (+60 lines)
+- src/pages/discovery/questions.js (+168 lines)
+
+**Build Status**: ✅ Successful
+
+---
 
 ### Phase 2 Session 042 (2025-11-28)
 

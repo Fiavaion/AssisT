@@ -50,7 +50,7 @@ let annotationSettings = {
 };
 
 /** @type {Object} TTS settings from extension */
-let ttsSettings = {
+const ttsSettings = {
   voice: null,
   rate: 1.0,
   pitch: 1.0,
@@ -145,8 +145,12 @@ async function loadStorageMode() {
 
 /**
  * Load TTS settings from extension settings
+ * Properly waits for voices to be available before resolving
  */
 async function loadTTSSettings() {
+  // First, ensure voices are loaded
+  await ensureVoicesLoaded();
+
   return new Promise(resolve => {
     chrome.storage.local.get(['assist_settings'], result => {
       const tts = result.assist_settings?.tts;
@@ -154,35 +158,57 @@ async function loadTTSSettings() {
         ttsSettings.rate = tts.rate || 1.0;
         ttsSettings.pitch = tts.pitch || 1.0;
         ttsSettings.volume = tts.volume || 1.0;
-        // Load voice after voices are available
+
+        // Load voice - voices should be available now
         if (tts.voice && tts.voice !== 'default') {
           const voices = window.speechSynthesis.getVoices();
-          if (voices.length > 0) {
-            const voice = voices.find(v => v.name === tts.voice);
-            if (voice) {
-              ttsSettings.voice = voice;
-            }
+          const voice = voices.find(v => v.name === tts.voice);
+          if (voice) {
+            ttsSettings.voice = voice;
+            console.log('[StickyNotes] Loaded TTS voice:', voice.name);
           } else {
-            // Voices not loaded yet, wait for them
-            window.speechSynthesis.onvoiceschanged = () => {
-              const loadedVoices = window.speechSynthesis.getVoices();
-              const voice = loadedVoices.find(v => v.name === tts.voice);
-              if (voice) {
-                ttsSettings.voice = voice;
-                console.log('[StickyNotes] Loaded TTS voice:', voice.name);
-              }
-            };
+            console.warn('[StickyNotes] Voice not found:', tts.voice);
           }
         }
+
         console.log('[StickyNotes] Loaded TTS settings:', {
           rate: ttsSettings.rate,
           pitch: ttsSettings.pitch,
           volume: ttsSettings.volume,
-          voice: tts.voice,
+          voice: ttsSettings.voice?.name || 'default',
         });
       }
       resolve();
     });
+  });
+}
+
+/**
+ * Ensure speech synthesis voices are loaded
+ * @returns {Promise<SpeechSynthesisVoice[]>} Available voices
+ */
+function ensureVoicesLoaded() {
+  return new Promise(resolve => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+    } else {
+      // Wait for voices to load
+      const onVoicesChanged = () => {
+        const loadedVoices = window.speechSynthesis.getVoices();
+        if (loadedVoices.length > 0) {
+          window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+          resolve(loadedVoices);
+        }
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+
+      // Fallback timeout in case voices never load
+      setTimeout(() => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        resolve(window.speechSynthesis.getVoices());
+      }, 2000);
+    }
   });
 }
 
@@ -535,7 +561,9 @@ function handleFormattingShortcuts(e) {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const modKey = isMac ? e.metaKey : e.ctrlKey;
 
-  if (!modKey) return;
+  if (!modKey) {
+    return;
+  }
 
   const shortcuts = {
     b: 'bold',
@@ -844,9 +872,15 @@ function detectTextFormatting(contentElement) {
     let parent = lastTextNode.parentElement;
     while (parent && parent !== tempDiv) {
       const tagName = parent.tagName.toLowerCase();
-      if (tagName === 'b' || tagName === 'strong') formatting.bold = true;
-      if (tagName === 'i' || tagName === 'em') formatting.italic = true;
-      if (tagName === 'u') formatting.underline = true;
+      if (tagName === 'b' || tagName === 'strong') {
+        formatting.bold = true;
+      }
+      if (tagName === 'i' || tagName === 'em') {
+        formatting.italic = true;
+      }
+      if (tagName === 'u') {
+        formatting.underline = true;
+      }
       parent = parent.parentElement;
     }
   }
@@ -1033,7 +1067,9 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
   };
 
   const onMouseMove = e => {
-    if (!dragState) return;
+    if (!dragState) {
+      return;
+    }
 
     // Calculate new position
     const deltaX = e.clientX - dragState.startX;
@@ -1050,7 +1086,9 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
   };
 
   const onMouseUp = () => {
-    if (!dragState) return;
+    if (!dragState) {
+      return;
+    }
 
     // Remove dragging class
     noteElement.classList.remove('assist-dragging');
@@ -1152,7 +1190,9 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
   };
 
   const onMouseMove = e => {
-    if (!resizeState) return;
+    if (!resizeState) {
+      return;
+    }
 
     // Calculate new dimensions
     const deltaX = e.clientX - resizeState.startX;
@@ -1166,7 +1206,9 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
   };
 
   const onMouseUp = () => {
-    if (!resizeState) return;
+    if (!resizeState) {
+      return;
+    }
 
     // Remove resizing class
     noteElement.classList.remove('assist-resizing');
@@ -1442,7 +1484,7 @@ function handleMessage(message, sender, sendResponse) {
 }
 
 /**
- * Handle storage changes (storage mode switch or annotation settings change)
+ * Handle storage changes (storage mode switch, annotation settings, or TTS settings change)
  * @param {Object} changes - Changed keys
  */
 function handleStorageChange(changes) {
@@ -1476,6 +1518,36 @@ function handleStorageChange(changes) {
       };
 
       console.log('[StickyNotes] Updated annotation settings:', annotationSettings);
+    }
+  }
+
+  // Reload TTS settings if they changed (e.g., user changed voice in popup)
+  if (changes.assist_settings) {
+    const newSettings = changes.assist_settings.newValue;
+    const tts = newSettings?.tts;
+    if (tts) {
+      ttsSettings.rate = tts.rate || 1.0;
+      ttsSettings.pitch = tts.pitch || 1.0;
+      ttsSettings.volume = tts.volume || 1.0;
+
+      // Update voice if changed
+      if (tts.voice && tts.voice !== 'default') {
+        const voices = window.speechSynthesis.getVoices();
+        const voice = voices.find(v => v.name === tts.voice);
+        if (voice) {
+          ttsSettings.voice = voice;
+          console.log('[StickyNotes] Updated TTS voice:', voice.name);
+        }
+      } else {
+        ttsSettings.voice = null;
+      }
+
+      console.log('[StickyNotes] Updated TTS settings:', {
+        rate: ttsSettings.rate,
+        pitch: ttsSettings.pitch,
+        volume: ttsSettings.volume,
+        voice: ttsSettings.voice?.name || 'default',
+      });
     }
   }
 }

@@ -18,17 +18,37 @@ export const QUESTIONS = [
       {
         id: 'reading_blur',
         label: 'Words sometimes move or blur when I read',
-        featureBoost: { dyslexiaFont: 2, readingGuide: 2 },
+        featureBoost: { dyslexiaFont: 3, readingGuide: 2 },
       },
       {
         id: 'reading_place',
-        label: 'I often lose my place while reading',
+        label: 'I often lose my place or re-read the same line',
         featureBoost: { readingGuide: 3, readingProgress: 2 },
       },
       {
         id: 'reading_listen',
-        label: 'I prefer listening to reading',
+        label: 'I understand better when I hear text read aloud',
         featureBoost: { tts: 3 },
+      },
+      {
+        id: 'reading_strain',
+        label: 'I get headaches or eye strain from reading on screen',
+        featureBoost: { darkMode: 2, screenOverlay: 2, textCustomization: 2 },
+      },
+      {
+        id: 'reading_overwhelm',
+        label: 'Long blocks of text feel overwhelming',
+        featureBoost: { readingMode: 3, readingGuide: 2 },
+      },
+      {
+        id: 'reading_slow',
+        label: 'Reading takes me longer than I would like',
+        featureBoost: { tts: 2, readingMode: 2 },
+      },
+      {
+        id: 'reading_dense',
+        label: 'Dense or cluttered pages make reading harder',
+        featureBoost: { readingMode: 3, focusMode: 2 },
       },
     ],
     featureMapping: {
@@ -50,7 +70,7 @@ export const QUESTIONS = [
     subQuestions: [
       {
         id: 'writing_spelling',
-        label: 'Spelling gets in the way of expressing myself',
+        label: 'Spelling mistakes slow me down or embarrass me',
         featureBoost: { stt: 2, autoPunctuation: 1 },
       },
       {
@@ -60,7 +80,27 @@ export const QUESTIONS = [
       },
       {
         id: 'writing_voice',
-        label: 'Speaking my ideas would help me write',
+        label: 'Speaking my ideas would help me write better',
+        featureBoost: { stt: 3, voiceCommands: 2 },
+      },
+      {
+        id: 'writing_physical',
+        label: 'Typing is physically uncomfortable or painful',
+        featureBoost: { stt: 3, voiceCommands: 3 },
+      },
+      {
+        id: 'writing_flow',
+        label: 'I lose my train of thought while typing',
+        featureBoost: { stt: 3, voiceCommands: 2 },
+      },
+      {
+        id: 'writing_typos',
+        label: 'I make many typos that interrupt my writing flow',
+        featureBoost: { stt: 2, autoPunctuation: 2 },
+      },
+      {
+        id: 'writing_blank',
+        label: 'I find it easier to talk through ideas than write them',
         featureBoost: { stt: 3, voiceCommands: 2 },
       },
     ],
@@ -83,18 +123,38 @@ export const QUESTIONS = [
     subQuestions: [
       {
         id: 'focus_motion',
-        label: 'Animations and movements distract me',
+        label: 'Animations and moving elements distract me',
         featureBoost: { reducedMotion: 3, focusMode: 2 },
       },
       {
         id: 'focus_bursts',
-        label: 'I work better in short focused bursts',
+        label: 'I work better in short, timed bursts',
         featureBoost: { pomodoro: 3 },
       },
       {
         id: 'focus_breaks',
-        label: 'I need reminders to take breaks',
+        label: 'I forget to take breaks and burn out',
         featureBoost: { pomodoro: 3 },
+      },
+      {
+        id: 'focus_sidebar',
+        label: 'Ads, sidebars, and related content pull my attention away',
+        featureBoost: { focusMode: 3, readingMode: 2 },
+      },
+      {
+        id: 'focus_scroll',
+        label: 'I catch myself scrolling instead of working',
+        featureBoost: { focusMode: 2, pomodoro: 2 },
+      },
+      {
+        id: 'focus_audio',
+        label: 'Auto-playing videos or sounds disrupt my concentration',
+        featureBoost: { mediaControl: 3, reducedMotion: 2 },
+      },
+      {
+        id: 'focus_overwhelm',
+        label: 'Busy or cluttered webpages feel overwhelming',
+        featureBoost: { focusMode: 3, readingMode: 3 },
       },
     ],
     featureMapping: {
@@ -116,17 +176,37 @@ export const QUESTIONS = [
     subQuestions: [
       {
         id: 'visual_dark',
-        label: 'I prefer darker interfaces',
+        label: 'I prefer darker interfaces over bright white backgrounds',
         featureBoost: { darkMode: 3 },
       },
       {
         id: 'visual_colors',
-        label: 'Certain background colors help me read better',
+        label: 'Certain background colours help me read better',
         featureBoost: { screenOverlay: 3 },
       },
       {
         id: 'visual_fonts',
-        label: 'I need larger or different fonts',
+        label: 'I need larger fonts to read comfortably',
+        featureBoost: { textCustomization: 3 },
+      },
+      {
+        id: 'visual_strain',
+        label: 'Bright white backgrounds cause eye strain or headaches',
+        featureBoost: { darkMode: 3, screenOverlay: 2 },
+      },
+      {
+        id: 'visual_spacing',
+        label: 'I need more space between lines to track text easily',
+        featureBoost: { textCustomization: 3, readingGuide: 2 },
+      },
+      {
+        id: 'visual_bluelight',
+        label: 'I am sensitive to blue light from screens',
+        featureBoost: { darkMode: 2, screenOverlay: 3 },
+      },
+      {
+        id: 'visual_smalltext',
+        label: 'Default website text is often too small for me',
         featureBoost: { textCustomization: 3, dyslexiaFont: 2 },
       },
     ],
@@ -162,6 +242,26 @@ export const QUESTIONS = [
         label: 'Seeing word counts and reading time helps me plan',
         featureBoost: { textStats: 2, readingProgress: 2 },
       },
+      {
+        id: 'org_forget',
+        label: 'I often forget where I found important information',
+        featureBoost: { annotations: 3, citations: 3 },
+      },
+      {
+        id: 'org_notes',
+        label: 'I need to take notes while reading webpages',
+        featureBoost: { annotations: 3, highlightMenu: 2 },
+      },
+      {
+        id: 'org_quotes',
+        label: 'I struggle to keep track of quotes I want to use',
+        featureBoost: { annotations: 2, citations: 3, highlightMenu: 2 },
+      },
+      {
+        id: 'org_multiple',
+        label: 'I work with multiple research sources at once',
+        featureBoost: { citations: 3, annotations: 2 },
+      },
     ],
     featureMapping: {
       annotations: 3,
@@ -192,8 +292,28 @@ export const QUESTIONS = [
       },
       {
         id: 'lang_simplify',
-        label: 'Simpler language versions would help me understand',
+        label: 'Simpler language would help me understand complex text',
         featureBoost: { simplify: 3 },
+      },
+      {
+        id: 'lang_academic',
+        label: 'Academic or technical vocabulary confuses me',
+        featureBoost: { dictionary: 3, simplify: 2 },
+      },
+      {
+        id: 'lang_learning',
+        label: 'I read content in languages I am still learning',
+        featureBoost: { translation: 3, dictionary: 2 },
+      },
+      {
+        id: 'lang_sentences',
+        label: 'Long or complex sentences are hard to follow',
+        featureBoost: { simplify: 3, tts: 2 },
+      },
+      {
+        id: 'lang_jargon',
+        label: 'I encounter unfamiliar jargon in my studies',
+        featureBoost: { dictionary: 3, simplify: 2 },
       },
     ],
     featureMapping: {
