@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 COMPLETE - Ready for Release
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: main (Phase 2 COMPLETE + S.8 Advanced Recognition)
-**Session**: Phase 2 Session 049 (Stargardt Peripheral Push Mode Fix)
+**Session**: Phase 2 Session 050 (Stargardt Reading Mode & Font Size Controls)
 
 ---
 
@@ -47,6 +47,45 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 050 (2025-12-02)
+
+**Stargardt Reading Mode & Font Size Controls**
+
+**Key Accomplishments**:
+
+1. **Reading Mode Toggle for All Remapping Styles** (100%):
+   - Added `extractReadableText()` function with article-level filtering
+   - Added `extractAllPageContent()` function for non-filtered mode
+   - Filters out menus, ads, navigation to show only article content
+   - Works with Peripheral Push, Text Donut, and RSVP modes
+
+2. **Font Size / Zoom Control** (100%):
+   - Added font size slider (75%-200%)
+   - Created `applyFontSizeToActiveMode()` for live font updates
+   - Dynamic updates without requiring mode restart
+   - Font scaling preserves relative sizing between elements
+
+3. **RSVP Word Breaking Fix** (100%):
+   - Created `cleanTextForRSVP()` function
+   - Removes soft hyphens (`\u00AD`), zero-width spaces, etc.
+   - Words like "Monday" no longer break as "Monda" + "y"
+
+4. **Popup UI Updates** (100%):
+   - Added Reading Mode toggle checkbox
+   - Added Font Size slider with percentage display
+   - Settings persist via Chrome storage
+
+**Files Modified**:
+
+- src/features/stargardt/content-remapper.js (~180 lines added)
+- src/features/stargardt/stargardt.js (+2 lines - default settings)
+- src/popup/popup.html (+45 lines - UI controls)
+- src/popup/popup.js (+24 lines - event handlers)
+
+**Build Status**: ✅ Successful
+
+---
 
 ### Phase 2 Session 049 (2025-12-02)
 
