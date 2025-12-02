@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-12-01
+**Last Updated**: 2025-12-02
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE)
 **Current Phase**: Phase 2 COMPLETE - Ready for Release
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: main (Phase 2 COMPLETE + S.8 Advanced Recognition)
-**Session**: Phase 2 Session 046 (PDF Guide, TTS Fix, Discovery Quiz)
+**Session**: Phase 2 Session 048 (Stargardt RSVP Mode Improvements)
 
 ---
 
@@ -47,6 +47,44 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 048 (2025-12-02)
+
+**Stargardt RSVP Mode UI Improvements**
+
+**Key Accomplishments**:
+
+1. **Critical Bug Fix - contentRemapper.enable()** (100%):
+   - Fixed content remapper never activating (enable() not called after initialize())
+   - Added enable calls to both Lite and Advanced mode initialization
+   - Stargardt content remapping now works in browser
+
+2. **RSVP Drag-to-Position** (100%):
+   - Added drag handle at top of RSVP overlay
+   - Users can reposition overlay anywhere on screen
+   - Visual indicator shows available controls
+
+3. **RSVP Keyboard Controls** (100%):
+   - Space: Toggle pause/play
+   - Left/Right Arrows: Adjust speed
+   - Escape: Close overlay
+
+4. **Dynamic Font Sizing** (100%):
+   - Long words no longer extend past box bounds
+   - Font scales from 56px (short words) to 24px (very long words)
+
+5. **Fixed Layout Stability** (100%):
+   - Changed from min-height to fixed height
+   - UI buttons no longer jump when font size changes
+
+**Files Modified**:
+
+- src/features/stargardt/stargardt.js (+6 lines)
+- src/features/stargardt/content-remapper.js (~150 lines)
+
+**Build Status**: ✅ Successful
+
+---
 
 ### Phase 2 Session 046 (2025-12-01)
 
