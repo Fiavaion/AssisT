@@ -20,7 +20,7 @@ let remapper_profile = null;
 let remapper_settings = {};
 let remapper_gazeTracker = null;
 let remapper_animationFrameId = null;
-let remapper_styleElement = null;
+let _remapper_styleElement = null; // Reserved for future CSS injection
 let remapper_overlayElement = null;
 
 // RSVP mode state
@@ -119,6 +119,9 @@ export function disable() {
   // Cleanup keyboard handlers
   cleanupRSVPKeyboard();
 
+  // Cleanup peripheral push (including Reading Mode)
+  cleanupPeripheralPush();
+
   // Remove overlay
   if (remapper_overlayElement) {
     remapper_overlayElement.remove();
@@ -135,9 +138,12 @@ export function disable() {
  * Update settings
  */
 export function updateSettings(settings) {
+  const previousSide = remapper_settings.preferredSide;
+  const previousMode = remapper_mode;
+
   remapper_settings = { ...remapper_settings, ...settings };
 
-  if (settings.mode && settings.mode !== remapper_mode) {
+  if (settings.mode && settings.mode !== previousMode) {
     // Mode changed - restart with new mode
     if (remapper_enabled) {
       disable();
@@ -145,6 +151,13 @@ export function updateSettings(settings) {
       enable();
     } else {
       remapper_mode = settings.mode;
+    }
+  } else if (settings.preferredSide && settings.preferredSide !== previousSide && remapper_enabled) {
+    // Preferred side changed while enabled - re-apply current mode
+    console.log('[ContentRemapper] Preferred side changed to:', settings.preferredSide);
+    if (remapper_mode === 'peripheral-push') {
+      // Re-create the peripheral push panel with new side
+      enablePeripheralPush();
     }
   }
 }
@@ -302,77 +315,354 @@ function injectStyles() {
 }
 
 // ============================================================================
-// MODE: PERIPHERAL PUSH
+// MODE: PERIPHERAL PUSH (Self-contained reading panel)
 // ============================================================================
+
+// Track our own overlay
+let peripheralPush_overlay = null;
 
 /**
  * Enable peripheral push mode
- * Shifts content to the preferred side of the scotoma
+ * Creates a clean reading panel positioned in peripheral vision
  */
-function enablePeripheralPush() {
+async function enablePeripheralPush() {
   console.log('[ContentRemapper] Enabling Peripheral Push mode');
+  console.log('[ContentRemapper] Profile:', remapper_profile);
+  console.log('[ContentRemapper] Settings:', remapper_settings);
 
-  if (!remapper_profile) return;
-
-  const safeZone = scotomaProfile.getSafeZone(
-    remapper_profile,
-    remapper_settings.preferredSide || 'right'
-  );
-
-  // Apply CSS transform to main content
-  const mainContent = findMainContent();
-
-  mainContent.forEach(element => {
-    element.classList.add('stargardt-remap-container', 'stargardt-gpu-accelerated');
-
-    // Calculate shift based on safe zone
-    const shift = calculatePeripheralShift(element, safeZone);
-    element.style.transform = `translate(${shift.x}px, ${shift.y}px)`;
-  });
-
-  // Show scotoma indicator (optional, for user reference)
-  if (remapper_settings.showIndicator !== false) {
-    showScotomaIndicator();
+  // Use default profile if none provided
+  let profile = remapper_profile;
+  if (!profile) {
+    console.log('[ContentRemapper] No profile - using defaults');
+    profile = {
+      boundary: {
+        centerX: 50,
+        centerY: 50,
+        radiusX: 10,
+        radiusY: 10,
+      },
+    };
   }
+
+  // Get preferred side for content positioning
+  const preferredSide = remapper_settings.preferredSide || 'right';
+  console.log('[ContentRemapper] Preferred side:', preferredSide);
+
+  // Extract text content from the page
+  const textContent = extractArticleContent();
+  console.log('[ContentRemapper] Extracted content items:', textContent?.length || 0);
+
+  if (!textContent || textContent.length === 0) {
+    showToast('Could not extract readable content from this page', 'warning');
+    return;
+  }
+
+  // Create our own peripheral reading overlay
+  createPeripheralReadingPanel(textContent, preferredSide, profile);
+
+  console.log('[ContentRemapper] Peripheral reading panel created');
 }
 
 /**
- * Calculate how much to shift an element for peripheral viewing
+ * Extract article content from the page
+ * Uses multiple strategies to find readable content
  */
-function calculatePeripheralShift(element, safeZone) {
-  const rect = element.getBoundingClientRect();
-  const viewWidth = window.innerWidth;
-  const viewHeight = window.innerHeight;
+function extractArticleContent() {
+  console.log('[ContentRemapper] Extracting article content...');
 
-  // Convert safe zone from percentage to pixels
-  const safeX = (safeZone.x / 100) * viewWidth;
-  const safeWidth = (safeZone.width / 100) * viewWidth;
+  // Strategy 1: Try semantic article selectors
+  const selectors = [
+    'article',
+    '[role="main"]',
+    'main',
+    '.article-content',
+    '.post-content',
+    '.entry-content',
+    '.story-body',
+    '#article-body',
+    '.article__body',
+    '.article-body',
+    '.content-body',
+    '.story-content',
+    '.rte-article', // RTE specific
+    '.article',
+  ];
 
-  // Calculate shift needed
-  let shiftX = 0;
-  let shiftY = 0;
+  let contentElement = null;
 
-  const preferredSide = remapper_settings.preferredSide || 'right';
-  const intensity = (remapper_settings.intensity || 50) / 100;
-
-  switch (preferredSide) {
-    case 'right':
-      // Shift content to the right
-      shiftX = Math.min(safeX - rect.left, viewWidth * 0.3) * intensity;
+  for (const selector of selectors) {
+    const el = document.querySelector(selector);
+    if (el && el.textContent.trim().length > 100) {
+      console.log('[ContentRemapper] Found content using selector:', selector);
+      contentElement = el;
       break;
-    case 'left':
-      // Shift content to the left
-      shiftX = -Math.min(rect.right - safeX - safeWidth, viewWidth * 0.3) * intensity;
-      break;
-    case 'above':
-      shiftY = -Math.min(rect.bottom - (safeZone.y / 100) * viewHeight, viewHeight * 0.3) * intensity;
-      break;
-    case 'below':
-      shiftY = Math.min((safeZone.y / 100) * viewHeight - rect.top, viewHeight * 0.3) * intensity;
-      break;
+    }
   }
 
-  return { x: shiftX, y: shiftY };
+  // Strategy 2: Find container with most paragraphs
+  if (!contentElement) {
+    console.log('[ContentRemapper] Trying paragraph-based detection...');
+    const allDivs = document.querySelectorAll('div, section, article');
+    let bestContainer = null;
+    let maxParagraphs = 0;
+
+    allDivs.forEach(div => {
+      const paragraphs = div.querySelectorAll('p');
+      if (paragraphs.length > maxParagraphs) {
+        maxParagraphs = paragraphs.length;
+        bestContainer = div;
+      }
+    });
+
+    if (bestContainer && maxParagraphs >= 2) {
+      console.log('[ContentRemapper] Found container with', maxParagraphs, 'paragraphs');
+      contentElement = bestContainer;
+    }
+  }
+
+  // Strategy 3: Just get all paragraphs from body
+  if (!contentElement) {
+    console.log('[ContentRemapper] Using body as fallback');
+    contentElement = document.body;
+  }
+
+  // Extract paragraphs and headings
+  const elements = contentElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6');
+  const content = [];
+
+  elements.forEach(el => {
+    const text = el.textContent.trim();
+    // Filter out very short text and navigation/UI text
+    if (text.length > 20 && !isNavigationText(text)) {
+      const tag = el.tagName.toLowerCase();
+      content.push({ tag, text });
+    }
+  });
+
+  console.log('[ContentRemapper] Extracted', content.length, 'content items');
+
+  // If still nothing, try getting visible text directly
+  if (content.length === 0) {
+    console.log('[ContentRemapper] Last resort - extracting visible text');
+    const bodyText = document.body.innerText || '';
+    const sentences = bodyText.split(/[.!?]+/).filter(s => s.trim().length > 30);
+    sentences.slice(0, 50).forEach(sentence => {
+      content.push({ tag: 'p', text: sentence.trim() + '.' });
+    });
+  }
+
+  return content;
+}
+
+/**
+ * Check if text looks like navigation/UI text rather than article content
+ */
+function isNavigationText(text) {
+  const lowerText = text.toLowerCase();
+  const navPatterns = [
+    'cookie', 'privacy', 'subscribe', 'sign in', 'log in', 'menu',
+    'search', 'share', 'follow us', 'copyright', 'all rights reserved',
+  ];
+  return navPatterns.some(pattern => lowerText.includes(pattern)) && text.length < 100;
+}
+
+/**
+ * Create the peripheral reading panel
+ * @param {Array} content - Array of {tag, text} objects
+ * @param {string} preferredSide - 'left' or 'right'
+ * @param {Object} profile - Scotoma profile with boundary info
+ */
+function createPeripheralReadingPanel(content, preferredSide, profile) {
+  console.log('[ContentRemapper] Creating peripheral reading panel...');
+  console.log('[ContentRemapper] Profile boundary:', profile?.boundary);
+
+  // Remove existing overlay if any
+  if (peripheralPush_overlay) {
+    peripheralPush_overlay.remove();
+  }
+
+  // Calculate scotoma position from profile
+  const viewWidth = window.innerWidth;
+  const viewHeight = window.innerHeight;
+  const boundary = profile?.boundary || { centerX: 50, centerY: 50, radiusX: 10, radiusY: 10 };
+  const scotomaCenterX = (boundary.centerX / 100) * viewWidth;
+  const scotomaCenterY = (boundary.centerY / 100) * viewHeight;
+  const scotomaRadiusX = (boundary.radiusX / 100) * viewWidth;
+  const scotomaRadiusY = (boundary.radiusY / 100) * viewHeight;
+
+  console.log('[ContentRemapper] Scotoma position:', { scotomaCenterX, scotomaCenterY, scotomaRadiusX, scotomaRadiusY });
+
+  // Create full-screen overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'stargardt-peripheral-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2147483640;
+    background: #f5f5f0;
+    overflow: hidden;
+  `;
+
+  // Create scotoma visualization (the blocked center area)
+  const scotomaZone = document.createElement('div');
+  scotomaZone.id = 'stargardt-scotoma-zone';
+  scotomaZone.style.cssText = `
+    position: absolute;
+    left: ${scotomaCenterX - scotomaRadiusX}px;
+    top: ${scotomaCenterY - scotomaRadiusY}px;
+    width: ${scotomaRadiusX * 2}px;
+    height: ${scotomaRadiusY * 2}px;
+    border-radius: 50%;
+    background: rgba(180, 180, 180, 0.4);
+    border: 3px dashed rgba(150, 150, 150, 0.6);
+    pointer-events: none;
+  `;
+
+  // Calculate reading panel position based on preferred side
+  let panelStyles = '';
+
+  switch (preferredSide) {
+    case 'left': {
+      const panelWidth = Math.max(350, scotomaCenterX - scotomaRadiusX - 60);
+      panelStyles = `
+        left: 30px;
+        top: 60px;
+        width: ${panelWidth}px;
+        height: calc(100% - 120px);
+      `;
+      break;
+    }
+    case 'above': {
+      const panelHeight = Math.max(200, scotomaCenterY - scotomaRadiusY - 80);
+      panelStyles = `
+        left: 30px;
+        top: 60px;
+        width: calc(100% - 60px);
+        height: ${panelHeight}px;
+      `;
+      break;
+    }
+    case 'below': {
+      const panelTop = scotomaCenterY + scotomaRadiusY + 30;
+      const panelHeight = Math.max(200, viewHeight - panelTop - 30);
+      panelStyles = `
+        left: 30px;
+        top: ${panelTop}px;
+        width: calc(100% - 60px);
+        height: ${panelHeight}px;
+      `;
+      break;
+    }
+    case 'right':
+    default: {
+      const panelLeft = scotomaCenterX + scotomaRadiusX + 30;
+      const panelWidth = Math.max(350, viewWidth - panelLeft - 30);
+      panelStyles = `
+        left: ${panelLeft}px;
+        top: 60px;
+        width: ${panelWidth}px;
+        height: calc(100% - 120px);
+      `;
+      break;
+    }
+  }
+
+  // Create reading panel
+  const panel = document.createElement('div');
+  panel.id = 'stargardt-reading-panel';
+  panel.style.cssText = `
+    position: absolute;
+    ${panelStyles}
+    overflow-y: auto;
+    padding: 30px;
+    box-sizing: border-box;
+    background: #fffef8;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  `;
+
+  // Add content to panel
+  content.forEach(item => {
+    const el = document.createElement(item.tag.startsWith('h') ? item.tag : 'p');
+    el.textContent = item.text;
+
+    if (item.tag.startsWith('h')) {
+      el.style.cssText = `
+        font-family: Georgia, serif;
+        font-size: ${item.tag === 'h1' ? '28px' : item.tag === 'h2' ? '24px' : '20px'};
+        font-weight: bold;
+        margin: 0.8em 0 0.4em 0;
+        color: #222;
+        line-height: 1.3;
+      `;
+    } else {
+      el.style.cssText = `
+        font-family: Georgia, serif;
+        font-size: 20px;
+        line-height: 2.0;
+        margin: 0 0 1.2em 0;
+        color: #333;
+        letter-spacing: 0.3px;
+      `;
+    }
+
+    panel.appendChild(el);
+  });
+
+  // Create close button
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ Close';
+  closeBtn.style.cssText = `
+    position: fixed;
+    top: 15px;
+    right: 20px;
+    padding: 10px 20px;
+    background: #666;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 10;
+  `;
+  closeBtn.onclick = () => disable();
+
+  // Create info label
+  const infoLabel = document.createElement('div');
+  infoLabel.style.cssText = `
+    position: fixed;
+    top: 15px;
+    left: 20px;
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: system-ui, sans-serif;
+  `;
+  infoLabel.textContent = `Peripheral Push Mode • Content on ${preferredSide} • Gray area = scotoma`;
+
+  overlay.appendChild(scotomaZone);
+  overlay.appendChild(panel);
+  overlay.appendChild(closeBtn);
+  overlay.appendChild(infoLabel);
+
+  document.body.appendChild(overlay);
+  peripheralPush_overlay = overlay;
+  remapper_overlayElement = overlay;
+}
+
+/**
+ * Cleanup peripheral push mode
+ */
+function cleanupPeripheralPush() {
+  if (peripheralPush_overlay) {
+    peripheralPush_overlay.remove();
+    peripheralPush_overlay = null;
+  }
 }
 
 // ============================================================================
@@ -764,18 +1054,19 @@ function startMagnificationLoop() {
     if (!remapper_enabled) return;
 
     // Get current gaze position or use center
-    let gazeX = window.innerWidth / 2;
-    let gazeY = window.innerHeight / 2;
+    // These will be used when magnification content positioning is implemented
+    let _gazeX = window.innerWidth / 2;
+    let _gazeY = window.innerHeight / 2;
 
     if (remapper_gazeTracker) {
       const gaze = remapper_gazeTracker.getLastGaze();
       if (gaze) {
-        gazeX = gaze.x;
-        gazeY = gaze.y;
+        _gazeX = gaze.x;
+        _gazeY = gaze.y;
       }
     }
 
-    // Update lens content based on gaze position
+    // TODO: Update lens content based on gaze position (_gazeX, _gazeY)
     // (In production, would clone and position actual DOM elements)
 
     remapper_animationFrameId = requestAnimationFrame(updateMagnification);
@@ -903,20 +1194,37 @@ function extractPageText() {
 }
 
 /**
- * Reset all CSS transforms
+ * Reset all CSS transforms and cleanup
  */
 function resetAllTransforms() {
-  const elements = document.querySelectorAll('.stargardt-remap-container');
-  elements.forEach(el => {
+  // Reset container elements (legacy support)
+  const containers = document.querySelectorAll('.stargardt-remap-container');
+  containers.forEach(el => {
     el.style.transform = '';
     el.classList.remove('stargardt-remap-container', 'stargardt-gpu-accelerated');
   });
+
+  // Reset text elements (legacy support)
+  const textElements = document.querySelectorAll('.stargardt-remap-text');
+  textElements.forEach(el => {
+    el.style.transform = '';
+    el.style.position = '';
+    el.style.zIndex = '';
+    el.classList.remove('stargardt-remap-text', 'stargardt-gpu-accelerated');
+  });
+
+  // Remove scotoma indicator
+  const indicator = document.getElementById('stargardt-scotoma-indicator');
+  if (indicator) {
+    indicator.remove();
+  }
 }
 
 /**
  * Show scotoma indicator overlay
+ * @private Reserved for future scotoma visualization feature
  */
-function showScotomaIndicator() {
+function _showScotomaIndicator() {
   if (!remapper_profile) return;
 
   const indicator = document.createElement('div');
