@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 COMPLETE - Ready for Release
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: main (Phase 2 COMPLETE + S.8 Advanced Recognition)
-**Session**: Phase 2 Session 048 (Stargardt RSVP Mode Improvements)
+**Session**: Phase 2 Session 049 (Stargardt Peripheral Push Mode Fix)
 
 ---
 
@@ -47,6 +47,40 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 049 (2025-12-02)
+
+**Stargardt Peripheral Push Mode Fix**
+
+**Key Accomplishments**:
+
+1. **Fixed Peripheral Push Mode** (100%):
+   - Fixed mode not activating (silent early return when profile was null)
+   - Added default profile fallback for robustness
+   - Mode now creates full-screen reading overlay
+
+2. **Improved Content Extraction** (100%):
+   - Added 3-tier extraction strategy (semantic → paragraph-count → body fallback)
+   - Added navigation text filtering
+   - Works on Wikipedia, news sites, and most article pages
+
+3. **All Four Position Support** (100%):
+   - Left: Narrow panel on left side
+   - Right: Narrow panel on right side
+   - Above: Wide panel at top
+   - Below: Wide panel at bottom
+
+4. **Dynamic Side Switching** (100%):
+   - Changing "Preferred Side" now re-creates panel immediately
+   - No need to toggle off/on
+
+**Files Modified**:
+
+- src/features/stargardt/content-remapper.js (~100 lines)
+
+**Build Status**: ✅ Successful
+
+---
 
 ### Phase 2 Session 048 (2025-12-02)
 
