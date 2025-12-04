@@ -36,6 +36,7 @@ const highlightMenu_settings = {
   showSearch: true,
   showAnnotate: true,
   showCopy: true,
+  showSummarize: true, // AI summarization (LLM Edition)
   autoHideDelay: 5000, // milliseconds
 };
 
@@ -176,6 +177,17 @@ function highlightMenu_createToolbar() {
   if (highlightMenu_settings.showCopy) {
     buttons.push(
       highlightMenu_createButton('📋', 'Copy Text', () => highlightMenu_handleCopy(), buttonIndex++)
+    );
+  }
+
+  if (highlightMenu_settings.showSummarize) {
+    buttons.push(
+      highlightMenu_createButton(
+        '✨',
+        'Summarize with AI',
+        () => highlightMenu_handleSummarize(),
+        buttonIndex++
+      )
     );
   }
 
@@ -496,6 +508,32 @@ async function highlightMenu_handleCopy() {
   } catch (error) {
     console.error('[HighlightMenu] Clipboard copy failed:', error);
     alert('Failed to copy text');
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Summarize action (AI-powered summarization)
+ */
+function highlightMenu_handleSummarize() {
+  console.log('[HighlightMenu] Summarize action triggered');
+
+  // Check if summarization feature is available
+  if (window.assistFeatures?.summarization) {
+    // Get selection rectangle for positioning
+    const rect = highlightMenu_selectionRange
+      ? highlightMenu_selectionRange.getBoundingClientRect()
+      : null;
+
+    window.assistFeatures.summarization.start(highlightMenu_selectedText, rect);
+  } else {
+    console.warn('[HighlightMenu] Summarization feature not loaded');
+    if (window.showToast) {
+      window.showToast('Summarization feature not available. Enable LLM Edition.');
+    } else {
+      alert('Summarization feature not available. Please enable LLM Edition.');
+    }
   }
 
   highlightMenu_hide();

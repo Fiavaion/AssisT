@@ -126,7 +126,8 @@ export function disable() {
 export function updateSettings(settings) {
   lightAdapt_settings = { ...lightAdapt_settings, ...settings };
 
-  if (settings.targetBrightness !== undefined) {
+  // Only transition if brightness target actually changed
+  if (settings.targetBrightness !== undefined && settings.targetBrightness !== lightAdapt_targetBrightness) {
     transitionToBrightness(settings.targetBrightness);
   }
 
@@ -215,8 +216,10 @@ function createBrightnessOverlay() {
  * Apply brightness level immediately
  *
  * @param {number} brightness - Brightness percentage (0-100)
+ * @param {boolean} silent - If true, don't log
  */
-function applyBrightness(brightness) {
+function applyBrightness(brightness, silent = false) {
+  const prevBrightness = lightAdapt_currentBrightness;
   lightAdapt_currentBrightness = brightness;
 
   // Use CSS filter for smooth control
@@ -232,7 +235,10 @@ function applyBrightness(brightness) {
     lightAdapt_overlayElement.style.backgroundColor = 'transparent';
   }
 
-  console.log(`[LightAdapt] Brightness set to ${brightness}%`);
+  // Only log when brightness actually changes significantly
+  if (!silent && Math.abs(brightness - prevBrightness) >= 1) {
+    console.log(`[LightAdapt] Brightness set to ${brightness}%`);
+  }
 }
 
 /**

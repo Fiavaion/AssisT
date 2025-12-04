@@ -83,8 +83,10 @@ import '../features/darkMode/darkMode.js'; // Self-initializing dark mode with m
 import '../features/simplify/simplify.js'; // Self-initializing simplified interface mode for reducing visual clutter
 import '../features/readingProgress/readingProgress.js'; // Self-initializing reading progress bar for document navigation
 import '../features/pomodoro/pomodoro.js'; // Self-initializing Pomodoro timer for structured work/break intervals
+import '../features/stargardt/stargardt.js'; // Self-initializing Stargardt/Central Vision Loss support module
 import '../features/textStats/textStats-ui.js'; // Self-initializing text statistics with floating badge and modal
 import { initCitation } from '../features/citations/citation-integration.js'; // Citation system with metadata extraction and storage
+import '../features/summarization/summarization.js'; // Self-initializing AI summarization with LLM integration
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners

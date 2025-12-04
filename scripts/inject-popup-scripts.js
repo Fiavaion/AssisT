@@ -2,6 +2,10 @@
 /**
  * Post-build script to inject bundled script/CSS tags into popup.html
  * Vite/CRXJS strips the script tag but doesn't auto-inject it for popups
+ *
+ * Usage:
+ *   node scripts/inject-popup-scripts.js                    # Uses default .vite output
+ *   node scripts/inject-popup-scripts.js --outdir=AssistLLM # Uses custom output directory
  */
 
 import fs from 'fs';
@@ -11,11 +15,28 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
 
-// Find the built popup HTML
-const popupHtmlPath = path.join(projectRoot, '.vite', 'src', 'popup', 'popup.html');
-const assetsDir = path.join(projectRoot, '.vite', 'assets');
+// Parse --outdir argument
+const args = process.argv.slice(2);
+const outdirArg = args.find(arg => arg.startsWith('--outdir='));
+const outDir = outdirArg ? outdirArg.split('=')[1] : 'AssistV2a';
 
-console.log('[Inject Scripts] Starting...');
+// Find the built popup HTML
+const popupHtmlPath = path.join(projectRoot, outDir, 'src', 'popup', 'popup.html');
+const assetsDir = path.join(projectRoot, outDir, 'assets');
+
+console.log(`[Inject Scripts] Starting... (output dir: ${outDir})`);
+
+// Verify paths exist
+if (!fs.existsSync(popupHtmlPath)) {
+  console.error(`[Inject Scripts] ERROR: popup.html not found at ${popupHtmlPath}`);
+  console.error('  Make sure to run vite build first');
+  process.exit(1);
+}
+
+if (!fs.existsSync(assetsDir)) {
+  console.error(`[Inject Scripts] ERROR: assets directory not found at ${assetsDir}`);
+  process.exit(1);
+}
 
 // Read popup HTML
 let html = fs.readFileSync(popupHtmlPath, 'utf-8');
