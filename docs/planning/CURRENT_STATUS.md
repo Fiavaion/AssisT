@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-12-02
+**Last Updated**: 2025-12-04
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE)
-**Current Phase**: Phase 2 COMPLETE - Ready for Release
+**Current Phase**: Phase 2 COMPLETE - Additional Enhancements
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: main (Phase 2 COMPLETE + S.8 Advanced Recognition)
-**Session**: Phase 2 Session 050 (Stargardt Reading Mode & Font Size Controls)
+**Current Branch**: main (Phase 2 COMPLETE + Stargardt Enhancements)
+**Session**: Phase 2 Session 051 (Stargardt Magnify Lens & Custom Cursor)
 
 ---
 
@@ -47,6 +47,51 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 051 (2025-12-04)
+
+**Stargardt Magnify Lens & Custom Cursor**
+
+**Key Accomplishments**:
+
+1. **Magnify Lens Scroll Support** (100%):
+   - Added scroll event handler to magnify lens
+   - Content updates when page scrolls
+   - Uses `window.scrollY` for viewport-to-document coordinate conversion
+
+2. **Lock Position Toggle with Drag** (100%):
+   - Fixed magnifyLock detection in settings change handler
+   - Added `pointer-events: auto` when locked for dragging
+   - Implemented drag handlers (mousedown/mousemove/mouseup)
+   - Visual feedback: green border when locked, cursor changes to 'grabbing'
+
+3. **Custom Cursor Feature** (100%):
+   - Applies to entire Stargardt module (not just magnify mode)
+   - DOM overlay follows mouse movement
+   - Hides system cursor via CSS injection (`* { cursor: none !important; }`)
+   - 4 cursor styles: Crosshair, Circle, Dot with Ring, Large Arrow (SVG)
+   - Size slider (24-96px), 7 color options
+   - Settings persist via chrome.storage
+
+4. **Build Output Change** (100%):
+   - Changed vite.config.js outDir from '.vite' to 'AssistV2a'
+   - For sharing with colleagues for feedback
+
+**Files Modified**:
+
+- src/features/stargardt/content-remapper.js (~200 lines added)
+- src/features/stargardt/stargardt.js (~250 lines added)
+- src/popup/popup.html (~85 lines added)
+- src/popup/popup.js (~60 lines added)
+- vite.config.js (1 line changed)
+
+**Total**: ~600 lines added
+
+**Commit**: `29cd5ea` - feat(stargardt): add magnify lens improvements and custom cursor
+
+**Build Status**: ✅ Successful (AssistV2a folder)
+
+---
 
 ### Phase 2 Session 050 (2025-12-02)
 
