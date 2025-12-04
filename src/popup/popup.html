@@ -3334,6 +3334,316 @@
             </section>
           </div>
         </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 6: LOCAL AI (Requires Ollama) -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="local-ai" id="local-ai-section">
+          <button
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="local-ai-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">🤖</span>
+              Local AI
+              <span class="llm-badge" id="llm-status-badge">Offline</span>
+            </span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div id="local-ai-content" class="accordion-content" role="region">
+            <!-- LLM Master Toggle -->
+            <section class="control-section">
+              <div class="toggle-control main-toggle">
+                <label for="llm-enabled" class="toggle-label">
+                  <span class="label-text">🤖 Enable Local AI</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="llm-enabled"
+                      data-testid="llm-toggle"
+                      role="switch"
+                      aria-label="Enable Local AI"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description" style="margin-top: 4px">
+                Powered by <a href="https://ollama.ai" target="_blank" rel="noopener" class="llm-link">Ollama</a> - 100% local, private AI
+              </p>
+            </section>
+
+            <!-- LLM Options Container -->
+            <div id="llm-options-container" class="options-container hidden">
+              <!-- Connection Status -->
+              <section class="control-section llm-status-section">
+                <div class="llm-status-panel">
+                  <div class="llm-status-row">
+                    <span class="llm-status-label">Status:</span>
+                    <span class="llm-status-value" id="llm-connection-status">Checking...</span>
+                  </div>
+                  <div class="llm-status-row" id="llm-models-row" style="display: none">
+                    <span class="llm-status-label">Models:</span>
+                    <span class="llm-status-value" id="llm-installed-models">None</span>
+                  </div>
+                  <button
+                    id="btn-check-llm"
+                    class="control-btn secondary"
+                    style="margin-top: 8px; padding: 6px 12px; font-size: 11px"
+                    aria-label="Check Ollama connection"
+                  >
+                    🔄 Refresh Status
+                  </button>
+                </div>
+              </section>
+
+              <!-- Model Installation -->
+              <section class="control-section" id="llm-model-section">
+                <h2 class="section-title">📦 Model Installation</h2>
+                <div class="llm-models-container">
+                  <div class="llm-model-item">
+                    <div class="llm-model-info">
+                      <span class="llm-model-name">llama3.2</span>
+                      <span class="llm-model-size">~2GB</span>
+                    </div>
+                    <button
+                      id="btn-install-llama32"
+                      class="control-btn llm-install-btn"
+                      data-model="llama3.2"
+                      aria-label="Install llama3.2 model"
+                    >
+                      Install
+                    </button>
+                  </div>
+                  <div class="llm-model-item">
+                    <div class="llm-model-info">
+                      <span class="llm-model-name">phi3:mini</span>
+                      <span class="llm-model-size">~2GB (Fast)</span>
+                    </div>
+                    <button
+                      id="btn-install-phi3"
+                      class="control-btn llm-install-btn"
+                      data-model="phi3:mini"
+                      aria-label="Install phi3:mini model"
+                    >
+                      Install
+                    </button>
+                  </div>
+                  <div class="llm-model-item llm-model-vision">
+                    <div class="llm-model-info">
+                      <span class="llm-model-name">llava</span>
+                      <span class="llm-model-size">~4GB (Vision)</span>
+                    </div>
+                    <button
+                      id="btn-install-llava"
+                      class="control-btn llm-install-btn"
+                      data-model="llava"
+                      aria-label="Install LLaVA vision model"
+                    >
+                      Install
+                    </button>
+                  </div>
+                  <!-- Installation progress -->
+                  <div id="llm-install-progress" class="llm-progress hidden">
+                    <div class="llm-progress-label">
+                      <span id="llm-progress-model">Installing...</span>
+                      <span id="llm-progress-percent">0%</span>
+                    </div>
+                    <div class="llm-progress-bar">
+                      <div class="llm-progress-fill" id="llm-progress-fill" style="width: 0%"></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- AI Feature Toggles -->
+              <section class="control-section">
+                <h2 class="section-title">✨ AI Features</h2>
+                <div class="llm-features-container">
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="llm-feature-summarize" class="toggle-label">
+                        <span class="label-text">📝 Smart Summarization</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="llm-feature-summarize"
+                            data-testid="llm-summarize-toggle"
+                            role="switch"
+                            aria-label="Smart summarization"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="llm-feature-simplify" class="toggle-label">
+                        <span class="label-text">🔤 Text Simplification</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="llm-feature-simplify"
+                            data-testid="llm-simplify-toggle"
+                            role="switch"
+                            aria-label="Text simplification"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="llm-feature-tutor" class="toggle-label">
+                        <span class="label-text">🎓 Socratic Tutor</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="llm-feature-tutor"
+                            data-testid="llm-tutor-toggle"
+                            role="switch"
+                            aria-label="Socratic tutor"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="llm-feature-assignment" class="toggle-label">
+                        <span class="label-text">📋 Assignment Analyzer</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="llm-feature-assignment"
+                            data-testid="llm-assignment-toggle"
+                            role="switch"
+                            aria-label="Assignment analyzer"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="llm-feature-prosody" class="toggle-label">
+                        <span class="label-text">🎭 Emotional TTS</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="llm-feature-prosody"
+                            data-testid="llm-prosody-toggle"
+                            role="switch"
+                            aria-label="Emotional TTS"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="llm-feature-vision" class="toggle-label">
+                        <span class="label-text">👁️ Image Understanding</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="llm-feature-vision"
+                            data-testid="llm-vision-toggle"
+                            role="switch"
+                            aria-label="Image understanding"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Cognitive Profile Settings -->
+              <section class="control-section">
+                <h2 class="section-title">🧠 Cognitive Profile</h2>
+                <p class="feature-description">AI learns your preferences over time</p>
+                <div class="control-subsection" style="margin-top: 8px">
+                  <div class="toggle-control">
+                    <label for="llm-cognitive-enabled" class="toggle-label">
+                      <span class="label-text">Enable Learning</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="llm-cognitive-enabled"
+                          data-testid="llm-cognitive-toggle"
+                          role="switch"
+                          aria-label="Enable cognitive profile learning"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="control-subsection" style="margin-top: 8px">
+                  <h3 class="subsection-title" style="font-size: 11px">
+                    <label for="llm-profile-persistence">Data Retention</label>
+                  </h3>
+                  <select
+                    id="llm-profile-persistence"
+                    data-testid="llm-persistence-select"
+                    class="voice-select"
+                    aria-label="Profile data retention period"
+                  >
+                    <option value="session">This Session Only</option>
+                    <option value="1month">1 Month</option>
+                    <option value="6months" selected>6 Months (Recommended)</option>
+                    <option value="1year">1 Year</option>
+                    <option value="permanent">Permanent</option>
+                  </select>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 8px">
+                  <button
+                    id="btn-export-profile"
+                    class="control-btn secondary"
+                    style="flex: 1; padding: 6px 8px; font-size: 11px"
+                    aria-label="Export cognitive profile"
+                  >
+                    📤 Export
+                  </button>
+                  <button
+                    id="btn-clear-profile"
+                    class="control-btn"
+                    style="flex: 1; padding: 6px 8px; font-size: 11px; background: #fef2f2; color: #b91c1c; border-color: #fca5a5"
+                    aria-label="Clear cognitive profile"
+                  >
+                    🗑️ Clear Data
+                  </button>
+                </div>
+              </section>
+
+              <!-- Privacy Notice -->
+              <section class="control-section llm-privacy-notice">
+                <div class="llm-privacy-box">
+                  <span class="llm-privacy-icon">🔒</span>
+                  <span class="llm-privacy-text">
+                    All AI processing happens locally on your device. No data is ever sent to external servers.
+                  </span>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
       </main>
 
       <!-- Footer -->

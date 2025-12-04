@@ -1,18 +1,19 @@
 /**
- * Vite Configuration for AssisT Chrome Extension
+ * Vite Configuration for AssisT LLM Chrome Extension
  * Uses @crxjs/vite-plugin for Chrome Manifest V3 support
  *
- * This configuration:
- * - Automatically reads manifest.json
- * - Bundles content scripts correctly (IIFE format for Chrome)
- * - Preserves Chrome APIs (chrome.storage, chrome.runtime, etc.)
- * - Handles web_accessible_resources
- * - Provides HMR during development
+ * This is the LLM-enabled build configuration.
+ * Outputs to AssistLLM/ directory (separate from standard build).
+ *
+ * Key differences from standard build:
+ * - Uses manifest.llm.json (includes nativeMessaging, localhost permissions)
+ * - Outputs to AssistLLM/ directory
+ * - Defines __LLM_ENABLED__ = true for conditional feature loading
  */
 
 import { defineConfig } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
-import manifest from './manifest.json' with { type: 'json' };
+import manifest from './manifest.llm.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [
@@ -20,8 +21,8 @@ export default defineConfig({
   ],
 
   build: {
-    // Output to AssistV2a directory for sharing
-    outDir: 'AssistV2a',
+    // Output to AssistLLM directory (separate from standard AssistV2a)
+    outDir: 'AssistLLM',
     emptyOutDir: true,
 
     // Enable source maps for debugging
@@ -48,13 +49,14 @@ export default defineConfig({
       '@content': '/src/content',
       '@utils': '/src/utils',
       '@engines': '/src/engines',
-      '@adapters': '/src/adapters'
+      '@adapters': '/src/adapters',
+      '@llm': '/src/features/llm'
     }
   },
 
   // Define constants available during build
   define: {
     '__APP_VERSION__': JSON.stringify(manifest.version),
-    '__LLM_ENABLED__': false
+    '__LLM_ENABLED__': true
   }
 });

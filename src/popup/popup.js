@@ -1070,6 +1070,11 @@ class PopupController {
     // ============================================================
     this.setupAnnotations();
 
+    // ============================================================
+    // LOCAL LLM INTEGRATION (AssisT LLM Edition)
+    // ============================================================
+    this.setupLocalLLM();
+
     // Settings link
     document.getElementById('link-settings').addEventListener('click', e => {
       e.preventDefault();
@@ -6042,6 +6047,313 @@ class PopupController {
     } catch (error) {
       console.log('[Popup] Could not get citation count:', error.message);
       countBadge.textContent = '0';
+    }
+  }
+
+  // ============================================================
+  // LOCAL LLM INTEGRATION
+  // ============================================================
+
+  setupLocalLLM() {
+    // Initialize localLLM settings if they don't exist
+    if (!this.settings.localLLM) {
+      this.settings.localLLM = {
+        enabled: false,
+        baseUrl: 'http://localhost:11434',
+        preferredModel: 'llama3.2',
+        fastModel: 'phi3:mini',
+        visionModel: 'llava',
+        features: {
+          smartSummarization: true,
+          textSimplification: true,
+          cognitiveProfile: true,
+          stateDetection: true,
+          struggleDetection: true,
+          socraticTutor: true,
+          assignmentAnalyzer: true,
+          citationAnalyzer: true,
+          emotionalProsody: true,
+          visionAnalysis: true,
+          knowledgeGraph: true,
+          adaptiveRSVP: true,
+          predictiveLoading: true,
+        },
+        cognitiveProfile: {
+          persistence: '6months',
+          lastCleared: null,
+          exportEnabled: true,
+        },
+        privacy: {
+          neverSendToCloud: true,
+          clearContextAfterSession: false,
+          noPersonalDataInPrompts: true,
+          localProcessingOnly: true,
+        },
+        performance: {
+          cacheResponses: true,
+          cacheTTL: 300000,
+          maxConcurrentRequests: 2,
+          timeoutMs: 30000,
+        },
+        ui: {
+          showAIIndicator: true,
+          showFallbackMessages: true,
+          compactMode: false,
+        },
+      };
+    }
+
+    // Cache DOM elements
+    const llmEnabled = document.getElementById('llm-enabled');
+    const llmOptionsContainer = document.getElementById('llm-options-container');
+    const llmStatusBadge = document.getElementById('llm-status-badge');
+    const btnCheckLLM = document.getElementById('btn-check-llm');
+    const llmInstallProgress = document.getElementById('llm-install-progress');
+    const llmProgressModel = document.getElementById('llm-progress-model');
+    const llmProgressPercent = document.getElementById('llm-progress-percent');
+    const llmProgressFill = document.getElementById('llm-progress-fill');
+
+    // Track installed models
+    this.installedModels = [];
+
+    // Set initial state
+    llmEnabled.checked = this.settings.localLLM.enabled || false;
+
+    // Show/hide options based on enabled state
+    if (llmEnabled.checked) {
+      llmOptionsContainer.classList.remove('hidden');
+      this.checkLLMStatus();
+    } else {
+      llmOptionsContainer.classList.add('hidden');
+    }
+
+    // Master toggle event
+    llmEnabled.addEventListener('change', e => {
+      this.settings.localLLM.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        llmOptionsContainer.classList.remove('hidden');
+        this.checkLLMStatus();
+      } else {
+        llmOptionsContainer.classList.add('hidden');
+        llmStatusBadge.textContent = 'Offline';
+        llmStatusBadge.className = 'llm-badge offline';
+      }
+    });
+
+    // Refresh status button
+    btnCheckLLM.addEventListener('click', () => {
+      this.checkLLMStatus();
+    });
+
+    // Model install buttons
+    document.querySelectorAll('.llm-install-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const modelName = btn.dataset.model;
+        if (btn.classList.contains('installed') || btn.classList.contains('installing')) {
+          return;
+        }
+
+        btn.classList.add('installing');
+        btn.textContent = 'Installing...';
+
+        // Show progress
+        llmInstallProgress.classList.remove('hidden');
+        llmProgressModel.textContent = `Installing ${modelName}...`;
+        llmProgressPercent.textContent = '0%';
+        llmProgressFill.style.width = '0%';
+
+        try {
+          const response = await chrome.runtime.sendMessage({
+            action: 'LOCAL_LLM_INSTALL_MODEL',
+            modelName: modelName,
+          });
+
+          if (response.success) {
+            btn.classList.remove('installing');
+            btn.classList.add('installed');
+            btn.textContent = 'Installed';
+            this.installedModels.push(modelName);
+            this.updateModelList();
+          } else {
+            throw new Error(response.error || 'Installation failed');
+          }
+        } catch (error) {
+          console.error('[Popup] Model install failed:', error);
+          btn.classList.remove('installing');
+          btn.textContent = 'Install';
+          this.updateStatus(`Failed to install ${modelName}`, 'error');
+        } finally {
+          llmInstallProgress.classList.add('hidden');
+        }
+      });
+    });
+
+    // Listen for install progress updates
+    chrome.runtime.onMessage.addListener(message => {
+      if (message.type === 'LLM_INSTALL_PROGRESS') {
+        llmProgressModel.textContent = `Installing ${message.modelName}...`;
+        llmProgressPercent.textContent = `${message.progress.percent}%`;
+        llmProgressFill.style.width = `${message.progress.percent}%`;
+      }
+    });
+
+    // Feature toggles
+    const featureToggles = {
+      'llm-feature-summarize': 'smartSummarization',
+      'llm-feature-simplify': 'textSimplification',
+      'llm-feature-tutor': 'socraticTutor',
+      'llm-feature-assignment': 'assignmentAnalyzer',
+      'llm-feature-prosody': 'emotionalProsody',
+      'llm-feature-vision': 'visionAnalysis',
+    };
+
+    Object.entries(featureToggles).forEach(([elementId, settingKey]) => {
+      const toggle = document.getElementById(elementId);
+      if (toggle) {
+        toggle.checked = this.settings.localLLM.features[settingKey] !== false;
+        toggle.addEventListener('change', e => {
+          this.settings.localLLM.features[settingKey] = e.target.checked;
+          this.saveSettings();
+        });
+      }
+    });
+
+    // Cognitive profile toggle
+    const cognitiveToggle = document.getElementById('llm-cognitive-enabled');
+    if (cognitiveToggle) {
+      cognitiveToggle.checked = this.settings.localLLM.features.cognitiveProfile !== false;
+      cognitiveToggle.addEventListener('change', e => {
+        this.settings.localLLM.features.cognitiveProfile = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    // Profile persistence select
+    const persistenceSelect = document.getElementById('llm-profile-persistence');
+    if (persistenceSelect) {
+      persistenceSelect.value = this.settings.localLLM.cognitiveProfile?.persistence || '6months';
+      persistenceSelect.addEventListener('change', e => {
+        if (!this.settings.localLLM.cognitiveProfile) {
+          this.settings.localLLM.cognitiveProfile = {};
+        }
+        this.settings.localLLM.cognitiveProfile.persistence = e.target.value;
+        this.saveSettings();
+      });
+    }
+
+    // Export profile button
+    const btnExportProfile = document.getElementById('btn-export-profile');
+    if (btnExportProfile) {
+      btnExportProfile.addEventListener('click', async () => {
+        try {
+          const exportData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            cognitiveProfile: this.settings.localLLM.cognitiveProfile,
+            features: this.settings.localLLM.features,
+          };
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `assist-cognitive-profile-${Date.now()}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          this.updateStatus('Profile exported', 'success');
+        } catch (error) {
+          console.error('[Popup] Export failed:', error);
+          this.updateStatus('Export failed', 'error');
+        }
+      });
+    }
+
+    // Clear profile button
+    const btnClearProfile = document.getElementById('btn-clear-profile');
+    if (btnClearProfile) {
+      btnClearProfile.addEventListener('click', () => {
+        if (confirm('Clear all cognitive profile data? This cannot be undone.')) {
+          this.settings.localLLM.cognitiveProfile = {
+            persistence: this.settings.localLLM.cognitiveProfile?.persistence || '6months',
+            lastCleared: Date.now(),
+            exportEnabled: true,
+          };
+          this.saveSettings();
+          this.updateStatus('Profile cleared', 'success');
+        }
+      });
+    }
+
+    console.log('[Popup] Local LLM setup complete');
+  }
+
+  async checkLLMStatus() {
+    const llmStatusBadge = document.getElementById('llm-status-badge');
+    const llmConnectionStatus = document.getElementById('llm-connection-status');
+    const llmModelsRow = document.getElementById('llm-models-row');
+    const llmInstalledModels = document.getElementById('llm-installed-models');
+
+    llmConnectionStatus.textContent = 'Checking...';
+    llmConnectionStatus.className = 'llm-status-value';
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'LOCAL_LLM_CHECK',
+      });
+
+      if (response.success && response.available) {
+        llmStatusBadge.textContent = 'Online';
+        llmStatusBadge.className = 'llm-badge online';
+        llmConnectionStatus.textContent = 'Connected to Ollama';
+        llmConnectionStatus.className = 'llm-status-value connected';
+
+        // Show models
+        this.installedModels = response.models || [];
+        if (this.installedModels.length > 0) {
+          llmModelsRow.style.display = 'flex';
+          llmInstalledModels.textContent = this.installedModels.join(', ');
+          this.updateModelList();
+        } else {
+          llmModelsRow.style.display = 'none';
+        }
+      } else {
+        llmStatusBadge.textContent = 'Offline';
+        llmStatusBadge.className = 'llm-badge offline';
+        llmConnectionStatus.textContent = 'Not connected - Start Ollama';
+        llmConnectionStatus.className = 'llm-status-value disconnected';
+        llmModelsRow.style.display = 'none';
+      }
+    } catch (error) {
+      console.error('[Popup] LLM check failed:', error);
+      llmStatusBadge.textContent = 'Error';
+      llmStatusBadge.className = 'llm-badge error';
+      llmConnectionStatus.textContent = 'Connection error';
+      llmConnectionStatus.className = 'llm-status-value disconnected';
+      llmModelsRow.style.display = 'none';
+    }
+  }
+
+  updateModelList() {
+    // Update install buttons based on installed models
+    document.querySelectorAll('.llm-install-btn').forEach(btn => {
+      const modelName = btn.dataset.model;
+      const isInstalled = this.installedModels.some(
+        m => m === modelName || m.startsWith(modelName.split(':')[0])
+      );
+      if (isInstalled && !btn.classList.contains('installing')) {
+        btn.classList.add('installed');
+        btn.textContent = 'Installed';
+      }
+    });
+
+    // Update installed models display
+    const llmInstalledModels = document.getElementById('llm-installed-models');
+    if (llmInstalledModels && this.installedModels.length > 0) {
+      llmInstalledModels.textContent = this.installedModels.slice(0, 3).join(', ');
+      if (this.installedModels.length > 3) {
+        llmInstalledModels.textContent += ` +${this.installedModels.length - 3} more`;
+      }
     }
   }
 }

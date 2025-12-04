@@ -110,6 +110,56 @@ export class StorageManager {
       streamReader: true, // Read stream posts/announcements
       classworkReader: true, // Read classwork items
     },
+    // Local LLM Integration (AssisT LLM Edition)
+    localLLM: {
+      enabled: false, // Master toggle for all AI features
+      baseUrl: 'http://localhost:11434', // Ollama default URL
+      preferredModel: 'llama3.2', // Default model for most tasks
+      fastModel: 'phi3:mini', // Model for quick responses
+      visionModel: 'llava', // Model for image understanding
+      // Individual feature toggles
+      features: {
+        smartSummarization: true, // AI-powered text summaries
+        textSimplification: true, // Semantic text simplification
+        cognitiveProfile: true, // Cognitive Twin learning
+        stateDetection: true, // Cognitive state monitoring
+        struggleDetection: true, // Proactive help triggers
+        socraticTutor: true, // Guided questioning mode
+        assignmentAnalyzer: true, // Assignment breakdown
+        citationAnalyzer: true, // Source evaluation
+        emotionalProsody: true, // TTS emotional tone
+        visionAnalysis: true, // Image/page understanding
+        knowledgeGraph: true, // Annotation linking
+        adaptiveRSVP: true, // Intelligent RSVP timing
+        predictiveLoading: true, // Pre-load content
+      },
+      // Cognitive profile settings
+      cognitiveProfile: {
+        persistence: '6months', // 'session' | '1month' | '6months' | '1year' | 'permanent'
+        lastCleared: null,
+        exportEnabled: true,
+      },
+      // Privacy settings (enforced)
+      privacy: {
+        neverSendToCloud: true, // Cannot be disabled
+        clearContextAfterSession: false, // Clear conversation context after session
+        noPersonalDataInPrompts: true, // Sanitize prompts
+        localProcessingOnly: true, // Enforced - no cloud APIs
+      },
+      // Performance settings
+      performance: {
+        cacheResponses: true, // Cache identical requests
+        cacheTTL: 300000, // 5 minutes cache duration
+        maxConcurrentRequests: 2, // Limit parallel AI requests
+        timeoutMs: 30000, // Request timeout
+      },
+      // UI preferences
+      ui: {
+        showAIIndicator: true, // Show when AI is processing
+        showFallbackMessages: true, // Notify when using fallbacks
+        compactMode: false, // Reduce AI UI footprint
+      },
+    },
   };
 
   /**

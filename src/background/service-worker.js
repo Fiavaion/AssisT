@@ -267,6 +267,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
+  // ========================================
+  // LOCAL LLM MESSAGE HANDLERS
+  // ========================================
+
+  // Check if local LLM (Ollama) is available
+  if (message.action === 'LOCAL_LLM_CHECK') {
+    checkOllamaAvailability()
+      .then(status => sendResponse({ success: true, ...status }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Generate text with local LLM
+  if (message.action === 'LOCAL_LLM_GENERATE') {
+    ollamaGenerate(message.prompt, message.options || {})
+      .then(result => sendResponse({ success: true, data: result }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Vision model generation
+  if (message.action === 'LOCAL_LLM_VISION') {
+    ollamaVision(message.image, message.prompt, message.options || {})
+      .then(result => sendResponse({ success: true, data: result }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Install a model
+  if (message.action === 'LOCAL_LLM_INSTALL_MODEL') {
+    ollamaInstallModel(message.modelName, progress => {
+      // Send progress updates via broadcast (content scripts listen)
+      chrome.runtime.sendMessage({
+        type: 'LLM_INSTALL_PROGRESS',
+        modelName: message.modelName,
+        progress
+      }).catch(() => {}); // Ignore if no listeners
+    })
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Get available models
+  if (message.action === 'LOCAL_LLM_GET_MODELS') {
+    getOllamaModels()
+      .then(models => sendResponse({ success: true, models }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   // Route other messages through MessageRouter
   MessageRouter.route(message, sender)
     .then(response => sendResponse({ success: true, data: response }))
@@ -274,6 +325,177 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true; // Keep message channel open for async response
 });
+
+// ========================================
+// LOCAL LLM HELPER FUNCTIONS
+// ========================================
+
+const OLLAMA_BASE_URL = 'http://localhost:11434';
+
+/**
+ * Check if Ollama is running and get available models
+ */
+async function checkOllamaAvailability() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      const models = data.models?.map(m => m.name) || [];
+      const visionAvailable = models.some(m => m.includes('llava') || m.includes('bakllava'));
+
+      console.log('[LLM Bridge] Ollama available. Models:', models);
+
+      return {
+        available: true,
+        models,
+        visionAvailable
+      };
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.log('[LLM Bridge] Ollama not available:', error.message);
+    }
+  }
+
+  return {
+    available: false,
+    models: [],
+    visionAvailable: false
+  };
+}
+
+/**
+ * Generate text with Ollama
+ */
+async function ollamaGenerate(prompt, options = {}) {
+  const model = options.model || 'llama3.2';
+
+  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      prompt,
+      stream: false,
+      options: {
+        temperature: options.temperature ?? 0.7,
+        num_predict: options.maxTokens ?? 500
+      }
+    }),
+    signal: AbortSignal.timeout(options.timeout || 30000)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama request failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  // Parse JSON if requested
+  if (options.format === 'json') {
+    try {
+      const jsonMatch = data.response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : data.response;
+      return JSON.parse(jsonStr.trim());
+    } catch (e) {
+      return { raw: data.response, parseError: true };
+    }
+  }
+
+  return data.response;
+}
+
+/**
+ * Vision model generation with Ollama
+ */
+async function ollamaVision(imageBase64, prompt, options = {}) {
+  const model = options.model || 'llava';
+
+  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      prompt,
+      images: [imageBase64],
+      stream: false,
+      options: {
+        temperature: options.temperature ?? 0.5,
+        num_predict: options.maxTokens ?? 1000
+      }
+    }),
+    signal: AbortSignal.timeout(options.timeout || 60000)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Vision request failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.response;
+}
+
+/**
+ * Install/pull a model via Ollama
+ */
+async function ollamaInstallModel(modelName, onProgress = null) {
+  console.log(`[LLM Bridge] Installing model: ${modelName}`);
+
+  const response = await fetch(`${OLLAMA_BASE_URL}/api/pull`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: modelName, stream: true })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to start model download: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const lines = decoder.decode(value).split('\n').filter(Boolean);
+    for (const line of lines) {
+      try {
+        const progress = JSON.parse(line);
+        if (onProgress && progress.total) {
+          onProgress({
+            status: progress.status,
+            completed: progress.completed || 0,
+            total: progress.total,
+            percent: Math.round((progress.completed / progress.total) * 100)
+          });
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }
+
+  console.log(`[LLM Bridge] Model ${modelName} installed`);
+  return true;
+}
+
+/**
+ * Get list of available models
+ */
+async function getOllamaModels() {
+  const status = await checkOllamaAvailability();
+  return status.models;
+}
 
 // Tab activation listener for context-aware features
 chrome.tabs.onActivated.addListener(async activeInfo => {

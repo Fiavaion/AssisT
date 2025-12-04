@@ -1,42 +1,47 @@
 {
   "manifest_version": 3,
-  "name": "AssisT: Adaptive Accessibility Tool",
+  "name": "AssisT LLM: Adaptive Accessibility + Local AI",
   "version": "0.1.0",
-  "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
+  "description": "Universal accessibility extension with local LLM integration for enhanced Text-to-Speech, intelligent summarization, and adaptive features",
   "author": "AssisT Development Team",
+
   "icons": {
     "16": "public/icons/icon16.png",
     "32": "public/icons/icon32.png",
     "48": "public/icons/icon48.png",
     "128": "public/icons/icon128.png"
   },
+
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
     "tabs",
     "downloads",
-    "contextMenus"
+    "contextMenus",
+    "nativeMessaging"
   ],
+
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
   ],
+
   "background": {
-    "service_worker": "service-worker-loader.js",
+    "service_worker": "src/background/service-worker.js",
     "type": "module"
   },
+
   "content_scripts": [
     {
-      "js": [
-        "assets/content-simple.js-loader-BLtxKYQW.js"
-      ],
-      "matches": [
-        "<all_urls>"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content-simple.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
+
   "action": {
     "default_popup": "src/popup/popup.html",
     "default_icon": {
@@ -45,13 +50,11 @@
       "48": "public/icons/icon48.png",
       "128": "public/icons/icon128.png"
     },
-    "default_title": "AssisT - Adaptive Accessibility"
+    "default_title": "AssisT LLM - Adaptive Accessibility + AI"
   },
+
   "web_accessible_resources": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
       "resources": [
         "src/ui/components/*.js",
         "src/ui/styles/*.css",
@@ -64,21 +67,13 @@
         "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
         "src/pages/discovery/*",
         "src/pages/demo/*",
-        "assets/storage-adapter-_vjWlDz9.js",
-        "assets/storage-adapter-_vjWlDz9.js.map",
-        "assets/index-BkqOQ2dB.js",
-        "assets/index-BkqOQ2dB.js.map",
-        "assets/pdf-DSyF5veC.js",
-        "assets/pdf-DSyF5veC.js.map",
-        "assets/index-WSgnozFX.js",
-        "assets/index-WSgnozFX.js.map",
-        "assets/content-simple.js-CoZcNYX0.js",
-        "assets/content-simple.js-CoZcNYX0.js.map"
+        "src/features/llm/*"
       ],
-      "use_dynamic_url": false
+      "matches": ["<all_urls>"]
     }
   ],
+
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*"
   }
 }
