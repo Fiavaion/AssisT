@@ -43,6 +43,10 @@ let gazeTracker = null; // For advanced mode eye tracking (not yet implemented)
 let apvuiInitialized = false;
 let lightAdaptInitialized = false;
 
+// Custom cursor state
+let cursor_overlay = null;
+let cursor_mouseMoveHandler = null;
+
 // ============================================================================
 // DEFAULT SETTINGS
 // ============================================================================
@@ -68,6 +72,8 @@ const DEFAULT_SETTINGS = {
     mode: 'peripheral-push', // 'text-donut', 'peripheral-push', 'rsvp', 'magnify-remap'
     preferredSide: 'right', // 'left', 'right', 'above', 'below'
     intensity: 50, // 0-100, how aggressively to remap
+    readingMode: true, // Filter out menus, ads, navigation for clean content
+    fontSize: 100, // Font size percentage (75-200)
   },
 
   // Text optimization settings
@@ -252,6 +258,11 @@ async function stargardt_activate() {
       await stargardt_initLightAdaptation();
     }
 
+    // Initialize custom cursor if enabled
+    if (stargardt_settings?.cursor?.enabled) {
+      stargardt_initCustomCursor();
+    }
+
     console.log('[Stargardt] Module activated successfully');
   } catch (error) {
     console.error('[Stargardt] Activation error:', error);
@@ -267,6 +278,7 @@ function stargardt_deactivate() {
 
   stargardt_cleanup();
   stargardt_removeTextOptimization();
+  stargardt_removeCustomCursor();
 
   console.log('[Stargardt] Module deactivated');
 }
@@ -382,13 +394,258 @@ async function stargardt_initLightAdaptation() {
   lightAdaptInitialized = true;
 }
 
+// ============================================================================
+// CUSTOM CURSOR
+// ============================================================================
+
+/**
+ * Initialize custom cursor overlay
+ */
+function stargardt_initCustomCursor() {
+  console.log('[Stargardt] Initializing custom cursor...');
+
+  const cursorSettings = stargardt_settings?.cursor || {
+    size: 32,
+    style: 'crosshair',
+    color: '#ff0000',
+  };
+
+  // Remove existing cursor if any
+  stargardt_removeCustomCursor();
+
+  // Create cursor overlay element
+  const cursor = document.createElement('div');
+  cursor.id = 'stargardt-custom-cursor';
+  cursor.style.cssText = `
+    position: fixed;
+    pointer-events: none;
+    z-index: 2147483647;
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+  `;
+
+  // Apply cursor style
+  stargardt_applyCursorStyle(cursor, cursorSettings);
+
+  document.body.appendChild(cursor);
+  cursor_overlay = cursor;
+
+  // Hide system cursor on body
+  document.body.style.cursor = 'none';
+
+  // Create style element to hide cursor globally
+  const cursorStyle = document.createElement('style');
+  cursorStyle.id = 'stargardt-cursor-hide-style';
+  cursorStyle.textContent = `
+    * { cursor: none !important; }
+    #stargardt-custom-cursor { cursor: none !important; }
+  `;
+  document.head.appendChild(cursorStyle);
+
+  // Track mouse movement
+  cursor_mouseMoveHandler = e => {
+    if (!cursor_overlay) return;
+
+    const size = cursorSettings.size || 32;
+    const halfSize = size / 2;
+
+    cursor_overlay.style.left = `${e.clientX - halfSize}px`;
+    cursor_overlay.style.top = `${e.clientY - halfSize}px`;
+    cursor_overlay.style.opacity = '1';
+  };
+
+  document.addEventListener('mousemove', cursor_mouseMoveHandler);
+
+  // Initialize position at center
+  const centerX = window.innerWidth / 2;
+  const centerY = window.innerHeight / 2;
+  const halfSize = (cursorSettings.size || 32) / 2;
+  cursor.style.left = `${centerX - halfSize}px`;
+  cursor.style.top = `${centerY - halfSize}px`;
+
+  // Show cursor after a moment
+  setTimeout(() => {
+    if (cursor_overlay) cursor_overlay.style.opacity = '1';
+  }, 100);
+
+  console.log('[Stargardt] Custom cursor initialized:', cursorSettings);
+}
+
+/**
+ * Apply visual style to cursor element
+ */
+function stargardt_applyCursorStyle(cursor, settings) {
+  const size = settings.size || 32;
+  const color = settings.color || '#ff0000';
+  const style = settings.style || 'crosshair';
+
+  cursor.style.width = `${size}px`;
+  cursor.style.height = `${size}px`;
+
+  // Clear any existing content
+  cursor.innerHTML = '';
+
+  switch (style) {
+    case 'crosshair': {
+      // Crosshair style - two lines
+      const thickness = Math.max(2, size / 12);
+      cursor.innerHTML = `
+        <div style="
+          position: absolute;
+          left: 50%;
+          top: 0;
+          width: ${thickness}px;
+          height: 100%;
+          background: ${color};
+          transform: translateX(-50%);
+          box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        "></div>
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 0;
+          width: 100%;
+          height: ${thickness}px;
+          background: ${color};
+          transform: translateY(-50%);
+          box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        "></div>
+      `;
+      break;
+    }
+    case 'circle': {
+      // Circle outline
+      const thickness = Math.max(3, size / 8);
+      cursor.style.borderRadius = '50%';
+      cursor.style.border = `${thickness}px solid ${color}`;
+      cursor.style.boxShadow = `0 0 4px rgba(0,0,0,0.5), inset 0 0 4px rgba(0,0,0,0.3)`;
+      cursor.style.boxSizing = 'border-box';
+      break;
+    }
+    case 'dot': {
+      // Dot with ring
+      const dotSize = Math.max(8, size / 4);
+      const ringThickness = Math.max(2, size / 16);
+      cursor.style.borderRadius = '50%';
+      cursor.style.border = `${ringThickness}px solid ${color}`;
+      cursor.style.boxSizing = 'border-box';
+      cursor.innerHTML = `
+        <div style="
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: ${dotSize}px;
+          height: ${dotSize}px;
+          background: ${color};
+          border-radius: 50%;
+          transform: translate(-50%, -50%);
+          box-shadow: 0 0 4px rgba(0,0,0,0.5);
+        "></div>
+      `;
+      break;
+    }
+    case 'arrow': {
+      // Large arrow pointer
+      const arrowScale = size / 32;
+      cursor.innerHTML = `
+        <svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 4L4 28L12 20L18 28L22 26L16 18L28 18L4 4Z"
+                fill="${color}"
+                stroke="#000"
+                stroke-width="${2 / arrowScale}"
+                stroke-linejoin="round"/>
+        </svg>
+      `;
+      break;
+    }
+    default:
+      // Default to crosshair
+      stargardt_applyCursorStyle(cursor, { ...settings, style: 'crosshair' });
+  }
+}
+
+/**
+ * Update custom cursor with new settings
+ */
+function stargardt_updateCustomCursor() {
+  if (!cursor_overlay) {
+    // Cursor not initialized yet, check if we should initialize
+    if (stargardt_settings?.cursor?.enabled) {
+      stargardt_initCustomCursor();
+    }
+    return;
+  }
+
+  const cursorSettings = stargardt_settings?.cursor;
+  if (!cursorSettings?.enabled) {
+    // Cursor disabled, remove it
+    stargardt_removeCustomCursor();
+    return;
+  }
+
+  // Update cursor style
+  stargardt_applyCursorStyle(cursor_overlay, cursorSettings);
+
+  // Update mousemove handler with new size
+  if (cursor_mouseMoveHandler) {
+    document.removeEventListener('mousemove', cursor_mouseMoveHandler);
+  }
+
+  cursor_mouseMoveHandler = e => {
+    if (!cursor_overlay) return;
+
+    const size = cursorSettings.size || 32;
+    const halfSize = size / 2;
+
+    cursor_overlay.style.left = `${e.clientX - halfSize}px`;
+    cursor_overlay.style.top = `${e.clientY - halfSize}px`;
+  };
+
+  document.addEventListener('mousemove', cursor_mouseMoveHandler);
+}
+
+/**
+ * Remove custom cursor overlay
+ */
+function stargardt_removeCustomCursor() {
+  console.log('[Stargardt] Removing custom cursor...');
+
+  // Remove event listener
+  if (cursor_mouseMoveHandler) {
+    document.removeEventListener('mousemove', cursor_mouseMoveHandler);
+    cursor_mouseMoveHandler = null;
+  }
+
+  // Remove cursor element
+  if (cursor_overlay) {
+    cursor_overlay.remove();
+    cursor_overlay = null;
+  }
+
+  // Remove cursor hide style
+  const cursorHideStyle = document.getElementById('stargardt-cursor-hide-style');
+  if (cursorHideStyle) {
+    cursorHideStyle.remove();
+  }
+
+  // Restore system cursor
+  document.body.style.cursor = '';
+}
+
 /**
  * Update all active sub-modules with new settings
  */
 function stargardt_updateSubModules() {
+  console.log('[Stargardt] updateSubModules called');
+  console.log('[Stargardt] remapping settings:', stargardt_settings?.remapping);
+  console.log('[Stargardt] contentRemapper.updateSettings type:', typeof contentRemapper.updateSettings);
+
   // Update content remapper
   if (stargardt_settings?.remapping && typeof contentRemapper.updateSettings === 'function') {
+    console.log('[Stargardt] Calling contentRemapper.updateSettings with:', stargardt_settings.remapping);
     contentRemapper.updateSettings(stargardt_settings.remapping);
+  } else {
+    console.log('[Stargardt] SKIPPED contentRemapper.updateSettings - remapping:', !!stargardt_settings?.remapping, 'function:', typeof contentRemapper.updateSettings);
   }
 
   // Update APVUI engine
@@ -418,6 +675,11 @@ function stargardt_updateSubModules() {
     } else {
       stargardt_removeTextOptimization();
     }
+  }
+
+  // Update custom cursor
+  if (stargardt_settings?.cursor !== undefined) {
+    stargardt_updateCustomCursor();
   }
 }
 
@@ -460,8 +722,8 @@ function stargardt_applyTextOptimization() {
     rules.push(`line-height: ${height} !important;`);
   }
 
-  // Font size multiplier
-  if (opts.fontSize !== 100) {
+  // Font size multiplier (only if defined and not 100)
+  if (opts.fontSize !== undefined && opts.fontSize !== 100) {
     rules.push(`font-size: ${opts.fontSize}% !important;`);
   }
 
