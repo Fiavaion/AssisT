@@ -1041,6 +1041,11 @@ class PopupController {
     this.setupPomodoro();
 
     // ============================================================
+    // STARGARDT MODULE: CENTRAL VISION SUPPORT
+    // ============================================================
+    this.setupStargardt();
+
+    // ============================================================
     // SPRINT 4 FEATURE: CANVAS INTEGRATION
     // ============================================================
     this.setupCanvasIntegration();
@@ -3107,6 +3112,418 @@ class PopupController {
     });
 
     console.log('[Popup] Pomodoro Timer initialized');
+  }
+
+  // ============================================================
+  // STARGARDT MODULE: CENTRAL VISION SUPPORT
+  // ============================================================
+  setupStargardt() {
+    if (!this.settings.stargardt) {
+      this.settings.stargardt = {
+        enabled: false,
+        mode: 'lite',
+        setupComplete: false,
+        remapping: {
+          enabled: true,
+          mode: 'peripheral-push',
+          preferredSide: 'right',
+        },
+        textOptimization: {
+          enabled: true,
+          letterSpacing: 150,
+          lineHeight: 200,
+        },
+        lightAdaptation: {
+          enabled: true,
+          targetBrightness: 70,
+        },
+      };
+    }
+
+    const stargardtEnabled = document.getElementById('stargardt-enabled');
+    const stargardtDescription = document.getElementById('stargardt-description');
+    const stargardtOptions = document.getElementById('stargardt-options');
+
+    if (!stargardtEnabled) {
+      console.log('[Popup] Stargardt section not found in DOM, skipping setup');
+      return;
+    }
+
+    stargardtEnabled.checked = this.settings.stargardt.enabled || false;
+
+    if (stargardtEnabled.checked) {
+      stargardtDescription.classList.remove('hidden');
+      stargardtOptions.classList.remove('hidden');
+    } else {
+      stargardtDescription.classList.add('hidden');
+      stargardtOptions.classList.add('hidden');
+    }
+
+    // Main toggle
+    stargardtEnabled.addEventListener('change', e => {
+      this.settings.stargardt.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        stargardtDescription.classList.remove('hidden');
+        stargardtOptions.classList.remove('hidden');
+      } else {
+        stargardtDescription.classList.add('hidden');
+        stargardtOptions.classList.add('hidden');
+      }
+    });
+
+    // Mode select
+    const modeSelect = document.getElementById('stargardt-mode');
+    const calibrateSection = document.getElementById('stargardt-calibrate-section');
+    modeSelect.value = this.settings.stargardt.mode || 'lite';
+
+    // Show/hide calibrate button based on mode
+    if (modeSelect.value === 'advanced') {
+      calibrateSection.style.display = 'block';
+    } else {
+      calibrateSection.style.display = 'none';
+    }
+
+    modeSelect.addEventListener('change', e => {
+      this.settings.stargardt.mode = e.target.value;
+      this.saveSettings();
+
+      if (e.target.value === 'advanced') {
+        calibrateSection.style.display = 'block';
+      } else {
+        calibrateSection.style.display = 'none';
+      }
+    });
+
+    // Custom Cursor Settings
+    const cursorEnabled = document.getElementById('stargardt-cursor-enabled');
+    const cursorOptions = document.getElementById('stargardt-cursor-options');
+    const cursorSizeSlider = document.getElementById('stargardt-cursor-size');
+    const cursorSizeValue = document.getElementById('stargardt-cursor-size-value');
+    const cursorStyleSelect = document.getElementById('stargardt-cursor-style');
+    const cursorColorSelect = document.getElementById('stargardt-cursor-color');
+
+    // Initialize cursor settings if not present
+    if (!this.settings.stargardt.cursor) {
+      this.settings.stargardt.cursor = {
+        enabled: false,
+        size: 32,
+        style: 'crosshair',
+        color: '#ff0000',
+      };
+    }
+
+    // Set initial values
+    cursorEnabled.checked = this.settings.stargardt.cursor.enabled || false;
+    cursorSizeSlider.value = this.settings.stargardt.cursor.size || 32;
+    cursorSizeValue.textContent = `${cursorSizeSlider.value}px`;
+    cursorStyleSelect.value = this.settings.stargardt.cursor.style || 'crosshair';
+    cursorColorSelect.value = this.settings.stargardt.cursor.color || '#ff0000';
+
+    // Show/hide cursor options based on toggle
+    if (cursorEnabled.checked) {
+      cursorOptions.classList.remove('hidden');
+    } else {
+      cursorOptions.classList.add('hidden');
+    }
+
+    cursorEnabled.addEventListener('change', e => {
+      this.settings.stargardt.cursor.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        cursorOptions.classList.remove('hidden');
+      } else {
+        cursorOptions.classList.add('hidden');
+      }
+    });
+
+    cursorSizeSlider.addEventListener('input', e => {
+      cursorSizeValue.textContent = `${e.target.value}px`;
+      this.settings.stargardt.cursor.size = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    cursorStyleSelect.addEventListener('change', e => {
+      this.settings.stargardt.cursor.style = e.target.value;
+      this.saveSettings();
+    });
+
+    cursorColorSelect.addEventListener('change', e => {
+      this.settings.stargardt.cursor.color = e.target.value;
+      this.saveSettings();
+    });
+
+    // Remapping toggle
+    const remappingToggle = document.getElementById('stargardt-remapping');
+    const remappingOptions = document.getElementById('stargardt-remapping-options');
+    remappingToggle.checked = this.settings.stargardt.remapping?.enabled !== false;
+
+    if (remappingToggle.checked) {
+      remappingOptions.style.display = 'block';
+    } else {
+      remappingOptions.style.display = 'none';
+    }
+
+    remappingToggle.addEventListener('change', e => {
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        remappingOptions.style.display = 'block';
+      } else {
+        remappingOptions.style.display = 'none';
+      }
+    });
+
+    // Remapping mode select
+    const remapModeSelect = document.getElementById('stargardt-remap-mode');
+    const magnifyOptions = document.getElementById('stargardt-magnify-options');
+    remapModeSelect.value = this.settings.stargardt.remapping?.mode || 'peripheral-push';
+
+    // Show/hide magnify options based on current mode
+    const updateMagnifyOptionsVisibility = mode => {
+      if (mode === 'magnify-remap') {
+        magnifyOptions.classList.remove('hidden');
+      } else {
+        magnifyOptions.classList.add('hidden');
+      }
+    };
+    updateMagnifyOptionsVisibility(remapModeSelect.value);
+
+    remapModeSelect.addEventListener('change', e => {
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.mode = e.target.value;
+      this.saveSettings();
+      updateMagnifyOptionsVisibility(e.target.value);
+    });
+
+    // Magnify Lens Settings
+    const magnifyScaleSlider = document.getElementById('stargardt-magnify-scale');
+    const magnifyScaleValue = document.getElementById('stargardt-magnify-scale-value');
+    magnifyScaleSlider.value = this.settings.stargardt.remapping?.magnifyScale || 2;
+    magnifyScaleValue.textContent = `${magnifyScaleSlider.value}x`;
+    magnifyScaleSlider.addEventListener('input', e => {
+      magnifyScaleValue.textContent = `${e.target.value}x`;
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.magnifyScale = parseFloat(e.target.value);
+      this.saveSettings();
+    });
+
+    const magnifySizeSlider = document.getElementById('stargardt-magnify-size');
+    const magnifySizeValue = document.getElementById('stargardt-magnify-size-value');
+    magnifySizeSlider.value = this.settings.stargardt.remapping?.magnifySize || 275;
+    magnifySizeValue.textContent = `${magnifySizeSlider.value}px`;
+    magnifySizeSlider.addEventListener('input', e => {
+      magnifySizeValue.textContent = `${e.target.value}px`;
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.magnifySize = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    const magnifyOffsetSlider = document.getElementById('stargardt-magnify-offset');
+    const magnifyOffsetValue = document.getElementById('stargardt-magnify-offset-value');
+    magnifyOffsetSlider.value = this.settings.stargardt.remapping?.magnifyOffset || 150;
+    magnifyOffsetValue.textContent = `${magnifyOffsetSlider.value}px`;
+    magnifyOffsetSlider.addEventListener('input', e => {
+      magnifyOffsetValue.textContent = `${e.target.value}px`;
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.magnifyOffset = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    const magnifyOffsetDirSelect = document.getElementById('stargardt-magnify-offset-dir');
+    magnifyOffsetDirSelect.value = this.settings.stargardt.remapping?.magnifyOffsetDir || 'right';
+    magnifyOffsetDirSelect.addEventListener('change', e => {
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.magnifyOffsetDir = e.target.value;
+      this.saveSettings();
+    });
+
+    const magnifyLockToggle = document.getElementById('stargardt-magnify-lock');
+    magnifyLockToggle.checked = this.settings.stargardt.remapping?.magnifyLock === true;
+    magnifyLockToggle.addEventListener('change', e => {
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.magnifyLock = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Preferred side select
+    const sideSelect = document.getElementById('stargardt-preferred-side');
+    sideSelect.value = this.settings.stargardt.remapping?.preferredSide || 'right';
+    sideSelect.addEventListener('change', e => {
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.preferredSide = e.target.value;
+      this.saveSettings();
+    });
+
+    // Reading mode toggle (clean content filtering for all remapping styles)
+    const readingModeToggle = document.getElementById('stargardt-reading-mode');
+    readingModeToggle.checked = this.settings.stargardt.remapping?.readingMode !== false;
+    readingModeToggle.addEventListener('change', e => {
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.readingMode = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Font size / zoom slider for remapping content
+    const fontSizeSlider = document.getElementById('stargardt-remap-font-size');
+    const fontSizeValue = document.getElementById('stargardt-font-size-value');
+    fontSizeSlider.value = this.settings.stargardt.remapping?.fontSize || 100;
+    fontSizeValue.textContent = `${fontSizeSlider.value}%`;
+    fontSizeSlider.addEventListener('input', e => {
+      fontSizeValue.textContent = `${e.target.value}%`;
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.fontSize = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    // Font family selector for remapping content
+    const fontFamilySelect = document.getElementById('stargardt-font-family');
+    fontFamilySelect.value = this.settings.stargardt.remapping?.fontFamily || 'system';
+    fontFamilySelect.addEventListener('change', e => {
+      if (!this.settings.stargardt.remapping) {
+        this.settings.stargardt.remapping = {};
+      }
+      this.settings.stargardt.remapping.fontFamily = e.target.value;
+      this.saveSettings();
+    });
+
+    // Text optimization toggle
+    const textOptToggle = document.getElementById('stargardt-text-opt');
+    textOptToggle.checked = this.settings.stargardt.textOptimization?.enabled !== false;
+    textOptToggle.addEventListener('change', e => {
+      if (!this.settings.stargardt.textOptimization) {
+        this.settings.stargardt.textOptimization = {};
+      }
+      this.settings.stargardt.textOptimization.enabled = e.target.checked;
+      this.saveSettings();
+    });
+
+    // Letter spacing slider
+    const letterSlider = document.getElementById('stargardt-letter-spacing');
+    const letterValue = document.getElementById('stargardt-letter-value');
+    letterSlider.value = this.settings.stargardt.textOptimization?.letterSpacing || 150;
+    letterValue.textContent = `${letterSlider.value}%`;
+    letterSlider.addEventListener('input', e => {
+      letterValue.textContent = `${e.target.value}%`;
+      if (!this.settings.stargardt.textOptimization) {
+        this.settings.stargardt.textOptimization = {};
+      }
+      this.settings.stargardt.textOptimization.letterSpacing = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    // Line height slider
+    const lineSlider = document.getElementById('stargardt-line-height');
+    const lineValue = document.getElementById('stargardt-line-value');
+    lineSlider.value = this.settings.stargardt.textOptimization?.lineHeight || 200;
+    lineValue.textContent = `${lineSlider.value}%`;
+    lineSlider.addEventListener('input', e => {
+      lineValue.textContent = `${e.target.value}%`;
+      if (!this.settings.stargardt.textOptimization) {
+        this.settings.stargardt.textOptimization = {};
+      }
+      this.settings.stargardt.textOptimization.lineHeight = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    // Light adaptation toggle
+    const lightToggle = document.getElementById('stargardt-light-adapt');
+    const brightnessSection = document.getElementById('stargardt-brightness-section');
+    lightToggle.checked = this.settings.stargardt.lightAdaptation?.enabled !== false;
+
+    if (lightToggle.checked) {
+      brightnessSection.style.display = 'block';
+    } else {
+      brightnessSection.style.display = 'none';
+    }
+
+    lightToggle.addEventListener('change', e => {
+      if (!this.settings.stargardt.lightAdaptation) {
+        this.settings.stargardt.lightAdaptation = {};
+      }
+      this.settings.stargardt.lightAdaptation.enabled = e.target.checked;
+      this.saveSettings();
+
+      if (e.target.checked) {
+        brightnessSection.style.display = 'block';
+      } else {
+        brightnessSection.style.display = 'none';
+      }
+    });
+
+    // Brightness slider
+    const brightnessSlider = document.getElementById('stargardt-brightness');
+    const brightnessValue = document.getElementById('stargardt-brightness-value');
+    brightnessSlider.value = this.settings.stargardt.lightAdaptation?.targetBrightness || 70;
+    brightnessValue.textContent = `${brightnessSlider.value}%`;
+    brightnessSlider.addEventListener('input', e => {
+      brightnessValue.textContent = `${e.target.value}%`;
+      if (!this.settings.stargardt.lightAdaptation) {
+        this.settings.stargardt.lightAdaptation = {};
+      }
+      this.settings.stargardt.lightAdaptation.targetBrightness = parseInt(e.target.value, 10);
+      this.saveSettings();
+    });
+
+    // Setup wizard button
+    const setupBtn = document.getElementById('stargardt-setup-btn');
+    setupBtn.addEventListener('click', () => {
+      // Send message to content script to show setup wizard
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: 'stargardt_showSetupWizard',
+          });
+        }
+      });
+    });
+
+    // Calibrate button
+    const calibrateBtn = document.getElementById('stargardt-calibrate-btn');
+    calibrateBtn.addEventListener('click', () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: 'stargardt_runCalibration',
+          });
+        }
+      });
+    });
+
+    // PRL Training button
+    const prlBtn = document.getElementById('stargardt-prl-btn');
+    prlBtn.addEventListener('click', () => {
+      chrome.runtime.sendMessage({
+        action: 'openTab',
+        url: chrome.runtime.getURL('pages/prl-training/training.html'),
+      });
+    });
+
+    console.log('[Popup] Stargardt Central Vision Support initialized');
   }
 
   // ============================================================

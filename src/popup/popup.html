@@ -2352,6 +2352,516 @@
                 </div>
               </div>
             </section>
+
+            <!-- Stargardt Module -->
+            <section class="control-section" id="stargardt-section">
+              <div class="toggle-control">
+                <label for="stargardt-enabled" class="toggle-label">
+                  <span class="label-text">👁️ Stargardt Support</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="stargardt-enabled"
+                      data-testid="stargardt-toggle"
+                      role="switch"
+                      aria-label="Enable Stargardt vision support"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="stargardt-description">
+                Support for Stargardt's disease and central vision loss
+              </p>
+              <div id="stargardt-options" class="stargardt-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-mode">Mode</label>
+                  </h3>
+                  <select
+                    id="stargardt-mode"
+                    data-testid="stargardt-mode-select"
+                    class="voice-select"
+                    aria-label="Select vision support mode"
+                  >
+                    <option value="lite">Lite (Manual settings)</option>
+                    <option value="advanced">Advanced (Eye tracking)</option>
+                  </select>
+                  <p class="feature-description" style="margin-top: 4px; font-size: 11px">
+                    Advanced mode requires webcam and calibration
+                  </p>
+                </div>
+
+                <!-- Custom Cursor Settings -->
+                <div class="control-subsection">
+                  <h3 class="subsection-title">🎯 Custom Cursor</h3>
+                  <div class="toggle-control" style="margin-bottom: 10px;">
+                    <label for="stargardt-cursor-enabled" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px;">Enable Large Cursor</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stargardt-cursor-enabled"
+                          data-testid="stargardt-cursor-toggle"
+                          role="switch"
+                          aria-label="Enable custom large cursor"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div id="stargardt-cursor-options" class="hidden">
+                    <div style="margin-bottom: 12px;">
+                      <label for="stargardt-cursor-size" style="font-size: 12px; color: #9ca3af;">
+                        Cursor Size
+                        <span class="control-value" id="stargardt-cursor-size-value">32px</span>
+                      </label>
+                      <div class="slider-control">
+                        <input
+                          type="range"
+                          id="stargardt-cursor-size"
+                          data-testid="stargardt-cursor-size-slider"
+                          min="24"
+                          max="96"
+                          value="32"
+                          step="4"
+                          aria-label="Cursor size"
+                        />
+                        <div class="slider-labels">
+                          <span>24px</span>
+                          <span>96px</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom: 12px;">
+                      <label for="stargardt-cursor-style" style="font-size: 12px; color: #9ca3af;">
+                        Cursor Style
+                      </label>
+                      <select
+                        id="stargardt-cursor-style"
+                        data-testid="stargardt-cursor-style-select"
+                        class="voice-select"
+                        aria-label="Select cursor style"
+                        style="margin-top: 4px;"
+                      >
+                        <option value="crosshair">Crosshair</option>
+                        <option value="circle">Circle</option>
+                        <option value="dot">Dot with Ring</option>
+                        <option value="arrow">Large Arrow</option>
+                      </select>
+                    </div>
+
+                    <div style="margin-bottom: 8px;">
+                      <label for="stargardt-cursor-color" style="font-size: 12px; color: #9ca3af;">
+                        Cursor Color
+                      </label>
+                      <select
+                        id="stargardt-cursor-color"
+                        data-testid="stargardt-cursor-color-select"
+                        class="voice-select"
+                        aria-label="Select cursor color"
+                        style="margin-top: 4px;"
+                      >
+                        <option value="#ff0000">Red</option>
+                        <option value="#00ff00">Green</option>
+                        <option value="#ffff00">Yellow</option>
+                        <option value="#00ffff">Cyan</option>
+                        <option value="#ff00ff">Magenta</option>
+                        <option value="#ffffff">White</option>
+                        <option value="#000000">Black</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="control-subsection">
+                  <h3 class="subsection-title">Content Remapping</h3>
+                  <div class="toggle-control">
+                    <label for="stargardt-remapping" class="toggle-label">
+                      <span class="label-text">Enable Remapping</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stargardt-remapping"
+                          data-testid="stargardt-remapping-toggle"
+                          role="switch"
+                          aria-label="Enable content remapping"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="control-subsection" id="stargardt-remapping-options">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-remap-mode">Remapping Style</label>
+                  </h3>
+                  <select
+                    id="stargardt-remap-mode"
+                    data-testid="stargardt-remap-mode-select"
+                    class="voice-select"
+                    aria-label="Select content remapping style"
+                  >
+                    <option value="peripheral-push">Peripheral Push</option>
+                    <option value="text-donut">Text Donut Flow</option>
+                    <option value="rsvp">RSVP (Word-by-word)</option>
+                    <option value="magnify-remap">Magnify Lens (Eye Tracking)</option>
+                  </select>
+                </div>
+
+                <!-- Magnify Lens Settings (shown only for magnify-remap mode) -->
+                <div class="control-subsection hidden" id="stargardt-magnify-options">
+                  <h3 class="subsection-title">🔍 Magnify Lens Settings</h3>
+
+                  <div style="margin-bottom: 12px;">
+                    <label for="stargardt-magnify-scale" style="font-size: 12px; color: #9ca3af;">
+                      Magnification
+                      <span class="control-value" id="stargardt-magnify-scale-value">2.0x</span>
+                    </label>
+                    <div class="slider-control">
+                      <input
+                        type="range"
+                        id="stargardt-magnify-scale"
+                        data-testid="stargardt-magnify-scale-slider"
+                        min="1.5"
+                        max="4"
+                        value="2"
+                        step="0.25"
+                        aria-label="Magnification level"
+                      />
+                      <div class="slider-labels">
+                        <span>1.5x</span>
+                        <span>4x</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom: 12px;">
+                    <label for="stargardt-magnify-size" style="font-size: 12px; color: #9ca3af;">
+                      Lens Size
+                      <span class="control-value" id="stargardt-magnify-size-value">275px</span>
+                    </label>
+                    <div class="slider-control">
+                      <input
+                        type="range"
+                        id="stargardt-magnify-size"
+                        data-testid="stargardt-magnify-size-slider"
+                        min="100"
+                        max="600"
+                        value="275"
+                        step="25"
+                        aria-label="Lens size in pixels"
+                      />
+                      <div class="slider-labels">
+                        <span>100px</span>
+                        <span>600px</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom: 12px;">
+                    <label for="stargardt-magnify-offset" style="font-size: 12px; color: #9ca3af;">
+                      Offset Distance
+                      <span class="control-value" id="stargardt-magnify-offset-value">150px</span>
+                    </label>
+                    <div class="slider-control">
+                      <input
+                        type="range"
+                        id="stargardt-magnify-offset"
+                        data-testid="stargardt-magnify-offset-slider"
+                        min="0"
+                        max="500"
+                        value="150"
+                        step="25"
+                        aria-label="Offset distance from gaze point"
+                      />
+                      <div class="slider-labels">
+                        <span>0px</span>
+                        <span>500px</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom: 8px;">
+                    <label for="stargardt-magnify-offset-dir" style="font-size: 12px; color: #9ca3af;">
+                      Offset Direction
+                    </label>
+                    <select
+                      id="stargardt-magnify-offset-dir"
+                      data-testid="stargardt-magnify-offset-dir-select"
+                      class="voice-select"
+                      aria-label="Direction to offset the magnify lens"
+                      style="margin-top: 4px;"
+                    >
+                      <option value="right">Right of gaze</option>
+                      <option value="left">Left of gaze</option>
+                      <option value="above">Above gaze</option>
+                      <option value="below">Below gaze</option>
+                      <option value="auto">Auto (peripheral)</option>
+                    </select>
+                  </div>
+
+                  <div class="toggle-control" style="margin-top: 12px;">
+                    <label for="stargardt-magnify-lock" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px;">🔒 Lock Lens Position</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stargardt-magnify-lock"
+                          data-testid="stargardt-magnify-lock-toggle"
+                          role="switch"
+                          aria-label="Lock lens position, zoom follows cursor"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <p class="feature-description" style="font-size: 11px; margin-top: 8px;">
+                    Lock keeps lens in place while magnified content follows cursor.
+                  </p>
+                </div>
+
+                <!-- Reading Mode Option (for all remapping styles) -->
+                <div class="control-subsection" id="stargardt-reading-mode-options">
+                  <div class="toggle-control">
+                    <label for="stargardt-reading-mode" class="toggle-label">
+                      <span class="label-text">📖 Reading Mode (Clean Content)</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stargardt-reading-mode"
+                          data-testid="stargardt-reading-mode-toggle"
+                          role="switch"
+                          aria-label="Enable reading mode for clean content only"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description">
+                    Filter out menus, ads, and navigation to show only article content.
+                  </p>
+                </div>
+
+                <!-- Font Size / Zoom Control -->
+                <div class="control-subsection" id="stargardt-font-size-options">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-remap-font-size">Content Font Size</label>
+                    <span class="control-value" id="stargardt-font-size-value">100%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="stargardt-remap-font-size"
+                      data-testid="stargardt-remap-font-size-slider"
+                      min="75"
+                      max="200"
+                      value="100"
+                      step="5"
+                      aria-label="Adjust content font size"
+                    />
+                    <div class="slider-labels">
+                      <span>75%</span>
+                      <span>200%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Font Family Chooser -->
+                <div class="control-subsection" id="stargardt-font-family-options">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-font-family">Display Font</label>
+                  </h3>
+                  <select
+                    id="stargardt-font-family"
+                    data-testid="stargardt-font-family-select"
+                    class="voice-select"
+                    aria-label="Select display font for reading"
+                  >
+                    <option value="system">System Default</option>
+                    <option value="arial">Arial</option>
+                    <option value="verdana">Verdana</option>
+                    <option value="georgia">Georgia</option>
+                    <option value="trebuchet">Trebuchet MS</option>
+                    <option value="comic-sans">Comic Sans MS</option>
+                    <option value="opendyslexic">OpenDyslexic</option>
+                    <option value="lexie">Lexie Readable</option>
+                    <option value="atkinson">Atkinson Hyperlegible</option>
+                  </select>
+                  <p class="feature-description" style="margin-top: 4px; font-size: 11px">
+                    OpenDyslexic, Lexie, and Atkinson are designed for readability
+                  </p>
+                </div>
+
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-preferred-side">Preferred Side</label>
+                  </h3>
+                  <select
+                    id="stargardt-preferred-side"
+                    data-testid="stargardt-side-select"
+                    class="voice-select"
+                    aria-label="Select preferred viewing side"
+                  >
+                    <option value="right">Right</option>
+                    <option value="left">Left</option>
+                    <option value="above">Above</option>
+                    <option value="below">Below</option>
+                  </select>
+                </div>
+
+                <div class="control-subsection">
+                  <h3 class="subsection-title">Text Optimization</h3>
+                  <div class="toggle-control">
+                    <label for="stargardt-text-opt" class="toggle-label">
+                      <span class="label-text">Enhanced Spacing</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stargardt-text-opt"
+                          data-testid="stargardt-text-opt-toggle"
+                          role="switch"
+                          aria-label="Enable enhanced text spacing"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-letter-spacing">Letter Spacing</label>
+                    <span class="control-value" id="stargardt-letter-value">150%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="stargardt-letter-spacing"
+                      data-testid="stargardt-letter-slider"
+                      class="slider"
+                      min="100"
+                      max="250"
+                      step="10"
+                      value="150"
+                      aria-label="Letter spacing percentage"
+                    />
+                    <div class="slider-labels"><span>100%</span><span>250%</span></div>
+                  </div>
+                </div>
+
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-line-height">Line Height</label>
+                    <span class="control-value" id="stargardt-line-value">200%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="stargardt-line-height"
+                      data-testid="stargardt-line-slider"
+                      class="slider"
+                      min="100"
+                      max="300"
+                      step="10"
+                      value="200"
+                      aria-label="Line height percentage"
+                    />
+                    <div class="slider-labels"><span>100%</span><span>300%</span></div>
+                  </div>
+                </div>
+
+                <div class="control-subsection">
+                  <h3 class="subsection-title">Light Adaptation</h3>
+                  <div class="toggle-control">
+                    <label for="stargardt-light-adapt" class="toggle-label">
+                      <span class="label-text">Brightness Control</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="stargardt-light-adapt"
+                          data-testid="stargardt-light-toggle"
+                          role="switch"
+                          aria-label="Enable light adaptation"
+                          checked
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="control-subsection" id="stargardt-brightness-section">
+                  <h3 class="subsection-title">
+                    <label for="stargardt-brightness">Target Brightness</label>
+                    <span class="control-value" id="stargardt-brightness-value">70%</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="stargardt-brightness"
+                      data-testid="stargardt-brightness-slider"
+                      class="slider"
+                      min="20"
+                      max="100"
+                      step="5"
+                      value="70"
+                      aria-label="Target brightness percentage"
+                    />
+                    <div class="slider-labels"><span>20%</span><span>100%</span></div>
+                  </div>
+                </div>
+
+                <div class="control-subsection">
+                  <button
+                    type="button"
+                    id="stargardt-setup-btn"
+                    class="secondary-btn"
+                    data-testid="stargardt-setup-btn"
+                    style="width: 100%; margin-top: 8px"
+                  >
+                    Run Setup Wizard
+                  </button>
+                </div>
+
+                <div class="control-subsection" id="stargardt-calibrate-section">
+                  <button
+                    type="button"
+                    id="stargardt-calibrate-btn"
+                    class="secondary-btn"
+                    data-testid="stargardt-calibrate-btn"
+                    style="width: 100%"
+                  >
+                    Recalibrate Vision
+                  </button>
+                  <p class="feature-description" style="margin-top: 4px; font-size: 11px">
+                    Advanced mode only - requires webcam
+                  </p>
+                </div>
+
+                <div class="control-subsection">
+                  <button
+                    type="button"
+                    id="stargardt-prl-btn"
+                    class="secondary-btn"
+                    data-testid="stargardt-prl-btn"
+                    style="width: 100%"
+                  >
+                    Open PRL Training
+                  </button>
+                  <p class="feature-description" style="margin-top: 4px; font-size: 11px">
+                    Exercises to strengthen peripheral vision
+                  </p>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
 

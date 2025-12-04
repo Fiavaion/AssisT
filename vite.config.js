@@ -20,8 +20,8 @@ export default defineConfig({
   ],
 
   build: {
-    // Output to .vite directory (then copy to Output/)
-    outDir: '.vite',
+    // Output to AssistV2a directory for sharing
+    outDir: 'AssistV2a',
     emptyOutDir: true,
 
     // Enable source maps for debugging
