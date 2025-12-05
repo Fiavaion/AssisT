@@ -37,6 +37,8 @@ const highlightMenu_settings = {
   showAnnotate: true,
   showCopy: true,
   showSummarize: true, // AI summarization (LLM Edition)
+  showSimplify: true, // AI text simplification (LLM Edition)
+  showBreakdown: true, // AI assignment breakdown (LLM Edition)
   autoHideDelay: 5000, // milliseconds
 };
 
@@ -186,6 +188,28 @@ function highlightMenu_createToolbar() {
         '✨',
         'Summarize with AI',
         () => highlightMenu_handleSummarize(),
+        buttonIndex++
+      )
+    );
+  }
+
+  if (highlightMenu_settings.showSimplify) {
+    buttons.push(
+      highlightMenu_createButton(
+        '💡',
+        'Simplify Text',
+        () => highlightMenu_handleSimplify(),
+        buttonIndex++
+      )
+    );
+  }
+
+  if (highlightMenu_settings.showBreakdown) {
+    buttons.push(
+      highlightMenu_createButton(
+        '✅',
+        'Break Down Assignment',
+        () => highlightMenu_handleBreakdown(),
         buttonIndex++
       )
     );
@@ -533,6 +557,58 @@ function highlightMenu_handleSummarize() {
       window.showToast('Summarization feature not available. Enable LLM Edition.');
     } else {
       alert('Summarization feature not available. Please enable LLM Edition.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Simplify action (AI-powered text simplification)
+ */
+function highlightMenu_handleSimplify() {
+  console.log('[HighlightMenu] Simplify action triggered');
+
+  // Check if text simplification feature is available
+  if (window.assistFeatures?.textSimplification) {
+    // Get selection rectangle for positioning
+    const rect = highlightMenu_selectionRange
+      ? highlightMenu_selectionRange.getBoundingClientRect()
+      : null;
+
+    window.assistFeatures.textSimplification.start(highlightMenu_selectedText, rect);
+  } else {
+    console.warn('[HighlightMenu] Text Simplification feature not loaded');
+    if (window.showToast) {
+      window.showToast('Text Simplification feature not available.');
+    } else {
+      alert('Text Simplification feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Breakdown action (AI-powered assignment breakdown)
+ */
+function highlightMenu_handleBreakdown() {
+  console.log('[HighlightMenu] Breakdown action triggered');
+
+  // Check if assignment breakdown feature is available
+  if (window.assistFeatures?.assignmentBreakdown) {
+    // Get selection rectangle for positioning
+    const rect = highlightMenu_selectionRange
+      ? highlightMenu_selectionRange.getBoundingClientRect()
+      : null;
+
+    window.assistFeatures.assignmentBreakdown.start(highlightMenu_selectedText, rect);
+  } else {
+    console.warn('[HighlightMenu] Assignment Breakdown feature not loaded');
+    if (window.showToast) {
+      window.showToast('Assignment Breakdown feature not available.');
+    } else {
+      alert('Assignment Breakdown feature not available. Please reload the page.');
     }
   }
 

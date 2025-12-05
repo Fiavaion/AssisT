@@ -87,6 +87,8 @@ import '../features/stargardt/stargardt.js'; // Self-initializing Stargardt/Cent
 import '../features/textStats/textStats-ui.js'; // Self-initializing text statistics with floating badge and modal
 import { initCitation } from '../features/citations/citation-integration.js'; // Citation system with metadata extraction and storage
 import '../features/summarization/summarization.js'; // Self-initializing AI summarization with LLM integration
+import '../features/textSimplification/textSimplification.js'; // Self-initializing AI text simplification with LLM integration
+import '../features/assignmentBreakdown/assignmentBreakdown.js'; // Self-initializing AI assignment breakdown with LLM integration
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
@@ -1016,7 +1018,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'GET_STT_STATS':
       // Phase 2.7 - S.4: Get STT confidence statistics from popup
-      if (window.assistFeatures && window.assistFeatures.stt && window.assistFeatures.stt.controller) {
+      if (
+        window.assistFeatures &&
+        window.assistFeatures.stt &&
+        window.assistFeatures.stt.controller
+      ) {
         const stats = window.assistFeatures.stt.controller.getConfidenceStats();
         sendResponse({ success: true, stats });
       } else {

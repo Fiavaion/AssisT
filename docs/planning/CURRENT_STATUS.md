@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-12-04
+**Last Updated**: 2025-12-05
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
 **Current Phase**: Phase 2 Extension - Local LLM Integration
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: main (Phase 2 COMPLETE + LLM Edition Layer 2 - First AI Feature)
-**Session**: Phase 2 Session 053 (Smart Summarization Feature)
+**Current Branch**: main (Phase 2 COMPLETE + LLM Edition Layer 2 - Third AI Feature)
+**Session**: Phase 2 Session 055 (Assignment Breakdown Assistant)
 
 ---
 
@@ -48,6 +48,120 @@
 
 ## ✅ Recently Completed
 
+### Phase 2 Session 055 (2025-12-05)
+
+**Assignment Breakdown Assistant - Third AI Feature**
+
+**Key Accomplishments**:
+
+1. **Assignment Breakdown Module** (100%):
+   - Created `src/features/assignmentBreakdown/assignmentBreakdown.js` (~800 lines)
+   - AI-powered assignment analysis via LLM bridge
+   - Rule-based fallback (task extraction, requirement parsing, deadline detection)
+   - Generates actionable checklists from assignment text
+   - Checkable task items with completion tracking
+
+2. **Highlight Menu Integration** (100%):
+   - Added ✅ "Break Down Assignment" button to highlight menu
+   - `highlightMenu_handleBreakdown()` function
+   - Works with or without Ollama running
+
+3. **UI Features**:
+   - Floating draggable panel with orange/red gradient header
+   - Interactive checklist with clickable checkboxes
+   - Time estimates for each step
+   - Key requirements extraction
+   - Deadline and word count detection
+   - Study tips section
+   - Copy as markdown checklist
+   - TTS reading of breakdown
+
+4. **Fallback Features**:
+   - Task extraction using keyword analysis
+   - Requirement identification patterns
+   - Date/deadline pattern matching
+   - Word count extraction
+   - Automatic time estimation
+
+**Files Created**:
+
+- src/features/assignmentBreakdown/assignmentBreakdown.js (~800 lines)
+
+**Files Modified**:
+
+- src/features/highlightMenu/highlightMenu.js (+35 lines - showBreakdown setting, button, handler)
+- src/content/content-simple.js (+1 import line)
+
+**Build Status**: ✅ Both builds successful (AssistV2a + AssistLLM)
+
+**LLM Edition Progress**:
+
+- Layer 1: Foundation + Infrastructure ✅
+- Layer 2: AI Features (3/6 complete)
+  - ✅ Smart Summarization
+  - ✅ Semantic Text Simplification
+  - ✅ Assignment Breakdown Assistant
+  - ⬜ Cognitive Profile Engine
+  - ⬜ LLaVA Vision Analysis
+  - ⬜ Socratic Tutoring Mode
+
+---
+
+### Phase 2 Session 054 (2025-12-05)
+
+**Semantic Text Simplification Feature - Second AI Feature**
+
+**Key Accomplishments**:
+
+1. **Text Simplification Module** (100%):
+   - Created `src/features/textSimplification/textSimplification.js` (~700 lines)
+   - AI-powered text simplification via LLM bridge
+   - Rule-based fallback when LLM unavailable (word replacements, sentence splitting)
+   - Three simplification levels (Basic, Moderate, Academic)
+   - Inline technical term definitions
+
+2. **Highlight Menu Integration** (100%):
+   - Added 💡 "Simplify Text" button to highlight menu
+   - `highlightMenu_handleSimplify()` function
+   - Works with or without Ollama running
+
+3. **UI Features**:
+   - Level selector dropdown (Basic/Moderate/Academic)
+   - Copy simplified text to clipboard
+   - TTS reading of simplified text
+   - Regenerate button
+   - AI badge (green/blue gradient) or Basic badge (orange)
+
+4. **Fallback Features**:
+   - 60+ complex → simple word replacements
+   - Automatic long sentence breaking
+   - Technical term definitions (30+ academic terms)
+   - Works offline without Ollama
+
+**Files Created**:
+
+- src/features/textSimplification/textSimplification.js (~700 lines)
+
+**Files Modified**:
+
+- src/features/highlightMenu/highlightMenu.js (+35 lines - showSimplify setting, button, handler)
+- src/content/content-simple.js (+1 import line)
+
+**Build Status**: ✅ Both builds successful (AssistV2a + AssistLLM)
+
+**LLM Edition Progress**:
+
+- Layer 1: Foundation + Infrastructure ✅
+- Layer 2: AI Features (2/6 complete)
+  - ✅ Smart Summarization
+  - ✅ Semantic Text Simplification
+  - ⬜ Assignment Breakdown Assistant
+  - ⬜ Cognitive Profile Engine
+  - ⬜ LLaVA Vision Analysis
+  - ⬜ Socratic Tutoring Mode
+
+---
+
 ### Phase 2 Session 053 (2025-12-04)
 
 **Smart Summarization Feature - First AI Feature**
@@ -79,9 +193,11 @@
    - Status bar shows AI vs basic mode
 
 **Files Created**:
+
 - src/features/summarization/summarization.js (~500 lines)
 
 **Files Modified**:
+
 - src/features/highlightMenu/highlightMenu.js (+30 lines)
 - src/content/content-simple.js (+1 import line)
 
