@@ -30,15 +30,22 @@ let highlightMenu_autoHideTimeout = null;
 let highlightMenu_currentFocusIndex = 0;
 const highlightMenu_settings = {
   enabled: true,
+  compactMode: true, // Compact mode (icons only) vs descriptive mode (icons + labels)
   showTTS: true,
   showDictionary: true,
   showTranslate: true,
-  showSearch: true,
   showAnnotate: true,
   showCopy: true,
   showSummarize: true, // AI summarization (LLM Edition)
   showSimplify: true, // AI text simplification (LLM Edition)
   showBreakdown: true, // AI assignment breakdown (LLM Edition)
+  showSocraticTutor: true, // AI Socratic questioning (LLM Edition)
+  showKnowledgeGraph: true, // AI knowledge graph visualization
+  showSpeedRead: true, // Adaptive RSVP speed reading
+  showCitationAnalyzer: true, // AI citation/source analysis
+  showCognitiveMonitor: true, // AI cognitive state monitoring
+  showMultiDocCompare: true, // Multi-document comparison
+  showStudyPath: true, // Study path generator
   autoHideDelay: 5000, // milliseconds
 };
 
@@ -95,180 +102,326 @@ function highlightMenu_handleSelection(_event) {
 // ============================================================================
 
 /**
- * Creates the floating toolbar element
+ * Creates the floating toolbar element with multi-row grid layout
  *
  * @returns {HTMLElement} Toolbar element
  */
 function highlightMenu_createToolbar() {
   const toolbar = document.createElement('div');
   toolbar.id = 'assist-highlight-menu';
+  toolbar.className = highlightMenu_settings.compactMode ? 'compact' : 'descriptive';
   toolbar.setAttribute('role', 'toolbar');
   toolbar.setAttribute('aria-label', 'Text selection actions');
-  toolbar.style.cssText = `
-    position: fixed;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    padding: 8px;
-    display: flex;
-    gap: 4px;
-    z-index: 999997;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  `;
 
-  // Add buttons
-  const buttons = [];
+  // Inject styles
+  const style = document.createElement('style');
+  style.textContent = `
+    #assist-highlight-menu {
+      position: fixed;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      z-index: 999997;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* Compact mode (default) */
+    #assist-highlight-menu.compact {
+      padding: 6px;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 3px;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-btn {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.12s ease;
+      padding: 0;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-btn:hover {
+      background: #e3f2fd;
+      border-color: #2196F3;
+      transform: scale(1.1);
+    }
+
+    #assist-highlight-menu.compact .assist-hm-btn:focus {
+      outline: 2px solid #2196F3;
+      outline-offset: 1px;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-btn-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-btn-label {
+      display: none;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-section-label {
+      display: none;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-section {
+      margin-bottom: 3px;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-section:last-child {
+      margin-bottom: 0;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-divider {
+      height: 1px;
+      background: #e0e0e0;
+      margin: 3px 0;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-section.ai-tools .assist-hm-btn {
+      background: linear-gradient(135deg, #f3e5f5 0%, #e8eaf6 100%);
+      border-color: #ce93d8;
+    }
+
+    #assist-highlight-menu.compact .assist-hm-section.ai-tools .assist-hm-btn:hover {
+      background: linear-gradient(135deg, #e1bee7 0%, #c5cae9 100%);
+      border-color: #9c27b0;
+    }
+
+    /* Descriptive mode */
+    #assist-highlight-menu.descriptive {
+      padding: 12px;
+      max-width: 420px;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-section {
+      margin-bottom: 8px;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-section:last-child {
+      margin-bottom: 0;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      padding-left: 4px;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-btn {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      width: 56px;
+      height: 52px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      transition: all 0.15s ease;
+      padding: 4px 2px;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-btn:hover {
+      background: #e3f2fd;
+      border-color: #2196F3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(33, 150, 243, 0.2);
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-btn:focus {
+      outline: 2px solid #2196F3;
+      outline-offset: 2px;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-btn-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-btn-label {
+      font-size: 9px;
+      color: #666;
+      text-align: center;
+      line-height: 1.1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-section.ai-tools .assist-hm-btn {
+      background: linear-gradient(135deg, #f3e5f5 0%, #e8eaf6 100%);
+      border-color: #ce93d8;
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-section.ai-tools .assist-hm-btn:hover {
+      background: linear-gradient(135deg, #e1bee7 0%, #c5cae9 100%);
+      border-color: #9c27b0;
+      box-shadow: 0 4px 8px rgba(156, 39, 176, 0.2);
+    }
+
+    #assist-highlight-menu.descriptive .assist-hm-divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+      margin: 8px 0;
+    }
+  `;
+  toolbar.appendChild(style);
+
+  // Collect enabled buttons into categories (6 core + 6 AI = 12 total for 2x6 grid)
+  const coreButtons = [];
+  const aiButtons = [];
   let buttonIndex = 0;
 
+  // Core tools (6 buttons)
   if (highlightMenu_settings.showTTS) {
-    buttons.push(
-      highlightMenu_createButton(
-        '🔊',
-        'Read Aloud (TTS)',
-        () => highlightMenu_handleTTS(),
-        buttonIndex++
-      )
-    );
+    coreButtons.push({ icon: '🔊', label: 'Read', fullLabel: 'Read Aloud (TTS)', handler: highlightMenu_handleTTS, index: buttonIndex++ });
   }
-
   if (highlightMenu_settings.showDictionary) {
-    buttons.push(
-      highlightMenu_createButton(
-        '📖',
-        'Dictionary Lookup',
-        () => highlightMenu_handleDictionary(),
-        buttonIndex++
-      )
-    );
+    coreButtons.push({ icon: '📖', label: 'Define', fullLabel: 'Dictionary Lookup', handler: highlightMenu_handleDictionary, index: buttonIndex++ });
   }
-
   if (highlightMenu_settings.showTranslate) {
-    buttons.push(
-      highlightMenu_createButton(
-        '🌐',
-        'Translate',
-        () => highlightMenu_handleTranslate(),
-        buttonIndex++
-      )
-    );
+    coreButtons.push({ icon: '🌐', label: 'Translate', fullLabel: 'Translate', handler: highlightMenu_handleTranslate, index: buttonIndex++ });
   }
-
-  if (highlightMenu_settings.showSearch) {
-    buttons.push(
-      highlightMenu_createButton(
-        '🔍',
-        'Search Google',
-        () => highlightMenu_handleSearch(),
-        buttonIndex++
-      )
-    );
-  }
-
   if (highlightMenu_settings.showAnnotate) {
-    buttons.push(
-      highlightMenu_createButton(
-        '📝',
-        'Add Annotation',
-        () => highlightMenu_handleAnnotate(),
-        buttonIndex++
-      )
-    );
+    coreButtons.push({ icon: '📝', label: 'Annotate', fullLabel: 'Add Annotation', handler: highlightMenu_handleAnnotate, index: buttonIndex++ });
   }
-
   if (highlightMenu_settings.showCopy) {
-    buttons.push(
-      highlightMenu_createButton('📋', 'Copy Text', () => highlightMenu_handleCopy(), buttonIndex++)
-    );
+    coreButtons.push({ icon: '📋', label: 'Copy', fullLabel: 'Copy Text', handler: highlightMenu_handleCopy, index: buttonIndex++ });
   }
-
   if (highlightMenu_settings.showSummarize) {
-    buttons.push(
-      highlightMenu_createButton(
-        '✨',
-        'Summarize with AI',
-        () => highlightMenu_handleSummarize(),
-        buttonIndex++
-      )
-    );
+    coreButtons.push({ icon: '✨', label: 'Summary', fullLabel: 'Summarize with AI', handler: highlightMenu_handleSummarize, index: buttonIndex++ });
   }
 
+  // AI tools (6 buttons)
   if (highlightMenu_settings.showSimplify) {
-    buttons.push(
-      highlightMenu_createButton(
-        '💡',
-        'Simplify Text',
-        () => highlightMenu_handleSimplify(),
-        buttonIndex++
-      )
-    );
+    aiButtons.push({ icon: '💡', label: 'Simplify', fullLabel: 'Simplify Text', handler: highlightMenu_handleSimplify, index: buttonIndex++ });
   }
-
   if (highlightMenu_settings.showBreakdown) {
-    buttons.push(
-      highlightMenu_createButton(
-        '✅',
-        'Break Down Assignment',
-        () => highlightMenu_handleBreakdown(),
-        buttonIndex++
-      )
-    );
+    aiButtons.push({ icon: '✅', label: 'Tasks', fullLabel: 'Break Down Assignment', handler: highlightMenu_handleBreakdown, index: buttonIndex++ });
+  }
+  if (highlightMenu_settings.showSocraticTutor) {
+    aiButtons.push({ icon: '🎓', label: 'Tutor', fullLabel: 'Socratic Tutor', handler: highlightMenu_handleSocraticTutor, index: buttonIndex++ });
+  }
+  if (highlightMenu_settings.showKnowledgeGraph) {
+    aiButtons.push({ icon: '🕸️', label: 'Graph', fullLabel: 'Knowledge Graph', handler: highlightMenu_handleKnowledgeGraph, index: buttonIndex++ });
+  }
+  if (highlightMenu_settings.showSpeedRead) {
+    aiButtons.push({ icon: '⚡', label: 'Speed', fullLabel: 'Speed Read (RSVP)', handler: highlightMenu_handleSpeedRead, index: buttonIndex++ });
+  }
+  if (highlightMenu_settings.showCitationAnalyzer) {
+    aiButtons.push({ icon: '⚖️', label: 'Cite', fullLabel: 'Analyze Citation', handler: highlightMenu_handleCitationAnalyzer, index: buttonIndex++ });
+  }
+  if (highlightMenu_settings.showCognitiveMonitor) {
+    aiButtons.push({ icon: '🧠', label: 'Focus', fullLabel: 'Cognitive Monitor', handler: highlightMenu_handleCognitiveMonitor, index: buttonIndex++ });
+  }
+  if (highlightMenu_settings.showMultiDocCompare) {
+    aiButtons.push({ icon: '📊', label: 'Compare', fullLabel: 'Compare Documents', handler: highlightMenu_handleMultiDocCompare, index: buttonIndex++ });
+  }
+  if (highlightMenu_settings.showStudyPath) {
+    aiButtons.push({ icon: '📚', label: 'Study', fullLabel: 'Generate Study Path', handler: highlightMenu_handleStudyPath, index: buttonIndex++ });
   }
 
-  buttons.forEach(btn => toolbar.appendChild(btn));
+  // Create Core Tools section
+  if (coreButtons.length > 0) {
+    const coreSection = document.createElement('div');
+    coreSection.className = 'assist-hm-section core-tools';
+
+    const coreLabel = document.createElement('div');
+    coreLabel.className = 'assist-hm-section-label';
+    coreLabel.textContent = 'Tools';
+    coreSection.appendChild(coreLabel);
+
+    const coreGrid = document.createElement('div');
+    coreGrid.className = 'assist-hm-grid';
+    coreButtons.forEach(btn => {
+      coreGrid.appendChild(highlightMenu_createButton(btn.icon, btn.label, btn.fullLabel, btn.handler, btn.index));
+    });
+    coreSection.appendChild(coreGrid);
+    toolbar.appendChild(coreSection);
+  }
+
+  // Add divider if both sections have content
+  if (coreButtons.length > 0 && aiButtons.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'assist-hm-divider';
+    toolbar.appendChild(divider);
+  }
+
+  // Create AI Tools section
+  if (aiButtons.length > 0) {
+    const aiSection = document.createElement('div');
+    aiSection.className = 'assist-hm-section ai-tools';
+
+    const aiLabel = document.createElement('div');
+    aiLabel.className = 'assist-hm-section-label';
+    aiLabel.textContent = '✨ AI Tools';
+    aiSection.appendChild(aiLabel);
+
+    const aiGrid = document.createElement('div');
+    aiGrid.className = 'assist-hm-grid';
+    aiButtons.forEach(btn => {
+      aiGrid.appendChild(highlightMenu_createButton(btn.icon, btn.label, btn.fullLabel, btn.handler, btn.index));
+    });
+    aiSection.appendChild(aiGrid);
+    toolbar.appendChild(aiSection);
+  }
 
   return toolbar;
 }
 
 /**
- * Creates a toolbar button
+ * Creates a toolbar button with icon and label
  *
  * @param {string} icon - Button icon/emoji
- * @param {string} label - Accessible label
+ * @param {string} shortLabel - Short label displayed under icon
+ * @param {string} fullLabel - Full accessible label for tooltip
  * @param {Function} onClick - Click handler
  * @param {number} index - Button index for keyboard navigation
  * @returns {HTMLElement} Button element
  */
-function highlightMenu_createButton(icon, label, onClick, index) {
+function highlightMenu_createButton(icon, shortLabel, fullLabel, onClick, index) {
   const button = document.createElement('button');
-  button.className = 'assist-highlight-menu-btn';
-  button.setAttribute('aria-label', label);
-  button.setAttribute('title', label);
+  button.className = 'assist-hm-btn';
+  button.setAttribute('aria-label', fullLabel);
+  button.setAttribute('title', fullLabel);
   button.setAttribute('tabindex', index === 0 ? '0' : '-1');
   button.setAttribute('data-button-index', index);
-  button.textContent = icon;
-  button.style.cssText = `
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    width: 36px;
-    height: 36px;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  `;
 
-  button.onmouseenter = () => {
-    button.style.background = '#f0f0f0';
-    button.style.transform = 'scale(1.1)';
-  };
+  // Icon element
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'assist-hm-btn-icon';
+  iconSpan.textContent = icon;
+  button.appendChild(iconSpan);
 
-  button.onmouseleave = () => {
-    button.style.background = 'white';
-    button.style.transform = 'scale(1)';
-  };
-
-  button.onfocus = () => {
-    button.style.outline = '2px solid #4285f4';
-    button.style.outlineOffset = '2px';
-  };
-
-  button.onblur = () => {
-    button.style.outline = 'none';
-  };
+  // Label element
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'assist-hm-btn-label';
+  labelSpan.textContent = shortLabel;
+  button.appendChild(labelSpan);
 
   // Use mousedown instead of onclick to prevent race condition with document mousedown listener
   button.onmousedown = e => {
@@ -295,6 +448,23 @@ function highlightMenu_show(selectionRect) {
   highlightMenu_toolbar = highlightMenu_createToolbar();
   document.body.appendChild(highlightMenu_toolbar);
 
+  // Pause auto-hide when hovering over toolbar
+  highlightMenu_toolbar.onmouseenter = () => {
+    if (highlightMenu_autoHideTimeout) {
+      clearTimeout(highlightMenu_autoHideTimeout);
+      highlightMenu_autoHideTimeout = null;
+    }
+  };
+
+  // Resume auto-hide when mouse leaves toolbar
+  highlightMenu_toolbar.onmouseleave = () => {
+    if (highlightMenu_settings.autoHideDelay > 0) {
+      highlightMenu_autoHideTimeout = setTimeout(() => {
+        highlightMenu_hide();
+      }, highlightMenu_settings.autoHideDelay);
+    }
+  };
+
   // Position toolbar
   const toolbarRect = highlightMenu_toolbar.getBoundingClientRect();
 
@@ -304,6 +474,7 @@ function highlightMenu_show(selectionRect) {
 
   // Adjust if toolbar would be off-screen
   const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
 
   // Horizontal bounds
   if (left < 8) {
@@ -313,9 +484,20 @@ function highlightMenu_show(selectionRect) {
     left = viewportWidth - toolbarRect.width - 8;
   }
 
-  // Vertical bounds (show below selection if no room above)
+  // Vertical bounds
+  // First: if no room above, try below selection
   if (top < 8) {
     top = selectionRect.bottom + 8;
+  }
+
+  // Second: if toolbar goes off bottom, clamp to viewport
+  if (top + toolbarRect.height > viewportHeight - 8) {
+    top = viewportHeight - toolbarRect.height - 8;
+  }
+
+  // Final safety: ensure top is never negative
+  if (top < 8) {
+    top = 8;
   }
 
   // Apply position (using fixed positioning, no scroll offset needed)
@@ -352,7 +534,7 @@ function highlightMenu_handleKeyboardNav(event) {
     return;
   }
 
-  const buttons = Array.from(highlightMenu_toolbar.querySelectorAll('.assist-highlight-menu-btn'));
+  const buttons = Array.from(highlightMenu_toolbar.querySelectorAll('.assist-hm-btn'));
   const totalButtons = buttons.length;
 
   if (totalButtons === 0) {
@@ -478,16 +660,6 @@ function highlightMenu_handleTranslate() {
 }
 
 /**
- * Handles Search action
- */
-function highlightMenu_handleSearch() {
-  console.log('[HighlightMenu] Search action triggered');
-  const query = encodeURIComponent(highlightMenu_selectedText);
-  window.open(`https://www.google.com/search?q=${query}`, '_blank');
-  highlightMenu_hide();
-}
-
-/**
  * Handles Annotate action
  */
 function highlightMenu_handleAnnotate() {
@@ -609,6 +781,155 @@ function highlightMenu_handleBreakdown() {
       window.showToast('Assignment Breakdown feature not available.');
     } else {
       alert('Assignment Breakdown feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Socratic Tutor action (AI-powered questioning)
+ */
+function highlightMenu_handleSocraticTutor() {
+  console.log('[HighlightMenu] Socratic Tutor action triggered');
+
+  // Check if socratic tutor feature is available
+  if (window.assistFeatures?.socraticTutor) {
+    window.assistFeatures.socraticTutor.start(highlightMenu_selectedText);
+  } else {
+    console.warn('[HighlightMenu] Socratic Tutor feature not loaded');
+    if (window.showToast) {
+      window.showToast('Socratic Tutor feature not available.');
+    } else {
+      alert('Socratic Tutor feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Knowledge Graph action (concept visualization)
+ */
+function highlightMenu_handleKnowledgeGraph() {
+  console.log('[HighlightMenu] Knowledge Graph action triggered');
+
+  // Check if knowledge graph feature is available
+  if (window.assistFeatures?.knowledgeGraph) {
+    window.assistFeatures.knowledgeGraph.start(highlightMenu_selectedText);
+  } else {
+    console.warn('[HighlightMenu] Knowledge Graph feature not loaded');
+    if (window.showToast) {
+      window.showToast('Knowledge Graph feature not available.');
+    } else {
+      alert('Knowledge Graph feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Speed Read action (Adaptive RSVP)
+ */
+function highlightMenu_handleSpeedRead() {
+  console.log('[HighlightMenu] Speed Read (RSVP) action triggered');
+
+  // Check if adaptive RSVP feature is available
+  if (window.assistFeatures?.adaptiveRSVP) {
+    window.assistFeatures.adaptiveRSVP.start(highlightMenu_selectedText);
+  } else {
+    console.warn('[HighlightMenu] Adaptive RSVP feature not loaded');
+    if (window.showToast) {
+      window.showToast('Speed Read feature not available.');
+    } else {
+      alert('Speed Read feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Citation Analyzer action (AI source evaluation)
+ */
+function highlightMenu_handleCitationAnalyzer() {
+  console.log('[HighlightMenu] Citation Analyzer action triggered');
+
+  // Check if citation analyzer feature is available
+  if (window.assistFeatures?.citationAnalyzer) {
+    window.assistFeatures.citationAnalyzer.start(highlightMenu_selectedText);
+  } else {
+    console.warn('[HighlightMenu] Citation Analyzer feature not loaded');
+    if (window.showToast) {
+      window.showToast('Citation Analyzer feature not available.');
+    } else {
+      alert('Citation Analyzer feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Cognitive Monitor action (cognitive state tracking)
+ */
+function highlightMenu_handleCognitiveMonitor() {
+  console.log('[HighlightMenu] Cognitive Monitor action triggered');
+
+  // Check if cognitive state monitor feature is available
+  if (window.assistFeatures?.cognitiveStateMonitor) {
+    window.assistFeatures.cognitiveStateMonitor.show();
+  } else {
+    console.warn('[HighlightMenu] Cognitive State Monitor feature not loaded');
+    if (window.showToast) {
+      window.showToast('Cognitive Monitor feature not available.');
+    } else {
+      alert('Cognitive Monitor feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Multi-Document Compare action (add selection to comparison)
+ */
+function highlightMenu_handleMultiDocCompare() {
+  console.log('[HighlightMenu] Multi-Doc Compare action triggered');
+
+  // Check if multi-doc compare feature is available
+  if (window.assistFeatures?.multiDocCompare) {
+    // Show panel with current selection added
+    window.assistFeatures.multiDocCompare.show(highlightMenu_selectedText);
+  } else {
+    console.warn('[HighlightMenu] Multi-Document Compare feature not loaded');
+    if (window.showToast) {
+      window.showToast('Multi-Document Compare feature not available.');
+    } else {
+      alert('Multi-Document Compare feature not available. Please reload the page.');
+    }
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Study Path Generator action (generate learning path from content)
+ */
+function highlightMenu_handleStudyPath() {
+  console.log('[HighlightMenu] Study Path Generator action triggered');
+
+  // Check if study path generator feature is available
+  if (window.assistFeatures?.studyPathGenerator) {
+    // Show panel and generate path from selected text
+    window.assistFeatures.studyPathGenerator.show(highlightMenu_selectedText);
+  } else {
+    console.warn('[HighlightMenu] Study Path Generator feature not loaded');
+    if (window.showToast) {
+      window.showToast('Study Path Generator feature not available.');
+    } else {
+      alert('Study Path Generator feature not available. Please reload the page.');
     }
   }
 
