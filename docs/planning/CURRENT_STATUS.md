@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-12-06
+**Last Updated**: 2025-12-07
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
 **Current Phase**: Phase 2 Extension - Local LLM Integration
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: main (Phase 2 COMPLETE + LLM Edition Layer 2 COMPLETE - All 6 AI Features)
-**Session**: Phase 2 Session 058 (AI Feature Bug Fixes)
+**Session**: Phase 2 Session 059 (Cloud AI Model Configuration)
 
 ---
 
@@ -47,6 +47,37 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 059 (2025-12-07)
+
+**Cloud AI Model Configuration**
+
+**Key Accomplishments**:
+
+1. **Fixed Claude Model IDs** (100%):
+   - Changed from dated versions (`claude-haiku-4-5-20251101`) to simplified aliases
+   - Updated to `claude-haiku-4-5`, `claude-sonnet-4-5`, `claude-opus-4-5`
+   - Tested multiple formats before finding working aliases
+
+2. **Auto-Regeneration on Model Change** (100%):
+   - Added onChange handlers to all 5 AI feature dropdowns
+   - Model change now automatically triggers regeneration with new model
+   - Implemented for: Summarization, Text Simplification, Assignment Breakdown, Citation Analyzer, Socratic Tutor
+
+**Files Modified**:
+
+- src/ai/claude-client.js (~10 lines - model ID updates)
+- src/features/summarization/summarization.js (+8 lines)
+- src/features/textSimplification/textSimplification.js (+8 lines)
+- src/features/assignmentBreakdown/assignmentBreakdown.js (+7 lines)
+- src/features/citationAnalyzer/citationAnalyzer.js (+7 lines)
+- src/features/socraticTutor/socraticTutor.js (+7 lines)
+
+**Total**: ~47 lines added/modified
+
+**Build Status**: ✅ Successful (AssistLLM)
+
+---
 
 ### Phase 2 Session 058 (2025-12-06)
 
@@ -2078,10 +2109,10 @@
 
 ## 📝 Session Context
 
-**Session Type**: AI Feature Bug Fixes (Session 058 Complete)
-**Working Files**: highlightMenu.js, multiDocCompare.js, test-ai-features.html
+**Session Type**: Cloud AI Model Configuration (Session 059 Complete)
+**Working Files**: claude-client.js, summarization.js, textSimplification.js, assignmentBreakdown.js, citationAnalyzer.js, socraticTutor.js
 **Last Commit**: Pending
-**Next Commit**: fix(ai): fix AI feature handler method calls and display bugs
+**Next Commit**: docs(session): end Phase 2 session 059 - Cloud AI model fixes
 **Branch**: main
 
 **Notes**:
