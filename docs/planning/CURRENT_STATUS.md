@@ -60,18 +60,18 @@
    - Evaluated 7 local Ollama models + 3 Claude cloud models
 
 2. **Benchmark Results**:
-   - opus-4.5: 8.4/10 overall, 67% NCAD rate
-   - sonnet-4.5: 8.2/10 overall, 42% NCAD rate
-   - haiku-4.5: 7.9/10 overall, 67% NCAD rate
-   - gemma3:4b: 7.3/10 overall, 21% NCAD rate
-   - mistral:7b-instruct: 6.8/10 overall, 8% NCAD rate
-   - llama3.2:3b: 6.7/10 overall, 25% NCAD rate
-   - phi3:mini: 5.8/10 overall, 8% NCAD rate
+   - opus-4.5: 8.4/10 overall, 67% ND-Ready rate
+   - sonnet-4.5: 8.2/10 overall, 42% ND-Ready rate
+   - haiku-4.5: 7.9/10 overall, 67% ND-Ready rate
+   - gemma3:4b: 7.3/10 overall, 21% ND-Ready rate
+   - mistral:7b-instruct: 6.8/10 overall, 8% ND-Ready rate
+   - llama3.2:3b: 6.7/10 overall, 25% ND-Ready rate
+   - phi3:mini: 5.8/10 overall, 8% ND-Ready rate
 
 3. **Key Findings**:
    - gemma3:4b ties Opus 4.5 on Socratic Tutoring (8.8/10)
    - haiku-4.5 dominates Assignment Breakdown (8.8/10)
-   - Summarization has strictest NCAD threshold (only Opus passed)
+   - Summarization has strictest accessibility threshold (only Opus passed)
 
 4. **HTML Report Generated**:
    - Modern dark theme with Chart.js visualizations

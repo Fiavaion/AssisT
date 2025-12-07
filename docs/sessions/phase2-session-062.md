@@ -24,7 +24,7 @@
 - [x] Evaluated 7 local Ollama models + 3 Claude cloud models
 - [x] 5 educational features tested: Text Simplification, Summarization, Socratic Tutor, Assignment Breakdown, Citation Analyzer
 - [x] Multi-criteria rubric: Accuracy (25%), Completeness (25%), Clarity (20%), Accessibility (15%), Structure (15%)
-- [x] NCAD compliance evaluation for each test
+- [x] ND-Ready (Neurodivergent-Ready) evaluation for each test
 
 ### Report Generated
 
@@ -51,15 +51,15 @@
 
 ### Final Model Rankings
 
-| Rank | Model               | Overall | NCAD Rate |
-| ---- | ------------------- | ------- | --------- |
-| 1    | opus-4.5            | 8.4/10  | 67%       |
-| 2    | sonnet-4.5          | 8.2/10  | 42%       |
-| 3    | haiku-4.5           | 7.9/10  | 67%       |
-| 4    | gemma3:4b           | 7.3/10  | 21%       |
-| 5    | mistral:7b-instruct | 6.8/10  | 8%        |
-| 6    | llama3.2:3b         | 6.7/10  | 25%       |
-| 7    | phi3:mini           | 5.8/10  | 8%        |
+| Rank | Model               | Overall | ND-Ready |
+| ---- | ------------------- | ------- | -------- |
+| 1    | opus-4.5            | 8.4/10  | 67%      |
+| 2    | sonnet-4.5          | 8.2/10  | 42%      |
+| 3    | haiku-4.5           | 7.9/10  | 67%      |
+| 4    | gemma3:4b           | 7.3/10  | 21%      |
+| 5    | mistral:7b-instruct | 6.8/10  | 8%       |
+| 6    | llama3.2:3b         | 6.7/10  | 25%      |
+| 7    | phi3:mini           | 5.8/10  | 8%       |
 
 ### Key Findings
 
@@ -67,7 +67,7 @@
 
 - gemma3:4b ties Opus 4.5 on Socratic Tutoring (8.8/10)
 - haiku-4.5 dominates Assignment Breakdown, beating Opus and Sonnet (8.8/10)
-- Summarization has strictest NCAD threshold - only Opus passed
+- Summarization has strictest accessibility threshold - only Opus passed
 
 **Feature Winners**:
 | Feature | Best Cloud | Best Local |
@@ -99,7 +99,7 @@
 ## Technical Insights
 
 - Opus 4.5 as judge provides consistent, high-quality evaluation with detailed justifications
-- NCAD compliance varies significantly by feature - Summarization is hardest (3% pass rate)
+- ND-Ready pass rate varies significantly by feature - Summarization is hardest (3% pass rate)
 - Local models can match frontier cloud models on specific tasks (gemma3:4b = opus-4.5 on Socratic Tutoring)
 - haiku-4.5 provides excellent cost-efficiency for Assignment Breakdown tasks
 - Chart.js with modern CSS (glassmorphism, gradients) creates professional benchmark reports
@@ -115,7 +115,7 @@
 
 1. Update model routing in service-worker.js based on benchmark results
 2. Create feature-specific prompt templates optimized per model
-3. Implement automatic cloud fallback for NCAD-critical features
+3. Implement automatic cloud fallback for accessibility-critical features
 4. Add benchmark results to extension documentation
 
 **WIP Notes**:
