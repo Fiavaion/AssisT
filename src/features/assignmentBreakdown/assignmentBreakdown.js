@@ -32,6 +32,9 @@ let breakdown_isLoading = false;
 let breakdown_currentText = '';
 let breakdown_currentResult = null;
 const breakdown_checkedItems = new Set();
+let breakdown_modelDropdown = null; // Cloud model dropdown reference
+let breakdown_debounceTimer = null; // Debounce timer for model changes
+let breakdown_abortController = null; // AbortController for cancelling pending requests
 
 const breakdown_settings = {
   enabled: true,
@@ -40,9 +43,70 @@ const breakdown_settings = {
   includeStudyTips: true,
 };
 
+// Cloud model configurations
+const BREAKDOWN_MODELS = {
+  'local': { id: 'local', name: 'Local', isLocal: true },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
+  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+};
+
+// Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
+// Cloud: Haiku 4.5 scored 8.8/10 (best cloud model - fast & structured)
+// Local: LLaMA 3.2:3b scored 7.9/10 (best local for task decomposition)
+const BREAKDOWN_DEFAULT_LOCAL_MODEL = 'local';
+const BREAKDOWN_DEFAULT_CLOUD_MODEL = 'haiku-4.5';
+
+// ============================================================================
+// DEBOUNCING AND REQUEST MANAGEMENT
+// ============================================================================
+
+/**
+ * Debounced model change handler - prevents rapid-fire API calls
+ * @param {string} modelKey - Model key to use
+ * @param {number} delay - Debounce delay in ms (default 300ms)
+ */
+function breakdown_debouncedModelChange(modelKey, delay = 300) {
+  // Cancel any pending debounce timer
+  if (breakdown_debounceTimer) {
+    clearTimeout(breakdown_debounceTimer);
+    console.log('[AssignmentBreakdown] Debounce: cancelled pending request');
+  }
+
+  // Cancel any in-flight request
+  if (breakdown_abortController) {
+    breakdown_abortController.abort();
+    breakdown_abortController = null;
+    breakdown_isLoading = false;
+    console.log('[AssignmentBreakdown] Debounce: aborted in-flight request');
+  }
+
+  // Set new debounce timer
+  breakdown_debounceTimer = setTimeout(() => {
+    breakdown_debounceTimer = null;
+    if (breakdown_currentText) {
+      console.log(`[AssignmentBreakdown] Debounce: executing request for ${modelKey}`);
+      breakdown_analyze(breakdown_currentText, modelKey);
+    }
+  }, delay);
+}
+
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
+
+/**
+ * Check if cloud mode is enabled
+ * @returns {Promise<boolean>}
+ */
+async function breakdown_isCloudEnabled() {
+  try {
+    const result = await chrome.storage.local.get(['cloudModeEnabled']);
+    return result.cloudModeEnabled === true;
+  } catch (error) {
+    return false;
+  }
+}
 
 /**
  * Check if local LLM is available
@@ -68,80 +132,186 @@ async function breakdown_checkLLM() {
 }
 
 /**
- * Generate assignment breakdown using local LLM
- * @param {string} text - Assignment text to analyze
- * @returns {Promise<Object>} The breakdown result
+ * Sleep helper for retry delays
+ * @param {number} ms - Milliseconds to sleep
  */
-async function breakdown_generate(text) {
-  const prompt = `You are an educational assistant helping students with learning difficulties break down assignments into manageable steps.
-
-Analyze this assignment and provide a structured breakdown in JSON format:
-
-ASSIGNMENT TEXT:
-${text}
-
-Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
-{
-  "title": "Brief title for this assignment",
-  "summary": "One sentence summary of what's required",
-  "tasks": [
-    {
-      "step": 1,
-      "task": "Clear action item description",
-      "timeEstimate": "15-30 minutes",
-      "tips": "Helpful tip for this step"
-    }
-  ],
-  "keyRequirements": ["requirement 1", "requirement 2"],
-  "deadline": "Extract deadline if mentioned, otherwise null",
-  "wordCount": "Extract word count requirement if mentioned, otherwise null",
-  "overallTips": "General advice for approaching this assignment"
+function breakdown_sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-Important:
-- Break into 3-7 clear, actionable steps
-- Use simple, clear language
-- Time estimates should be realistic for students
-- Tips should be practical and specific`;
+/**
+ * Generate assignment breakdown using LLM (local or cloud) with retry logic
+ * @param {string} text - Assignment text to analyze
+ * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ * @param {number} retryCount - Current retry attempt (internal use)
+ * @returns {Promise<{breakdown: Object, isCloud: boolean}>} The breakdown result
+ */
+async function breakdown_generate(text, modelKey = 'local', retryCount = 0) {
+  const MAX_RETRIES = 2; // Max 2 retries (3 total attempts)
+  const BASE_DELAY = 1000; // 1 second base delay
+  // Truncate very long input text to avoid token overflow
+  const truncatedText = text.length > 3000 ? text.substring(0, 3000) + '...' : text;
+
+  // Model-specific token limits (Opus is verbose, Haiku is concise)
+  const modelTokenLimits = {
+    'local': 800,
+    'haiku-4.5': 600,    // Fast and concise
+    'sonnet-4.5': 1000,  // Balanced
+    'opus-4.5': 1200     // Needs more for detailed analysis
+  };
+
+  const maxTokens = modelTokenLimits[modelKey] || 800;
+
+  // Strict prompt with explicit length constraints to prevent truncation
+  const prompt = `TASK: Break down assignment into actionable steps. Return ONLY valid JSON.
+
+ASSIGNMENT:
+${truncatedText}
+
+OUTPUT FORMAT (strict JSON, no markdown, no explanation before/after):
+{
+  "title": "max 10 words",
+  "summary": "max 20 words",
+  "tasks": [
+    {"step": 1, "task": "max 15 words", "timeEstimate": "e.g. 30 min", "tips": "max 15 words"}
+  ],
+  "keyRequirements": ["max 3 items, 5 words each"],
+  "deadline": "date or null",
+  "wordCount": "number or null",
+  "overallTips": "max 20 words"
+}
+
+RULES:
+- Exactly 3-5 tasks (no more)
+- Keep all text SHORT and simple
+- No markdown code blocks
+- Start response with { end with }`;
+
+  const isCloud = modelKey !== 'local';
 
   try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GENERATE',
-      prompt,
-      options: {
-        maxTokens: 800,
-        temperature: 0.3,
-      },
-    });
+    let response;
+
+    if (isCloud) {
+      // Use cloud model (Claude API)
+      response = await chrome.runtime.sendMessage({
+        action: 'CLOUD_LLM_GENERATE',
+        prompt,
+        options: {
+          model: modelKey,
+          maxTokens,
+          temperature: 0.2,  // Lower temperature for more predictable JSON
+          feature: 'assignmentBreakdown'
+        },
+      });
+    } else {
+      // Use local model (Ollama)
+      response = await chrome.runtime.sendMessage({
+        action: 'LOCAL_LLM_GENERATE',
+        prompt,
+        options: {
+          maxTokens,
+          temperature: 0.2,
+        },
+      });
+    }
 
     if (response && response.success) {
       // Try to parse JSON from response
       try {
-        // Clean response - remove any markdown code blocks if present
         let jsonStr = response.data.trim();
-        if (jsonStr.startsWith('```json')) {
-          jsonStr = jsonStr.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-        } else if (jsonStr.startsWith('```')) {
-          jsonStr = jsonStr.replace(/^```\n?/, '').replace(/\n?```$/, '');
+
+        // Remove markdown code blocks (various formats)
+        jsonStr = jsonStr
+          .replace(/```json\s*/gi, '')
+          .replace(/```JSON\s*/g, '')
+          .replace(/```\s*/g, '')
+          .replace(/^\s*json\s*/i, ''); // Remove leading "json" if present
+
+        // Try to extract JSON object from the string
+        // Find the first { and last } to extract the JSON
+        const firstBrace = jsonStr.indexOf('{');
+        const lastBrace = jsonStr.lastIndexOf('}');
+
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
         }
 
-        return JSON.parse(jsonStr);
-      } catch {
-        console.warn('[AssignmentBreakdown] JSON parse failed, using raw response');
-        // Return a basic structure with the raw text
+        // Clean up common JSON issues
+        jsonStr = jsonStr
+          .trim()
+          .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+          .replace(/,\s*]/g, ']'); // Remove trailing commas before ]
+
+        console.log('[AssignmentBreakdown] Parsing JSON:', jsonStr.substring(0, 200) + '...');
+
+        const parsed = JSON.parse(jsonStr);
+
+        // Validate the structure has required fields
+        if (parsed && parsed.title && Array.isArray(parsed.tasks)) {
+          console.log('[AssignmentBreakdown] JSON parsed successfully:', parsed.title);
+          return { breakdown: parsed, isCloud };
+        } else {
+          console.warn('[AssignmentBreakdown] JSON missing required fields');
+          throw new Error('Invalid JSON structure');
+        }
+      } catch (parseError) {
+        console.warn('[AssignmentBreakdown] JSON parse failed:', parseError.message);
+        console.log('[AssignmentBreakdown] Raw response:', response.data.substring(0, 500));
+
+        // Try to extract meaningful content from the response for a better fallback
+        const rawText = response.data;
+
+        // Attempt to extract title from truncated JSON
+        const titleMatch = rawText.match(/"title"\s*:\s*"([^"]+)"/);
+        const summaryMatch = rawText.match(/"summary"\s*:\s*"([^"]+)"/);
+
+        // If we found some data, use it
+        const extractedTitle = titleMatch ? titleMatch[1] : 'Assignment Analysis';
+        const extractedSummary = summaryMatch
+          ? summaryMatch[1]
+          : 'AI response was incomplete. Please try again or use a different model.';
+
         return {
-          title: 'Assignment Analysis',
-          summary: response.data.substring(0, 200),
-          tasks: [{ step: 1, task: response.data, timeEstimate: 'Varies', tips: '' }],
-          keyRequirements: [],
-          overallTips: '',
+          breakdown: {
+            title: extractedTitle,
+            summary: extractedSummary,
+            tasks: [
+              {
+                step: 1,
+                task: 'AI response was truncated or malformed. Click "Regenerate" to try again, or try a faster model like Haiku.',
+                timeEstimate: '-',
+                tips: 'Tip: Haiku 4.5 produces more concise, reliable results'
+              }
+            ],
+            keyRequirements: [],
+            overallTips: 'The AI response could not be fully processed.',
+          },
+          isCloud
         };
       }
     }
 
     throw new Error(response?.error || 'Breakdown generation failed');
   } catch (error) {
-    console.error('[AssignmentBreakdown] Generation failed:', error);
+    console.error(`[AssignmentBreakdown] Generation failed (attempt ${retryCount + 1}):`, error);
+
+    // Check if this is a retryable error (network failures, timeouts)
+    const isRetryable = error.message?.includes('Failed to fetch') ||
+                        error.message?.includes('network') ||
+                        error.message?.includes('timeout') ||
+                        error.message?.includes('CORS') ||
+                        error.name === 'TypeError';
+
+    // Retry with exponential backoff if we haven't exceeded max retries
+    if (isRetryable && retryCount < MAX_RETRIES) {
+      const delay = BASE_DELAY * Math.pow(2, retryCount); // Exponential backoff: 1s, 2s, 4s
+      console.log(`[AssignmentBreakdown] Retrying in ${delay}ms... (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
+      await breakdown_sleep(delay);
+      return breakdown_generate(text, modelKey, retryCount + 1);
+    }
+
+    // If not retryable or max retries exceeded, throw the error
     throw error;
   }
 }
@@ -394,12 +564,15 @@ function breakdown_fallback(text) {
  * Creates the floating breakdown panel
  * @returns {HTMLElement} Panel element
  */
-function breakdown_createPanel() {
+async function breakdown_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-breakdown-panel';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Assignment Breakdown');
   panel.setAttribute('aria-modal', 'true');
+
+  // Check if cloud mode is enabled
+  const cloudEnabled = await breakdown_isCloudEnabled();
 
   panel.innerHTML = `
     <div class="assist-breakdown-header">
@@ -413,6 +586,15 @@ function breakdown_createPanel() {
       <p class="assist-breakdown-placeholder">Select assignment text and click breakdown...</p>
     </div>
     <div class="assist-breakdown-actions">
+      <div class="assist-breakdown-model-selector ${cloudEnabled ? '' : 'hidden'}">
+        <span class="assist-model-icon" title="AI Model">🤖</span>
+        <select class="assist-breakdown-model" aria-label="Select AI model">
+          <option value="local">Local</option>
+          <option value="haiku-4.5">Haiku 4.5</option>
+          <option value="sonnet-4.5">Sonnet 4.5</option>
+          <option value="opus-4.5">Opus 4.5</option>
+        </select>
+      </div>
       <button class="assist-breakdown-btn assist-breakdown-copy" aria-label="Copy as checklist">
         <span class="assist-breakdown-btn-icon">📋</span> Copy List
       </button>
@@ -432,6 +614,22 @@ function breakdown_createPanel() {
   const closeBtn = panel.querySelector('.assist-breakdown-close');
   closeBtn.addEventListener('click', breakdown_hide);
 
+  // Model dropdown event listener
+  const modelSelect = panel.querySelector('.assist-breakdown-model');
+  if (modelSelect) {
+    // Set default based on cloud mode (benchmark-optimized)
+    modelSelect.value = cloudEnabled ? BREAKDOWN_DEFAULT_CLOUD_MODEL : BREAKDOWN_DEFAULT_LOCAL_MODEL;
+    breakdown_modelDropdown = modelSelect;
+
+    // Model change triggers regeneration with debouncing
+    modelSelect.addEventListener('change', () => {
+      if (breakdown_currentText) {
+        // Use debounced handler to prevent rapid-fire API calls
+        breakdown_debouncedModelChange(modelSelect.value);
+      }
+    });
+  }
+
   const copyBtn = panel.querySelector('.assist-breakdown-copy');
   copyBtn.addEventListener('click', breakdown_copy);
 
@@ -441,7 +639,8 @@ function breakdown_createPanel() {
   const regenerateBtn = panel.querySelector('.assist-breakdown-regenerate');
   regenerateBtn.addEventListener('click', () => {
     if (breakdown_currentText) {
-      breakdown_analyze(breakdown_currentText);
+      const modelKey = breakdown_modelDropdown?.value || 'local';
+      breakdown_analyze(breakdown_currentText, modelKey);
     }
   });
 
@@ -788,6 +987,42 @@ function breakdown_injectStyles() {
       font-size: 14px;
     }
 
+    /* Model selector in actions bar */
+    .assist-breakdown-model-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+      margin-right: auto;
+    }
+
+    .assist-breakdown-model-selector.hidden {
+      display: none !important;
+    }
+
+    .assist-model-icon {
+      font-size: 14px;
+    }
+
+    .assist-breakdown-model {
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      background: white;
+      cursor: pointer;
+      min-width: 100px;
+    }
+
+    .assist-breakdown-model:focus {
+      outline: none;
+      border-color: #FF6B6B;
+      box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2);
+    }
+
     /* Badges */
     .assist-breakdown-ai-badge {
       display: inline-flex;
@@ -795,6 +1030,19 @@ function breakdown_injectStyles() {
       gap: 4px;
       padding: 2px 8px;
       background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 10px;
+      margin-left: 8px;
+    }
+
+    .assist-breakdown-cloud-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
       color: white;
       font-size: 10px;
       font-weight: 600;
@@ -881,6 +1129,21 @@ function breakdown_injectStyles() {
       .assist-breakdown-tips-text {
         color: #ccc;
       }
+
+      .assist-breakdown-model-selector {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .assist-breakdown-model {
+        background: #2a2a2a;
+        color: #e0e0e0;
+        border-color: #444;
+      }
+
+      .assist-breakdown-model:focus {
+        border-color: #FF6B6B;
+        box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.3);
+      }
     }
   `;
 
@@ -941,16 +1204,23 @@ function breakdown_makeDraggable(panel) {
  * Render the breakdown result in the panel
  * @param {Object} result - Breakdown result object
  * @param {boolean} isAI - Whether result was AI-generated
+ * @param {boolean} isCloud - Whether cloud model was used
+ * @param {string} modelName - Name of the model used
  */
-function breakdown_renderResult(result, isAI) {
+function breakdown_renderResult(result, isAI, isCloud = false, modelName = '') {
   const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
   if (!contentArea) {
     return;
   }
 
-  const badge = isAI
-    ? '<span class="assist-breakdown-ai-badge">AI</span>'
-    : '<span class="assist-breakdown-fallback-badge">Basic</span>';
+  let badge;
+  if (isCloud) {
+    badge = `<span class="assist-breakdown-cloud-badge">☁️ ${modelName}</span>`;
+  } else if (isAI) {
+    badge = '<span class="assist-breakdown-ai-badge">💻 Local AI</span>';
+  } else {
+    badge = '<span class="assist-breakdown-fallback-badge">Basic</span>';
+  }
 
   let html = `
     <div class="assist-breakdown-summary">
@@ -1052,7 +1322,7 @@ function breakdown_toggleTask(step) {
  * Show the breakdown panel
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
  */
-function breakdown_show(selectionRect = null) {
+async function breakdown_show(selectionRect = null) {
   if (breakdown_panel) {
     breakdown_panel.remove();
   }
@@ -1060,7 +1330,7 @@ function breakdown_show(selectionRect = null) {
   // Reset checked items for new breakdown
   breakdown_checkedItems.clear();
 
-  breakdown_panel = breakdown_createPanel();
+  breakdown_panel = await breakdown_createPanel();
   document.body.appendChild(breakdown_panel);
 
   // Position near selection if available
@@ -1069,13 +1339,20 @@ function breakdown_show(selectionRect = null) {
     let left = selectionRect.right + 10;
     let top = selectionRect.top;
 
-    // Adjust if would be off-screen
+    // Horizontal bounds: prefer right of selection, fallback to left
     if (left + panelRect.width > window.innerWidth - 20) {
       left = Math.max(20, selectionRect.left - panelRect.width - 10);
     }
 
+    // Vertical bounds: ensure panel stays within viewport
+    // Check bottom edge
     if (top + panelRect.height > window.innerHeight - 20) {
-      top = Math.max(20, window.innerHeight - panelRect.height - 20);
+      top = window.innerHeight - panelRect.height - 20;
+    }
+
+    // Check top edge (ensure not cut off at top)
+    if (top < 20) {
+      top = 20;
     }
 
     breakdown_panel.style.left = `${left}px`;
@@ -1116,10 +1393,16 @@ function breakdown_handleKeydown(e) {
 /**
  * Analyze text and update panel
  * @param {string} text - Assignment text to analyze
+ * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
  */
-async function breakdown_analyze(text) {
+async function breakdown_analyze(text, modelKey = null) {
   if (breakdown_isLoading || !text || text.trim().length === 0) {
     return;
+  }
+
+  // Get model from dropdown if not specified
+  if (!modelKey) {
+    modelKey = breakdown_modelDropdown?.value || 'local';
   }
 
   breakdown_currentText = text;
@@ -1130,11 +1413,14 @@ async function breakdown_analyze(text) {
   const statusBar = breakdown_panel?.querySelector('.assist-breakdown-status');
   const actionBtns = breakdown_panel?.querySelectorAll('.assist-breakdown-btn');
 
+  const isCloud = modelKey !== 'local';
+  const modelName = BREAKDOWN_MODELS[modelKey]?.name || modelKey;
+
   if (contentArea) {
     contentArea.innerHTML = `
       <div class="assist-breakdown-loading">
         <div class="assist-breakdown-spinner"></div>
-        <span>Analyzing assignment...</span>
+        <span>Analyzing assignment${isCloud ? ` with ${modelName}` : ''}...</span>
       </div>
     `;
   }
@@ -1145,40 +1431,55 @@ async function breakdown_analyze(text) {
   });
 
   try {
-    // Check LLM availability
-    const llmStatus = await breakdown_checkLLM();
-
     let result;
     let isAI = false;
+    let usedCloud = false;
 
-    if (llmStatus.available) {
-      // Use AI breakdown
-      result = await breakdown_generate(text);
+    if (isCloud) {
+      // Use cloud model (Claude API)
+      const response = await breakdown_generate(text, modelKey);
+      result = response.breakdown;
       isAI = true;
+      usedCloud = true;
 
       if (statusBar) {
-        statusBar.textContent = '✨ AI-powered breakdown complete';
+        statusBar.textContent = `☁️ Analyzed with ${modelName}`;
         statusBar.className = 'assist-breakdown-status visible success';
       }
     } else {
-      // Fall back to rule-based breakdown
-      result = breakdown_fallback(text);
+      // Check local LLM availability
+      const llmStatus = await breakdown_checkLLM();
 
-      if (statusBar) {
-        statusBar.textContent = '⚠️ Using basic analysis (Ollama not available)';
-        statusBar.className = 'assist-breakdown-status visible';
+      if (llmStatus.available) {
+        // Use local AI breakdown
+        const response = await breakdown_generate(text, 'local');
+        result = response.breakdown;
+        isAI = true;
+
+        if (statusBar) {
+          statusBar.textContent = '💻 AI-powered breakdown complete (Local)';
+          statusBar.className = 'assist-breakdown-status visible success';
+        }
+      } else {
+        // Fall back to rule-based breakdown
+        result = breakdown_fallback(text);
+
+        if (statusBar) {
+          statusBar.textContent = '⚠️ Using basic analysis (Ollama not available)';
+          statusBar.className = 'assist-breakdown-status visible';
+        }
       }
     }
 
     breakdown_currentResult = result;
-    breakdown_renderResult(result, isAI);
+    breakdown_renderResult(result, isAI, usedCloud, modelName);
   } catch (error) {
     console.error('[AssignmentBreakdown] Error:', error);
 
     // Fall back to rule-based breakdown
     const fallbackResult = breakdown_fallback(text);
     breakdown_currentResult = fallbackResult;
-    breakdown_renderResult(fallbackResult, false);
+    breakdown_renderResult(fallbackResult, false, false, '');
 
     if (statusBar) {
       statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
@@ -1311,17 +1612,20 @@ function escapeHtml(text) {
  * @param {string} text - Assignment text to analyze
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
  */
-function breakdown_start(text, selectionRect = null) {
+async function breakdown_start(text, selectionRect = null) {
   if (!text || text.trim().length === 0) {
     showToast('No text to analyze');
     return;
   }
 
   // Show the panel
-  breakdown_show(selectionRect);
+  await breakdown_show(selectionRect);
 
-  // Start analysis
-  breakdown_analyze(text);
+  // Get model from dropdown (defaults to feature default when first shown)
+  const modelKey = breakdown_modelDropdown?.value || BREAKDOWN_DEFAULT_MODEL;
+
+  // Start analysis with selected model
+  breakdown_analyze(text, modelKey);
 }
 
 // ============================================================================

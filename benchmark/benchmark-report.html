@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AssisT AI Benchmark Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-yellow: #eab308;
+            --accent-orange: #f97316;
+            --accent-red: #ef4444;
+            --accent-purple: #a855f7;
+            --accent-cyan: #06b6d4;
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            background: var(--gradient-1);
+            margin-bottom: 2rem;
+            border-radius: 1rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent-blue);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title .icon {
+            font-size: 1.5rem;
+        }
+
+        /* Model Rankings */
+        .rankings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .model-card {
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .model-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+
+        .model-card.rank-1 { border-top: 4px solid #ffd700; }
+        .model-card.rank-2 { border-top: 4px solid #c0c0c0; }
+        .model-card.rank-3 { border-top: 4px solid #cd7f32; }
+
+        .model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .model-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .model-tier {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+        }
+
+        .tier-cloud { background: var(--accent-purple); color: white; }
+        .tier-2gb { background: var(--accent-orange); color: white; }
+        .tier-4gb { background: var(--accent-yellow); color: black; }
+        .tier-8gb { background: var(--accent-green); color: white; }
+
+        .grade-display {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .grade-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+
+        .grade-A\+, .grade-A { background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .grade-A- { background: linear-gradient(135deg, #4ade80, #22c55e); }
+        .grade-B\+, .grade-B { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .grade-B- { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+        .grade-C\+, .grade-C { background: linear-gradient(135deg, #eab308, #ca8a04); }
+        .grade-C- { background: linear-gradient(135deg, #facc15, #eab308); }
+        .grade-D { background: linear-gradient(135deg, #f97316, #ea580c); }
+        .grade-F { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+        .grade-score {
+            font-size: 0.7rem;
+            opacity: 0.9;
+        }
+
+        .score-bars {
+            flex: 1;
+        }
+
+        .score-bar {
+            margin-bottom: 0.5rem;
+        }
+
+        .score-bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .score-bar-track {
+            height: 8px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .fill-speed { background: var(--accent-cyan); }
+        .fill-efficiency { background: var(--accent-purple); }
+        .fill-quality { background: var(--accent-green); }
+        .fill-complex { background: var(--accent-orange); }
+        .fill-reliability { background: var(--accent-blue); }
+
+        .model-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--bg-card);
+        }
+
+        .metric {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+        }
+
+        .chart-card {
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Summary Stats */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-stat {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            text-align: center;
+        }
+
+        .summary-stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient-3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .summary-stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--bg-card);
+        }
+
+        .comparison-table th {
+            background: var(--bg-card);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .comparison-table tr:hover td {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .rank-1 .rank-badge { background: #ffd700; color: #000; }
+        .rank-2 .rank-badge { background: #c0c0c0; color: #000; }
+        .rank-3 .rank-badge { background: #cd7f32; color: #fff; }
+        .rank-badge:not(.rank-1):not(.rank-2):not(.rank-3) { background: var(--bg-card); }
+
+        /* Insights Section */
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .insight-card {
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border-left: 4px solid var(--accent-blue);
+        }
+
+        .insight-card.success { border-left-color: var(--accent-green); }
+        .insight-card.warning { border-left-color: var(--accent-yellow); }
+        .insight-card.info { border-left-color: var(--accent-purple); }
+
+        .insight-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .insight-text {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            header h1 { font-size: 1.8rem; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .model-metrics { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AssisT AI Benchmark Report</h1>
+            <p>Comprehensive Performance Analysis Across VRAM Tiers & Cloud Models</p>
+            <div class="meta-info">
+                <span class="meta-badge">Generated: 7/12/2025</span>
+                <span class="meta-badge">189 Total Tests</span>
+                <span class="meta-badge">7 Models Tested</span>
+                <span class="meta-badge">5 AI Features</span>
+            </div>
+        </header>
+
+        <!-- Summary Stats -->
+        <div class="section">
+            <div class="summary-grid">
+                <div class="summary-stat">
+                    <div class="summary-stat-value">189/189</div>
+                    <div class="summary-stat-label">Tests Passed</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="summary-stat-value">haiku-4.5</div>
+                    <div class="summary-stat-label">Top Performer</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="summary-stat-value">4.22s</div>
+                    <div class="summary-stat-label">Avg Latency</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="summary-stat-value">80</div>
+                    <div class="summary-stat-label">Avg Quality Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Rankings -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">🏆</span> Model Rankings</h2>
+            <div class="rankings-grid">
+                
+                <div class="model-card rank-1">
+                    <div class="model-header">
+                        <div>
+                            <div class="model-name">haiku-4.5</div>
+                            <span class="model-tier tier-cloud">CLOUD</span>
+                        </div>
+                        <span class="rank-badge">#1</span>
+                    </div>
+                    <div class="grade-display">
+                        <div class="grade-circle grade-A">
+                            A
+                            <span class="grade-score">89/100</span>
+                        </div>
+                        <div class="score-bars">
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Speed</span><span>85</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-speed" style="width: 85%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Quality</span><span>82</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-quality" style="width: 82%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Complex Text</span><span>88</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-complex" style="width: 88%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <div class="metric-value">3.01s</div>
+                            <div class="metric-label">Avg Latency</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">73.8</div>
+                            <div class="metric-label">Tokens/sec</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="model-card rank-2">
+                    <div class="model-header">
+                        <div>
+                            <div class="model-name">llama3.2</div>
+                            <span class="model-tier tier-2gb">2GB</span>
+                        </div>
+                        <span class="rank-badge">#2</span>
+                    </div>
+                    <div class="grade-display">
+                        <div class="grade-circle grade-A">
+                            A
+                            <span class="grade-score">87/100</span>
+                        </div>
+                        <div class="score-bars">
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Speed</span><span>85</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-speed" style="width: 85%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Quality</span><span>79</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-quality" style="width: 79%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Complex Text</span><span>84</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-complex" style="width: 84%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <div class="metric-value">2.48s</div>
+                            <div class="metric-label">Avg Latency</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">92.9</div>
+                            <div class="metric-label">Tokens/sec</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="model-card rank-3">
+                    <div class="model-header">
+                        <div>
+                            <div class="model-name">opus-4.5</div>
+                            <span class="model-tier tier-cloud">CLOUD</span>
+                        </div>
+                        <span class="rank-badge">#3</span>
+                    </div>
+                    <div class="grade-display">
+                        <div class="grade-circle grade-A">
+                            A
+                            <span class="grade-score">86/100</span>
+                        </div>
+                        <div class="score-bars">
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Speed</span><span>55</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-speed" style="width: 55%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Quality</span><span>90</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-quality" style="width: 90%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Complex Text</span><span>94</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-complex" style="width: 94%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <div class="metric-value">6.09s</div>
+                            <div class="metric-label">Avg Latency</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">31.2</div>
+                            <div class="metric-label">Tokens/sec</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="model-card ">
+                    <div class="model-header">
+                        <div>
+                            <div class="model-name">gemma3:4b</div>
+                            <span class="model-tier tier-4gb">4GB</span>
+                        </div>
+                        <span class="rank-badge">#4</span>
+                    </div>
+                    <div class="grade-display">
+                        <div class="grade-circle grade-A">
+                            A
+                            <span class="grade-score">86/100</span>
+                        </div>
+                        <div class="score-bars">
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Speed</span><span>70</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-speed" style="width: 70%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Quality</span><span>81</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-quality" style="width: 81%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Complex Text</span><span>85</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-complex" style="width: 85%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <div class="metric-value">4.48s</div>
+                            <div class="metric-label">Avg Latency</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">67.7</div>
+                            <div class="metric-label">Tokens/sec</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="model-card ">
+                    <div class="model-header">
+                        <div>
+                            <div class="model-name">sonnet-4.5</div>
+                            <span class="model-tier tier-cloud">CLOUD</span>
+                        </div>
+                        <span class="rank-badge">#5</span>
+                    </div>
+                    <div class="grade-display">
+                        <div class="grade-circle grade-A">
+                            A-
+                            <span class="grade-score">84/100</span>
+                        </div>
+                        <div class="score-bars">
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Speed</span><span>55</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-speed" style="width: 55%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Quality</span><span>86</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-quality" style="width: 86%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Complex Text</span><span>90</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-complex" style="width: 90%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <div class="metric-value">7.14s</div>
+                            <div class="metric-label">Avg Latency</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">31.7</div>
+                            <div class="metric-label">Tokens/sec</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="model-card ">
+                    <div class="model-header">
+                        <div>
+                            <div class="model-name">mistral:7b-instruct</div>
+                            <span class="model-tier tier-8gb">8GB</span>
+                        </div>
+                        <span class="rank-badge">#6</span>
+                    </div>
+                    <div class="grade-display">
+                        <div class="grade-circle grade-A">
+                            A-
+                            <span class="grade-score">84/100</span>
+                        </div>
+                        <div class="score-bars">
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Speed</span><span>85</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-speed" style="width: 85%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Quality</span><span>74</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-quality" style="width: 74%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Complex Text</span><span>78</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-complex" style="width: 78%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <div class="metric-value">3.72s</div>
+                            <div class="metric-label">Avg Latency</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">54.2</div>
+                            <div class="metric-label">Tokens/sec</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="model-card ">
+                    <div class="model-header">
+                        <div>
+                            <div class="model-name">phi3:mini</div>
+                            <span class="model-tier tier-2gb">2GB</span>
+                        </div>
+                        <span class="rank-badge">#7</span>
+                    </div>
+                    <div class="grade-display">
+                        <div class="grade-circle grade-A">
+                            A-
+                            <span class="grade-score">83/100</span>
+                        </div>
+                        <div class="score-bars">
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Speed</span><span>85</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-speed" style="width: 85%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Quality</span><span>72</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-quality" style="width: 72%"></div></div>
+                            </div>
+                            <div class="score-bar">
+                                <div class="score-bar-label"><span>Complex Text</span><span>76</span></div>
+                                <div class="score-bar-track"><div class="score-bar-fill fill-complex" style="width: 76%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <div class="metric-value">2.63s</div>
+                            <div class="metric-label">Avg Latency</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">99.0</div>
+                            <div class="metric-label">Tokens/sec</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Success Rate</div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">📊</span> Performance Analysis</h2>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-title">Overall Score Comparison</div>
+                    <div class="chart-container">
+                        <canvas id="overallScoreChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Speed vs Quality Trade-off</div>
+                    <div class="chart-container">
+                        <canvas id="speedQualityChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Performance by Complexity</div>
+                    <div class="chart-container">
+                        <canvas id="complexityChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Latency Distribution by Tier</div>
+                    <div class="chart-container">
+                        <canvas id="tierLatencyChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Quality Score by Feature</div>
+                    <div class="chart-container">
+                        <canvas id="featureQualityChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Score Breakdown Radar</div>
+                    <div class="chart-container">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Comparison Table -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">📋</span> Detailed Comparison</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Model</th>
+                        <th>Tier</th>
+                        <th>Grade</th>
+                        <th>Overall</th>
+                        <th>Speed</th>
+                        <th>Quality</th>
+                        <th>Complex</th>
+                        <th>Latency</th>
+                        <th>Tokens/s</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr class="rank-1">
+                        <td><span class="rank-badge">1</span></td>
+                        <td><strong>haiku-4.5</strong></td>
+                        <td><span class="model-tier tier-cloud">cloud</span></td>
+                        <td><strong>A</strong></td>
+                        <td>89</td>
+                        <td>85</td>
+                        <td>82</td>
+                        <td>88</td>
+                        <td>3.01s</td>
+                        <td>73.8</td>
+                    </tr>
+                    
+                    <tr class="rank-2">
+                        <td><span class="rank-badge">2</span></td>
+                        <td><strong>llama3.2</strong></td>
+                        <td><span class="model-tier tier-2gb">2gb</span></td>
+                        <td><strong>A</strong></td>
+                        <td>87</td>
+                        <td>85</td>
+                        <td>79</td>
+                        <td>84</td>
+                        <td>2.48s</td>
+                        <td>92.9</td>
+                    </tr>
+                    
+                    <tr class="rank-3">
+                        <td><span class="rank-badge">3</span></td>
+                        <td><strong>opus-4.5</strong></td>
+                        <td><span class="model-tier tier-cloud">cloud</span></td>
+                        <td><strong>A</strong></td>
+                        <td>86</td>
+                        <td>55</td>
+                        <td>90</td>
+                        <td>94</td>
+                        <td>6.09s</td>
+                        <td>31.2</td>
+                    </tr>
+                    
+                    <tr class="">
+                        <td><span class="rank-badge">4</span></td>
+                        <td><strong>gemma3:4b</strong></td>
+                        <td><span class="model-tier tier-4gb">4gb</span></td>
+                        <td><strong>A</strong></td>
+                        <td>86</td>
+                        <td>70</td>
+                        <td>81</td>
+                        <td>85</td>
+                        <td>4.48s</td>
+                        <td>67.7</td>
+                    </tr>
+                    
+                    <tr class="">
+                        <td><span class="rank-badge">5</span></td>
+                        <td><strong>sonnet-4.5</strong></td>
+                        <td><span class="model-tier tier-cloud">cloud</span></td>
+                        <td><strong>A-</strong></td>
+                        <td>84</td>
+                        <td>55</td>
+                        <td>86</td>
+                        <td>90</td>
+                        <td>7.14s</td>
+                        <td>31.7</td>
+                    </tr>
+                    
+                    <tr class="">
+                        <td><span class="rank-badge">6</span></td>
+                        <td><strong>mistral:7b-instruct</strong></td>
+                        <td><span class="model-tier tier-8gb">8gb</span></td>
+                        <td><strong>A-</strong></td>
+                        <td>84</td>
+                        <td>85</td>
+                        <td>74</td>
+                        <td>78</td>
+                        <td>3.72s</td>
+                        <td>54.2</td>
+                    </tr>
+                    
+                    <tr class="">
+                        <td><span class="rank-badge">7</span></td>
+                        <td><strong>phi3:mini</strong></td>
+                        <td><span class="model-tier tier-2gb">2gb</span></td>
+                        <td><strong>A-</strong></td>
+                        <td>83</td>
+                        <td>85</td>
+                        <td>72</td>
+                        <td>76</td>
+                        <td>2.63s</td>
+                        <td>99.0</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Key Insights -->
+        <div class="section">
+            <h2 class="section-title"><span class="icon">💡</span> Key Insights</h2>
+            <div class="insights-grid">
+                <div class="insight-card success">
+                    <div class="insight-title">🥇 Best Overall</div>
+                    <div class="insight-text">
+                        <strong>haiku-4.5</strong> achieved the highest overall score of 89/100,
+                        with excellent quality performance.
+                    </div>
+                </div>
+                <div class="insight-card info">
+                    <div class="insight-title">⚡ Fastest Model</div>
+                    <div class="insight-text">
+                        <strong>llama3.2</strong>
+                        delivered responses in just 2.48s average.
+                    </div>
+                </div>
+                <div class="insight-card warning">
+                    <div class="insight-title">🎓 Best for NCAD</div>
+                    <div class="insight-text">
+                        <strong>opus-4.5</strong>
+                        excels at complex academic text with a 94/100 complexity score.
+                    </div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-title">💰 Best Local Option</div>
+                    <div class="insight-text">
+                        <strong>llama3.2</strong>
+                        (2gb tier) offers the best local performance with grade A.
+                    </div>
+                </div>
+                <div class="insight-card success">
+                    <div class="insight-title">🏋️ Most Efficient</div>
+                    <div class="insight-text">
+                        <strong>phi3:mini</strong>
+                        generates 99.0 tokens/second.
+                    </div>
+                </div>
+                <div class="insight-card info">
+                    <div class="insight-title">📈 Tier Recommendation</div>
+                    <div class="insight-text">
+                        For educational accessibility, the <strong>8GB tier</strong> provides the optimal balance of privacy compliance and quality
+                        (74/100 quality score).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>AssisT AI Benchmark Report | Generated 2025-12-07T18:48:37.030Z</p>
+            <p>Benchmarked 7 models across 189 tests</p>
+        </footer>
+    </div>
+
+    <script>
+        // Chart.js configuration
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+
+        const modelNames = ["phi3:mini","llama3.2","haiku-4.5","gemma3:4b","mistral:7b-instruct","sonnet-4.5","opus-4.5"];
+        const modelScores = [83,87,89,86,84,84,86];
+        const modelGrades = [{"model":"phi3:mini","grade":"A-","score":83,"breakdown":{"speed":85,"efficiency":100,"quality":72,"complexHandling":76,"reliability":100},"metrics":{"avgLatency":2634,"avgTokens":261,"tokensPerSec":"99.0","testCount":27,"successRate":"100"},"tier":"2gb"},{"model":"llama3.2","grade":"A","score":87,"breakdown":{"speed":85,"efficiency":100,"quality":79,"complexHandling":84,"reliability":100},"metrics":{"avgLatency":2479,"avgTokens":230,"tokensPerSec":"92.9","testCount":27,"successRate":"100"},"tier":"2gb"},{"model":"haiku-4.5","grade":"A","score":89,"breakdown":{"speed":85,"efficiency":100,"quality":82,"complexHandling":88,"reliability":100},"metrics":{"avgLatency":3006,"avgTokens":222,"tokensPerSec":"73.8","testCount":27,"successRate":"100"},"tier":"cloud"},{"model":"gemma3:4b","grade":"A","score":86,"breakdown":{"speed":70,"efficiency":100,"quality":81,"complexHandling":85,"reliability":100},"metrics":{"avgLatency":4477,"avgTokens":303,"tokensPerSec":"67.7","testCount":27,"successRate":"100"},"tier":"4gb"},{"model":"mistral:7b-instruct","grade":"A-","score":84,"breakdown":{"speed":85,"efficiency":100,"quality":74,"complexHandling":78,"reliability":100},"metrics":{"avgLatency":3718,"avgTokens":201,"tokensPerSec":"54.2","testCount":27,"successRate":"100"},"tier":"8gb"},{"model":"sonnet-4.5","grade":"A-","score":84,"breakdown":{"speed":55,"efficiency":85,"quality":86,"complexHandling":90,"reliability":100},"metrics":{"avgLatency":7139,"avgTokens":226,"tokensPerSec":"31.7","testCount":27,"successRate":"100"},"tier":"cloud"},{"model":"opus-4.5","grade":"A","score":86,"breakdown":{"speed":55,"efficiency":85,"quality":90,"complexHandling":94,"reliability":100},"metrics":{"avgLatency":6093,"avgTokens":190,"tokensPerSec":"31.2","testCount":27,"successRate":"100"},"tier":"cloud"}];
+
+        // Color palette
+        const colors = {
+            blue: '#3b82f6',
+            green: '#22c55e',
+            yellow: '#eab308',
+            orange: '#f97316',
+            purple: '#a855f7',
+            cyan: '#06b6d4',
+            red: '#ef4444'
+        };
+
+        const tierColors = {
+            'cloud': colors.purple,
+            '2gb': colors.orange,
+            '4gb': colors.yellow,
+            '8gb': colors.green
+        };
+
+        // 1. Overall Score Chart
+        new Chart(document.getElementById('overallScoreChart'), {
+            type: 'bar',
+            data: {
+                labels: modelNames,
+                datasets: [{
+                    label: 'Overall Score',
+                    data: modelScores,
+                    backgroundColor: modelGrades.map(m => tierColors[m.tier] || colors.blue),
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+
+        // 2. Speed vs Quality Scatter
+        new Chart(document.getElementById('speedQualityChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Models',
+                    data: modelGrades.map(m => ({
+                        x: m.breakdown.speed,
+                        y: m.breakdown.quality,
+                        label: m.model
+                    })),
+                    backgroundColor: modelGrades.map(m => tierColors[m.tier] || colors.blue),
+                    pointRadius: 12,
+                    pointHoverRadius: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${modelGrades[ctx.dataIndex].model}: Speed ${ctx.raw.x}, Quality ${ctx.raw.y}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Speed Score' }, min: 0, max: 100 },
+                    y: { title: { display: true, text: 'Quality Score' }, min: 0, max: 100 }
+                }
+            }
+        });
+
+        // 3. Performance by Complexity
+        const complexityData = {"simple":{"phi3:mini":71.11111111111111,"llama3.2":77.11111111111111,"haiku-4.5":80.55555555555556,"gemma3:4b":79.77777777777777,"mistral:7b-instruct":74.66666666666667,"sonnet-4.5":85,"opus-4.5":89.44444444444444},"moderate":{"phi3:mini":67.88888888888889,"llama3.2":74.55555555555556,"haiku-4.5":77.22222222222223,"gemma3:4b":78.33333333333333,"mistral:7b-instruct":69.88888888888889,"sonnet-4.5":82.22222222222223,"opus-4.5":86.11111111111111},"complex":{"phi3:mini":76.11111111111111,"llama3.2":84,"haiku-4.5":88.33333333333333,"gemma3:4b":84.77777777777777,"mistral:7b-instruct":78.44444444444444,"sonnet-4.5":90,"opus-4.5":94.44444444444444}};
+
+        new Chart(document.getElementById('complexityChart'), {
+            type: 'bar',
+            data: {
+                labels: modelNames,
+                datasets: [
+                    {
+                        label: 'Simple',
+                        data: modelNames.map(m => complexityData.simple[m] || 0),
+                        backgroundColor: colors.green,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Moderate',
+                        data: modelNames.map(m => complexityData.moderate[m] || 0),
+                        backgroundColor: colors.yellow,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Complex (NCAD)',
+                        data: modelNames.map(m => complexityData.complex[m] || 0),
+                        backgroundColor: colors.red,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+
+        // 4. Tier Latency Box Plot (simplified as bar)
+        const tierLatencies = {"cloud":5413,"2gb":2557,"4gb":4477,"8gb":3718};
+
+        new Chart(document.getElementById('tierLatencyChart'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(tierLatencies).map(t => t.toUpperCase()),
+                datasets: [{
+                    label: 'Avg Latency (ms)',
+                    data: Object.values(tierLatencies),
+                    backgroundColor: Object.keys(tierLatencies).map(t => tierColors[t] || colors.blue),
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        // 5. Quality by Feature
+        const featureNames = ["textSimplification","summarization","socraticTutor","assignmentBreakdown","citationAnalyzer"];
+        const featureLabels = {"textSimplification":"Text Simplification","summarization":"Summarization","socraticTutor":"Socratic Tutor","assignmentBreakdown":"Assignment Breakdown","citationAnalyzer":"Citation Analyzer"};
+
+        new Chart(document.getElementById('featureQualityChart'), {
+            type: 'radar',
+            data: {
+                labels: featureNames.map(f => featureLabels[f]),
+                datasets: modelGrades.slice(0, 4).map((m, i) => ({
+                    label: m.model,
+                    data: featureNames.map(f => {
+                        const tests = modelStats[m.model].byFeature[f] || [];
+                        return tests.length > 0 ? tests.reduce((a, t) => a + t.qualityScore, 0) / tests.length : 0;
+                    }),
+                    borderColor: Object.values(tierColors)[i % 4],
+                    backgroundColor: Object.values(tierColors)[i % 4] + '33',
+                    pointBackgroundColor: Object.values(tierColors)[i % 4]
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+
+        // 6. Top 4 Models Radar Comparison
+        new Chart(document.getElementById('radarChart'), {
+            type: 'radar',
+            data: {
+                labels: ['Speed', 'Efficiency', 'Quality', 'Complex Text', 'Reliability'],
+                datasets: modelGrades.slice(0, 4).map((m, i) => ({
+                    label: m.model,
+                    data: [m.breakdown.speed, m.breakdown.efficiency, m.breakdown.quality, m.breakdown.complexHandling, m.breakdown.reliability],
+                    borderColor: Object.values(tierColors)[i % 4],
+                    backgroundColor: Object.values(tierColors)[i % 4] + '33',
+                    pointBackgroundColor: Object.values(tierColors)[i % 4]
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

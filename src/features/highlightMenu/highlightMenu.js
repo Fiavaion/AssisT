@@ -132,7 +132,7 @@ function highlightMenu_createToolbar() {
 
     #assist-highlight-menu.compact .assist-hm-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 3px;
     }
 
@@ -188,12 +188,12 @@ function highlightMenu_createToolbar() {
       margin: 3px 0;
     }
 
-    #assist-highlight-menu.compact .assist-hm-section.ai-tools .assist-hm-btn {
+    #assist-highlight-menu.compact .assist-hm-btn-ai {
       background: linear-gradient(135deg, #f3e5f5 0%, #e8eaf6 100%);
       border-color: #ce93d8;
     }
 
-    #assist-highlight-menu.compact .assist-hm-section.ai-tools .assist-hm-btn:hover {
+    #assist-highlight-menu.compact .assist-hm-btn-ai:hover {
       background: linear-gradient(135deg, #e1bee7 0%, #c5cae9 100%);
       border-color: #9c27b0;
     }
@@ -224,7 +224,7 @@ function highlightMenu_createToolbar() {
 
     #assist-highlight-menu.descriptive .assist-hm-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 6px;
     }
 
@@ -272,122 +272,90 @@ function highlightMenu_createToolbar() {
       white-space: nowrap;
     }
 
-    #assist-highlight-menu.descriptive .assist-hm-section.ai-tools .assist-hm-btn {
+    #assist-highlight-menu.descriptive .assist-hm-btn-ai {
       background: linear-gradient(135deg, #f3e5f5 0%, #e8eaf6 100%);
       border-color: #ce93d8;
     }
 
-    #assist-highlight-menu.descriptive .assist-hm-section.ai-tools .assist-hm-btn:hover {
+    #assist-highlight-menu.descriptive .assist-hm-btn-ai:hover {
       background: linear-gradient(135deg, #e1bee7 0%, #c5cae9 100%);
       border-color: #9c27b0;
       box-shadow: 0 4px 8px rgba(156, 39, 176, 0.2);
     }
-
-    #assist-highlight-menu.descriptive .assist-hm-divider {
-      height: 1px;
-      background: linear-gradient(to right, transparent, #e0e0e0, transparent);
-      margin: 8px 0;
-    }
   `;
   toolbar.appendChild(style);
 
-  // Collect enabled buttons into categories (6 core + 6 AI = 12 total for 2x6 grid)
-  const coreButtons = [];
-  const aiButtons = [];
+  // Collect all buttons into a single array for unified 3x5 grid (15 buttons)
+  const allButtons = [];
   let buttonIndex = 0;
 
-  // Core tools (6 buttons)
+  // Row 1: Core tools (5 buttons)
   if (highlightMenu_settings.showTTS) {
-    coreButtons.push({ icon: '🔊', label: 'Read', fullLabel: 'Read Aloud (TTS)', handler: highlightMenu_handleTTS, index: buttonIndex++ });
+    allButtons.push({ icon: '🔊', label: 'Read', fullLabel: 'Read Aloud (TTS)', handler: highlightMenu_handleTTS, index: buttonIndex++ });
   }
   if (highlightMenu_settings.showDictionary) {
-    coreButtons.push({ icon: '📖', label: 'Define', fullLabel: 'Dictionary Lookup', handler: highlightMenu_handleDictionary, index: buttonIndex++ });
+    allButtons.push({ icon: '📖', label: 'Define', fullLabel: 'Dictionary Lookup', handler: highlightMenu_handleDictionary, index: buttonIndex++ });
   }
   if (highlightMenu_settings.showTranslate) {
-    coreButtons.push({ icon: '🌐', label: 'Translate', fullLabel: 'Translate', handler: highlightMenu_handleTranslate, index: buttonIndex++ });
+    allButtons.push({ icon: '🌐', label: 'Translate', fullLabel: 'Translate', handler: highlightMenu_handleTranslate, index: buttonIndex++ });
   }
   if (highlightMenu_settings.showAnnotate) {
-    coreButtons.push({ icon: '📝', label: 'Annotate', fullLabel: 'Add Annotation', handler: highlightMenu_handleAnnotate, index: buttonIndex++ });
+    allButtons.push({ icon: '📝', label: 'Annotate', fullLabel: 'Add Annotation', handler: highlightMenu_handleAnnotate, index: buttonIndex++ });
   }
   if (highlightMenu_settings.showCopy) {
-    coreButtons.push({ icon: '📋', label: 'Copy', fullLabel: 'Copy Text', handler: highlightMenu_handleCopy, index: buttonIndex++ });
-  }
-  if (highlightMenu_settings.showSummarize) {
-    coreButtons.push({ icon: '✨', label: 'Summary', fullLabel: 'Summarize with AI', handler: highlightMenu_handleSummarize, index: buttonIndex++ });
+    allButtons.push({ icon: '📋', label: 'Copy', fullLabel: 'Copy Text', handler: highlightMenu_handleCopy, index: buttonIndex++ });
   }
 
-  // AI tools (6 buttons)
+  // Row 2: AI tools part 1 (5 buttons)
+  if (highlightMenu_settings.showSummarize) {
+    allButtons.push({ icon: '✨', label: 'Summary', fullLabel: 'Summarize with AI', handler: highlightMenu_handleSummarize, index: buttonIndex++, isAI: true });
+  }
   if (highlightMenu_settings.showSimplify) {
-    aiButtons.push({ icon: '💡', label: 'Simplify', fullLabel: 'Simplify Text', handler: highlightMenu_handleSimplify, index: buttonIndex++ });
+    allButtons.push({ icon: '💡', label: 'Simplify', fullLabel: 'Simplify Text', handler: highlightMenu_handleSimplify, index: buttonIndex++, isAI: true });
   }
   if (highlightMenu_settings.showBreakdown) {
-    aiButtons.push({ icon: '✅', label: 'Tasks', fullLabel: 'Break Down Assignment', handler: highlightMenu_handleBreakdown, index: buttonIndex++ });
+    allButtons.push({ icon: '✅', label: 'Tasks', fullLabel: 'Break Down Assignment', handler: highlightMenu_handleBreakdown, index: buttonIndex++, isAI: true });
   }
   if (highlightMenu_settings.showSocraticTutor) {
-    aiButtons.push({ icon: '🎓', label: 'Tutor', fullLabel: 'Socratic Tutor', handler: highlightMenu_handleSocraticTutor, index: buttonIndex++ });
+    allButtons.push({ icon: '🎓', label: 'Tutor', fullLabel: 'Socratic Tutor', handler: highlightMenu_handleSocraticTutor, index: buttonIndex++, isAI: true });
   }
   if (highlightMenu_settings.showKnowledgeGraph) {
-    aiButtons.push({ icon: '🕸️', label: 'Graph', fullLabel: 'Knowledge Graph', handler: highlightMenu_handleKnowledgeGraph, index: buttonIndex++ });
+    allButtons.push({ icon: '🕸️', label: 'Graph', fullLabel: 'Knowledge Graph', handler: highlightMenu_handleKnowledgeGraph, index: buttonIndex++, isAI: true });
   }
+
+  // Row 3: AI tools part 2 (5 buttons)
   if (highlightMenu_settings.showSpeedRead) {
-    aiButtons.push({ icon: '⚡', label: 'Speed', fullLabel: 'Speed Read (RSVP)', handler: highlightMenu_handleSpeedRead, index: buttonIndex++ });
+    allButtons.push({ icon: '⚡', label: 'Speed', fullLabel: 'Speed Read (RSVP)', handler: highlightMenu_handleSpeedRead, index: buttonIndex++, isAI: true });
   }
   if (highlightMenu_settings.showCitationAnalyzer) {
-    aiButtons.push({ icon: '⚖️', label: 'Cite', fullLabel: 'Analyze Citation', handler: highlightMenu_handleCitationAnalyzer, index: buttonIndex++ });
+    allButtons.push({ icon: '⚖️', label: 'Cite', fullLabel: 'Analyze Citation', handler: highlightMenu_handleCitationAnalyzer, index: buttonIndex++, isAI: true });
   }
   if (highlightMenu_settings.showCognitiveMonitor) {
-    aiButtons.push({ icon: '🧠', label: 'Focus', fullLabel: 'Cognitive Monitor', handler: highlightMenu_handleCognitiveMonitor, index: buttonIndex++ });
+    allButtons.push({ icon: '🧠', label: 'Focus', fullLabel: 'Cognitive Monitor', handler: highlightMenu_handleCognitiveMonitor, index: buttonIndex++, isAI: true });
   }
   if (highlightMenu_settings.showMultiDocCompare) {
-    aiButtons.push({ icon: '📊', label: 'Compare', fullLabel: 'Compare Documents', handler: highlightMenu_handleMultiDocCompare, index: buttonIndex++ });
+    allButtons.push({ icon: '📊', label: 'Compare', fullLabel: 'Compare Documents', handler: highlightMenu_handleMultiDocCompare, index: buttonIndex++, isAI: true });
   }
   if (highlightMenu_settings.showStudyPath) {
-    aiButtons.push({ icon: '📚', label: 'Study', fullLabel: 'Generate Study Path', handler: highlightMenu_handleStudyPath, index: buttonIndex++ });
+    allButtons.push({ icon: '📚', label: 'Study', fullLabel: 'Generate Study Path', handler: highlightMenu_handleStudyPath, index: buttonIndex++, isAI: true });
   }
 
-  // Create Core Tools section
-  if (coreButtons.length > 0) {
-    const coreSection = document.createElement('div');
-    coreSection.className = 'assist-hm-section core-tools';
+  // Create single unified grid (3 rows x 5 columns)
+  if (allButtons.length > 0) {
+    const section = document.createElement('div');
+    section.className = 'assist-hm-section';
 
-    const coreLabel = document.createElement('div');
-    coreLabel.className = 'assist-hm-section-label';
-    coreLabel.textContent = 'Tools';
-    coreSection.appendChild(coreLabel);
-
-    const coreGrid = document.createElement('div');
-    coreGrid.className = 'assist-hm-grid';
-    coreButtons.forEach(btn => {
-      coreGrid.appendChild(highlightMenu_createButton(btn.icon, btn.label, btn.fullLabel, btn.handler, btn.index));
+    const grid = document.createElement('div');
+    grid.className = 'assist-hm-grid';
+    allButtons.forEach(btn => {
+      const button = highlightMenu_createButton(btn.icon, btn.label, btn.fullLabel, btn.handler, btn.index);
+      if (btn.isAI) {
+        button.classList.add('assist-hm-btn-ai');
+      }
+      grid.appendChild(button);
     });
-    coreSection.appendChild(coreGrid);
-    toolbar.appendChild(coreSection);
-  }
-
-  // Add divider if both sections have content
-  if (coreButtons.length > 0 && aiButtons.length > 0) {
-    const divider = document.createElement('div');
-    divider.className = 'assist-hm-divider';
-    toolbar.appendChild(divider);
-  }
-
-  // Create AI Tools section
-  if (aiButtons.length > 0) {
-    const aiSection = document.createElement('div');
-    aiSection.className = 'assist-hm-section ai-tools';
-
-    const aiLabel = document.createElement('div');
-    aiLabel.className = 'assist-hm-section-label';
-    aiLabel.textContent = '✨ AI Tools';
-    aiSection.appendChild(aiLabel);
-
-    const aiGrid = document.createElement('div');
-    aiGrid.className = 'assist-hm-grid';
-    aiButtons.forEach(btn => {
-      aiGrid.appendChild(highlightMenu_createButton(btn.icon, btn.label, btn.fullLabel, btn.handler, btn.index));
-    });
-    aiSection.appendChild(aiGrid);
-    toolbar.appendChild(aiSection);
+    section.appendChild(grid);
+    toolbar.appendChild(section);
   }
 
   return toolbar;

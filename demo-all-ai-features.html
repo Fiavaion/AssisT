@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AssisT LLM - Complete AI Features Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      line-height: 1.7;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2.2em;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 1.1em;
+    }
+
+    .instructions {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 12px;
+      margin-bottom: 40px;
+    }
+
+    .instructions h2 {
+      margin: 0 0 15px 0;
+      font-size: 1.4em;
+    }
+
+    .instructions ol {
+      margin: 0;
+      padding-left: 25px;
+    }
+
+    .instructions li {
+      margin-bottom: 8px;
+    }
+
+    .feature-section {
+      margin-bottom: 50px;
+      border: 2px solid #eee;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .feature-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+      font-size: 1.3em;
+      font-weight: 600;
+      color: white;
+    }
+
+    .feature-header .icon {
+      font-size: 1.5em;
+    }
+
+    .feature-description {
+      background: #f8f9fa;
+      padding: 15px 20px;
+      color: #555;
+      border-bottom: 1px solid #eee;
+    }
+
+    .sample-content {
+      padding: 25px;
+      background: white;
+    }
+
+    .sample-content h4 {
+      color: #333;
+      margin: 0 0 15px 0;
+      font-size: 1.1em;
+    }
+
+    .sample-text {
+      background: #fafafa;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #ddd;
+      margin-bottom: 15px;
+    }
+
+    .sample-text:last-child {
+      margin-bottom: 0;
+    }
+
+    .sample-text p {
+      margin: 0 0 12px 0;
+    }
+
+    .sample-text p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Feature-specific colors */
+    .summarization .feature-header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .summarization .sample-text { border-left-color: #f5576c; }
+
+    .simplification .feature-header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .simplification .sample-text { border-left-color: #4facfe; }
+
+    .socratic .feature-header { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .socratic .sample-text { border-left-color: #43e97b; }
+
+    .assignment .feature-header { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .assignment .sample-text { border-left-color: #fa709a; }
+
+    .emotional-tts .feature-header { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
+    .emotional-tts .sample-text { border-left-color: #a18cd1; }
+
+    .image-understanding .feature-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .image-understanding .sample-text { border-left-color: #667eea; }
+
+    .cognitive-profile .feature-header { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
+    .cognitive-profile .sample-text { border-left-color: #ff9a9e; }
+
+    .tag {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 15px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-left: 10px;
+    }
+
+    .tag-select { background: #e8f5e9; color: #2e7d32; }
+    .tag-listen { background: #e3f2fd; color: #1565c0; }
+    .tag-image { background: #fce4ec; color: #c2185b; }
+
+    .demo-image {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 2px solid #eee;
+      margin: 15px 0;
+    }
+
+    .placeholder-image {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 60px 20px;
+      text-align: center;
+      border-radius: 8px;
+      margin: 15px 0;
+    }
+
+    .placeholder-image .icon {
+      font-size: 3em;
+      margin-bottom: 10px;
+    }
+
+    ul {
+      margin: 10px 0;
+      padding-left: 25px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .question-box {
+      background: #e8f5e9;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin: 15px 0;
+      border-left: 4px solid #4caf50;
+    }
+
+    .question-box strong {
+      color: #2e7d32;
+    }
+
+    .emotion-samples {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 15px;
+    }
+
+    .emotion-card {
+      background: #fafafa;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid;
+    }
+
+    .emotion-card.happy { border-left-color: #ffc107; }
+    .emotion-card.sad { border-left-color: #2196f3; }
+    .emotion-card.excited { border-left-color: #ff5722; }
+    .emotion-card.calm { border-left-color: #4caf50; }
+    .emotion-card.serious { border-left-color: #607d8b; }
+
+    .emotion-label {
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    hr {
+      border: none;
+      border-top: 2px dashed #ddd;
+      margin: 40px 0;
+    }
+
+    .tip-box {
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      padding: 15px 20px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+
+    .tip-box strong {
+      color: #e65100;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>AssisT LLM - AI Features Demo</h1>
+    <p class="subtitle">Test all 7 AI-powered accessibility features</p>
+
+    <div class="instructions">
+      <h2>How to Test Each Feature</h2>
+      <ol>
+        <li><strong>Load the AssistLLM extension</strong> in Chrome and ensure Ollama is running</li>
+        <li><strong>Select text</strong> by clicking and dragging over the sample content</li>
+        <li><strong>Use the highlight menu</strong> that appears to access features</li>
+        <li><strong>For TTS features</strong>, click the speaker icon or use keyboard shortcuts</li>
+        <li><strong>For image features</strong>, right-click on images</li>
+      </ol>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 1. SMART SUMMARIZATION -->
+    <!-- ============================================ -->
+
+    <section class="feature-section summarization">
+      <div class="feature-header">
+        <span class="icon">📄</span>
+        Smart Summarization
+        <span class="tag tag-select">Select Text</span>
+      </div>
+      <div class="feature-description">
+        Condenses long articles and documents into concise, easy-to-understand summaries.
+        Great for research papers, news articles, and lengthy explanations.
+      </div>
+      <div class="sample-content">
+        <h4>Sample: Climate Science Research Article</h4>
+        <div class="sample-text">
+          <p>Climate change represents one of the most significant challenges facing humanity in the 21st century. The Earth's average surface temperature has increased by approximately 1.1 degrees Celsius since the pre-industrial era, primarily due to anthropogenic activities including the combustion of fossil fuels, deforestation, and various industrial processes that release greenhouse gases into the atmosphere.</p>
+
+          <p>The Intergovernmental Panel on Climate Change (IPCC) has documented extensive evidence of climate impacts including accelerated melting of polar ice sheets, rising sea levels at rates of approximately 3.7 millimeters per year, increased frequency and intensity of extreme weather events, and significant disruptions to ecosystems worldwide. Arctic sea ice extent has declined by roughly 13% per decade since satellite observations began in 1979.</p>
+
+          <p>These environmental changes have cascading effects on human societies. Agricultural systems face challenges from shifting precipitation patterns and increased frequency of droughts and floods. Coastal communities worldwide are experiencing heightened flood risks and erosion. The World Health Organization estimates that climate change will cause approximately 250,000 additional deaths annually between 2030 and 2050 from malnutrition, malaria, diarrhea, and heat stress.</p>
+
+          <p>Mitigation strategies focus on reducing greenhouse gas emissions through transitioning to renewable energy sources, improving energy efficiency across sectors, and developing carbon capture technologies. The Paris Agreement, adopted by 196 parties in 2015, established a framework for limiting global warming to well below 2 degrees Celsius above pre-industrial levels, with efforts to limit warming to 1.5 degrees Celsius.</p>
+        </div>
+
+        <h4>Sample: Technology News</h4>
+        <div class="sample-text">
+          <p>Artificial intelligence has experienced unprecedented advancement in recent years, with large language models demonstrating capabilities that were previously thought to be decades away. These systems, trained on vast amounts of text data, can generate coherent prose, answer complex questions, write computer code, and engage in nuanced conversations on virtually any topic.</p>
+
+          <p>The development of transformer architectures in 2017 marked a pivotal moment in AI research, enabling models to process sequential data more effectively by attending to different parts of the input simultaneously. This breakthrough led to increasingly powerful models, from BERT and GPT-2 to the current generation of systems with hundreds of billions of parameters.</p>
+
+          <p>However, these advances have also raised significant concerns about potential misuse, job displacement, and the concentration of AI capabilities in a small number of organizations. Researchers and policymakers are actively debating how to ensure that AI development proceeds safely and benefits are distributed broadly across society.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 2. TEXT SIMPLIFICATION -->
+    <!-- ============================================ -->
+
+    <section class="feature-section simplification">
+      <div class="feature-header">
+        <span class="icon">🔤</span>
+        Text Simplification
+        <span class="tag tag-select">Select Text</span>
+      </div>
+      <div class="feature-description">
+        Transforms complex academic, legal, or technical text into simpler language.
+        Ideal for making difficult content accessible to all learners.
+      </div>
+      <div class="sample-content">
+        <h4>Sample: Medical Text (Complex)</h4>
+        <div class="sample-text">
+          <p>Hypertension, characterized by persistently elevated systemic arterial blood pressure exceeding 130/80 mmHg, represents a significant modifiable risk factor for cardiovascular morbidity and mortality. The pathophysiology involves complex interactions between the renin-angiotensin-aldosterone system, sympathetic nervous system activation, endothelial dysfunction, and sodium retention mechanisms. Long-term sequelae include left ventricular hypertrophy, atherosclerotic cardiovascular disease, cerebrovascular accidents, chronic kidney disease, and retinopathy. Management strategies encompass pharmacological interventions including angiotensin-converting enzyme inhibitors, angiotensin receptor blockers, calcium channel blockers, and thiazide diuretics, alongside lifestyle modifications such as sodium restriction, weight management, and regular aerobic exercise.</p>
+        </div>
+
+        <h4>Sample: Legal Document (Complex)</h4>
+        <div class="sample-text">
+          <p>The party of the first part (hereinafter referred to as "Licensor") hereby grants to the party of the second part (hereinafter referred to as "Licensee") a non-exclusive, non-transferable, revocable license to utilize the intellectual property described in Schedule A, subject to the terms, conditions, and limitations set forth herein. Said license shall remain in effect for a period not to exceed twenty-four (24) calendar months from the date of execution, unless terminated earlier pursuant to the provisions contained in Section 7.2 of this Agreement. The Licensee shall indemnify, defend, and hold harmless the Licensor from any and all claims, damages, liabilities, costs, and expenses arising from or related to the Licensee's use of the licensed intellectual property.</p>
+        </div>
+
+        <h4>Sample: Scientific Abstract (Complex)</h4>
+        <div class="sample-text">
+          <p>Mitochondrial dysfunction has emerged as a pivotal factor in the pathogenesis of neurodegenerative disorders. The electron transport chain, comprising complexes I through IV embedded in the inner mitochondrial membrane, facilitates oxidative phosphorylation through sequential electron transfer culminating in ATP synthesis via ATP synthase. Perturbations in this process result in diminished ATP production, elevated reactive oxygen species generation, and subsequent oxidative stress. Furthermore, mitochondrial DNA mutations, which occur at higher frequencies than nuclear DNA mutations due to proximity to ROS and limited repair mechanisms, exacerbate cellular dysfunction. Therapeutic strategies targeting mitochondrial biogenesis, antioxidant capacity, and metabolic flexibility represent promising avenues for intervention in conditions ranging from Parkinson's disease to Alzheimer's dementia.</p>
+        </div>
+
+        <h4>Sample: Financial Terms (Complex)</h4>
+        <div class="sample-text">
+          <p>Quantitative easing constitutes an unconventional monetary policy instrument whereby central banking authorities purchase government securities and other financial instruments from the open market to inject liquidity into the monetary system. This mechanism operates by expanding the monetary base, thereby exerting downward pressure on long-term interest rates and facilitating credit availability. The Federal Reserve implemented multiple rounds of quantitative easing following the 2008 financial crisis, with the balance sheet expanding from approximately $900 billion to over $4.5 trillion by 2015.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 3. SOCRATIC TUTOR -->
+    <!-- ============================================ -->
+
+    <section class="feature-section socratic">
+      <div class="feature-header">
+        <span class="icon">💬</span>
+        Socratic Tutor
+        <span class="tag tag-select">Select Text</span>
+      </div>
+      <div class="feature-description">
+        Engages students with guiding questions to help them understand concepts deeply.
+        Instead of giving answers directly, it prompts critical thinking.
+      </div>
+      <div class="sample-content">
+        <h4>Sample: Math Problem</h4>
+        <div class="sample-text">
+          <p><strong>Problem:</strong> A train travels from City A to City B at 60 miles per hour. The return journey is made at 40 miles per hour. What is the average speed for the entire round trip?</p>
+          <p><em>Hint: The average speed is NOT simply (60 + 40) / 2 = 50 mph. Think about why...</em></p>
+        </div>
+        <div class="question-box">
+          <strong>Socratic Questions the AI might ask:</strong>
+          <ul>
+            <li>"What does 'average speed' mean? Is it the same as averaging the two speeds?"</li>
+            <li>"How much time does each leg of the journey take if the distance is D miles?"</li>
+            <li>"What formula relates speed, distance, and time?"</li>
+          </ul>
+        </div>
+
+        <h4>Sample: Science Concept</h4>
+        <div class="sample-text">
+          <p><strong>Topic:</strong> Why does ice float on water when most solids sink in their liquid form?</p>
+          <p>Water is one of the few substances where the solid form is less dense than the liquid form. This unusual property has profound implications for life on Earth, particularly for aquatic ecosystems during winter months.</p>
+        </div>
+        <div class="question-box">
+          <strong>Socratic Questions the AI might ask:</strong>
+          <ul>
+            <li>"What determines whether something floats or sinks?"</li>
+            <li>"What happens to the structure of water molecules when they freeze?"</li>
+            <li>"What would happen to fish in lakes during winter if ice sank instead of floating?"</li>
+          </ul>
+        </div>
+
+        <h4>Sample: History Analysis</h4>
+        <div class="sample-text">
+          <p><strong>Topic:</strong> The Industrial Revolution began in Britain in the late 18th century before spreading to other parts of Europe and North America. This period marked a major turning point in human history, as manufacturing processes shifted from hand production to machine-based manufacturing.</p>
+          <p>Key factors included access to coal and iron ore, a stable political system, colonial markets, and a growing banking sector that could finance new ventures.</p>
+        </div>
+        <div class="question-box">
+          <strong>Socratic Questions the AI might ask:</strong>
+          <ul>
+            <li>"Why do you think Britain was the first to industrialize rather than France or Germany?"</li>
+            <li>"How might colonial possessions have contributed to industrial growth?"</li>
+            <li>"What connections can you draw between the Industrial Revolution and social changes of the era?"</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 4. ASSIGNMENT ANALYZER -->
+    <!-- ============================================ -->
+
+    <section class="feature-section assignment">
+      <div class="feature-header">
+        <span class="icon">📋</span>
+        Assignment Analyzer
+        <span class="tag tag-select">Select Text</span>
+      </div>
+      <div class="feature-description">
+        Breaks down complex assignments into manageable steps with time estimates.
+        Creates interactive checklists to help students stay organized.
+      </div>
+      <div class="sample-content">
+        <h4>Sample: Research Paper Assignment</h4>
+        <div class="sample-text">
+          <p><strong>Psychology 201 - Research Paper Assignment</strong></p>
+          <p>Write a 3000-4000 word research paper on a topic related to cognitive psychology. Your paper must include:</p>
+          <ul>
+            <li>An abstract of 150-200 words summarizing your paper</li>
+            <li>An introduction that establishes the context and presents your thesis</li>
+            <li>A literature review section analyzing at least 8 peer-reviewed sources</li>
+            <li>A discussion section connecting your findings to broader implications</li>
+            <li>A conclusion with suggestions for future research</li>
+            <li>APA 7th edition formatting throughout</li>
+            <li>A references page with all cited sources</li>
+          </ul>
+          <p>Submissions must be uploaded to Canvas by December 15th at 11:59 PM. Late papers will be penalized 5% per day.</p>
+        </div>
+
+        <h4>Sample: Lab Report</h4>
+        <div class="sample-text">
+          <p><strong>Chemistry 110 - Titration Lab Report</strong></p>
+          <p>Complete the acid-base titration experiment and submit a formal lab report following the scientific method format. Your report should include: a descriptive title, your hypothesis, detailed materials list, step-by-step procedure, data tables showing all trial measurements, calculations with work shown, graphs plotting your results, analysis of percent error, discussion of sources of error, and conclusion relating results to your hypothesis. The report must be typed, double-spaced, and include proper significant figures. Include your raw data sheet from lab as an appendix. Due next Wednesday before lab begins.</p>
+        </div>
+
+        <h4>Sample: Group Project</h4>
+        <div class="sample-text">
+          <p><strong>Business 300 - Marketing Plan Group Project</strong></p>
+          <p>Working in teams of 4-5, develop a comprehensive marketing plan for a new product or service of your choosing. Your deliverables include:</p>
+          <p>1. Written marketing plan (15-20 pages) covering: executive summary, situation analysis, target market identification, marketing objectives, marketing strategies (product, price, place, promotion), implementation timeline, and budget allocation.</p>
+          <p>2. Professional presentation (20-25 minutes) to be delivered to the class during finals week.</p>
+          <p>3. Individual contribution report (1 page) describing your role and what you learned.</p>
+          <p>Timeline: Team formation by Oct 1, Topic approval by Oct 15, Outline due Nov 1, Draft due Nov 20, Final submission Dec 8, Presentations Dec 10-14.</p>
+        </div>
+
+        <h4>Sample: Creative Writing</h4>
+        <div class="sample-text">
+          <p><strong>English 215 - Short Story Portfolio</strong></p>
+          <p>Compile a portfolio containing three original short stories (2000-3500 words each) demonstrating different narrative techniques. Story 1 should use first-person narration, Story 2 should employ third-person limited perspective, and Story 3 should experiment with an unreliable narrator or non-linear structure. Each story must include a 250-word reflection discussing your creative choices, challenges faced, and revision process. Include a final 500-word artist statement discussing your growth as a writer. Stories will be workshopped in class before final submission. Final portfolio due December 20th.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 5. EMOTIONAL TTS -->
+    <!-- ============================================ -->
+
+    <section class="feature-section emotional-tts">
+      <div class="feature-header">
+        <span class="icon">🎭</span>
+        Emotional TTS
+        <span class="tag tag-listen">Listen to Text</span>
+      </div>
+      <div class="feature-description">
+        Text-to-speech that detects emotional tone and adjusts voice accordingly.
+        Select text and listen to hear appropriate emotional expression.
+      </div>
+      <div class="sample-content">
+        <h4>Sample Texts with Different Emotions</h4>
+        <div class="emotion-samples">
+          <div class="emotion-card happy">
+            <div class="emotion-label">😊 Happy/Excited</div>
+            <p>"Congratulations! You've won first place in the science fair! Your project on renewable energy impressed all the judges, and you'll be representing our school at the state competition next month!"</p>
+          </div>
+
+          <div class="emotion-card sad">
+            <div class="emotion-label">😢 Sad/Somber</div>
+            <p>"We regret to inform you that the beloved community garden will be closing at the end of this month. After 25 years of bringing neighbors together, the land has been sold for development. We will miss the friendships and memories made here."</p>
+          </div>
+
+          <div class="emotion-card excited">
+            <div class="emotion-label">🎉 Enthusiastic</div>
+            <p>"Breaking news! Scientists have discovered a new species of deep-sea fish that produces its own light in spectacular rainbow colors! This incredible finding could revolutionize our understanding of bioluminescence!"</p>
+          </div>
+
+          <div class="emotion-card calm">
+            <div class="emotion-label">😌 Calm/Instructional</div>
+            <p>"To complete this exercise, slowly inhale through your nose for four counts. Hold your breath for four counts. Then exhale slowly through your mouth for six counts. Repeat this pattern five times, allowing your body to relax with each breath."</p>
+          </div>
+
+          <div class="emotion-card serious">
+            <div class="emotion-label">😐 Serious/Formal</div>
+            <p>"The quarterly financial report indicates a 12% decline in revenue compared to the previous quarter. The board has scheduled an emergency meeting to discuss cost reduction strategies and evaluate current market conditions."</p>
+          </div>
+        </div>
+
+        <h4>Sample: Story with Mixed Emotions</h4>
+        <div class="sample-text">
+          <p>"I can't believe it!" Maria exclaimed, jumping up from her chair. Her hands trembled as she read the email again. After three years of rejection letters and near-misses, she had finally been accepted into medical school.</p>
+          <p>She thought about her grandmother, who had passed away just six months earlier. "I wish you could see this, Abuela," she whispered, tears streaming down her face. "You always believed in me, even when I didn't believe in myself."</p>
+          <p>Taking a deep breath, she wiped her eyes and smiled. Tomorrow would be the first day of her new journey. She was scared, excited, and more determined than ever.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 6. IMAGE UNDERSTANDING -->
+    <!-- ============================================ -->
+
+    <section class="feature-section image-understanding">
+      <div class="feature-header">
+        <span class="icon">🖼️</span>
+        Image Understanding
+        <span class="tag tag-image">Right-Click Image</span>
+      </div>
+      <div class="feature-description">
+        Uses AI vision to describe images, read text in photos, and explain diagrams.
+        Essential for making visual content accessible to all users.
+      </div>
+      <div class="sample-content">
+        <h4>Sample Images for Testing</h4>
+
+        <div class="tip-box">
+          <strong>How to test:</strong> Right-click on any image below and select the AssisT option to get an AI description.
+          This feature requires the LLaVA vision model to be installed in Ollama.
+        </div>
+
+        <h4>Diagram: The Water Cycle</h4>
+        <div class="placeholder-image">
+          <div class="icon">🌧️</div>
+          <div>Water Cycle Diagram</div>
+          <small>Evaporation → Condensation → Precipitation → Collection</small>
+        </div>
+        <p><em>The AI can describe this educational diagram, explaining each stage of the water cycle and how they connect.</em></p>
+
+        <h4>Chart: Sample Data Visualization</h4>
+        <div class="placeholder-image">
+          <div class="icon">📊</div>
+          <div>Bar Chart: Monthly Sales Data</div>
+          <small>Q1: $50K | Q2: $65K | Q3: $72K | Q4: $88K</small>
+        </div>
+        <p><em>The AI can read and interpret data from charts, explaining trends and key figures.</em></p>
+
+        <h4>Photo with Text</h4>
+        <div class="placeholder-image">
+          <div class="icon">🏫</div>
+          <div>Photo of School Notice Board</div>
+          <small>"Library Hours: Mon-Fri 8AM-6PM, Sat 10AM-4PM"</small>
+        </div>
+        <p><em>The AI can extract and read text from photographs, signs, and documents.</em></p>
+
+        <h4>Scientific Diagram</h4>
+        <div class="placeholder-image">
+          <div class="icon">🧬</div>
+          <div>Cell Structure Diagram</div>
+          <small>Nucleus, Mitochondria, Endoplasmic Reticulum, Ribosomes</small>
+        </div>
+        <p><em>The AI can identify and explain parts of scientific diagrams, making complex visuals accessible.</em></p>
+
+        <div class="tip-box">
+          <strong>Note:</strong> For best results with real images, save images to your computer and open them in a browser,
+          or use the extension on web pages with actual images.
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- 7. COGNITIVE PROFILE -->
+    <!-- ============================================ -->
+
+    <section class="feature-section cognitive-profile">
+      <div class="feature-header">
+        <span class="icon">🧠</span>
+        Cognitive Profile
+        <span class="tag tag-select">Learns Over Time</span>
+      </div>
+      <div class="feature-description">
+        The AI learns your preferences and adapts to your learning style.
+        It remembers what works best for you and personalizes responses accordingly.
+      </div>
+      <div class="sample-content">
+        <h4>How Cognitive Profile Works</h4>
+        <div class="sample-text">
+          <p>The cognitive profile feature tracks your interactions with AssisT to build a personalized learning profile. Over time, the system learns:</p>
+          <ul>
+            <li><strong>Preferred complexity level</strong> - Whether you prefer simpler or more detailed explanations</li>
+            <li><strong>Reading speed</strong> - How fast or slow you prefer text-to-speech</li>
+            <li><strong>Subject strengths</strong> - Topics where you need less help vs. more support</li>
+            <li><strong>Best times</strong> - When you're most productive and focused</li>
+            <li><strong>Formatting preferences</strong> - Bullet points vs. paragraphs, visual aids, etc.</li>
+          </ul>
+        </div>
+
+        <h4>Try Different Learning Styles</h4>
+        <div class="sample-text">
+          <p><strong>Visual Learner Test:</strong> The following paragraph explains photosynthesis. If you prefer diagrams and images, the AI will learn to include more visual descriptions.</p>
+          <p>Photosynthesis occurs in the chloroplasts of plant cells. Light energy is captured by chlorophyll molecules and used to convert carbon dioxide and water into glucose and oxygen. This process has two main stages: the light-dependent reactions in the thylakoid membranes and the Calvin cycle in the stroma.</p>
+        </div>
+
+        <div class="sample-text">
+          <p><strong>Step-by-Step Learner Test:</strong> The following explains the same concept differently. If you prefer structured, sequential information, the AI will adapt.</p>
+          <p>Step 1: Sunlight hits the leaf. Step 2: Chlorophyll absorbs the light energy. Step 3: Water molecules are split, releasing oxygen. Step 4: Energy is stored in ATP molecules. Step 5: Carbon dioxide is converted to glucose. Step 6: Glucose is used for plant growth and energy.</p>
+        </div>
+
+        <div class="sample-text">
+          <p><strong>Analogy Learner Test:</strong> Here's the same concept using comparisons. If analogies help you understand, the AI will use more of them.</p>
+          <p>Think of a plant as a tiny factory. Sunlight is the electricity that powers the factory. Carbon dioxide and water are the raw materials that come in. The chloroplasts are the machines that do the work. Glucose is the finished product - the food that keeps the plant alive. Oxygen is like the exhaust that gets released into the air.</p>
+        </div>
+
+        <div class="tip-box">
+          <strong>Tip:</strong> The more you use AssisT, the better it understands your learning preferences.
+          Try using different features regularly to help the AI build an accurate profile.
+        </div>
+      </div>
+    </section>
+
+    <hr>
+
+    <footer>
+      <p><strong>AssisT LLM Edition</strong> - Adaptive Accessibility with Local AI</p>
+      <p>All AI processing happens locally on your device via Ollama. Your data stays private.</p>
+      <p>Enable features in the extension popup. Make sure Ollama is running for AI-powered responses.</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>

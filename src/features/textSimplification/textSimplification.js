@@ -31,6 +31,7 @@ let simplification_panel = null;
 let simplification_isLoading = false;
 let simplification_currentText = '';
 let simplification_currentResult = '';
+let simplification_modelDropdown = null; // Cloud model dropdown reference
 
 const simplification_settings = {
   enabled: true,
@@ -39,9 +40,36 @@ const simplification_settings = {
   showTermDefinitions: true,
 };
 
+// Cloud model configurations
+const SIMPLIFICATION_MODELS = {
+  'local': { id: 'local', name: 'Local', isLocal: true },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
+  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+};
+
+// Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
+// Cloud: Sonnet 4.5 scored 9.6/10 (highest single score in benchmark)
+// Local: Mistral:7b scored 8.4/10 (best local for simplification)
+const SIMPLIFICATION_DEFAULT_LOCAL_MODEL = 'local';
+const SIMPLIFICATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.5';
+
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
+
+/**
+ * Check if cloud mode is enabled
+ * @returns {Promise<boolean>}
+ */
+async function simplification_isCloudEnabled() {
+  try {
+    const result = await chrome.storage.local.get(['cloudModeEnabled']);
+    return result.cloudModeEnabled === true;
+  } catch (error) {
+    return false;
+  }
+}
 
 /**
  * Check if local LLM is available
@@ -66,15 +94,178 @@ async function simplification_checkLLM() {
   }
 }
 
+// ============================================================================
+// TEXT COMPLEXITY DETECTION (for two-stage processing)
+// ============================================================================
+
+/**
+ * Academic/complex words that indicate difficult text
+ */
+const COMPLEXITY_INDICATORS = [
+  'phenomenological', 'ontological', 'epistemological', 'hermeneutic', 'dialectical',
+  'intersubjective', 'reconceptualisation', 'reconceptualization', 'praxis', 'chiasmic',
+  'instantiates', 'constitutes', 'necessitates', 'undergirded', 'antecedes',
+  'problematise', 'problematize', 'historicised', 'historicized', 'canonised',
+  'commodified', 'decontextualised', 'decontextualized', 'indeterminacy',
+  'reversibility', 'intertwining', 'stratum', 'qua', 'wherein', 'whereby'
+];
+
+/**
+ * Detect text complexity score (0-1)
+ * @param {string} text - Text to analyze
+ * @returns {number} Complexity score between 0 and 1
+ */
+function detectComplexity(text) {
+  const words = text.toLowerCase().split(/\s+/);
+  const wordCount = words.length;
+
+  if (wordCount < 10) return 0;
+
+  // Factor 1: Average word length (academic texts have longer words)
+  const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / wordCount;
+  const lengthScore = Math.min(1, (avgWordLength - 4) / 4); // Normalize: 4-8 chars -> 0-1
+
+  // Factor 2: Presence of complexity indicators
+  const complexWords = words.filter(w =>
+    COMPLEXITY_INDICATORS.some(indicator => w.includes(indicator))
+  ).length;
+  const indicatorScore = Math.min(1, complexWords / 3); // 3+ complex words = 1.0
+
+  // Factor 3: Sentence length (complex texts have longer sentences)
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const avgSentenceLength = wordCount / Math.max(1, sentences.length);
+  const sentenceScore = Math.min(1, (avgSentenceLength - 15) / 20); // 15-35 words -> 0-1
+
+  // Factor 4: Punctuation density (academic texts use more semicolons, colons, dashes)
+  const complexPunctuation = (text.match(/[;:—–]/g) || []).length;
+  const punctScore = Math.min(1, complexPunctuation / 3);
+
+  // Weighted average
+  const complexity = (lengthScore * 0.25) + (indicatorScore * 0.4) + (sentenceScore * 0.25) + (punctScore * 0.1);
+
+  return Math.max(0, Math.min(1, complexity));
+}
+
+/**
+ * Two-stage simplification for complex texts (local models only)
+ * Stage 1: Extract difficult terms
+ * Stage 2: Simplify with term awareness
+ * @param {string} text - Text to simplify
+ * @param {string} level - Simplification level
+ * @returns {Promise<string>} Simplified text
+ */
+async function twoStageSimplification(text, level) {
+  console.log('[TextSimplification] Using two-stage processing for complex text');
+
+  // Stage 1: Identify difficult terms (quick, focused task)
+  const stage1Prompt = `List the 5 most difficult academic terms in this text. Just list the terms, one per line, nothing else.
+
+TEXT: ${text.substring(0, 500)}
+
+DIFFICULT TERMS:`;
+
+  try {
+    const termsResponse = await chrome.runtime.sendMessage({
+      action: 'LOCAL_LLM_GENERATE',
+      prompt: stage1Prompt,
+      options: { maxTokens: 100, temperature: 0.1 }
+    });
+
+    const extractedTerms = termsResponse?.success && termsResponse.data
+      ? termsResponse.data.split('\n').filter(t => t.trim().length > 2).slice(0, 5)
+      : [];
+
+    console.log('[TextSimplification] Stage 1 - Extracted terms:', extractedTerms);
+
+    // Stage 2: Simplify with term list
+    const termsList = extractedTerms.length > 0
+      ? `\nKEY TERMS TO DEFINE: ${extractedTerms.join(', ')}\n`
+      : '';
+
+    const stage2Prompt = `Simplify this academic text. Keep the academic terms but add brief definitions in parentheses.
+${termsList}
+EXAMPLE:
+Input: "The phenomenological approach emphasizes lived experience."
+Output: "The phenomenological approach (studying direct personal experience) focuses on what people actually experience."
+
+TEXT TO SIMPLIFY:
+${text}
+
+SIMPLIFIED VERSION:`;
+
+    const simplifiedResponse = await chrome.runtime.sendMessage({
+      action: 'LOCAL_LLM_GENERATE',
+      prompt: stage2Prompt,
+      options: { maxTokens: 600, temperature: 0.3 }
+    });
+
+    if (simplifiedResponse?.success && simplifiedResponse.data) {
+      return simplifiedResponse.data;
+    }
+  } catch (error) {
+    console.warn('[TextSimplification] Two-stage processing failed, falling back to standard:', error);
+  }
+
+  // Fallback to null (will use standard processing)
+  return null;
+}
+
 /**
  * Generate simplified text using local LLM
  * @param {string} text - Text to simplify
  * @param {string} level - Simplification level: 'basic' | 'moderate' | 'academic'
  * @returns {Promise<string>} The simplified text
  */
-async function simplification_generate(text, level = 'moderate') {
-  const levelPrompts = {
-    basic: `You are a reading accessibility expert. Simplify this text for someone with severe reading difficulties:
+async function simplification_generate(text, level = 'moderate', modelKey = 'local') {
+  const isCloud = modelKey !== 'local';
+
+  // Optimized prompts: CoT for cloud (50B+ benefits), direct for local (faster, similar quality)
+  // Research: https://www.promptingguide.ai/techniques/cot - "CoT benefits large models (50B+)"
+
+  // LOCAL MODEL PROMPTS (streamlined, no CoT)
+  const localPrompts = {
+    basic: `Simplify this text for people with reading difficulties. Use very simple words and short sentences.
+
+EXAMPLE:
+Input: "Cognitive dissonance occurs when beliefs contradict actions."
+Output: "We feel bad when what we think and what we do don't match."
+
+TEXT: ${text}
+
+SIMPLIFIED:`,
+
+    moderate: `Simplify this academic text. Keep important terms but add definitions in parentheses.
+
+EXAMPLE:
+Input: "The phenomenological approach emphasizes lived experience."
+Output: "The phenomenological approach (studying direct personal experience) focuses on what people actually experience."
+
+TEXT: ${text}
+
+SIMPLIFIED:`,
+
+    academic: `Improve readability while keeping academic vocabulary. Add brief definitions in parentheses for difficult terms.
+
+EXAMPLE:
+Input: "The chiasmic intertwining constitutes a pre-reflective stratum."
+Output: "The chiasmic intertwining (reciprocal entanglement) creates a pre-reflective layer. This foundational layer exists before conscious thought."
+
+TEXT: ${text}
+
+IMPROVED:`
+  };
+
+  // CLOUD MODEL PROMPTS (with CoT for better reasoning)
+  const cloudPrompts = {
+    basic: `You are a reading accessibility expert. Simplify text for people with severe reading difficulties.
+
+EXAMPLE 1:
+Input: "The implementation of sustainable practices necessitates comprehensive stakeholder engagement."
+Output: "We need to work with everyone to be more green. (= better for the planet)"
+
+EXAMPLE 2:
+Input: "Cognitive dissonance occurs when beliefs contradict actions."
+Output: "We feel bad when what we think and what we do don't match."
 
 RULES:
 - Use very simple, common words only
@@ -89,51 +280,117 @@ ${text}
 
 SIMPLIFIED VERSION (very simple English):`,
 
-    moderate: `You are an educational accessibility specialist. Simplify this academic text for students with learning difficulties:
+    moderate: `You are an educational accessibility specialist. Simplify academic text while keeping important terms with definitions.
+
+EXAMPLE 1:
+Input: "The phenomenological approach emphasizes lived experience over theoretical abstraction."
+Output: "The phenomenological approach (studying direct personal experience) focuses on what people actually experience, rather than abstract theories."
+
+EXAMPLE 2:
+Input: "Epistemological frameworks shape our understanding of knowledge acquisition."
+Output: "Epistemological frameworks (theories about how we know things) shape how we understand learning and gaining knowledge."
 
 RULES:
 - Use clear, straightforward language
 - Keep sentences to 15-20 words maximum
 - Break long paragraphs into shorter ones
-- When you use a technical term, add a brief definition in brackets
+- Keep academic terms but add brief definitions in parentheses
 - Maintain the educational content but improve readability
-- Use bullet points if listing multiple items
+- Restructure complex sentences, don't just swap words
 
 TEXT TO SIMPLIFY:
 ${text}
+
+Think step by step:
+1. Identify the key concepts and difficult terms
+2. Restructure complex sentences into simpler ones
+3. Add definitions for academic terms in parentheses
+4. Ensure the meaning is preserved
 
 SIMPLIFIED VERSION (clear, accessible language):`,
 
-    academic: `You are an academic writing specialist. Improve the readability of this text while preserving its academic tone:
+    academic: `You are an academic writing specialist. Improve readability while preserving scholarly tone and vocabulary.
+
+EXAMPLE 1:
+Input: "The chiasmic intertwining of perceiver and perceived constitutes a pre-reflective stratum of meaning-making."
+Output: "The chiasmic intertwining (reciprocal entanglement) of perceiver and perceived creates a pre-reflective layer of meaning-making. This foundational layer exists before conscious thought shapes our understanding."
+
+EXAMPLE 2:
+Input: "Ontological reframing proves particularly generative when applied to post-conceptualist frameworks."
+Output: "This ontological reframing (reconceptualising what something fundamentally is) proves particularly productive when applied to post-conceptualist frameworks. It allows us to see art beyond traditional categories."
 
 RULES:
-- Clarify complex sentence structures
-- Break down run-on sentences
-- Define specialized terminology in-context (e.g., "term [meaning]")
-- Maintain academic vocabulary but improve flow
-- Keep the scholarly depth but enhance accessibility
-- Preserve any citations or references
+- Keep academic vocabulary - students need to learn these terms
+- Add brief definitions in parentheses for difficult terms
+- Break complex sentences into clearer structures
+- Maintain the scholarly depth and tone
+- Restructure syntax while preserving meaning
+- DO NOT just replace words with synonyms - transform the structure
 
 TEXT TO SIMPLIFY:
 ${text}
+
+Think step by step:
+1. Identify which academic terms need definitions
+2. Break down complex sentence structures
+3. Add parenthetical definitions that integrate naturally
+4. Preserve the scholarly argument and tone
 
 IMPROVED VERSION (clearer academic writing):`,
   };
 
-  const maxTokens = level === 'basic' ? 400 : level === 'academic' ? 700 : 500;
+  // Select prompt based on model type
+  const promptSet = isCloud ? cloudPrompts : localPrompts;
+  const prompt = promptSet[level] || promptSet.moderate;
+  const maxTokens = level === 'basic' ? 400 : level === 'academic' ? 800 : 600;
+
+  // For local models with complex/long text, use two-stage processing
+  const isComplexText = !isCloud && text.length > 300 && detectComplexity(text) > 0.6;
 
   try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GENERATE',
-      prompt: levelPrompts[level] || levelPrompts.moderate,
-      options: {
-        maxTokens,
-        temperature: 0.3, // Lower temperature for more consistent output
-      },
-    });
+    let response;
+
+    if (isCloud) {
+      // Use cloud model (Claude API)
+      response = await chrome.runtime.sendMessage({
+        action: 'CLOUD_LLM_GENERATE',
+        prompt,
+        options: {
+          model: modelKey,
+          maxTokens,
+          temperature: 0.3,
+          feature: 'textSimplification'
+        },
+      });
+    } else if (isComplexText && level !== 'basic') {
+      // Try two-stage processing for complex academic text
+      const twoStageResult = await twoStageSimplification(text, level);
+      if (twoStageResult) {
+        return { simplified: twoStageResult, isCloud: false, twoStage: true };
+      }
+      // Fall through to standard processing if two-stage fails
+      response = await chrome.runtime.sendMessage({
+        action: 'LOCAL_LLM_GENERATE',
+        prompt,
+        options: {
+          maxTokens,
+          temperature: 0.3,
+        },
+      });
+    } else {
+      // Use local model (Ollama) - standard processing
+      response = await chrome.runtime.sendMessage({
+        action: 'LOCAL_LLM_GENERATE',
+        prompt,
+        options: {
+          maxTokens,
+          temperature: 0.3, // Lower temperature for more consistent output
+        },
+      });
+    }
 
     if (response && response.success) {
-      return response.data;
+      return { simplified: response.data, isCloud };
     }
 
     throw new Error(response?.error || 'Simplification failed');
@@ -297,6 +554,7 @@ function simplification_breakLongSentence(sentence) {
  */
 function simplification_addDefinitions(text) {
   const termDefinitions = {
+    // General academic terms
     hypothesis: '(= educated guess)',
     methodology: '(= method or approach)',
     paradigm: '(= way of thinking)',
@@ -327,6 +585,52 @@ function simplification_addDefinitions(text) {
     perspective: '(= point of view)',
     discourse: '(= discussion or conversation)',
     nuance: '(= subtle difference)',
+
+    // Art & Design Theory terms (NCAD context)
+    phenomenological: '(= relating to direct lived experience)',
+    phenomenology: '(= the study of direct experience)',
+    ontological: '(= relating to the nature of being)',
+    ontology: '(= the study of what exists)',
+    epistemological: '(= relating to knowledge and knowing)',
+    epistemology: '(= theory of knowledge)',
+    hermeneutic: '(= relating to interpretation)',
+    hermeneutics: '(= the study of interpretation)',
+    aesthetic: '(= relating to beauty and art)',
+    aesthetics: '(= the study of beauty)',
+    semiotics: '(= the study of signs and symbols)',
+    semiotic: '(= relating to signs and meaning)',
+    dialectical: '(= involving opposing ideas)',
+    dialectic: '(= reasoning through opposites)',
+    praxis: '(= practice informed by theory)',
+    chiasmic: '(= crossing or intertwining)',
+    intersubjective: '(= shared between people)',
+    intersubjectivity: '(= shared understanding)',
+    liminal: '(= at a threshold or boundary)',
+    liminality: '(= being between states)',
+    haptic: '(= relating to touch)',
+    corporeal: '(= relating to the body)',
+    embodied: '(= expressed through the body)',
+    embodiment: '(= being expressed physically)',
+    materiality: '(= physical substance and presence)',
+    indexical: '(= pointing to something real)',
+    indexicality: '(= direct physical connection)',
+    simulacra: '(= copies without originals)',
+    simulacrum: '(= a copy that replaces reality)',
+    rhizomatic: '(= spreading like roots, non-hierarchical)',
+    deterritorialization: '(= removing from original context)',
+    deconstruction: '(= taking apart assumptions)',
+    poststructuralist: '(= questioning fixed meanings)',
+    'post-conceptualist': '(= going beyond concept-based art)',
+
+    // Visual arts specific
+    chiaroscuro: '(= light and shadow contrast)',
+    trompe: "(= visual illusion, 'fool the eye')",
+    sfumato: '(= soft, hazy edges)',
+    impasto: '(= thick paint texture)',
+    gestalt: '(= unified whole perception)',
+    'negative space': '(= empty area around objects)',
+    composition: '(= arrangement of elements)',
+    juxtaposition: '(= placing things side by side)',
   };
 
   let result = text;
@@ -380,12 +684,15 @@ function simplification_fallback(text, level = 'moderate') {
  * Creates the floating simplification panel
  * @returns {HTMLElement} Panel element
  */
-function simplification_createPanel() {
+async function simplification_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-simplification-panel';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Text Simplification');
   panel.setAttribute('aria-modal', 'true');
+
+  // Check if cloud mode is enabled
+  const cloudEnabled = await simplification_isCloudEnabled();
 
   panel.innerHTML = `
     <div class="assist-simplify-header">
@@ -404,6 +711,15 @@ function simplification_createPanel() {
       <p class="assist-simplify-placeholder">Select text and click simplify...</p>
     </div>
     <div class="assist-simplify-actions">
+      <div class="assist-simplify-model-selector ${cloudEnabled ? '' : 'hidden'}">
+        <span class="assist-model-icon" title="AI Model">🤖</span>
+        <select class="assist-simplify-model" aria-label="Select AI model">
+          <option value="local">Local</option>
+          <option value="haiku-4.5">Haiku 4.5</option>
+          <option value="sonnet-4.5">Sonnet 4.5</option>
+          <option value="opus-4.5">Opus 4.5</option>
+        </select>
+      </div>
       <button class="assist-simplify-btn assist-simplify-copy" aria-label="Copy simplified text">
         <span class="assist-simplify-btn-icon">📋</span> Copy
       </button>
@@ -428,9 +744,27 @@ function simplification_createPanel() {
   levelSelect.addEventListener('change', e => {
     simplification_settings.defaultLevel = e.target.value;
     if (simplification_currentText) {
-      simplification_simplify(simplification_currentText, e.target.value);
+      const modelSelect = panel.querySelector('.assist-simplify-model');
+      const modelKey = modelSelect?.value || 'local';
+      simplification_simplify(simplification_currentText, e.target.value, modelKey);
     }
   });
+
+  // Model dropdown event listener
+  const modelSelect = panel.querySelector('.assist-simplify-model');
+  if (modelSelect) {
+    // Set default based on cloud mode (benchmark-optimized)
+    modelSelect.value = cloudEnabled ? SIMPLIFICATION_DEFAULT_CLOUD_MODEL : SIMPLIFICATION_DEFAULT_LOCAL_MODEL;
+    simplification_modelDropdown = modelSelect;
+
+    // Model change triggers regeneration
+    modelSelect.addEventListener('change', () => {
+      if (simplification_currentText) {
+        const level = panel.querySelector('.assist-simplify-level')?.value || simplification_settings.defaultLevel;
+        simplification_simplify(simplification_currentText, level, modelSelect.value);
+      }
+    });
+  }
 
   const copyBtn = panel.querySelector('.assist-simplify-copy');
   copyBtn.addEventListener('click', simplification_copy);
@@ -441,7 +775,8 @@ function simplification_createPanel() {
   const regenerateBtn = panel.querySelector('.assist-simplify-regenerate');
   regenerateBtn.addEventListener('click', () => {
     if (simplification_currentText) {
-      simplification_simplify(simplification_currentText, simplification_settings.defaultLevel);
+      const modelKey = simplification_modelDropdown?.value || 'local';
+      simplification_simplify(simplification_currentText, simplification_settings.defaultLevel, modelKey);
     }
   });
 
@@ -640,6 +975,42 @@ function simplification_injectStyles() {
       font-size: 14px;
     }
 
+    /* Model selector in actions bar */
+    .assist-simplify-model-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+      margin-right: auto;
+    }
+
+    .assist-simplify-model-selector.hidden {
+      display: none !important;
+    }
+
+    .assist-model-icon {
+      font-size: 14px;
+    }
+
+    .assist-simplify-model {
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      background: white;
+      cursor: pointer;
+      min-width: 100px;
+    }
+
+    .assist-simplify-model:focus {
+      outline: none;
+      border-color: #2196f3;
+      box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+    }
+
     /* AI indicator badges */
     .assist-simplify-ai-badge {
       display: inline-flex;
@@ -647,6 +1018,19 @@ function simplification_injectStyles() {
       gap: 4px;
       padding: 2px 8px;
       background: linear-gradient(135deg, #4CAF50 0%, #2196F3 100%);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 10px;
+      margin-left: 8px;
+    }
+
+    .assist-simplify-cloud-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
       color: white;
       font-size: 10px;
       font-weight: 600;
@@ -708,6 +1092,21 @@ function simplification_injectStyles() {
 
       .assist-simplify-btn:hover {
         background: #3d3d3d;
+      }
+
+      .assist-simplify-model-selector {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .assist-simplify-model {
+        background: #2a2a2a;
+        color: #e0e0e0;
+        border-color: #444;
+      }
+
+      .assist-simplify-model:focus {
+        border-color: #64b5f6;
+        box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.3);
       }
     }
   `;
@@ -773,12 +1172,12 @@ function simplification_makeDraggable(panel) {
  * Show the simplification panel
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
  */
-function simplification_show(selectionRect = null) {
+async function simplification_show(selectionRect = null) {
   if (simplification_panel) {
     simplification_panel.remove();
   }
 
-  simplification_panel = simplification_createPanel();
+  simplification_panel = await simplification_createPanel();
   document.body.appendChild(simplification_panel);
 
   // Position near selection if available
@@ -787,13 +1186,20 @@ function simplification_show(selectionRect = null) {
     let left = selectionRect.right + 10;
     let top = selectionRect.top;
 
-    // Adjust if would be off-screen
+    // Horizontal bounds: prefer right of selection, fallback to left
     if (left + panelRect.width > window.innerWidth - 20) {
       left = Math.max(20, selectionRect.left - panelRect.width - 10);
     }
 
+    // Vertical bounds: ensure panel stays within viewport
+    // Check bottom edge
     if (top + panelRect.height > window.innerHeight - 20) {
-      top = Math.max(20, window.innerHeight - panelRect.height - 20);
+      top = window.innerHeight - panelRect.height - 20;
+    }
+
+    // Check top edge (ensure not cut off at top)
+    if (top < 20) {
+      top = 20;
     }
 
     simplification_panel.style.left = `${left}px`;
@@ -835,10 +1241,16 @@ function simplification_handleKeydown(e) {
  * Simplify text and update panel
  * @param {string} text - Text to simplify
  * @param {string} level - Simplification level
+ * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
  */
-async function simplification_simplify(text, level = 'moderate') {
+async function simplification_simplify(text, level = 'moderate', modelKey = null) {
   if (simplification_isLoading || !text || text.trim().length === 0) {
     return;
+  }
+
+  // Get model from dropdown if not specified
+  if (!modelKey) {
+    modelKey = simplification_modelDropdown?.value || 'local';
   }
 
   simplification_currentText = text;
@@ -855,11 +1267,14 @@ async function simplification_simplify(text, level = 'moderate') {
     academic: 'clearer academic',
   };
 
+  const isCloud = modelKey !== 'local';
+  const modelName = SIMPLIFICATION_MODELS[modelKey]?.name || modelKey;
+
   if (contentArea) {
     contentArea.innerHTML = `
       <div class="assist-simplify-loading">
         <div class="assist-simplify-spinner"></div>
-        <span>Creating ${levelLabels[level] || 'simplified'} version...</span>
+        <span>Creating ${levelLabels[level] || 'simplified'} version${isCloud ? ` with ${modelName}` : ''}...</span>
       </div>
     `;
   }
@@ -870,28 +1285,43 @@ async function simplification_simplify(text, level = 'moderate') {
   });
 
   try {
-    // Check LLM availability
-    const llmStatus = await simplification_checkLLM();
-
     let simplified;
     let isAI = false;
+    let usedCloud = false;
 
-    if (llmStatus.available) {
-      // Use AI simplification
-      simplified = await simplification_generate(text, level);
+    if (isCloud) {
+      // Use cloud model (Claude API)
+      const result = await simplification_generate(text, level, modelKey);
+      simplified = result.simplified;
       isAI = true;
+      usedCloud = true;
 
       if (statusBar) {
-        statusBar.textContent = '✨ AI-powered simplification complete';
+        statusBar.textContent = `☁️ Simplified with ${modelName}`;
         statusBar.className = 'assist-simplify-status visible success';
       }
     } else {
-      // Fall back to rule-based simplification
-      simplified = simplification_fallback(text, level);
+      // Check local LLM availability
+      const llmStatus = await simplification_checkLLM();
 
-      if (statusBar) {
-        statusBar.textContent = '⚠️ Using basic simplification (Ollama not available)';
-        statusBar.className = 'assist-simplify-status visible';
+      if (llmStatus.available) {
+        // Use local AI simplification
+        const result = await simplification_generate(text, level, 'local');
+        simplified = result.simplified;
+        isAI = true;
+
+        if (statusBar) {
+          statusBar.textContent = '💻 AI-powered simplification complete (Local)';
+          statusBar.className = 'assist-simplify-status visible success';
+        }
+      } else {
+        // Fall back to rule-based simplification
+        simplified = simplification_fallback(text, level);
+
+        if (statusBar) {
+          statusBar.textContent = '⚠️ Using basic simplification (Ollama not available)';
+          statusBar.className = 'assist-simplify-status visible';
+        }
       }
     }
 
@@ -899,9 +1329,14 @@ async function simplification_simplify(text, level = 'moderate') {
 
     // Update content
     if (contentArea) {
-      const badge = isAI
-        ? '<span class="assist-simplify-ai-badge">AI</span>'
-        : '<span class="assist-simplify-fallback-badge">Basic</span>';
+      let badge;
+      if (usedCloud) {
+        badge = `<span class="assist-simplify-cloud-badge">☁️ ${modelName}</span>`;
+      } else if (isAI) {
+        badge = '<span class="assist-simplify-ai-badge">💻 Local AI</span>';
+      } else {
+        badge = '<span class="assist-simplify-fallback-badge">Basic</span>';
+      }
 
       contentArea.innerHTML = `
         <p class="assist-simplify-text">${escapeHtml(simplified)}</p>
@@ -994,17 +1429,20 @@ function escapeHtml(text) {
  * @param {string} text - Text to simplify
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
  */
-function simplification_start(text, selectionRect = null) {
+async function simplification_start(text, selectionRect = null) {
   if (!text || text.trim().length === 0) {
     showToast('No text to simplify');
     return;
   }
 
   // Show the panel
-  simplification_show(selectionRect);
+  await simplification_show(selectionRect);
 
-  // Start simplification
-  simplification_simplify(text, simplification_settings.defaultLevel);
+  // Get model from dropdown (defaults to feature default when first shown)
+  const modelKey = simplification_modelDropdown?.value || SIMPLIFICATION_DEFAULT_MODEL;
+
+  // Start simplification with selected model
+  simplification_simplify(text, simplification_settings.defaultLevel, modelKey);
 }
 
 // ============================================================================

@@ -958,3 +958,25 @@ We can still achieve modular architecture, but MUST use this workflow:
 - Implementation Plan: Approved via ExitPlanMode tool
 
 ---
+
+### DEC-202512-001
+
+| Field              | Value                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ID**             | DEC-202512-001                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Date**           | 2025-12-06                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Decision**       | **Build Output Directory Changed: AssistV2a → AssistLLM for LLM Edition**                                                                                                                                                                                                                                                                                                                                                    |
+| **Rationale**      | The AssisT LLM Edition (with local AI features via Ollama) uses a separate build directory `AssistLLM/` to distinguish it from the standard AssistV2a build. This allows maintaining parallel versions: AssistV2a for the standard edition and AssistLLM for the AI-enhanced edition. The Chrome extension should be loaded from `AssistLLM/` directory when testing AI features (Image Understanding, Smart Summarization, etc.). |
+| **Alternatives**   | 1. **Single output directory:** Rejected - would overwrite standard edition builds. 2. **Branch-based builds:** Rejected - adds unnecessary complexity for feature testing.                                                                                                                                                                                                                                                  |
+| **Impact**         | **Build Process:** `npm run build` now outputs to `AssistLLM/` directory. **Chrome Extension:** Must load from `AssistLLM/` (not `AssistV2a/` or `.vite/`). **Development:** Standard workflow unchanged - edit src/, build, reload extension.                                                                                                                                                                                |
+| **Stakeholders**   | Lead Developer, AI Feature Testers                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Outcome/Action** | Updated `vite.config.js` outDir from `AssistV2a` to `AssistLLM`. All future builds output to `AssistLLM/` directory.                                                                                                                                                                                                                                                                                                         |
+
+**Build Directory Reference:**
+
+- **AssistLLM/** - LLM Edition build (current, AI features enabled)
+- **AssistV2a/** - Standard edition build (archived)
+- **.vite/** - Internal Vite cache (do not use for Chrome loading)
+- **src/** - Source files (edit these, never edit build output)
+
+---

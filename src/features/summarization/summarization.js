@@ -29,6 +29,7 @@ let summarization_panel = null;
 let summarization_isLoading = false;
 let summarization_currentText = '';
 let summarization_currentSummary = '';
+let summarization_modelDropdown = null; // Cloud model dropdown reference
 
 const summarization_settings = {
   enabled: true,
@@ -36,9 +37,36 @@ const summarization_settings = {
   showInHighlightMenu: true,
 };
 
+// Cloud model configurations (local copy for bundling)
+const SUMMARIZATION_MODELS = {
+  'local': { id: 'local', name: 'Local', isLocal: true },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
+  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+};
+
+// Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
+// Cloud: Opus 4.5 scored 7.0/10 (only cloud model to pass ND-Ready threshold)
+// Local: Mistral:7b scored 7.4/10 (actually outperformed cloud models!)
+const SUMMARIZATION_DEFAULT_LOCAL_MODEL = 'local';
+const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'opus-4.5';
+
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
+
+/**
+ * Check if cloud mode is enabled
+ * @returns {Promise<boolean>}
+ */
+async function summarization_isCloudEnabled() {
+  try {
+    const result = await chrome.storage.local.get(['cloudModeEnabled']);
+    return result.cloudModeEnabled === true;
+  } catch (error) {
+    return false;
+  }
+}
 
 /**
  * Check if local LLM is available
@@ -64,12 +92,13 @@ async function summarization_checkLLM() {
 }
 
 /**
- * Generate summary using local LLM
+ * Generate summary using local LLM or cloud model
  * @param {string} text - Text to summarize
  * @param {string} level - Summary level: 'brief' | 'moderate' | 'detailed'
- * @returns {Promise<string>} The generated summary
+ * @param {string} modelKey - Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5')
+ * @returns {Promise<{summary: string, isCloud: boolean}>} The generated summary
  */
-async function summarization_generate(text, level = 'brief') {
+async function summarization_generate(text, level = 'brief', modelKey = 'local') {
   const levelPrompts = {
     brief: 'Summarize in 1-2 sentences, capturing only the main point:',
     moderate: 'Summarize the key points in a short paragraph (3-4 sentences):',
@@ -84,19 +113,37 @@ ${text}
 Summary:`;
 
   const maxTokens = level === 'detailed' ? 500 : level === 'moderate' ? 300 : 150;
+  const isCloud = modelKey !== 'local';
 
   try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GENERATE',
-      prompt,
-      options: {
-        maxTokens,
-        temperature: 0.5,
-      },
-    });
+    let response;
+
+    if (isCloud) {
+      // Use cloud model (Claude API)
+      response = await chrome.runtime.sendMessage({
+        action: 'CLOUD_LLM_GENERATE',
+        prompt,
+        options: {
+          model: modelKey,
+          maxTokens,
+          temperature: 0.5,
+          feature: 'summarization'
+        },
+      });
+    } else {
+      // Use local model (Ollama)
+      response = await chrome.runtime.sendMessage({
+        action: 'LOCAL_LLM_GENERATE',
+        prompt,
+        options: {
+          maxTokens,
+          temperature: 0.5,
+        },
+      });
+    }
 
     if (response && response.success) {
-      return response.data;
+      return { summary: response.data, isCloud };
     }
 
     throw new Error(response?.error || 'Generation failed');
@@ -296,6 +343,17 @@ function summarization_createPanel() {
       <p class="assist-summary-placeholder">Select text and click summarize...</p>
     </div>
     <div class="assist-summary-actions">
+      <div class="assist-summary-model-container" style="display: none;">
+        <label class="assist-model-label">
+          <span class="assist-model-icon" title="AI Model">🤖</span>
+          <select class="assist-summary-model-select" aria-label="Select AI model">
+            <option value="local">Local</option>
+            <option value="haiku-4.5">Haiku 4.5</option>
+            <option value="sonnet-4.5">Sonnet 4.5</option>
+            <option value="opus-4.5">Opus 4.5</option>
+          </select>
+        </label>
+      </div>
       <button class="assist-summary-btn assist-summary-copy" aria-label="Copy summary">
         <span class="assist-summary-btn-icon">📋</span> Copy
       </button>
@@ -321,6 +379,32 @@ function summarization_createPanel() {
     summarization_settings.defaultLevel = e.target.value;
     if (summarization_currentText) {
       summarization_summarize(summarization_currentText, e.target.value);
+    }
+  });
+
+  // Model dropdown setup
+  const modelContainer = panel.querySelector('.assist-summary-model-container');
+  const modelSelect = panel.querySelector('.assist-summary-model-select');
+  summarization_modelDropdown = modelSelect;
+
+  // Check if cloud mode is enabled and set appropriate default (benchmark-optimized)
+  summarization_isCloudEnabled().then(cloudEnabled => {
+    modelContainer.style.display = cloudEnabled ? 'block' : 'none';
+    modelSelect.value = cloudEnabled ? SUMMARIZATION_DEFAULT_CLOUD_MODEL : SUMMARIZATION_DEFAULT_LOCAL_MODEL;
+  });
+
+  // Model change triggers regeneration
+  modelSelect.addEventListener('change', () => {
+    if (summarization_currentText) {
+      const level = panel.querySelector('.assist-summary-level')?.value || summarization_settings.defaultLevel;
+      summarization_summarize(summarization_currentText, level, modelSelect.value);
+    }
+  });
+
+  // Listen for cloud mode changes
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.cloudModeEnabled) {
+      modelContainer.style.display = changes.cloudModeEnabled.newValue ? 'block' : 'none';
     }
   });
 
@@ -558,6 +642,60 @@ function summarization_injectStyles() {
       margin-left: 8px;
     }
 
+    .assist-summary-cloud-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 10px;
+      margin-left: 8px;
+    }
+
+    /* Model dropdown in actions bar */
+    .assist-summary-model-container {
+      display: flex;
+      align-items: center;
+      margin-right: auto;
+    }
+
+    .assist-summary-model-container .assist-model-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .assist-summary-model-container .assist-model-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .assist-summary-model-select {
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: inherit;
+      background: white;
+      cursor: pointer;
+      min-width: 90px;
+    }
+
+    .assist-summary-model-select:hover {
+      border-color: #bbb;
+    }
+
+    .assist-summary-model-select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+
     /* Dark mode support */
     @media (prefers-color-scheme: dark) {
       #assist-summarization-panel {
@@ -589,6 +727,21 @@ function summarization_injectStyles() {
 
       .assist-summary-btn:hover {
         background: #3d3d3d;
+      }
+
+      .assist-summary-model-select {
+        background: #2d2d2d;
+        color: #e0e0e0;
+        border-color: #444;
+      }
+
+      .assist-summary-model-select:hover {
+        border-color: #666;
+      }
+
+      .assist-summary-model-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
       }
     }
   `;
@@ -660,13 +813,20 @@ function summarization_show(selectionRect = null) {
     let left = selectionRect.right + 10;
     let top = selectionRect.top;
 
-    // Adjust if would be off-screen
+    // Horizontal bounds: prefer right of selection, fallback to left
     if (left + panelRect.width > window.innerWidth - 20) {
       left = Math.max(20, selectionRect.left - panelRect.width - 10);
     }
 
+    // Vertical bounds: ensure panel stays within viewport
+    // Check bottom edge
     if (top + panelRect.height > window.innerHeight - 20) {
-      top = Math.max(20, window.innerHeight - panelRect.height - 20);
+      top = window.innerHeight - panelRect.height - 20;
+    }
+
+    // Check top edge (ensure not cut off at top)
+    if (top < 20) {
+      top = 20;
     }
 
     summarization_panel.style.left = `${left}px`;
@@ -717,16 +877,22 @@ async function summarization_summarize(text, level = 'brief') {
   summarization_currentText = text;
   summarization_isLoading = true;
 
+  // Get selected model from dropdown (default to local)
+  const selectedModel = summarization_modelDropdown?.value || 'local';
+  const isCloudModel = selectedModel !== 'local';
+
   // Show loading state
   const contentArea = summarization_panel?.querySelector('.assist-summary-content');
   const statusBar = summarization_panel?.querySelector('.assist-summary-status');
   const actionBtns = summarization_panel?.querySelectorAll('.assist-summary-btn');
 
+  const modelName = isCloudModel ? SUMMARIZATION_MODELS[selectedModel]?.name || selectedModel : 'Local AI';
+
   if (contentArea) {
     contentArea.innerHTML = `
       <div class="assist-summary-loading">
         <div class="assist-summary-spinner"></div>
-        <span>Generating ${level} summary...</span>
+        <span>Generating ${level} summary${isCloudModel ? ` with ${modelName}` : ''}...</span>
       </div>
     `;
   }
@@ -737,29 +903,44 @@ async function summarization_summarize(text, level = 'brief') {
   });
 
   try {
-    // Check LLM availability
-    const llmStatus = await summarization_checkLLM();
-
     let summary;
     let isAI = false;
+    let usedCloud = false;
 
-    if (llmStatus.available) {
-      // Use AI summarization
-      summary = await summarization_generate(text, level);
+    if (isCloudModel) {
+      // Use cloud model (Claude API)
+      const result = await summarization_generate(text, level, selectedModel);
+      summary = result.summary;
       isAI = true;
+      usedCloud = true;
 
       if (statusBar) {
-        statusBar.textContent = '✨ AI-powered summary generated';
+        statusBar.textContent = `☁️ ${modelName} summary generated`;
         statusBar.className = 'assist-summary-status visible success';
       }
     } else {
-      // Fall back to extractive summarization
-      summary = summarization_fallback(text, level);
+      // Check local LLM availability
+      const llmStatus = await summarization_checkLLM();
 
-      if (statusBar) {
-        statusBar.textContent =
-          '⚠️ Using basic summarization (Ollama not available)';
-        statusBar.className = 'assist-summary-status visible';
+      if (llmStatus.available) {
+        // Use local AI summarization
+        const result = await summarization_generate(text, level, 'local');
+        summary = result.summary;
+        isAI = true;
+
+        if (statusBar) {
+          statusBar.textContent = '✨ AI-powered summary generated (Local)';
+          statusBar.className = 'assist-summary-status visible success';
+        }
+      } else {
+        // Fall back to extractive summarization
+        summary = summarization_fallback(text, level);
+
+        if (statusBar) {
+          statusBar.textContent =
+            '⚠️ Using basic summarization (Ollama not available)';
+          statusBar.className = 'assist-summary-status visible';
+        }
       }
     }
 
@@ -767,9 +948,14 @@ async function summarization_summarize(text, level = 'brief') {
 
     // Update content
     if (contentArea) {
-      const badge = isAI
-        ? '<span class="assist-summary-ai-badge">AI</span>'
-        : '<span class="assist-summary-fallback-badge">Basic</span>';
+      let badge;
+      if (usedCloud) {
+        badge = `<span class="assist-summary-cloud-badge">☁️ ${modelName}</span>`;
+      } else if (isAI) {
+        badge = '<span class="assist-summary-ai-badge">AI</span>';
+      } else {
+        badge = '<span class="assist-summary-fallback-badge">Basic</span>';
+      }
 
       contentArea.innerHTML = `
         <p class="assist-summary-text">${escapeHtml(summary)}</p>

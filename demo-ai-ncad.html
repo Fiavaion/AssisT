@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AssisT Cloud AI Demo - NCAD Art & Design</title>
+  <style>
+    :root {
+      --ncad-green: #006747;
+      --ncad-gold: #C4A000;
+      --ncad-dark: #1a1a1a;
+      --ncad-light: #f8f9fa;
+      --cloud-purple: #7c3aed;
+      --cloud-blue: #2563eb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.8;
+      color: #333;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--ncad-green) 0%, #004d35 100%);
+      color: white;
+      padding: 40px;
+      border-radius: 16px;
+      margin-bottom: 30px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,103,71,0.3);
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+      font-size: 2.5em;
+      font-weight: 300;
+    }
+
+    header .subtitle {
+      opacity: 0.9;
+      font-size: 1.1em;
+    }
+
+    header .ncad-logo {
+      font-size: 0.9em;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .cloud-banner {
+      background: linear-gradient(135deg, var(--cloud-purple) 0%, var(--cloud-blue) 100%);
+      color: white;
+      padding: 20px 24px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 16px rgba(124,58,237,0.3);
+    }
+
+    .cloud-banner h3 {
+      margin: 0 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cloud-models {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .model-chip {
+      background: rgba(255,255,255,0.2);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .model-chip .speed {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .feature-guide {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      border-left: 4px solid var(--ncad-gold);
+    }
+
+    .feature-guide h2 {
+      color: var(--ncad-green);
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .feature-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .feature-item {
+      background: var(--ncad-light);
+      padding: 12px 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .feature-item .icon {
+      font-size: 20px;
+    }
+
+    section {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+
+    section h2 {
+      color: var(--ncad-green);
+      border-bottom: 2px solid var(--ncad-gold);
+      padding-bottom: 12px;
+      margin-top: 0;
+    }
+
+    section h3 {
+      color: var(--ncad-dark);
+      margin-top: 24px;
+    }
+
+    .test-badge {
+      display: inline-block;
+      background: var(--ncad-green);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    .test-badge.cloud {
+      background: linear-gradient(135deg, var(--cloud-purple) 0%, var(--cloud-blue) 100%);
+    }
+
+    blockquote {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-left: 4px solid var(--ncad-gold);
+      margin: 20px 0;
+      padding: 20px 24px;
+      border-radius: 0 8px 8px 0;
+      font-style: italic;
+    }
+
+    blockquote cite {
+      display: block;
+      margin-top: 12px;
+      font-style: normal;
+      font-size: 0.9em;
+      color: #666;
+    }
+
+    .assignment-box {
+      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+      border: 2px solid var(--ncad-gold);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+
+    .assignment-box h4 {
+      color: #856404;
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .assignment-box ul {
+      margin-bottom: 0;
+    }
+
+    .complex-text {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+      margin: 20px 0;
+    }
+
+    .extreme-text {
+      background: linear-gradient(135deg, #ffeef0 0%, #ffe6e9 100%);
+      padding: 20px;
+      border-radius: 8px;
+      border: 2px solid #dc3545;
+      margin: 20px 0;
+    }
+
+    .extreme-text::before {
+      content: "Challenge Level: Expert";
+      display: block;
+      background: #dc3545;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      width: fit-content;
+    }
+
+    .citation-example {
+      background: #e8f4f8;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-size: 0.95em;
+    }
+
+    .citation-example .source {
+      font-weight: 600;
+      color: var(--ncad-green);
+    }
+
+    .vocab-term {
+      background: #e7f3ff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+      color: #0066cc;
+    }
+
+    .reading-passage {
+      column-count: 1;
+      text-align: justify;
+    }
+
+    .difficulty-meter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 16px 0;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .difficulty-meter .label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .difficulty-bar {
+      flex: 1;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .difficulty-fill {
+      height: 100%;
+      border-radius: 4px;
+    }
+
+    .difficulty-fill.high {
+      background: linear-gradient(90deg, #ff6b6b, #dc3545);
+      width: 90%;
+    }
+
+    .difficulty-fill.medium {
+      background: linear-gradient(90deg, #ffc107, #ff9800);
+      width: 65%;
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    footer a {
+      color: var(--ncad-green);
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 12px;
+      }
+
+      header {
+        padding: 24px;
+      }
+
+      header h1 {
+        font-size: 1.8em;
+      }
+
+      section {
+        padding: 20px;
+      }
+
+      .cloud-models {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>AssisT Cloud AI Demo</h1>
+    <div class="subtitle">Challenging Content for Testing AI Comprehension</div>
+    <div class="ncad-logo">National College of Art and Design | www.ncad.ie</div>
+  </header>
+
+  <div class="cloud-banner">
+    <h3>Cloud AI Models Available</h3>
+    <p>When Cloud Mode is enabled, select any text and choose your preferred Claude model:</p>
+    <div class="cloud-models">
+      <div class="model-chip">
+        <span>Haiku 4.5</span>
+        <span class="speed">Fastest</span>
+      </div>
+      <div class="model-chip">
+        <span>Sonnet 4.5</span>
+        <span class="speed">Balanced</span>
+      </div>
+      <div class="model-chip">
+        <span>Opus 4.5</span>
+        <span class="speed">Most Capable</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="feature-guide">
+    <h2>Testing Cloud vs Local AI</h2>
+    <p>This page contains deliberately challenging academic content to demonstrate the difference between local Ollama models and Claude cloud AI. Select text and compare results across models:</p>
+    <div class="feature-list">
+      <div class="feature-item"><span class="icon">✨</span> Summarize</div>
+      <div class="feature-item"><span class="icon">💡</span> Simplify Text</div>
+      <div class="feature-item"><span class="icon">✅</span> Assignment Breakdown</div>
+      <div class="feature-item"><span class="icon">🎓</span> Socratic Tutor</div>
+      <div class="feature-item"><span class="icon">📊</span> Citation Analyzer</div>
+    </div>
+    <p style="margin-top: 16px; font-size: 14px; color: #666;">
+      <strong>Pro Tip:</strong> Change models mid-analysis using the dropdown. The output regenerates automatically with the new model.
+    </p>
+  </div>
+
+  <!-- Section 1: Extreme Text Simplification Challenge -->
+  <section>
+    <h2>Phenomenological Aesthetics in Irish Visual Culture <span class="test-badge cloud">Simplify Text</span></h2>
+
+    <div class="difficulty-meter">
+      <span class="label">Reading Difficulty:</span>
+      <div class="difficulty-bar"><div class="difficulty-fill high"></div></div>
+      <span>Expert</span>
+    </div>
+
+    <div class="extreme-text">
+      <p>
+        The phenomenological interrogation of aesthetic experience within Irish visual culture necessitates a fundamental reconceptualisation of the subject-object dichotomy that has historically undergirded Western art-historical methodologies. Drawing upon Merleau-Ponty's corporeal phenomenology and its subsequent elaboration through the embodied cognition paradigm, we can apprehend how the chiasmic intertwining of perceiver and perceived constitutes a pre-reflective stratum of meaning-making that antecedes and conditions any subsequent intellectual or discursive engagement with the artwork qua artwork.
+      </p>
+      <p>
+        This ontological reframing proves particularly generative when applied to the analysis of Irish landscape painting from the Celtic Revival period through to contemporary practitioners operating within post-conceptualist frameworks. The atmospheric indeterminacy characteristic of Paul Henry's Connemara paintings, for instance, instantiates what Gaston Bachelard termed the "poetics of space"—a phenomenological inhabitation of the image-world wherein distinctions between interiority and exteriority, memory and perception, the oneiric and the quotidian undergo systematic dissolution. The spectator's gaze does not merely apprehend the depicted landscape as a representational object but rather participates in an intersubjective encounter wherein the reversibility of flesh—Merleau-Ponty's concept of the body as simultaneously sentient and sensible—enables a reciprocal constitution of viewer and viewed.
+      </p>
+      <p>
+        The implications of this phenomenological reorientation extend beyond mere interpretive methodology to fundamentally problematise the institutional frameworks through which Irish art has been historicised, canonised, and commodified. If aesthetic experience is understood as irreducibly embodied and situational—bound to the particular configurations of light, space, temporality, and bodily orientation that constitute any singular act of perception—then the decontextualised display strategies of the traditional museum apparatus emerge as fundamentally inadequate to, and indeed actively distortive of, the works' experiential potentiality.
+      </p>
+    </div>
+
+    <p><em>This text deliberately employs dense academic language. Compare how Local AI, Haiku 4.5, Sonnet 4.5, and Opus 4.5 handle simplification.</em></p>
+  </section>
+
+  <!-- Section 2: Complex Assignment Breakdown -->
+  <section>
+    <h2>MA Design for Social Innovation Brief <span class="test-badge cloud">Assignment Breakdown</span></h2>
+
+    <div class="difficulty-meter">
+      <span class="label">Complexity:</span>
+      <div class="difficulty-bar"><div class="difficulty-fill high"></div></div>
+      <span>High</span>
+    </div>
+
+    <div class="assignment-box">
+      <h4>Final Year Capstone Project: Systemic Design Intervention</h4>
+
+      <p><strong>Context:</strong> Dublin is experiencing intersecting crises of housing affordability, social isolation among elderly populations, and the integration of recently-arrived international protection applicants. NCAD has partnered with Dublin City Council, Age Action Ireland, and the Irish Refugee Council to explore design-led interventions that might address these interconnected challenges through intergenerational and intercultural exchange.</p>
+
+      <p><strong>Brief:</strong> Working in interdisciplinary teams of 3-4 students (minimum one from each of: Product Design, Visual Communication, and Fine Art/Education), develop a speculative design intervention that facilitates meaningful connection between isolated elderly Irish residents and international protection applicants awaiting processing decisions. Your intervention must operate within the constraints of Direct Provision accommodation policies while respecting the autonomy and dignity of all participants. Consider material, spatial, temporal, linguistic, and cultural dimensions. The intervention should be prototypable at proof-of-concept scale within the project budget of EUR 500.</p>
+
+      <p><strong>Deliverables:</strong></p>
+      <ul>
+        <li>Ethnographic research documentation including minimum 8 contextual interviews (4 elderly residents, 4 protection applicants) with appropriate ethical clearance and informed consent protocols</li>
+        <li>Systems mapping visualisation identifying stakeholders, power dynamics, resource flows, and intervention leverage points using Donella Meadows' framework</li>
+        <li>Speculative design scenario presented through narrative prototype (minimum 2000 words) exploring potential futures 5/10/25 years post-implementation</li>
+        <li>Physical prototype or service blueprint demonstrating core interaction at 1:1 scale</li>
+        <li>Impact assessment framework identifying qualitative and quantitative success metrics aligned with UN Sustainable Development Goals 3, 10, 11, and 16</li>
+        <li>Critical reflection essay (3000 words) engaging with minimum three theoretical frameworks from assigned readings (Escobar, Manzini, Fry, Tonkinwise, or Irwin)</li>
+        <li>Public presentation to external stakeholder panel including DCC representatives and community partners</li>
+      </ul>
+
+      <p><strong>Assessment Weighting:</strong> Research rigour and ethical practice (20%), Systemic analysis sophistication (15%), Speculative narrative quality (15%), Prototype fidelity and testability (20%), Theoretical integration (15%), Stakeholder presentation (15%)</p>
+
+      <p><strong>Timeline:</strong> Research ethics submission: Week 3. Interim critique: Week 7. Final submission: Week 14. Public presentation: Week 15.</p>
+
+      <p><strong>Mandatory Considerations:</strong> GDPR compliance for all participant data. Trauma-informed research approaches. Irish language accessibility provisions. Carbon footprint documentation for all prototyping activities.</p>
+    </div>
+
+    <p><em>This assignment combines multiple complex requirements. Test how different AI models break it into manageable steps.</em></p>
+  </section>
+
+  <!-- Section 3: Socratic Questioning Challenge -->
+  <section>
+    <h2>Decolonising the Irish Art Canon <span class="test-badge cloud">Socratic Tutor</span></h2>
+
+    <div class="difficulty-meter">
+      <span class="label">Conceptual Difficulty:</span>
+      <div class="difficulty-bar"><div class="difficulty-fill high"></div></div>
+      <span>Advanced</span>
+    </div>
+
+    <p>
+      The question of whether—and how—to "decolonise" Irish art institutions presents unique paradoxes absent from analogous debates in British or continental European contexts. Ireland occupies an ambivalent position within colonial history: simultaneously a colonised nation subjected to centuries of British rule, cultural suppression, and economic extraction, yet also complicit through Irish participation in British imperial projects, settler colonialism, and missionary activities that extended European hegemony across Africa, Asia, and the Americas.
+    </p>
+
+    <p>
+      This doubled positionality complicates any straightforward application of decolonial methodologies developed primarily in relation to former colonial metropoles. When critics call for Irish museums to "decolonise their collections," what precisely does this demand entail? The National Gallery of Ireland holds relatively few objects acquired through direct colonial plunder—unlike the British Museum or Louvre. Yet Irish institutions have participated in constructing art-historical narratives that centre European aesthetic traditions while marginalising or exoticising non-Western visual cultures. The category of "Irish art" itself emerged through nationalist projects that, while anti-colonial in orientation, relied upon essentialist conceptions of cultural identity that excluded Jewish, Traveller, and immigrant contributions to Irish visual culture.
+    </p>
+
+    <p>
+      Furthermore, the contemporary art world's embrace of decolonial discourse has itself become subject to critique. Scholars like David Garneau and Ariella Aisha Azoulay question whether institutional "decolonisation" initiatives represent genuine structural transformation or merely a rebranding exercise that allows institutions to signal progressive values while maintaining existing power structures. When major museums appoint "decolonisation officers" while continuing to expand through capital accumulation and gentrification, the revolutionary potential of decolonial thought risks being neutralised through incorporation into the very systems it sought to contest.
+    </p>
+
+    <p>
+      For NCAD students, these debates carry immediate practical implications. How should design education respond to the recognition that canonical figures—Bauhaus masters, Modernist pioneers, influential typographers—operated within and often actively supported colonial, fascist, or exclusionary projects? Does using Helvetica implicate one in Swiss neutrality's complicity with Nazi gold? Can a designer ethically draw upon Japanese aesthetic traditions without engaging in cultural appropriation? These questions resist simple answers, demanding ongoing critical reflexivity rather than rule-following.
+    </p>
+
+    <blockquote>
+      "Decolonization is not a metaphor... Decolonization brings about the repatriation of Indigenous land and life; it is not a metaphor for other things we want to do to improve our societies and schools."
+      <cite>— Eve Tuck & K. Wayne Yang, "Decolonization is not a metaphor" (2012)</cite>
+    </blockquote>
+
+    <p><em>Select any paragraph and use Socratic Tutor with different models. Opus 4.5 excels at generating nuanced philosophical questions.</em></p>
+  </section>
+
+  <!-- Section 4: Summarization Challenge - Long Form -->
+  <section>
+    <h2>Material Cultures of Sustainable Fashion: An Irish Perspective <span class="test-badge cloud">Summarize</span></h2>
+
+    <div class="difficulty-meter">
+      <span class="label">Length &amp; Complexity:</span>
+      <div class="difficulty-bar"><div class="difficulty-fill high"></div></div>
+      <span>High</span>
+    </div>
+
+    <p>
+      The fashion industry's environmental impact has become impossible to ignore. Globally, the sector generates approximately 10% of carbon emissions, consumes 93 billion cubic metres of water annually, and produces 92 million tonnes of textile waste destined for landfill each year. Fast fashion's acceleration of consumption cycles—from traditional biannual collections to the 52 "micro-seasons" pioneered by brands like Zara and H&M—has created a culture of disposability wherein garments are worn on average just seven times before being discarded. Within Ireland specifically, the Environmental Protection Agency estimates that Irish households discard approximately 63,000 tonnes of textiles annually, with recovery rates remaining below European averages.
+    </p>
+
+    <p>
+      Yet sustainability in fashion cannot be reduced to material inputs and waste outputs. A more comprehensive analysis requires attention to the political economy of global supply chains, the labour conditions of predominantly female and racialised workers in production zones from Bangladesh to Ethiopia, and the cultural systems of meaning that drive consumption practices. The true cost of a EUR 5 t-shirt from Penneys encompasses not merely its carbon footprint but the poverty wages, unsafe working conditions, and foreclosed futures of the workers who produced it. Fashion's sustainability crisis is thus inseparable from questions of global justice, gendered labour exploitation, and post-colonial economic arrangements that position the Global South as a production zone serving Northern consumption.
+    </p>
+
+    <p>
+      Ireland's position within these global circuits is complex. As a wealthy European nation, Irish consumers participate in patterns of overconsumption that drive environmental degradation and labour exploitation elsewhere. Yet Ireland also retains living traditions of textile craft—weaving, knitting, embroidery, dyeing—that offer alternative models of production and consumption rooted in skill, locality, and durability. The Aran sweater, despite its touristic commodification, exemplifies a material culture wherein garments were made to last, repaired when damaged, and valued for their functionality within specific climatic and occupational contexts. Contemporary Irish designers like Helen Steele, Natalie B. Coleman, and the Fashion & Textiles programme at NCAD are exploring how such traditional knowledge might inform sustainable practice without falling into nostalgic or nationalist framings.
+    </p>
+
+    <p>
+      The concept of "slow fashion," popularised by Kate Fletcher, proposes an alternative paradigm emphasising quality over quantity, local production, transparent supply chains, and extended garment lifespans. Yet critics note that slow fashion's emphasis on artisanal production and premium pricing renders it accessible primarily to affluent consumers—a form of "green gentrification" that does little to address the structural conditions driving fast fashion consumption among lower-income populations. A pair of ethically-produced, domestically-manufactured trousers costing EUR 200 is simply not an option for families surviving on social welfare payments. Any genuinely transformative approach to fashion sustainability must therefore grapple with questions of affordability, access, and economic justice.
+    </p>
+
+    <p>
+      Alternative consumption practices offer partial solutions. The second-hand clothing market, once stigmatised, has gained cultural cachet particularly among younger consumers. Vintage shops, charity shops, and online platforms like Depop and Vinted facilitate the circulation of pre-owned garments, extending their useful life while reducing demand for new production. Clothing swaps, repair cafes, and visible mending communities build social infrastructure around practices of maintenance and reuse. These initiatives, while valuable, remain marginal relative to the dominant consumption paradigm and are insufficient in themselves to address fashion's sustainability crisis.
+    </p>
+
+    <p>
+      More fundamental transformation requires regulatory intervention. The EU Strategy for Sustainable and Circular Textiles, adopted in 2022, signals a policy turn toward extended producer responsibility, mandatory durability standards, restrictions on the destruction of unsold goods, and transparency requirements across supply chains. Ireland's Climate Action Plan commits to sectoral emissions reductions that will necessitate changes in textile production and consumption. Yet implementation remains uncertain, and powerful industry lobbying has already diluted proposed measures. The fashion industry's global structure, with production distributed across multiple jurisdictions, complicates national regulatory approaches.
+    </p>
+
+    <p>
+      For design students at NCAD, these challenges present both constraints and opportunities. Designers cannot single-handedly solve systemic problems rooted in global capitalism, colonial legacies, and consumer culture. Yet design decisions—material selection, production methods, aesthetic strategies, business models—shape the possibilities available to users and can either reinforce or challenge dominant paradigms. The question is not whether to engage with sustainability but how: through material innovation, circular design strategies, speculative futures, critical practice, or activist intervention. Each approach carries distinct assumptions about design's agency and the conditions of possibility for transformation.
+    </p>
+
+    <p><em>This 800-word section tests summarization across models. Compare how Haiku, Sonnet, and Opus balance brevity with accuracy.</em></p>
+  </section>
+
+  <!-- Section 5: Citation Analysis Challenge -->
+  <section>
+    <h2>Evaluating Academic Sources <span class="test-badge cloud">Citation Analyzer</span></h2>
+
+    <p>Test the Citation Analyzer's ability to assess credibility across different source types:</p>
+
+    <div class="citation-example">
+      <p class="source">Peer-Reviewed Journal Article (Expected: High Credibility)</p>
+      <p>Gibbons, L. (2023). "Spectres of Famine: Photography, Memory, and the Irish Diaspora." <em>Visual Studies</em>, 38(2), pp. 147-163. Routledge. DOI: 10.1080/1472586X.2023.2178234</p>
+      <p><small>Author is Professor of Irish Studies at Maynooth University. Visual Studies is a Q1 journal in Visual Arts. Full peer review process documented.</small></p>
+    </div>
+
+    <div class="citation-example">
+      <p class="source">Conference Proceedings (Expected: Medium-High Credibility)</p>
+      <p>Murphy, S. & O'Brien, K. (2024). "Generative AI and the Future of Design Education: Preliminary Findings from Irish Art Schools." In <em>Proceedings of the Design Research Society Conference 2024</em>, Boston, MA. DRS Digital Library.</p>
+      <p><small>Peer-reviewed conference paper, but findings described as "preliminary." Authors affiliated with TU Dublin.</small></p>
+    </div>
+
+    <div class="citation-example">
+      <p class="source">Institutional Report (Expected: Medium Credibility)</p>
+      <p>Design and Crafts Council Ireland. (2023). <em>The State of Craft: Annual Industry Report 2022-2023</em>. Kilkenny: DCCI Publications.</p>
+      <p><small>Published by industry body. Contains useful data but potential conflict of interest in positive framing.</small></p>
+    </div>
+
+    <div class="citation-example">
+      <p class="source">Art Magazine Feature (Expected: Medium-Low Credibility)</p>
+      <p>Fitzgerald, R. (2024). "Why Irish Design is Having a Moment." <em>Wallpaper*</em>, April 2024.</p>
+      <p><small>Commercial lifestyle magazine. Author is freelance journalist. Editorial rather than scholarly content.</small></p>
+    </div>
+
+    <div class="citation-example">
+      <p class="source">Social Media Thread (Expected: Low Credibility)</p>
+      <p>@DesignTwitterIRL (2024). "Hot take: NCAD's shift to modular programmes is killing traditional craft skills. Thread: [1/23]" Twitter/X, 15 March 2024.</p>
+      <p><small>Anonymous account. No verifiable expertise. Opinion presented as fact. No citations provided.</small></p>
+    </div>
+
+    <div class="citation-example">
+      <p class="source">Questionable Online Source (Expected: Very Low Credibility)</p>
+      <p>"The TRUTH About Modern Art Schools They Don't Want You to Know" (2024). ConservativeArtBlog.wordpress.com</p>
+      <p><small>Anonymous author. Ideologically driven. No editorial oversight. Free hosting platform. Conspiratorial framing.</small></p>
+    </div>
+
+    <p><em>Select each citation and compare how different models evaluate credibility. Opus 4.5 typically provides the most nuanced assessments.</em></p>
+  </section>
+
+  <!-- Section 6: Technical Art History -->
+  <section>
+    <h2>Conservation Science: Material Analysis of Harry Clarke Stained Glass <span class="test-badge cloud">All Features</span></h2>
+
+    <div class="complex-text">
+      <p>
+        The conservation of Harry Clarke's stained glass windows presents multifaceted challenges requiring integration of art-historical knowledge, materials science, and practical craft skills. Clarke (1889-1931), Ireland's pre-eminent stained glass artist, developed distinctive techniques involving unusually thin glass, acid-etching to achieve tonal gradations, and extensive use of <span class="vocab-term">flashed glass</span>—clear glass with a thin coloured layer that could be selectively removed to create intricate patterns. These innovations, while aesthetically remarkable, created inherent vulnerabilities that contemporary conservators must address.
+      </p>
+
+      <p>
+        Analysis using <span class="vocab-term">X-ray fluorescence spectrometry</span> (XRF) has revealed that Clarke frequently employed lead-based paints and <span class="vocab-term">silver stain</span>—silver nitrate fired onto the glass surface to produce yellow to amber tones—in combinations that create complex deterioration mechanisms. The interaction between silver ions migrating into the glass matrix and atmospheric pollutants, particularly sulphur dioxide from Dublin's historical coal-burning era, has produced <span class="vocab-term">manganese browning</span> and surface crustation that obscures Clarke's subtle chromatic effects.
+      </p>
+
+      <p>
+        The exceptionally thin gauge of Clarke's preferred glass—sometimes less than 2mm compared to the standard 3-4mm—renders panels structurally fragile. <span class="vocab-term">Stress corrosion cracking</span> originating from lead came pressure, thermal cycling, and building movement has propagated through numerous panels. Traditional releading techniques, while addressing immediate structural concerns, risk damaging painted surfaces and disrupting the delicate equilibrium of Clarke's compositions, where millimetre-scale adjustments to piece boundaries affect the overall design coherence.
+      </p>
+
+      <p>
+        Contemporary conservation protocols balance interventive treatment with preventive strategies. Environmental monitoring using <span class="vocab-term">isothermal glass sensors</span> allows tracking of condensation risks that accelerate deterioration. Protective external glazing (isothermal glazing systems) moderates temperature fluctuations while filtering UV radiation that degrades organic paint binders. Documentation using <span class="vocab-term">reflectance transformation imaging</span> (RTI) and <span class="vocab-term">multispectral imaging</span> creates archival records capturing surface topography and underdrawing invisible to the naked eye.
+      </p>
+
+      <p>
+        The <span class="vocab-term">Geneva Window</span> (1930), Clarke's final and most ambitious work—rejected by the Irish government for its "inappropriate" depictions of modern Irish literature—underwent extensive conservation at the Wolfsonian-FIU Museum in Miami from 2019-2022. Treatment reports document the removal of degraded Victorian-era lead came, consolidation of flaking paint using Paraloid B-72 in acetone, and the fabrication of laser-cut support glass to stabilise cracked sections while maintaining optical clarity. This intervention establishes protocols likely to inform future treatment of Clarke's works held by NCAD, the Hugh Lane Gallery, and ecclesiastical collections throughout Ireland.
+      </p>
+    </div>
+
+    <p><em>This technical content combines specialised vocabulary, scientific processes, and art-historical context. Test all AI features to see how different models handle domain-specific knowledge.</em></p>
+  </section>
+
+  <!-- Section 7: Philosophy of Design -->
+  <section>
+    <h2>Ontological Design and the Politics of Worldmaking <span class="test-badge cloud">Socratic Tutor</span></h2>
+
+    <p>
+      The proposition that "we design our world, while our world acts back on us and designs us" (Willis, 2006) encapsulates the recursive logic of <span class="vocab-term">ontological design</span>—a theoretical framework with profound implications for how we understand design's agency and responsibility. Unlike conventional design theory, which positions the designer as a subject acting upon inert materials to produce objects for user consumption, ontological design recognises that designed artefacts and environments actively shape the possibilities for human being-in-the-world. We do not merely use tools; tools configure our capacities, dispositions, and self-understandings in ways that precede and exceed conscious intention.
+    </p>
+
+    <p>
+      Consider the smartphone. While users may believe they employ these devices instrumentally—to communicate, navigate, access information—the smartphone has fundamentally reorganised human temporality, attention, sociality, and selfhood. The constant availability it enables transforms expectations around responsiveness; its notification architecture fragments attention and produces anticipatory anxiety; its integration of camera and network facilitates new forms of self-presentation and surveillance; its algorithmic content curation shapes political opinions and consumer desires. Users did not choose these transformations; they emerged through the accumulated effects of design decisions made by engineers, interface designers, and platform architects whose intentions were often commercial rather than philosophical.
+    </p>
+
+    <p>
+      This recognition carries ethical weight. If design decisions shape not merely what people can do but who they can become, designers bear responsibility for the worlds their work brings forth. Tony Fry's concept of <span class="vocab-term">defuturing</span> names the systematic destruction of future possibilities through unsustainable design practices—the ways that present choices foreclose potential futures for humans and non-humans alike. Climate change represents defuturing at planetary scale: accumulated design decisions (automobiles, air conditioning, planned obsolescence, single-use packaging) have set in motion processes that will constrain possibilities for generations to come.
+    </p>
+
+    <p>
+      Yet the ontological design perspective also reveals possibilities for <span class="vocab-term">redirective practice</span>—design that consciously aims to open rather than close futures, to create conditions for flourishing rather than extraction and exhaustion. Such practice requires what Arturo Escobar calls "designs for the pluriverse"—moving beyond the universalising assumptions of modernist design (one world, one rationality, one optimal solution) toward approaches that enable multiple ways of world-making to coexist. Indigenous design methodologies, feminist design practices, and community-led design processes offer alternative models, though their institutionalisation within design education remains uneven.
+    </p>
+
+    <blockquote>
+      "Design is ontological in that it is involved in the creation of the conditions of our existence and in defining what 'the human' is and can become. Design always takes place within life projects and life aspirations."
+      <cite>— Arturo Escobar, <em>Designs for the Pluriverse</em> (2018)</cite>
+    </blockquote>
+
+    <p><em>These philosophical concepts challenge AI comprehension. Use Socratic Tutor to explore the implications—Opus 4.5 handles abstract reasoning particularly well.</em></p>
+  </section>
+
+  <!-- Final Section: Model Comparison Tips -->
+  <section>
+    <h2>Comparing AI Model Performance</h2>
+
+    <h3>When to Use Each Model</h3>
+
+    <p><strong>Local (Ollama):</strong> Best for privacy-sensitive content and basic tasks. May struggle with highly specialised terminology or nuanced reasoning. No usage costs.</p>
+
+    <p><strong>Haiku 4.5:</strong> Fast and economical. Good for straightforward simplification and basic summarization. May miss subtle distinctions in complex philosophical texts.</p>
+
+    <p><strong>Sonnet 4.5:</strong> Balanced performance for most academic tasks. Strong on assignment breakdowns and citation analysis. Recommended default for student use.</p>
+
+    <p><strong>Opus 4.5:</strong> Superior handling of complex reasoning, nuanced arguments, and specialised domains. Best for Socratic questioning of difficult material, evaluating sophisticated sources, and summarizing texts with subtle arguments. Higher cost per query.</p>
+
+    <h3>Testing Methodology</h3>
+    <ol>
+      <li>Select a challenging passage</li>
+      <li>Process with Local model first</li>
+      <li>Without changing text, switch to Haiku 4.5 (auto-regenerates)</li>
+      <li>Compare outputs, then try Sonnet 4.5</li>
+      <li>For the most complex content, test Opus 4.5</li>
+    </ol>
+
+    <h3>What to Look For</h3>
+    <ul>
+      <li><strong>Accuracy:</strong> Does the output correctly represent the source material?</li>
+      <li><strong>Nuance:</strong> Are important distinctions and qualifications preserved?</li>
+      <li><strong>Accessibility:</strong> Is simplified text actually easier to understand?</li>
+      <li><strong>Actionability:</strong> Are assignment breakdowns genuinely useful?</li>
+      <li><strong>Depth:</strong> Do Socratic questions prompt genuine reflection?</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>
+      AssisT Cloud AI Demo | <a href="https://www.ncad.ie" target="_blank">NCAD</a> Focus Group Testing
+    </p>
+    <p>
+      Content designed to stress-test AI comprehension across model capabilities
+    </p>
+    <p style="margin-top: 20px;">
+      <strong>Quick Test:</strong> Select text &rarr; Highlight Menu &rarr; Choose Feature &rarr; Compare Models
+    </p>
+  </footer>
+
+</body>
+</html>

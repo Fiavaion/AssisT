@@ -18,12 +18,25 @@
     "scripting",
     "tabs",
     "downloads",
-    "contextMenus"
+    "contextMenus",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
 
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*",
+    "https://api.anthropic.com/*"
   ],
+
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ollama_cors_rules",
+      "enabled": true,
+      "path": "rules/ollama-cors.json"
+    }]
+  },
 
   "background": {
     "service_worker": "src/background/service-worker.js",
