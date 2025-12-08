@@ -6060,9 +6060,10 @@ class PopupController {
       this.settings.localLLM = {
         enabled: false,
         baseUrl: 'http://localhost:11434',
-        preferredModel: 'llama3.2',
+        preferredModel: 'mistral:7b-instruct',
         fastModel: 'phi3:mini',
         visionModel: 'llava',
+        vramTier: '8gb', // Default to 8GB tier
         features: {
           smartSummarization: true,
           textSimplification: true,
@@ -6147,6 +6148,93 @@ class PopupController {
       this.checkLLMStatus();
     });
 
+    // VRAM Tier selector
+    const vramTierSelect = document.getElementById('vram-tier-select');
+    const vramTierDescription = document.getElementById('vram-tier-description');
+
+    // VRAM tier configurations
+    const VRAM_TIERS = {
+      'auto': {
+        quality: 'Auto-detect',
+        models: 'Based on installed models',
+        preferredModel: null // Use auto-detection
+      },
+      '2gb': {
+        quality: '15-30%',
+        models: 'phi3:mini, llama3.2',
+        preferredModel: 'phi3:mini'
+      },
+      '4gb': {
+        quality: '30-45%',
+        models: 'gemma3:4b, llama3.2, phi3:mini',
+        preferredModel: 'gemma3:4b'
+      },
+      '8gb': {
+        quality: '55-70%',
+        models: 'mistral:7b, qwen2.5:7b',
+        preferredModel: 'mistral:7b-instruct'
+      },
+      '12gb': {
+        quality: '65-75%',
+        models: 'llama3.1:8b, mixtral:8x7b',
+        preferredModel: 'llama3.1:8b'
+      },
+      '16gb': {
+        quality: '75-85%',
+        models: 'llama3.1:70b-q4, qwen2.5:14b',
+        preferredModel: 'qwen2.5:14b'
+      },
+      '24gb': {
+        quality: '85-92%',
+        models: 'llama3.1:70b, mixtral:8x22b',
+        preferredModel: 'llama3.1:70b'
+      }
+    };
+
+    // Update VRAM tier description
+    const updateVramDescription = (tier) => {
+      const config = VRAM_TIERS[tier];
+      if (config && vramTierDescription) {
+        vramTierDescription.innerHTML = `
+          <span class="vram-quality">Quality: ${config.quality}</span>
+          <span class="vram-models">Models: ${config.models}</span>
+        `;
+      }
+    };
+
+    // Initialize VRAM tier from settings
+    if (vramTierSelect) {
+      const savedTier = this.settings.localLLM.vramTier || '8gb';
+      vramTierSelect.value = savedTier;
+      updateVramDescription(savedTier);
+
+      vramTierSelect.addEventListener('change', async (e) => {
+        const selectedTier = e.target.value;
+        this.settings.localLLM.vramTier = selectedTier;
+
+        // Update preferred model based on tier
+        const tierConfig = VRAM_TIERS[selectedTier];
+        if (tierConfig && tierConfig.preferredModel) {
+          this.settings.localLLM.preferredModel = tierConfig.preferredModel;
+        }
+
+        this.saveSettings();
+        updateVramDescription(selectedTier);
+
+        // Notify service worker of tier change
+        try {
+          await chrome.runtime.sendMessage({
+            action: 'SET_VRAM_TIER',
+            tier: selectedTier,
+            preferredModel: tierConfig?.preferredModel
+          });
+          console.log(`[Popup] VRAM tier set to ${selectedTier}`);
+        } catch (error) {
+          console.warn('[Popup] Failed to notify service worker of tier change:', error);
+        }
+      });
+    }
+
     // Model install buttons
     document.querySelectorAll('.llm-install-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -6183,7 +6271,9 @@ class PopupController {
           console.error('[Popup] Model install failed:', error);
           btn.classList.remove('installing');
           btn.textContent = 'Install';
-          this.updateStatus(`Failed to install ${modelName}`, 'error');
+          // Show the actual error message (e.g., "Cannot connect to Ollama...")
+          const errorMsg = error.message || 'Installation failed';
+          this.updateStatus(errorMsg, 'error');
         } finally {
           llmInstallProgress.classList.add('hidden');
         }
@@ -6286,6 +6376,158 @@ class PopupController {
     }
 
     console.log('[Popup] Local LLM setup complete');
+
+    // ========================================
+    // CLOUD AI SETUP (Experimental)
+    // ========================================
+    this.setupCloudAI();
+  }
+
+  /**
+   * Set up Cloud AI (Claude) controls
+   */
+  setupCloudAI() {
+    const cloudModeEnabled = document.getElementById('cloud-mode-enabled');
+    const cloudUsageStats = document.getElementById('cloud-usage-stats');
+    const btnExportJson = document.getElementById('btn-export-usage-json');
+    const btnExportCsv = document.getElementById('btn-export-usage-csv');
+    const btnClearUsage = document.getElementById('btn-clear-usage');
+
+    if (!cloudModeEnabled) {
+      console.log('[Popup] Cloud AI elements not found');
+      return;
+    }
+
+    // Initialize cloud mode from storage
+    chrome.storage.local.get(['cloudModeEnabled'], result => {
+      cloudModeEnabled.checked = result.cloudModeEnabled || false;
+
+      if (cloudModeEnabled.checked) {
+        cloudUsageStats.style.display = 'block';
+        this.loadCloudUsageStats();
+      }
+    });
+
+    // Cloud mode toggle event
+    cloudModeEnabled.addEventListener('change', async e => {
+      const enabled = e.target.checked;
+      await chrome.storage.local.set({ cloudModeEnabled: enabled });
+
+      if (enabled) {
+        cloudUsageStats.style.display = 'block';
+        this.loadCloudUsageStats();
+      } else {
+        cloudUsageStats.style.display = 'none';
+      }
+
+      // Notify content scripts about cloud mode change
+      chrome.runtime.sendMessage({
+        action: 'CLOUD_MODE_CHANGED',
+        enabled: enabled
+      }).catch(() => {});
+
+      this.updateStatus(enabled ? 'Cloud AI enabled' : 'Cloud AI disabled', 'success');
+    });
+
+    // Export JSON button
+    if (btnExportJson) {
+      btnExportJson.addEventListener('click', async () => {
+        try {
+          const response = await chrome.runtime.sendMessage({
+            action: 'EXPORT_USAGE_JSON'
+          });
+
+          if (response.success) {
+            const blob = new Blob([response.data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `assist-cloud-usage-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.updateStatus('Usage exported (JSON)', 'success');
+          } else {
+            throw new Error(response.error);
+          }
+        } catch (error) {
+          console.error('[Popup] Export JSON failed:', error);
+          this.updateStatus('Export failed', 'error');
+        }
+      });
+    }
+
+    // Export CSV button
+    if (btnExportCsv) {
+      btnExportCsv.addEventListener('click', async () => {
+        try {
+          const response = await chrome.runtime.sendMessage({
+            action: 'EXPORT_USAGE_CSV'
+          });
+
+          if (response.success) {
+            const blob = new Blob([response.data], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `assist-cloud-usage-${Date.now()}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.updateStatus('Usage exported (CSV)', 'success');
+          } else {
+            throw new Error(response.error);
+          }
+        } catch (error) {
+          console.error('[Popup] Export CSV failed:', error);
+          this.updateStatus('Export failed', 'error');
+        }
+      });
+    }
+
+    // Clear usage button
+    if (btnClearUsage) {
+      btnClearUsage.addEventListener('click', async () => {
+        if (confirm('Clear all cloud usage data? This cannot be undone.')) {
+          try {
+            const response = await chrome.runtime.sendMessage({
+              action: 'CLEAR_USAGE_DATA'
+            });
+
+            if (response.success) {
+              this.loadCloudUsageStats();
+              this.updateStatus('Usage data cleared', 'success');
+            } else {
+              throw new Error(response.error);
+            }
+          } catch (error) {
+            console.error('[Popup] Clear usage failed:', error);
+            this.updateStatus('Clear failed', 'error');
+          }
+        }
+      });
+    }
+
+    console.log('[Popup] Cloud AI setup complete');
+  }
+
+  /**
+   * Load and display cloud usage statistics
+   */
+  async loadCloudUsageStats() {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'GET_USAGE_STATS'
+      });
+
+      if (response.success && response.data) {
+        const stats = response.data;
+        document.getElementById('cloud-stat-requests').textContent = stats.totalRequests || 0;
+        document.getElementById('cloud-stat-tokens').textContent = stats.totalTokens || 0;
+        document.getElementById('cloud-stat-avg-in').textContent = stats.averageInputTokens || 0;
+        document.getElementById('cloud-stat-avg-out').textContent = stats.averageOutputTokens || 0;
+      }
+    } catch (error) {
+      console.error('[Popup] Failed to load usage stats:', error);
+    }
   }
 
   async checkLLMStatus() {

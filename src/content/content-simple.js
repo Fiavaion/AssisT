@@ -89,6 +89,17 @@ import { initCitation } from '../features/citations/citation-integration.js'; //
 import '../features/summarization/summarization.js'; // Self-initializing AI summarization with LLM integration
 import '../features/textSimplification/textSimplification.js'; // Self-initializing AI text simplification with LLM integration
 import '../features/assignmentBreakdown/assignmentBreakdown.js'; // Self-initializing AI assignment breakdown with LLM integration
+import '../features/socraticTutor/socraticTutor.js'; // Self-initializing Socratic questioning for critical thinking
+import '../features/emotionalTTS/emotionalTTS.js'; // Self-initializing emotional tone detection for TTS
+import '../features/imageUnderstanding/imageUnderstanding.js'; // Self-initializing AI vision for image descriptions
+import '../features/cognitiveProfile/cognitiveProfile.js'; // Self-initializing learning profile tracking
+import '../features/knowledgeGraph/knowledgeGraph.js'; // Self-initializing knowledge graph visualization
+import '../features/adaptiveRSVP/adaptiveRSVP.js'; // Self-initializing adaptive speed reading (RSVP)
+import '../features/struggleDetection/struggleDetection.js'; // Self-initializing struggle detection and proactive assistance
+import '../features/citationAnalyzer/citationAnalyzer.js'; // Self-initializing AI citation analysis for source evaluation
+import '../features/cognitiveStateMonitor/cognitiveStateMonitor.js'; // Self-initializing cognitive state monitoring
+import '../features/multiDocCompare/multiDocCompare.js'; // Self-initializing multi-document comparison
+import '../features/studyPathGenerator/studyPathGenerator.js'; // Self-initializing study path generator
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners

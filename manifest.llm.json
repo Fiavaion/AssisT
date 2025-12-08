@@ -19,14 +19,26 @@
     "tabs",
     "downloads",
     "contextMenus",
-    "nativeMessaging"
+    "nativeMessaging",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
 
   "host_permissions": [
     "<all_urls>",
     "http://localhost:*/*",
-    "http://127.0.0.1:*/*"
+    "http://127.0.0.1:*/*",
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*"
   ],
+
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ollama_cors_rules",
+      "enabled": true,
+      "path": "rules/ollama-cors.json"
+    }]
+  },
 
   "background": {
     "service_worker": "src/background/service-worker.js",

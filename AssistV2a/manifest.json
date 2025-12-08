@@ -16,11 +16,24 @@
     "scripting",
     "tabs",
     "downloads",
-    "contextMenus"
+    "contextMenus",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*"
   ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ollama_cors_rules",
+        "enabled": true,
+        "path": "rules/ollama-cors.json"
+      }
+    ]
+  },
   "background": {
     "service_worker": "service-worker-loader.js",
     "type": "module"
@@ -28,7 +41,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/content-simple.js-loader-BLtxKYQW.js"
+        "assets/content-simple.js-loader-UXTzR-ZE.js"
       ],
       "matches": [
         "<all_urls>"
@@ -72,8 +85,8 @@
         "assets/pdf-DSyF5veC.js.map",
         "assets/index-WSgnozFX.js",
         "assets/index-WSgnozFX.js.map",
-        "assets/content-simple.js-CoZcNYX0.js",
-        "assets/content-simple.js-CoZcNYX0.js.map"
+        "assets/content-simple.js-CjS8R0aU.js",
+        "assets/content-simple.js-CjS8R0aU.js.map"
       ],
       "use_dynamic_url": false
     }

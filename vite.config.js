@@ -20,8 +20,8 @@ export default defineConfig({
   ],
 
   build: {
-    // Output to AssistV2a directory for sharing
-    outDir: 'AssistV2a',
+    // Output to AssistLLM directory (LLM Edition build)
+    outDir: 'AssistLLM',
     emptyOutDir: true,
 
     // Enable source maps for debugging

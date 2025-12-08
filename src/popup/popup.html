@@ -3373,6 +3373,12 @@
               <p class="feature-description" style="margin-top: 4px">
                 Powered by <a href="https://ollama.ai" target="_blank" rel="noopener" class="llm-link">Ollama</a> - 100% local, private AI
               </p>
+              <p class="feature-description llm-requirement-note" style="margin-top: 4px; font-size: 11px; color: #e67e22;">
+                ⚠️ Start Ollama with: <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">OLLAMA_ORIGINS=* ollama serve</code>
+              </p>
+              <p class="feature-description" style="margin-top: 2px; font-size: 10px; color: #999;">
+                Or install models via terminal: <code style="background: rgba(0,0,0,0.15); padding: 1px 4px; border-radius: 2px;">ollama pull phi3:mini</code>
+              </p>
             </section>
 
             <!-- LLM Options Container -->
@@ -3399,10 +3405,79 @@
                 </div>
               </section>
 
+              <!-- VRAM Tier Selector -->
+              <section class="control-section llm-vram-section">
+                <h2 class="section-title">🎮 VRAM Tier (Demo Mode)</h2>
+                <div class="llm-vram-selector">
+                  <div class="vram-tier-info">
+                    <span class="vram-tier-label">Simulate System:</span>
+                    <select id="vram-tier-select" class="vram-tier-dropdown" aria-label="Select VRAM tier to simulate">
+                      <option value="auto">🔍 Auto-detect</option>
+                      <option value="2gb">🔋 2GB VRAM (15-30%)</option>
+                      <option value="4gb">💾 4GB VRAM (30-45%)</option>
+                      <option value="8gb" selected>🎯 8GB VRAM (55-70%)</option>
+                      <option value="12gb">⚡ 12GB VRAM (65-75%)</option>
+                      <option value="16gb">🚀 16GB VRAM (75-85%)</option>
+                      <option value="24gb">💎 24GB VRAM (85-92%)</option>
+                    </select>
+                  </div>
+                  <div class="vram-tier-description" id="vram-tier-description">
+                    <span class="vram-quality">Quality: 55-70%</span>
+                    <span class="vram-models">Models: mistral:7b, qwen2.5:7b</span>
+                  </div>
+                </div>
+              </section>
+
               <!-- Model Installation -->
               <section class="control-section" id="llm-model-section">
                 <h2 class="section-title">📦 Model Installation</h2>
                 <div class="llm-models-container">
+                  <!-- 8GB VRAM Tier (Best Quality) -->
+                  <div class="llm-tier-header">🎯 8GB+ VRAM (Best Quality)</div>
+                  <div class="llm-model-item llm-model-8gb">
+                    <div class="llm-model-info">
+                      <span class="llm-model-name">mistral:7b-instruct</span>
+                      <span class="llm-model-size">~4.5GB (Best for 8GB)</span>
+                    </div>
+                    <button
+                      id="btn-install-mistral7b"
+                      class="control-btn llm-install-btn"
+                      data-model="mistral:7b-instruct"
+                      aria-label="Install Mistral 7B - best for 8GB VRAM"
+                    >
+                      Install
+                    </button>
+                  </div>
+                  <div class="llm-model-item llm-model-8gb">
+                    <div class="llm-model-info">
+                      <span class="llm-model-name">qwen2.5:7b</span>
+                      <span class="llm-model-size">~4.5GB (Academic)</span>
+                    </div>
+                    <button
+                      id="btn-install-qwen25"
+                      class="control-btn llm-install-btn"
+                      data-model="qwen2.5:7b"
+                      aria-label="Install Qwen 2.5 7B - excellent for academic text"
+                    >
+                      Install
+                    </button>
+                  </div>
+                  <!-- 4GB VRAM Tier -->
+                  <div class="llm-tier-header">💾 4GB VRAM</div>
+                  <div class="llm-model-item llm-model-recommended">
+                    <div class="llm-model-info">
+                      <span class="llm-model-name">gemma3:4b</span>
+                      <span class="llm-model-size">~3GB (Best 4GB)</span>
+                    </div>
+                    <button
+                      id="btn-install-gemma3"
+                      class="control-btn llm-install-btn"
+                      data-model="gemma3:4b"
+                      aria-label="Install gemma3:4b model - recommended for 4GB VRAM"
+                    >
+                      Install
+                    </button>
+                  </div>
                   <div class="llm-model-item">
                     <div class="llm-model-info">
                       <span class="llm-model-name">llama3.2</span>
@@ -3431,6 +3506,8 @@
                       Install
                     </button>
                   </div>
+                  <!-- Specialized Models -->
+                  <div class="llm-tier-header">🔧 Specialized</div>
                   <div class="llm-model-item llm-model-vision">
                     <div class="llm-model-info">
                       <span class="llm-model-name">llava</span>
@@ -3639,6 +3716,83 @@
                   <span class="llm-privacy-text">
                     All AI processing happens locally on your device. No data is ever sent to external servers.
                   </span>
+                </div>
+              </section>
+
+              <!-- Cloud AI Settings (Experimental) -->
+              <section class="control-section cloud-ai-settings" id="cloud-ai-settings">
+                <h2 class="section-title">☁️ Cloud AI (Experimental)</h2>
+                <p class="feature-description" style="margin-bottom: 8px; color: #e67e22;">
+                  ⚠️ Focus Group Testing Only - Uses Claude 4.5 models
+                </p>
+
+                <div class="toggle-control main-toggle">
+                  <label for="cloud-mode-enabled" class="toggle-label">
+                    <span class="label-text">☁️ Enable Cloud Models</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="cloud-mode-enabled"
+                        data-testid="cloud-mode-toggle"
+                        role="switch"
+                        aria-label="Enable Cloud AI Models"
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+
+                <p class="feature-description" style="margin-top: 4px; font-size: 11px">
+                  Compare local vs cloud AI quality. Model selection available in each feature panel.
+                </p>
+
+                <!-- Cloud Usage Statistics -->
+                <div id="cloud-usage-stats" class="cloud-stats-panel" style="display: none; margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 6px;">
+                  <h3 class="subsection-title" style="font-size: 11px; margin-bottom: 8px">📊 Usage Statistics</h3>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+                    <div class="stat-item">
+                      <span style="color: #666;">Requests:</span>
+                      <span id="cloud-stat-requests" style="font-weight: 600;">0</span>
+                    </div>
+                    <div class="stat-item">
+                      <span style="color: #666;">Total Tokens:</span>
+                      <span id="cloud-stat-tokens" style="font-weight: 600;">0</span>
+                    </div>
+                    <div class="stat-item">
+                      <span style="color: #666;">Avg In:</span>
+                      <span id="cloud-stat-avg-in" style="font-weight: 600;">0</span>
+                    </div>
+                    <div class="stat-item">
+                      <span style="color: #666;">Avg Out:</span>
+                      <span id="cloud-stat-avg-out" style="font-weight: 600;">0</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 6px; margin-top: 10px;">
+                    <button
+                      id="btn-export-usage-json"
+                      class="control-btn secondary"
+                      style="flex: 1; padding: 5px 8px; font-size: 10px"
+                      aria-label="Export usage data as JSON"
+                    >
+                      📤 JSON
+                    </button>
+                    <button
+                      id="btn-export-usage-csv"
+                      class="control-btn secondary"
+                      style="flex: 1; padding: 5px 8px; font-size: 10px"
+                      aria-label="Export usage data as CSV"
+                    >
+                      📊 CSV
+                    </button>
+                    <button
+                      id="btn-clear-usage"
+                      class="control-btn"
+                      style="flex: 1; padding: 5px 8px; font-size: 10px; background: #fef2f2; color: #b91c1c; border-color: #fca5a5"
+                      aria-label="Clear usage data"
+                    >
+                      🗑️ Clear
+                    </button>
+                  </div>
                 </div>
               </section>
             </div>

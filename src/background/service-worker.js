@@ -7,6 +7,44 @@
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
 
+// Cloud AI imports
+import { claudeGenerate, checkCloudAvailability, CLOUD_MODELS, FEATURE_DEFAULT_MODELS } from '../ai/claude-client.js';
+import { getUsageStats, exportUsageData, exportUsageCSV, clearUsageData } from '../ai/usage-tracker.js';
+
+// ========================================
+// CONTEXT MENU SETUP (runs on every service worker start)
+// ========================================
+
+/**
+ * Create context menus for AssisT features
+ * This runs on every service worker startup to ensure menus are always available
+ */
+function setupContextMenus() {
+  // Remove all existing menus first to avoid duplicates
+  chrome.contextMenus.removeAll(() => {
+    console.log('[AssisT] Setting up context menus...');
+
+    // Create context menu for citation capture
+    chrome.contextMenus.create({
+      id: 'save-citation',
+      title: 'Save Citation',
+      contexts: ['page', 'link'],
+    });
+
+    // Create context menu for image description (AI Vision)
+    chrome.contextMenus.create({
+      id: 'describe-image',
+      title: '🖼️ Describe Image with AI',
+      contexts: ['image'],
+    });
+
+    console.log('[AssisT] Context menus created');
+  });
+}
+
+// Setup context menus immediately when service worker starts
+setupContextMenus();
+
 // Service worker lifecycle
 chrome.runtime.onInstalled.addListener(async details => {
   console.log('[AssisT] Extension installed:', details.reason);
@@ -28,12 +66,7 @@ chrome.runtime.onInstalled.addListener(async details => {
     // Handle migration if needed
   }
 
-  // Create context menu for citation capture
-  chrome.contextMenus.create({
-    id: 'save-citation',
-    title: 'Save Citation',
-    contexts: ['page', 'link'],
-  });
+  // Context menus are now set up in setupContextMenus() above
 });
 
 // Context menu click handler
@@ -54,6 +87,26 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }
     } catch (error) {
       console.error('[AssisT] Context menu citation error:', error);
+    }
+  }
+
+  if (info.menuItemId === 'describe-image') {
+    console.log('[AssisT] Context menu "Describe Image" clicked', info.srcUrl);
+
+    // Send message to content script to describe the image
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        type: 'DESCRIBE_IMAGE',
+        imageUrl: info.srcUrl,
+      });
+
+      if (response && response.success) {
+        console.log('[AssisT] Image description initiated');
+      } else {
+        console.error('[AssisT] Image description failed:', response?.error);
+      }
+    } catch (error) {
+      console.error('[AssisT] Context menu image error:', error);
     }
   }
 });
@@ -90,6 +143,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, dataUrl });
       }
     });
+    return true; // Keep channel open for async response
+  }
+
+  // Handle image fetch requests (for cross-origin images)
+  if (message.action === 'FETCH_IMAGE') {
+    console.log('[AssisT] Fetching image:', message.url);
+
+    fetch(message.url, {
+      mode: 'cors',
+      credentials: 'omit',
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            // Return the base64 string without the data URL prefix
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      })
+      .then(base64 => {
+        console.log(`[AssisT] Fetched image: ${base64.length} chars`);
+        sendResponse({ success: true, base64 });
+      })
+      .catch(error => {
+        console.error('[AssisT] Image fetch failed:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+
     return true; // Keep channel open for async response
   }
 
@@ -279,11 +370,76 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Set VRAM tier (Demo Mode)
+  if (message.action === 'SET_VRAM_TIER') {
+    const tier = message.tier || '8gb';
+    const validTiers = ['auto', '2gb', '4gb', '8gb', '12gb', '16gb', '24gb'];
+    if (validTiers.includes(tier)) {
+      currentVramTier = tier;
+      console.log(`[LLM Bridge] VRAM tier set to: ${tier} (default model: ${getDefaultModel()})`);
+      sendResponse({ success: true, tier, defaultModel: getDefaultModel() });
+    } else {
+      sendResponse({ success: false, error: `Invalid tier: ${tier}` });
+    }
+    return true;
+  }
+
+  // Get current VRAM tier
+  if (message.action === 'GET_VRAM_TIER') {
+    sendResponse({
+      success: true,
+      tier: currentVramTier,
+      defaultModel: getDefaultModel(),
+      fallbackModels: getTierFallbackModels()
+    });
+    return true;
+  }
+
   // Generate text with local LLM
   if (message.action === 'LOCAL_LLM_GENERATE') {
     ollamaGenerate(message.prompt, message.options || {})
       .then(result => sendResponse({ success: true, data: result }))
       .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Task-optimized generation - routes to best model for the task
+  if (message.action === 'LOCAL_LLM_TASK_GENERATE') {
+    (async () => {
+      try {
+        // Get available models
+        const status = await checkOllamaAvailability();
+        if (!status.available) {
+          return sendResponse({ success: false, error: 'Ollama not available' });
+        }
+
+        // Get optimal model for this task
+        const taskType = message.taskType || 'default';
+        const level = message.level || null;
+        const routing = getOptimalModelForTask(taskType, level, status.models);
+
+        console.log(`[LLM Routing] Task "${taskType}" (${level || 'default'}) → ${routing.model}`);
+        console.log(`[LLM Routing] Reason: ${routing.reason}`);
+
+        // Generate with the optimal model
+        const result = await ollamaGenerate(message.prompt, {
+          ...message.options,
+          model: routing.model
+        });
+
+        sendResponse({
+          success: true,
+          data: result,
+          routing: {
+            model: routing.model,
+            reason: routing.reason,
+            matched: routing.matched
+          }
+        });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   }
 
@@ -314,6 +470,84 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'LOCAL_LLM_GET_MODELS') {
     getOllamaModels()
       .then(models => sendResponse({ success: true, models }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // ========================================
+  // CLOUD LLM MESSAGE HANDLERS (Claude API)
+  // ========================================
+
+  // Check if cloud mode is available
+  if (message.action === 'CLOUD_LLM_CHECK') {
+    checkCloudAvailability()
+      .then(status => sendResponse({ success: true, ...status }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Generate text with Claude API
+  if (message.action === 'CLOUD_LLM_GENERATE') {
+    claudeGenerate(message.prompt, message.options || {})
+      .then(result => sendResponse({
+        success: true,
+        data: result.content,
+        usage: result.usage
+      }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Get cloud models list
+  if (message.action === 'CLOUD_LLM_GET_MODELS') {
+    sendResponse({
+      success: true,
+      models: CLOUD_MODELS,
+      featureDefaults: FEATURE_DEFAULT_MODELS
+    });
+    return false;
+  }
+
+  // Get usage statistics
+  if (message.action === 'GET_USAGE_STATS') {
+    getUsageStats()
+      .then(stats => sendResponse({ success: true, data: stats }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Export usage data as JSON
+  if (message.action === 'EXPORT_USAGE_JSON') {
+    exportUsageData()
+      .then(data => sendResponse({ success: true, data }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Export usage data as CSV
+  if (message.action === 'EXPORT_USAGE_CSV') {
+    exportUsageCSV()
+      .then(data => sendResponse({ success: true, data }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Clear usage data
+  if (message.action === 'CLEAR_USAGE_DATA') {
+    clearUsageData()
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // ========================================
+  // BENCHMARK MESSAGE HANDLERS
+  // ========================================
+
+  // Run a single benchmark test
+  if (message.action === 'BENCHMARK_RUN_TEST') {
+    runBenchmarkTest(message)
+      .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
@@ -374,10 +608,448 @@ async function checkOllamaAvailability() {
 }
 
 /**
- * Generate text with Ollama
+ * Find the best matching installed model with intelligent fallback
+ * @param {string} requestedModel - The model name requested (e.g., 'gemma3:4b')
+ * @returns {Promise<string>} - The actual installed model name
+ */
+async function findInstalledModel(requestedModel) {
+  try {
+    const status = await checkOllamaAvailability();
+    if (!status.available || !status.models.length) {
+      return requestedModel; // Return as-is, will fail with clear error
+    }
+
+    // Check for exact match first
+    if (status.models.includes(requestedModel)) {
+      return requestedModel;
+    }
+
+    // Check for match with :latest tag
+    if (status.models.includes(`${requestedModel}:latest`)) {
+      return `${requestedModel}:latest`;
+    }
+
+    // Check for any model starting with the requested name
+    const matchingModel = status.models.find(m =>
+      m.startsWith(requestedModel) || m.startsWith(`${requestedModel}:`)
+    );
+
+    if (matchingModel) {
+      console.log(`[LLM Bridge] Resolved '${requestedModel}' to '${matchingModel}'`);
+      return matchingModel;
+    }
+
+    // Try fallback models based on current VRAM tier
+    const tierFallback = getTierFallbackModels();
+    console.log(`[LLM Bridge] Using ${currentVramTier} tier fallback models:`, tierFallback);
+
+    for (const fallback of tierFallback) {
+      const fallbackMatch = status.models.find(m =>
+        m === fallback || m.startsWith(`${fallback}:`) || m.startsWith(fallback)
+      );
+      if (fallbackMatch) {
+        console.log(`[LLM Bridge] Model '${requestedModel}' not found, using fallback '${fallbackMatch}'`);
+        return fallbackMatch;
+      }
+    }
+
+    // Last resort: return first available model
+    console.log(`[LLM Bridge] No preferred model found, using '${status.models[0]}'`);
+    return status.models[0];
+  } catch (error) {
+    console.warn('[LLM Bridge] Error finding model:', error);
+    return requestedModel;
+  }
+}
+
+/**
+ * Model-Specific Optimization Profiles
+ * Based on research: https://docs.ollama.com/context-length
+ * https://ai.google.dev/gemma/docs/core/prompt-structure
+ */
+const MODEL_OPTIMIZATION_PROFILES = {
+  // Gemma 3 4B - Optimized for structured output
+  'gemma3:4b': {
+    num_ctx: 4096,           // Reduced from 8k default for speed
+    temperature: 0.7,        // Google's recommended range
+    top_k: 40,
+    top_p: 0.9,
+    repeat_penalty: 1.1,
+    strengths: ['formatting', 'structure', 'definitions']
+  },
+  'gemma3': {
+    num_ctx: 4096,
+    temperature: 0.7,
+    top_k: 40,
+    top_p: 0.9,
+    repeat_penalty: 1.1,
+    strengths: ['formatting', 'structure', 'definitions']
+  },
+  // Mistral 7B - Optimized for reasoning (was slow due to 32k default context)
+  'mistral:7b-instruct': {
+    num_ctx: 4096,           // Critical: reduced from 32k default
+    temperature: 0.4,        // Lower for educational content
+    top_p: 0.9,
+    repeat_penalty: 1.15,    // Slight increase for less repetition
+    strengths: ['reasoning', 'pedagogy', 'analysis']
+  },
+  'mistral:7b': {
+    num_ctx: 4096,
+    temperature: 0.4,
+    top_p: 0.9,
+    repeat_penalty: 1.15,
+    strengths: ['reasoning', 'pedagogy', 'analysis']
+  },
+  // Llama 3.2 - Optimized for speed
+  'llama3.2': {
+    num_ctx: 2048,           // Minimal context for max speed
+    temperature: 0.6,
+    top_p: 0.9,
+    repeat_penalty: 1.1,
+    strengths: ['speed', 'simple-text', 'summarization']
+  },
+  'llama3.2:3b': {
+    num_ctx: 2048,
+    temperature: 0.6,
+    top_p: 0.9,
+    repeat_penalty: 1.1,
+    strengths: ['speed', 'simple-text', 'summarization']
+  },
+  // Phi3 Mini - Balance of quality and speed
+  'phi3:mini': {
+    num_ctx: 2048,           // Reduced for speed
+    temperature: 0.5,
+    top_p: 0.9,
+    repeat_penalty: 1.1,
+    strengths: ['general', 'fallback']
+  },
+  // Qwen 2.5 7B - Good for academic text
+  'qwen2.5:7b': {
+    num_ctx: 4096,
+    temperature: 0.5,
+    top_p: 0.9,
+    repeat_penalty: 1.1,
+    strengths: ['academic', 'multilingual']
+  },
+  // Default fallback profile
+  'default': {
+    num_ctx: 4096,
+    temperature: 0.5,
+    top_p: 0.9,
+    repeat_penalty: 1.1,
+    strengths: []
+  }
+};
+
+/**
+ * Task-to-Model Routing Configuration
+ * Routes each feature type to optimal models based on benchmarked strengths
+ */
+const TASK_OPTIMAL_MODELS = {
+  // Speed-critical tasks → smaller, faster models
+  summarization: {
+    priority: ['llama3.2', 'llama3.2:3b', 'phi3:mini', 'gemma3:4b'],
+    reason: 'Summarization benefits from fast inference; quality differences minimal'
+  },
+  // Formatting tasks → Gemma excels at structured output
+  assignmentBreakdown: {
+    priority: ['gemma3:4b', 'gemma3', 'mistral:7b-instruct', 'qwen2.5:7b'],
+    reason: 'Gemma produces better structured, formatted output'
+  },
+  textSimplification: {
+    basic: {
+      priority: ['llama3.2', 'phi3:mini', 'gemma3:4b'],
+      reason: 'Basic simplification needs speed over complexity'
+    },
+    moderate: {
+      priority: ['gemma3:4b', 'mistral:7b-instruct', 'qwen2.5:7b'],
+      reason: 'Moderate simplification needs balanced capability'
+    },
+    academic: {
+      priority: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b'],
+      reason: 'Academic simplification needs reasoning + vocabulary'
+    }
+  },
+  // Reasoning-heavy tasks → Mistral excels
+  socraticTutor: {
+    priority: ['mistral:7b-instruct', 'mistral:7b', 'qwen2.5:7b', 'gemma3:4b'],
+    reason: 'Socratic questioning requires strong reasoning/pedagogy'
+  },
+  citationAnalyzer: {
+    priority: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2'],
+    reason: 'Citation analysis requires analytical reasoning'
+  },
+  // Default fallback
+  default: {
+    priority: ['gemma3:4b', 'mistral:7b-instruct', 'llama3.2', 'phi3:mini'],
+    reason: 'Balanced default for unknown tasks'
+  }
+};
+
+/**
+ * Get the optimal model for a specific task
+ * @param {string} taskType - The feature/task type (e.g., 'summarization', 'socraticTutor')
+ * @param {string} level - Optional sub-level for tasks with multiple modes
+ * @param {string[]} availableModels - List of installed models
+ * @returns {Object} - { model: string, reason: string }
+ */
+function getOptimalModelForTask(taskType, level = null, availableModels = []) {
+  // Get task configuration
+  let taskConfig = TASK_OPTIMAL_MODELS[taskType];
+
+  // Handle tasks with sub-levels (like textSimplification)
+  if (taskConfig && level && taskConfig[level]) {
+    taskConfig = taskConfig[level];
+  }
+
+  // Fallback to default if task not found
+  if (!taskConfig || !taskConfig.priority) {
+    taskConfig = TASK_OPTIMAL_MODELS.default;
+  }
+
+  // If no available models provided, return first priority
+  if (!availableModels.length) {
+    return {
+      model: taskConfig.priority[0],
+      reason: taskConfig.reason,
+      matched: false
+    };
+  }
+
+  // Find first matching installed model
+  for (const preferredModel of taskConfig.priority) {
+    const match = availableModels.find(m =>
+      m === preferredModel ||
+      m.startsWith(`${preferredModel}:`) ||
+      m.startsWith(preferredModel)
+    );
+    if (match) {
+      return {
+        model: match,
+        reason: taskConfig.reason,
+        matched: true
+      };
+    }
+  }
+
+  // No match found - return first available
+  return {
+    model: availableModels[0],
+    reason: 'No optimal model available, using fallback',
+    matched: false
+  };
+}
+
+/**
+ * Get optimization profile for a model
+ * @param {string} model - Model name
+ * @returns {Object} Optimization parameters
+ */
+function getModelProfile(model) {
+  // Try exact match first
+  if (MODEL_OPTIMIZATION_PROFILES[model]) {
+    return MODEL_OPTIMIZATION_PROFILES[model];
+  }
+  // Try prefix match (e.g., 'gemma3:4b-instruct-q4' -> 'gemma3')
+  for (const [key, profile] of Object.entries(MODEL_OPTIMIZATION_PROFILES)) {
+    if (model.startsWith(key)) {
+      return profile;
+    }
+  }
+  return MODEL_OPTIMIZATION_PROFILES['default'];
+}
+
+/**
+ * VRAM Tier Configuration
+ * Allows demo mode to simulate different hardware capabilities
+ */
+let currentVramTier = '8gb'; // Default to 8GB tier
+
+const VRAM_TIER_MODELS = {
+  'auto': {
+    default: 'mistral:7b-instruct',
+    fallback: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b', 'phi3:mini']
+  },
+  '2gb': {
+    default: 'phi3:mini',
+    fallback: ['phi3:mini', 'llama3.2', 'llama3.2:1b', 'tinyllama']
+  },
+  '4gb': {
+    default: 'gemma3:4b',
+    fallback: ['gemma3:4b', 'qwen3:4b', 'llama3.2:3b', 'llama3.2', 'phi3:mini']
+  },
+  '8gb': {
+    default: 'mistral:7b-instruct',
+    fallback: ['mistral:7b-instruct', 'mistral:7b', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b']
+  },
+  '12gb': {
+    default: 'llama3.1:8b',
+    fallback: ['llama3.1:8b', 'mixtral:8x7b', 'mistral:7b-instruct', 'qwen2.5:7b']
+  },
+  '16gb': {
+    default: 'qwen2.5:14b',
+    fallback: ['qwen2.5:14b', 'llama3.1:70b-q4', 'llama3.1:8b', 'mixtral:8x7b']
+  },
+  '24gb': {
+    default: 'llama3.1:70b',
+    fallback: ['llama3.1:70b', 'mixtral:8x22b', 'qwen2.5:14b', 'llama3.1:8b']
+  }
+};
+
+/**
+ * Get the default model for the current VRAM tier
+ */
+function getDefaultModel() {
+  const tierConfig = VRAM_TIER_MODELS[currentVramTier] || VRAM_TIER_MODELS['8gb'];
+  return tierConfig.default;
+}
+
+/**
+ * Get the fallback model list for the current VRAM tier
+ */
+function getTierFallbackModels() {
+  const tierConfig = VRAM_TIER_MODELS[currentVramTier] || VRAM_TIER_MODELS['8gb'];
+  return tierConfig.fallback;
+}
+
+// ============================================================================
+// BENCHMARK TEST RUNNER
+// ============================================================================
+
+/**
+ * Benchmark prompts for each feature
+ */
+const BENCHMARK_PROMPTS = {
+  textSimplification: (text, level) => {
+    const prompts = {
+      basic: `Simplify this text for someone with reading difficulties. Use very simple words and short sentences:\n\n${text}\n\nSimplified version:`,
+      moderate: `Simplify this academic text while keeping important terms. Add brief definitions in parentheses for difficult words:\n\n${text}\n\nSimplified version:`,
+      academic: `Improve the readability of this academic text while preserving scholarly vocabulary. Add definitions for complex terms:\n\n${text}\n\nImproved version:`
+    };
+    return prompts[level] || prompts.moderate;
+  },
+
+  summarization: (text, level) => {
+    const prompts = {
+      brief: `Summarize this text in 1-2 sentences:\n\n${text}\n\nSummary:`,
+      moderate: `Provide a clear summary of this text in 3-4 sentences, capturing the main points:\n\n${text}\n\nSummary:`,
+      detailed: `Provide a comprehensive summary of this text, including key details and supporting points:\n\n${text}\n\nDetailed summary:`
+    };
+    return prompts[level] || prompts.brief;
+  },
+
+  socraticTutor: (text) => `You are a Socratic tutor. Generate 3-4 thought-provoking questions to help a student understand this text deeply. Focus on comprehension, analysis, and critical thinking:\n\n${text}\n\nQuestions:`,
+
+  assignmentBreakdown: (text) => `Break down this assignment into clear, actionable steps. Include estimated time for each step and key requirements:\n\n${text}\n\nBreakdown:`,
+
+  citationAnalyzer: (text) => `Analyze this text or source for credibility. Assess: source type, potential bias, key claims, and reliability. Provide a credibility score (1-10):\n\n${text}\n\nAnalysis:`
+};
+
+/**
+ * Run a single benchmark test
+ * @param {Object} params - Test parameters
+ * @returns {Promise<Object>} Test result
+ */
+async function runBenchmarkTest(params) {
+  const { feature, model, isCloud, text, level } = params;
+
+  // Build the prompt
+  const promptBuilder = BENCHMARK_PROMPTS[feature];
+  if (!promptBuilder) {
+    return { success: false, error: `Unknown feature: ${feature}` };
+  }
+
+  const prompt = typeof promptBuilder === 'function'
+    ? (level ? promptBuilder(text, level) : promptBuilder(text))
+    : promptBuilder;
+
+  const maxTokens = feature === 'summarization' ? 300 : 600;
+
+  try {
+    let result;
+
+    if (isCloud) {
+      // Cloud model (Claude API)
+      result = await claudeGenerate(prompt, {
+        model: model,
+        maxTokens,
+        temperature: 0.3
+      });
+
+      return {
+        success: true,
+        data: result.content,
+        tokens: result.usage?.output_tokens || 0,
+        model: model,
+        isCloud: true
+      };
+    } else {
+      // Local model (Ollama) - use model-specific optimization profile
+      const profile = getModelProfile(model);
+      console.log(`[Benchmark] Using optimized profile for ${model}:`, {
+        num_ctx: profile.num_ctx,
+        temperature: profile.temperature
+      });
+
+      const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: model,
+          prompt: prompt,
+          stream: false,
+          options: {
+            num_ctx: profile.num_ctx,          // Key optimization
+            num_predict: maxTokens,
+            temperature: profile.temperature,
+            top_p: profile.top_p,
+            top_k: profile.top_k,
+            repeat_penalty: profile.repeat_penalty
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Ollama error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data.response,
+        tokens: data.eval_count || 0,
+        model: model,
+        isCloud: false,
+        evalDuration: data.eval_duration,
+        totalDuration: data.total_duration
+      };
+    }
+  } catch (error) {
+    console.error('[Benchmark] Test failed:', error);
+    return {
+      success: false,
+      error: error.message,
+      model: model,
+      isCloud: isCloud
+    };
+  }
+}
+
+/**
+ * Generate text with Ollama (Optimized)
+ * Uses model-specific profiles for num_ctx, temperature, etc.
  */
 async function ollamaGenerate(prompt, options = {}) {
-  const model = options.model || 'llama3.2';
+  const requestedModel = options.model || getDefaultModel();
+  const model = await findInstalledModel(requestedModel);
+
+  // Get model-specific optimization profile
+  const profile = getModelProfile(model);
+  console.log(`[LLM Bridge] Using profile for ${model}:`, {
+    num_ctx: profile.num_ctx,
+    temperature: options.temperature ?? profile.temperature
+  });
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
     method: 'POST',
@@ -387,15 +1059,27 @@ async function ollamaGenerate(prompt, options = {}) {
       prompt,
       stream: false,
       options: {
-        temperature: options.temperature ?? 0.7,
-        num_predict: options.maxTokens ?? 500
+        // Core optimization: reduced context window for speed
+        num_ctx: options.num_ctx ?? profile.num_ctx,
+        // Model-specific temperature (can be overridden)
+        temperature: options.temperature ?? profile.temperature,
+        // Token prediction limit
+        num_predict: options.maxTokens ?? 500,
+        // Additional optimizations from profile
+        top_p: profile.top_p,
+        top_k: profile.top_k,
+        repeat_penalty: profile.repeat_penalty
       }
     }),
-    signal: AbortSignal.timeout(options.timeout || 30000)
+    signal: AbortSignal.timeout(options.timeout || 30000),
+    mode: 'cors',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer'
   });
 
   if (!response.ok) {
-    throw new Error(`Ollama request failed: ${response.status}`);
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Ollama request failed: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
@@ -418,7 +1102,8 @@ async function ollamaGenerate(prompt, options = {}) {
  * Vision model generation with Ollama
  */
 async function ollamaVision(imageBase64, prompt, options = {}) {
-  const model = options.model || 'llava';
+  const requestedModel = options.model || 'llava';
+  const model = await findInstalledModel(requestedModel);
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
     method: 'POST',
@@ -433,11 +1118,15 @@ async function ollamaVision(imageBase64, prompt, options = {}) {
         num_predict: options.maxTokens ?? 1000
       }
     }),
-    signal: AbortSignal.timeout(options.timeout || 60000)
+    signal: AbortSignal.timeout(options.timeout || 60000),
+    mode: 'cors',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer'
   });
 
   if (!response.ok) {
-    throw new Error(`Vision request failed: ${response.status}`);
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Vision request failed: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
@@ -450,18 +1139,46 @@ async function ollamaVision(imageBase64, prompt, options = {}) {
 async function ollamaInstallModel(modelName, onProgress = null) {
   console.log(`[LLM Bridge] Installing model: ${modelName}`);
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/pull`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: modelName, stream: true })
-  });
+  let response;
+  try {
+    // Ollama pull API - just needs the model name
+    response = await fetch(`${OLLAMA_BASE_URL}/api/pull`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/x-ndjson'
+      },
+      body: JSON.stringify({ name: modelName }),
+      mode: 'cors',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer'
+    });
+  } catch (networkError) {
+    console.error('[LLM Bridge] Network error connecting to Ollama:', networkError);
+    throw new Error('Cannot connect to Ollama. Make sure Ollama is running (ollama serve)');
+  }
+
+  console.log(`[LLM Bridge] Pull response status: ${response.status}`);
 
   if (!response.ok) {
-    throw new Error(`Failed to start model download: ${response.status}`);
+    const errorText = await response.text().catch(() => '');
+    console.error(`[LLM Bridge] Pull failed: ${response.status} - ${errorText}`);
+
+    if (response.status === 403) {
+      // CORS issue - Ollama blocks POST requests from browser extensions by default
+      throw new Error(
+        'CORS blocked (403). To fix, restart Ollama with:\n' +
+        'OLLAMA_ORIGINS=* ollama serve\n\n' +
+        'Or install models in terminal:\n' +
+        'ollama pull ' + modelName
+      );
+    }
+    throw new Error(`Failed to start model download: ${response.status} - ${errorText}`);
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  let lastProgressUpdate = 0;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -471,7 +1188,16 @@ async function ollamaInstallModel(modelName, onProgress = null) {
     for (const line of lines) {
       try {
         const progress = JSON.parse(line);
-        if (onProgress && progress.total) {
+
+        // Check for error in progress
+        if (progress.error) {
+          throw new Error(progress.error);
+        }
+
+        // Send progress updates (throttled to every 500ms)
+        const now = Date.now();
+        if (onProgress && progress.total && (now - lastProgressUpdate > 500)) {
+          lastProgressUpdate = now;
           onProgress({
             status: progress.status,
             completed: progress.completed || 0,
@@ -480,12 +1206,15 @@ async function ollamaInstallModel(modelName, onProgress = null) {
           });
         }
       } catch (e) {
-        // Ignore parse errors
+        if (e.message && !e.message.includes('JSON')) {
+          throw e; // Re-throw non-JSON errors
+        }
+        // Ignore JSON parse errors
       }
     }
   }
 
-  console.log(`[LLM Bridge] Model ${modelName} installed`);
+  console.log(`[LLM Bridge] Model ${modelName} installed successfully`);
   return true;
 }
 
