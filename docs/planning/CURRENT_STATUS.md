@@ -2,10 +2,10 @@
 
 **Last Updated**: 2026-01-06
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
-**Current Phase**: Phase 2 Extension - Branding Infrastructure
+**Current Phase**: Phase 2 Extension - UI Overhaul
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: main (Phase 2 COMPLETE + LLM Edition Layer 2 COMPLETE - All 6 AI Features)
-**Session**: Phase 2 Session 064 (Safe Branding System & CLAUDE.md Authority)
+**Current Branch**: ui-overhaul (UI Overhaul - Modular Popup with Organize Mode)
+**Session**: Phase 2 Session 065 (UI Overhaul - Organize Mode Implementation)
 
 ---
 
@@ -47,6 +47,51 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 065 (2026-01-06)
+
+**UI Overhaul - Modular Popup with Organize Mode**
+
+**Key Accomplishments**:
+
+1. **Organize Mode Core Implementation** (100%):
+   - Toggle button in header with 📐 icon
+   - Purple (#8b5cf6) visual theme for organize mode
+   - Banner showing mode status with "Done" button
+
+2. **Drag-and-Drop Functionality** (100%):
+   - SortableJS integration for section AND feature reordering
+   - Drag handles visible in organize mode
+   - Ghost/chosen/dragging states with visual feedback
+   - Layout saved to chrome.storage.sync
+
+3. **Section Controls** (100%):
+   - Visibility toggles (eye icons) to show/hide sections
+   - Inline title editing (click pencil or double-click)
+   - Hidden sections shown with striped pattern in organize mode
+
+4. **Keyboard Accessibility** (100%):
+   - Alt+Up/Down to move sections
+   - Escape to exit organize mode
+   - Screen reader announcements via ARIA live regions
+
+5. **Profile Section Removal** (100%):
+   - Deleted profile section from main popup
+   - Fixed null pointer errors in event listeners
+   - To be moved to advanced settings modal (pending)
+
+**Files Modified**:
+
+- settings-manager.js (+48 lines - ui_layout schema)
+- popup.html (+10/-43 lines - organize button, remove profile)
+- popup.css (+400 lines - organize mode styles)
+- popup.js (+550 lines - OrganizeMode class)
+- package.json (+sortablejs dependency)
+
+**Build Status**: ✅ Successful
+**Pending**: Profiles tab in modal, Keyboard shortcuts redesign
+
+---
 
 ### Phase 2 Session 064 (2026-01-06)
 

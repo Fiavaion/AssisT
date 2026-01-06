@@ -14,6 +14,559 @@ import {
 } from '../utils/keyboard-shortcuts.js';
 import { migrateAnnotations } from '../features/annotations/migration-manager.js';
 import { CitationManagerPanel } from './citation-manager-panel.js';
+import Sortable from 'sortablejs';
+
+/**
+ * OrganizeMode - Manages drag-and-drop reordering and visibility of sections/features
+ */
+class OrganizeMode {
+  constructor(popupController) {
+    this.popup = popupController;
+    this.isActive = false;
+    this.sectionSortable = null;
+    this.featureSortables = [];
+    this.originalState = null;
+  }
+
+  /**
+   * Toggle organize mode on/off
+   */
+  toggle() {
+    if (this.isActive) {
+      this.exit();
+    } else {
+      this.enter();
+    }
+  }
+
+  /**
+   * Enter organize mode
+   */
+  enter() {
+    this.isActive = true;
+    this.originalState = this.captureState();
+
+    // Add visual indicators
+    document.querySelector('.popup-container').classList.add('organize-mode');
+    document.getElementById('btn-organize').classList.add('active');
+    document.getElementById('organize-banner').classList.remove('hidden');
+
+    // Inject drag handles and visibility toggles into accordion headers
+    this.injectOrganizeControls();
+
+    // Initialize sortable
+    this.initSortables();
+
+    // Setup keyboard navigation
+    this.setupKeyboardNav();
+
+    console.log('[OrganizeMode] Entered organize mode');
+  }
+
+  /**
+   * Exit organize mode
+   */
+  exit() {
+    this.isActive = false;
+
+    // Remove visual indicators
+    document.querySelector('.popup-container').classList.remove('organize-mode');
+    document.getElementById('btn-organize').classList.remove('active');
+    document.getElementById('organize-banner').classList.add('hidden');
+
+    // Destroy sortables
+    this.destroySortables();
+
+    // Save layout
+    this.saveLayout();
+
+    // Show toast notification
+    this.showToast('Layout saved');
+
+    console.log('[OrganizeMode] Exited organize mode');
+  }
+
+  /**
+   * Inject drag handles and visibility toggles into accordion headers
+   */
+  injectOrganizeControls() {
+    const sections = document.querySelectorAll('.accordion-section');
+
+    sections.forEach(section => {
+      const header = section.querySelector('.accordion-header');
+      const titleSpan = header.querySelector('.accordion-title');
+      const sectionId = section.dataset.section;
+
+      // Skip if controls already exist
+      if (header.querySelector('.drag-handle')) {
+        return;
+      }
+
+      // Get current visibility from settings
+      const isVisible = this.popup.settings?.ui_layout?.sectionVisibility?.[sectionId] !== false;
+
+      // Create drag handle
+      const dragHandle = document.createElement('span');
+      dragHandle.className = 'drag-handle';
+      dragHandle.innerHTML = '⠿';
+      dragHandle.setAttribute('aria-hidden', 'true');
+
+      // Create visibility toggle
+      const visibilityToggle = document.createElement('button');
+      visibilityToggle.className = 'visibility-toggle';
+      visibilityToggle.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
+      visibilityToggle.setAttribute('aria-label', isVisible ? 'Hide section' : 'Show section');
+      visibilityToggle.innerHTML = `<span class="visibility-icon">${isVisible ? '👁️' : '👁️‍🗨️'}</span>`;
+      visibilityToggle.addEventListener('click', e => {
+        e.stopPropagation();
+        this.toggleSectionVisibility(sectionId, visibilityToggle);
+      });
+
+      // Create edit title button
+      const editTitleBtn = document.createElement('button');
+      editTitleBtn.className = 'edit-title-btn';
+      editTitleBtn.setAttribute('aria-label', 'Edit section title');
+      editTitleBtn.innerHTML = '✏️';
+      editTitleBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        this.editSectionTitle(sectionId);
+      });
+
+      // Wrap title text for editing
+      const titleText = titleSpan.childNodes[1]; // Text node after icon
+      if (titleText && titleText.nodeType === Node.TEXT_NODE) {
+        const titleTextSpan = document.createElement('span');
+        titleTextSpan.className = 'accordion-title-text';
+        titleTextSpan.textContent = titleText.textContent.trim();
+        titleSpan.replaceChild(titleTextSpan, titleText);
+      }
+
+      // Create move buttons for keyboard accessibility
+      const moveButtons = document.createElement('div');
+      moveButtons.className = 'move-buttons';
+      moveButtons.innerHTML = `
+        <button class="move-btn move-up" aria-label="Move section up" title="Move up">▲</button>
+        <button class="move-btn move-down" aria-label="Move section down" title="Move down">▼</button>
+      `;
+      moveButtons.querySelector('.move-up').addEventListener('click', e => {
+        e.stopPropagation();
+        this.moveSection(section, 'up');
+      });
+      moveButtons.querySelector('.move-down').addEventListener('click', e => {
+        e.stopPropagation();
+        this.moveSection(section, 'down');
+      });
+
+      // Insert controls
+      header.insertBefore(dragHandle, header.firstChild);
+      titleSpan.appendChild(editTitleBtn);
+      header.insertBefore(visibilityToggle, header.querySelector('.accordion-icon'));
+      header.insertBefore(moveButtons, header.querySelector('.accordion-icon'));
+
+      // Apply hidden state if section was hidden
+      if (!isVisible) {
+        section.classList.add('hidden-by-user');
+      }
+    });
+  }
+
+  /**
+   * Initialize SortableJS for sections and features
+   */
+  initSortables() {
+    const main = document.querySelector('.popup-main');
+
+    // Section-level sortable
+    this.sectionSortable = new Sortable(main, {
+      handle: '.drag-handle',
+      animation: 200,
+      ghostClass: 'section-ghost',
+      chosenClass: 'section-chosen',
+      dragClass: 'section-dragging',
+      filter: '.visibility-toggle, .edit-title-btn, .move-buttons',
+      onEnd: () => {
+        this.saveLayout();
+        this.announceForScreenReader('Section order updated');
+      },
+    });
+
+    // Feature-level sortables (one per accordion content)
+    document.querySelectorAll('.accordion-content').forEach(content => {
+      // Inject feature drag handles
+      this.injectFeatureControls(content);
+
+      const sortable = new Sortable(content, {
+        handle: '.feature-drag-handle',
+        animation: 150,
+        ghostClass: 'feature-ghost',
+        chosenClass: 'feature-chosen',
+        filter: '.feature-visibility-toggle',
+        draggable: '.control-section',
+        onEnd: () => {
+          this.saveLayout();
+          this.announceForScreenReader('Feature order updated');
+        },
+      });
+      this.featureSortables.push(sortable);
+    });
+  }
+
+  /**
+   * Inject drag handles into feature control sections
+   */
+  injectFeatureControls(content) {
+    const features = content.querySelectorAll('.control-section');
+
+    features.forEach(feature => {
+      // Skip if already has controls or is a sub-option container
+      if (feature.querySelector('.feature-drag-handle')) {
+        return;
+      }
+      if (feature.classList.contains('hidden')) {
+        return;
+      }
+
+      const toggleControl = feature.querySelector('.toggle-control');
+      if (!toggleControl) {
+        return;
+      }
+
+      const label = toggleControl.querySelector('.toggle-label');
+      if (!label) {
+        return;
+      }
+
+      // Create feature drag handle
+      const dragHandle = document.createElement('span');
+      dragHandle.className = 'feature-drag-handle';
+      dragHandle.innerHTML = '⠿';
+      dragHandle.setAttribute('aria-hidden', 'true');
+
+      // Insert at start of label
+      label.insertBefore(dragHandle, label.firstChild);
+    });
+  }
+
+  /**
+   * Destroy all sortable instances
+   */
+  destroySortables() {
+    if (this.sectionSortable) {
+      this.sectionSortable.destroy();
+      this.sectionSortable = null;
+    }
+
+    this.featureSortables.forEach(sortable => sortable.destroy());
+    this.featureSortables = [];
+  }
+
+  /**
+   * Toggle section visibility
+   */
+  toggleSectionVisibility(sectionId, toggleBtn) {
+    const section = document.querySelector(`[data-section="${sectionId}"]`);
+    const isCurrentlyVisible = toggleBtn.getAttribute('aria-pressed') === 'true';
+    const newVisibility = !isCurrentlyVisible;
+
+    // Update button state
+    toggleBtn.setAttribute('aria-pressed', newVisibility ? 'true' : 'false');
+    toggleBtn.setAttribute('aria-label', newVisibility ? 'Hide section' : 'Show section');
+    toggleBtn.querySelector('.visibility-icon').textContent = newVisibility ? '👁️' : '👁️‍🗨️';
+
+    // Update section class
+    if (newVisibility) {
+      section.classList.remove('hidden-by-user');
+    } else {
+      section.classList.add('hidden-by-user');
+    }
+
+    // Save to settings
+    this.saveLayout();
+    this.announceForScreenReader(`Section ${newVisibility ? 'shown' : 'hidden'}`);
+  }
+
+  /**
+   * Edit section title inline
+   */
+  editSectionTitle(sectionId) {
+    const section = document.querySelector(`[data-section="${sectionId}"]`);
+    const titleTextSpan = section.querySelector('.accordion-title-text');
+    if (!titleTextSpan) {
+      return;
+    }
+
+    const currentTitle = titleTextSpan.textContent;
+
+    // Create input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentTitle;
+    input.className = 'title-edit-input';
+    input.setAttribute('aria-label', 'Edit section title');
+
+    // Replace span with input
+    titleTextSpan.replaceWith(input);
+    input.focus();
+    input.select();
+
+    // Handle save on blur or enter
+    const saveEdit = () => {
+      const newTitle = input.value.trim() || currentTitle;
+
+      // Create new span
+      const newSpan = document.createElement('span');
+      newSpan.className = 'accordion-title-text';
+      newSpan.textContent = newTitle;
+
+      input.replaceWith(newSpan);
+
+      // Save to settings
+      if (!this.popup.settings.ui_layout) {
+        this.popup.settings.ui_layout = {};
+      }
+      if (!this.popup.settings.ui_layout.sectionTitles) {
+        this.popup.settings.ui_layout.sectionTitles = {};
+      }
+      this.popup.settings.ui_layout.sectionTitles[sectionId] = newTitle;
+      this.saveLayout();
+
+      this.announceForScreenReader(`Section renamed to ${newTitle}`);
+    };
+
+    input.addEventListener('blur', saveEdit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+      } else if (e.key === 'Escape') {
+        input.value = currentTitle;
+        input.blur();
+      }
+    });
+  }
+
+  /**
+   * Move section up or down (keyboard accessibility)
+   */
+  moveSection(section, direction) {
+    const main = document.querySelector('.popup-main');
+    const sections = Array.from(main.querySelectorAll('.accordion-section'));
+    const currentIndex = sections.indexOf(section);
+
+    if (direction === 'up' && currentIndex > 0) {
+      main.insertBefore(section, sections[currentIndex - 1]);
+    } else if (direction === 'down' && currentIndex < sections.length - 1) {
+      main.insertBefore(sections[currentIndex + 1], section);
+    }
+
+    this.saveLayout();
+    this.updateMoveButtons();
+    this.announceForScreenReader(`Section moved ${direction}`);
+  }
+
+  /**
+   * Update move button disabled states
+   */
+  updateMoveButtons() {
+    const sections = document.querySelectorAll('.accordion-section');
+    sections.forEach((section, index) => {
+      const moveUp = section.querySelector('.move-up');
+      const moveDown = section.querySelector('.move-down');
+      if (moveUp) {
+        moveUp.disabled = index === 0;
+      }
+      if (moveDown) {
+        moveDown.disabled = index === sections.length - 1;
+      }
+    });
+  }
+
+  /**
+   * Setup keyboard navigation for organize mode
+   */
+  setupKeyboardNav() {
+    this.keyHandler = e => {
+      if (!this.isActive) {
+        return;
+      }
+
+      // Escape to exit
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.exit();
+        return;
+      }
+
+      // Alt+Up/Down to move focused section
+      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        const focused = document.activeElement.closest('.accordion-section');
+        if (focused) {
+          e.preventDefault();
+          this.moveSection(focused, e.key === 'ArrowUp' ? 'up' : 'down');
+        }
+      }
+    };
+
+    document.addEventListener('keydown', this.keyHandler);
+  }
+
+  /**
+   * Capture current state for potential undo
+   */
+  captureState() {
+    return {
+      sectionOrder: this.getSectionOrder(),
+      sectionVisibility: { ...this.popup.settings?.ui_layout?.sectionVisibility },
+      sectionTitles: { ...this.popup.settings?.ui_layout?.sectionTitles },
+    };
+  }
+
+  /**
+   * Get current section order from DOM
+   */
+  getSectionOrder() {
+    const sections = document.querySelectorAll('.accordion-section');
+    return Array.from(sections).map(s => s.dataset.section);
+  }
+
+  /**
+   * Get current feature order from DOM
+   */
+  getFeatureOrder() {
+    const featureOrder = {};
+    document.querySelectorAll('.accordion-section').forEach(section => {
+      const sectionId = section.dataset.section;
+      const content = section.querySelector('.accordion-content');
+      if (content) {
+        const features = content.querySelectorAll('.control-section[id]');
+        featureOrder[sectionId] = Array.from(features).map(f => {
+          // Extract feature ID from section ID (e.g., 'tts-section' -> 'tts')
+          return f.id.replace('-section', '');
+        });
+      }
+    });
+    return featureOrder;
+  }
+
+  /**
+   * Save current layout to settings
+   */
+  async saveLayout() {
+    // Initialize ui_layout if needed
+    if (!this.popup.settings.ui_layout) {
+      this.popup.settings.ui_layout = {};
+    }
+
+    // Update section order
+    this.popup.settings.ui_layout.sectionOrder = this.getSectionOrder();
+
+    // Update section visibility
+    if (!this.popup.settings.ui_layout.sectionVisibility) {
+      this.popup.settings.ui_layout.sectionVisibility = {};
+    }
+    document.querySelectorAll('.accordion-section').forEach(section => {
+      const sectionId = section.dataset.section;
+      this.popup.settings.ui_layout.sectionVisibility[sectionId] =
+        !section.classList.contains('hidden-by-user');
+    });
+
+    // Update feature order
+    this.popup.settings.ui_layout.featureOrder = this.getFeatureOrder();
+
+    // Save settings
+    await this.popup.saveSettings();
+    console.log('[OrganizeMode] Layout saved:', this.popup.settings.ui_layout);
+  }
+
+  /**
+   * Apply saved layout on popup load
+   */
+  applyLayout() {
+    const layout = this.popup.settings?.ui_layout;
+    if (!layout) {
+      return;
+    }
+
+    const main = document.querySelector('.popup-main');
+
+    // Apply section order
+    if (layout.sectionOrder) {
+      layout.sectionOrder.forEach(sectionId => {
+        const section = document.querySelector(`[data-section="${sectionId}"]`);
+        if (section) {
+          main.appendChild(section);
+        }
+      });
+    }
+
+    // Apply section visibility
+    if (layout.sectionVisibility) {
+      Object.entries(layout.sectionVisibility).forEach(([sectionId, visible]) => {
+        const section = document.querySelector(`[data-section="${sectionId}"]`);
+        if (section) {
+          section.classList.toggle('hidden-by-user', !visible);
+        }
+      });
+    }
+
+    // Apply custom titles
+    if (layout.sectionTitles) {
+      Object.entries(layout.sectionTitles).forEach(([sectionId, title]) => {
+        const section = document.querySelector(`[data-section="${sectionId}"]`);
+        if (section) {
+          const titleSpan = section.querySelector('.accordion-title');
+          if (titleSpan) {
+            // Check if title-text span exists
+            const titleTextSpan = titleSpan.querySelector('.accordion-title-text');
+            if (titleTextSpan) {
+              titleTextSpan.textContent = title;
+            } else {
+              // Replace text node
+              const textNode = Array.from(titleSpan.childNodes).find(
+                n => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
+              );
+              if (textNode) {
+                textNode.textContent = ' ' + title;
+              }
+            }
+          }
+        }
+      });
+    }
+
+    console.log('[OrganizeMode] Layout applied');
+  }
+
+  /**
+   * Show toast notification
+   */
+  showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'layout-toast';
+    toast.textContent = message;
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toast);
+
+    // Remove after animation
+    setTimeout(() => toast.remove(), 1500);
+  }
+
+  /**
+   * Announce message for screen readers
+   */
+  announceForScreenReader(message) {
+    let region = document.querySelector('.sr-live-region');
+    if (!region) {
+      region = document.createElement('div');
+      region.className = 'sr-live-region';
+      region.setAttribute('aria-live', 'polite');
+      region.setAttribute('aria-atomic', 'true');
+      document.body.appendChild(region);
+    }
+    region.textContent = message;
+  }
+}
 
 class PopupController {
   constructor() {
@@ -22,6 +575,7 @@ class PopupController {
     this.isInitialized = false;
     this.citationPanel = null;
     this.citationPanelExpanded = false;
+    this.organizeMode = new OrganizeMode(this);
   }
 
   async initialize() {
@@ -40,9 +594,36 @@ class PopupController {
     this.updateUI();
     this.loadVoices();
 
+    // Apply saved layout (section order, visibility, custom titles)
+    this.organizeMode.applyLayout();
+
+    // Setup organize mode event listeners
+    this.setupOrganizeModeListeners();
+
     this.isInitialized = true;
     this.updateStatus('Ready');
     console.log('[Popup] Initialized');
+  }
+
+  /**
+   * Setup event listeners for organize mode
+   */
+  setupOrganizeModeListeners() {
+    // Organize button in header
+    const organizeBtn = document.getElementById('btn-organize');
+    if (organizeBtn) {
+      organizeBtn.addEventListener('click', () => {
+        this.organizeMode.toggle();
+      });
+    }
+
+    // Done button in organize banner
+    const doneBtn = document.getElementById('btn-organize-done');
+    if (doneBtn) {
+      doneBtn.addEventListener('click', () => {
+        this.organizeMode.exit();
+      });
+    }
   }
 
   async loadSettings() {
@@ -3755,7 +4336,7 @@ class PopupController {
     const engineNameDisplay = document.getElementById('stt-engine-name');
     const engineOfflineBadge = document.getElementById('stt-engine-offline-badge');
     const preferOfflineCheckbox = document.getElementById('stt-prefer-offline');
-    // eslint-disable-next-line no-unused-vars
+
     const whisperDownloadSection = document.getElementById('stt-whisper-download');
 
     if (engineSelect) {
@@ -3772,10 +4353,10 @@ class PopupController {
       // Update engine status display
       const updateEngineStatus = (engineType, isOffline = false) => {
         const engineNames = {
-          'auto': 'Auto (selecting...)',
-          'whisper': 'Whisper (Offline)',
+          auto: 'Auto (selecting...)',
+          whisper: 'Whisper (Offline)',
           'web-speech': 'Web Speech API',
-          'azure': 'Azure Speech Services'
+          azure: 'Azure Speech Services',
         };
 
         if (engineNameDisplay) {
@@ -3986,8 +4567,7 @@ class PopupController {
             confidenceThresholdValue.textContent = `${value}%`;
           }
           // Update color based on value
-          const color =
-            value >= 85 ? '#22c55e' : value >= 60 ? '#eab308' : '#ef4444';
+          const color = value >= 85 ? '#22c55e' : value >= 60 ? '#eab308' : '#ef4444';
           confidenceThresholdValue.style.color = color;
         });
 
@@ -4755,7 +5335,9 @@ class PopupController {
     const wordsEl = document.getElementById('stt-stats-words');
     const durationEl = document.getElementById('stt-stats-duration');
 
-    if (wpmEl) wpmEl.textContent = stats.wordsPerMinute || 0;
+    if (wpmEl) {
+      wpmEl.textContent = stats.wordsPerMinute || 0;
+    }
     if (accuracyEl) {
       const accuracy = stats.averageConfidence || 0;
       accuracyEl.textContent = `${accuracy}%`;
@@ -4763,8 +5345,12 @@ class PopupController {
       const color = accuracy >= 85 ? '#22c55e' : accuracy >= 60 ? '#eab308' : '#ef4444';
       accuracyEl.style.color = color;
     }
-    if (wordsEl) wordsEl.textContent = stats.totalWords || 0;
-    if (durationEl) durationEl.textContent = `${stats.duration || 0}m`;
+    if (wordsEl) {
+      wordsEl.textContent = stats.totalWords || 0;
+    }
+    if (durationEl) {
+      durationEl.textContent = `${stats.duration || 0}m`;
+    }
   }
 
   // ============================================================
@@ -5412,68 +5998,119 @@ class PopupController {
   }
 
   profiles_populateSelector() {
+    // Populate main popup selector (if exists)
     const selector = document.getElementById('profile-select');
-    selector.innerHTML = '';
+    if (selector) {
+      selector.innerHTML = '';
+      Object.keys(this.profiles).forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        option.selected = name === this.activeProfile;
+        selector.appendChild(option);
+      });
+    }
 
-    // Add profiles to selector
-    Object.keys(this.profiles).forEach(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      option.selected = name === this.activeProfile;
-      selector.appendChild(option);
-    });
+    // Populate modal selector (if exists)
+    const modalSelector = document.getElementById('modal-profile-select');
+    if (modalSelector) {
+      modalSelector.innerHTML = '';
+      Object.keys(this.profiles).forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        option.selected = name === this.activeProfile;
+        modalSelector.appendChild(option);
+      });
+    }
   }
 
   profiles_setupEventListeners() {
-    // Profile selector change
+    // Profile selector change (may be in main popup or modal)
     const selector = document.getElementById('profile-select');
-    selector.addEventListener('change', e => {
-      this.profiles_loadProfile(e.target.value);
-    });
+    if (selector) {
+      selector.addEventListener('change', e => {
+        this.profiles_loadProfile(e.target.value);
+      });
+    }
 
-    // Save current button
-    document.getElementById('btn-save-profile').addEventListener('click', () => {
-      this.profiles_showSaveModal();
-    });
+    // Modal profile selector (in advanced settings)
+    const modalSelector = document.getElementById('modal-profile-select');
+    if (modalSelector) {
+      modalSelector.addEventListener('change', e => {
+        this.profiles_loadProfile(e.target.value);
+      });
+    }
+
+    // Save current button (may be removed from main popup)
+    const saveBtn = document.getElementById('btn-save-profile');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        this.profiles_showSaveModal();
+      });
+    }
 
     // Export button
-    document.getElementById('btn-export-profiles').addEventListener('click', () => {
-      this.profiles_export();
-    });
+    const exportBtn = document.getElementById('btn-export-profiles');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        this.profiles_export();
+      });
+    }
 
     // Import button
-    document.getElementById('btn-import-profiles').addEventListener('click', () => {
-      document.getElementById('profile-import-input').click();
-    });
+    const importBtn = document.getElementById('btn-import-profiles');
+    if (importBtn) {
+      importBtn.addEventListener('click', () => {
+        const importInput = document.getElementById('profile-import-input');
+        if (importInput) {
+          importInput.click();
+        }
+      });
+    }
 
     // Import file input
-    document.getElementById('profile-import-input').addEventListener('change', e => {
-      this.profiles_import(e.target.files[0]);
-    });
+    const importInput = document.getElementById('profile-import-input');
+    if (importInput) {
+      importInput.addEventListener('change', e => {
+        this.profiles_import(e.target.files[0]);
+      });
+    }
 
     // Save profile modal
-    document.getElementById('btn-cancel-save-profile').addEventListener('click', () => {
-      document.getElementById('save-profile-modal').classList.add('hidden');
-    });
+    const cancelSaveBtn = document.getElementById('btn-cancel-save-profile');
+    if (cancelSaveBtn) {
+      cancelSaveBtn.addEventListener('click', () => {
+        document.getElementById('save-profile-modal')?.classList.add('hidden');
+      });
+    }
 
-    document.getElementById('btn-confirm-save-profile').addEventListener('click', () => {
-      this.profiles_saveNew();
-    });
+    const confirmSaveBtn = document.getElementById('btn-confirm-save-profile');
+    if (confirmSaveBtn) {
+      confirmSaveBtn.addEventListener('click', () => {
+        this.profiles_saveNew();
+      });
+    }
 
     // Delete profile modal
-    document.getElementById('btn-cancel-delete-profile').addEventListener('click', () => {
-      document.getElementById('delete-profile-modal').classList.add('hidden');
-    });
+    const cancelDeleteBtn = document.getElementById('btn-cancel-delete-profile');
+    if (cancelDeleteBtn) {
+      cancelDeleteBtn.addEventListener('click', () => {
+        document.getElementById('delete-profile-modal')?.classList.add('hidden');
+      });
+    }
 
-    document.getElementById('btn-confirm-delete-profile').addEventListener('click', () => {
-      this.profiles_confirmDelete();
-    });
+    const confirmDeleteBtn = document.getElementById('btn-confirm-delete-profile');
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener('click', () => {
+        this.profiles_confirmDelete();
+      });
+    }
 
     // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', () => {
-        overlay.closest('.modal').classList.add('hidden');
+        overlay.closest('.modal')?.classList.add('hidden');
       });
     });
   }
@@ -6154,45 +6791,45 @@ class PopupController {
 
     // VRAM tier configurations
     const VRAM_TIERS = {
-      'auto': {
+      auto: {
         quality: 'Auto-detect',
         models: 'Based on installed models',
-        preferredModel: null // Use auto-detection
+        preferredModel: null, // Use auto-detection
       },
       '2gb': {
         quality: '15-30%',
         models: 'phi3:mini, llama3.2',
-        preferredModel: 'phi3:mini'
+        preferredModel: 'phi3:mini',
       },
       '4gb': {
         quality: '30-45%',
         models: 'gemma3:4b, llama3.2, phi3:mini',
-        preferredModel: 'gemma3:4b'
+        preferredModel: 'gemma3:4b',
       },
       '8gb': {
         quality: '55-70%',
         models: 'mistral:7b, qwen2.5:7b',
-        preferredModel: 'mistral:7b-instruct'
+        preferredModel: 'mistral:7b-instruct',
       },
       '12gb': {
         quality: '65-75%',
         models: 'llama3.1:8b, mixtral:8x7b',
-        preferredModel: 'llama3.1:8b'
+        preferredModel: 'llama3.1:8b',
       },
       '16gb': {
         quality: '75-85%',
         models: 'llama3.1:70b-q4, qwen2.5:14b',
-        preferredModel: 'qwen2.5:14b'
+        preferredModel: 'qwen2.5:14b',
       },
       '24gb': {
         quality: '85-92%',
         models: 'llama3.1:70b, mixtral:8x22b',
-        preferredModel: 'llama3.1:70b'
-      }
+        preferredModel: 'llama3.1:70b',
+      },
     };
 
     // Update VRAM tier description
-    const updateVramDescription = (tier) => {
+    const updateVramDescription = tier => {
       const config = VRAM_TIERS[tier];
       if (config && vramTierDescription) {
         vramTierDescription.innerHTML = `
@@ -6208,7 +6845,7 @@ class PopupController {
       vramTierSelect.value = savedTier;
       updateVramDescription(savedTier);
 
-      vramTierSelect.addEventListener('change', async (e) => {
+      vramTierSelect.addEventListener('change', async e => {
         const selectedTier = e.target.value;
         this.settings.localLLM.vramTier = selectedTier;
 
@@ -6226,7 +6863,7 @@ class PopupController {
           await chrome.runtime.sendMessage({
             action: 'SET_VRAM_TIER',
             tier: selectedTier,
-            preferredModel: tierConfig?.preferredModel
+            preferredModel: tierConfig?.preferredModel,
           });
           console.log(`[Popup] VRAM tier set to ${selectedTier}`);
         } catch (error) {
@@ -6344,7 +6981,9 @@ class PopupController {
             cognitiveProfile: this.settings.localLLM.cognitiveProfile,
             features: this.settings.localLLM.features,
           };
-          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+            type: 'application/json',
+          });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -6421,10 +7060,12 @@ class PopupController {
       }
 
       // Notify content scripts about cloud mode change
-      chrome.runtime.sendMessage({
-        action: 'CLOUD_MODE_CHANGED',
-        enabled: enabled
-      }).catch(() => {});
+      chrome.runtime
+        .sendMessage({
+          action: 'CLOUD_MODE_CHANGED',
+          enabled: enabled,
+        })
+        .catch(() => {});
 
       this.updateStatus(enabled ? 'Cloud AI enabled' : 'Cloud AI disabled', 'success');
     });
@@ -6434,7 +7075,7 @@ class PopupController {
       btnExportJson.addEventListener('click', async () => {
         try {
           const response = await chrome.runtime.sendMessage({
-            action: 'EXPORT_USAGE_JSON'
+            action: 'EXPORT_USAGE_JSON',
           });
 
           if (response.success) {
@@ -6461,7 +7102,7 @@ class PopupController {
       btnExportCsv.addEventListener('click', async () => {
         try {
           const response = await chrome.runtime.sendMessage({
-            action: 'EXPORT_USAGE_CSV'
+            action: 'EXPORT_USAGE_CSV',
           });
 
           if (response.success) {
@@ -6489,7 +7130,7 @@ class PopupController {
         if (confirm('Clear all cloud usage data? This cannot be undone.')) {
           try {
             const response = await chrome.runtime.sendMessage({
-              action: 'CLEAR_USAGE_DATA'
+              action: 'CLEAR_USAGE_DATA',
             });
 
             if (response.success) {
@@ -6515,7 +7156,7 @@ class PopupController {
   async loadCloudUsageStats() {
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'GET_USAGE_STATS'
+        action: 'GET_USAGE_STATS',
       });
 
       if (response.success && response.data) {

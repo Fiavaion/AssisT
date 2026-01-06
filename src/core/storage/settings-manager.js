@@ -64,6 +64,88 @@ const DEFAULT_SETTINGS = {
     maxLocalEntries: 100, // Max annotations in local storage before suggesting IndexedDB
     autoMigrate: true, // Auto-migrate between storage modes when switching
   },
+  /**
+   * UI Layout settings for modular popup customization
+   * Allows users to reorder, rename, and hide sections/features
+   */
+  ui_layout: {
+    // Order of accordion sections in main popup (matches data-section in HTML)
+    sectionOrder: ['reading', 'writing', 'lookup', 'display', 'school', 'local-ai'],
+    // Visibility of each section (true = visible, false = hidden)
+    sectionVisibility: {
+      reading: true,
+      writing: true,
+      lookup: true,
+      display: true,
+      school: true,
+      'local-ai': true,
+    },
+    // Custom titles for sections (user-editable)
+    sectionTitles: {
+      reading: 'Reading Help',
+      writing: 'Writing Help',
+      lookup: 'Look Up Words',
+      display: 'Page Display',
+      school: 'School Tools',
+      'local-ai': 'Local AI',
+    },
+    // Order of features within each section
+    featureOrder: {
+      reading: ['tts', 'ocr', 'reading-mode', 'dyslexia-mode'],
+      writing: ['stt', 'annotations'],
+      lookup: ['dictionary', 'translation', 'highlight-menu'],
+      display: [
+        'text-customization',
+        'reading-guide',
+        'focus-mode',
+        'screen-overlay',
+        'reduced-motion',
+        'media-control',
+        'dark-mode',
+        'simplify',
+        'reading-progress',
+        'pomodoro',
+        'stargardt',
+      ],
+      school: ['citations', 'canvas', 'moodle', 'google-classroom'],
+      'local-ai': ['llm-core', 'llm-features'],
+    },
+    // Visibility of individual features within sections
+    featureVisibility: {
+      // Reading features
+      tts: true,
+      ocr: true,
+      'reading-mode': true,
+      'dyslexia-mode': true,
+      // Writing features
+      stt: true,
+      annotations: true,
+      // Lookup features
+      dictionary: true,
+      translation: true,
+      'highlight-menu': true,
+      // Display features
+      'text-customization': true,
+      'reading-guide': true,
+      'focus-mode': true,
+      'screen-overlay': true,
+      'reduced-motion': true,
+      'media-control': true,
+      'dark-mode': true,
+      simplify: true,
+      'reading-progress': true,
+      pomodoro: true,
+      stargardt: true,
+      // School tools (school section)
+      citations: true,
+      canvas: true,
+      moodle: true,
+      'google-classroom': true,
+      // Local AI (local-ai section)
+      'llm-core': true,
+      'llm-features': true,
+    },
+  },
 };
 
 /**
