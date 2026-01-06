@@ -1775,6 +1775,7 @@ class PopupController {
           <button class="modal-tab active" data-tab="features">Features</button>
           <button class="modal-tab" data-tab="keyboard">Keyboard</button>
           <button class="modal-tab" data-tab="appearance">Appearance</button>
+          <button class="modal-tab" data-tab="profiles">Profiles</button>
         </div>
 
         <div class="modal-body">
@@ -2180,6 +2181,104 @@ class PopupController {
               </div>
             </div>
           </div>
+
+          <!-- Profiles Tab -->
+          <div id="tab-profiles" class="tab-content">
+            <h3>Profile Management</h3>
+            <p class="tab-description">Save and switch between different configurations</p>
+
+            <div class="profiles-section-modal">
+              <!-- Active Profile Selection -->
+              <div class="profile-select-group">
+                <label for="modal-profile-select" class="profile-label">Active Profile:</label>
+                <select id="modal-profile-select" class="profile-select-modal">
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+
+              <!-- Profile Description -->
+              <div id="profile-description-modal" class="profile-description-modal">
+                <p>Select a profile to see its description</p>
+              </div>
+
+              <!-- Profile Actions -->
+              <div class="profile-actions-modal">
+                <button id="btn-profile-save-modal" class="profile-btn profile-btn-primary" title="Save current settings to a new profile">
+                  <span class="profile-btn-icon">💾</span>
+                  Save Current
+                </button>
+                <button id="btn-profile-delete-modal" class="profile-btn profile-btn-danger" title="Delete selected profile">
+                  <span class="profile-btn-icon">🗑️</span>
+                  Delete
+                </button>
+              </div>
+
+              <!-- Import/Export -->
+              <div class="profile-io-modal">
+                <h4>Import & Export</h4>
+                <div class="profile-io-buttons">
+                  <button id="btn-profile-export-modal" class="profile-btn profile-btn-secondary">
+                    <span class="profile-btn-icon">📤</span>
+                    Export All Profiles
+                  </button>
+                  <button id="btn-profile-import-modal" class="profile-btn profile-btn-secondary">
+                    <span class="profile-btn-icon">📥</span>
+                    Import Profiles
+                  </button>
+                  <input type="file" id="profile-import-input-modal" accept=".json" style="display: none;">
+                </div>
+              </div>
+
+              <!-- Default Profiles List -->
+              <div class="profile-presets-modal">
+                <h4>Available Presets</h4>
+                <div class="preset-list">
+                  <div class="preset-item">
+                    <span class="preset-icon">🎯</span>
+                    <div class="preset-info">
+                      <strong>ADHD Focus</strong>
+                      <span>Pomodoro timer, progress tracking, simplified interface</span>
+                    </div>
+                  </div>
+                  <div class="preset-item">
+                    <span class="preset-icon">🧘</span>
+                    <div class="preset-info">
+                      <strong>Autism Comfort</strong>
+                      <span>Reduced motion, calm colors, predictable behavior</span>
+                    </div>
+                  </div>
+                  <div class="preset-item">
+                    <span class="preset-icon">📖</span>
+                    <div class="preset-info">
+                      <strong>Dyslexia Support</strong>
+                      <span>OpenDyslexic font, wide spacing, reading progress</span>
+                    </div>
+                  </div>
+                  <div class="preset-item">
+                    <span class="preset-icon">🌙</span>
+                    <div class="preset-info">
+                      <strong>Night Study</strong>
+                      <span>Dark mode, reduced eye strain, Pomodoro timer</span>
+                    </div>
+                  </div>
+                  <div class="preset-item">
+                    <span class="preset-icon">🌿</span>
+                    <div class="preset-info">
+                      <strong>Sensory Sensitive</strong>
+                      <span>No animations, muted colors, media blocking</span>
+                    </div>
+                  </div>
+                  <div class="preset-item">
+                    <span class="preset-icon">💫</span>
+                    <div class="preset-info">
+                      <strong>Anxiety Calm</strong>
+                      <span>Gentle pacing, focus mode, calming colors</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -2199,6 +2298,145 @@ class PopupController {
 
     // Load current settings into modal
     this.loadModalSettings();
+
+    // Setup profiles tab
+    this.setupProfilesTab(modal);
+  }
+
+  /**
+   * Setup the Profiles tab in the advanced settings modal
+   * @param {HTMLElement} modal - The modal element
+   */
+  setupProfilesTab(modal) {
+    // Populate the profile selector
+    this.populateModalProfileSelector(modal);
+
+    // Profile selector change handler
+    const profileSelect = modal.querySelector('#modal-profile-select');
+    if (profileSelect) {
+      profileSelect.addEventListener('change', e => {
+        this.profiles_loadProfile(e.target.value);
+        this.updateProfileDescription(modal, e.target.value);
+      });
+    }
+
+    // Save profile button
+    const saveBtn = modal.querySelector('#btn-profile-save-modal');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        this.profiles_showSaveModal();
+        // Refresh selector after save
+        setTimeout(() => this.populateModalProfileSelector(modal), 500);
+      });
+    }
+
+    // Delete profile button
+    const deleteBtn = modal.querySelector('#btn-profile-delete-modal');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => {
+        this.profiles_confirmDelete();
+        // Refresh selector after delete
+        setTimeout(() => this.populateModalProfileSelector(modal), 500);
+      });
+    }
+
+    // Export profiles button
+    const exportBtn = modal.querySelector('#btn-profile-export-modal');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        this.profiles_export();
+      });
+    }
+
+    // Import profiles button
+    const importBtn = modal.querySelector('#btn-profile-import-modal');
+    const importInput = modal.querySelector('#profile-import-input-modal');
+    if (importBtn && importInput) {
+      importBtn.addEventListener('click', () => {
+        importInput.click();
+      });
+
+      importInput.addEventListener('change', async e => {
+        if (e.target.files[0]) {
+          await this.profiles_import(e.target.files[0]);
+          this.populateModalProfileSelector(modal);
+          e.target.value = ''; // Reset file input
+        }
+      });
+    }
+
+    // Initialize profile description
+    const currentProfile = this.currentProfileName || 'Default';
+    this.updateProfileDescription(modal, currentProfile);
+  }
+
+  /**
+   * Populate the profile selector in the modal
+   * @param {HTMLElement} modal - The modal element
+   */
+  populateModalProfileSelector(modal) {
+    const selector = modal.querySelector('#modal-profile-select');
+    if (!selector) {
+      return;
+    }
+
+    // Get profiles from storage
+    chrome.storage.local.get('assist_profiles', result => {
+      const profiles = result.assist_profiles || this.profiles_createDefaults();
+      const currentProfile = this.currentProfileName || 'Default';
+
+      selector.innerHTML = '';
+
+      Object.entries(profiles).forEach(([name, profile]) => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = profile.displayName || name;
+        if (name === currentProfile) {
+          option.selected = true;
+        }
+        selector.appendChild(option);
+      });
+    });
+  }
+
+  /**
+   * Update the profile description in the modal
+   * @param {HTMLElement} modal - The modal element
+   * @param {string} profileName - The selected profile name
+   */
+  updateProfileDescription(modal, profileName) {
+    const descriptionEl = modal.querySelector('#profile-description-modal p');
+    if (!descriptionEl) {
+      return;
+    }
+
+    chrome.storage.local.get('assist_profiles', result => {
+      const profiles = result.assist_profiles || {};
+      const profile = profiles[profileName];
+
+      if (profile && profile.description) {
+        descriptionEl.textContent = profile.description;
+      } else {
+        // Default descriptions for built-in profiles
+        const defaultDescriptions = {
+          Default: 'Standard settings with all features available.',
+          'ADHD Focus':
+            'Optimized for focus and productivity with Pomodoro timer, progress tracking, and simplified interface.',
+          'Autism Comfort':
+            'Calm, predictable environment with reduced motion, gentle colors, and consistent behavior.',
+          'Dyslexia Support':
+            'Enhanced readability with OpenDyslexic font, increased spacing, and reading progress indicator.',
+          'Sensory Sensitive':
+            'Minimal sensory input with no animations, muted colors, and auto-playing media blocked.',
+          'Night Study':
+            'Reduced eye strain with dark mode, warm colors, and Pomodoro timer for study sessions.',
+          'Anxiety Calm':
+            'Gentle, non-overwhelming interface with calm colors and predictable interactions.',
+        };
+        descriptionEl.textContent =
+          defaultDescriptions[profileName] || 'Custom profile with user-defined settings.';
+      }
+    });
   }
 
   setupModalTabs(modal) {
