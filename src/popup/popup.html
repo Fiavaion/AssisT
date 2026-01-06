@@ -42,6 +42,15 @@
           >
             <span class="header-btn-icon">⚙️</span>
           </button>
+          <button
+            id="btn-organize"
+            class="header-btn"
+            data-testid="organize-button"
+            title="Organize popup layout"
+            aria-label="Toggle organize mode"
+          >
+            <span class="header-btn-icon">📐</span>
+          </button>
         </div>
         <p class="subtitle">Learning Support Tools</p>
         <!-- Discovery Quiz Button -->
@@ -57,49 +66,13 @@
         </button>
       </header>
 
-      <!-- Profile Section -->
-      <section class="profile-section">
-        <div class="profile-selector-container">
-          <label for="profile-select" class="profile-label">👤 Profile:</label>
-          <select
-            id="profile-select"
-            data-testid="profile-select"
-            class="profile-select"
-            aria-label="Select profile"
-          >
-            <option value="Default">Default</option>
-          </select>
-        </div>
-        <div class="profile-actions">
-          <button
-            id="btn-save-profile"
-            data-testid="profile-save-button"
-            class="profile-action-btn"
-            title="Save current settings as profile"
-            aria-label="Save current settings"
-          >
-            <span>💾 Save</span>
-          </button>
-          <button
-            id="btn-export-profiles"
-            data-testid="profile-export-button"
-            class="profile-action-btn"
-            title="Export all profiles"
-            aria-label="Export profiles"
-          >
-            <span>📤</span>
-          </button>
-          <button
-            id="btn-import-profiles"
-            data-testid="profile-import-button"
-            class="profile-action-btn"
-            title="Import profiles"
-            aria-label="Import profiles"
-          >
-            <span>📥</span>
-          </button>
-        </div>
-      </section>
+      <!-- Organize Mode Banner (hidden by default, shown in organize mode) -->
+      <div id="organize-banner" class="organize-banner hidden">
+        <span class="organize-banner-text"
+          >✨ Organize Mode - Drag to reorder, click eye to hide</span
+        >
+        <button id="btn-organize-done" class="organize-done-btn">Done</button>
+      </div>
 
       <!-- Main Controls -->
       <main class="popup-main">
