@@ -20,8 +20,8 @@ export default defineConfig({
   ],
 
   build: {
-    // Output to AssistLLM directory (LLM Edition build)
-    outDir: 'AssistLLM',
+    // Output to .vite directory (Chrome loads extension from here)
+    outDir: '.vite',
     emptyOutDir: true,
 
     // Enable source maps for debugging
