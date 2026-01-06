@@ -22,8 +22,8 @@
     "dev:llm": "vite build --watch --config vite.config.llm.js",
     "postbuild": "node scripts/inject-popup-scripts.js",
     "prepare": "husky",
-    "switch:assist": "node -e \"require('fs').copyFileSync('manifest.assist.json', 'manifest.json')\" && echo Switched to AssisT version",
-    "switch:ncad": "node -e \"require('fs').copyFileSync('manifest.ncad.json', 'manifest.json')\" && echo Switched to @NCAD version",
+    "switch:assist": "node -e \"require('fs').copyFileSync('manifest.assist.json', 'manifest.json')\" && node scripts/apply-branding.cjs && npm run build && echo Switched to AssisT - reload extension from .vite/",
+    "switch:ncad": "node -e \"require('fs').copyFileSync('manifest.ncad.json', 'manifest.json')\" && node scripts/apply-branding.cjs && npm run build && echo Switched to @NCAD - reload extension from .vite/",
     "docs:build": "node scripts/build-docs.cjs",
     "docs:watch": "node scripts/build-docs.cjs --watch"
   },

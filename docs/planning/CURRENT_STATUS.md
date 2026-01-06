@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2025-12-07
+**Last Updated**: 2026-01-06
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
-**Current Phase**: Phase 2 Extension - LLM Benchmarking
+**Current Phase**: Phase 2 Extension - Branding Infrastructure
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: main (Phase 2 COMPLETE + LLM Edition Layer 2 COMPLETE - All 6 AI Features)
-**Session**: Phase 2 Session 063 (Benchmark-Optimized Model Defaults)
+**Session**: Phase 2 Session 064 (Safe Branding System & CLAUDE.md Authority)
 
 ---
 
@@ -47,6 +47,46 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 064 (2026-01-06)
+
+**Safe Branding System & CLAUDE.md Authority**
+
+**Key Accomplishments**:
+
+1. **Critical Fix: Build Output Directory** (100%):
+   - Fixed vite.config.js outDir from 'AssistLLM' to '.vite' per CLAUDE.md
+   - Resolved extension breakage from previous session
+
+2. **CLAUDE.md Authority Documentation** (100%):
+   - Created LESSONS_CLAUDE_MD_AUTHORITY.md documenting failure mode
+   - Added ABSOLUTE RULE #0 to CLAUDE.md
+   - Established hierarchy: CLAUDE.md > User instructions > Other docs > Config files
+
+3. **Safe Branding System** (100%):
+   - Created branding.config.json with brand definitions
+   - Created scripts/apply-branding.cjs for build-time HTML preprocessing
+   - Updated package.json switch scripts
+   - Synced manifest.assist.json and manifest.ncad.json permissions
+
+**Files Created**:
+
+- branding.config.json (brand definitions)
+- scripts/apply-branding.cjs (build-time branding script)
+- LESSONS_CLAUDE_MD_AUTHORITY.md (failure documentation)
+- docs/sessions/phase2-session-064.md
+
+**Files Modified**:
+
+- vite.config.js (outDir fix)
+- CLAUDE.md (added ABSOLUTE RULE #0)
+- package.json (switch scripts)
+- manifest.assist.json, manifest.ncad.json (permissions synced)
+
+**Build Status**: ✅ Successful (.vite)
+**Current Branding**: @NCAD
+
+---
 
 ### Phase 2 Session 063 (2025-12-07)
 
@@ -2222,10 +2262,10 @@
 
 ## 📝 Session Context
 
-**Session Type**: Benchmark-Optimized Model Defaults (Session 063 Complete)
-**Working Files**: AI feature modules, highlightMenu.js
-**Last Commit**: be20394 - fix(docs): rename NCAD to ND-Ready for terminology clarity
-**Next Commit**: docs(session): end Phase 2 session 063 - benchmark-optimized model defaults
+**Session Type**: Safe Branding System & CLAUDE.md Authority (Session 064 Complete)
+**Working Files**: vite.config.js, branding.config.json, apply-branding.cjs, manifest files
+**Last Commit**: 364c80e - feat(ui): add benchmark-optimized model defaults and highlight menu 3x5 layout
+**Next Commit**: docs(session): end Phase 2 session 064 - safe branding system
 **Branch**: main
 
 **Notes**:

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AssisT: Adaptive Accessibility Tool",
+  "name": "@NCAD",
   "version": "0.1.0",
-  "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
+  "description": "NCAD accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for Canvas VLE",
   "author": "AssisT Development Team",
 
   "icons": {
@@ -60,7 +60,7 @@
       "48": "public/icons/icon48.png",
       "128": "public/icons/icon128.png"
     },
-    "default_title": "AssisT - Adaptive Accessibility"
+    "default_title": "@NCAD - Adaptive Accessibility"
   },
 
   "web_accessible_resources": [
