@@ -2096,44 +2096,64 @@ class PopupController {
             <h3>Keyboard Shortcuts</h3>
             <p class="tab-description">Customize keyboard shortcuts for extension features</p>
 
-            <div class="shortcuts-warning" style="margin-bottom: 16px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
-              <strong style="color: #856404;">⚠️ Important:</strong>
-              <span style="color: #856404; font-size: 13px;">Shortcuts must include a modifier key (Ctrl, Alt, or Shift). Chrome reserved shortcuts cannot be used.</span>
+            <!-- Shortcut Presets -->
+            <div class="shortcuts-presets">
+              <label class="shortcuts-preset-label">Quick Presets:</label>
+              <div class="shortcuts-preset-buttons">
+                <button class="preset-btn active" data-preset="default">Default</button>
+                <button class="preset-btn" data-preset="minimal">Minimal</button>
+                <button class="preset-btn" data-preset="oneHanded">One-Handed</button>
+              </div>
             </div>
 
-            <div class="shortcuts-table-container">
-              <table class="shortcuts-table" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                  <tr style="border-bottom: 2px solid #e0e0e0;">
-                    <th style="text-align: left; padding: 12px 8px; font-size: 14px; color: #666;">Feature</th>
-                    <th style="text-align: left; padding: 12px 8px; font-size: 14px; color: #666;">Shortcut</th>
-                    <th style="text-align: center; padding: 12px 8px; font-size: 14px; color: #666;">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="shortcuts-table-body">
-                  <!-- Shortcuts will be populated dynamically -->
-                </tbody>
-              </table>
+            <div class="shortcuts-warning">
+              <span class="warning-icon">⚠️</span>
+              <span class="warning-text">Shortcuts must include a modifier key (Ctrl, Alt, or Shift). Chrome reserved shortcuts cannot be used.</span>
             </div>
 
-            <div class="shortcuts-actions" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px;">
-              <button id="btn-reset-shortcuts" class="modal-btn modal-btn-secondary" style="padding: 8px 16px; font-size: 14px;">
-                Reset to Defaults
+            <!-- Card-based Shortcuts Grid -->
+            <div id="shortcuts-grid" class="shortcuts-grid">
+              <!-- Cards populated dynamically -->
+            </div>
+
+            <div class="shortcuts-actions">
+              <button id="btn-reset-shortcuts" class="modal-btn modal-btn-secondary">
+                🔄 Reset to Defaults
               </button>
             </div>
 
-            <!-- Recording Mode Overlay (hidden by default) -->
-            <div id="shortcut-recording-overlay" class="recording-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; align-items: center; justify-content: center;">
-              <div class="recording-box" style="background: white; padding: 32px; border-radius: 12px; text-align: center; max-width: 400px;">
-                <h3 style="margin: 0 0 16px 0; color: #333;">Recording Shortcut</h3>
-                <p style="margin: 0 0 20px 0; color: #666;">Press your desired key combination...</p>
-                <div id="recording-display" style="padding: 16px; background: #f5f5f5; border-radius: 8px; font-size: 20px; font-weight: bold; color: #333; margin-bottom: 16px; min-height: 60px; display: flex; align-items: center; justify-content: center;">
-                  Waiting...
+            <!-- Enhanced Recording Mode Overlay -->
+            <div id="shortcut-recording-overlay" class="recording-overlay">
+              <div class="recording-box">
+                <h3 class="recording-title">Recording Shortcut</h3>
+                <p class="recording-subtitle">Press your desired key combination</p>
+
+                <!-- Modifier Keys Visual -->
+                <div class="modifier-keys">
+                  <span class="modifier-key" data-key="ctrl">Ctrl</span>
+                  <span class="modifier-key" data-key="alt">Alt</span>
+                  <span class="modifier-key" data-key="shift">Shift</span>
                 </div>
-                <div id="recording-error" style="color: #dc3545; font-size: 13px; margin-bottom: 16px; min-height: 20px;">
+
+                <!-- Current vs New Display -->
+                <div class="recording-comparison">
+                  <div class="recording-current">
+                    <span class="recording-label">Current</span>
+                    <kbd id="recording-current-key" class="shortcut-display">None</kbd>
+                  </div>
+                  <span class="recording-arrow">→</span>
+                  <div class="recording-new">
+                    <span class="recording-label">New</span>
+                    <kbd id="recording-display" class="shortcut-display">Press keys...</kbd>
+                  </div>
+                </div>
+
+                <div id="recording-error" class="recording-error">
                   <!-- Error messages appear here -->
                 </div>
-                <div style="display: flex; gap: 12px; justify-content: center;">
+
+                <div class="recording-actions">
+                  <button id="btn-recording-clear" class="modal-btn modal-btn-secondary">Clear</button>
                   <button id="btn-recording-cancel" class="modal-btn modal-btn-secondary">Cancel</button>
                   <button id="btn-recording-save" class="modal-btn modal-btn-primary" disabled>Save</button>
                 </div>
@@ -2826,55 +2846,58 @@ class PopupController {
 
   async loadKeyboardShortcuts() {
     const shortcuts = await loadShortcuts();
-    const tbody = document.getElementById('shortcuts-table-body');
+    const grid = document.getElementById('shortcuts-grid');
 
-    if (!tbody) {
+    if (!grid) {
       return;
     }
 
-    // Clear existing rows
-    tbody.innerHTML = '';
+    // Shortcut categories for grouping
+    const categories = {
+      tts_play_pause: 'Reading',
+      tts_stop: 'Reading',
+      ocr_activate: 'Reading',
+      reading_mode_toggle: 'Reading',
+      reading_mode_exit: 'Reading',
+      dictionary_lookup: 'Lookup',
+      translation_lookup: 'Lookup',
+      stt_toggle: 'Writing',
+      focus_mode_toggle: 'Display',
+      annotation_create: 'Writing',
+      pomodoro_toggle: 'Focus',
+      dark_mode_toggle: 'Display',
+      highlight_menu_toggle: 'Lookup',
+      profile_switch: 'Profile',
+    };
 
-    // Create a row for each shortcut
+    // Clear existing cards
+    grid.innerHTML = '';
+
+    // Create a card for each shortcut
     for (const [key, shortcut] of Object.entries(shortcuts)) {
-      const row = document.createElement('tr');
-      row.style.cssText = 'border-bottom: 1px solid #e0e0e0;';
+      const card = document.createElement('div');
+      card.className = 'shortcut-card';
+      card.setAttribute('data-shortcut', key);
 
-      row.innerHTML = `
-        <td style="padding: 12px 8px; font-size: 14px;">${SHORTCUT_LABELS[key] || key}</td>
-        <td style="padding: 12px 8px;">
-          <span class="shortcut-display" data-key="${key}" style="
-            display: inline-block;
-            padding: 6px 12px;
-            background: #f5f5f5;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 13px;
-            font-weight: 600;
-            color: #333;
-          ">${shortcut}</span>
-        </td>
-        <td style="padding: 12px 8px; text-align: center;">
-          <button class="btn-edit-shortcut" data-key="${key}" style="
-            padding: 6px 12px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-          ">Edit</button>
-        </td>
+      const displayShortcut = shortcut || 'Not set';
+      const isEmpty = !shortcut;
+
+      card.innerHTML = `
+        <div class="shortcut-info">
+          <span class="shortcut-name">${SHORTCUT_LABELS[key] || key}</span>
+          <span class="shortcut-category">${categories[key] || 'General'}</span>
+        </div>
+        <kbd class="shortcut-key${isEmpty ? ' empty' : ''}">${displayShortcut}</kbd>
+        <button class="shortcut-edit-btn" data-key="${key}" title="Edit shortcut">✏️</button>
       `;
 
-      tbody.appendChild(row);
+      grid.appendChild(card);
     }
 
     // Add event listeners to edit buttons
-    document.querySelectorAll('.btn-edit-shortcut').forEach(btn => {
+    grid.querySelectorAll('.shortcut-edit-btn').forEach(btn => {
       btn.addEventListener('click', e => {
-        const key = e.target.getAttribute('data-key');
+        const key = e.currentTarget.getAttribute('data-key');
         this.startShortcutRecording(key, shortcuts);
       });
     });
@@ -2890,34 +2913,139 @@ class PopupController {
         }
       };
     }
+
+    // Setup preset buttons
+    this.setupShortcutPresets();
+  }
+
+  /**
+   * Setup shortcut preset buttons
+   */
+  setupShortcutPresets() {
+    const presetBtns = document.querySelectorAll('.preset-btn');
+
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', async e => {
+        const preset = e.target.getAttribute('data-preset');
+
+        // Update active state
+        presetBtns.forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+
+        // Apply preset
+        await this.applyShortcutPreset(preset);
+      });
+    });
+  }
+
+  /**
+   * Apply a shortcut preset
+   * @param {string} preset - Preset name (default, minimal, oneHanded)
+   */
+  async applyShortcutPreset(preset) {
+    const presets = {
+      default: {
+        tts_play_pause: 'Ctrl+Shift+Space',
+        tts_stop: 'Ctrl+Shift+S',
+        ocr_activate: 'Alt+O',
+        reading_mode_toggle: 'Ctrl+Shift+R',
+        reading_mode_exit: 'Escape',
+        dictionary_lookup: 'Ctrl+Shift+D',
+      },
+      minimal: {
+        tts_play_pause: 'Ctrl+Space',
+        tts_stop: '',
+        ocr_activate: '',
+        reading_mode_toggle: 'Ctrl+R',
+        reading_mode_exit: 'Escape',
+        dictionary_lookup: '',
+      },
+      oneHanded: {
+        tts_play_pause: 'Alt+Q',
+        tts_stop: 'Alt+W',
+        ocr_activate: 'Alt+E',
+        reading_mode_toggle: 'Alt+A',
+        reading_mode_exit: 'Escape',
+        dictionary_lookup: 'Alt+S',
+      },
+    };
+
+    const selectedPreset = presets[preset];
+    if (!selectedPreset) {
+      return;
+    }
+
+    // Save preset shortcuts
+    for (const [key, value] of Object.entries(selectedPreset)) {
+      await updateShortcut(key, value);
+    }
+
+    // Reload the shortcuts display
+    this.loadKeyboardShortcuts();
+    this.updateStatus(`Applied "${preset}" shortcut preset`);
   }
 
   startShortcutRecording(featureKey, currentShortcuts) {
     const overlay = document.getElementById('shortcut-recording-overlay');
     const display = document.getElementById('recording-display');
+    const currentKeyDisplay = document.getElementById('recording-current-key');
     const errorDiv = document.getElementById('recording-error');
     const saveBtn = document.getElementById('btn-recording-save');
     const cancelBtn = document.getElementById('btn-recording-cancel');
+    const clearBtn = document.getElementById('btn-recording-clear');
+    const modifierKeys = document.querySelectorAll('.modifier-key');
 
     if (!overlay) {
       return;
     }
 
-    // Show overlay
-    overlay.style.display = 'flex';
+    // Show overlay with active class
+    overlay.classList.add('active');
+
+    // Show current shortcut
+    const currentShortcut = currentShortcuts[featureKey] || 'None';
+    if (currentKeyDisplay) {
+      currentKeyDisplay.textContent = currentShortcut;
+    }
 
     // Reset state
-    display.textContent = 'Waiting...';
+    display.textContent = 'Press keys...';
     errorDiv.textContent = '';
     saveBtn.disabled = true;
 
+    // Reset modifier key highlights
+    modifierKeys.forEach(key => key.classList.remove('active'));
+
     let recordedShortcut = null;
     let isValid = false;
+
+    // Update modifier key visuals
+    const updateModifierVisuals = e => {
+      modifierKeys.forEach(key => {
+        const keyName = key.getAttribute('data-key');
+        if (keyName === 'ctrl' && e.ctrlKey) {
+          key.classList.add('active');
+        } else if (keyName === 'alt' && e.altKey) {
+          key.classList.add('active');
+        } else if (keyName === 'shift' && e.shiftKey) {
+          key.classList.add('active');
+        } else if (!e.ctrlKey && keyName === 'ctrl') {
+          key.classList.remove('active');
+        } else if (!e.altKey && keyName === 'alt') {
+          key.classList.remove('active');
+        } else if (!e.shiftKey && keyName === 'shift') {
+          key.classList.remove('active');
+        }
+      });
+    };
 
     // Keyboard event handler
     const handleKeyPress = e => {
       e.preventDefault();
       e.stopPropagation();
+
+      // Update modifier visuals
+      updateModifierVisuals(e);
 
       // Convert event to shortcut string
       recordedShortcut = eventToShortcut(e);
@@ -2928,27 +3056,48 @@ class PopupController {
 
       if (validation.valid) {
         errorDiv.textContent = '';
-        errorDiv.style.color = '#28a745';
+        errorDiv.style.color = '#059669';
         errorDiv.textContent = '✓ Valid shortcut';
         saveBtn.disabled = false;
         isValid = true;
       } else {
-        errorDiv.style.color = '#dc3545';
+        errorDiv.style.color = '#dc2626';
         errorDiv.textContent = validation.error;
         saveBtn.disabled = true;
         isValid = false;
       }
     };
 
-    // Add keyboard listener
+    // Key up handler to update modifier visuals
+    const handleKeyUp = e => {
+      updateModifierVisuals(e);
+    };
+
+    // Add keyboard listeners
     document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener('keyup', handleKeyUp);
+
+    // Close overlay function
+    const closeOverlay = () => {
+      document.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener('keyup', handleKeyUp);
+      overlay.classList.remove('active');
+      modifierKeys.forEach(key => key.classList.remove('active'));
+    };
 
     // Cancel button
-    const cancelHandler = () => {
-      document.removeEventListener('keydown', handleKeyPress);
-      overlay.style.display = 'none';
-    };
-    cancelBtn.onclick = cancelHandler;
+    cancelBtn.onclick = closeOverlay;
+
+    // Clear button
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        recordedShortcut = null;
+        display.textContent = 'Press keys...';
+        errorDiv.textContent = '';
+        saveBtn.disabled = true;
+        modifierKeys.forEach(key => key.classList.remove('active'));
+      };
+    }
 
     // Save button
     saveBtn.onclick = async () => {
@@ -2957,15 +3106,11 @@ class PopupController {
         currentShortcuts[featureKey] = recordedShortcut;
         await saveShortcuts(currentShortcuts);
 
-        // Update display
-        const display = document.querySelector(`.shortcut-display[data-key="${featureKey}"]`);
-        if (display) {
-          display.textContent = recordedShortcut;
-        }
+        // Reload the shortcuts grid
+        this.loadKeyboardShortcuts();
 
         // Close overlay
-        document.removeEventListener('keydown', handleKeyPress);
-        overlay.style.display = 'none';
+        closeOverlay();
 
         this.updateStatus(`Shortcut updated: ${SHORTCUT_LABELS[featureKey]}`);
       }
