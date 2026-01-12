@@ -1,0 +1,113 @@
+{
+  "variants": {
+    "assist": {
+      "name": "AssisT: Adaptive Accessibility Tool",
+      "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
+      "default_title": "AssisT - Adaptive Accessibility",
+      "permissions": [
+        "storage",
+        "activeTab",
+        "scripting",
+        "tabs"
+      ],
+      "host_permissions": [
+        "<all_urls>"
+      ]
+    },
+    "ncad": {
+      "name": "@NCAD",
+      "description": "NCAD accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for Canvas VLE",
+      "default_title": "@NCAD - Adaptive Accessibility",
+      "permissions": [
+        "storage",
+        "activeTab",
+        "scripting",
+        "tabs"
+      ],
+      "host_permissions": [
+        "<all_urls>"
+      ]
+    },
+    "llm": {
+      "name": "AssisT: Adaptive Accessibility Tool",
+      "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
+      "default_title": "AssisT - Adaptive Accessibility",
+      "permissions": [
+        "storage",
+        "activeTab",
+        "scripting",
+        "tabs",
+        "downloads",
+        "contextMenus",
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess"
+      ],
+      "host_permissions": [
+        "<all_urls>",
+        "http://localhost:11434/*",
+        "http://127.0.0.1:11434/*",
+        "https://api.anthropic.com/*"
+      ],
+      "declarative_net_request": {
+        "rule_resources": [{
+          "id": "ollama_cors_rules",
+          "enabled": true,
+          "path": "rules/ollama-cors.json"
+        }]
+      }
+    }
+  },
+  "base": {
+    "manifest_version": 3,
+    "version": "0.1.0",
+    "author": "AssisT Development Team",
+    "icons": {
+      "16": "public/icons/icon16.png",
+      "32": "public/icons/icon32.png",
+      "48": "public/icons/icon48.png",
+      "128": "public/icons/icon128.png"
+    },
+    "background": {
+      "service_worker": "src/background/service-worker.js",
+      "type": "module"
+    },
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["src/content/content-simple.js"],
+        "run_at": "document_idle",
+        "all_frames": false
+      }
+    ],
+    "action": {
+      "default_popup": "src/popup/popup.html",
+      "default_icon": {
+        "16": "public/icons/icon16.png",
+        "32": "public/icons/icon32.png",
+        "48": "public/icons/icon48.png",
+        "128": "public/icons/icon128.png"
+      }
+    },
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "src/ui/components/*.js",
+          "src/ui/styles/*.css",
+          "public/assets/*",
+          "src/adapters/canvas-adapter.js",
+          "src/adapters/moodle-adapter.js",
+          "src/adapters/google-classroom-adapter.js",
+          "src/engines/stt/stt-controller.js",
+          "src/ui/components/microphone-button.js",
+          "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
+          "src/pages/discovery/*",
+          "src/pages/demo/*"
+        ],
+        "matches": ["<all_urls>"]
+      }
+    ],
+    "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self'"
+    }
+  }
+}
