@@ -1058,6 +1058,11 @@ function highlightMenu_init() {
           '[HighlightMenu] LLM enabled state updated:',
           highlightMenu_settings.llmEnabled
         );
+
+        // Hide current toolbar so it gets recreated with new AI button visibility on next text selection
+        if (highlightMenu_toolbar) {
+          highlightMenu_hide();
+        }
       }
     }
   });
