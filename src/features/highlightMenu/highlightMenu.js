@@ -291,53 +291,153 @@ function highlightMenu_createToolbar() {
 
   // Row 1: Core tools (5 buttons)
   if (highlightMenu_settings.showTTS) {
-    allButtons.push({ icon: '🔊', label: 'Read', fullLabel: 'Read Aloud (TTS)', handler: highlightMenu_handleTTS, index: buttonIndex++ });
+    allButtons.push({
+      icon: '🔊',
+      label: 'Read',
+      fullLabel: 'Read Aloud (TTS)',
+      handler: highlightMenu_handleTTS,
+      index: buttonIndex++,
+    });
   }
   if (highlightMenu_settings.showDictionary) {
-    allButtons.push({ icon: '📖', label: 'Define', fullLabel: 'Dictionary Lookup', handler: highlightMenu_handleDictionary, index: buttonIndex++ });
+    allButtons.push({
+      icon: '📖',
+      label: 'Define',
+      fullLabel: 'Dictionary Lookup',
+      handler: highlightMenu_handleDictionary,
+      index: buttonIndex++,
+    });
   }
   if (highlightMenu_settings.showTranslate) {
-    allButtons.push({ icon: '🌐', label: 'Translate', fullLabel: 'Translate', handler: highlightMenu_handleTranslate, index: buttonIndex++ });
+    allButtons.push({
+      icon: '🌐',
+      label: 'Translate',
+      fullLabel: 'Translate',
+      handler: highlightMenu_handleTranslate,
+      index: buttonIndex++,
+    });
   }
   if (highlightMenu_settings.showAnnotate) {
-    allButtons.push({ icon: '📝', label: 'Annotate', fullLabel: 'Add Annotation', handler: highlightMenu_handleAnnotate, index: buttonIndex++ });
+    allButtons.push({
+      icon: '📝',
+      label: 'Annotate',
+      fullLabel: 'Add Annotation',
+      handler: highlightMenu_handleAnnotate,
+      index: buttonIndex++,
+    });
   }
   if (highlightMenu_settings.showCopy) {
-    allButtons.push({ icon: '📋', label: 'Copy', fullLabel: 'Copy Text', handler: highlightMenu_handleCopy, index: buttonIndex++ });
+    allButtons.push({
+      icon: '📋',
+      label: 'Copy',
+      fullLabel: 'Copy Text',
+      handler: highlightMenu_handleCopy,
+      index: buttonIndex++,
+    });
   }
 
-  // Row 2: AI tools part 1 (5 buttons)
-  if (highlightMenu_settings.showSummarize) {
-    allButtons.push({ icon: '✨', label: 'Summary', fullLabel: 'Summarize with AI', handler: highlightMenu_handleSummarize, index: buttonIndex++, isAI: true });
+  // Row 2: AI tools part 1 (5 buttons) - Only show if Local AI is enabled
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSummarize) {
+    allButtons.push({
+      icon: '✨',
+      label: 'Summary',
+      fullLabel: 'Summarize with AI',
+      handler: highlightMenu_handleSummarize,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showSimplify) {
-    allButtons.push({ icon: '💡', label: 'Simplify', fullLabel: 'Simplify Text', handler: highlightMenu_handleSimplify, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSimplify) {
+    allButtons.push({
+      icon: '💡',
+      label: 'Simplify',
+      fullLabel: 'Simplify Text',
+      handler: highlightMenu_handleSimplify,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showBreakdown) {
-    allButtons.push({ icon: '✅', label: 'Tasks', fullLabel: 'Break Down Assignment', handler: highlightMenu_handleBreakdown, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showBreakdown) {
+    allButtons.push({
+      icon: '✅',
+      label: 'Tasks',
+      fullLabel: 'Break Down Assignment',
+      handler: highlightMenu_handleBreakdown,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showSocraticTutor) {
-    allButtons.push({ icon: '🎓', label: 'Tutor', fullLabel: 'Socratic Tutor', handler: highlightMenu_handleSocraticTutor, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSocraticTutor) {
+    allButtons.push({
+      icon: '🎓',
+      label: 'Tutor',
+      fullLabel: 'Socratic Tutor',
+      handler: highlightMenu_handleSocraticTutor,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showKnowledgeGraph) {
-    allButtons.push({ icon: '🕸️', label: 'Graph', fullLabel: 'Knowledge Graph', handler: highlightMenu_handleKnowledgeGraph, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showKnowledgeGraph) {
+    allButtons.push({
+      icon: '🕸️',
+      label: 'Graph',
+      fullLabel: 'Knowledge Graph',
+      handler: highlightMenu_handleKnowledgeGraph,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
 
-  // Row 3: AI tools part 2 (5 buttons)
-  if (highlightMenu_settings.showSpeedRead) {
-    allButtons.push({ icon: '⚡', label: 'Speed', fullLabel: 'Speed Read (RSVP)', handler: highlightMenu_handleSpeedRead, index: buttonIndex++, isAI: true });
+  // Row 3: AI tools part 2 (5 buttons) - Only show if Local AI is enabled
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSpeedRead) {
+    allButtons.push({
+      icon: '⚡',
+      label: 'Speed',
+      fullLabel: 'Speed Read (RSVP)',
+      handler: highlightMenu_handleSpeedRead,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showCitationAnalyzer) {
-    allButtons.push({ icon: '⚖️', label: 'Cite', fullLabel: 'Analyze Citation', handler: highlightMenu_handleCitationAnalyzer, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showCitationAnalyzer) {
+    allButtons.push({
+      icon: '⚖️',
+      label: 'Cite',
+      fullLabel: 'Analyze Citation',
+      handler: highlightMenu_handleCitationAnalyzer,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showCognitiveMonitor) {
-    allButtons.push({ icon: '🧠', label: 'Focus', fullLabel: 'Cognitive Monitor', handler: highlightMenu_handleCognitiveMonitor, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showCognitiveMonitor) {
+    allButtons.push({
+      icon: '🧠',
+      label: 'Focus',
+      fullLabel: 'Cognitive Monitor',
+      handler: highlightMenu_handleCognitiveMonitor,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showMultiDocCompare) {
-    allButtons.push({ icon: '📊', label: 'Compare', fullLabel: 'Compare Documents', handler: highlightMenu_handleMultiDocCompare, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showMultiDocCompare) {
+    allButtons.push({
+      icon: '📊',
+      label: 'Compare',
+      fullLabel: 'Compare Documents',
+      handler: highlightMenu_handleMultiDocCompare,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
-  if (highlightMenu_settings.showStudyPath) {
-    allButtons.push({ icon: '📚', label: 'Study', fullLabel: 'Generate Study Path', handler: highlightMenu_handleStudyPath, index: buttonIndex++, isAI: true });
+  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showStudyPath) {
+    allButtons.push({
+      icon: '📚',
+      label: 'Study',
+      fullLabel: 'Generate Study Path',
+      handler: highlightMenu_handleStudyPath,
+      index: buttonIndex++,
+      isAI: true,
+    });
   }
 
   // Create single unified grid (3 rows x 5 columns)
@@ -348,7 +448,13 @@ function highlightMenu_createToolbar() {
     const grid = document.createElement('div');
     grid.className = 'assist-hm-grid';
     allButtons.forEach(btn => {
-      const button = highlightMenu_createButton(btn.icon, btn.label, btn.fullLabel, btn.handler, btn.index);
+      const button = highlightMenu_createButton(
+        btn.icon,
+        btn.label,
+        btn.fullLabel,
+        btn.handler,
+        btn.index
+      );
       if (btn.isAI) {
         button.classList.add('assist-hm-btn-ai');
       }
@@ -930,18 +1036,29 @@ function highlightMenu_init() {
   });
 
   // Load settings from chrome.storage
-  chrome.storage.local.get(['highlightMenuSettings'], result => {
+  chrome.storage.local.get(['highlightMenuSettings', 'llmEnabled'], result => {
     if (result.highlightMenuSettings) {
       Object.assign(highlightMenu_settings, result.highlightMenuSettings);
       console.log('[HighlightMenu] Settings loaded:', highlightMenu_settings);
     }
+    // Store LLM enabled state to filter AI buttons
+    highlightMenu_settings.llmEnabled = result.llmEnabled !== undefined ? result.llmEnabled : false;
   });
 
   // Listen for settings updates
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.highlightMenuSettings) {
-      Object.assign(highlightMenu_settings, changes.highlightMenuSettings.newValue);
-      console.log('[HighlightMenu] Settings updated:', highlightMenu_settings);
+    if (area === 'local') {
+      if (changes.highlightMenuSettings) {
+        Object.assign(highlightMenu_settings, changes.highlightMenuSettings.newValue);
+        console.log('[HighlightMenu] Settings updated:', highlightMenu_settings);
+      }
+      if (changes.llmEnabled) {
+        highlightMenu_settings.llmEnabled = changes.llmEnabled.newValue;
+        console.log(
+          '[HighlightMenu] LLM enabled state updated:',
+          highlightMenu_settings.llmEnabled
+        );
+      }
     }
   });
 
