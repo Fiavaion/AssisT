@@ -60,8 +60,8 @@ export default defineConfig({
         // Chrome-specific args for extension testing
         launchOptions: {
           args: [
-            `--disable-extensions-except=${path.join(__dirname, 'Output')}`,
-            `--load-extension=${path.join(__dirname, 'Output')}`,
+            `--disable-extensions-except=${path.join(__dirname, '.vite')}`,
+            `--load-extension=${path.join(__dirname, '.vite')}`,
             '--no-sandbox',
             '--disable-setuid-sandbox'
           ],
