@@ -18,7 +18,7 @@ const projectRoot = path.join(__dirname, '..');
 // Parse --outdir argument
 const args = process.argv.slice(2);
 const outdirArg = args.find(arg => arg.startsWith('--outdir='));
-const outDir = outdirArg ? outdirArg.split('=')[1] : 'AssistLLM';
+const outDir = outdirArg ? outdirArg.split('=')[1] : '.vite';
 
 // Find the built popup HTML
 const popupHtmlPath = path.join(projectRoot, outDir, 'src', 'popup', 'popup.html');
