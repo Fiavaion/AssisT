@@ -1783,6 +1783,89 @@ body {
   background: var(--error);
 }
 
+/* AI Mode Selector (Radio Toggles) */
+.ai-mode-selector {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: var(--surface);
+  border-radius: var(--border-radius);
+  align-items: stretch;
+}
+
+.ai-mode-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ai-mode-option input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ai-mode-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 2px solid var(--border-color);
+  transition:
+    all 0.2s ease,
+    transform 0.1s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ai-mode-option:hover .ai-mode-label {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.ai-mode-option input[type='radio']:checked + .ai-mode-label {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+}
+
+.ai-mode-option input[type='radio']:focus + .ai-mode-label {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.ai-mode-option input[type='radio']:checked + .ai-mode-label:active {
+  transform: scale(0.98);
+}
+
+/* AI Mode Container (Content Visibility) */
+.ai-mode-container {
+  max-height: 2000px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+  opacity: 1;
+}
+
+.ai-mode-container.hidden {
+  max-height: 0;
+  opacity: 0;
+}
+
 /* LLM Link */
 .llm-link {
   color: var(--primary-color);
