@@ -8,7 +8,6 @@ import {
   SHORTCUT_LABELS,
   loadShortcuts,
   saveShortcuts,
-  resetShortcuts,
   validateShortcut,
   eventToShortcut,
 } from '../utils/keyboard-shortcuts.js';
@@ -7575,10 +7574,18 @@ class PopupController {
       };
     }
 
+    // ========================================
+    // UNIFIED AI ASSIST SETUP
+    // ========================================
+    this.setupAIAssist();
+  }
+
+  /**
+   * Set up unified AI Assist section with radio toggles
+   */
+  setupAIAssist() {
     // Cache DOM elements
-    const llmEnabled = document.getElementById('llm-enabled');
-    const llmOptionsContainer = document.getElementById('llm-options-container');
-    const llmStatusBadge = document.getElementById('llm-status-badge');
+    const aiModeRadios = document.querySelectorAll('input[name="ai-mode"]');
     const btnCheckLLM = document.getElementById('btn-check-llm');
     const llmInstallProgress = document.getElementById('llm-install-progress');
     const llmProgressModel = document.getElementById('llm-progress-model');
@@ -7588,30 +7595,41 @@ class PopupController {
     // Track installed models
     this.installedModels = [];
 
-    // Set initial state
-    llmEnabled.checked = this.settings.localLLM.enabled || false;
+    // Get current AI mode from storage (migrate from old settings)
+    chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
+      let currentMode = result.aiMode || 'off';
 
-    // Show/hide options based on enabled state
-    if (llmEnabled.checked) {
-      llmOptionsContainer.classList.remove('hidden');
-      this.checkLLMStatus();
-    } else {
-      llmOptionsContainer.classList.add('hidden');
-    }
-
-    // Master toggle event
-    llmEnabled.addEventListener('change', e => {
-      this.settings.localLLM.enabled = e.target.checked;
-      this.saveSettings();
-
-      if (e.target.checked) {
-        llmOptionsContainer.classList.remove('hidden');
-        this.checkLLMStatus();
-      } else {
-        llmOptionsContainer.classList.add('hidden');
-        llmStatusBadge.textContent = 'Offline';
-        llmStatusBadge.className = 'llm-badge offline';
+      // Migration: Convert old settings to new unified mode
+      if (!result.aiMode) {
+        if (result.cloudModeEnabled) {
+          currentMode = 'cloud';
+        } else if (result.llmEnabled || this.settings.localLLM.enabled) {
+          currentMode = 'local';
+        }
+        // Save migrated mode
+        chrome.storage.local.set({ aiMode: currentMode });
       }
+
+      // Set initial radio button state
+      aiModeRadios.forEach(radio => {
+        if (radio.value === currentMode) {
+          radio.checked = true;
+        }
+      });
+
+      // Apply initial visibility
+      this.updateAIMode(currentMode);
+    });
+
+    // Radio button change handlers
+    aiModeRadios.forEach(radio => {
+      radio.addEventListener('change', e => {
+        if (e.target.checked) {
+          const mode = e.target.value;
+          chrome.storage.local.set({ aiMode: mode });
+          this.updateAIMode(mode);
+        }
+      });
     });
 
     // Refresh status button
@@ -7848,61 +7866,12 @@ class PopupController {
       });
     }
 
-    console.log('[Popup] Local LLM setup complete');
-
     // ========================================
-    // CLOUD AI SETUP (Experimental)
+    // CLOUD AI SETUP (Export/Clear buttons)
     // ========================================
-    this.setupCloudAI();
-  }
-
-  /**
-   * Set up Cloud AI (Claude) controls
-   */
-  setupCloudAI() {
-    const cloudModeEnabled = document.getElementById('cloud-mode-enabled');
-    const cloudUsageStats = document.getElementById('cloud-usage-stats');
     const btnExportJson = document.getElementById('btn-export-usage-json');
     const btnExportCsv = document.getElementById('btn-export-usage-csv');
     const btnClearUsage = document.getElementById('btn-clear-usage');
-
-    if (!cloudModeEnabled) {
-      console.log('[Popup] Cloud AI elements not found');
-      return;
-    }
-
-    // Initialize cloud mode from storage
-    chrome.storage.local.get(['cloudModeEnabled'], result => {
-      cloudModeEnabled.checked = result.cloudModeEnabled || false;
-
-      if (cloudModeEnabled.checked) {
-        cloudUsageStats.style.display = 'block';
-        this.loadCloudUsageStats();
-      }
-    });
-
-    // Cloud mode toggle event
-    cloudModeEnabled.addEventListener('change', async e => {
-      const enabled = e.target.checked;
-      await chrome.storage.local.set({ cloudModeEnabled: enabled });
-
-      if (enabled) {
-        cloudUsageStats.style.display = 'block';
-        this.loadCloudUsageStats();
-      } else {
-        cloudUsageStats.style.display = 'none';
-      }
-
-      // Notify content scripts about cloud mode change
-      chrome.runtime
-        .sendMessage({
-          action: 'CLOUD_MODE_CHANGED',
-          enabled: enabled,
-        })
-        .catch(() => {});
-
-      this.updateStatus(enabled ? 'Cloud AI enabled' : 'Cloud AI disabled', 'success');
-    });
 
     // Export JSON button
     if (btnExportJson) {
@@ -7981,7 +7950,107 @@ class PopupController {
       });
     }
 
-    console.log('[Popup] Cloud AI setup complete');
+    console.log('[Popup] AI Assist setup complete');
+  }
+
+  /**
+   * Update AI mode (show/hide containers, update badge, notify background)
+   */
+  updateAIMode(mode) {
+    const localAIContainer = document.getElementById('local-ai-container');
+    const cloudAIContainer = document.getElementById('cloud-ai-container');
+    const llmStatusBadge = document.getElementById('llm-status-badge');
+    const cloudUsageStats = document.getElementById('cloud-usage-stats');
+
+    // Hide all containers first
+    localAIContainer?.classList.add('hidden');
+    cloudAIContainer?.classList.add('hidden');
+
+    // Show appropriate container and update badge
+    switch (mode) {
+      case 'local':
+        localAIContainer?.classList.remove('hidden');
+        llmStatusBadge.textContent = 'Checking...';
+        llmStatusBadge.className = 'llm-badge';
+        this.checkLLMStatus();
+
+        // Update legacy settings for compatibility
+        this.settings.localLLM.enabled = true;
+        this.saveSettings();
+
+        // Notify content scripts
+        chrome.runtime
+          .sendMessage({
+            action: 'LOCAL_LLM_MODE_CHANGED',
+            enabled: true,
+          })
+          .catch(() => {});
+
+        this.updateStatus('Local AI enabled', 'success');
+        break;
+
+      case 'cloud':
+        cloudAIContainer?.classList.remove('hidden');
+        llmStatusBadge.textContent = 'Cloud';
+        llmStatusBadge.className = 'llm-badge online';
+
+        // Show usage stats and load data
+        if (cloudUsageStats) {
+          cloudUsageStats.style.display = 'block';
+          this.loadCloudUsageStats();
+        }
+
+        // Update legacy settings for compatibility
+        this.settings.localLLM.enabled = false;
+        this.saveSettings();
+
+        // Notify content scripts
+        chrome.runtime
+          .sendMessage({
+            action: 'CLOUD_MODE_CHANGED',
+            enabled: true,
+          })
+          .catch(() => {});
+
+        chrome.storage.local.set({ cloudModeEnabled: true });
+
+        this.updateStatus('Cloud AI enabled', 'success');
+        break;
+
+      case 'off':
+      default:
+        llmStatusBadge.textContent = 'Off';
+        llmStatusBadge.className = 'llm-badge offline';
+
+        // Hide cloud usage stats
+        if (cloudUsageStats) {
+          cloudUsageStats.style.display = 'none';
+        }
+
+        // Update legacy settings for compatibility
+        this.settings.localLLM.enabled = false;
+        this.saveSettings();
+
+        // Notify content scripts
+        chrome.runtime
+          .sendMessage({
+            action: 'LOCAL_LLM_MODE_CHANGED',
+            enabled: false,
+          })
+          .catch(() => {});
+
+        chrome.runtime
+          .sendMessage({
+            action: 'CLOUD_MODE_CHANGED',
+            enabled: false,
+          })
+          .catch(() => {});
+
+        chrome.storage.local.set({ cloudModeEnabled: false });
+
+        this.updateStatus('AI Assist disabled', 'success');
+        break;
+    }
   }
 
   /**
