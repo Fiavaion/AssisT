@@ -290,9 +290,32 @@ class OrganizeMode {
    */
   editSectionTitle(sectionId) {
     const section = document.querySelector(`[data-section="${sectionId}"]`);
-    const titleTextSpan = section.querySelector('.accordion-title-text');
+    let titleTextSpan = section.querySelector('.accordion-title-text');
+
+    // Create span if missing
     if (!titleTextSpan) {
-      return;
+      const titleSpan = section.querySelector('.accordion-title');
+      const iconSpan = titleSpan.querySelector('.accordion-icon-left');
+
+      // Get the full text content and remove the icon emoji
+      const fullText = titleSpan.textContent;
+      const iconText = iconSpan ? iconSpan.textContent : '';
+      const titleText = fullText.replace(iconText, '').trim();
+
+      // Create wrapper span for the title text
+      titleTextSpan = document.createElement('span');
+      titleTextSpan.className = 'accordion-title-text';
+      titleTextSpan.textContent = titleText;
+
+      // Clear all text nodes and re-add structured content
+      // Remove all child nodes except the icon
+      while (titleSpan.childNodes.length > 1) {
+        titleSpan.removeChild(titleSpan.lastChild);
+      }
+
+      // Add space and the new title span after icon
+      titleSpan.appendChild(document.createTextNode(' '));
+      titleSpan.appendChild(titleTextSpan);
     }
 
     const currentTitle = titleTextSpan.textContent;
@@ -707,6 +730,13 @@ class PopupController {
       false
     ); // EXPERIMENTAL - hidden by default
     toggleSection('dyslexia-mode-section', 'show_dyslexia_mode');
+    toggleSection('dark-mode-section', 'show_dark_mode'); // Dark Mode
+    toggleSection('simplify-section', 'show_simplify'); // Simplified Interface
+    toggleSection('reading-progress-section', 'show_reading_progress'); // Reading Progress Tracker
+    toggleSection('pomodoro-section', 'show_pomodoro'); // Pomodoro Timer
+    toggleSection('stargardt-section', 'show_stargardt'); // Stargardt Support
+    toggleSection('reduced-motion-section', 'show_reduced_motion'); // Reduced Motion
+    toggleSection('media-control-section', 'show_media_control'); // Media Control
 
     console.log('[Popup] Visibility settings applied:', visibility);
   }
@@ -1165,131 +1195,6 @@ class PopupController {
       });
     }
 
-    // ============================================================
-    // DICTIONARY SETTINGS
-    // ============================================================
-    const dictionaryEnabled = document.getElementById('dictionary-enabled');
-    const dictionaryOptionsContainer = document.getElementById('dictionary-options-container');
-
-    if (dictionaryEnabled && dictionaryOptionsContainer) {
-      // Initialize default settings
-      if (!this.settings.dictionary) {
-        this.settings.dictionary = {
-          enabled: true,
-          autoLookup: true,
-          cacheSize: 50,
-        };
-      }
-
-      // Set initial checked state
-      dictionaryEnabled.checked = this.settings.dictionary.enabled !== false;
-
-      // Show/hide options based on enabled state
-      if (dictionaryEnabled.checked) {
-        dictionaryOptionsContainer.classList.remove('hidden');
-      } else {
-        dictionaryOptionsContainer.classList.add('hidden');
-      }
-
-      dictionaryEnabled.addEventListener('change', e => {
-        this.settings.dictionary.enabled = e.target.checked;
-        this.saveSettings();
-
-        // Toggle options visibility
-        if (e.target.checked) {
-          dictionaryOptionsContainer.classList.remove('hidden');
-        } else {
-          dictionaryOptionsContainer.classList.add('hidden');
-        }
-
-        console.log('[Popup] Dictionary enabled:', e.target.checked);
-      });
-    }
-
-    // ============================================================
-    // DICTIONARY SETTINGS: AUTO-LOOKUP TOGGLE
-    // ============================================================
-    const dictionaryAutoLookup = document.getElementById('dictionary-auto-lookup');
-
-    if (dictionaryAutoLookup) {
-      // Set initial checked state
-      dictionaryAutoLookup.checked = this.settings.dictionary?.autoLookup !== false;
-
-      // Add change listener
-      dictionaryAutoLookup.addEventListener('change', e => {
-        if (!this.settings.dictionary) {
-          this.settings.dictionary = {};
-        }
-        this.settings.dictionary.autoLookup = e.target.checked;
-        this.saveSettings();
-        console.log('[Popup] Dictionary auto-lookup:', e.target.checked);
-      });
-    }
-
-    // ============================================================
-    // DICTIONARY SETTINGS: CACHE SIZE SLIDER
-    // ============================================================
-    const dictionaryCacheSizeSlider = document.getElementById('dictionary-cache-size');
-    const dictionaryCacheLabel = document.getElementById('dictionary-cache-label');
-
-    if (dictionaryCacheSizeSlider && dictionaryCacheLabel) {
-      // Set initial value
-      const cacheSize = this.settings.dictionary?.cacheSize || 50;
-      dictionaryCacheSizeSlider.value = cacheSize;
-      dictionaryCacheLabel.textContent = `${cacheSize} entr${cacheSize === 1 ? 'y' : 'ies'}`;
-
-      // Add input listener
-      dictionaryCacheSizeSlider.addEventListener('input', e => {
-        const size = parseInt(e.target.value);
-        dictionaryCacheLabel.textContent = `${size} entr${size === 1 ? 'y' : 'ies'}`;
-        if (!this.settings.dictionary) {
-          this.settings.dictionary = {};
-        }
-        this.settings.dictionary.cacheSize = size;
-        this.saveSettings();
-        console.log('[Popup] Dictionary cache size:', size);
-      });
-    }
-
-    // ============================================================
-    // TRANSLATION SETTINGS
-    // ============================================================
-    const translationEnabled = document.getElementById('translation-enabled');
-    const translationOptionsContainer = document.getElementById('translation-options-container');
-
-    if (translationEnabled && translationOptionsContainer) {
-      // Initialize default settings
-      if (!this.settings.translation) {
-        this.settings.translation = {
-          enabled: true,
-          targetLanguage: 'en',
-        };
-      }
-
-      // Set initial checked state
-      translationEnabled.checked = this.settings.translation.enabled !== false;
-
-      // Show/hide options based on enabled state
-      if (translationEnabled.checked) {
-        translationOptionsContainer.classList.remove('hidden');
-      } else {
-        translationOptionsContainer.classList.add('hidden');
-      }
-
-      translationEnabled.addEventListener('change', e => {
-        this.settings.translation.enabled = e.target.checked;
-        this.saveSettings();
-
-        // Toggle options visibility
-        if (e.target.checked) {
-          translationOptionsContainer.classList.remove('hidden');
-        } else {
-          translationOptionsContainer.classList.add('hidden');
-        }
-
-        console.log('[Popup] Translation enabled:', e.target.checked);
-      });
-    }
 
     // ============================================================
     // TRANSLATION: TRANSLATE PAGE BUTTON
@@ -1695,23 +1600,23 @@ class PopupController {
     });
   }
 
-  resetToDefaults() {
-    // Reset to default settings
-    this.settings.tts = {
-      enabled: false,
-      voice: 'default',
-      rate: 1.0,
-      pitch: 1.0,
-      volume: 1.0,
-      highlightEnabled: true,
-      highlightColor: '#FFEB3B',
-      highlightOpacity: 0.7,
-    };
+  async resetToDefaults() {
+    if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
 
-    this.saveSettings();
+    try {
+      // Use the RESET_SETTINGS message type to reset via MessageRouter
+      const defaults = await chrome.runtime.sendMessage({
+        type: 'RESET_SETTINGS'
+      });
 
-    // Reload the popup to reflect changes
-    window.location.reload();
+      console.log('[Popup] Settings reset to defaults:', defaults);
+
+      // Reload the popup to reflect changes
+      window.location.reload();
+    } catch (error) {
+      console.error('[Popup] Error resetting settings:', error);
+      alert('Failed to reset settings. Please try again.');
+    }
   }
 
   setupSpeedPresets() {
@@ -1774,8 +1679,8 @@ class PopupController {
         <div class="modal-tabs">
           <button class="modal-tab active" data-tab="features">Features</button>
           <button class="modal-tab" data-tab="keyboard">Keyboard</button>
-          <button class="modal-tab" data-tab="appearance">Appearance</button>
-          <button class="modal-tab" data-tab="profiles">Profiles</button>
+          <button class="modal-tab" data-tab="preferences">Preferences</button>
+          <button class="modal-tab" data-tab="ai">AI</button>
         </div>
 
         <div class="modal-body">
@@ -1846,7 +1751,7 @@ class PopupController {
               </div>
 
               <div class="feature-section-header">
-                <span>🎯 Focus & Visual</span>
+                <span>🎯 Display & Visual Features</span>
               </div>
 
               <div class="feature-item">
@@ -1860,6 +1765,55 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-screen-overlay" checked>
                   <span>Screen Color Overlay</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-reduced-motion" checked>
+                  <span>Reduced Motion</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-media-control" checked>
+                  <span>Media Control</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-dark-mode" checked>
+                  <span>Dark Mode</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-simplify" checked>
+                  <span>Simplified Interface</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-reading-progress" checked>
+                  <span>Reading Progress Tracker</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-pomodoro" checked>
+                  <span>Pomodoro Timer</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-stargardt" checked>
+                  <span>Stargardt Support</span>
                 </label>
               </div>
 
@@ -2058,7 +2012,14 @@ class PopupController {
               </div>
 
               <div class="feature-section-header">
-                <span>🎓 LMS Integration</span>
+                <span>🎓 School Tools & LMS Integration</span>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-citations" checked>
+                  <span>Citations Generator</span>
+                </label>
               </div>
 
               <div class="feature-item">
@@ -2085,6 +2046,26 @@ class PopupController {
                 </label>
               </div>
 
+              <div class="feature-section-header">
+                <span>🤖 Local AI Features</span>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-llm-core" checked>
+                  <span>LLM Core Integration</span>
+                  <span class="feature-badge experimental">Experimental</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-llm-features" checked>
+                  <span>LLM-Powered Features</span>
+                  <span class="feature-badge experimental">Experimental</span>
+                </label>
+              </div>
+
               <div class="feature-note">
                 <p><strong>Note:</strong> Core TTS controls (voice, speed, pitch, volume) are always visible and cannot be hidden.</p>
               </div>
@@ -2094,120 +2075,75 @@ class PopupController {
           <!-- Keyboard Tab -->
           <div id="tab-keyboard" class="tab-content">
             <h3>Keyboard Shortcuts</h3>
-            <p class="tab-description">Customize keyboard shortcuts for extension features</p>
+            <p class="tab-description">Click on a shortcut field to assign a key combination. All shortcuts are empty by default.</p>
 
-            <!-- Shortcut Presets -->
-            <div class="shortcuts-presets">
-              <label class="shortcuts-preset-label">Quick Presets:</label>
-              <div class="shortcuts-preset-buttons">
-                <button class="preset-btn active" data-preset="default">Default</button>
-                <button class="preset-btn" data-preset="minimal">Minimal</button>
-                <button class="preset-btn" data-preset="oneHanded">One-Handed</button>
-              </div>
+            <div class="shortcuts-info" style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+              <p style="margin: 0; font-size: 13px; color: #0c4a6e;">
+                <strong>💡 Tip:</strong> Shortcuts must include a modifier key (Ctrl, Alt, or Shift). Chrome reserved shortcuts (like Ctrl+T) cannot be used.
+              </p>
             </div>
 
-            <div class="shortcuts-warning">
-              <span class="warning-icon">⚠️</span>
-              <span class="warning-text">Shortcuts must include a modifier key (Ctrl, Alt, or Shift). Chrome reserved shortcuts cannot be used.</span>
-            </div>
-
-            <!-- Card-based Shortcuts Grid -->
-            <div id="shortcuts-grid" class="shortcuts-grid">
-              <!-- Cards populated dynamically -->
-            </div>
-
-            <div class="shortcuts-actions">
-              <button id="btn-reset-shortcuts" class="modal-btn modal-btn-secondary">
-                🔄 Reset to Defaults
+            <div class="shortcuts-actions" style="margin-bottom: 20px; display: flex; gap: 12px;">
+              <button id="btn-clear-all-shortcuts" class="btn-secondary" style="padding: 8px 16px;">
+                🗑️ Clear All
               </button>
             </div>
 
-            <!-- Enhanced Recording Mode Overlay -->
-            <div id="shortcut-recording-overlay" class="recording-overlay">
-              <div class="recording-box">
-                <h3 class="recording-title">Recording Shortcut</h3>
-                <p class="recording-subtitle">Press your desired key combination</p>
-
-                <!-- Modifier Keys Visual -->
-                <div class="modifier-keys">
-                  <span class="modifier-key" data-key="ctrl">Ctrl</span>
-                  <span class="modifier-key" data-key="alt">Alt</span>
-                  <span class="modifier-key" data-key="shift">Shift</span>
-                </div>
-
-                <!-- Current vs New Display -->
-                <div class="recording-comparison">
-                  <div class="recording-current">
-                    <span class="recording-label">Current</span>
-                    <kbd id="recording-current-key" class="shortcut-display">None</kbd>
-                  </div>
-                  <span class="recording-arrow">→</span>
-                  <div class="recording-new">
-                    <span class="recording-label">New</span>
-                    <kbd id="recording-display" class="shortcut-display">Press keys...</kbd>
-                  </div>
-                </div>
-
-                <div id="recording-error" class="recording-error">
-                  <!-- Error messages appear here -->
-                </div>
-
-                <div class="recording-actions">
-                  <button id="btn-recording-clear" class="modal-btn modal-btn-secondary">Clear</button>
-                  <button id="btn-recording-cancel" class="modal-btn modal-btn-secondary">Cancel</button>
-                  <button id="btn-recording-save" class="modal-btn modal-btn-primary" disabled>Save</button>
-                </div>
-              </div>
+            <div class="shortcuts-grid" id="keyboard-shortcuts-grid">
+              <!-- Shortcuts will be dynamically populated here -->
             </div>
+
           </div>
 
           <!-- Appearance Tab -->
-          <div id="tab-appearance" class="tab-content">
-            <h3>Appearance</h3>
-            <p class="tab-description">Customize the extension's look and feel</p>
+          <!-- Preferences Tab (merged Appearance + Profiles) -->
+          <div id="tab-preferences" class="tab-content">
+            <h3>Preferences</h3>
+            <p class="tab-description">Customize appearance and manage profiles</p>
 
-            <div class="appearance-options">
-              <div class="option-group">
-                <label>Compact Mode</label>
-                <div class="option-control">
-                  <label class="toggle-switch-small">
-                    <input type="checkbox" id="compact-mode" checked>
-                    <span class="toggle-slider-small"></span>
-                  </label>
-                  <span class="option-desc">Minimize spacing in popup</span>
+            <!-- UI Preferences Section -->
+            <div class="preferences-section">
+              <h4>UI Preferences</h4>
+              <div class="appearance-options">
+                <div class="option-group">
+                  <label>Compact Mode</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="compact-mode" checked>
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Minimize spacing in popup</span>
+                  </div>
                 </div>
-              </div>
 
-              <div class="option-group">
-                <label>Show Icons</label>
-                <div class="option-control">
-                  <label class="toggle-switch-small">
-                    <input type="checkbox" id="show-icons" checked>
-                    <span class="toggle-slider-small"></span>
-                  </label>
-                  <span class="option-desc">Display emoji icons in controls</span>
+                <div class="option-group">
+                  <label>Show Icons</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="show-icons" checked>
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Display emoji icons in controls</span>
+                  </div>
                 </div>
-              </div>
 
-              <div class="option-group">
-                <label>Debug Mode</label>
-                <div class="option-control">
-                  <label class="toggle-switch-small">
-                    <input type="checkbox" id="debug-mode">
-                    <span class="toggle-slider-small"></span>
-                  </label>
-                  <span class="option-desc">Show console logs for debugging</span>
+                <div class="option-group">
+                  <label>Debug Mode</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="debug-mode">
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Show console logs for debugging</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Profiles Tab -->
-          <div id="tab-profiles" class="tab-content">
-            <h3>Profile Management</h3>
-            <p class="tab-description">Save and switch between different configurations</p>
-
-            <div class="profiles-section-modal">
+            <!-- Profile Management Section -->
+            <div class="preferences-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
+              <h4>Profile Management</h4>
+              <div class="profiles-section-modal">
               <!-- Active Profile Selection -->
               <div class="profile-select-group">
                 <label for="modal-profile-select" class="profile-label">Active Profile:</label>
@@ -2253,42 +2189,42 @@ class PopupController {
               <div class="profile-presets-modal">
                 <h4>Available Presets</h4>
                 <div class="preset-list">
-                  <div class="preset-item">
+                  <div class="preset-item" data-preset="ADHD Focus" style="cursor: pointer;">
                     <span class="preset-icon">🎯</span>
                     <div class="preset-info">
                       <strong>ADHD Focus</strong>
                       <span>Pomodoro timer, progress tracking, simplified interface</span>
                     </div>
                   </div>
-                  <div class="preset-item">
+                  <div class="preset-item" data-preset="Autism Comfort" style="cursor: pointer;">
                     <span class="preset-icon">🧘</span>
                     <div class="preset-info">
                       <strong>Autism Comfort</strong>
                       <span>Reduced motion, calm colors, predictable behavior</span>
                     </div>
                   </div>
-                  <div class="preset-item">
+                  <div class="preset-item" data-preset="Dyslexia Support" style="cursor: pointer;">
                     <span class="preset-icon">📖</span>
                     <div class="preset-info">
                       <strong>Dyslexia Support</strong>
                       <span>OpenDyslexic font, wide spacing, reading progress</span>
                     </div>
                   </div>
-                  <div class="preset-item">
+                  <div class="preset-item" data-preset="Night Study" style="cursor: pointer;">
                     <span class="preset-icon">🌙</span>
                     <div class="preset-info">
                       <strong>Night Study</strong>
                       <span>Dark mode, reduced eye strain, Pomodoro timer</span>
                     </div>
                   </div>
-                  <div class="preset-item">
+                  <div class="preset-item" data-preset="Sensory Sensitive" style="cursor: pointer;">
                     <span class="preset-icon">🌿</span>
                     <div class="preset-info">
                       <strong>Sensory Sensitive</strong>
                       <span>No animations, muted colors, media blocking</span>
                     </div>
                   </div>
-                  <div class="preset-item">
+                  <div class="preset-item" data-preset="Anxiety Calm" style="cursor: pointer;">
                     <span class="preset-icon">💫</span>
                     <div class="preset-info">
                       <strong>Anxiety Calm</strong>
@@ -2297,6 +2233,147 @@ class PopupController {
                   </div>
                 </div>
               </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Tab -->
+          <div id="tab-ai" class="tab-content">
+            <h3>🤖 AI Configuration</h3>
+            <p class="tab-description">Configure AI features and API settings</p>
+
+            <!-- AI Mode Selection -->
+            <section class="ai-mode-section">
+              <h4>AI Mode</h4>
+              <div class="radio-group">
+                <label class="radio-label">
+                  <input type="radio" name="ai-mode" value="local" checked>
+                  <span>Local AI (Ollama)</span>
+                  <span class="mode-description">100% private, runs on your computer</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="ai-mode" value="cloud">
+                  <span>Cloud AI</span>
+                  <span class="mode-description">Enhanced quality, requires API key</span>
+                </label>
+              </div>
+            </section>
+
+            <!-- Cloud AI Provider (shown when cloud mode selected) -->
+            <section id="cloud-provider-section" class="ai-subsection hidden">
+              <h4>Cloud Provider</h4>
+              <select id="cloud-provider" class="ai-select" disabled style="opacity: 0.6; cursor: not-allowed;">
+                <option value="anthropic">Anthropic (Claude) - Embedded API Key</option>
+              </select>
+              <p class="subsection-description" style="margin-top: 4px; color: #666; font-size: 12px;">Using built-in API key for seamless experience</p>
+
+              <h4 style="margin-top: 16px;">Claude Model</h4>
+              <select id="cloud-model-select" class="ai-select">
+                <option value="haiku-4.5">Haiku 4.5 (Fast & Economical)</option>
+                <option value="sonnet-4.5" selected>Sonnet 4.5 (Balanced - Recommended)</option>
+                <option value="opus-4.5">Opus 4.5 (Most Capable)</option>
+              </select>
+              <p class="subsection-description" style="margin-top: 4px;">Select the Claude model for all AI features</p>
+            </section>
+
+            <!-- Local AI Configuration (shown when local mode selected) -->
+            <section id="local-ai-section" class="ai-subsection">
+              <h4>Ollama Status</h4>
+              <div id="ollama-status" class="status-indicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
+              </div>
+
+              <h4 style="margin-top: 16px;">Available Models</h4>
+              <select id="local-model-select" class="ai-select" multiple size="5">
+                <!-- Populated dynamically -->
+              </select>
+              <button id="install-model" class="ai-btn ai-btn-secondary" style="margin-top: 8px;">Install New Model</button>
+            </section>
+
+            <!-- Model Selection Per Feature -->
+            <section class="feature-models-section" style="margin-top: 24px;">
+              <h4>Model Preferences</h4>
+              <p class="subsection-description">Choose which model to use for each AI feature</p>
+
+              <div class="model-preference-grid">
+                <label class="model-pref-label">
+                  Summarization:
+                  <select class="model-select" data-feature="summarize">
+                    <option value="auto">Auto (Recommended)</option>
+                  </select>
+                </label>
+                <label class="model-pref-label">
+                  Text Simplification:
+                  <select class="model-select" data-feature="simplify">
+                    <option value="auto">Auto (Recommended)</option>
+                  </select>
+                </label>
+                <label class="model-pref-label">
+                  Socratic Tutor:
+                  <select class="model-select" data-feature="tutor">
+                    <option value="auto">Auto (Recommended)</option>
+                  </select>
+                </label>
+                <label class="model-pref-label">
+                  Assignment Breakdown:
+                  <select class="model-select" data-feature="breakdown">
+                    <option value="auto">Auto (Recommended)</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <!-- Usage Statistics (for cloud mode) -->
+            <section id="usage-stats-section" class="ai-subsection hidden" style="margin-top: 24px;">
+              <h4>Usage Statistics</h4>
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <span class="stat-label">Requests:</span>
+                  <span class="stat-value" id="stat-requests">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Total Tokens:</span>
+                  <span class="stat-value" id="stat-tokens">0</span>
+                </div>
+              </div>
+              <div class="stats-actions" style="margin-top: 12px;">
+                <button id="export-stats-json" class="ai-btn ai-btn-secondary">📤 Export JSON</button>
+                <button id="export-stats-csv" class="ai-btn ai-btn-secondary">📊 Export CSV</button>
+                <button id="clear-stats" class="ai-btn ai-btn-danger">🗑️ Clear Stats</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Shortcut Recording Overlay -->
+        <div id="shortcut-recording-overlay" class="recording-overlay">
+          <div class="recording-box">
+            <h3 class="recording-title">Record Keyboard Shortcut</h3>
+            <p class="recording-subtitle">Press a key combination with at least one modifier key</p>
+
+            <div class="recording-current">
+              <span class="recording-label">Current:</span>
+              <kbd id="recording-current-key" class="shortcut-display">None</kbd>
+            </div>
+
+            <div class="modifier-keys">
+              <span class="modifier-key" data-key="ctrl">Ctrl</span>
+              <span class="modifier-key" data-key="alt">Alt</span>
+              <span class="modifier-key" data-key="shift">Shift</span>
+            </div>
+
+            <div class="recording-new">
+              <span class="recording-label">New Shortcut:</span>
+              <div id="recording-display" class="shortcut-display">Press keys...</div>
+            </div>
+
+            <div id="recording-error" class="recording-error"></div>
+
+            <div class="recording-actions">
+              <button id="btn-recording-clear" class="btn-secondary">Clear</button>
+              <button id="btn-recording-cancel" class="btn-secondary">Cancel</button>
+              <button id="btn-recording-save" class="btn-primary" disabled>Save</button>
             </div>
           </div>
         </div>
@@ -2321,6 +2398,9 @@ class PopupController {
 
     // Setup profiles tab
     this.setupProfilesTab(modal);
+
+    // Setup AI tab
+    this.setupAITab(modal);
   }
 
   /**
@@ -2384,6 +2464,31 @@ class PopupController {
         }
       });
     }
+
+    // Preset profile click handlers
+    const presetItems = modal.querySelectorAll('.preset-item[data-preset]');
+    presetItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const presetName = item.getAttribute('data-preset');
+        if (confirm(`Load the "${presetName}" preset profile?\n\nThis will apply all settings from this preset.`)) {
+          this.profiles_loadProfile(presetName);
+          // Update the profile selector to show the loaded preset
+          const profileSelect = modal.querySelector('#modal-profile-select');
+          if (profileSelect) {
+            profileSelect.value = presetName;
+            this.updateProfileDescription(modal, presetName);
+          }
+        }
+      });
+
+      // Add hover effect
+      item.addEventListener('mouseenter', () => {
+        item.style.backgroundColor = '#f0f0f0';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.backgroundColor = '';
+      });
+    });
 
     // Initialize profile description
     const currentProfile = this.currentProfileName || 'Default';
@@ -2459,6 +2564,314 @@ class PopupController {
     });
   }
 
+  /**
+   * Setup the AI tab in the advanced settings modal
+   * @param {HTMLElement} modal - The modal element
+   */
+  setupAITab(modal) {
+    // AI mode radio buttons
+    const localRadio = modal.querySelector('[name="ai-mode"][value="local"]');
+    const cloudRadio = modal.querySelector('[name="ai-mode"][value="cloud"]');
+    const cloudSection = modal.querySelector('#cloud-provider-section');
+    const localSection = modal.querySelector('#local-ai-section');
+    const usageSection = modal.querySelector('#usage-stats-section');
+
+    // Load current AI mode from storage
+    chrome.storage.local.get(['cloudModeEnabled'], (result) => {
+      const isCloud = result.cloudModeEnabled || false;
+      if (isCloud) {
+        cloudRadio.checked = true;
+        this.switchToCloudMode(modal);
+      } else {
+        localRadio.checked = true;
+        this.switchToLocalMode(modal);
+      }
+    });
+
+    // AI mode change handlers
+    localRadio.addEventListener('change', () => this.switchToLocalMode(modal));
+    cloudRadio.addEventListener('change', () => this.switchToCloudMode(modal));
+
+    // Cloud provider dropdown
+    const providerSelect = modal.querySelector('#cloud-provider');
+    if (providerSelect) {
+      providerSelect.addEventListener('change', (e) => {
+        this.updateCloudProvider(e.target.value);
+      });
+    }
+
+    // Cloud model selection dropdown
+    const cloudModelSelect = modal.querySelector('#cloud-model-select');
+    if (cloudModelSelect) {
+      // Load saved cloud model preference
+      chrome.storage.local.get(['cloudModel'], (result) => {
+        if (result.cloudModel) {
+          cloudModelSelect.value = result.cloudModel;
+        }
+      });
+
+      // Save cloud model selection
+      cloudModelSelect.addEventListener('change', (e) => {
+        chrome.storage.local.set({ cloudModel: e.target.value });
+      });
+    }
+
+    // API key test button
+    const testBtn = modal.querySelector('#test-api-key');
+    if (testBtn) {
+      testBtn.addEventListener('click', async () => {
+        const apiKeyInput = modal.querySelector('#api-key-input');
+        const provider = modal.querySelector('#cloud-provider').value;
+        await this.testAPIKey(provider, apiKeyInput.value, modal);
+      });
+    }
+
+    // Install model button
+    const installModelBtn = modal.querySelector('#install-model');
+    if (installModelBtn) {
+      installModelBtn.addEventListener('click', () => {
+        this.showInstallModelDialog();
+      });
+    }
+
+    // Usage stats export buttons
+    const exportJsonBtn = modal.querySelector('#export-stats-json');
+    const exportCsvBtn = modal.querySelector('#export-stats-csv');
+    const clearStatsBtn = modal.querySelector('#clear-stats');
+
+    if (exportJsonBtn) {
+      exportJsonBtn.addEventListener('click', () => this.exportUsageStats('json'));
+    }
+    if (exportCsvBtn) {
+      exportCsvBtn.addEventListener('click', () => this.exportUsageStats('csv'));
+    }
+    if (clearStatsBtn) {
+      clearStatsBtn.addEventListener('click', () => this.clearUsageStats());
+    }
+
+    // Initialize Ollama status check
+    this.checkOllamaStatus(modal);
+  }
+
+  /**
+   * Switch to Local AI mode
+   * @param {HTMLElement} modal - The modal element
+   */
+  switchToLocalMode(modal) {
+    const cloudSection = modal.querySelector('#cloud-provider-section');
+    const localSection = modal.querySelector('#local-ai-section');
+    const usageSection = modal.querySelector('#usage-stats-section');
+    const modelPrefsSection = modal.querySelector('.feature-models-section');
+
+    cloudSection.classList.add('hidden');
+    usageSection.classList.add('hidden');
+    localSection.classList.remove('hidden');
+    if (modelPrefsSection) modelPrefsSection.classList.remove('hidden');
+
+    chrome.storage.local.set({ cloudModeEnabled: false });
+  }
+
+  /**
+   * Switch to Cloud AI mode
+   * @param {HTMLElement} modal - The modal element
+   */
+  switchToCloudMode(modal) {
+    const cloudSection = modal.querySelector('#cloud-provider-section');
+    const localSection = modal.querySelector('#local-ai-section');
+    const usageSection = modal.querySelector('#usage-stats-section');
+    const modelPrefsSection = modal.querySelector('.feature-models-section');
+
+    cloudSection.classList.remove('hidden');
+    usageSection.classList.remove('hidden');
+    localSection.classList.add('hidden');
+    if (modelPrefsSection) modelPrefsSection.classList.add('hidden');
+
+    chrome.storage.local.set({ cloudModeEnabled: true });
+  }
+
+  /**
+   * Update cloud provider selection
+   * @param {string} provider - The selected provider (anthropic/openai/google)
+   */
+  updateCloudProvider(provider) {
+    chrome.storage.local.set({ cloudProvider: provider });
+  }
+
+  /**
+   * Test API key connection
+   * @param {string} provider - The cloud provider
+   * @param {string} apiKey - The API key to test
+   * @param {HTMLElement} modal - The modal element
+   */
+  async testAPIKey(provider, apiKey, modal) {
+    if (!apiKey) {
+      alert('Please enter an API key');
+      return;
+    }
+
+    const testBtn = modal.querySelector('#test-api-key');
+    const originalText = testBtn.textContent;
+    testBtn.textContent = 'Testing...';
+    testBtn.disabled = true;
+
+    try {
+      // Import API key manager
+      const { saveAPIKey, testConnection } = await import('../core/storage/api-key-manager.js');
+
+      // Test connection
+      const isValid = await testConnection(provider, apiKey);
+
+      if (isValid) {
+        // Save encrypted API key
+        await saveAPIKey(provider, apiKey);
+        alert('✅ Connection successful! API key saved.');
+      } else {
+        alert('❌ Connection failed. Please check your API key.');
+      }
+    } catch (error) {
+      console.error('API key test failed:', error);
+      alert('❌ Connection failed: ' + error.message);
+    } finally {
+      testBtn.textContent = originalText;
+      testBtn.disabled = false;
+    }
+  }
+
+  /**
+   * Show install model dialog
+   */
+  showInstallModelDialog() {
+    const modelName = prompt('Enter model name to install (e.g., llama3.2):');
+    if (modelName) {
+      alert(`Installing model: ${modelName}\n\nRun this in your terminal:\n\nollama pull ${modelName}`);
+    }
+  }
+
+  /**
+   * Check Ollama status
+   * @param {HTMLElement} modal - The modal element
+   */
+  async checkOllamaStatus(modal) {
+    const statusDot = modal.querySelector('#ollama-status .status-dot');
+    const statusText = modal.querySelector('#ollama-status .status-text');
+
+    try {
+      const response = await fetch('http://localhost:11434/api/tags');
+      if (response.ok) {
+        const data = await response.json();
+        statusDot.style.backgroundColor = '#10b981';
+        statusText.textContent = `Connected (${data.models?.length || 0} models)`;
+
+        // Populate model list
+        this.populateModelList(modal, data.models || []);
+      } else {
+        throw new Error('Ollama not responding');
+      }
+    } catch (error) {
+      statusDot.style.backgroundColor = '#ef4444';
+      statusText.textContent = 'Not connected';
+    }
+  }
+
+  /**
+   * Populate model list
+   * @param {HTMLElement} modal - The modal element
+   * @param {Array} models - List of Ollama models
+   */
+  populateModelList(modal, models) {
+    const modelSelect = modal.querySelector('#local-model-select');
+    if (!modelSelect) return;
+
+    modelSelect.innerHTML = '';
+
+    if (models.length === 0) {
+      const option = document.createElement('option');
+      option.textContent = 'No models installed';
+      option.disabled = true;
+      modelSelect.appendChild(option);
+    } else {
+      models.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.name;
+        option.textContent = model.name;
+        modelSelect.appendChild(option);
+      });
+    }
+
+    // Also populate feature-specific model preference dropdowns
+    const featureModelSelects = modal.querySelectorAll('.model-select[data-feature]');
+    featureModelSelects.forEach(select => {
+      // Clear existing options
+      select.innerHTML = '';
+
+      // Add "Auto (Recommended)" option as default
+      const autoOption = document.createElement('option');
+      autoOption.value = 'auto';
+      autoOption.textContent = 'Auto (Recommended)';
+      select.appendChild(autoOption);
+
+      // Add available Ollama models
+      if (models.length > 0) {
+        models.forEach(model => {
+          const option = document.createElement('option');
+          option.value = model.name;
+          option.textContent = model.name;
+          select.appendChild(option);
+        });
+      }
+    });
+  }
+
+  /**
+   * Export usage statistics
+   * @param {string} format - 'json' or 'csv'
+   */
+  exportUsageStats(format) {
+    chrome.storage.local.get(['usageStats'], (result) => {
+      const stats = result.usageStats || { requests: 0, tokens: 0, history: [] };
+
+      let content, filename, mimeType;
+
+      if (format === 'json') {
+        content = JSON.stringify(stats, null, 2);
+        filename = `assist-usage-stats-${Date.now()}.json`;
+        mimeType = 'application/json';
+      } else {
+        // CSV format
+        content = 'Date,Feature,Requests,Tokens\n';
+        stats.history?.forEach(entry => {
+          content += `${entry.date},${entry.feature},${entry.requests},${entry.tokens}\n`;
+        });
+        filename = `assist-usage-stats-${Date.now()}.csv`;
+        mimeType = 'text/csv';
+      }
+
+      // Download file
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  /**
+   * Clear usage statistics
+   */
+  clearUsageStats() {
+    if (confirm('Clear all usage statistics? This cannot be undone.')) {
+      chrome.storage.local.set({
+        usageStats: { requests: 0, tokens: 0, history: [] }
+      }, () => {
+        alert('Usage statistics cleared.');
+        document.querySelector('#stat-requests').textContent = '0';
+        document.querySelector('#stat-tokens').textContent = '0';
+      });
+    }
+  }
+
   setupModalTabs(modal) {
     const tabs = modal.querySelectorAll('.modal-tab');
     const contents = modal.querySelectorAll('.tab-content');
@@ -2532,6 +2945,13 @@ class PopupController {
     loadCheckbox('show-google-classroom-integration', 'show_google_classroom_integration', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     loadCheckbox('show-annotations', 'show_annotations'); // Annotations
+    loadCheckbox('show-dark-mode', 'show_dark_mode'); // Dark Mode
+    loadCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
+    loadCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
+    loadCheckbox('show-pomodoro', 'show_pomodoro'); // Pomodoro Timer
+    loadCheckbox('show-stargardt', 'show_stargardt'); // Stargardt Support
+    loadCheckbox('show-reduced-motion', 'show_reduced_motion'); // Reduced Motion
+    loadCheckbox('show-media-control', 'show_media_control'); // Media Control
 
     // Load annotations storage mode
     const storageMode = document.getElementById('annotations-storage-mode');
@@ -2846,28 +3266,29 @@ class PopupController {
 
   async loadKeyboardShortcuts() {
     const shortcuts = await loadShortcuts();
-    const grid = document.getElementById('shortcuts-grid');
+    const grid = document.getElementById('keyboard-shortcuts-grid');
 
     if (!grid) {
+      console.warn('[Popup] Keyboard shortcuts grid not found');
       return;
     }
 
     // Shortcut categories for grouping
     const categories = {
-      tts_play_pause: 'Reading',
-      tts_stop: 'Reading',
+      tts_play_pause: 'TTS Controls',
+      tts_stop: 'TTS Controls',
       ocr_activate: 'Reading',
       reading_mode_toggle: 'Reading',
       reading_mode_exit: 'Reading',
-      dictionary_lookup: 'Lookup',
-      translation_lookup: 'Lookup',
-      stt_toggle: 'Writing',
+      dictionary_lookup: 'Lookup Tools',
+      text_stats_toggle: 'Reading',
+      highlight_menu_toggle: 'Lookup Tools',
+      sticky_note_create: 'Writing',
+      translation_toggle: 'Lookup Tools',
       focus_mode_toggle: 'Display',
-      annotation_create: 'Writing',
-      pomodoro_toggle: 'Focus',
-      dark_mode_toggle: 'Display',
-      highlight_menu_toggle: 'Lookup',
-      profile_switch: 'Profile',
+      reading_guide_toggle: 'Display',
+      screen_overlay_toggle: 'Display',
+      dyslexia_mode_toggle: 'Display',
     };
 
     // Clear existing cards
@@ -2883,12 +3304,20 @@ class PopupController {
       const isEmpty = !shortcut;
 
       card.innerHTML = `
-        <div class="shortcut-info">
-          <span class="shortcut-name">${SHORTCUT_LABELS[key] || key}</span>
+        <div class="shortcut-header">
           <span class="shortcut-category">${categories[key] || 'General'}</span>
         </div>
-        <kbd class="shortcut-key${isEmpty ? ' empty' : ''}">${displayShortcut}</kbd>
-        <button class="shortcut-edit-btn" data-key="${key}" title="Edit shortcut">✏️</button>
+        <div class="shortcut-body">
+          <span class="shortcut-name">${SHORTCUT_LABELS[key] || key}</span>
+          <kbd class="shortcut-key${isEmpty ? ' empty' : ''}">${displayShortcut}</kbd>
+        </div>
+        <div class="shortcut-footer">
+          <button class="shortcut-edit-btn" data-key="${key}" title="Click to assign shortcut">
+            <span class="btn-icon">✏️</span>
+            <span class="btn-text">Assign</span>
+          </button>
+          ${!isEmpty ? `<button class="shortcut-clear-btn" data-key="${key}" title="Clear shortcut">🗑️</button>` : ''}
+        </div>
       `;
 
       grid.appendChild(card);
@@ -2902,14 +3331,29 @@ class PopupController {
       });
     });
 
-    // Reset shortcuts button
-    const resetBtn = document.getElementById('btn-reset-shortcuts');
-    if (resetBtn) {
-      resetBtn.onclick = async () => {
-        if (confirm('Reset all keyboard shortcuts to defaults?')) {
-          await resetShortcuts();
+    // Add event listeners to clear buttons
+    grid.querySelectorAll('.shortcut-clear-btn').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        const key = e.currentTarget.getAttribute('data-key');
+        shortcuts[key] = '';
+        await saveShortcuts(shortcuts);
+        this.loadKeyboardShortcuts();
+        this.updateStatus(`Cleared shortcut: ${SHORTCUT_LABELS[key]}`);
+      });
+    });
+
+    // Clear all shortcuts button
+    const clearAllBtn = document.getElementById('btn-clear-all-shortcuts');
+    if (clearAllBtn) {
+      clearAllBtn.onclick = async () => {
+        if (confirm('Clear all keyboard shortcuts? This cannot be undone.')) {
+          const emptyShortcuts = {};
+          for (const key of Object.keys(shortcuts)) {
+            emptyShortcuts[key] = '';
+          }
+          await saveShortcuts(emptyShortcuts);
           this.loadKeyboardShortcuts();
-          this.updateStatus('Shortcuts reset to defaults');
+          this.updateStatus('All shortcuts cleared');
         }
       };
     }
@@ -3163,6 +3607,13 @@ class PopupController {
     saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     saveCheckbox('show-annotations', 'show_annotations'); // Annotations
     saveCheckbox('show-translation', 'show_translation'); // Translation
+    saveCheckbox('show-dark-mode', 'show_dark_mode'); // Dark Mode
+    saveCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
+    saveCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
+    saveCheckbox('show-pomodoro', 'show_pomodoro'); // Pomodoro Timer
+    saveCheckbox('show-stargardt', 'show_stargardt'); // Stargardt Support
+    saveCheckbox('show-reduced-motion', 'show_reduced_motion'); // Reduced Motion
+    saveCheckbox('show-media-control', 'show_media_control'); // Media Control
 
     // Save annotations storage mode
     const storageMode = document.getElementById('annotations-storage-mode');
