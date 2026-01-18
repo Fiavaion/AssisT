@@ -336,8 +336,9 @@ function highlightMenu_createToolbar() {
     });
   }
 
-  // Row 2: AI tools part 1 (5 buttons) - Only show if Local AI is enabled
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSummarize) {
+  // Row 2: AI tools part 1 (5 buttons) - Show if Local AI OR Cloud AI is enabled
+  const aiEnabled = highlightMenu_settings.llmEnabled || highlightMenu_settings.cloudModeEnabled;
+  if (aiEnabled && highlightMenu_settings.showSummarize) {
     allButtons.push({
       icon: '✨',
       label: 'Summary',
@@ -347,7 +348,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSimplify) {
+  if (aiEnabled && highlightMenu_settings.showSimplify) {
     allButtons.push({
       icon: '💡',
       label: 'Simplify',
@@ -357,7 +358,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showBreakdown) {
+  if (aiEnabled && highlightMenu_settings.showBreakdown) {
     allButtons.push({
       icon: '✅',
       label: 'Tasks',
@@ -367,7 +368,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSocraticTutor) {
+  if (aiEnabled && highlightMenu_settings.showSocraticTutor) {
     allButtons.push({
       icon: '🎓',
       label: 'Tutor',
@@ -377,7 +378,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showKnowledgeGraph) {
+  if (aiEnabled && highlightMenu_settings.showKnowledgeGraph) {
     allButtons.push({
       icon: '🕸️',
       label: 'Graph',
@@ -388,8 +389,8 @@ function highlightMenu_createToolbar() {
     });
   }
 
-  // Row 3: AI tools part 2 (5 buttons) - Only show if Local AI is enabled
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showSpeedRead) {
+  // Row 3: AI tools part 2 (5 buttons) - Show if Local AI OR Cloud AI is enabled
+  if (aiEnabled && highlightMenu_settings.showSpeedRead) {
     allButtons.push({
       icon: '⚡',
       label: 'Speed',
@@ -399,7 +400,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showCitationAnalyzer) {
+  if (aiEnabled && highlightMenu_settings.showCitationAnalyzer) {
     allButtons.push({
       icon: '⚖️',
       label: 'Cite',
@@ -409,7 +410,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showCognitiveMonitor) {
+  if (aiEnabled && highlightMenu_settings.showCognitiveMonitor) {
     allButtons.push({
       icon: '🧠',
       label: 'Focus',
@@ -419,7 +420,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showMultiDocCompare) {
+  if (aiEnabled && highlightMenu_settings.showMultiDocCompare) {
     allButtons.push({
       icon: '📊',
       label: 'Compare',
@@ -429,7 +430,7 @@ function highlightMenu_createToolbar() {
       isAI: true,
     });
   }
-  if (highlightMenu_settings.llmEnabled && highlightMenu_settings.showStudyPath) {
+  if (aiEnabled && highlightMenu_settings.showStudyPath) {
     allButtons.push({
       icon: '📚',
       label: 'Study',
@@ -1036,13 +1037,15 @@ function highlightMenu_init() {
   });
 
   // Load settings from chrome.storage
-  chrome.storage.local.get(['highlightMenuSettings', 'llmEnabled'], result => {
+  chrome.storage.local.get(['highlightMenuSettings', 'llmEnabled', 'cloudModeEnabled'], result => {
     if (result.highlightMenuSettings) {
       Object.assign(highlightMenu_settings, result.highlightMenuSettings);
       console.log('[HighlightMenu] Settings loaded:', highlightMenu_settings);
     }
-    // Store LLM enabled state to filter AI buttons
+    // Store AI enabled states to filter AI buttons (show if EITHER Local OR Cloud is enabled)
     highlightMenu_settings.llmEnabled = result.llmEnabled !== undefined ? result.llmEnabled : false;
+    highlightMenu_settings.cloudModeEnabled =
+      result.cloudModeEnabled !== undefined ? result.cloudModeEnabled : false;
   });
 
   // Listen for settings updates
@@ -1055,8 +1058,20 @@ function highlightMenu_init() {
       if (changes.llmEnabled) {
         highlightMenu_settings.llmEnabled = changes.llmEnabled.newValue;
         console.log(
-          '[HighlightMenu] LLM enabled state updated:',
+          '[HighlightMenu] Local AI enabled state updated:',
           highlightMenu_settings.llmEnabled
+        );
+
+        // Hide current toolbar so it gets recreated with new AI button visibility on next text selection
+        if (highlightMenu_toolbar) {
+          highlightMenu_hide();
+        }
+      }
+      if (changes.cloudModeEnabled) {
+        highlightMenu_settings.cloudModeEnabled = changes.cloudModeEnabled.newValue;
+        console.log(
+          '[HighlightMenu] Cloud AI enabled state updated:',
+          highlightMenu_settings.cloudModeEnabled
         );
 
         // Hide current toolbar so it gets recreated with new AI button visibility on next text selection
