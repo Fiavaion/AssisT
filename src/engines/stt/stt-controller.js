@@ -208,9 +208,14 @@ export class STTController {
       return false;
     }
 
+    // CRITICAL: Set isRecording to false BEFORE calling stop()
+    // This prevents handleEnd() from restarting recognition
+    this.isRecording = false;
+    this.isPaused = false;
+
     try {
       this.recognition.stop();
-      console.log('[STT] Stopped listening');
+      console.log('[STT] Stopped listening (isRecording set to false before stop)');
       return true;
     } catch (error) {
       console.error('[STT] Failed to stop recognition:', error);
@@ -220,6 +225,7 @@ export class STTController {
 
   /**
    * Pause listening (for continuous mode)
+   * NOTE: Keeps recognition running to avoid permission prompts on resume
    */
   pauseListening() {
     if (!this.recognition || !this.isRecording) {
@@ -227,13 +233,13 @@ export class STTController {
     }
 
     this.isPaused = true;
-    this.recognition.stop();
-    console.log('[STT] Paused listening');
+    console.log('[STT] Paused listening (recognition still running, ignoring results)');
     return true;
   }
 
   /**
    * Resume listening (for continuous mode)
+   * NOTE: Doesn't restart recognition, just resumes processing results
    */
   resumeListening() {
     if (!this.recognition || !this.isPaused) {
@@ -241,14 +247,8 @@ export class STTController {
     }
 
     this.isPaused = false;
-    try {
-      this.recognition.start();
-      console.log('[STT] Resumed listening');
-      return true;
-    } catch (error) {
-      console.error('[STT] Failed to resume recognition:', error);
-      return false;
-    }
+    console.log('[STT] Resumed listening (processing results again)');
+    return true;
   }
 
   /**
@@ -265,20 +265,30 @@ export class STTController {
    * Handle recognition end event
    */
   handleEnd() {
-    console.log('[STT] Recognition ended');
+    console.log(
+      '[STT] Recognition ended, isRecording:',
+      this.isRecording,
+      'isPaused:',
+      this.isPaused
+    );
 
-    // If continuous mode and not manually paused, restart
-    if (this.settings.continuous && this.isRecording && !this.isPaused) {
-      console.log('[STT] Restarting continuous recognition');
+    // If continuous mode and still recording (even if paused), restart
+    // This keeps recognition running in background during pause to avoid permission prompts
+    if (this.settings.continuous && this.isRecording) {
+      console.log('[STT] Restarting continuous recognition (paused:', this.isPaused, ')');
       try {
         this.recognition.start();
       } catch (error) {
         console.error('[STT] Failed to restart continuous recognition:', error);
         this.isRecording = false;
+        this.isPaused = false;
         this.onEnd();
       }
     } else {
+      // User stopped recording (not just paused)
+      console.log('[STT] Recording fully stopped');
       this.isRecording = false;
+      this.isPaused = false;
       this.onEnd();
     }
   }
@@ -288,6 +298,12 @@ export class STTController {
    * @param {SpeechRecognitionEvent} event
    */
   handleResult(event) {
+    // Ignore results when paused (recognition stays running to avoid permission prompts)
+    if (this.isPaused) {
+      console.log('[STT] Ignoring result while paused');
+      return;
+    }
+
     let interimTranscript = '';
     let finalTranscript = '';
     let avgConfidence = 0;
@@ -1358,9 +1374,7 @@ export class STTController {
         maxAlternatives: this.settings.maxAlternatives,
         ...options,
         onConfidenceUpdate: result => {
-          console.log(
-            `[STT] Confidence: ${result.getPercentage()}% (${result.getLevel()})`
-          );
+          console.log(`[STT] Confidence: ${result.getPercentage()}% (${result.getLevel()})`);
           this.onConfidenceUpdate(result);
         },
         onLowConfidence: result => {
