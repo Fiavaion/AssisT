@@ -203,68 +203,87 @@ Systematic fixes for failed features from testing, broken into phases matching [
 
 ## Phase 3: Writing Help 🔄
 
-**Status:** IN PROGRESS
+**Status:** IN PROGRESS (Microphone button working, remaining features pending)
 
 **Scope:**
 
-- STT Toggle
-- Microphone Button
-- Voice Input Test
-- STT Pause/Resume
-- Auto-Punctuation
-- Voice Commands
-- Annotations Toggle/Create
-- Citations Toggle
-- Text Simplification
+- ✅ STT Toggle
+- ✅ Microphone Button
+- ⏸️ Voice Input Test (manual testing required)
+- ⏸️ STT Pause/Resume
+- ⏸️ Auto-Punctuation
+- ⏸️ Voice Commands
+- ⏸️ Annotations Toggle/Create
+- ⏸️ Citations Toggle
+- ⏸️ Text Simplification
 
 ### ✅ Completed Fixes
 
-#### 3.1 Microphone Button Visibility Fix
+#### 3.1 Microphone Button Visibility Fix ✅
+
+**Commits:**
+
+- `d797a05` - fix(stt): enable microphone button by adding all STT dependencies
+- `5d51b1a` - fix(stt): stub VocabularyManager to bypass dexie module resolution
+- `b8e5ac9` - feat(stt): add audioCapture permission for persistent microphone access
 
 **Files Modified:**
 
-- [manifest.json](manifest.json#L75)
-- [src/features/stt/stt.js](src/features/stt/stt.js) (added debug logging)
+- [manifest.json](manifest.json#L75) - Added wildcard for all STT files
+- [manifest.json](manifest.json#L24) - Added audioCapture permission
+- [src/features/stt/stt.js](src/features/stt/stt.js) - Added debug logging
+- [src/engines/stt/vocabulary-manager.js](src/engines/stt/vocabulary-manager.js) - Stubbed dexie dependency
 
-**Issue Fixed:**
-Microphone button failed to load because `stt-controller.js` imports other modules that weren't in web_accessible_resources:
+**Issues Fixed:**
 
-- `command-parser.js`
-- `vocabulary-manager.js`
-- `stt-profiles.js`
-- `auto-punctuation.js`
-- `confidence-feedback.js`
+1. **Web Accessible Resources**: `stt-controller.js` imports multiple modules not listed in web_accessible_resources
+2. **Dexie Import Error**: `vocabulary-manager.js` uses bare module specifier for 'dexie' which fails in dynamic imports
+3. **Repeated Permission Prompts**: Microphone permission requested on every page session
 
-**Solution:**
-Changed manifest.json line 75 from:
+**Solutions:**
 
-```json
-"src/engines/stt/stt-controller.js",
-```
+1. **Changed manifest.json line 75:**
 
-to:
+   ```json
+   // Before:
+   "src/engines/stt/stt-controller.js",
 
-```json
-"src/engines/stt/*.js",
-```
+   // After:
+   "src/engines/stt/*.js",
+   ```
 
-This allows all STT engine files to be dynamically imported.
+   This allows all STT engine files (command-parser.js, vocabulary-manager.js, stt-profiles.js, auto-punctuation.js, confidence-feedback.js) to be dynamically imported.
+
+2. **Stubbed VocabularyManager:**
+   - Commented out `import Dexie from 'dexie'`
+   - Created stub `VocabularyDatabase` class with no-op methods
+   - VocabularyManager functions but without persistent storage (acceptable for basic STT)
+   - **TODO**: Configure Vite to bundle dexie with STT modules for full functionality
+
+3. **Added audioCapture permission:**
+   - Added `"audioCapture"` to manifest.json permissions array (line 24)
+   - Eliminates repeated microphone permission prompts
+   - User grants permission once during installation
 
 **Debug Logging Added:**
-Added comprehensive console logging to [src/features/stt/stt.js](src/features/stt/stt.js):
+Comprehensive console logging in [src/features/stt/stt.js](src/features/stt/stt.js):
 
-- Module loading status
-- Initialization steps
-- Field listener setup
-- Focus event debugging
+- Module loading URLs and success/failure
+- Initialization steps and microphone button creation
+- Field listener setup confirmation
+- Focus event debugging with target element info
 
 **Testing:**
 
+✅ **Verified Working:**
+
 1. Reload extension in Chrome
 2. Enable STT toggle in popup
-3. Console should show: `[STT] Modules loaded successfully!`
-4. Focus any text field
-5. Microphone button should appear
+3. Console shows: `[STT] Modules loaded successfully!`
+4. Console shows: `[STT] Initialized successfully! stt_micButton: true`
+5. Focus any text field - microphone button appears
+6. Click microphone - starts listening without permission prompt
+7. Microphone permission persists across pages/sessions
 
 ---
 
