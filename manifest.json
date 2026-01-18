@@ -20,7 +20,8 @@
     "downloads",
     "contextMenus",
     "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequestWithHostAccess",
+    "audioCapture"
   ],
 
   "host_permissions": [
