@@ -96,8 +96,15 @@ export const CHROME_RESERVED_SHORTCUTS = [
   'Ctrl+Shift+T',
   'Ctrl+Tab',
   'Ctrl+Shift+Tab',
-  'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5',
-  'Ctrl+6', 'Ctrl+7', 'Ctrl+8', 'Ctrl+9',
+  'Ctrl+1',
+  'Ctrl+2',
+  'Ctrl+3',
+  'Ctrl+4',
+  'Ctrl+5',
+  'Ctrl+6',
+  'Ctrl+7',
+  'Ctrl+8',
+  'Ctrl+9',
 
   // Window management
   'Ctrl+N',
@@ -153,6 +160,82 @@ export const CHROME_RESERVED_SHORTCUTS = [
   'Ctrl+D',
 ];
 
+/**
+ * Descriptions for Chrome reserved shortcuts
+ * Maps each reserved shortcut to its functionality
+ * @type {Object<string, string>}
+ */
+export const CHROME_SHORTCUT_DESCRIPTIONS = {
+  // Tab management
+  'Ctrl+T': 'Open new tab',
+  'Ctrl+W': 'Close current tab',
+  'Ctrl+Shift+T': 'Reopen closed tab',
+  'Ctrl+Tab': 'Switch to next tab',
+  'Ctrl+Shift+Tab': 'Switch to previous tab',
+  'Ctrl+1': 'Switch to tab 1',
+  'Ctrl+2': 'Switch to tab 2',
+  'Ctrl+3': 'Switch to tab 3',
+  'Ctrl+4': 'Switch to tab 4',
+  'Ctrl+5': 'Switch to tab 5',
+  'Ctrl+6': 'Switch to tab 6',
+  'Ctrl+7': 'Switch to tab 7',
+  'Ctrl+8': 'Switch to tab 8',
+  'Ctrl+9': 'Switch to last tab',
+
+  // Window management
+  'Ctrl+N': 'Open new window',
+  'Ctrl+Shift+N': 'Open incognito window',
+  'Alt+F4': 'Close window',
+
+  // Navigation
+  'Ctrl+L': 'Focus address bar',
+  'Ctrl+K': 'Search from address bar',
+  'Alt+D': 'Focus address bar',
+  'Alt+Left': 'Go back',
+  'Alt+Right': 'Go forward',
+  Backspace: 'Go back',
+
+  // Page actions
+  'Ctrl+R': 'Reload page',
+  'Ctrl+Shift+R': 'Hard reload page',
+  F5: 'Reload page',
+  'Ctrl+F5': 'Hard reload page',
+  'Ctrl+P': 'Print page',
+  'Ctrl+S': 'Save page',
+
+  // Browser functions
+  'Ctrl+H': 'Open history',
+  'Ctrl+J': 'Open downloads',
+  'Ctrl+Shift+Delete': 'Clear browsing data',
+  'Ctrl+Shift+B': 'Toggle bookmarks bar',
+
+  // Text editing (common)
+  'Ctrl+A': 'Select all',
+  'Ctrl+C': 'Copy',
+  'Ctrl+V': 'Paste',
+  'Ctrl+X': 'Cut',
+  'Ctrl+Z': 'Undo',
+  'Ctrl+Y': 'Redo',
+  'Ctrl+F': 'Find in page',
+  'Ctrl+G': 'Find next',
+
+  // DevTools
+  F12: 'Open DevTools',
+  'Ctrl+Shift+I': 'Open DevTools',
+  'Ctrl+Shift+J': 'Open DevTools Console',
+  'Ctrl+Shift+C': 'Inspect element',
+
+  // Zoom
+  'Ctrl+Plus': 'Zoom in',
+  'Ctrl+Minus': 'Zoom out',
+  'Ctrl+0': 'Reset zoom',
+
+  // Miscellaneous
+  'Ctrl+O': 'Open file',
+  'Ctrl+U': 'View page source',
+  'Ctrl+D': 'Bookmark current page',
+};
+
 // ============================================================================
 // VALIDATION FUNCTIONS
 // ============================================================================
@@ -190,9 +273,15 @@ export function normalizeShortcut(shortcut) {
   const parsed = parseShortcut(shortcut);
   const modifiers = [];
 
-  if (parsed.ctrl) modifiers.push('Ctrl');
-  if (parsed.alt) modifiers.push('Alt');
-  if (parsed.shift) modifiers.push('Shift');
+  if (parsed.ctrl) {
+    modifiers.push('Ctrl');
+  }
+  if (parsed.alt) {
+    modifiers.push('Alt');
+  }
+  if (parsed.shift) {
+    modifiers.push('Shift');
+  }
 
   // Capitalize key
   const key = parsed.key.charAt(0).toUpperCase() + parsed.key.slice(1);
@@ -228,14 +317,22 @@ export function isValidShortcut(shortcut) {
  * Checks if a shortcut conflicts with Chrome reserved shortcuts
  *
  * @param {string} shortcut - Shortcut to check
- * @returns {boolean} True if conflicts with Chrome
+ * @returns {Object|null} { shortcut, description } if conflicts, null otherwise
  * @example
- * isConflictWithChrome('Ctrl+T') // true (reserved)
- * isConflictWithChrome('Ctrl+Shift+X') // false (not reserved)
+ * isConflictWithChrome('Ctrl+T') // { shortcut: 'Ctrl+T', description: 'Open new tab' }
+ * isConflictWithChrome('Ctrl+Shift+X') // null
  */
 export function isConflictWithChrome(shortcut) {
   const normalized = normalizeShortcut(shortcut);
-  return CHROME_RESERVED_SHORTCUTS.includes(normalized);
+
+  if (CHROME_RESERVED_SHORTCUTS.includes(normalized)) {
+    return {
+      shortcut: normalized,
+      description: CHROME_SHORTCUT_DESCRIPTIONS[normalized] || 'Chrome system function',
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -253,7 +350,9 @@ export function isConflictWithExtension(shortcut, currentShortcuts, excludeKey =
   const normalized = normalizeShortcut(shortcut);
 
   for (const [key, value] of Object.entries(currentShortcuts)) {
-    if (key === excludeKey) continue; // Skip the shortcut being edited
+    if (key === excludeKey) {
+      continue;
+    } // Skip the shortcut being edited
     if (normalizeShortcut(value) === normalized) {
       return key; // Return the conflicting feature key
     }
@@ -284,11 +383,13 @@ export function validateShortcut(shortcut, currentShortcuts = {}, excludeKey = n
   }
 
   // Check Chrome conflicts
-  if (isConflictWithChrome(shortcut)) {
+  const chromeConflict = isConflictWithChrome(shortcut);
+  if (chromeConflict) {
     return {
       valid: false,
-      error: 'This shortcut is reserved by Chrome',
+      error: `⚠️ Conflicts with Chrome: ${chromeConflict.description}`,
       conflictWith: 'Chrome',
+      description: chromeConflict.description,
     };
   }
 
@@ -323,8 +424,8 @@ export function validateShortcut(shortcut, currentShortcuts = {}, excludeKey = n
  * console.log(shortcuts.ocr_activate); // 'Alt+O'
  */
 export async function loadShortcuts() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get('assist_settings', (result) => {
+  return new Promise(resolve => {
+    chrome.storage.local.get('assist_settings', result => {
       const settings = result.assist_settings || {};
       const shortcuts = settings.keyboardShortcuts || { ...DEFAULT_SHORTCUTS };
 
@@ -343,8 +444,8 @@ export async function loadShortcuts() {
  * await saveShortcuts({ ocr_activate: 'Alt+Shift+O' });
  */
 export async function saveShortcuts(shortcuts) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get('assist_settings', (result) => {
+  return new Promise(resolve => {
+    chrome.storage.local.get('assist_settings', result => {
       const settings = result.assist_settings || {};
       settings.keyboardShortcuts = shortcuts;
 
@@ -384,16 +485,26 @@ export async function resetShortcuts() {
 export function eventToShortcut(event) {
   const modifiers = [];
 
-  if (event.ctrlKey) modifiers.push('Ctrl');
-  if (event.altKey) modifiers.push('Alt');
-  if (event.shiftKey) modifiers.push('Shift');
+  if (event.ctrlKey) {
+    modifiers.push('Ctrl');
+  }
+  if (event.altKey) {
+    modifiers.push('Alt');
+  }
+  if (event.shiftKey) {
+    modifiers.push('Shift');
+  }
 
   // Normalize key name
   let key = event.key;
 
   // Handle special keys
-  if (key === ' ') key = 'Space';
-  if (key.length === 1) key = key.toUpperCase();
+  if (key === ' ') {
+    key = 'Space';
+  }
+  if (key.length === 1) {
+    key = key.toUpperCase();
+  }
 
   return [...modifiers, key].join('+');
 }
@@ -425,7 +536,7 @@ export function matchesShortcut(event, shortcut) {
  * document.addEventListener('keydown', handler);
  */
 export function createShortcutHandler(shortcut, callback) {
-  return (event) => {
+  return event => {
     if (matchesShortcut(event, shortcut)) {
       event.preventDefault();
       event.stopPropagation();
