@@ -16,7 +16,9 @@
  * @version 1.0.0
  */
 
-import Dexie from 'dexie';
+// Dexie import removed - using stub for now to avoid module resolution issues
+// TODO: Bundle dexie properly with Vite for dynamic imports
+// import Dexie from 'dexie';
 
 /**
  * Vocabulary entry type
@@ -228,19 +230,27 @@ const STEM_VOCABULARY = [
 ];
 
 /**
- * Initialize Dexie database for vocabulary
+ * Stub Dexie database for vocabulary
+ * TODO: Implement proper IndexedDB storage when dexie bundling is fixed
  */
-class VocabularyDatabase extends Dexie {
+class VocabularyDatabase {
   constructor() {
-    super('AssistVocabulary');
-
-    this.version(1).stores({
-      vocabulary: '++id, word, category, *tags, autoLearned, createdAt',
-      settings: 'key',
-    });
-
-    this.vocabulary = this.table('vocabulary');
-    this.settings = this.table('settings');
+    console.warn('[VocabularyManager] Using stub implementation - Dexie not available');
+    this.vocabulary = {
+      toArray: async () => [],
+      add: async () => 1,
+      update: async () => 1,
+      delete: async () => {},
+      where: () => ({
+        equals: () => ({
+          toArray: async () => [],
+        }),
+      }),
+    };
+    this.settings = {
+      get: async () => undefined,
+      put: async () => {},
+    };
   }
 }
 
