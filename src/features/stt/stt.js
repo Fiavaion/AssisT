@@ -85,16 +85,32 @@ const stt_settings = {
  */
 async function stt_loadModules() {
   try {
+    console.log('[STT] Loading modules...');
+    console.log(
+      '[STT] Controller URL:',
+      chrome.runtime.getURL('src/engines/stt/stt-controller.js')
+    );
+    console.log(
+      '[STT] MicButton URL:',
+      chrome.runtime.getURL('src/ui/components/microphone-button.js')
+    );
+
     const [STTModule, MicButtonModule] = await Promise.all([
       import(chrome.runtime.getURL('src/engines/stt/stt-controller.js')),
       import(chrome.runtime.getURL('src/ui/components/microphone-button.js')),
     ]);
+
+    console.log('[STT] Modules loaded successfully!');
+    console.log('[STT] STTController:', typeof STTModule.STTController);
+    console.log('[STT] MicrophoneButton:', typeof MicButtonModule.MicrophoneButton);
+
     return {
       STTController: STTModule.STTController,
       MicrophoneButton: MicButtonModule.MicrophoneButton,
     };
   } catch (error) {
     console.error('[STT] Failed to load modules:', error);
+    console.error('[STT] Error details:', error.message, error.stack);
     return null;
   }
 }
@@ -123,15 +139,23 @@ async function stt_loadModules() {
  * await stt_initialize();
  */
 async function stt_initialize() {
+  console.log('[STT] stt_initialize() called, stt_enabled:', stt_enabled);
+
   if (!stt_enabled) {
+    console.log('[STT] STT is disabled, skipping initialization');
     return;
   }
 
+  console.log('[STT] STT is enabled, loading modules...');
+
   const modules = await stt_loadModules();
   if (!modules) {
+    console.error('[STT] Modules failed to load!');
     showToast('⚠️ STT failed to load');
     return;
   }
+
+  console.log('[STT] Creating STT controller and microphone button...');
 
   // Create STT controller with callbacks
   stt_controller = new modules.STTController({
@@ -172,7 +196,9 @@ async function stt_initialize() {
   });
 
   // Create microphone button if enabled
+  console.log('[STT] floatingButton setting:', stt_settings.floatingButton);
   if (stt_settings.floatingButton) {
+    console.log('[STT] Creating microphone button...');
     stt_micButton = new modules.MicrophoneButton({
       onStart: targetField => {
         if (stt_controller) {
@@ -192,9 +218,10 @@ async function stt_initialize() {
   }
 
   // Listen for focus on text input fields
+  console.log('[STT] Setting up field listeners...');
   stt_setupFieldListeners();
 
-  console.log('[STT] Initialized successfully');
+  console.log('[STT] Initialized successfully! stt_micButton:', !!stt_micButton);
 }
 
 /**
@@ -243,18 +270,33 @@ function stt_cleanup() {
  * stt_setupFieldListeners();
  */
 function stt_setupFieldListeners() {
+  console.log(
+    '[STT] setupFieldListeners() called, stt_enabled:',
+    stt_enabled,
+    'floatingButton:',
+    stt_settings.floatingButton
+  );
+
   if (!stt_enabled || !stt_settings.floatingButton) {
+    console.log('[STT] Skipping field listener setup (STT disabled or floatingButton disabled)');
     return;
   }
+
+  console.log('[STT] Adding focusin event listener...');
 
   // Listen for focus on text fields
   document.addEventListener(
     'focusin',
     e => {
+      console.log('[STT] focusin event:', e.target.tagName, 'isTextInput:', isTextInput(e.target));
       if (stt_enabled && isTextInput(e.target)) {
         stt_activeField = e.target;
+        console.log('[STT] Text field focused, stt_micButton exists:', !!stt_micButton);
         if (stt_micButton) {
+          console.log('[STT] Showing microphone button...');
           stt_micButton.show(e.target);
+        } else {
+          console.error('[STT] stt_micButton is null! Cannot show button.');
         }
         console.log('[STT] Field focused:', e.target.tagName);
       }
@@ -322,8 +364,12 @@ const DEFAULT_SETTINGS = {
  * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
 function applySettings(settings, isInit = false) {
+  console.log('[STT] applySettings() called, isInit:', isInit, 'settings:', settings);
+
   const wasEnabled = stt_enabled;
   const newEnabled = settings.enabled || false;
+
+  console.log('[STT] wasEnabled:', wasEnabled, 'newEnabled:', newEnabled);
 
   // Update settings (handle both old and new key names)
   stt_settings.continuous =
