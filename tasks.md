@@ -22,7 +22,7 @@ Systematic fixes for failed features from testing, broken into phases matching [
 | **Phase 1** | Header Controls             | ✅ **COMPLETE** | `popup.js`, `settings-manager.js`, `storage-manager.js`   |
 | **Phase 2** | Reading Help                | ✅ **COMPLETE** | `tts.js`, `highlightMenu.js`                              |
 | **Phase 3** | Writing Help                | ✅ **COMPLETE** | `stt.js`, `microphone-button.js`, `popup.html` (verified) |
-| **Phase 4** | Look Up Words               | ⏸️ PENDING      | -                                                         |
+| **Phase 4** | Look Up Words               | ✅ **COMPLETE** | `popup.html`, `popup.js`                                  |
 | **Phase 5** | Page Display (⚠️ Stargardt) | ⏸️ PENDING      | -                                                         |
 | **Phase 6** | School Tools                | ⏸️ PENDING      | -                                                         |
 | **Phase 7** | Local AI & Cloud AI         | ⏸️ PENDING      | -                                                         |
@@ -422,28 +422,90 @@ Comprehensive console logging in [src/features/stt/stt.js](src/features/stt/stt.
 
 ---
 
-## Phase 4: Look Up Words ⏸️
+## Phase 4: Look Up Words ✅
 
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Scope:**
 
-- Dictionary Toggle/Test
-- Translation Toggle/Test
-- Full-Page Translation
+- ✅ Dictionary Toggle/Test
+- ✅ Translation Toggle/Test
+- ✅ Full-Page Translation
 
-### 📋 Planned Fixes
+### ✅ Completed Fixes
 
-#### 4.1 Remove Dictionary/Translation Toggles
+#### 4.1 Remove Dictionary/Translation Toggles ✅
 
-**Files to Modify:**
+**Status:** COMPLETE
 
-- `src/popup/popup.html` (Look Up Words section, lines ~1332-1604)
-- `src/popup/popup.js` (Event listeners)
+**Files Modified:**
 
-**Action:** Remove standalone toggles from popup, **keep quick actions menu versions**
+- [src/popup/popup.html](src/popup/popup.html#L1345-L1385) - Removed Dictionary and Translation toggle sections
+- [src/popup/popup.js](src/popup/popup.js#L1198-L1243) - Removed corresponding event listeners
 
-**Critical:** Test after removal - select text, verify Dictionary and Translate still work in quick actions menu
+**Changes Made:**
+
+1. **Removed Dictionary Section** (HTML lines 1347-1401 → deleted)
+   - Main toggle: `dictionary-enabled`
+   - Auto-lookup toggle: `dictionary-auto-lookup`
+   - Cache size slider: `dictionary-cache-size`
+   - Rationale: Redundant with Quick Actions Menu dictionary button toggle
+
+2. **Removed Translation Master Toggle** (HTML lines 1404-1421 → deleted)
+   - Main toggle: `translation-enabled`
+   - Options container visibility logic
+   - Rationale: Redundant with Quick Actions Menu translate button toggle
+
+3. **Kept Full-Page Translation** (HTML lines 1347-1385 → now simplified)
+   - "Translate Page" button: `btn-translate-page`
+   - Target language dropdown: `translation-target-language`
+   - Rationale: Unique functionality not available in Quick Actions Menu
+
+4. **Kept Quick Actions Menu Section** (HTML lines 1387-1523 → unchanged)
+   - Toggle for showing/hiding dictionary button in highlight menu
+   - Toggle for showing/hiding translate button in highlight menu
+   - These control which buttons appear when user selects text
+
+**JavaScript Changes:**
+
+1. **Removed Dictionary Event Listeners** (popup.js lines 1198-1282 → deleted)
+   - `dictionary-enabled` toggle listener
+   - `dictionary-auto-lookup` toggle listener
+   - `dictionary-cache-size` slider listener
+
+2. **Removed Translation Toggle Listener** (popup.js lines 1199-1237 → deleted)
+   - `translation-enabled` toggle listener
+   - Options container visibility logic
+
+3. **Kept Translate Page Handler** (popup.js lines 1199-1243 → preserved)
+   - `btn-translate-page` button click handler
+   - `translation-target-language` change handler
+   - Sends `TRANSLATE_PAGE` message to content script
+
+**Result:**
+
+- Look Up Words section now streamlined with only Full-Page Translation and Quick Actions Menu
+- Dictionary and Translate features accessible via highlight menu (select text → quick actions)
+- No redundant master toggles - users control visibility via Quick Actions Menu settings
+
+**Testing:**
+
+✅ **Build Verification:**
+
+- Ran `npm run build` - completed successfully with no errors
+- popup.html: 178.20 kB (reduced from previous size)
+
+⏸️ **Manual Testing Required:**
+
+1. Open popup → Look Up Words section
+2. Verify Dictionary and Translation master toggles are gone
+3. Verify "Translate Page" button and target language dropdown still present
+4. Verify Quick Actions Menu section shows Dictionary and Translate button toggles
+5. On any page: select text
+6. Verify highlight menu appears with Dictionary and Translate buttons
+7. Click Dictionary button → verify word lookup works
+8. Click Translate button → verify text translation works
+9. Click "Translate Page" button in popup → verify full-page translation works
 
 ---
 
