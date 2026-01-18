@@ -16,11 +16,14 @@ export class MicrophoneButton {
   constructor(options = {}) {
     this.onStart = options.onStart || (() => {});
     this.onStop = options.onStop || (() => {});
+    this.onPause = options.onPause || (() => {});
+    this.onResume = options.onResume || (() => {});
     this.onError = options.onError || (() => {});
 
     this.button = null;
     this.targetField = null;
     this.isRecording = false;
+    this.isPaused = false;
     this.tooltip = null;
 
     this.createButton();
@@ -35,7 +38,7 @@ export class MicrophoneButton {
     this.button.className = 'assist-stt-mic-button';
     this.button.type = 'button';
     this.button.setAttribute('aria-label', 'Start voice typing');
-    this.button.setAttribute('title', 'Click to speak (Ctrl+Shift+M)');
+    this.button.setAttribute('title', 'Left-click: Start • Right-click: Stop');
     this.button.setAttribute('role', 'button');
     this.button.setAttribute('tabindex', '0');
 
@@ -47,18 +50,34 @@ export class MicrophoneButton {
       </svg>
     `;
 
-    // Click handler
+    // Click handler (left click = toggle pause/resume)
     this.button.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       this.toggle();
     });
 
+    // Right-click handler (right click = stop)
+    this.button.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.isRecording || this.isPaused) {
+        console.log('[MicButton] Right-click detected - stopping recording');
+        this.stopRecording();
+      }
+    });
+
     // Keyboard handler
     this.button.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        this.toggle();
+
+        // Shift+Enter/Space = stop, regular = toggle
+        if (e.shiftKey && (this.isRecording || this.isPaused)) {
+          this.stopRecording();
+        } else {
+          this.toggle();
+        }
       }
     });
 
@@ -159,6 +178,22 @@ export class MicrophoneButton {
         }
       }
 
+      /* Paused State */
+      .assist-stt-mic-button.paused {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        animation: none;
+      }
+
+      .assist-stt-mic-button.paused:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(245, 158, 11, 0.6);
+      }
+
+      .assist-stt-mic-button.paused .pause-icon {
+        width: 28px;
+        height: 28px;
+      }
+
       /* Icon Styles */
       .assist-stt-mic-button .mic-icon {
         width: 28px;
@@ -230,11 +265,19 @@ export class MicrophoneButton {
         top: 0;
         left: 0;
         right: 0;
-        height: 4px;
+        height: 32px;
         background: linear-gradient(90deg, #ff4444 0%, #cc0000 100%);
         z-index: 99999;
         opacity: 0;
-        transition: opacity 0.3s ease;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 13px;
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       }
 
       .assist-stt-recording-bar.visible {
@@ -242,9 +285,14 @@ export class MicrophoneButton {
         animation: recording-bar-pulse 2s ease-in-out infinite;
       }
 
+      .assist-stt-recording-bar.paused {
+        background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+        animation: none;
+      }
+
       @keyframes recording-bar-pulse {
         0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
+        50% { opacity: 0.7; }
       }
 
       /* Disabled State */
@@ -329,12 +377,17 @@ export class MicrophoneButton {
   }
 
   /**
-   * Toggle recording state
+   * Toggle recording state (cycles through start → pause → resume → stop)
    */
   toggle() {
-    if (this.isRecording) {
-      this.stopRecording();
+    if (this.isPaused) {
+      // If paused, resume recording
+      this.resumeRecording();
+    } else if (this.isRecording) {
+      // If recording, pause
+      this.pauseRecording();
     } else {
+      // If idle, start recording
       this.startRecording();
     }
   }
@@ -349,11 +402,14 @@ export class MicrophoneButton {
     }
 
     this.isRecording = true;
+    this.isPaused = false;
     this.button.classList.add('recording');
-    this.button.setAttribute('aria-label', 'Stop voice typing');
-    this.button.setAttribute('title', 'Recording... Click to stop');
+    this.button.setAttribute('aria-label', 'Pause voice typing');
+    this.button.setAttribute('title', 'Recording... Left-click: Pause • Right-click: Stop');
+    this.updateIcon('recording');
 
     this.showRecordingIndicator();
+    this.updateRecordingIndicator('recording');
     this.onStart(this.targetField);
 
     console.log('[MicButton] Recording started');
@@ -364,15 +420,95 @@ export class MicrophoneButton {
    */
   stopRecording() {
     this.isRecording = false;
+    this.isPaused = false;
     this.button.classList.remove('recording');
+    this.button.classList.remove('paused');
     this.button.setAttribute('aria-label', 'Start voice typing');
     this.button.setAttribute('title', 'Click to speak (Ctrl+Shift+M)');
+    this.updateIcon('idle');
 
     this.hideRecordingIndicator();
     this.hideInterimDisplay();
     this.onStop();
 
     console.log('[MicButton] Recording stopped');
+  }
+
+  /**
+   * Pause recording
+   */
+  pauseRecording() {
+    if (!this.isRecording || this.isPaused) {
+      return;
+    }
+
+    this.isPaused = true;
+    this.button.classList.remove('recording');
+    this.button.classList.add('paused');
+    this.button.setAttribute('aria-label', 'Resume voice typing');
+    this.button.setAttribute(
+      'title',
+      'Paused (still listening) • Left-click: Resume • Right-click: Stop'
+    );
+    this.updateIcon('paused');
+    this.updateRecordingIndicator('paused');
+
+    this.onPause();
+
+    console.log('[MicButton] Recording paused (still listening, ignoring results)');
+  }
+
+  /**
+   * Resume recording
+   */
+  resumeRecording() {
+    if (!this.isPaused) {
+      return;
+    }
+
+    this.isPaused = false;
+    this.button.classList.remove('paused');
+    this.button.classList.add('recording');
+    this.button.setAttribute('aria-label', 'Pause voice typing');
+    this.button.setAttribute('title', 'Recording... Click to pause');
+    this.updateIcon('recording');
+    this.updateRecordingIndicator('recording');
+
+    this.onResume();
+
+    console.log('[MicButton] Recording resumed');
+  }
+
+  /**
+   * Update button icon based on state
+   * @param {string} state - 'idle', 'recording', or 'paused'
+   */
+  updateIcon(state) {
+    if (state === 'idle') {
+      // Microphone icon (default)
+      this.button.innerHTML = `
+        <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
+          <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z" fill="white"/>
+        </svg>
+      `;
+    } else if (state === 'recording') {
+      // Microphone icon (same as idle, pulse is via CSS)
+      this.button.innerHTML = `
+        <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
+          <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z" fill="white"/>
+        </svg>
+      `;
+    } else if (state === 'paused') {
+      // Pause icon (two vertical bars)
+      this.button.innerHTML = `
+        <svg class="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="4" width="4" height="16" rx="1" fill="white"/>
+          <rect x="14" y="4" width="4" height="16" rx="1" fill="white"/>
+        </svg>
+      `;
+    }
   }
 
   /**
@@ -391,6 +527,25 @@ export class MicrophoneButton {
     requestAnimationFrame(() => {
       bar.classList.add('visible');
     });
+  }
+
+  /**
+   * Update recording indicator appearance based on state
+   * @param {string} state - 'recording' or 'paused'
+   */
+  updateRecordingIndicator(state) {
+    const bar = document.getElementById('assist-stt-recording-bar');
+    if (!bar) {
+      return;
+    }
+
+    if (state === 'paused') {
+      bar.classList.add('paused');
+      bar.textContent = '⏸ Paused (still listening - no permission prompts on resume)';
+    } else if (state === 'recording') {
+      bar.classList.remove('paused');
+      bar.textContent = '🔴 Recording...';
+    }
   }
 
   /**

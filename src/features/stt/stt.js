@@ -51,6 +51,8 @@ let stt_activeField = null;
  * @property {string} language - Recognition language (e.g., 'en-US')
  * @property {boolean} autoCapitalize - Automatically capitalize sentences
  * @property {boolean} punctuationCommands - Enable voice punctuation commands
+ * @property {boolean} voiceCommands - Enable voice editing/navigation commands
+ * @property {boolean} autoPunctuation - Enable automatic punctuation detection
  * @property {boolean} floatingButton - Show floating microphone button
  */
 const stt_settings = {
@@ -59,6 +61,8 @@ const stt_settings = {
   language: 'en-US',
   autoCapitalize: true,
   punctuationCommands: true,
+  voiceCommands: true,
+  autoPunctuation: true,
   floatingButton: true,
 };
 
@@ -164,6 +168,8 @@ async function stt_initialize() {
     language: stt_settings.language,
     autoCapitalize: stt_settings.autoCapitalize,
     punctuationCommands: stt_settings.punctuationCommands,
+    voiceCommands: stt_settings.voiceCommands,
+    autoPunctuation: stt_settings.autoPunctuation,
     onStart: () => {
       console.log('[STT] Recording started');
       if (stt_micButton) {
@@ -209,6 +215,16 @@ async function stt_initialize() {
       onStop: () => {
         if (stt_controller) {
           stt_controller.stopListening();
+        }
+      },
+      onPause: () => {
+        if (stt_controller) {
+          stt_controller.pauseListening();
+        }
+      },
+      onResume: () => {
+        if (stt_controller) {
+          stt_controller.resumeListening();
         }
       },
       onError: message => {
