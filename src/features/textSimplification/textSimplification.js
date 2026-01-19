@@ -41,34 +41,20 @@ const simplification_settings = {
 
 // Cloud model configurations
 const SIMPLIFICATION_MODELS = {
-  'local': { id: 'local', name: 'Local', isLocal: true },
+  local: { id: 'local', name: 'Local', isLocal: true },
   'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
   'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
 // Cloud: Sonnet 4.5 scored 9.6/10 (highest single score in benchmark)
 // Local: Mistral:7b scored 8.4/10 (best local for simplification)
-const SIMPLIFICATION_DEFAULT_LOCAL_MODEL = 'local';
 const SIMPLIFICATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.5';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
-
-/**
- * Check if cloud mode is enabled
- * @returns {Promise<boolean>}
- */
-async function simplification_isCloudEnabled() {
-  try {
-    const result = await chrome.storage.local.get(['cloudModeEnabled']);
-    return result.cloudModeEnabled === true;
-  } catch (error) {
-    return false;
-  }
-}
 
 /**
  * Get the current model from global settings
@@ -125,12 +111,36 @@ async function simplification_checkLLM() {
  * Academic/complex words that indicate difficult text
  */
 const COMPLEXITY_INDICATORS = [
-  'phenomenological', 'ontological', 'epistemological', 'hermeneutic', 'dialectical',
-  'intersubjective', 'reconceptualisation', 'reconceptualization', 'praxis', 'chiasmic',
-  'instantiates', 'constitutes', 'necessitates', 'undergirded', 'antecedes',
-  'problematise', 'problematize', 'historicised', 'historicized', 'canonised',
-  'commodified', 'decontextualised', 'decontextualized', 'indeterminacy',
-  'reversibility', 'intertwining', 'stratum', 'qua', 'wherein', 'whereby'
+  'phenomenological',
+  'ontological',
+  'epistemological',
+  'hermeneutic',
+  'dialectical',
+  'intersubjective',
+  'reconceptualisation',
+  'reconceptualization',
+  'praxis',
+  'chiasmic',
+  'instantiates',
+  'constitutes',
+  'necessitates',
+  'undergirded',
+  'antecedes',
+  'problematise',
+  'problematize',
+  'historicised',
+  'historicized',
+  'canonised',
+  'commodified',
+  'decontextualised',
+  'decontextualized',
+  'indeterminacy',
+  'reversibility',
+  'intertwining',
+  'stratum',
+  'qua',
+  'wherein',
+  'whereby',
 ];
 
 /**
@@ -142,7 +152,9 @@ function detectComplexity(text) {
   const words = text.toLowerCase().split(/\s+/);
   const wordCount = words.length;
 
-  if (wordCount < 10) return 0;
+  if (wordCount < 10) {
+    return 0;
+  }
 
   // Factor 1: Average word length (academic texts have longer words)
   const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / wordCount;
@@ -164,7 +176,8 @@ function detectComplexity(text) {
   const punctScore = Math.min(1, complexPunctuation / 3);
 
   // Weighted average
-  const complexity = (lengthScore * 0.25) + (indicatorScore * 0.4) + (sentenceScore * 0.25) + (punctScore * 0.1);
+  const complexity =
+    lengthScore * 0.25 + indicatorScore * 0.4 + sentenceScore * 0.25 + punctScore * 0.1;
 
   return Math.max(0, Math.min(1, complexity));
 }
@@ -174,10 +187,10 @@ function detectComplexity(text) {
  * Stage 1: Extract difficult terms
  * Stage 2: Simplify with term awareness
  * @param {string} text - Text to simplify
- * @param {string} level - Simplification level
+ * @param {string} _level - Simplification level (unused, kept for API consistency)
  * @returns {Promise<string>} Simplified text
  */
-async function twoStageSimplification(text, level) {
+async function twoStageSimplification(text, _level) {
   console.log('[TextSimplification] Using two-stage processing for complex text');
 
   // Stage 1: Identify difficult terms (quick, focused task)
@@ -191,19 +204,22 @@ DIFFICULT TERMS:`;
     const termsResponse = await chrome.runtime.sendMessage({
       action: 'LOCAL_LLM_GENERATE',
       prompt: stage1Prompt,
-      options: { maxTokens: 100, temperature: 0.1 }
+      options: { maxTokens: 100, temperature: 0.1 },
     });
 
-    const extractedTerms = termsResponse?.success && termsResponse.data
-      ? termsResponse.data.split('\n').filter(t => t.trim().length > 2).slice(0, 5)
-      : [];
+    const extractedTerms =
+      termsResponse?.success && termsResponse.data
+        ? termsResponse.data
+            .split('\n')
+            .filter(t => t.trim().length > 2)
+            .slice(0, 5)
+        : [];
 
     console.log('[TextSimplification] Stage 1 - Extracted terms:', extractedTerms);
 
     // Stage 2: Simplify with term list
-    const termsList = extractedTerms.length > 0
-      ? `\nKEY TERMS TO DEFINE: ${extractedTerms.join(', ')}\n`
-      : '';
+    const termsList =
+      extractedTerms.length > 0 ? `\nKEY TERMS TO DEFINE: ${extractedTerms.join(', ')}\n` : '';
 
     const stage2Prompt = `Simplify this academic text. Keep the academic terms but add brief definitions in parentheses.
 ${termsList}
@@ -219,14 +235,17 @@ SIMPLIFIED VERSION:`;
     const simplifiedResponse = await chrome.runtime.sendMessage({
       action: 'LOCAL_LLM_GENERATE',
       prompt: stage2Prompt,
-      options: { maxTokens: 600, temperature: 0.3 }
+      options: { maxTokens: 600, temperature: 0.3 },
     });
 
     if (simplifiedResponse?.success && simplifiedResponse.data) {
       return simplifiedResponse.data;
     }
   } catch (error) {
-    console.warn('[TextSimplification] Two-stage processing failed, falling back to standard:', error);
+    console.warn(
+      '[TextSimplification] Two-stage processing failed, falling back to standard:',
+      error
+    );
   }
 
   // Fallback to null (will use standard processing)
@@ -275,7 +294,7 @@ Output: "The chiasmic intertwining (reciprocal entanglement) creates a pre-refle
 
 TEXT: ${text}
 
-IMPROVED:`
+IMPROVED:`,
   };
 
   // CLOUD MODEL PROMPTS (with CoT for better reasoning)
@@ -320,17 +339,12 @@ RULES:
 - Keep academic terms but add brief definitions in parentheses
 - Maintain the educational content but improve readability
 - Restructure complex sentences, don't just swap words
+- Output ONLY the simplified text, nothing else
 
 TEXT TO SIMPLIFY:
 ${text}
 
-Think step by step:
-1. Identify the key concepts and difficult terms
-2. Restructure complex sentences into simpler ones
-3. Add definitions for academic terms in parentheses
-4. Ensure the meaning is preserved
-
-SIMPLIFIED VERSION (clear, accessible language):`,
+SIMPLIFIED VERSION:`,
 
     academic: `You are an academic writing specialist. Improve readability while preserving scholarly tone and vocabulary.
 
@@ -349,17 +363,12 @@ RULES:
 - Maintain the scholarly depth and tone
 - Restructure syntax while preserving meaning
 - DO NOT just replace words with synonyms - transform the structure
+- Output ONLY the simplified text, nothing else
 
 TEXT TO SIMPLIFY:
 ${text}
 
-Think step by step:
-1. Identify which academic terms need definitions
-2. Break down complex sentence structures
-3. Add parenthetical definitions that integrate naturally
-4. Preserve the scholarly argument and tone
-
-IMPROVED VERSION (clearer academic writing):`,
+IMPROVED VERSION:`,
   };
 
   // Select prompt based on model type
@@ -382,7 +391,7 @@ IMPROVED VERSION (clearer academic writing):`,
           model: modelKey,
           maxTokens,
           temperature: 0.3,
-          feature: 'textSimplification'
+          feature: 'textSimplification',
         },
       });
     } else if (isComplexText && level !== 'basic') {
@@ -714,9 +723,6 @@ async function simplification_createPanel() {
   panel.setAttribute('aria-label', 'Text Simplification');
   panel.setAttribute('aria-modal', 'true');
 
-  // Check if cloud mode is enabled
-  const cloudEnabled = await simplification_isCloudEnabled();
-
   panel.innerHTML = `
     <div class="assist-simplify-header">
       <span class="assist-simplify-title">📝 Simplified Text</span>
@@ -773,7 +779,11 @@ async function simplification_createPanel() {
   regenerateBtn.addEventListener('click', async () => {
     if (simplification_currentText) {
       const modelKey = await simplification_getCurrentModel();
-      simplification_simplify(simplification_currentText, simplification_settings.defaultLevel, modelKey);
+      simplification_simplify(
+        simplification_currentText,
+        simplification_settings.defaultLevel,
+        modelKey
+      );
     }
   });
 
