@@ -31,7 +31,6 @@ let simplification_panel = null;
 let simplification_isLoading = false;
 let simplification_currentText = '';
 let simplification_currentResult = '';
-let simplification_modelDropdown = null; // Cloud model dropdown reference
 
 const simplification_settings = {
   enabled: true,
@@ -68,6 +67,30 @@ async function simplification_isCloudEnabled() {
     return result.cloudModeEnabled === true;
   } catch (error) {
     return false;
+  }
+}
+
+/**
+ * Get the current model from global settings
+ * @returns {Promise<string>} Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ */
+async function simplification_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return 'local';
+    } else if (aiMode === 'cloud') {
+      // Return the global cloud model setting from Advanced Options
+      return result.cloudModel || SIMPLIFICATION_DEFAULT_CLOUD_MODEL;
+    } else {
+      // AI is off - default to local
+      return 'local';
+    }
+  } catch (error) {
+    console.warn('[TextSimplification] Failed to get current model:', error);
+    return 'local';
   }
 }
 
@@ -711,15 +734,6 @@ async function simplification_createPanel() {
       <p class="assist-simplify-placeholder">Select text and click simplify...</p>
     </div>
     <div class="assist-simplify-actions">
-      <div class="assist-simplify-model-selector ${cloudEnabled ? '' : 'hidden'}">
-        <span class="assist-model-icon" title="AI Model">🤖</span>
-        <select class="assist-simplify-model" aria-label="Select AI model">
-          <option value="local">Local</option>
-          <option value="haiku-4.5">Haiku 4.5</option>
-          <option value="sonnet-4.5">Sonnet 4.5</option>
-          <option value="opus-4.5">Opus 4.5</option>
-        </select>
-      </div>
       <button class="assist-simplify-btn assist-simplify-copy" aria-label="Copy simplified text">
         <span class="assist-simplify-btn-icon">📋</span> Copy
       </button>
@@ -741,30 +755,13 @@ async function simplification_createPanel() {
 
   const levelSelect = panel.querySelector('.assist-simplify-level');
   levelSelect.value = simplification_settings.defaultLevel;
-  levelSelect.addEventListener('change', e => {
+  levelSelect.addEventListener('change', async e => {
     simplification_settings.defaultLevel = e.target.value;
     if (simplification_currentText) {
-      const modelSelect = panel.querySelector('.assist-simplify-model');
-      const modelKey = modelSelect?.value || 'local';
+      const modelKey = await simplification_getCurrentModel();
       simplification_simplify(simplification_currentText, e.target.value, modelKey);
     }
   });
-
-  // Model dropdown event listener
-  const modelSelect = panel.querySelector('.assist-simplify-model');
-  if (modelSelect) {
-    // Set default based on cloud mode (benchmark-optimized)
-    modelSelect.value = cloudEnabled ? SIMPLIFICATION_DEFAULT_CLOUD_MODEL : SIMPLIFICATION_DEFAULT_LOCAL_MODEL;
-    simplification_modelDropdown = modelSelect;
-
-    // Model change triggers regeneration
-    modelSelect.addEventListener('change', () => {
-      if (simplification_currentText) {
-        const level = panel.querySelector('.assist-simplify-level')?.value || simplification_settings.defaultLevel;
-        simplification_simplify(simplification_currentText, level, modelSelect.value);
-      }
-    });
-  }
 
   const copyBtn = panel.querySelector('.assist-simplify-copy');
   copyBtn.addEventListener('click', simplification_copy);
@@ -773,9 +770,9 @@ async function simplification_createPanel() {
   speakBtn.addEventListener('click', simplification_speak);
 
   const regenerateBtn = panel.querySelector('.assist-simplify-regenerate');
-  regenerateBtn.addEventListener('click', () => {
+  regenerateBtn.addEventListener('click', async () => {
     if (simplification_currentText) {
-      const modelKey = simplification_modelDropdown?.value || 'local';
+      const modelKey = await simplification_getCurrentModel();
       simplification_simplify(simplification_currentText, simplification_settings.defaultLevel, modelKey);
     }
   });
@@ -1248,9 +1245,9 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
     return;
   }
 
-  // Get model from dropdown if not specified
+  // Get model from global settings if not specified
   if (!modelKey) {
-    modelKey = simplification_modelDropdown?.value || 'local';
+    modelKey = await simplification_getCurrentModel();
   }
 
   simplification_currentText = text;
@@ -1438,8 +1435,8 @@ async function simplification_start(text, selectionRect = null) {
   // Show the panel
   await simplification_show(selectionRect);
 
-  // Get model from dropdown (defaults to feature default when first shown)
-  const modelKey = simplification_modelDropdown?.value || SIMPLIFICATION_DEFAULT_MODEL;
+  // Get model from global settings (set in Advanced Options → AI tab)
+  const modelKey = await simplification_getCurrentModel();
 
   // Start simplification with selected model
   simplification_simplify(text, simplification_settings.defaultLevel, modelKey);

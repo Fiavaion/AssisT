@@ -29,7 +29,6 @@ let summarization_panel = null;
 let summarization_isLoading = false;
 let summarization_currentText = '';
 let summarization_currentSummary = '';
-let summarization_modelDropdown = null; // Cloud model dropdown reference
 
 const summarization_settings = {
   enabled: true,
@@ -65,6 +64,30 @@ async function summarization_isCloudEnabled() {
     return result.cloudModeEnabled === true;
   } catch (error) {
     return false;
+  }
+}
+
+/**
+ * Get the current model from global settings
+ * @returns {Promise<string>} Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ */
+async function summarization_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return 'local';
+    } else if (aiMode === 'cloud') {
+      // Return the global cloud model setting from Advanced Options
+      return result.cloudModel || SUMMARIZATION_DEFAULT_CLOUD_MODEL;
+    } else {
+      // AI is off - default to local
+      return 'local';
+    }
+  } catch (error) {
+    console.warn('[Summarization] Failed to get current model:', error);
+    return 'local';
   }
 }
 
@@ -343,17 +366,6 @@ function summarization_createPanel() {
       <p class="assist-summary-placeholder">Select text and click summarize...</p>
     </div>
     <div class="assist-summary-actions">
-      <div class="assist-summary-model-container" style="display: none;">
-        <label class="assist-model-label">
-          <span class="assist-model-icon" title="AI Model">🤖</span>
-          <select class="assist-summary-model-select" aria-label="Select AI model">
-            <option value="local">Local</option>
-            <option value="haiku-4.5">Haiku 4.5</option>
-            <option value="sonnet-4.5">Sonnet 4.5</option>
-            <option value="opus-4.5">Opus 4.5</option>
-          </select>
-        </label>
-      </div>
       <button class="assist-summary-btn assist-summary-copy" aria-label="Copy summary">
         <span class="assist-summary-btn-icon">📋</span> Copy
       </button>
@@ -379,32 +391,6 @@ function summarization_createPanel() {
     summarization_settings.defaultLevel = e.target.value;
     if (summarization_currentText) {
       summarization_summarize(summarization_currentText, e.target.value);
-    }
-  });
-
-  // Model dropdown setup
-  const modelContainer = panel.querySelector('.assist-summary-model-container');
-  const modelSelect = panel.querySelector('.assist-summary-model-select');
-  summarization_modelDropdown = modelSelect;
-
-  // Check if cloud mode is enabled and set appropriate default (benchmark-optimized)
-  summarization_isCloudEnabled().then(cloudEnabled => {
-    modelContainer.style.display = cloudEnabled ? 'block' : 'none';
-    modelSelect.value = cloudEnabled ? SUMMARIZATION_DEFAULT_CLOUD_MODEL : SUMMARIZATION_DEFAULT_LOCAL_MODEL;
-  });
-
-  // Model change triggers regeneration
-  modelSelect.addEventListener('change', () => {
-    if (summarization_currentText) {
-      const level = panel.querySelector('.assist-summary-level')?.value || summarization_settings.defaultLevel;
-      summarization_summarize(summarization_currentText, level, modelSelect.value);
-    }
-  });
-
-  // Listen for cloud mode changes
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes.cloudModeEnabled) {
-      modelContainer.style.display = changes.cloudModeEnabled.newValue ? 'block' : 'none';
     }
   });
 
@@ -877,8 +863,8 @@ async function summarization_summarize(text, level = 'brief') {
   summarization_currentText = text;
   summarization_isLoading = true;
 
-  // Get selected model from dropdown (default to local)
-  const selectedModel = summarization_modelDropdown?.value || 'local';
+  // Get current model from global settings (set in Advanced Options → AI tab)
+  const selectedModel = await summarization_getCurrentModel();
   const isCloudModel = selectedModel !== 'local';
 
   // Show loading state
