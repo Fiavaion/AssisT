@@ -23,7 +23,6 @@ let tutor_panel = null;
 let tutor_isLoading = false;
 let tutor_currentText = '';
 let tutor_currentQuestions = null;
-let tutor_modelDropdown = null; // Cloud model dropdown reference
 
 const tutor_settings = {
   enabled: true,
@@ -60,6 +59,30 @@ async function tutor_isCloudEnabled() {
     return result.cloudModeEnabled === true;
   } catch (error) {
     return false;
+  }
+}
+
+/**
+ * Get the current model from global settings
+ * @returns {Promise<string>} Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ */
+async function tutor_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return 'local';
+    } else if (aiMode === 'cloud') {
+      // Return the global cloud model setting from Advanced Options
+      return result.cloudModel || TUTOR_DEFAULT_CLOUD_MODEL;
+    } else {
+      // AI is off - default to local
+      return 'local';
+    }
+  } catch (error) {
+    console.warn('[SocraticTutor] Failed to get current model:', error);
+    return 'local';
   }
 }
 
@@ -555,15 +578,6 @@ async function tutor_createPanel() {
     </div>
 
     <div class="assist-tutor-controls">
-      <div class="assist-tutor-model-selector ${cloudEnabled ? '' : 'hidden'}">
-        <span class="assist-tutor-model-icon" title="AI Model">🤖</span>
-        <select class="assist-tutor-model" aria-label="Select AI model">
-          <option value="local">Local</option>
-          <option value="haiku-4.5">Haiku 4.5</option>
-          <option value="sonnet-4.5">Sonnet 4.5</option>
-          <option value="opus-4.5">Opus 4.5</option>
-        </select>
-      </div>
       <button class="assist-tutor-btn assist-tutor-btn-secondary" id="assist-tutor-copy">
         📋 Copy Questions
       </button>
@@ -576,28 +590,13 @@ async function tutor_createPanel() {
   // Close button
   panel.querySelector('.assist-tutor-close').onclick = () => tutor_hide();
 
-  // Model dropdown event listener
-  const modelSelect = panel.querySelector('.assist-tutor-model');
-  if (modelSelect) {
-    // Set default based on cloud mode (benchmark-optimized)
-    modelSelect.value = cloudEnabled ? TUTOR_DEFAULT_CLOUD_MODEL : TUTOR_DEFAULT_LOCAL_MODEL;
-    tutor_modelDropdown = modelSelect;
-
-    // Model change triggers regeneration
-    modelSelect.addEventListener('change', () => {
-      if (tutor_currentText) {
-        tutor_analyze(tutor_currentText, modelSelect.value);
-      }
-    });
-  }
-
   // Copy button
   panel.querySelector('#assist-tutor-copy').onclick = () => tutor_copyQuestions();
 
   // New questions button
-  panel.querySelector('#assist-tutor-new').onclick = () => {
+  panel.querySelector('#assist-tutor-new').onclick = async () => {
     if (tutor_currentText) {
-      const modelKey = tutor_modelDropdown?.value || 'local';
+      const modelKey = await tutor_getCurrentModel();
       tutor_analyze(tutor_currentText, modelKey);
     }
   };
@@ -756,21 +755,16 @@ async function tutor_analyze(text, modelKey = null) {
     return;
   }
 
-  // Get model from dropdown if not specified
+  // Get model from global settings if not specified
   if (!modelKey) {
-    modelKey = tutor_modelDropdown?.value || 'local';
+    modelKey = await tutor_getCurrentModel();
   }
 
   tutor_currentText = text;
 
   // Only create panel if it doesn't exist or isn't visible
-  // This preserves the dropdown selection when regenerating
   if (!tutor_panel || tutor_panel.style.display === 'none') {
     await tutor_show();
-    // Set dropdown to the requested model after panel creation
-    if (tutor_modelDropdown && modelKey) {
-      tutor_modelDropdown.value = modelKey;
-    }
   }
 
   const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
@@ -825,8 +819,8 @@ async function tutor_analyze(text, modelKey = null) {
  * @param {string} text - Text to analyze
  */
 async function tutor_start(text) {
-  // Get model from dropdown (defaults to local when first shown)
-  const modelKey = tutor_modelDropdown?.value || TUTOR_DEFAULT_LOCAL_MODEL;
+  // Get model from global settings (set in Advanced Options → AI tab)
+  const modelKey = await tutor_getCurrentModel();
   await tutor_analyze(text, modelKey);
 }
 
