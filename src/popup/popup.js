@@ -7632,10 +7632,12 @@ class PopupController {
       });
     });
 
-    // Refresh status button
-    btnCheckLLM.addEventListener('click', () => {
-      this.checkLLMStatus();
-    });
+    // Refresh status button (legacy - may not exist in new UI)
+    if (btnCheckLLM) {
+      btnCheckLLM.addEventListener('click', () => {
+        this.checkLLMStatus();
+      });
+    }
 
     // VRAM Tier selector
     const vramTierSelect = document.getElementById('vram-tier-select');
@@ -7735,11 +7737,11 @@ class PopupController {
         btn.classList.add('installing');
         btn.textContent = 'Installing...';
 
-        // Show progress
-        llmInstallProgress.classList.remove('hidden');
-        llmProgressModel.textContent = `Installing ${modelName}...`;
-        llmProgressPercent.textContent = '0%';
-        llmProgressFill.style.width = '0%';
+        // Show progress (legacy UI elements - may not exist)
+        if (llmInstallProgress) llmInstallProgress.classList.remove('hidden');
+        if (llmProgressModel) llmProgressModel.textContent = `Installing ${modelName}...`;
+        if (llmProgressPercent) llmProgressPercent.textContent = '0%';
+        if (llmProgressFill) llmProgressFill.style.width = '0%';
 
         try {
           const response = await chrome.runtime.sendMessage({
@@ -7764,17 +7766,17 @@ class PopupController {
           const errorMsg = error.message || 'Installation failed';
           this.updateStatus(errorMsg, 'error');
         } finally {
-          llmInstallProgress.classList.add('hidden');
+          if (llmInstallProgress) llmInstallProgress.classList.add('hidden');
         }
       });
     });
 
-    // Listen for install progress updates
+    // Listen for install progress updates (legacy UI)
     chrome.runtime.onMessage.addListener(message => {
       if (message.type === 'LLM_INSTALL_PROGRESS') {
-        llmProgressModel.textContent = `Installing ${message.modelName}...`;
-        llmProgressPercent.textContent = `${message.progress.percent}%`;
-        llmProgressFill.style.width = `${message.progress.percent}%`;
+        if (llmProgressModel) llmProgressModel.textContent = `Installing ${message.modelName}...`;
+        if (llmProgressPercent) llmProgressPercent.textContent = `${message.progress.percent}%`;
+        if (llmProgressFill) llmProgressFill.style.width = `${message.progress.percent}%`;
       }
     });
 
@@ -8080,8 +8082,11 @@ class PopupController {
     const llmModelsRow = document.getElementById('llm-models-row');
     const llmInstalledModels = document.getElementById('llm-installed-models');
 
-    llmConnectionStatus.textContent = 'Checking...';
-    llmConnectionStatus.className = 'llm-status-value';
+    // Legacy UI elements - only update if they exist
+    if (llmConnectionStatus) {
+      llmConnectionStatus.textContent = 'Checking...';
+      llmConnectionStatus.className = 'llm-status-value';
+    }
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -8089,34 +8094,51 @@ class PopupController {
       });
 
       if (response.success && response.available) {
-        llmStatusBadge.textContent = 'Online';
-        llmStatusBadge.className = 'llm-badge online';
-        llmConnectionStatus.textContent = 'Connected to Ollama';
-        llmConnectionStatus.className = 'llm-status-value connected';
+        // Update badge (always exists in new UI)
+        if (llmStatusBadge) {
+          llmStatusBadge.textContent = 'Online';
+          llmStatusBadge.className = 'llm-badge online';
+        }
 
-        // Show models
+        // Legacy UI elements
+        if (llmConnectionStatus) {
+          llmConnectionStatus.textContent = 'Connected to Ollama';
+          llmConnectionStatus.className = 'llm-status-value connected';
+        }
+
+        // Show models (legacy UI)
         this.installedModels = response.models || [];
         if (this.installedModels.length > 0) {
-          llmModelsRow.style.display = 'flex';
-          llmInstalledModels.textContent = this.installedModels.join(', ');
+          if (llmModelsRow) llmModelsRow.style.display = 'flex';
+          if (llmInstalledModels) llmInstalledModels.textContent = this.installedModels.join(', ');
           this.updateModelList();
         } else {
-          llmModelsRow.style.display = 'none';
+          if (llmModelsRow) llmModelsRow.style.display = 'none';
         }
       } else {
-        llmStatusBadge.textContent = 'Offline';
-        llmStatusBadge.className = 'llm-badge offline';
-        llmConnectionStatus.textContent = 'Not connected - Start Ollama';
-        llmConnectionStatus.className = 'llm-status-value disconnected';
-        llmModelsRow.style.display = 'none';
+        // Ollama not available
+        if (llmStatusBadge) {
+          llmStatusBadge.textContent = 'Offline';
+          llmStatusBadge.className = 'llm-badge offline';
+        }
+        if (llmConnectionStatus) {
+          llmConnectionStatus.textContent = 'Not connected - Start Ollama';
+          llmConnectionStatus.className = 'llm-status-value disconnected';
+        }
+        if (llmModelsRow) llmModelsRow.style.display = 'none';
       }
     } catch (error) {
       console.error('[Popup] LLM check failed:', error);
-      llmStatusBadge.textContent = 'Error';
-      llmStatusBadge.className = 'llm-badge error';
-      llmConnectionStatus.textContent = 'Connection error';
-      llmConnectionStatus.className = 'llm-status-value disconnected';
-      llmModelsRow.style.display = 'none';
+      // Update badge to show error
+      if (llmStatusBadge) {
+        llmStatusBadge.textContent = 'Error';
+        llmStatusBadge.className = 'llm-badge error';
+      }
+      if (llmConnectionStatus) {
+        llmConnectionStatus.textContent = 'Connection error';
+        llmConnectionStatus.className = 'llm-status-value disconnected';
+      }
+      if (llmModelsRow) llmModelsRow.style.display = 'none';
     }
   }
 
@@ -8146,7 +8168,21 @@ class PopupController {
 
 // Initialize popup when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
-  const popup = new PopupController();
-  await popup.initialize();
-  await popup.setupUserProfiles();
+  console.log('[Popup] DOMContentLoaded fired');
+  try {
+    const popup = new PopupController();
+    console.log('[Popup] PopupController created');
+    await popup.initialize();
+    console.log('[Popup] Initialize complete');
+    await popup.setupUserProfiles();
+    console.log('[Popup] Setup complete - ready');
+  } catch (error) {
+    console.error('[Popup] Initialization error:', error);
+    // Show user-friendly error in status bar
+    const statusIndicator = document.getElementById('status-indicator');
+    if (statusIndicator) {
+      statusIndicator.textContent = 'Initialization Error - See Console (F12)';
+      statusIndicator.className = 'status-indicator error';
+    }
+  }
 });
