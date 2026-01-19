@@ -32,7 +32,6 @@ let graph_svg = null;
 let graph_container = null;
 let graph_simulation = null;
 let graph_zoomBehavior = null;
-let graph_selectedNode = null;
 let graph_tooltip = null; // Separate tooltip element (outside panel to avoid transform containment)
 
 const graph_settings = {
@@ -44,21 +43,40 @@ const graph_settings = {
   linkStrength: 0.5,
 };
 
-let graph_modelDropdown = null; // Cloud model dropdown reference
-
 // Cloud model configurations
 const GRAPH_MODELS = {
-  'local': { id: 'local', name: 'Local (7B)', isLocal: true },
+  local: { id: 'local', name: 'Local (7B)', isLocal: true },
   'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
   'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
 };
 
 // Default to local 7B model for both modes
 // Local mistral:7b recommended for structured JSON output
 // Users can manually select cloud models if desired
-const GRAPH_DEFAULT_LOCAL_MODEL = 'local';
 const GRAPH_DEFAULT_CLOUD_MODEL = 'local';
+
+/**
+ * Get the current model from global AI settings
+ * @returns {Promise<string>} Model key ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ */
+async function graph_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return 'local';
+    } else if (aiMode === 'cloud') {
+      return result.cloudModel || GRAPH_DEFAULT_CLOUD_MODEL;
+    } else {
+      return 'local';
+    }
+  } catch (error) {
+    console.warn('[KnowledgeGraph] Failed to get current model:', error);
+    return 'local';
+  }
+}
 
 // Node types with colors
 const NODE_TYPES = {
@@ -86,42 +104,6 @@ const RELATION_TYPES = {
 // ============================================================================
 // LLM INTEGRATION
 // ============================================================================
-
-/**
- * Check if cloud mode is enabled
- * @returns {Promise<boolean>}
- */
-async function graph_isCloudEnabled() {
-  try {
-    const result = await chrome.storage.local.get(['cloudModeEnabled']);
-    return result.cloudModeEnabled === true;
-  } catch (error) {
-    return false;
-  }
-}
-
-/**
- * Check if local LLM is available
- * @returns {Promise<{available: boolean, models: string[]}>}
- */
-async function graph_checkLLM() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-
-    if (response && response.success) {
-      return {
-        available: response.available || false,
-        models: response.models || [],
-      };
-    }
-    return { available: false, models: [] };
-  } catch (error) {
-    console.warn('[KnowledgeGraph] LLM check failed:', error);
-    return { available: false, models: [] };
-  }
-}
 
 /**
  * Extract entities and relationships from text using LLM
@@ -159,17 +141,19 @@ JSON OUTPUT:`;
 
   // Model-specific token limits
   const modelTokenLimits = {
-    'local': 1500,
+    local: 1500,
     'haiku-4.5': 1200,
     'sonnet-4.5': 1800,
-    'opus-4.5': 2000
+    'opus-4.5': 2000,
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 1500;
   const isCloud = modelKey !== 'local';
 
   try {
-    console.log(`[KnowledgeGraph] Calling ${isCloud ? 'cloud' : 'local'} LLM for extraction (${modelKey})...`);
+    console.log(
+      `[KnowledgeGraph] Calling ${isCloud ? 'cloud' : 'local'} LLM for extraction (${modelKey})...`
+    );
 
     let response;
 
@@ -182,7 +166,7 @@ JSON OUTPUT:`;
           model: modelKey,
           maxTokens,
           temperature: 0.3,
-          feature: 'knowledgeGraph'
+          feature: 'knowledgeGraph',
         },
       });
     } else {
@@ -330,7 +314,9 @@ function graph_validateAndEnhance(data) {
  * Initialize D3 force simulation
  */
 function graph_initSimulation() {
-  if (!graph_data || !graph_svg) return;
+  if (!graph_data || !graph_svg) {
+    return;
+  }
 
   const width = graph_svg.node().clientWidth || 800;
   const height = graph_svg.node().clientHeight || 600;
@@ -359,7 +345,7 @@ function graph_initSimulation() {
       'collide',
       d3Force
         .forceCollide()
-        .radius(d => graph_settings.nodeSize + 40) // Node size + label padding
+        .radius(_d => graph_settings.nodeSize + 40) // Node size + label padding
         .strength(1)
         .iterations(3)
     )
@@ -380,7 +366,9 @@ function graph_initSimulation() {
  * Update SVG element positions during simulation
  */
 function graph_updatePositions() {
-  if (!graph_container) return;
+  if (!graph_container) {
+    return;
+  }
 
   // Update edge positions
   graph_container
@@ -408,7 +396,9 @@ function graph_updatePositions() {
  * Render the graph using D3 data binding
  */
 function graph_render() {
-  if (!graph_container || !graph_data) return;
+  if (!graph_container || !graph_data) {
+    return;
+  }
 
   const { nodes, edges } = graph_data;
 
@@ -536,7 +526,7 @@ function graph_addNodeInteraction(nodeGroups) {
     .on('mousemove', function (event, d) {
       graph_showTooltip(d, event);
     })
-    .on('mouseleave', function (event, d) {
+    .on('mouseleave', function (_event, _d) {
       // Reset node
       d3Selection
         .select(this)
@@ -550,7 +540,6 @@ function graph_addNodeInteraction(nodeGroups) {
       graph_hideTooltip();
     })
     .on('click', function (event, d) {
-      graph_selectedNode = d.id;
       graph_showTooltip(d, event);
     });
 }
@@ -593,7 +582,9 @@ function graph_addDragBehavior(nodeGroups) {
  * D3 zoom automatically centers on mouse position
  */
 function graph_initZoom() {
-  if (!graph_svg || !graph_container) return;
+  if (!graph_svg || !graph_container) {
+    return;
+  }
 
   graph_zoomBehavior = d3Zoom
     .zoom()
@@ -612,17 +603,23 @@ function graph_initZoom() {
  * Programmatic zoom controls
  */
 function graph_zoomIn() {
-  if (!graph_svg || !graph_zoomBehavior) return;
+  if (!graph_svg || !graph_zoomBehavior) {
+    return;
+  }
   graph_svg.transition().duration(300).call(graph_zoomBehavior.scaleBy, 1.3);
 }
 
 function graph_zoomOut() {
-  if (!graph_svg || !graph_zoomBehavior) return;
+  if (!graph_svg || !graph_zoomBehavior) {
+    return;
+  }
   graph_svg.transition().duration(300).call(graph_zoomBehavior.scaleBy, 0.7);
 }
 
 function graph_resetView() {
-  if (!graph_svg || !graph_zoomBehavior) return;
+  if (!graph_svg || !graph_zoomBehavior) {
+    return;
+  }
   graph_svg.transition().duration(500).call(graph_zoomBehavior.transform, d3Zoom.zoomIdentity);
 }
 
@@ -684,14 +681,17 @@ function graph_getOrCreateTooltip() {
  */
 function graph_showTooltip(node, event) {
   const tooltip = graph_getOrCreateTooltip();
-  if (!tooltip) return;
+  if (!tooltip) {
+    return;
+  }
 
   const nodeType = NODE_TYPES[node.type] || NODE_TYPES.unknown;
 
   // Update content
   tooltip.querySelector('.kg-tooltip-title').textContent = node.label;
   tooltip.querySelector('.kg-tooltip-type').textContent = `${nodeType.icon} ${node.type}`;
-  tooltip.querySelector('.kg-tooltip-def').textContent = node.definition || 'No definition available';
+  tooltip.querySelector('.kg-tooltip-def').textContent =
+    node.definition || 'No definition available';
 
   // Show tooltip to measure dimensions
   tooltip.style.display = 'block';
@@ -718,7 +718,10 @@ function graph_showTooltip(node, event) {
     left = event.clientX - tooltipRect.width - offset;
   } else {
     // Doesn't fit either side - center and clamp
-    left = Math.max(margin, Math.min(viewportWidth - tooltipRect.width - margin, event.clientX - tooltipRect.width / 2));
+    left = Math.max(
+      margin,
+      Math.min(viewportWidth - tooltipRect.width - margin, event.clientX - tooltipRect.width / 2)
+    );
   }
 
   // Vertical: try below cursor, then above, then clamp
@@ -733,7 +736,10 @@ function graph_showTooltip(node, event) {
     top = event.clientY - tooltipRect.height - offset;
   } else {
     // Doesn't fit either - position at top or bottom of viewport
-    top = Math.max(margin, Math.min(viewportHeight - tooltipRect.height - margin, event.clientY - tooltipRect.height / 2));
+    top = Math.max(
+      margin,
+      Math.min(viewportHeight - tooltipRect.height - margin, event.clientY - tooltipRect.height / 2)
+    );
   }
 
   // Apply position
@@ -760,9 +766,6 @@ function graph_hideTooltip() {
  * @returns {Promise<HTMLElement>}
  */
 async function graph_createPanel() {
-  // Check if cloud mode is enabled
-  const cloudEnabled = await graph_isCloudEnabled();
-
   const panel = document.createElement('div');
   panel.id = 'assist-knowledge-graph';
   panel.setAttribute('role', 'dialog');
@@ -994,15 +997,6 @@ async function graph_createPanel() {
         <span>Knowledge Graph</span>
       </div>
       <div class="kg-controls">
-        <div class="kg-model-selector ${cloudEnabled ? '' : 'hidden'}">
-          <span class="kg-model-icon" title="AI Model">🤖</span>
-          <select class="kg-model-select" id="kg-model-select" aria-label="Select AI model">
-            <option value="local">Local (7B)</option>
-            <option value="haiku-4.5">Haiku 4.5</option>
-            <option value="sonnet-4.5">Sonnet 4.5</option>
-            <option value="opus-4.5">Opus 4.5</option>
-          </select>
-        </div>
         <button class="kg-btn" id="kg-export">📷 Export</button>
         <button class="kg-btn" id="kg-reset">🔄 Reset View</button>
         <button class="kg-close" aria-label="Close">&times;</button>
@@ -1057,12 +1051,16 @@ async function graph_createPanel() {
  * Initialize SVG and event listeners
  */
 async function graph_initSVG() {
-  if (!graph_panel) return;
+  if (!graph_panel) {
+    return;
+  }
 
   const svgElement = graph_panel.querySelector('#kg-svg');
   const containerElement = graph_panel.querySelector('#kg-container');
 
-  if (!svgElement || !containerElement) return;
+  if (!svgElement || !containerElement) {
+    return;
+  }
 
   // Use D3 selections
   graph_svg = d3Selection.select(svgElement);
@@ -1070,16 +1068,6 @@ async function graph_initSVG() {
 
   // Initialize zoom behavior
   graph_initZoom();
-
-  // Model dropdown setup
-  const modelSelect = graph_panel.querySelector('#kg-model-select');
-  if (modelSelect) {
-    graph_modelDropdown = modelSelect;
-
-    // Set default based on cloud mode (benchmark-optimized)
-    const cloudEnabled = await graph_isCloudEnabled();
-    modelSelect.value = cloudEnabled ? GRAPH_DEFAULT_CLOUD_MODEL : GRAPH_DEFAULT_LOCAL_MODEL;
-  }
 
   // Button events
   graph_panel.querySelector('.kg-close').onclick = graph_hide;
@@ -1100,7 +1088,9 @@ async function graph_initSVG() {
  * Export graph as PNG using SVG serialization
  */
 function graph_export() {
-  if (!graph_svg) return;
+  if (!graph_svg) {
+    return;
+  }
 
   const svgElement = graph_svg.node();
   const svgData = new XMLSerializer().serializeToString(svgElement);
@@ -1178,9 +1168,9 @@ async function graph_build(text, modelKey = null) {
 
   await graph_show();
 
-  // Get model from dropdown if not specified
+  // Get model from global settings if not specified
   if (!modelKey) {
-    modelKey = graph_modelDropdown?.value || GRAPH_DEFAULT_LOCAL_MODEL;
+    modelKey = await graph_getCurrentModel();
   }
 
   const isCloud = modelKey !== 'local';
@@ -1197,13 +1187,17 @@ async function graph_build(text, modelKey = null) {
       <div>Analyzing text${isCloud ? ` with ${modelName}` : ' with Local AI'}...</div>
     `;
   }
-  if (empty) empty.style.display = 'none';
+  if (empty) {
+    empty.style.display = 'none';
+  }
 
   try {
     graph_data = await graph_extractFromText(text, modelKey);
 
     if (!graph_data.nodes.length) {
-      if (empty) empty.style.display = 'block';
+      if (empty) {
+        empty.style.display = 'block';
+      }
       showToast?.('Could not extract concepts from text');
       return;
     }
@@ -1222,9 +1216,13 @@ async function graph_build(text, modelKey = null) {
   } catch (error) {
     console.error('[KnowledgeGraph] Build failed:', error);
     showToast?.('Failed to build knowledge graph');
-    if (empty) empty.style.display = 'block';
+    if (empty) {
+      empty.style.display = 'block';
+    }
   } finally {
-    if (loading) loading.style.display = 'none';
+    if (loading) {
+      loading.style.display = 'none';
+    }
   }
 }
 

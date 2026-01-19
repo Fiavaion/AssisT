@@ -30,7 +30,6 @@ let citation_panel = null;
 let citation_isLoading = false;
 let citation_currentText = '';
 let citation_currentAnalysis = null;
-let citation_modelDropdown = null; // Cloud model dropdown reference
 
 const citation_settings = {
   enabled: true,
@@ -41,34 +40,42 @@ const citation_settings = {
 
 // Cloud model configurations
 const CITATION_MODELS = {
-  'local': { id: 'local', name: 'Local', isLocal: true },
+  local: { id: 'local', name: 'Local', isLocal: true },
   'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
   'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
 // Cloud: Opus 4.5 scored 8.8/10 (best for nuanced credibility assessment)
 // Local: Gemma3:4b scored 7.7/10 (acceptable but cloud recommended)
-const CITATION_DEFAULT_LOCAL_MODEL = 'local';
 const CITATION_DEFAULT_CLOUD_MODEL = 'opus-4.5';
+
+/**
+ * Get the current model from global AI settings
+ * @returns {Promise<string>} Model key ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ */
+async function citation_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return 'local';
+    } else if (aiMode === 'cloud') {
+      return result.cloudModel || CITATION_DEFAULT_CLOUD_MODEL;
+    } else {
+      return 'local';
+    }
+  } catch (error) {
+    console.warn('[CitationAnalyzer] Failed to get current model:', error);
+    return 'local';
+  }
+}
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
-
-/**
- * Check if cloud mode is enabled
- * @returns {Promise<boolean>}
- */
-async function citation_isCloudEnabled() {
-  try {
-    const result = await chrome.storage.local.get(['cloudModeEnabled']);
-    return result.cloudModeEnabled === true;
-  } catch (error) {
-    return false;
-  }
-}
 
 /**
  * Check if local LLM is available
@@ -106,10 +113,10 @@ async function citation_analyze(text, context = {}, modelKey = 'local') {
 
   // Model-specific token limits
   const modelTokenLimits = {
-    'local': 600,
+    local: 600,
     'haiku-4.5': 500,
     'sonnet-4.5': 700,
-    'opus-4.5': 900
+    'opus-4.5': 900,
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 600;
@@ -140,7 +147,7 @@ Start with { end with }`;
           model: modelKey,
           maxTokens,
           temperature: 0.2,
-          feature: 'citationAnalyzer'
+          feature: 'citationAnalyzer',
         },
       });
     } else {
@@ -161,7 +168,7 @@ Start with { end with }`;
       // Parse JSON response
       try {
         // Clean response: remove markdown code blocks
-        let cleanedResponse = response.data
+        const cleanedResponse = response.data
           .replace(/```json\s*/gi, '')
           .replace(/```JSON\s*/g, '')
           .replace(/```\s*/g, '')
@@ -172,9 +179,7 @@ Start with { end with }`;
         const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           // Clean up common JSON issues
-          let jsonStr = jsonMatch[0]
-            .replace(/,\s*}/g, '}')
-            .replace(/,\s*]/g, ']');
+          const jsonStr = jsonMatch[0].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
 
           const parsed = JSON.parse(jsonStr);
           console.log('[CitationAnalyzer] Parsed JSON:', parsed);
@@ -189,12 +194,18 @@ Start with { end with }`;
             if (heuristic.credibilityScore > parsed.credibilityScore + 20) {
               console.log('[CitationAnalyzer] Boosting AI score with heuristic indicators');
               // Use weighted average: 40% AI, 60% heuristic when AI underestimates
-              parsed.credibilityScore = Math.round(parsed.credibilityScore * 0.4 + heuristic.credibilityScore * 0.6);
+              parsed.credibilityScore = Math.round(
+                parsed.credibilityScore * 0.4 + heuristic.credibilityScore * 0.6
+              );
 
               // Merge strengths from heuristic
-              if (!parsed.strengths) parsed.strengths = [];
+              if (!parsed.strengths) {
+                parsed.strengths = [];
+              }
               heuristic.strengths.forEach(s => {
-                if (!parsed.strengths.includes(s)) parsed.strengths.push(s);
+                if (!parsed.strengths.includes(s)) {
+                  parsed.strengths.push(s);
+                }
               });
 
               // Update source type if heuristic found a better match
@@ -255,10 +266,45 @@ function citation_fallback(text, context = {}) {
   let sourceType = 'unknown';
 
   // Check text for institutional/academic indicators
-  const academicKeywords = ['journal', 'university', 'press', 'doi:', 'vol.', 'pp.', 'et al', 'proceedings'];
-  const institutionalKeywords = ['museum', 'gallery', 'institute', 'library', 'archive', 'foundation', 'society', 'association', 'publications'];
-  const newsKeywords = ['newspaper', 'times', 'post', 'herald', 'tribune', 'reuters', 'associated press'];
-  const blogKeywords = ['blog', 'retrieved from', 'accessed', 'wordpress', 'medium.com', 'top 10', 'best of'];
+  const academicKeywords = [
+    'journal',
+    'university',
+    'press',
+    'doi:',
+    'vol.',
+    'pp.',
+    'et al',
+    'proceedings',
+  ];
+  const institutionalKeywords = [
+    'museum',
+    'gallery',
+    'institute',
+    'library',
+    'archive',
+    'foundation',
+    'society',
+    'association',
+    'publications',
+  ];
+  const newsKeywords = [
+    'newspaper',
+    'times',
+    'post',
+    'herald',
+    'tribune',
+    'reuters',
+    'associated press',
+  ];
+  const blogKeywords = [
+    'blog',
+    'retrieved from',
+    'accessed',
+    'wordpress',
+    'medium.com',
+    'top 10',
+    'best of',
+  ];
 
   const hasAcademicIndicators = academicKeywords.some(k => lowerText.includes(k));
   const hasInstitutionalIndicators = institutionalKeywords.some(k => lowerText.includes(k));
@@ -280,9 +326,17 @@ function citation_fallback(text, context = {}) {
     sourceType = 'government';
   } else if (lowerUrl.includes('.org')) {
     sourceType = 'organization';
-  } else if (lowerUrl.includes('blog') || lowerUrl.includes('medium.com') || lowerUrl.includes('wordpress')) {
+  } else if (
+    lowerUrl.includes('blog') ||
+    lowerUrl.includes('medium.com') ||
+    lowerUrl.includes('wordpress')
+  ) {
     sourceType = 'blog';
-  } else if (lowerUrl.includes('twitter') || lowerUrl.includes('facebook') || lowerUrl.includes('instagram')) {
+  } else if (
+    lowerUrl.includes('twitter') ||
+    lowerUrl.includes('facebook') ||
+    lowerUrl.includes('instagram')
+  ) {
     sourceType = 'social';
   }
 
@@ -319,14 +373,26 @@ function citation_fallback(text, context = {}) {
   }
 
   // Check for formal citation format (Author. (Year). Title.)
-  const hasCitationFormat = /\(\d{4}\)/.test(text) && (text.includes('.') && text.includes(':'));
+  const hasCitationFormat = /\(\d{4}\)/.test(text) && text.includes('.') && text.includes(':');
   if (hasCitationFormat) {
     score += 10;
     strengths.push('Proper citation format');
   }
 
   // Check for reputable publishers
-  const reputablePublishers = ['mit press', 'oxford', 'cambridge', 'springer', 'wiley', 'elsevier', 'sage', 'taylor & francis', 'routledge', 'penguin', 'harper'];
+  const reputablePublishers = [
+    'mit press',
+    'oxford',
+    'cambridge',
+    'springer',
+    'wiley',
+    'elsevier',
+    'sage',
+    'taylor & francis',
+    'routledge',
+    'penguin',
+    'harper',
+  ];
   const hasReputablePublisher = reputablePublishers.some(p => lowerText.includes(p));
   if (hasReputablePublisher) {
     score += 15;
@@ -348,13 +414,25 @@ function citation_fallback(text, context = {}) {
   }
 
   // Expert contributors mentioned
-  if (lowerText.includes('expert') || lowerText.includes('professor') || lowerText.includes('dr.') || lowerText.includes('ph.d')) {
+  if (
+    lowerText.includes('expert') ||
+    lowerText.includes('professor') ||
+    lowerText.includes('dr.') ||
+    lowerText.includes('ph.d')
+  ) {
     score += 5;
     strengths.push('Expert contributors');
   }
 
   // Bias indicators
-  const biasWords = ['obviously', 'clearly wrong', 'everyone knows', 'the truth is', 'fake news', 'mainstream media'];
+  const biasWords = [
+    'obviously',
+    'clearly wrong',
+    'everyone knows',
+    'the truth is',
+    'fake news',
+    'mainstream media',
+  ];
   const hasBiasLanguage = biasWords.some(word => lowerText.includes(word));
 
   const commercialWords = ['buy now', 'click here', 'limited time', 'special offer', 'subscribe'];
@@ -388,9 +466,13 @@ function citation_fallback(text, context = {}) {
 
   // Determine rating
   let rating = 'Unknown';
-  if (score >= 70) rating = 'High';
-  else if (score >= 50) rating = 'Medium';
-  else if (score >= 0) rating = 'Low';
+  if (score >= 70) {
+    rating = 'High';
+  } else if (score >= 50) {
+    rating = 'Medium';
+  } else if (score >= 0) {
+    rating = 'Low';
+  }
 
   return {
     sourceType,
@@ -398,16 +480,19 @@ function citation_fallback(text, context = {}) {
     credibilityRating: rating,
     biasIndicators: {
       detected: hasBiasLanguage || hasCommercialLanguage,
-      type: hasCommercialLanguage ? 'commercial' : (hasBiasLanguage ? 'ideological' : 'none'),
-      severity: (hasBiasLanguage || hasCommercialLanguage) ? 'mild' : 'none',
-      explanation: hasBiasLanguage ? 'Some potentially biased language detected' :
-                   hasCommercialLanguage ? 'Commercial/promotional content detected' :
-                   'No obvious bias detected',
+      type: hasCommercialLanguage ? 'commercial' : hasBiasLanguage ? 'ideological' : 'none',
+      severity: hasBiasLanguage || hasCommercialLanguage ? 'mild' : 'none',
+      explanation: hasBiasLanguage
+        ? 'Some potentially biased language detected'
+        : hasCommercialLanguage
+          ? 'Commercial/promotional content detected'
+          : 'No obvious bias detected',
     },
     keyClaims: ['Unable to extract claims without AI'],
     strengths: strengths.length > 0 ? strengths : ['Basic analysis only'],
     weaknesses: weaknesses.length > 0 ? weaknesses : ['Requires AI for deeper analysis'],
-    recommendations: 'For a more thorough analysis, ensure Ollama is running with a language model.',
+    recommendations:
+      'For a more thorough analysis, ensure Ollama is running with a language model.',
     summary: `Basic analysis suggests this is a ${sourceType} source with ${rating.toLowerCase()} credibility. Score: ${score}/100.`,
     isFallback: true,
   };
@@ -423,9 +508,6 @@ function citation_fallback(text, context = {}) {
  */
 async function citation_createPanel() {
   citation_injectStyles();
-
-  // Check if cloud mode is enabled
-  const cloudEnabled = await citation_isCloudEnabled();
 
   const panel = document.createElement('div');
   panel.id = 'assist-citation-panel';
@@ -450,15 +532,6 @@ async function citation_createPanel() {
       </div>
     </div>
     <div class="assist-citation-actions">
-      <div class="assist-citation-model-selector ${cloudEnabled ? '' : 'hidden'}">
-        <span class="assist-model-icon" title="AI Model">🤖</span>
-        <select class="assist-citation-model" aria-label="Select AI model">
-          <option value="local">Local</option>
-          <option value="haiku-4.5">Haiku 4.5</option>
-          <option value="sonnet-4.5">Sonnet 4.5</option>
-          <option value="opus-4.5">Opus 4.5</option>
-        </select>
-      </div>
       <button class="assist-citation-btn" data-action="copy" disabled>
         <span class="assist-citation-btn-icon">📋</span>
         Copy Report
@@ -477,26 +550,11 @@ async function citation_createPanel() {
   // Event handlers
   panel.querySelector('.assist-citation-close').addEventListener('click', citation_hide);
 
-  // Model dropdown event listener
-  const modelSelect = panel.querySelector('.assist-citation-model');
-  if (modelSelect) {
-    // Set default based on cloud mode (benchmark-optimized)
-    modelSelect.value = cloudEnabled ? CITATION_DEFAULT_CLOUD_MODEL : CITATION_DEFAULT_LOCAL_MODEL;
-    citation_modelDropdown = modelSelect;
-
-    // Model change triggers regeneration
-    modelSelect.addEventListener('change', () => {
-      if (citation_currentText) {
-        citation_runAnalysis(citation_currentText, {}, modelSelect.value);
-      }
-    });
-  }
-
   panel.querySelector('[data-action="copy"]').addEventListener('click', citation_copy);
   panel.querySelector('[data-action="speak"]').addEventListener('click', citation_speak);
-  panel.querySelector('[data-action="reanalyze"]').addEventListener('click', () => {
+  panel.querySelector('[data-action="reanalyze"]').addEventListener('click', async () => {
     if (citation_currentText) {
-      const modelKey = citation_modelDropdown?.value || 'local';
+      const modelKey = await citation_getCurrentModel();
       citation_runAnalysis(citation_currentText, {}, modelKey);
     }
   });
@@ -990,13 +1048,21 @@ function citation_makeDraggable(panel) {
   });
 
   document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
+    if (!isDragging) {
+      return;
+    }
 
     const deltaX = e.clientX - startX;
     const deltaY = e.clientY - startY;
 
-    const newLeft = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, startLeft + deltaX));
-    const newTop = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, startTop + deltaY));
+    const newLeft = Math.max(
+      0,
+      Math.min(window.innerWidth - panel.offsetWidth, startLeft + deltaX)
+    );
+    const newTop = Math.max(
+      0,
+      Math.min(window.innerHeight - panel.offsetHeight, startTop + deltaY)
+    );
 
     panel.style.left = `${newLeft}px`;
     panel.style.top = `${newTop}px`;
@@ -1017,22 +1083,27 @@ function citation_makeDraggable(panel) {
  */
 function citation_renderResults(analysis, isAI, isCloud = false, modelName = '') {
   const contentArea = citation_panel?.querySelector('.assist-citation-content');
-  if (!contentArea) return;
+  if (!contentArea) {
+    return;
+  }
 
   const scoreClass = analysis.credibilityRating?.toLowerCase() || 'medium';
   const biasClass = analysis.biasIndicators?.severity || 'none';
 
-  const keyClaims = analysis.keyClaims && analysis.keyClaims.length > 0
-    ? analysis.keyClaims.map(c => `<li>${escapeHtml(c)}</li>`).join('')
-    : '<li>No specific claims extracted</li>';
+  const keyClaims =
+    analysis.keyClaims && analysis.keyClaims.length > 0
+      ? analysis.keyClaims.map(c => `<li>${escapeHtml(c)}</li>`).join('')
+      : '<li>No specific claims extracted</li>';
 
-  const strengths = analysis.strengths && analysis.strengths.length > 0
-    ? analysis.strengths.map(s => `<li>${escapeHtml(s)}</li>`).join('')
-    : '<li>None identified</li>';
+  const strengths =
+    analysis.strengths && analysis.strengths.length > 0
+      ? analysis.strengths.map(s => `<li>${escapeHtml(s)}</li>`).join('')
+      : '<li>None identified</li>';
 
-  const weaknesses = analysis.weaknesses && analysis.weaknesses.length > 0
-    ? analysis.weaknesses.map(w => `<li>${escapeHtml(w)}</li>`).join('')
-    : '<li>None identified</li>';
+  const weaknesses =
+    analysis.weaknesses && analysis.weaknesses.length > 0
+      ? analysis.weaknesses.map(w => `<li>${escapeHtml(w)}</li>`).join('')
+      : '<li>None identified</li>';
 
   let badge;
   if (isCloud) {
@@ -1066,9 +1137,11 @@ function citation_renderResults(analysis, isAI, isCloud = false, modelName = '')
       </div>
       <div class="assist-citation-bias ${biasClass}">
         ${analysis.biasIndicators?.explanation || 'No bias information available'}
-        ${analysis.biasIndicators?.type && analysis.biasIndicators.type !== 'none'
-          ? ` (Type: ${analysis.biasIndicators.type})`
-          : ''}
+        ${
+          analysis.biasIndicators?.type && analysis.biasIndicators.type !== 'none'
+            ? ` (Type: ${analysis.biasIndicators.type})`
+            : ''
+        }
       </div>
     </div>
 
@@ -1096,7 +1169,9 @@ function citation_renderResults(analysis, isAI, isCloud = false, modelName = '')
       <ul class="assist-citation-list weaknesses">${weaknesses}</ul>
     </div>
 
-    ${analysis.summary ? `
+    ${
+      analysis.summary
+        ? `
       <div class="assist-citation-section">
         <div class="assist-citation-section-title">
           <span class="assist-citation-section-icon">📝</span>
@@ -1104,9 +1179,13 @@ function citation_renderResults(analysis, isAI, isCloud = false, modelName = '')
         </div>
         <div class="assist-citation-summary">${escapeHtml(analysis.summary)}</div>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
 
-    ${analysis.recommendations ? `
+    ${
+      analysis.recommendations
+        ? `
       <div class="assist-citation-section">
         <div class="assist-citation-section-title">
           <span class="assist-citation-section-icon">💡</span>
@@ -1114,7 +1193,9 @@ function citation_renderResults(analysis, isAI, isCloud = false, modelName = '')
         </div>
         <div class="assist-citation-recommendations">${escapeHtml(analysis.recommendations)}</div>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
   `;
 }
 
@@ -1199,9 +1280,9 @@ async function citation_runAnalysis(text, context = {}, modelKey = null) {
     return;
   }
 
-  // Get model from dropdown if not specified
+  // Get model from global settings if not specified
   if (!modelKey) {
-    modelKey = citation_modelDropdown?.value || 'local';
+    modelKey = await citation_getCurrentModel();
   }
 
   citation_currentText = text;
@@ -1268,7 +1349,6 @@ async function citation_runAnalysis(text, context = {}, modelKey = null) {
 
     citation_currentAnalysis = analysis;
     citation_renderResults(analysis, isAI, usedCloud, modelName);
-
   } catch (error) {
     console.error('[CitationAnalyzer] Error:', error);
 
@@ -1395,8 +1475,8 @@ async function citation_start(text, selectionRect = null) {
 
   await citation_show(selectionRect);
 
-  // Get model from dropdown (defaults to feature default when first shown)
-  const modelKey = citation_modelDropdown?.value || CITATION_DEFAULT_MODEL;
+  // Get model from global settings
+  const modelKey = await citation_getCurrentModel();
 
   citation_runAnalysis(text, context, modelKey);
 }
@@ -1451,10 +1531,4 @@ if (typeof window !== 'undefined') {
 // EXPORTS
 // ============================================================================
 
-export {
-  citation_start,
-  citation_show,
-  citation_hide,
-  citation_runAnalysis,
-  citation_settings,
-};
+export { citation_start, citation_show, citation_hide, citation_runAnalysis, citation_settings };

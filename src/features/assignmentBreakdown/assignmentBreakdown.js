@@ -32,9 +32,6 @@ let breakdown_isLoading = false;
 let breakdown_currentText = '';
 let breakdown_currentResult = null;
 const breakdown_checkedItems = new Set();
-let breakdown_modelDropdown = null; // Cloud model dropdown reference
-let breakdown_debounceTimer = null; // Debounce timer for model changes
-let breakdown_abortController = null; // AbortController for cancelling pending requests
 
 const breakdown_settings = {
   enabled: true,
@@ -45,66 +42,40 @@ const breakdown_settings = {
 
 // Cloud model configurations
 const BREAKDOWN_MODELS = {
-  'local': { id: 'local', name: 'Local', isLocal: true },
+  local: { id: 'local', name: 'Local', isLocal: true },
   'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
   'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
 // Cloud: Haiku 4.5 scored 8.8/10 (best cloud model - fast & structured)
 // Local: LLaMA 3.2:3b scored 7.9/10 (best local for task decomposition)
-const BREAKDOWN_DEFAULT_LOCAL_MODEL = 'local';
 const BREAKDOWN_DEFAULT_CLOUD_MODEL = 'haiku-4.5';
-
-// ============================================================================
-// DEBOUNCING AND REQUEST MANAGEMENT
-// ============================================================================
-
-/**
- * Debounced model change handler - prevents rapid-fire API calls
- * @param {string} modelKey - Model key to use
- * @param {number} delay - Debounce delay in ms (default 300ms)
- */
-function breakdown_debouncedModelChange(modelKey, delay = 300) {
-  // Cancel any pending debounce timer
-  if (breakdown_debounceTimer) {
-    clearTimeout(breakdown_debounceTimer);
-    console.log('[AssignmentBreakdown] Debounce: cancelled pending request');
-  }
-
-  // Cancel any in-flight request
-  if (breakdown_abortController) {
-    breakdown_abortController.abort();
-    breakdown_abortController = null;
-    breakdown_isLoading = false;
-    console.log('[AssignmentBreakdown] Debounce: aborted in-flight request');
-  }
-
-  // Set new debounce timer
-  breakdown_debounceTimer = setTimeout(() => {
-    breakdown_debounceTimer = null;
-    if (breakdown_currentText) {
-      console.log(`[AssignmentBreakdown] Debounce: executing request for ${modelKey}`);
-      breakdown_analyze(breakdown_currentText, modelKey);
-    }
-  }, delay);
-}
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
 
 /**
- * Check if cloud mode is enabled
- * @returns {Promise<boolean>}
+ * Get the current model from global settings
+ * @returns {Promise<string>} Model key
  */
-async function breakdown_isCloudEnabled() {
+async function breakdown_getCurrentModel() {
   try {
-    const result = await chrome.storage.local.get(['cloudModeEnabled']);
-    return result.cloudModeEnabled === true;
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return 'local';
+    } else if (aiMode === 'cloud') {
+      return result.cloudModel || BREAKDOWN_DEFAULT_CLOUD_MODEL;
+    } else {
+      return 'local';
+    }
   } catch (error) {
-    return false;
+    console.warn('[AssignmentBreakdown] Failed to get current model:', error);
+    return 'local';
   }
 }
 
@@ -154,10 +125,10 @@ async function breakdown_generate(text, modelKey = 'local', retryCount = 0) {
 
   // Model-specific token limits (Opus is verbose, Haiku is concise)
   const modelTokenLimits = {
-    'local': 800,
-    'haiku-4.5': 600,    // Fast and concise
-    'sonnet-4.5': 1000,  // Balanced
-    'opus-4.5': 1200     // Needs more for detailed analysis
+    local: 800,
+    'haiku-4.5': 600, // Fast and concise
+    'sonnet-4.5': 1000, // Balanced
+    'opus-4.5': 1200, // Needs more for detailed analysis
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 800;
@@ -200,8 +171,8 @@ RULES:
         options: {
           model: modelKey,
           maxTokens,
-          temperature: 0.2,  // Lower temperature for more predictable JSON
-          feature: 'assignmentBreakdown'
+          temperature: 0.2, // Lower temperature for more predictable JSON
+          feature: 'assignmentBreakdown',
         },
       });
     } else {
@@ -240,7 +211,7 @@ RULES:
         // Clean up common JSON issues
         jsonStr = jsonStr
           .trim()
-          .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+          .replace(/,\s*}/g, '}') // Remove trailing commas before }
           .replace(/,\s*]/g, ']'); // Remove trailing commas before ]
 
         console.log('[AssignmentBreakdown] Parsing JSON:', jsonStr.substring(0, 200) + '...');
@@ -281,13 +252,13 @@ RULES:
                 step: 1,
                 task: 'AI response was truncated or malformed. Click "Regenerate" to try again, or try a faster model like Haiku.',
                 timeEstimate: '-',
-                tips: 'Tip: Haiku 4.5 produces more concise, reliable results'
-              }
+                tips: 'Tip: Haiku 4.5 produces more concise, reliable results',
+              },
             ],
             keyRequirements: [],
             overallTips: 'The AI response could not be fully processed.',
           },
-          isCloud
+          isCloud,
         };
       }
     }
@@ -297,16 +268,19 @@ RULES:
     console.error(`[AssignmentBreakdown] Generation failed (attempt ${retryCount + 1}):`, error);
 
     // Check if this is a retryable error (network failures, timeouts)
-    const isRetryable = error.message?.includes('Failed to fetch') ||
-                        error.message?.includes('network') ||
-                        error.message?.includes('timeout') ||
-                        error.message?.includes('CORS') ||
-                        error.name === 'TypeError';
+    const isRetryable =
+      error.message?.includes('Failed to fetch') ||
+      error.message?.includes('network') ||
+      error.message?.includes('timeout') ||
+      error.message?.includes('CORS') ||
+      error.name === 'TypeError';
 
     // Retry with exponential backoff if we haven't exceeded max retries
     if (isRetryable && retryCount < MAX_RETRIES) {
       const delay = BASE_DELAY * Math.pow(2, retryCount); // Exponential backoff: 1s, 2s, 4s
-      console.log(`[AssignmentBreakdown] Retrying in ${delay}ms... (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
+      console.log(
+        `[AssignmentBreakdown] Retrying in ${delay}ms... (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`
+      );
       await breakdown_sleep(delay);
       return breakdown_generate(text, modelKey, retryCount + 1);
     }
@@ -571,9 +545,6 @@ async function breakdown_createPanel() {
   panel.setAttribute('aria-label', 'Assignment Breakdown');
   panel.setAttribute('aria-modal', 'true');
 
-  // Check if cloud mode is enabled
-  const cloudEnabled = await breakdown_isCloudEnabled();
-
   panel.innerHTML = `
     <div class="assist-breakdown-header">
       <span class="assist-breakdown-title">📋 Assignment Breakdown</span>
@@ -586,15 +557,6 @@ async function breakdown_createPanel() {
       <p class="assist-breakdown-placeholder">Select assignment text and click breakdown...</p>
     </div>
     <div class="assist-breakdown-actions">
-      <div class="assist-breakdown-model-selector ${cloudEnabled ? '' : 'hidden'}">
-        <span class="assist-model-icon" title="AI Model">🤖</span>
-        <select class="assist-breakdown-model" aria-label="Select AI model">
-          <option value="local">Local</option>
-          <option value="haiku-4.5">Haiku 4.5</option>
-          <option value="sonnet-4.5">Sonnet 4.5</option>
-          <option value="opus-4.5">Opus 4.5</option>
-        </select>
-      </div>
       <button class="assist-breakdown-btn assist-breakdown-copy" aria-label="Copy as checklist">
         <span class="assist-breakdown-btn-icon">📋</span> Copy List
       </button>
@@ -614,22 +576,6 @@ async function breakdown_createPanel() {
   const closeBtn = panel.querySelector('.assist-breakdown-close');
   closeBtn.addEventListener('click', breakdown_hide);
 
-  // Model dropdown event listener
-  const modelSelect = panel.querySelector('.assist-breakdown-model');
-  if (modelSelect) {
-    // Set default based on cloud mode (benchmark-optimized)
-    modelSelect.value = cloudEnabled ? BREAKDOWN_DEFAULT_CLOUD_MODEL : BREAKDOWN_DEFAULT_LOCAL_MODEL;
-    breakdown_modelDropdown = modelSelect;
-
-    // Model change triggers regeneration with debouncing
-    modelSelect.addEventListener('change', () => {
-      if (breakdown_currentText) {
-        // Use debounced handler to prevent rapid-fire API calls
-        breakdown_debouncedModelChange(modelSelect.value);
-      }
-    });
-  }
-
   const copyBtn = panel.querySelector('.assist-breakdown-copy');
   copyBtn.addEventListener('click', breakdown_copy);
 
@@ -637,9 +583,9 @@ async function breakdown_createPanel() {
   speakBtn.addEventListener('click', breakdown_speak);
 
   const regenerateBtn = panel.querySelector('.assist-breakdown-regenerate');
-  regenerateBtn.addEventListener('click', () => {
+  regenerateBtn.addEventListener('click', async () => {
     if (breakdown_currentText) {
-      const modelKey = breakdown_modelDropdown?.value || 'local';
+      const modelKey = await breakdown_getCurrentModel();
       breakdown_analyze(breakdown_currentText, modelKey);
     }
   });
@@ -1400,9 +1346,9 @@ async function breakdown_analyze(text, modelKey = null) {
     return;
   }
 
-  // Get model from dropdown if not specified
+  // Get model from global settings if not specified
   if (!modelKey) {
-    modelKey = breakdown_modelDropdown?.value || 'local';
+    modelKey = await breakdown_getCurrentModel();
   }
 
   breakdown_currentText = text;
@@ -1621,8 +1567,8 @@ async function breakdown_start(text, selectionRect = null) {
   // Show the panel
   await breakdown_show(selectionRect);
 
-  // Get model from dropdown (defaults to feature default when first shown)
-  const modelKey = breakdown_modelDropdown?.value || BREAKDOWN_DEFAULT_MODEL;
+  // Get model from global settings
+  const modelKey = await breakdown_getCurrentModel();
 
   // Start analysis with selected model
   breakdown_analyze(text, modelKey);
