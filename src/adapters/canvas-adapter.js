@@ -5,6 +5,8 @@
  * @module canvas-adapter
  */
 
+import { sanitizeHTML } from '../utils/sanitize.js';
+
 /**
  * Canvas page types
  */
@@ -226,7 +228,7 @@ export function extractQuizQuestions() {
  */
 export function getCleanText(html) {
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
+  tempDiv.innerHTML = sanitizeHTML(html);
 
   // Remove Canvas UI elements
   const uiSelectors = ['.screenreader-only', '.element_toggler', 'script', 'style', 'noscript'];
@@ -305,7 +307,7 @@ export function createCanvasFAB(options = {}) {
     transition: all 0.3s ease;
   `;
 
-  fab.innerHTML = icon;
+  fab.innerHTML = sanitizeHTML(icon);
 
   // Hover effect
   fab.addEventListener('mouseenter', () => {

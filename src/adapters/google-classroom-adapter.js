@@ -5,6 +5,8 @@
  * @module google-classroom-adapter
  */
 
+import { sanitizeHTML } from '../utils/sanitize.js';
+
 /**
  * Google Classroom page types
  */
@@ -235,7 +237,7 @@ export function extractClassworkItems() {
  */
 export function getCleanText(html) {
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
+  tempDiv.innerHTML = sanitizeHTML(html);
 
   // Remove Google Classroom UI elements
   const uiSelectors = [
@@ -323,7 +325,7 @@ export function createGoogleClassroomFAB(options = {}) {
     transition: all 0.3s ease;
   `;
 
-  fab.innerHTML = icon;
+  fab.innerHTML = sanitizeHTML(icon);
 
   // Hover effect
   fab.addEventListener('mouseenter', () => {

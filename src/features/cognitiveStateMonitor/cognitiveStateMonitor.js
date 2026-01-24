@@ -13,6 +13,8 @@
  * @module features/cognitiveStateMonitor
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -40,11 +42,31 @@ const csm_settings = {
 };
 
 const CSM_STATES = {
-  engaged: { icon: '🎯', label: 'Engaged', color: '#4CAF50', description: 'Actively reading and processing' },
+  engaged: {
+    icon: '🎯',
+    label: 'Engaged',
+    color: '#4CAF50',
+    description: 'Actively reading and processing',
+  },
   fatigued: { icon: '😴', label: 'Fatigued', color: '#FF9800', description: 'May need a break' },
-  confused: { icon: '🤔', label: 'Confused', color: '#2196F3', description: 'Content may be unclear' },
-  frustrated: { icon: '😤', label: 'Frustrated', color: '#f44336', description: 'Experiencing difficulty' },
-  distracted: { icon: '🌙', label: 'Distracted', color: '#9C27B0', description: 'Attention may be wandering' },
+  confused: {
+    icon: '🤔',
+    label: 'Confused',
+    color: '#2196F3',
+    description: 'Content may be unclear',
+  },
+  frustrated: {
+    icon: '😤',
+    label: 'Frustrated',
+    color: '#f44336',
+    description: 'Experiencing difficulty',
+  },
+  distracted: {
+    icon: '🌙',
+    label: 'Distracted',
+    color: '#9C27B0',
+    description: 'Attention may be wandering',
+  },
   focused: { icon: '✨', label: 'Deep Focus', color: '#00BCD4', description: 'In the zone' },
 };
 
@@ -56,7 +78,9 @@ const CSM_STATES = {
  * Start monitoring cognitive state
  */
 function csm_startMonitoring() {
-  if (csm_isMonitoring) return;
+  if (csm_isMonitoring) {
+    return;
+  }
 
   csm_isMonitoring = true;
   csm_metrics.sessionStart = Date.now();
@@ -189,9 +213,10 @@ function csm_analyzeState() {
   // Calculate metrics
   const recentScrolls = csm_metrics.scrollEvents.filter(e => now - e.time < 30000);
   const recentSelections = csm_metrics.selectionEvents.filter(e => now - e.time < 60000);
-  const avgPauseDuration = csm_metrics.pauseDurations.length > 0
-    ? csm_metrics.pauseDurations.reduce((a, b) => a + b, 0) / csm_metrics.pauseDurations.length
-    : 0;
+  const avgPauseDuration =
+    csm_metrics.pauseDurations.length > 0
+      ? csm_metrics.pauseDurations.reduce((a, b) => a + b, 0) / csm_metrics.pauseDurations.length
+      : 0;
 
   // Calculate scroll speed variance
   const scrollSpeeds = [];
@@ -201,9 +226,8 @@ function csm_analyzeState() {
       scrollSpeeds.push(Math.abs(recentScrolls[i].delta) / timeDiff);
     }
   }
-  const avgScrollSpeed = scrollSpeeds.length > 0
-    ? scrollSpeeds.reduce((a, b) => a + b, 0) / scrollSpeeds.length
-    : 0;
+  const avgScrollSpeed =
+    scrollSpeeds.length > 0 ? scrollSpeeds.reduce((a, b) => a + b, 0) / scrollSpeeds.length : 0;
 
   // Count backtrack scrolls (scrolling up)
   const backtrackScrolls = recentScrolls.filter(e => e.direction === 'up').length;
@@ -242,7 +266,12 @@ function csm_analyzeState() {
   }
 
   // Deep focus indicators
-  if (avgScrollSpeed > 0.05 && avgScrollSpeed < 0.3 && backtrackScrolls < 2 && sessionDuration > 5) {
+  if (
+    avgScrollSpeed > 0.05 &&
+    avgScrollSpeed < 0.3 &&
+    backtrackScrolls < 2 &&
+    sessionDuration > 5
+  ) {
     state = 'focused';
     confidence = 0.8;
     indicators.push('Steady reading pace maintained');
@@ -277,10 +306,7 @@ function csm_analyzeState() {
  */
 function csm_getSuggestions(state) {
   const suggestions = {
-    engaged: [
-      'Great focus! Keep going.',
-      'Consider taking notes on key points.',
-    ],
+    engaged: ['Great focus! Keep going.', 'Consider taking notes on key points.'],
     fatigued: [
       'Consider taking a 5-minute break.',
       'Try the Pomodoro technique: 25 min work, 5 min rest.',
@@ -567,20 +593,30 @@ function csm_updatePanel(result) {
   }
 
   const stateIcon = document.getElementById('csm-state-icon');
-  if (stateIcon) stateIcon.textContent = stateInfo.icon;
+  if (stateIcon) {
+    stateIcon.textContent = stateInfo.icon;
+  }
 
   const stateLabel = document.getElementById('csm-state-label');
-  if (stateLabel) stateLabel.textContent = stateInfo.label;
+  if (stateLabel) {
+    stateLabel.textContent = stateInfo.label;
+  }
 
   const stateDesc = document.getElementById('csm-state-desc');
-  if (stateDesc) stateDesc.textContent = stateInfo.description;
+  if (stateDesc) {
+    stateDesc.textContent = stateInfo.description;
+  }
 
   const confidence = document.getElementById('csm-confidence');
-  if (confidence) confidence.textContent = `Confidence: ${Math.round(result.confidence * 100)}%`;
+  if (confidence) {
+    confidence.textContent = `Confidence: ${Math.round(result.confidence * 100)}%`;
+  }
 
   // Update metrics
   const duration = document.getElementById('csm-duration');
-  if (duration) duration.textContent = `${result.metrics.sessionDuration} min`;
+  if (duration) {
+    duration.textContent = `${result.metrics.sessionDuration} min`;
+  }
 
   const pace = document.getElementById('csm-pace');
   if (pace) {
@@ -589,14 +625,16 @@ function csm_updatePanel(result) {
   }
 
   const rereads = document.getElementById('csm-rereads');
-  if (rereads) rereads.textContent = result.metrics.backtrackCount;
+  if (rereads) {
+    rereads.textContent = result.metrics.backtrackCount;
+  }
 
   // Update suggestions
   const suggestionList = document.getElementById('csm-suggestion-list');
   if (suggestionList) {
-    suggestionList.innerHTML = result.suggestions
-      .map(s => `<div class="csm-suggestion-item">${s}</div>`)
-      .join('');
+    suggestionList.innerHTML = sanitizeHTML(
+      result.suggestions.map(s => `<div class="csm-suggestion-item">${s}</div>`).join('')
+    );
   }
 
   // Update indicators
@@ -739,4 +777,11 @@ if (typeof window !== 'undefined') {
 // EXPORTS
 // ============================================================================
 
-export { csm_show, csm_hide, csm_getCurrentState, csm_startMonitoring, csm_stopMonitoring, csm_settings };
+export {
+  csm_show,
+  csm_hide,
+  csm_getCurrentState,
+  csm_startMonitoring,
+  csm_stopMonitoring,
+  csm_settings,
+};

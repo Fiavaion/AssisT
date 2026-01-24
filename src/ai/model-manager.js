@@ -18,26 +18,26 @@ const MODEL_SETS = {
     name: 'Minimal',
     description: 'Fast responses, lower resource usage (~2GB)',
     models: ['phi3:mini'],
-    totalSize: '2GB'
+    totalSize: '2GB',
   },
   balanced: {
     name: 'Balanced',
     description: 'Good performance for most tasks (~5GB)',
     models: ['phi3:mini', 'llama3.2'],
-    totalSize: '5GB'
+    totalSize: '5GB',
   },
   full: {
     name: 'Full',
     description: 'All features including vision (~10GB)',
     models: ['phi3:mini', 'llama3.2', 'mistral', 'llava'],
-    totalSize: '10GB'
+    totalSize: '10GB',
   },
   visionOnly: {
     name: 'Vision Add-on',
     description: 'Add image understanding capability (~4GB)',
     models: ['llava'],
-    totalSize: '4GB'
-  }
+    totalSize: '4GB',
+  },
 };
 
 /**
@@ -59,9 +59,7 @@ export class ModelManager {
     const installedModels = status.models || [];
 
     return Object.entries(MODEL_CONFIGS).map(([key, config]) => {
-      const isInstalled = installedModels.some(m =>
-        m === key || m.startsWith(key.split(':')[0])
-      );
+      const isInstalled = installedModels.some(m => m === key || m.startsWith(key.split(':')[0]));
 
       const installedVersion = isInstalled
         ? installedModels.find(m => m.startsWith(key.split(':')[0]))
@@ -73,7 +71,7 @@ export class ModelManager {
         installed: isInstalled,
         installedVersion,
         installing: this.installProgress.has(key),
-        progress: this.installProgress.get(key) || null
+        progress: this.installProgress.get(key) || null,
       };
     });
   }
@@ -85,9 +83,7 @@ export class ModelManager {
    */
   async isModelInstalled(modelId) {
     const status = await this.client.checkAvailability();
-    return status.models.some(m =>
-      m === modelId || m.startsWith(modelId.split(':')[0])
-    );
+    return status.models.some(m => m === modelId || m.startsWith(modelId.split(':')[0]));
   }
 
   /**
@@ -105,7 +101,7 @@ export class ModelManager {
     this._notifyListeners('install-start', { modelId });
 
     try {
-      await this.client.installModel(modelId, (progress) => {
+      await this.client.installModel(modelId, progress => {
         this.installProgress.set(modelId, progress);
         this._notifyListeners('install-progress', { modelId, progress });
       });
@@ -113,7 +109,6 @@ export class ModelManager {
       this.installProgress.delete(modelId);
       this._notifyListeners('install-complete', { modelId });
       return true;
-
     } catch (error) {
       this.installProgress.delete(modelId);
       this._notifyListeners('install-error', { modelId, error: error.message });
@@ -150,7 +145,9 @@ export class ModelManager {
    */
   async getBestModelForTask(taskType) {
     const status = await this.client.checkAvailability();
-    if (!status.available) return null;
+    if (!status.available) {
+      return null;
+    }
 
     return this.client.getBestModelForTask(taskType);
   }
@@ -172,8 +169,12 @@ export class ModelManager {
     // Default to balanced for most users
     // Could enhance with navigator.deviceMemory if available
     if (navigator.deviceMemory) {
-      if (navigator.deviceMemory >= 16) return 'full';
-      if (navigator.deviceMemory >= 8) return 'balanced';
+      if (navigator.deviceMemory >= 16) {
+        return 'full';
+      }
+      if (navigator.deviceMemory >= 8) {
+        return 'balanced';
+      }
       return 'minimal';
     }
     return 'balanced';

@@ -85,7 +85,7 @@ let readText = null;
 export async function moodle_loadAdapter() {
   if (!MoodleAdapter) {
     try {
-      MoodleAdapter = await import(chrome.runtime.getURL('adapters/moodle-adapter.js'));
+      MoodleAdapter = await import(chrome.runtime.getURL('src/adapters/moodle-adapter.js'));
       console.log('[Moodle] Adapter loaded');
     } catch (error) {
       console.error('[Moodle] Failed to load adapter:', error);

@@ -33,7 +33,7 @@
 let fullPageTranslate_isTranslated = false;
 let fullPageTranslate_progressModal = null;
 let fullPageTranslate_revertButton = null;
-let fullPageTranslate_currentTargetLang = 'en';
+// let _fullPageTranslate_currentTargetLang = 'en'; // Reserved for future use
 
 // ============================================================================
 // PROGRESS MODAL
@@ -486,7 +486,9 @@ function fullPageTranslate_revert() {
     const originalText = element.getAttribute('data-original-text');
     if (originalText) {
       // Find the text node child
-      const textNode = Array.from(element.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      const textNode = Array.from(element.childNodes).find(
+        node => node.nodeType === Node.TEXT_NODE
+      );
       if (textNode) {
         textNode.textContent = originalText;
       }

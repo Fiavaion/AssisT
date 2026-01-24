@@ -17,6 +17,7 @@
  */
 
 import { textStatsEngine } from './textStats.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 /**
  * Text Statistics UI Manager
@@ -50,7 +51,7 @@ export class TextStatsUI {
       console.log('[TextStats UI] Initialized', {
         enabled: this.enabled,
         badgeVisible: this.badgeVisible,
-        autoUpdate: this.autoUpdate
+        autoUpdate: this.autoUpdate,
       });
     }
   }
@@ -59,7 +60,9 @@ export class TextStatsUI {
    * Create floating badge
    */
   createBadge() {
-    if (this.badge) return;
+    if (this.badge) {
+      return;
+    }
 
     this.badge = document.createElement('div');
     this.badge.id = 'assist-textstats-badge';
@@ -86,7 +89,7 @@ export class TextStatsUI {
       display: ${this.badgeVisible ? 'block' : 'none'};
     `;
 
-    this.badge.innerHTML = `
+    this.badge.innerHTML = sanitizeHTML(`
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <strong style="font-size: 13px; color: #4a90e2;">Text Stats</strong>
         <button
@@ -110,7 +113,7 @@ export class TextStatsUI {
           >View Details</button>
         </div>
       </div>
-    `;
+    `);
 
     // Add hover effect
     this.badge.addEventListener('mouseenter', () => {
@@ -125,14 +128,14 @@ export class TextStatsUI {
 
     // Close button
     const closeBtn = this.badge.querySelector('#assist-textstats-close');
-    closeBtn.addEventListener('click', (e) => {
+    closeBtn.addEventListener('click', e => {
       e.stopPropagation();
       this.hideBadge();
     });
 
     // Details button
     const detailsBtn = this.badge.querySelector('#assist-textstats-details');
-    detailsBtn.addEventListener('click', (e) => {
+    detailsBtn.addEventListener('click', e => {
       e.stopPropagation();
       this.showModal();
     });
@@ -144,7 +147,9 @@ export class TextStatsUI {
    * Create full stats modal
    */
   createModal() {
-    if (this.modal) return;
+    if (this.modal) {
+      return;
+    }
 
     this.modal = document.createElement('div');
     this.modal.id = 'assist-textstats-modal';
@@ -165,7 +170,7 @@ export class TextStatsUI {
       z-index: 999999;
     `;
 
-    this.modal.innerHTML = `
+    this.modal.innerHTML = sanitizeHTML(`
       <div style="
         background: white;
         border-radius: 12px;
@@ -266,7 +271,7 @@ export class TextStatsUI {
           >Done</button>
         </div>
       </div>
-    `;
+    `);
 
     // Modal close handlers
     const modalClose = this.modal.querySelector('#assist-textstats-modal-close');
@@ -276,7 +281,7 @@ export class TextStatsUI {
     modalDone.addEventListener('click', () => this.hideModal());
 
     // Click outside to close
-    this.modal.addEventListener('click', (e) => {
+    this.modal.addEventListener('click', e => {
       if (e.target === this.modal) {
         this.hideModal();
       }
@@ -344,13 +349,13 @@ export class TextStatsUI {
           if (iframeDoc && iframeDoc.body) {
             text += '\n' + iframeDoc.body.innerText;
           }
-        } catch (e) {
+        } catch {
           // Cross-origin iframe, skip
           console.log('[TextStats] Skipping cross-origin iframe');
         }
       });
-    } catch (e) {
-      console.warn('[TextStats] Could not access iframe content', e);
+    } catch {
+      console.warn('[TextStats] Could not access iframe content');
     }
 
     return text;
@@ -368,8 +373,12 @@ export class TextStatsUI {
     if (this.badge) {
       const wordsEl = this.badge.querySelector('#assist-textstats-words');
       const timeEl = this.badge.querySelector('#assist-textstats-time');
-      if (wordsEl) wordsEl.textContent = stats.words.toLocaleString();
-      if (timeEl) timeEl.textContent = `${stats.readingTime} min`;
+      if (wordsEl) {
+        wordsEl.textContent = stats.words.toLocaleString();
+      }
+      if (timeEl) {
+        timeEl.textContent = `${stats.readingTime} min`;
+      }
     }
 
     // Update modal if visible
@@ -385,14 +394,22 @@ export class TextStatsUI {
    */
   updateModalStats(stats) {
     // Update stat values
-    document.getElementById('assist-textstats-modal-words').textContent = stats.words.toLocaleString();
-    document.getElementById('assist-textstats-modal-chars').textContent = stats.characters.toLocaleString();
-    document.getElementById('assist-textstats-modal-sentences').textContent = stats.sentences.toLocaleString();
-    document.getElementById('assist-textstats-modal-paragraphs').textContent = stats.paragraphs.toLocaleString();
-    document.getElementById('assist-textstats-modal-reading').textContent = `${stats.readingTime} min`;
-    document.getElementById('assist-textstats-modal-unique').textContent = stats.uniqueWords.toLocaleString();
-    document.getElementById('assist-textstats-modal-chars-nospace').textContent = stats.charactersNoSpaces.toLocaleString();
-    document.getElementById('assist-textstats-modal-avg-word').textContent = stats.averageWordLength;
+    document.getElementById('assist-textstats-modal-words').textContent =
+      stats.words.toLocaleString();
+    document.getElementById('assist-textstats-modal-chars').textContent =
+      stats.characters.toLocaleString();
+    document.getElementById('assist-textstats-modal-sentences').textContent =
+      stats.sentences.toLocaleString();
+    document.getElementById('assist-textstats-modal-paragraphs').textContent =
+      stats.paragraphs.toLocaleString();
+    document.getElementById('assist-textstats-modal-reading').textContent =
+      `${stats.readingTime} min`;
+    document.getElementById('assist-textstats-modal-unique').textContent =
+      stats.uniqueWords.toLocaleString();
+    document.getElementById('assist-textstats-modal-chars-nospace').textContent =
+      stats.charactersNoSpaces.toLocaleString();
+    document.getElementById('assist-textstats-modal-avg-word').textContent =
+      stats.averageWordLength;
 
     // Update progress bar if target is set
     const progress = textStatsEngine.calculateProgress(stats.words);
@@ -469,7 +486,9 @@ export class TextStatsUI {
 
       // Focus modal for accessibility
       const closeBtn = this.modal.querySelector('#assist-textstats-modal-close');
-      if (closeBtn) closeBtn.focus();
+      if (closeBtn) {
+        closeBtn.focus();
+      }
     }
   }
 
@@ -522,7 +541,7 @@ export class TextStatsUI {
    * Register keyboard shortcut (Ctrl+Shift+W)
    */
   registerKeyboardShortcut() {
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', e => {
       // Ctrl+Shift+W or Cmd+Shift+W
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'W') {
         e.preventDefault();
@@ -588,7 +607,7 @@ export const textStatsUI = new TextStatsUI();
       'textStatsTargetWordCount',
       'textStatsReadingSpeed',
       'textStatsBadgeVisible',
-      'textStatsAutoUpdate'
+      'textStatsAutoUpdate',
     ]);
 
     const textStatsSettings = {
@@ -596,7 +615,7 @@ export const textStatsUI = new TextStatsUI();
       targetWordCount: settings.textStatsTargetWordCount || 0,
       readingSpeed: settings.textStatsReadingSpeed || 225,
       badgeVisible: settings.textStatsBadgeVisible !== false,
-      autoUpdate: settings.textStatsAutoUpdate !== false
+      autoUpdate: settings.textStatsAutoUpdate !== false,
     };
 
     // Initialize text stats engine
@@ -610,7 +629,9 @@ export const textStatsUI = new TextStatsUI();
 
     // Listen for settings changes
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'local') return;
+      if (areaName !== 'local') {
+        return;
+      }
 
       if (changes.textStats?.newValue) {
         const enabled = changes.textStats.newValue.enabled;

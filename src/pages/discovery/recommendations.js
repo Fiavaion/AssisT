@@ -60,7 +60,10 @@ export function calculateScores(responses) {
 
   Object.entries(scores).forEach(([featureId, rawScore]) => {
     // Normalize to 0-100, capping at 100
-    const normalized = Math.min(100, Math.round((rawScore / (maxPossibleBase + maxPossibleBoost)) * 100));
+    const normalized = Math.min(
+      100,
+      Math.round((rawScore / (maxPossibleBase + maxPossibleBoost)) * 100)
+    );
     normalizedScores[featureId] = normalized;
   });
 
@@ -78,7 +81,9 @@ export function generateRecommendations(scores) {
   Object.entries(scores).forEach(([featureId, score]) => {
     if (score >= THRESHOLDS.POSSIBLE_MATCH) {
       const feature = FEATURES[featureId];
-      if (!feature) return;
+      if (!feature) {
+        return;
+      }
 
       let tier, tierLabel;
       if (score >= THRESHOLDS.STRONG_MATCH) {

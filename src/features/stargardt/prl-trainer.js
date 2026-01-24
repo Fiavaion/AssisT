@@ -44,7 +44,7 @@ const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Exclude I and O (too similar to 1
 // STATE
 // ============================================================================
 
-let trainer_profile = null;
+// let _trainer_profile = null; // Reserved for future use
 let trainer_currentSession = null;
 let trainer_sessionHistory = [];
 let trainer_currentLevel = 1;
@@ -213,8 +213,7 @@ export async function endSession() {
 function calculateSessionSummary(session) {
   const totalTrials = session.trials.length;
   const accuracy = totalTrials > 0 ? (session.correct / totalTrials) * 100 : 0;
-  const avgReactionTime =
-    totalTrials > 0 ? session.totalReactionTime / totalTrials : 0;
+  const avgReactionTime = totalTrials > 0 ? session.totalReactionTime / totalTrials : 0;
 
   // Calculate BCEA (Bivariate Contour Ellipse Area) estimate for fixation stability
   // In a real implementation, this would use actual gaze data
@@ -236,14 +235,15 @@ function calculateSessionSummary(session) {
  * Calculate stability score from trials
  */
 function calculateStabilityScore(trials) {
-  if (trials.length < 5) return 0;
+  if (trials.length < 5) {
+    return 0;
+  }
 
   // Use reaction time consistency as proxy for stability
   const reactionTimes = trials.map(t => t.reactionTime);
   const mean = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
   const variance =
-    reactionTimes.reduce((sum, rt) => sum + Math.pow(rt - mean, 2), 0) /
-    reactionTimes.length;
+    reactionTimes.reduce((sum, rt) => sum + Math.pow(rt - mean, 2), 0) / reactionTimes.length;
   const stdDev = Math.sqrt(variance);
 
   // Convert to 0-100 score (lower stdDev = higher stability)
@@ -416,15 +416,24 @@ export function generateCrowdingTrial() {
  * @returns {Object} Trial configuration
  */
 export function generateReadingTrial() {
-  const level = DIFFICULTY_LEVELS[trainer_currentLevel];
+  // const _level = DIFFICULTY_LEVELS[trainer_currentLevel]; // Reserved for future use
 
   // Sample sentences of varying difficulty
   const sentences = [
     ['The cat sat on the mat.', 'Quick brown fox jumps.'],
     ['Reading helps improve focus and concentration skills.', 'Practice makes progress over time.'],
-    ['Peripheral vision can be trained through consistent daily exercises.', 'Visual rehabilitation requires patience and dedication.'],
-    ['Research shows that perceptual learning significantly improves eccentric reading abilities.', 'Systematic training protocols demonstrate measurable functional vision improvements.'],
-    ['The neuroplasticity of the visual cortex enables remarkable adaptation to central vision loss through targeted rehabilitation.', 'Evidence-based interventions combining oculomotor and perceptual training optimize preferred retinal locus development.'],
+    [
+      'Peripheral vision can be trained through consistent daily exercises.',
+      'Visual rehabilitation requires patience and dedication.',
+    ],
+    [
+      'Research shows that perceptual learning significantly improves eccentric reading abilities.',
+      'Systematic training protocols demonstrate measurable functional vision improvements.',
+    ],
+    [
+      'The neuroplasticity of the visual cortex enables remarkable adaptation to central vision loss through targeted rehabilitation.',
+      'Evidence-based interventions combining oculomotor and perceptual training optimize preferred retinal locus development.',
+    ],
   ];
 
   const levelSentences = sentences[Math.min(trainer_currentLevel - 1, sentences.length - 1)];
@@ -471,13 +480,14 @@ export function getStatistics() {
   let streak = 0;
 
   // Calculate streak (consecutive days)
-  const sessionDates = trainer_sessionHistory.map(s =>
-    new Date(s.startTime).toDateString()
-  );
+  const sessionDates = trainer_sessionHistory.map(s => new Date(s.startTime).toDateString());
   const uniqueDates = [...new Set(sessionDates)].sort().reverse();
   const today = new Date().toDateString();
 
-  if (uniqueDates[0] === today || uniqueDates[0] === new Date(Date.now() - 86400000).toDateString()) {
+  if (
+    uniqueDates[0] === today ||
+    uniqueDates[0] === new Date(Date.now() - 86400000).toDateString()
+  ) {
     streak = 1;
     for (let i = 1; i < uniqueDates.length; i++) {
       const prevDate = new Date(uniqueDates[i - 1]);
@@ -522,11 +532,9 @@ function getStatsByExerciseType() {
     if (sessions.length > 0) {
       byType[type] = {
         sessions: sessions.length,
-        avgAccuracy:
-          Math.round(
-            sessions.reduce((sum, s) => sum + (s.summary?.accuracy || 0), 0) /
-              sessions.length
-          ),
+        avgAccuracy: Math.round(
+          sessions.reduce((sum, s) => sum + (s.summary?.accuracy || 0), 0) / sessions.length
+        ),
         bestAccuracy: Math.max(...sessions.map(s => s.summary?.accuracy || 0)),
       };
     }
@@ -562,10 +570,8 @@ export function getProgressOverTime(days = 30) {
   // Calculate daily averages
   return Object.entries(byDate).map(([date, data]) => ({
     date,
-    avgAccuracy:
-      Math.round(data.accuracy.reduce((a, b) => a + b, 0) / data.accuracy.length),
-    avgStability:
-      Math.round(data.stability.reduce((a, b) => a + b, 0) / data.stability.length),
+    avgAccuracy: Math.round(data.accuracy.reduce((a, b) => a + b, 0) / data.accuracy.length),
+    avgStability: Math.round(data.stability.reduce((a, b) => a + b, 0) / data.stability.length),
     sessions: data.sessions,
   }));
 }

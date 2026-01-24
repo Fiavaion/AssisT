@@ -14,6 +14,7 @@
  * @module stargardt/eye-tracking-controller
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
 import * as webgazerLoader from './lib/webgazer-loader.js';
 import { showToast } from '../../core/ui/toast.js';
 
@@ -111,10 +112,7 @@ export async function enable() {
     await configureWebGazer();
 
     // Start WebGazer
-    await eyeTracking_webgazer
-      .setRegression('ridge')
-      .setTracker('TFFacemesh')
-      .begin();
+    await eyeTracking_webgazer.setRegression('ridge').setTracker('TFFacemesh').begin();
 
     eyeTracking_enabled = true;
 
@@ -146,7 +144,9 @@ export async function enable() {
  * Disable eye tracking
  */
 export function disable() {
-  if (!eyeTracking_enabled) return;
+  if (!eyeTracking_enabled) {
+    return;
+  }
 
   console.log('[EyeTracking] Disabling...');
 
@@ -180,7 +180,9 @@ export function disable() {
  * Configure WebGazer settings
  */
 async function configureWebGazer() {
-  if (!eyeTracking_webgazer) return;
+  if (!eyeTracking_webgazer) {
+    return;
+  }
 
   // Store data locally (privacy-focused)
   eyeTracking_webgazer.saveDataAcrossSessions(true);
@@ -245,10 +247,12 @@ export function showPredictionPoint() {
  * Handle incoming gaze data from WebGazer
  *
  * @param {Object} data - Gaze data from WebGazer
- * @param {number} elapsedTime - Time since tracking started
+ * @param {number} _elapsedTime - Time since tracking started
  */
-function handleGazeData(data, elapsedTime) {
-  if (!data) return;
+function handleGazeData(data, _elapsedTime) {
+  if (!data) {
+    return;
+  }
 
   const now = Date.now();
 
@@ -410,12 +414,12 @@ function createCalibrationUI() {
     text-align: center;
     z-index: 10;
   `;
-  instructions.innerHTML = `
+  instructions.innerHTML = sanitizeHTML(`
     <strong>Eye Tracking Calibration</strong><br>
     <span style="color: #a0a0b0; font-size: 14px;">
       Click on each dot while looking at it. Point <span id="cal-current">1</span>/<span id="cal-total">${calibrationPoints.length}</span>
     </span>
-  `;
+  `);
 
   // Calibration point (the dot to click)
   const point = document.createElement('div');
@@ -483,7 +487,9 @@ function showCalibrationPoint(index) {
   const point = document.getElementById('calibration-point');
   const currentSpan = document.getElementById('cal-current');
 
-  if (!point || !calibrationPoints[index]) return;
+  if (!point || !calibrationPoints[index]) {
+    return;
+  }
 
   const { x, y } = calibrationPoints[index];
 
@@ -538,10 +544,10 @@ function completeCalibration() {
   // Show completion message briefly
   const instructions = document.getElementById('calibration-instructions');
   if (instructions) {
-    instructions.innerHTML = `
+    instructions.innerHTML = sanitizeHTML(`
       <span style="color: #4ade80; font-size: 20px;">✓</span>
       <strong style="color: #4ade80;"> Calibration Complete!</strong>
-    `;
+    `);
   }
 
   const point = document.getElementById('calibration-point');
@@ -618,7 +624,9 @@ export function updateSettings(settings) {
     if (settings.showVideo !== undefined) {
       if (settings.showVideo) {
         const video = document.getElementById('webgazerVideoFeed');
-        if (video) video.style.display = 'block';
+        if (video) {
+          video.style.display = 'block';
+        }
       } else {
         hideVideoPreview();
       }

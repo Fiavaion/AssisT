@@ -21,6 +21,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -515,7 +516,7 @@ async function citation_createPanel() {
   panel.setAttribute('aria-label', 'Citation Analysis');
   panel.setAttribute('tabindex', '-1');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <div class="assist-citation-header">
       <div class="assist-citation-title">
         <span class="assist-citation-icon">🔍</span>
@@ -545,7 +546,7 @@ async function citation_createPanel() {
         Reanalyze
       </button>
     </div>
-  `;
+  `);
 
   // Event handlers
   panel.querySelector('.assist-citation-close').addEventListener('click', citation_hide);
@@ -1114,7 +1115,7 @@ function citation_renderResults(analysis, isAI, isCloud = false, modelName = '')
     badge = '<span class="assist-citation-fallback-badge">Basic</span>';
   }
 
-  contentArea.innerHTML = `
+  contentArea.innerHTML = sanitizeHTML(`
     <div class="assist-citation-score">
       <div class="assist-citation-score-circle ${scoreClass}">
         ${analysis.credibilityScore || '?'}
@@ -1196,7 +1197,7 @@ function citation_renderResults(analysis, isAI, isCloud = false, modelName = '')
     `
         : ''
     }
-  `;
+  `);
 }
 
 // ============================================================================
@@ -1296,12 +1297,12 @@ async function citation_runAnalysis(text, context = {}, modelKey = null) {
   const modelName = CITATION_MODELS[modelKey]?.name || modelKey;
 
   if (contentArea) {
-    contentArea.innerHTML = `
+    contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-citation-loading">
         <div class="assist-citation-spinner"></div>
         <span>Analyzing source${isCloud ? ` with ${modelName}` : ''}...</span>
       </div>
-    `;
+    `);
   }
 
   actionBtns?.forEach(btn => {

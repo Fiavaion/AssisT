@@ -161,7 +161,9 @@ class DexieStorageAdapter extends BaseStorageAdapter {
   async linkToProject(annotationId, projectId) {
     try {
       const annotation = await this.getById(annotationId);
-      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      if (!annotation) {
+        throw new Error(`Annotation ${annotationId} not found`);
+      }
       const projectIds = annotation.projectIds || [];
       if (!projectIds.includes(projectId)) {
         projectIds.push(projectId);
@@ -180,7 +182,9 @@ class DexieStorageAdapter extends BaseStorageAdapter {
   async unlinkFromProject(annotationId, projectId) {
     try {
       const annotation = await this.getById(annotationId);
-      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      if (!annotation) {
+        throw new Error(`Annotation ${annotationId} not found`);
+      }
       const projectIds = (annotation.projectIds || []).filter(id => id !== projectId);
       return await this.update(annotationId, { projectIds });
     } catch (error) {
@@ -612,7 +616,9 @@ class LocalStorageAdapter extends BaseStorageAdapter {
   async linkToProject(annotationId, projectId) {
     try {
       const annotation = await this.getById(annotationId);
-      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      if (!annotation) {
+        throw new Error(`Annotation ${annotationId} not found`);
+      }
       const projectIds = annotation.projectIds || [];
       if (!projectIds.includes(projectId)) {
         projectIds.push(projectId);
@@ -629,7 +635,9 @@ class LocalStorageAdapter extends BaseStorageAdapter {
   async unlinkFromProject(annotationId, projectId) {
     try {
       const annotation = await this.getById(annotationId);
-      if (!annotation) throw new Error(`Annotation ${annotationId} not found`);
+      if (!annotation) {
+        throw new Error(`Annotation ${annotationId} not found`);
+      }
       const projectIds = (annotation.projectIds || []).filter(id => id !== projectId);
       return await this.update(annotationId, { projectIds });
     } catch (error) {

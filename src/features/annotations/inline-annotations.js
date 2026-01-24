@@ -24,7 +24,8 @@
  */
 
 import { getStorageAdapter } from './storage-adapter.js';
-import { createTagInput, renderTagPills } from './tag-manager.js';
+import { createTagInput } from './tag-manager.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -125,7 +126,13 @@ async function loadAnnotationsForCurrentPage() {
  * @param {Array<string>} [options.tags=[]] - Tags for the annotation
  * @returns {Promise<Object>} Created annotation data
  */
-export async function createInlineAnnotation({ selectedText, position, comment = '', color = 'yellow', tags = [] }) {
+export async function createInlineAnnotation({
+  selectedText,
+  position,
+  comment = '',
+  color = 'yellow',
+  tags = [],
+}) {
   try {
     const annotationData = {
       type: 'annotation',
@@ -415,7 +422,7 @@ export function openAnnotationModal(annotation = null, selectedText = '', positi
 
   const isEdit = annotation !== null;
 
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHTML(`
     <div class="assist-annotation-modal" role="document">
       <div class="assist-annotation-modal-header">
         <h3 id="annotation-modal-title">${isEdit ? 'Edit Annotation' : 'Add Annotation'}</h3>
@@ -450,7 +457,7 @@ export function openAnnotationModal(annotation = null, selectedText = '', positi
         <button class="assist-annotation-btn assist-annotation-btn-save" aria-label="Save annotation">Save</button>
       </div>
     </div>
-  `;
+  `);
 
   // Attach event listeners
   const closeBtn = modal.querySelector('.assist-annotation-modal-close');
@@ -464,7 +471,9 @@ export function openAnnotationModal(annotation = null, selectedText = '', positi
 
   closeBtn.addEventListener('click', () => closeAnnotationModal());
   cancelBtn.addEventListener('click', () => closeAnnotationModal());
-  saveBtn.addEventListener('click', () => saveAnnotationFromModal(selectedText, position, tagInput));
+  saveBtn.addEventListener('click', () =>
+    saveAnnotationFromModal(selectedText, position, tagInput)
+  );
 
   if (deleteBtn) {
     deleteBtn.addEventListener('click', () => deleteAnnotationFromModal());
@@ -554,7 +563,9 @@ function closeAnnotationModal() {
  */
 async function saveAnnotationFromModal(selectedText, position, tagInput) {
   const textarea = currentModal.querySelector('#annotation-comment');
-  const selectedColorOption = currentModal.querySelector('.assist-annotation-color-option.selected');
+  const selectedColorOption = currentModal.querySelector(
+    '.assist-annotation-color-option.selected'
+  );
 
   const comment = textarea.value.trim();
   const color = selectedColorOption?.dataset.color || 'yellow';
@@ -649,7 +660,13 @@ async function deleteAnnotation(annotationId) {
  * @returns {Element|null} Found element
  */
 function getElementByXPath(xpath) {
-  const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+  const result = document.evaluate(
+    xpath,
+    document,
+    null,
+    XPathResult.FIRST_ORDERED_NODE_TYPE,
+    null
+  );
   return result.singleNodeValue;
 }
 
@@ -692,7 +709,9 @@ function getXPath(element) {
   for (let i = 0; i < siblings.length; i++) {
     const sibling = siblings[i];
     if (sibling === element) {
-      return getXPath(element.parentNode) + '/' + element.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+      return (
+        getXPath(element.parentNode) + '/' + element.tagName.toLowerCase() + '[' + (ix + 1) + ']'
+      );
     }
     if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
       ix++;
@@ -706,9 +725,10 @@ function getXPath(element) {
  * @returns {Object} Position data
  */
 export function getPositionFromRange(range) {
-  const container = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
-    ? range.commonAncestorContainer.parentElement
-    : range.commonAncestorContainer;
+  const container =
+    range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentElement
+      : range.commonAncestorContainer;
 
   // Get text offset within container
   const textNodes = getTextNodesIn(container);

@@ -21,6 +21,7 @@
  */
 
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -140,7 +141,7 @@ function readingMode_createOverlay(article) {
 
   // Add article content
   const articleContent = document.createElement('div');
-  articleContent.innerHTML = article.content;
+  articleContent.innerHTML = sanitizeHTML(article.content);
   articleContent.style.cssText = `
     line-height: inherit;
   `;

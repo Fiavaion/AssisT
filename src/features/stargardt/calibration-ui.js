@@ -7,6 +7,7 @@
  * @module stargardt/calibration-ui
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
 import * as gazeTracker from './gaze-tracker.js';
 import * as scotomaProfile from './scotoma-profile.js';
 
@@ -279,7 +280,7 @@ let scotomaTestResults = [];
  * @param {Object} gazeTrackerInstance - Optional gaze tracker instance
  * @returns {Promise<{success: boolean, profile: Object|null, skipped: boolean}>}
  */
-export function runCalibrationWizard(gazeTrackerInstance) {
+export function runCalibrationWizard(_gazeTrackerInstance) {
   return new Promise(resolve => {
     resolveCalibration = resolve;
 
@@ -371,7 +372,7 @@ function navigateToPoint(index) {
 function showIntroPhase() {
   currentPhase = 'intro';
 
-  calibrationOverlay.innerHTML = `
+  calibrationOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-calibration-instructions">
       <h2>Eye Tracking Calibration</h2>
       <p>
@@ -394,7 +395,7 @@ function showIntroPhase() {
         </button>
       </div>
     </div>
-  `;
+  `);
 
   // Bind buttons
   document.getElementById('cal-skip').onclick = () => {
@@ -450,7 +451,7 @@ function renderCalibrationUI() {
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  calibrationOverlay.innerHTML = `
+  calibrationOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-calibration-header">
       <h1>Look at Each Point</h1>
       <p>Click or press Enter while looking at the glowing point</p>
@@ -483,7 +484,7 @@ function renderCalibrationUI() {
       </div>
     `
     ).join('')}
-  `;
+  `);
 
   // Bind point click events
   CALIBRATION_POSITIONS.forEach((_, i) => {
@@ -540,9 +541,7 @@ function handleCalibrationPointClick(index) {
     completeEyeTrackingCalibration();
   } else {
     // Find next uncompleted point
-    const nextIndex = CALIBRATION_POSITIONS.findIndex(
-      (_, i) => !completedPoints.includes(i)
-    );
+    const nextIndex = CALIBRATION_POSITIONS.findIndex((_, i) => !completedPoints.includes(i));
     currentPointIndex = nextIndex;
     updatePointHighlight();
     announceToScreenReader(
@@ -557,7 +556,9 @@ function handleCalibrationPointClick(index) {
 function updatePointHighlight() {
   CALIBRATION_POSITIONS.forEach((_, i) => {
     const point = document.getElementById(`cal-point-${i}`);
-    if (!point) return;
+    if (!point) {
+      return;
+    }
 
     if (i === currentPointIndex && !completedPoints.includes(i)) {
       point.classList.add('active');
@@ -607,7 +608,7 @@ function startScotomaMapping() {
   currentPhase = 'scotoma';
   scotomaTestResults = [];
 
-  calibrationOverlay.innerHTML = `
+  calibrationOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-calibration-instructions">
       <h2>Scotoma Mapping</h2>
       <p>
@@ -624,7 +625,7 @@ function startScotomaMapping() {
         </button>
       </div>
     </div>
-  `;
+  `);
 
   document.getElementById('scotoma-skip').onclick = () => {
     // Use estimated defaults
@@ -645,7 +646,7 @@ async function runScotomaTest() {
   const testPositions = generateTestPositions();
   let testIndex = 0;
 
-  calibrationOverlay.innerHTML = `
+  calibrationOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-scotoma-test">
       <div class="stargardt-scotoma-fixation" aria-label="Fixation point - keep looking here"></div>
       <div class="stargardt-scotoma-stimulus" id="scotoma-stimulus"></div>
@@ -659,7 +660,7 @@ async function runScotomaTest() {
         Press <strong>Y</strong> if you see the white dot, <strong>N</strong> if not
       </p>
     </div>
-  `;
+  `);
 
   const stimulus = document.getElementById('scotoma-stimulus');
 
@@ -763,7 +764,7 @@ function completeScotomaMapping(useDefaults) {
 function analyzeScotomaResults(results) {
   // Find the boundary where visibility changes
   const invisiblePositions = results.filter(r => !r.visible);
-  const visiblePositions = results.filter(r => r.visible);
+  // const _visiblePositions = results.filter(r => r.visible); // Reserved for future use
 
   // Calculate approximate scotoma center and size
   let centerX = 50;
@@ -774,11 +775,9 @@ function analyzeScotomaResults(results) {
   if (invisiblePositions.length > 0) {
     // Average position of invisible stimuli (relative to screen center)
     const avgInvisX =
-      invisiblePositions.reduce((sum, p) => sum + p.position.x, 0) /
-      invisiblePositions.length;
+      invisiblePositions.reduce((sum, p) => sum + p.position.x, 0) / invisiblePositions.length;
     const avgInvisY =
-      invisiblePositions.reduce((sum, p) => sum + p.position.y, 0) /
-      invisiblePositions.length;
+      invisiblePositions.reduce((sum, p) => sum + p.position.y, 0) / invisiblePositions.length;
 
     // Convert to percentage of viewport
     centerX = 50 + (avgInvisX / window.innerWidth) * 100;
@@ -811,7 +810,7 @@ function analyzeScotomaResults(results) {
 function showCompletionPhase(profile) {
   currentPhase = 'complete';
 
-  calibrationOverlay.innerHTML = `
+  calibrationOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-calibration-instructions">
       <div style="font-size: 64px; margin-bottom: 16px;">✅</div>
       <h2>Calibration Complete!</h2>
@@ -839,7 +838,7 @@ function showCompletionPhase(profile) {
         Finish Setup
       </button>
     </div>
-  `;
+  `);
 
   playFeedbackSound('complete');
 
@@ -875,7 +874,7 @@ function closeCalibration(result) {
  * Show error message
  */
 function showError(message) {
-  calibrationOverlay.innerHTML = `
+  calibrationOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-calibration-instructions">
       <div style="font-size: 64px; margin-bottom: 16px;">⚠️</div>
       <h2>Calibration Error</h2>
@@ -884,7 +883,7 @@ function showError(message) {
         Close
       </button>
     </div>
-  `;
+  `);
 
   document.getElementById('cal-close').onclick = () => {
     closeCalibration({ success: false, profile: null, skipped: false });
@@ -923,7 +922,7 @@ function playFeedbackSound(type) {
 
       oscillator.stop(context.currentTime + 0.3);
     }
-  } catch (e) {
+  } catch {
     // Audio not supported
   }
 }
@@ -988,7 +987,7 @@ export function runMicroCheck() {
  * Show micro-check introduction
  */
 function showMicroCheckIntro() {
-  microCheckOverlay.innerHTML = `
+  microCheckOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-calibration-instructions">
       <h2>Weekly Vision Check</h2>
       <p>
@@ -1008,7 +1007,7 @@ function showMicroCheckIntro() {
         </button>
       </div>
     </div>
-  `;
+  `);
 
   document.getElementById('micro-skip').onclick = () => {
     closeMicroCheck({ completed: false, results: [], driftDetected: false, skipped: true });
@@ -1045,7 +1044,7 @@ async function runMicroCheckTest() {
     });
   });
 
-  microCheckOverlay.innerHTML = `
+  microCheckOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-scotoma-test">
       <div class="stargardt-scotoma-fixation" aria-label="Fixation point"></div>
       <div class="stargardt-scotoma-stimulus" id="micro-stimulus"></div>
@@ -1059,7 +1058,7 @@ async function runMicroCheckTest() {
         Press <strong>Y</strong> if visible, <strong>N</strong> if not
       </p>
     </div>
-  `;
+  `);
 
   const stimulus = document.getElementById('micro-stimulus');
   let testIndex = 0;
@@ -1127,7 +1126,7 @@ function completeMicroCheck(results) {
   };
 
   // Show result
-  microCheckOverlay.innerHTML = `
+  microCheckOverlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-calibration-instructions">
       <div style="font-size: 64px; margin-bottom: 16px;">${driftDetected ? '⚠️' : '✅'}</div>
       <h2>${driftDetected ? 'Change Detected' : 'Check Complete'}</h2>
@@ -1157,20 +1156,38 @@ function completeMicroCheck(results) {
         }
       </div>
     </div>
-  `;
+  `);
 
   playFeedbackSound(driftDetected ? 'success' : 'complete');
 
   if (driftDetected) {
     document.getElementById('micro-later').onclick = () => {
-      closeMicroCheck({ completed: true, results, driftDetected, driftDetails, requestRecalibration: false });
+      closeMicroCheck({
+        completed: true,
+        results,
+        driftDetected,
+        driftDetails,
+        requestRecalibration: false,
+      });
     };
     document.getElementById('micro-recalibrate').onclick = () => {
-      closeMicroCheck({ completed: true, results, driftDetected, driftDetails, requestRecalibration: true });
+      closeMicroCheck({
+        completed: true,
+        results,
+        driftDetected,
+        driftDetails,
+        requestRecalibration: true,
+      });
     };
   } else {
     document.getElementById('micro-done').onclick = () => {
-      closeMicroCheck({ completed: true, results, driftDetected, driftDetails, requestRecalibration: false });
+      closeMicroCheck({
+        completed: true,
+        results,
+        driftDetected,
+        driftDetails,
+        requestRecalibration: false,
+      });
     };
     document.getElementById('micro-done').focus();
   }
@@ -1349,16 +1366,12 @@ export function showReassessmentPrompt(options) {
     reassessmentPromptOverlay.setAttribute('role', 'alertdialog');
     reassessmentPromptOverlay.setAttribute('aria-label', 'Vision check reminder');
 
-    const icon =
-      options.urgency === 'high' ? '⚠️' : options.urgency === 'medium' ? '🔔' : '💡';
+    const icon = options.urgency === 'high' ? '⚠️' : options.urgency === 'medium' ? '🔔' : '💡';
     const title =
-      options.action === 'full_assessment'
-        ? 'Vision Assessment Due'
-        : 'Quick Vision Check';
-    const actionLabel =
-      options.action === 'full_assessment' ? 'Run Assessment' : 'Quick Check';
+      options.action === 'full_assessment' ? 'Vision Assessment Due' : 'Quick Vision Check';
+    const actionLabel = options.action === 'full_assessment' ? 'Run Assessment' : 'Quick Check';
 
-    reassessmentPromptOverlay.innerHTML = `
+    reassessmentPromptOverlay.innerHTML = sanitizeHTML(`
       <button class="stargardt-reassessment-prompt-close" aria-label="Dismiss">&times;</button>
       <div class="stargardt-reassessment-prompt-header">
         <span class="stargardt-reassessment-prompt-icon">${icon}</span>
@@ -1373,7 +1386,7 @@ export function showReassessmentPrompt(options) {
           ${actionLabel}
         </button>
       </div>
-    `;
+    `);
 
     document.body.appendChild(reassessmentPromptOverlay);
 
@@ -1449,7 +1462,7 @@ export function showDiaryEntry() {
       'Headache',
     ];
 
-    diaryOverlay.innerHTML = `
+    diaryOverlay.innerHTML = sanitizeHTML(`
       <div class="stargardt-calibration-instructions" style="max-width: 500px;">
         <h2>Vision Diary</h2>
         <p style="font-size: 14px; margin-bottom: 20px;">
@@ -1522,7 +1535,7 @@ export function showDiaryEntry() {
           </button>
         </div>
       </div>
-    `;
+    `);
 
     let selectedRating = 3;
     const selectedSymptoms = new Set();

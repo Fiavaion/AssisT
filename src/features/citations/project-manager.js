@@ -16,6 +16,7 @@
 import { CitationStorage, ProjectStorage } from './citation-storage.js';
 import { formatInText } from './citation-formatter.js';
 import { showSuccessToast, showErrorToast } from './citation-ui.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 /**
  * Citation status for Kanban columns
@@ -87,7 +88,7 @@ class ProjectManager {
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'proj-modal-title');
 
-    overlay.innerHTML = `
+    overlay.innerHTML = sanitizeHTML(`
       <div class="proj-modal">
         <div class="proj-modal-header">
           <h2 id="proj-modal-title">
@@ -169,7 +170,7 @@ class ProjectManager {
           </div>
         </div>
       </div>
-    `;
+    `);
 
     // Event listeners
     this.attachEventListeners(overlay);
@@ -267,18 +268,19 @@ class ProjectManager {
     const container = this.modal.querySelector('#proj-list');
 
     if (this.projects.length === 0) {
-      container.innerHTML = `
+      container.innerHTML = sanitizeHTML(`
         <div class="proj-empty">
           <p>No projects yet</p>
           <p class="proj-empty-hint">Click "+ New" to create one</p>
         </div>
-      `;
+      `);
       return;
     }
 
-    container.innerHTML = this.projects
-      .map(
-        project => `
+    container.innerHTML = sanitizeHTML(
+      this.projects
+        .map(
+          project => `
       <div class="proj-item ${this.currentProject?.id === project.id ? 'active' : ''}"
            data-id="${project.id}"
            tabindex="0"
@@ -290,8 +292,9 @@ class ProjectManager {
         </div>
       </div>
     `
-      )
-      .join('');
+        )
+        .join('')
+    );
 
     // Add click listeners
     container.querySelectorAll('.proj-item').forEach(item => {
@@ -324,7 +327,7 @@ class ProjectManager {
    */
   updateKanbanHeader() {
     const header = this.modal.querySelector('.proj-kanban-header');
-    header.innerHTML = `
+    header.innerHTML = sanitizeHTML(`
       <h3 id="proj-kanban-title">
         ${this.currentProject ? this.escapeHTML(this.currentProject.name) : 'All Citations'}
       </h3>
@@ -338,7 +341,7 @@ class ProjectManager {
       `
           : ''
       }
-    `;
+    `);
 
     // Re-attach event listeners
     const editBtn = header.querySelector('.proj-edit-btn');
@@ -400,15 +403,17 @@ class ProjectManager {
     const container = this.modal.querySelector(`.proj-column-cards[data-status="${status}"]`);
 
     if (citations.length === 0) {
-      container.innerHTML = `
+      container.innerHTML = sanitizeHTML(`
         <div class="proj-card-empty">
           Drop citations here
         </div>
-      `;
+      `);
       return;
     }
 
-    container.innerHTML = citations.map(citation => this.renderCard(citation)).join('');
+    container.innerHTML = sanitizeHTML(
+      citations.map(citation => this.renderCard(citation)).join('')
+    );
 
     // Add drag listeners
     container.querySelectorAll('.proj-card').forEach(card => {

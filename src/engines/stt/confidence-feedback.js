@@ -15,6 +15,8 @@
  * @version 1.0.0
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 /**
  * Confidence level thresholds
  */
@@ -165,7 +167,10 @@ export class SessionStats {
     this.totalConfidence += result.confidence;
 
     // Count words
-    const words = result.transcript.trim().split(/\s+/).filter(w => w.length > 0);
+    const words = result.transcript
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length > 0);
     this.totalWords += words.length;
 
     // Track words per minute
@@ -200,7 +205,9 @@ export class SessionStats {
    * @returns {number} Average confidence (0-1)
    */
   getAverageConfidence() {
-    if (this.totalResults === 0) return 0;
+    if (this.totalResults === 0) {
+      return 0;
+    }
     return this.totalConfidence / this.totalResults;
   }
 
@@ -209,7 +216,9 @@ export class SessionStats {
    * @returns {number} Acceptance rate (0-1)
    */
   getAcceptanceRate() {
-    if (this.totalResults === 0) return 0;
+    if (this.totalResults === 0) {
+      return 0;
+    }
     return this.acceptedResults / this.totalResults;
   }
 
@@ -218,7 +227,9 @@ export class SessionStats {
    * @returns {number} Correction rate (0-1)
    */
   getCorrectionRate() {
-    if (this.acceptedResults === 0) return 0;
+    if (this.acceptedResults === 0) {
+      return 0;
+    }
     return this.correctedResults / this.acceptedResults;
   }
 
@@ -228,7 +239,9 @@ export class SessionStats {
    */
   getWordsPerMinute() {
     const sessionMinutes = (Date.now() - this.startTime) / 60000;
-    if (sessionMinutes < 0.1) return 0;
+    if (sessionMinutes < 0.1) {
+      return 0;
+    }
     return Math.round(this.totalWords / sessionMinutes);
   }
 
@@ -304,7 +317,9 @@ export class ConfidenceFeedback {
    * @returns {RecognitionResult}
    */
   processEvent(event) {
-    if (!event || !event.results) return null;
+    if (!event || !event.results) {
+      return null;
+    }
 
     const results = [];
 
@@ -314,7 +329,9 @@ export class ConfidenceFeedback {
 
       // Get primary result
       const primary = result[0];
-      if (!primary) continue;
+      if (!primary) {
+        continue;
+      }
 
       // Get alternatives
       const alternatives = [];
@@ -393,7 +410,10 @@ export class ConfidenceFeedback {
    * @returns {Array}
    */
   estimateWordConfidences(transcript, phraseConfidence) {
-    const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
+    const words = transcript
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length > 0);
 
     // Simple estimation: shorter/common words get higher confidence
     // This is a heuristic since we don't have actual word-level data
@@ -826,7 +846,9 @@ export class ConfidenceFeedback {
    * @param {RecognitionResult} result
    */
   showBadge(targetElement, result) {
-    if (!this.config.showInlineBadge || !targetElement) return;
+    if (!this.config.showInlineBadge || !targetElement) {
+      return;
+    }
 
     // Remove existing badge
     this.hideBadge();
@@ -834,7 +856,7 @@ export class ConfidenceFeedback {
     // Create badge element
     const badge = document.createElement('div');
     badge.className = 'assist-confidence-badge-container';
-    badge.innerHTML = this.createBadgeHTML(result);
+    badge.innerHTML = sanitizeHTML(this.createBadgeHTML(result));
 
     // Position near target
     const rect = targetElement.getBoundingClientRect();
@@ -872,7 +894,7 @@ export class ConfidenceFeedback {
 
     const panel = document.createElement('div');
     panel.className = 'assist-stats-panel-container';
-    panel.innerHTML = this.createStatsPanelHTML();
+    panel.innerHTML = sanitizeHTML(this.createStatsPanelHTML());
 
     // Add close handler
     panel.querySelector('.assist-stats-close')?.addEventListener('click', () => {
@@ -909,13 +931,14 @@ export class ConfidenceFeedback {
    */
   updateStatsPanel() {
     if (this.statsPanel) {
-      const stats = this.sessionStats.getSummary();
       // Update values in existing panel
       const container = this.statsPanel.querySelector('.assist-stats-panel');
       if (container) {
-        container.innerHTML = this.createStatsPanelHTML()
-          .replace('<div class="assist-stats-panel"', '<div')
-          .replace(/style="[^"]*"/, '');
+        container.innerHTML = sanitizeHTML(
+          this.createStatsPanelHTML()
+            .replace('<div class="assist-stats-panel"', '<div')
+            .replace(/style="[^"]*"/, '')
+        );
       }
     }
   }

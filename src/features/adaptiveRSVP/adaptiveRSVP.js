@@ -16,6 +16,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -77,7 +78,9 @@ function rsvp_parseText(text) {
     const token = tokens[i];
     const cleanWord = token.replace(/[^\w'-]/g, '');
 
-    if (!cleanWord) continue;
+    if (!cleanWord) {
+      continue;
+    }
 
     // Calculate ORP (Optimal Recognition Point)
     // Research suggests the ORP is slightly left of center
@@ -91,10 +94,11 @@ function rsvp_parseText(text) {
     const punctuationPause = COMPLEXITY_FACTORS[endChar] || 1;
 
     // Check for paragraph break (multiple newlines in original)
-    const isNewParagraph = i > 0 && /\n\n/.test(text.substring(
-      text.indexOf(tokens[i - 1]) + tokens[i - 1].length,
-      text.indexOf(token)
-    ));
+    const isNewParagraph =
+      i > 0 &&
+      /\n\n/.test(
+        text.substring(text.indexOf(tokens[i - 1]) + tokens[i - 1].length, text.indexOf(token))
+      );
 
     words.push({
       text: token,
@@ -119,7 +123,9 @@ function rsvp_parseText(text) {
  */
 function rsvp_countSyllables(word) {
   word = word.toLowerCase();
-  if (word.length <= 3) return 1;
+  if (word.length <= 3) {
+    return 1;
+  }
 
   word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
   word = word.replace(/^y/, '');
@@ -178,7 +184,7 @@ function rsvp_createPanel() {
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Speed Reader');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <style>
       #assist-rsvp-reader {
         position: fixed;
@@ -501,7 +507,7 @@ function rsvp_createPanel() {
     <div class="rsvp-shortcut-hint">
       Space: Play/Pause | Left/Right: Navigate | Esc: Close
     </div>
-  `;
+  `);
 
   return panel;
 }
@@ -511,10 +517,14 @@ function rsvp_createPanel() {
  * @param {Object} wordObj - Word object
  */
 function rsvp_displayWord(wordObj) {
-  if (!rsvp_panel) return;
+  if (!rsvp_panel) {
+    return;
+  }
 
   const container = rsvp_panel.querySelector('#rsvp-word-container');
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   const word = wordObj.text;
   const orpIndex = wordObj.orpIndex;
@@ -524,13 +534,13 @@ function rsvp_displayWord(wordObj) {
     const orp = word.charAt(orpIndex);
     const after = word.substring(orpIndex + 1);
 
-    container.innerHTML = `
+    container.innerHTML = sanitizeHTML(`
       <span class="rsvp-word">
         <span class="rsvp-word-before">${before}</span><span class="rsvp-word-orp">${orp}</span><span class="rsvp-word-after">${after}</span>
       </span>
-    `;
+    `);
   } else {
-    container.innerHTML = `<span class="rsvp-word">${word}</span>`;
+    container.innerHTML = sanitizeHTML(`<span class="rsvp-word">${word}</span>`);
   }
 
   // Update progress
@@ -541,20 +551,27 @@ function rsvp_displayWord(wordObj) {
  * Update statistics display
  */
 function rsvp_updateStats() {
-  if (!rsvp_panel) return;
+  if (!rsvp_panel) {
+    return;
+  }
 
-  const progress = rsvp_words.length > 0
-    ? Math.round((rsvp_currentIndex / rsvp_words.length) * 100)
-    : 0;
+  const progress =
+    rsvp_words.length > 0 ? Math.round((rsvp_currentIndex / rsvp_words.length) * 100) : 0;
 
   const progressText = rsvp_panel.querySelector('#rsvp-progress-text');
   const progressFill = rsvp_panel.querySelector('#rsvp-progress-fill');
   const wpmDisplay = rsvp_panel.querySelector('#rsvp-wpm');
   const timeDisplay = rsvp_panel.querySelector('#rsvp-time');
 
-  if (progressText) progressText.textContent = `${progress}%`;
-  if (progressFill) progressFill.style.width = `${progress}%`;
-  if (wpmDisplay) wpmDisplay.textContent = rsvp_settings.baseWPM;
+  if (progressText) {
+    progressText.textContent = `${progress}%`;
+  }
+  if (progressFill) {
+    progressFill.style.width = `${progress}%`;
+  }
+  if (wpmDisplay) {
+    wpmDisplay.textContent = rsvp_settings.baseWPM;
+  }
 
   if (timeDisplay && rsvp_startTime) {
     const elapsed = Math.floor((Date.now() - rsvp_startTime) / 1000);
@@ -572,7 +589,9 @@ function rsvp_updateStats() {
  * Play/resume RSVP
  */
 function rsvp_play() {
-  if (rsvp_isPlaying || rsvp_currentIndex >= rsvp_words.length) return;
+  if (rsvp_isPlaying || rsvp_currentIndex >= rsvp_words.length) {
+    return;
+  }
 
   rsvp_isPlaying = true;
 
@@ -581,7 +600,9 @@ function rsvp_play() {
   }
 
   const playBtn = rsvp_panel?.querySelector('#rsvp-play');
-  if (playBtn) playBtn.innerHTML = '⏸️ Pause';
+  if (playBtn) {
+    playBtn.innerHTML = sanitizeHTML('⏸️ Pause');
+  }
 
   rsvp_showNextWord();
 }
@@ -598,7 +619,9 @@ function rsvp_pause() {
   }
 
   const playBtn = rsvp_panel?.querySelector('#rsvp-play');
-  if (playBtn) playBtn.innerHTML = '▶️ Play';
+  if (playBtn) {
+    playBtn.innerHTML = sanitizeHTML('▶️ Play');
+  }
 }
 
 /**
@@ -628,9 +651,11 @@ function rsvp_showNextWord() {
   rsvp_wordsRead++;
 
   // Check for comprehension checkpoint
-  if (rsvp_settings.comprehensionCheckpoints &&
-      rsvp_wordsRead > 0 &&
-      rsvp_wordsRead % rsvp_settings.checkpointInterval === 0) {
+  if (
+    rsvp_settings.comprehensionCheckpoints &&
+    rsvp_wordsRead > 0 &&
+    rsvp_wordsRead % rsvp_settings.checkpointInterval === 0
+  ) {
     rsvp_pause();
     // Could show comprehension check here
     // For now, just pause briefly
@@ -720,7 +745,9 @@ function rsvp_onComplete() {
 // ============================================================================
 
 function rsvp_setupEvents() {
-  if (!rsvp_panel) return;
+  if (!rsvp_panel) {
+    return;
+  }
 
   // Close button
   rsvp_panel.querySelector('.rsvp-close').onclick = rsvp_hide;
@@ -746,10 +773,14 @@ function rsvp_setupEvents() {
 }
 
 function rsvp_handleKeydown(e) {
-  if (!rsvp_panel || rsvp_panel.style.display === 'none') return;
+  if (!rsvp_panel || rsvp_panel.style.display === 'none') {
+    return;
+  }
 
   // Don't capture if typing in input
-  if (e.target.matches('input, textarea')) return;
+  if (e.target.matches('input, textarea')) {
+    return;
+  }
 
   switch (e.key) {
     case ' ':
@@ -773,7 +804,8 @@ function rsvp_handleKeydown(e) {
       rsvp_settings.baseWPM = Math.min(800, rsvp_settings.baseWPM + 25);
       if (rsvp_panel) {
         rsvp_panel.querySelector('#rsvp-speed').value = rsvp_settings.baseWPM;
-        rsvp_panel.querySelector('#rsvp-speed-display').textContent = `${rsvp_settings.baseWPM} WPM`;
+        rsvp_panel.querySelector('#rsvp-speed-display').textContent =
+          `${rsvp_settings.baseWPM} WPM`;
       }
       break;
     case 'ArrowDown':
@@ -781,7 +813,8 @@ function rsvp_handleKeydown(e) {
       rsvp_settings.baseWPM = Math.max(100, rsvp_settings.baseWPM - 25);
       if (rsvp_panel) {
         rsvp_panel.querySelector('#rsvp-speed').value = rsvp_settings.baseWPM;
-        rsvp_panel.querySelector('#rsvp-speed-display').textContent = `${rsvp_settings.baseWPM} WPM`;
+        rsvp_panel.querySelector('#rsvp-speed-display').textContent =
+          `${rsvp_settings.baseWPM} WPM`;
       }
       break;
   }
@@ -890,9 +923,4 @@ if (typeof window !== 'undefined') {
 // EXPORTS
 // ============================================================================
 
-export {
-  rsvp_show,
-  rsvp_hide,
-  rsvp_start,
-  rsvp_settings,
-};
+export { rsvp_show, rsvp_hide, rsvp_start, rsvp_settings };

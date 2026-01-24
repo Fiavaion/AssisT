@@ -152,8 +152,7 @@ export class AzureEngine extends BaseSTTEngine {
 
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src =
-        'https://aka.ms/csspeech/jsbrowserpackageraw';
+      script.src = 'https://aka.ms/csspeech/jsbrowserpackageraw';
       script.async = true;
       script.onload = () => {
         console.log('[Azure] Speech SDK loaded');
@@ -300,10 +299,7 @@ export class AzureEngine extends BaseSTTEngine {
       this.audioConfig = window.SpeechSDK.AudioConfig.fromStreamInput(this.mediaStream);
 
       // Create recognizer
-      this.recognizer = new window.SpeechSDK.SpeechRecognizer(
-        this.speechConfig,
-        this.audioConfig
-      );
+      this.recognizer = new window.SpeechSDK.SpeechRecognizer(this.speechConfig, this.audioConfig);
 
       // Set up event handlers
       this.recognizer.recognizing = (sender, event) => {
@@ -475,7 +471,7 @@ export class AzureEngine extends BaseSTTEngine {
       console.log('[Azure] Stopped listening');
       this.onEnd();
       return true;
-    } catch (error) {
+    } catch {
       this.recordError();
       return false;
     }
@@ -500,7 +496,7 @@ export class AzureEngine extends BaseSTTEngine {
       this.setStatus(EngineStatus.PAUSED);
       console.log('[Azure] Paused listening');
       return true;
-    } catch (error) {
+    } catch {
       this.recordError();
       return false;
     }
@@ -525,7 +521,7 @@ export class AzureEngine extends BaseSTTEngine {
       this.setStatus(EngineStatus.LISTENING);
       console.log('[Azure] Resumed listening');
       return true;
-    } catch (error) {
+    } catch {
       this.recordError();
       return false;
     }

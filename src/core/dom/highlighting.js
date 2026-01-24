@@ -5,6 +5,7 @@
  */
 
 import { hexToRgba } from '../utils/color.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 /**
  * Global reference to the currently highlighted element
@@ -163,7 +164,7 @@ export function highlightWordByWord(element, text, rate, settings) {
     })
     .join('');
 
-  element.innerHTML = wrappedHTML;
+  element.innerHTML = sanitizeHTML(wrappedHTML);
 
   // Highlight words progressively
   const wordSpans = element.querySelectorAll('.assist-word');
@@ -217,7 +218,7 @@ export function cleanupWordByWord(element) {
 
   // Restore original HTML if it was modified
   if (element && element.dataset.originalHTML) {
-    element.innerHTML = element.dataset.originalHTML;
+    element.innerHTML = sanitizeHTML(element.dataset.originalHTML);
     delete element.dataset.originalHTML;
   }
 }

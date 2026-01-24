@@ -22,6 +22,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -545,7 +546,7 @@ async function breakdown_createPanel() {
   panel.setAttribute('aria-label', 'Assignment Breakdown');
   panel.setAttribute('aria-modal', 'true');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <div class="assist-breakdown-header">
       <span class="assist-breakdown-title">📋 Assignment Breakdown</span>
       <div class="assist-breakdown-controls">
@@ -567,7 +568,7 @@ async function breakdown_createPanel() {
         <span class="assist-breakdown-btn-icon">🔄</span> Regenerate
       </button>
     </div>
-  `;
+  `);
 
   // Inject styles
   breakdown_injectStyles();
@@ -1238,7 +1239,7 @@ function breakdown_renderResult(result, isAI, isCloud = false, modelName = '') {
     `;
   }
 
-  contentArea.innerHTML = html;
+  contentArea.innerHTML = sanitizeHTML(html);
 }
 
 /**
@@ -1363,12 +1364,12 @@ async function breakdown_analyze(text, modelKey = null) {
   const modelName = BREAKDOWN_MODELS[modelKey]?.name || modelKey;
 
   if (contentArea) {
-    contentArea.innerHTML = `
+    contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-breakdown-loading">
         <div class="assist-breakdown-spinner"></div>
         <span>Analyzing assignment${isCloud ? ` with ${modelName}` : ''}...</span>
       </div>
-    `;
+    `);
   }
 
   // Disable action buttons

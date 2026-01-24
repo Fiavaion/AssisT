@@ -17,6 +17,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
@@ -639,7 +640,7 @@ function graph_getOrCreateTooltip() {
 
   graph_tooltip = document.createElement('div');
   graph_tooltip.id = 'kg-tooltip-external';
-  graph_tooltip.innerHTML = `
+  graph_tooltip.innerHTML = sanitizeHTML(`
     <style>
       #kg-tooltip-external {
         position: fixed;
@@ -668,7 +669,7 @@ function graph_getOrCreateTooltip() {
     <div class="kg-tooltip-title"></div>
     <div class="kg-tooltip-type"></div>
     <div class="kg-tooltip-def"></div>
-  `;
+  `);
 
   document.body.appendChild(graph_tooltip);
   return graph_tooltip;
@@ -771,7 +772,7 @@ async function graph_createPanel() {
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Knowledge Graph');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <style>
       #assist-knowledge-graph {
         position: fixed;
@@ -1042,7 +1043,7 @@ async function graph_createPanel() {
         <div>Select text and click "Knowledge Graph" to visualize concepts</div>
       </div>
     </div>
-  `;
+  `);
 
   return panel;
 }
@@ -1182,10 +1183,10 @@ async function graph_build(text, modelKey = null) {
 
   if (loading) {
     loading.style.display = 'block';
-    loading.innerHTML = `
+    loading.innerHTML = sanitizeHTML(`
       <div class="kg-spinner"></div>
       <div>Analyzing text${isCloud ? ` with ${modelName}` : ' with Local AI'}...</div>
-    `;
+    `);
   }
   if (empty) {
     empty.style.display = 'none';

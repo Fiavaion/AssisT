@@ -448,7 +448,9 @@ function setupFocusTrap() {
     'button, [tabindex]:not([tabindex="-1"])'
   );
 
-  if (focusableElements.length === 0) return;
+  if (focusableElements.length === 0) {
+    return;
+  }
 
   const firstElement = focusableElements[0];
   const lastElement = focusableElements[focusableElements.length - 1];
@@ -458,7 +460,9 @@ function setupFocusTrap() {
 
   // Trap focus
   wizardOverlay.addEventListener('keydown', e => {
-    if (e.key !== 'Tab') return;
+    if (e.key !== 'Tab') {
+      return;
+    }
 
     if (e.shiftKey) {
       if (document.activeElement === firstElement) {

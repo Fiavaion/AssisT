@@ -38,8 +38,8 @@ const calibrationUi = calibrationUiModule;
 const setupWizard = setupWizardModule;
 
 // Runtime state for optional features
-let prlTrainer = null;
-let gazeTracker = null; // For advanced mode eye tracking (not yet implemented)
+// const _prlTrainer = null; // Reserved for future use
+const gazeTracker = null; // For advanced mode eye tracking (not yet implemented)
 let apvuiInitialized = false;
 let lightAdaptInitialized = false;
 
@@ -366,10 +366,7 @@ async function stargardt_switchMode(newMode) {
     await stargardt_initLiteMode();
   }
 
-  showToast(
-    `Switched to ${newMode === 'advanced' ? 'Advanced' : 'Lite'} Mode`,
-    'info'
-  );
+  showToast(`Switched to ${newMode === 'advanced' ? 'Advanced' : 'Lite'} Mode`, 'info');
 }
 
 // ============================================================================
@@ -444,7 +441,9 @@ function stargardt_initCustomCursor() {
 
   // Track mouse movement
   cursor_mouseMoveHandler = e => {
-    if (!cursor_overlay) return;
+    if (!cursor_overlay) {
+      return;
+    }
 
     const size = cursorSettings.size || 32;
     const halfSize = size / 2;
@@ -465,7 +464,9 @@ function stargardt_initCustomCursor() {
 
   // Show cursor after a moment
   setTimeout(() => {
-    if (cursor_overlay) cursor_overlay.style.opacity = '1';
+    if (cursor_overlay) {
+      cursor_overlay.style.opacity = '1';
+    }
   }, 100);
 
   console.log('[Stargardt] Custom cursor initialized:', cursorSettings);
@@ -592,7 +593,9 @@ function stargardt_updateCustomCursor() {
   }
 
   cursor_mouseMoveHandler = e => {
-    if (!cursor_overlay) return;
+    if (!cursor_overlay) {
+      return;
+    }
 
     const size = cursorSettings.size || 32;
     const halfSize = size / 2;
@@ -638,18 +641,33 @@ function stargardt_removeCustomCursor() {
 function stargardt_updateSubModules() {
   console.log('[Stargardt] updateSubModules called');
   console.log('[Stargardt] remapping settings:', stargardt_settings?.remapping);
-  console.log('[Stargardt] contentRemapper.updateSettings type:', typeof contentRemapper.updateSettings);
+  console.log(
+    '[Stargardt] contentRemapper.updateSettings type:',
+    typeof contentRemapper.updateSettings
+  );
 
   // Update content remapper
   if (stargardt_settings?.remapping && typeof contentRemapper.updateSettings === 'function') {
-    console.log('[Stargardt] Calling contentRemapper.updateSettings with:', stargardt_settings.remapping);
+    console.log(
+      '[Stargardt] Calling contentRemapper.updateSettings with:',
+      stargardt_settings.remapping
+    );
     contentRemapper.updateSettings(stargardt_settings.remapping);
   } else {
-    console.log('[Stargardt] SKIPPED contentRemapper.updateSettings - remapping:', !!stargardt_settings?.remapping, 'function:', typeof contentRemapper.updateSettings);
+    console.log(
+      '[Stargardt] SKIPPED contentRemapper.updateSettings - remapping:',
+      !!stargardt_settings?.remapping,
+      'function:',
+      typeof contentRemapper.updateSettings
+    );
   }
 
   // Update APVUI engine
-  if (apvuiInitialized && stargardt_settings?.apvui && typeof apvuiEngine.updateSettings === 'function') {
+  if (
+    apvuiInitialized &&
+    stargardt_settings?.apvui &&
+    typeof apvuiEngine.updateSettings === 'function'
+  ) {
     apvuiEngine.updateSettings(stargardt_settings.apvui);
   }
 

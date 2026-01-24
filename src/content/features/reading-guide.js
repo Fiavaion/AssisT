@@ -118,7 +118,9 @@ function readingGuide_handleMouseMove(event) {
  * Handle settings changes
  */
 function readingGuide_handleSettingsChange(newSettings) {
-  if (!newSettings.readingGuide) return;
+  if (!newSettings.readingGuide) {
+    return;
+  }
 
   const rgSettings = newSettings.readingGuide;
   const wasEnabled = readingGuide_enabled;

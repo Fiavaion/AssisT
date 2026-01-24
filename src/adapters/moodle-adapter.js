@@ -5,6 +5,8 @@
  * @module moodle-adapter
  */
 
+import { sanitizeHTML } from '../utils/sanitize.js';
+
 /**
  * Moodle page types
  */
@@ -310,7 +312,7 @@ export function extractPageContent() {
  */
 export function getCleanText(html) {
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
+  tempDiv.innerHTML = sanitizeHTML(html);
 
   // Remove Moodle UI elements
   const uiSelectors = [
@@ -397,7 +399,7 @@ export function createMoodleFAB(options = {}) {
     transition: all 0.3s ease;
   `;
 
-  fab.innerHTML = icon;
+  fab.innerHTML = sanitizeHTML(icon);
 
   // Hover effect
   fab.addEventListener('mouseenter', () => {

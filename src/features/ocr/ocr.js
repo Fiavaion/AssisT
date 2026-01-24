@@ -20,6 +20,8 @@
  * @module features/ocr
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -170,20 +172,27 @@ function ocr_detectPDF() {
   const isDirectPDF = url.endsWith('.pdf') || url.includes('.pdf?') || url.includes('.pdf#');
 
   // Canvas LMS embedded PDF (in iframe)
-  const isCanvasEmbedded = url.includes('instructure.com') &&
+  const isCanvasEmbedded =
+    url.includes('instructure.com') &&
     (document.querySelector('iframe[src*=".pdf"]') ||
-     document.querySelector('embed[type="application/pdf"]'));
+      document.querySelector('embed[type="application/pdf"]'));
 
   // PDF.js viewer
-  const isPDFJS = document.querySelector('#viewer.pdfViewer') !== null ||
+  const isPDFJS =
+    document.querySelector('#viewer.pdfViewer') !== null ||
     window.PDFViewerApplication !== undefined;
 
   return {
     isPDF: isChromePDFViewer || isDirectPDF || isCanvasEmbedded || isPDFJS,
-    type: isChromePDFViewer ? 'chrome-viewer' :
-          isPDFJS ? 'pdfjs' :
-          isCanvasEmbedded ? 'canvas-embedded' :
-          isDirectPDF ? 'direct' : 'none',
+    type: isChromePDFViewer
+      ? 'chrome-viewer'
+      : isPDFJS
+        ? 'pdfjs'
+        : isCanvasEmbedded
+          ? 'canvas-embedded'
+          : isDirectPDF
+            ? 'direct'
+            : 'none',
     url,
   };
 }
@@ -232,7 +241,7 @@ async function ocr_fetchPDFData(pdfUrl) {
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'FETCH_PDF',
-        url: pdfUrl
+        url: pdfUrl,
       });
 
       if (response && response.success && response.data) {
@@ -279,7 +288,9 @@ async function ocr_capturePDFWithPDFJS(pdfInfo) {
     const pdfjsLib = await import('pdfjs-dist');
 
     // Set worker path
-    pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('node_modules/pdfjs-dist/build/pdf.worker.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL(
+      'node_modules/pdfjs-dist/build/pdf.worker.min.mjs'
+    );
 
     // Get the PDF URL
     let pdfUrl = pdfInfo.url;
@@ -320,7 +331,7 @@ async function ocr_capturePDFWithPDFJS(pdfInfo) {
       // Render page to canvas
       await page.render({
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
       }).promise;
 
       // Convert to data URL
@@ -332,7 +343,6 @@ async function ocr_capturePDFWithPDFJS(pdfInfo) {
 
     console.log(`[OCR] Successfully rendered all ${pdf.numPages} pages`);
     return pageImages;
-
   } catch (error) {
     console.error('[OCR] PDF.js rendering failed:', error);
     throw new Error(`PDF rendering failed: ${error.message}`);
@@ -361,7 +371,6 @@ async function ocr_capturePDFPage(pdfInfo) {
       // Each page will be processed individually to avoid Tesseract's size limits
       console.log(`[OCR] Rendered ${pageImages.length} PDF page(s) for OCR processing`);
       return pageImages;
-
     } catch (error) {
       console.warn('[OCR] PDF.js rendering failed, falling back to visible capture:', error);
       // Fallback to visible page capture
@@ -373,8 +382,9 @@ async function ocr_capturePDFPage(pdfInfo) {
   if (pdfInfo.type === 'canvas-embedded') {
     console.log('[OCR] Canvas embedded PDF detected');
 
-    const pdfEmbed = document.querySelector('iframe[src*=".pdf"]') ||
-                     document.querySelector('embed[type="application/pdf"]');
+    const pdfEmbed =
+      document.querySelector('iframe[src*=".pdf"]') ||
+      document.querySelector('embed[type="application/pdf"]');
 
     if (pdfEmbed) {
       console.log('[OCR] Found PDF embed element, capturing visible area');
@@ -390,8 +400,10 @@ async function ocr_capturePDFPage(pdfInfo) {
 
 /**
  * Helper to load an image from a data URL
+ * Reserved for future use
  */
-function ocr_loadImage(dataUrl) {
+/*
+function _ocr_loadImage(dataUrl) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -399,6 +411,7 @@ function ocr_loadImage(dataUrl) {
     img.src = dataUrl;
   });
 }
+*/
 
 /**
  * Captures a full-page screenshot by scrolling and stitching
@@ -436,10 +449,7 @@ async function ocr_captureFullPage() {
       scrollContainer = window;
       originalScrollY = window.scrollY;
       originalScrollX = window.scrollX;
-      pageHeight = Math.max(
-        document.documentElement.scrollHeight,
-        document.body.scrollHeight
-      );
+      pageHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
       pageWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
     }
 
@@ -733,7 +743,9 @@ async function ocr_upscaleImage(imageDataUrl, scaleFactor = 1.5) {
       ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
 
       const upscaledDataUrl = canvas.toDataURL('image/png');
-      console.log(`[OCR] Upscaled image from ${img.width}x${img.height} to ${scaledWidth}x${scaledHeight} (${scaleFactor}x)`);
+      console.log(
+        `[OCR] Upscaled image from ${img.width}x${img.height} to ${scaledWidth}x${scaledHeight} (${scaleFactor}x)`
+      );
       resolve(upscaledDataUrl);
     };
 
@@ -826,7 +838,7 @@ async function ocr_showScreenshotUI() {
     ? `<div style="margin-bottom: 16px; padding: 12px; background: #e7f9e7; border-left: 4px solid #28a745; border-radius: 4px;"><strong>📄 PDF Document Detected</strong><br><span style="font-size: 13px; color: #555;">Type: ${pdfInfo.type === 'chrome-viewer' ? 'Chrome PDF Viewer' : pdfInfo.type === 'pdfjs' ? 'PDF.js Viewer' : pdfInfo.type === 'canvas-embedded' ? 'Canvas Embedded PDF' : 'Direct PDF'}</span><br><span style="font-size: 12px; color: #28a745; font-weight: bold;">✓ Automatic multi-page capture enabled</span><br><span style="font-size: 12px; color: #666;">All pages will be rendered and captured automatically using PDF.js</span></div>`
     : '';
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <h2 style="margin: 0 0 16px 0; font-size: 20px;">Screenshot for OCR</h2>
     ${readingModeStatus}
     ${pdfStatus}
@@ -874,7 +886,7 @@ async function ocr_showScreenshotUI() {
       font-size: 16px;
       cursor: pointer;
     ">Cancel</button>
-  `;
+  `);
 
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
@@ -944,7 +956,12 @@ async function ocr_showScreenshotUI() {
  * @returns {Promise<Object>} OCR result with text and confidence
  */
 async function ocr_recognizeText(imageDataUrl, options = {}) {
-  const { lang = 'eng', confidenceThreshold = 50, upscaleFactor = 1.5, skipUpscaling = false } = options;
+  const {
+    lang = 'eng',
+    confidenceThreshold = 50,
+    upscaleFactor = 1.5,
+    skipUpscaling = false,
+  } = options;
 
   try {
     console.log(
@@ -1014,7 +1031,9 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
     }
 
     console.log(`[OCR] Recognition complete. Confidence: ${result.data.confidence.toFixed(1)}%`);
-    console.log(`[OCR] Extracted ${result.data.text.length} characters (cleaned: ${filteredText.length})`);
+    console.log(
+      `[OCR] Extracted ${result.data.text.length} characters (cleaned: ${filteredText.length})`
+    );
 
     return {
       text: filteredText,
@@ -1130,7 +1149,9 @@ function ocr_removeNoisePatterns(text) {
   // Log what was filtered (for debugging and improvement)
   const removedLength = text.length - cleaned.length;
   if (removedLength > 0) {
-    console.log(`[OCR] Removed ${removedLength} characters of noise (${((removedLength / text.length) * 100).toFixed(1)}%)`);
+    console.log(
+      `[OCR] Removed ${removedLength} characters of noise (${((removedLength / text.length) * 100).toFixed(1)}%)`
+    );
   }
 
   return cleaned;
@@ -1169,7 +1190,7 @@ function ocr_showProgressModal(totalPages) {
     padding: 32px;
   `;
 
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHTML(`
     <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: #333;">Processing OCR</h2>
     <p id="ocr-progress-text" style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
       Processing page 0 of ${totalPages}...
@@ -1180,7 +1201,7 @@ function ocr_showProgressModal(totalPages) {
     <p id="ocr-progress-eta" style="margin: 0; color: #999; font-size: 13px; text-align: center;">
       Estimating time remaining...
     </p>
-  `;
+  `);
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
@@ -1241,7 +1262,9 @@ async function ocr_performOCR(options = {}) {
       ocrLanguage = ocrSettings.language || 'eng';
       ocrConfidenceThreshold = ocrSettings.confidenceThreshold ?? 60;
 
-      console.log(`[OCR] Settings loaded - Language: ${ocrLanguage}, Confidence: ${ocrConfidenceThreshold}%`);
+      console.log(
+        `[OCR] Settings loaded - Language: ${ocrLanguage}, Confidence: ${ocrConfidenceThreshold}%`
+      );
     }
 
     // Merge settings into options (options parameter takes precedence)
@@ -1314,17 +1337,20 @@ async function ocr_performOCR(options = {}) {
 
       // Concatenate all page texts
       const combinedText = pageResults.map(r => r.text).join('\n\n--- Page Break ---\n\n');
-      const avgConfidence = pageResults.reduce((sum, r) => sum + r.confidence, 0) / pageResults.length;
+      const avgConfidence =
+        pageResults.reduce((sum, r) => sum + r.confidence, 0) / pageResults.length;
 
       result = {
         text: combinedText,
         originalText: pageResults.map(r => r.originalText).join('\n\n--- Page Break ---\n\n'),
         confidence: avgConfidence,
         pages: pageResults.length,
-        pageResults: pageResults
+        pageResults: pageResults,
       };
 
-      console.log(`[OCR] Multi-page processing complete. Total: ${result.text.length} characters, Avg confidence: ${avgConfidence.toFixed(1)}%`);
+      console.log(
+        `[OCR] Multi-page processing complete. Total: ${result.text.length} characters, Avg confidence: ${avgConfidence.toFixed(1)}%`
+      );
     } else {
       // Single image OCR
       result = await ocr_recognizeText(imageDataUrl, mergedOptions);
@@ -1503,7 +1529,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
       color: white;
       border-radius: 12px 12px 0 0;
     `;
-    header.innerHTML = `
+    header.innerHTML = sanitizeHTML(`
       <div>
         <h2 style="margin: 0; font-size: 20px; font-weight: 600;">OCR Audio Player</h2>
         <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">
@@ -1527,7 +1553,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
         transition: background 0.2s;
       " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
          onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
-    `;
+    `);
 
     // Content area
     const content = document.createElement('div');
@@ -1546,11 +1572,11 @@ async function ocr_showResultModal(result, imageDataUrl) {
       border-radius: 8px;
       padding: 12px;
     `;
-    imagePreview.innerHTML = `
+    imagePreview.innerHTML = sanitizeHTML(`
       <summary style="cursor: pointer; font-weight: 500; color: #667eea; margin-bottom: 12px;">
         📷 View Screenshot
       </summary>
-    `;
+    `);
     const img = document.createElement('img');
     img.src = imageDataUrl;
     img.style.cssText = `
@@ -1575,7 +1601,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
       justify-content: space-between;
       gap: 12px;
     `;
-    chunkNavigation.innerHTML = `
+    chunkNavigation.innerHTML = sanitizeHTML(`
       <div style="flex: 1;">
         <div style="font-weight: 500; color: #333; margin-bottom: 4px;">
           Chunk <span id="ocr-current-chunk">1</span> of <span id="ocr-total-chunks">${ocrMediaPlayer.chunks.length}</span>
@@ -1606,7 +1632,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
           transition: background 0.2s;
         " ${ocrMediaPlayer.chunks.length <= 1 ? 'disabled' : ''}>Next ⏭</button>
       </div>
-    `;
+    `);
 
     // Extracted text (current chunk)
     const textArea = document.createElement('textarea');
@@ -1647,7 +1673,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
       gap: 12px;
       margin-bottom: 20px;
     `;
-    playbackControls.innerHTML = `
+    playbackControls.innerHTML = sanitizeHTML(`
       <button id="ocr-play-pause" style="
         width: 56px;
         height: 56px;
@@ -1679,7 +1705,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
         transition: background 0.2s;
       " onmouseover="this.style.background='#c82333'"
          onmouseout="this.style.background='#dc3545'">⏹</button>
-    `;
+    `);
 
     // Speed control
     const speedControl = document.createElement('div');
@@ -1690,7 +1716,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
       gap: 12px;
       margin-bottom: 20px;
     `;
-    speedControl.innerHTML = `
+    speedControl.innerHTML = sanitizeHTML(`
       <span style="font-size: 14px; color: #666; min-width: 80px;">Speed:</span>
       <button class="speed-btn" data-speed="0.5" style="
         padding: 6px 12px;
@@ -1753,7 +1779,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
         font-weight: 500;
         transition: all 0.2s;
       ">2x</button>
-    `;
+    `);
 
     playerControls.appendChild(playbackControls);
     playerControls.appendChild(speedControl);
@@ -1770,7 +1796,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
       background: white;
       border-radius: 0 0 12px 12px;
     `;
-    footer.innerHTML = `
+    footer.innerHTML = sanitizeHTML(`
       <button id="assist-ocr-copy" style="
         padding: 10px 20px;
         background: #007bff;
@@ -1795,7 +1821,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
         transition: background 0.2s;
       " onmouseover="this.style.background='#1e7e34'"
          onmouseout="this.style.background='#28a745'">💾 Save TXT</button>
-    `;
+    `);
 
     // Assemble modal
     modal.appendChild(header);

@@ -28,6 +28,7 @@
 import { getStorageAdapter } from './storage-adapter.js';
 import { exportAnnotations } from './export-manager.js';
 import { getExistingTags } from './tag-manager.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -187,7 +188,7 @@ function createSidebar() {
   sidebar.setAttribute('aria-label', 'Annotations sidebar');
   sidebar.style.transform = 'translateX(100%)'; // Hidden by default
 
-  sidebar.innerHTML = `
+  sidebar.innerHTML = sanitizeHTML(`
     <div class="assist-sidebar-header">
       <h2 id="sidebar-title" class="assist-sidebar-title">
         Annotations (<span id="sidebar-count">0</span>)
@@ -265,7 +266,7 @@ function createSidebar() {
     <div id="sidebar-content" class="assist-sidebar-content">
       <!-- Content will be populated by loadAnnotations() -->
     </div>
-  `;
+  `);
 
   // Attach event listeners
   const closeBtn = sidebar.querySelector('#sidebar-close-btn');
@@ -572,7 +573,7 @@ async function showFilterDropdown() {
     ? '<button id="clear-all-filters-btn" class="assist-clear-all-filters-btn">Clear all filters</button>'
     : '';
 
-  dropdownContainer.innerHTML = `
+  dropdownContainer.innerHTML = sanitizeHTML(`
     <div class="assist-filter-dropdown">
       ${pageOptions}
       ${dateOptions}
@@ -581,7 +582,7 @@ async function showFilterDropdown() {
       ${tagsOptions}
       ${clearButtonHTML}
     </div>
-  `;
+  `);
 
   dropdownContainer.style.display = 'block';
 
@@ -666,31 +667,41 @@ function matchesAllFilters(annotation) {
 
     if (activeFilters.date === 'today') {
       const diffHours = diffMs / (1000 * 60 * 60);
-      if (diffHours > 24) return false;
+      if (diffHours > 24) {
+        return false;
+      }
     } else if (activeFilters.date === 'week') {
-      if (diffDays > 7) return false;
+      if (diffDays > 7) {
+        return false;
+      }
     } else if (activeFilters.date === 'month') {
-      if (diffDays > 30) return false;
+      if (diffDays > 30) {
+        return false;
+      }
     }
   }
 
   // Color filter
   if (activeFilters.color !== 'all') {
-    if (annotation.color !== activeFilters.color) return false;
+    if (annotation.color !== activeFilters.color) {
+      return false;
+    }
   }
 
   // Type filter
   if (activeFilters.type !== 'all') {
-    if (annotation.type !== activeFilters.type) return false;
+    if (annotation.type !== activeFilters.type) {
+      return false;
+    }
   }
 
   // Tags filter (AND logic - must have all selected tags)
   if (activeFilters.tags.length > 0) {
     const annotationTags = annotation.tags || [];
-    const hasAllTags = activeFilters.tags.every(tag =>
-      annotationTags.includes(tag)
-    );
-    if (!hasAllTags) return false;
+    const hasAllTags = activeFilters.tags.every(tag => annotationTags.includes(tag));
+    if (!hasAllTags) {
+      return false;
+    }
   }
 
   return true;
@@ -703,7 +714,7 @@ function renderActiveFilters() {
   const container = sidebarElement.querySelector('#active-filters-container');
 
   if (!hasActiveFilters()) {
-    container.innerHTML = '';
+    container.innerHTML = sanitizeHTML('');
     container.style.display = 'none';
     return;
   }
@@ -736,12 +747,12 @@ function renderActiveFilters() {
     badges.push(createFilterBadge('Tag', tag, 'tag', tag));
   });
 
-  container.innerHTML = badges.join('');
+  container.innerHTML = sanitizeHTML(badges.join(''));
   container.style.display = 'block';
 
   // Attach remove listeners
   container.querySelectorAll('.assist-filter-badge-remove').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', _e => {
       const filterType = btn.dataset.filterType;
       const filterValue = btn.dataset.filterValue;
       removeFilter(filterType, filterValue);
@@ -838,13 +849,13 @@ function renderFilteredAnnotations() {
 
   // Empty state
   if (filteredAnnotations.length === 0) {
-    content.innerHTML = `
+    content.innerHTML = sanitizeHTML(`
       <div class="assist-sidebar-empty">
         <div class="assist-sidebar-empty-icon">🔍</div>
         <p class="assist-sidebar-empty-text">No annotations match filters</p>
         <p class="assist-sidebar-empty-hint">Try adjusting your filter selections</p>
       </div>
-    `;
+    `);
     return;
   }
 
@@ -853,7 +864,7 @@ function renderFilteredAnnotations() {
     .map(annotation => createAnnotationItemHTML(annotation))
     .join('');
 
-  content.innerHTML = itemsHTML;
+  content.innerHTML = sanitizeHTML(itemsHTML);
 
   // Attach click handlers
   content.querySelectorAll('.assist-sidebar-item').forEach(item => {
@@ -1037,10 +1048,7 @@ function highlightMatches(text, query) {
   // Escape HTML and highlight the match
   const escaped = escapeHtml(text);
   const escapedQuery = escapeHtml(query);
-  const highlighted = escaped.replace(
-    new RegExp(`(${escapedQuery})`, 'gi'),
-    '<strong>$1</strong>'
-  );
+  const highlighted = escaped.replace(new RegExp(`(${escapedQuery})`, 'gi'), '<strong>$1</strong>');
 
   return highlighted;
 }
@@ -1070,13 +1078,13 @@ function renderSearchResults(results) {
 
   // Empty state
   if (results.length === 0) {
-    content.innerHTML = `
+    content.innerHTML = sanitizeHTML(`
       <div class="assist-sidebar-empty">
         <div class="assist-sidebar-empty-icon">🔍</div>
         <p class="assist-sidebar-empty-text">No results for "${escapeHtml(currentSearchQuery)}"</p>
         <p class="assist-sidebar-empty-hint">Try different keywords or clear search</p>
       </div>
-    `;
+    `);
     return;
   }
 
@@ -1085,7 +1093,7 @@ function renderSearchResults(results) {
     .map(annotation => createSearchResultItemHTML(annotation, currentUrl))
     .join('');
 
-  content.innerHTML = itemsHTML;
+  content.innerHTML = sanitizeHTML(itemsHTML);
 
   // Attach click handlers
   content.querySelectorAll('.assist-sidebar-item').forEach(item => {
@@ -1177,9 +1185,7 @@ async function scrollToAnnotationFromSearch(annotation) {
     // If on different page, show toast message
     if (annotation.url !== currentUrl) {
       if (window.showToast) {
-        window.showToast(
-          `⚠️ This annotation is on a different page. Navigate there to view it.`
-        );
+        window.showToast(`⚠️ This annotation is on a different page. Navigate there to view it.`);
       }
       console.log(
         `[AnnotationSidebar] Annotation ${annotation.id} is on different page: ${annotation.url}`
@@ -1206,7 +1212,7 @@ function renderAnnotations() {
 
   // Empty state
   if (currentAnnotations.length === 0) {
-    content.innerHTML = `
+    content.innerHTML = sanitizeHTML(`
       <div class="assist-sidebar-empty">
         <div class="assist-sidebar-empty-icon">📝</div>
         <p class="assist-sidebar-empty-text">No annotations on this page</p>
@@ -1214,7 +1220,7 @@ function renderAnnotations() {
           Select text and click "Annotate" to add your first note
         </p>
       </div>
-    `;
+    `);
     return;
   }
 
@@ -1223,7 +1229,7 @@ function renderAnnotations() {
     .map(annotation => createAnnotationItemHTML(annotation))
     .join('');
 
-  content.innerHTML = itemsHTML;
+  content.innerHTML = sanitizeHTML(itemsHTML);
 
   // Attach click handlers
   content.querySelectorAll('.assist-sidebar-item').forEach(item => {
@@ -1348,13 +1354,13 @@ function getColorDot(color) {
  */
 function renderError() {
   const content = sidebarElement.querySelector('#sidebar-content');
-  content.innerHTML = `
+  content.innerHTML = sanitizeHTML(`
     <div class="assist-sidebar-empty">
       <div class="assist-sidebar-empty-icon">⚠️</div>
       <p class="assist-sidebar-empty-text">Error loading annotations</p>
       <p class="assist-sidebar-empty-hint">Please try again later</p>
     </div>
-  `;
+  `);
 }
 
 // ============================================================
@@ -1444,7 +1450,7 @@ function handleExportClick() {
 function showExportDropdown() {
   const dropdownContainer = sidebarElement.querySelector('#export-dropdown-container');
 
-  dropdownContainer.innerHTML = `
+  dropdownContainer.innerHTML = sanitizeHTML(`
     <div class="assist-export-dropdown">
       <button
         class="assist-export-option"
@@ -1475,7 +1481,7 @@ function showExportDropdown() {
         📊 CSV (.csv)
       </button>
     </div>
-  `;
+  `);
 
   dropdownContainer.style.display = 'block';
 
@@ -1497,9 +1503,9 @@ function showExportDropdown() {
 async function handleExportFormat(format) {
   try {
     // Determine which annotations to export
-    const annotationsToExport = currentSearchQuery ?
-      currentAnnotations : // Use filtered results if search is active
-      currentAnnotations;  // Use current page annotations
+    const annotationsToExport = currentSearchQuery
+      ? currentAnnotations // Use filtered results if search is active
+      : currentAnnotations; // Use current page annotations
 
     if (annotationsToExport.length === 0) {
       showToast('⚠️ No annotations to export');

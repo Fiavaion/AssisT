@@ -23,6 +23,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -105,7 +106,10 @@ function struggle_calculateScore() {
   let score = 0;
 
   // Scroll-back patterns (0-25 points)
-  const scrollBackScore = Math.min(25, (struggle_tracking.scrollBackCount / thresholds.scrollBackThreshold) * 25);
+  const scrollBackScore = Math.min(
+    25,
+    (struggle_tracking.scrollBackCount / thresholds.scrollBackThreshold) * 25
+  );
   score += scrollBackScore;
 
   // Long pause detection (0-25 points)
@@ -119,8 +123,10 @@ function struggle_calculateScore() {
   score += rereadScore;
 
   // Tool usage frequency (0-15 points)
-  const toolUsageScore = Math.min(15,
-    (struggle_tracking.simplificationRequests + struggle_tracking.dictionaryLookups) * 5);
+  const toolUsageScore = Math.min(
+    15,
+    (struggle_tracking.simplificationRequests + struggle_tracking.dictionaryLookups) * 5
+  );
   score += toolUsageScore;
 
   // Reading progress stall (0-15 points)
@@ -135,10 +141,14 @@ function struggle_calculateScore() {
  * @returns {number} Pause time in ms
  */
 function struggle_getCurrentPauseTime() {
-  if (!struggle_tracking.currentElement) return 0;
+  if (!struggle_tracking.currentElement) {
+    return 0;
+  }
 
   const viewData = struggle_tracking.elementViewTimes.get(struggle_tracking.currentElement);
-  if (!viewData) return 0;
+  if (!viewData) {
+    return 0;
+  }
 
   return Date.now() - viewData.startTime;
 }
@@ -160,23 +170,35 @@ function struggle_getMaxRereadCount() {
  * @returns {number} Stall score (0-15)
  */
 function struggle_detectProgressStall() {
-  if (!struggle_tracking.startTime) return 0;
+  if (!struggle_tracking.startTime) {
+    return 0;
+  }
 
   const elapsed = Date.now() - struggle_tracking.startTime;
-  if (elapsed < 60000) return 0; // Need at least 1 minute
+  if (elapsed < 60000) {
+    return 0;
+  } // Need at least 1 minute
 
   // Check scroll progress vs time
   const scrollRange = document.documentElement.scrollHeight - window.innerHeight;
-  if (scrollRange <= 0) return 0;
+  if (scrollRange <= 0) {
+    return 0;
+  }
 
   const scrollProgress = window.scrollY / scrollRange;
   const expectedProgress = Math.min(1, elapsed / 300000); // Expect full read in 5 min
 
   const progressRatio = scrollProgress / expectedProgress;
 
-  if (progressRatio < 0.3) return 15;
-  if (progressRatio < 0.5) return 10;
-  if (progressRatio < 0.7) return 5;
+  if (progressRatio < 0.3) {
+    return 15;
+  }
+  if (progressRatio < 0.5) {
+    return 10;
+  }
+  if (progressRatio < 0.7) {
+    return 5;
+  }
 
   return 0;
 }
@@ -273,10 +295,14 @@ function struggle_trackToolUsage(tool, element = null) {
  * @param {HTMLElement} element - Element containing difficult concept
  */
 function struggle_addDifficultConcept(element) {
-  if (!struggle_settings.trackDifficultConcepts) return;
+  if (!struggle_settings.trackDifficultConcepts) {
+    return;
+  }
 
   const text = element.textContent?.substring(0, 200) || '';
-  if (!text) return;
+  if (!text) {
+    return;
+  }
 
   // Extract key terms (capitalized words, longer words)
   const keyTerms = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
@@ -319,9 +345,9 @@ function struggle_updateScore() {
 
 /**
  * Offer assistance to the user
- * @param {number} score - Current struggle score
+ * @param {number} _score - Current struggle score
  */
-function struggle_offerAssistance(score) {
+function struggle_offerAssistance(_score) {
   struggle_lastAssistanceTime = Date.now();
 
   // Determine what kind of help to offer based on signals
@@ -363,7 +389,7 @@ function struggle_showAssistancePanel(message, action) {
   struggle_panel = document.createElement('div');
   struggle_panel.id = 'assist-struggle-panel';
 
-  struggle_panel.innerHTML = `
+  struggle_panel.innerHTML = sanitizeHTML(`
     <style>
       #assist-struggle-panel {
         position: fixed;
@@ -514,7 +540,7 @@ function struggle_showAssistancePanel(message, action) {
         </button>
       </div>
     </div>
-  `;
+  `);
 
   document.body.appendChild(struggle_panel);
 
@@ -618,27 +644,40 @@ function struggle_showReview() {
 function struggle_setupListeners() {
   // Scroll tracking
   let scrollTimeout = null;
-  window.addEventListener('scroll', () => {
-    if (!struggle_isTracking) return;
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!struggle_isTracking) {
+        return;
+      }
 
-    if (scrollTimeout) clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => {
-      struggle_trackScroll(window.scrollY);
-    }, 100);
-  }, { passive: true });
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      scrollTimeout = setTimeout(() => {
+        struggle_trackScroll(window.scrollY);
+      }, 100);
+    },
+    { passive: true }
+  );
 
   // Element view tracking (via intersection observer)
-  const observer = new IntersectionObserver((entries) => {
-    if (!struggle_isTracking) return;
-
-    for (const entry of entries) {
-      if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-        struggle_trackElementView(entry.target);
+  const observer = new IntersectionObserver(
+    entries => {
+      if (!struggle_isTracking) {
+        return;
       }
+
+      for (const entry of entries) {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+          struggle_trackElementView(entry.target);
+        }
+      }
+    },
+    {
+      threshold: [0.5],
     }
-  }, {
-    threshold: [0.5],
-  });
+  );
 
   // Observe main content elements
   document.querySelectorAll('p, article, section, .content, main').forEach(el => {
@@ -663,7 +702,9 @@ function struggle_setupListeners() {
  * Start struggle detection tracking
  */
 function struggle_startTracking() {
-  if (struggle_isTracking) return;
+  if (struggle_isTracking) {
+    return;
+  }
 
   struggle_isTracking = true;
   struggle_tracking.startTime = Date.now();

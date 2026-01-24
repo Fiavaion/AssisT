@@ -16,6 +16,8 @@
  * @version 1.0.0
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 /**
  * Command types enum
  */
@@ -495,7 +497,7 @@ export class CommandParser {
       element.selectionEnd = state.cursorEnd;
       element.dispatchEvent(new Event('input', { bubbles: true }));
     } else if (element.isContentEditable) {
-      element.innerHTML = state.text;
+      element.innerHTML = sanitizeHTML(state.text);
       element.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }

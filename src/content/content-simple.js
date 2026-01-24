@@ -52,6 +52,7 @@
 // ============================================================
 // MODULE IMPORTS
 // ============================================================
+import DOMPurify from 'dompurify';
 import { showToast } from '../core/ui/toast.js';
 import {
   removeHighlight,
@@ -61,6 +62,9 @@ import {
   cleanupWordByWord,
 } from '../core/dom/highlighting.js';
 import { registerShortcut } from '../utils/keyboard-shortcuts.js';
+
+// Make DOMPurify globally available for web_accessible_resources
+window.DOMPurify = DOMPurify;
 import { dyslexia_initialize } from '../content/features/dyslexia.js';
 import '../features/readingGuide/readingGuide.js'; // Self-initializing module
 import '../features/screenOverlay/screenOverlay.js'; // Self-initializing module

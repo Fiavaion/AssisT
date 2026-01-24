@@ -308,7 +308,7 @@ function formatDate(timestamp) {
 
   try {
     return new Date(timestamp).toLocaleString();
-  } catch (error) {
+  } catch {
     return 'Invalid date';
   }
 }
@@ -326,7 +326,8 @@ function generateFilename(format) {
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
 
-  const extension = format === 'md' ? 'md' : format === 'txt' ? 'txt' : format === 'json' ? 'json' : 'csv';
+  const extension =
+    format === 'md' ? 'md' : format === 'txt' ? 'txt' : format === 'json' ? 'json' : 'csv';
 
   return `annotations-export-${year}-${month}-${day}-${hours}${minutes}.${extension}`;
 }

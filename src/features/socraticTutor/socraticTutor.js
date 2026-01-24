@@ -14,13 +14,14 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
 let tutor_panel = null;
-let tutor_isLoading = false;
+// const _tutor_isLoading = false; // Reserved for future use
 let tutor_currentText = '';
 let tutor_currentQuestions = null;
 
@@ -33,16 +34,16 @@ const tutor_settings = {
 
 // Cloud model configurations
 const TUTOR_MODELS = {
-  'local': { id: 'local', name: 'Local', isLocal: true },
+  local: { id: 'local', name: 'Local', isLocal: true },
   'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
   'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
 // Cloud: Opus 4.5 scored 8.8/10 (best for pedagogical dialogue)
 // Local: Gemma3:4b scored 8.8/10 (ties with Opus - remarkable for 4GB model!)
-const TUTOR_DEFAULT_LOCAL_MODEL = 'local';
+// const _TUTOR_DEFAULT_LOCAL_MODEL = 'local'; // Reserved for future use
 const TUTOR_DEFAULT_CLOUD_MODEL = 'opus-4.5';
 
 // ============================================================================
@@ -52,15 +53,18 @@ const TUTOR_DEFAULT_CLOUD_MODEL = 'opus-4.5';
 /**
  * Check if cloud mode is enabled
  * @returns {Promise<boolean>}
+ * Reserved for future use
  */
+/*
 async function tutor_isCloudEnabled() {
   try {
     const result = await chrome.storage.local.get(['cloudModeEnabled']);
     return result.cloudModeEnabled === true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
+*/
 
 /**
  * Get the current model from global settings
@@ -121,10 +125,10 @@ async function tutor_generate(text, modelKey = 'local') {
 
   // Model-specific token limits
   const modelTokenLimits = {
-    'local': 800,
+    local: 800,
     'haiku-4.5': 600,
     'sonnet-4.5': 900,
-    'opus-4.5': 1100
+    'opus-4.5': 1100,
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 800;
@@ -157,8 +161,8 @@ RULES:
         options: {
           model: modelKey,
           maxTokens,
-          temperature: 0.5,  // Lower for more reliable JSON
-          feature: 'socraticTutor'
+          temperature: 0.5, // Lower for more reliable JSON
+          feature: 'socraticTutor',
         },
       });
     } else {
@@ -193,9 +197,7 @@ RULES:
         }
 
         // Clean up common JSON issues
-        jsonStr = jsonStr
-          .replace(/,\s*}/g, '}')
-          .replace(/,\s*]/g, ']');
+        jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
 
         const parsed = JSON.parse(jsonStr);
 
@@ -232,12 +234,9 @@ RULES:
  */
 function tutor_fallback(text) {
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
-  const words = text.toLowerCase().split(/\s+/);
-
+  // const words = text.toLowerCase().split(/\s+/); // Reserved for future use
   // Extract potential key concepts (longer words, capitalized words)
-  const keyWords = words
-    .filter(w => w.length > 6 || /^[A-Z]/.test(w))
-    .slice(0, 5);
+  // const _keyWords = words.filter(w => w.length > 6 || /^[A-Z]/.test(w)).slice(0, 5); // Reserved for future use
 
   const topic = sentences[0]?.substring(0, 50).trim() + '...' || 'Selected text';
 
@@ -271,7 +270,8 @@ function tutor_fallback(text) {
   return {
     topic,
     questions,
-    thinkingPrompt: 'Take a moment to reflect: Why might this information be important to understand?',
+    thinkingPrompt:
+      'Take a moment to reflect: Why might this information be important to understand?',
   };
 }
 
@@ -284,15 +284,15 @@ function tutor_fallback(text) {
  * @returns {HTMLElement}
  */
 async function tutor_createPanel() {
-  // Check if cloud mode is enabled
-  const cloudEnabled = await tutor_isCloudEnabled();
+  // Check if cloud mode is enabled (reserved for future use)
+  // const _cloudEnabled = await tutor_isCloudEnabled();
 
   const panel = document.createElement('div');
   panel.id = 'assist-socratic-tutor-panel';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Socratic Tutor');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <style>
       #assist-socratic-tutor-panel {
         position: fixed;
@@ -585,7 +585,7 @@ async function tutor_createPanel() {
         🔄 New Questions
       </button>
     </div>
-  `;
+  `);
 
   // Close button
   panel.querySelector('.assist-tutor-close').onclick = () => tutor_hide();
@@ -620,7 +620,9 @@ async function tutor_createPanel() {
  */
 function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
   const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
-  if (!contentArea) return;
+  if (!contentArea) {
+    return;
+  }
 
   let badge;
   if (isCloud) {
@@ -676,21 +678,27 @@ function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
     `;
   }
 
-  contentArea.innerHTML = html;
+  contentArea.innerHTML = sanitizeHTML(html);
 }
 
 /**
  * Copy questions to clipboard
  */
 async function tutor_copyQuestions() {
-  if (!tutor_currentQuestions) return;
+  if (!tutor_currentQuestions) {
+    return;
+  }
 
   let text = `Socratic Questions: ${tutor_currentQuestions.topic}\n\n`;
 
   tutor_currentQuestions.questions.forEach((q, i) => {
     text += `${i + 1}. [${q.type.toUpperCase()}] ${q.question}\n`;
-    if (q.hint) text += `   Hint: ${q.hint}\n`;
-    if (q.followUp) text += `   Follow-up: ${q.followUp}\n`;
+    if (q.hint) {
+      text += `   Hint: ${q.hint}\n`;
+    }
+    if (q.followUp) {
+      text += `   Follow-up: ${q.followUp}\n`;
+    }
     text += '\n';
   });
 
@@ -712,7 +720,9 @@ async function tutor_copyQuestions() {
  * @returns {string}
  */
 function escapeHtml(text) {
-  if (!text) return '';
+  if (!text) {
+    return '';
+  }
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
@@ -772,12 +782,12 @@ async function tutor_analyze(text, modelKey = null) {
   const modelName = TUTOR_MODELS[modelKey]?.name || modelKey;
 
   if (contentArea) {
-    contentArea.innerHTML = `
+    contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-tutor-loading">
         <div class="assist-tutor-spinner"></div>
         <div>Generating thought-provoking questions${isCloud ? ` with ${modelName}` : ''}...</div>
       </div>
-    `;
+    `);
   }
 
   try {

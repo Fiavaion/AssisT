@@ -20,6 +20,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -38,16 +39,16 @@ const summarization_settings = {
 
 // Cloud model configurations (local copy for bundling)
 const SUMMARIZATION_MODELS = {
-  'local': { id: 'local', name: 'Local', isLocal: true },
+  local: { id: 'local', name: 'Local', isLocal: true },
   'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
   'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' }
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
 // Cloud: Opus 4.5 scored 7.0/10 (only cloud model to pass ND-Ready threshold)
 // Local: Mistral:7b scored 7.4/10 (actually outperformed cloud models!)
-const SUMMARIZATION_DEFAULT_LOCAL_MODEL = 'local';
+// const _SUMMARIZATION_DEFAULT_LOCAL_MODEL = 'local'; // Reserved for future use
 const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'opus-4.5';
 
 // ============================================================================
@@ -57,15 +58,18 @@ const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'opus-4.5';
 /**
  * Check if cloud mode is enabled
  * @returns {Promise<boolean>}
+ * Reserved for future use
  */
-async function summarization_isCloudEnabled() {
+/*
+async function _summarization_isCloudEnabled() {
   try {
     const result = await chrome.storage.local.get(['cloudModeEnabled']);
     return result.cloudModeEnabled === true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
+*/
 
 /**
  * Get the current model from global settings
@@ -150,7 +154,7 @@ Summary:`;
           model: modelKey,
           maxTokens,
           temperature: 0.5,
-          feature: 'summarization'
+          feature: 'summarization',
         },
       });
     } else {
@@ -349,7 +353,7 @@ function summarization_createPanel() {
   panel.setAttribute('aria-label', 'Text Summary');
   panel.setAttribute('aria-modal', 'true');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <div class="assist-summary-header">
       <span class="assist-summary-title">Summary</span>
       <div class="assist-summary-controls">
@@ -376,7 +380,7 @@ function summarization_createPanel() {
         <span class="assist-summary-btn-icon">🔄</span> Regenerate
       </button>
     </div>
-  `;
+  `);
 
   // Inject styles
   summarization_injectStyles();
@@ -759,13 +763,21 @@ function summarization_makeDraggable(panel) {
   });
 
   document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
+    if (!isDragging) {
+      return;
+    }
 
     const deltaX = e.clientX - startX;
     const deltaY = e.clientY - startY;
 
-    const newLeft = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, startLeft + deltaX));
-    const newTop = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, startTop + deltaY));
+    const newLeft = Math.max(
+      0,
+      Math.min(window.innerWidth - panel.offsetWidth, startLeft + deltaX)
+    );
+    const newTop = Math.max(
+      0,
+      Math.min(window.innerHeight - panel.offsetHeight, startTop + deltaY)
+    );
 
     panel.style.left = `${newLeft}px`;
     panel.style.top = `${newTop}px`;
@@ -872,15 +884,17 @@ async function summarization_summarize(text, level = 'brief') {
   const statusBar = summarization_panel?.querySelector('.assist-summary-status');
   const actionBtns = summarization_panel?.querySelectorAll('.assist-summary-btn');
 
-  const modelName = isCloudModel ? SUMMARIZATION_MODELS[selectedModel]?.name || selectedModel : 'Local AI';
+  const modelName = isCloudModel
+    ? SUMMARIZATION_MODELS[selectedModel]?.name || selectedModel
+    : 'Local AI';
 
   if (contentArea) {
-    contentArea.innerHTML = `
+    contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-summary-loading">
         <div class="assist-summary-spinner"></div>
         <span>Generating ${level} summary${isCloudModel ? ` with ${modelName}` : ''}...</span>
       </div>
-    `;
+    `);
   }
 
   // Disable action buttons
@@ -923,8 +937,7 @@ async function summarization_summarize(text, level = 'brief') {
         summary = summarization_fallback(text, level);
 
         if (statusBar) {
-          statusBar.textContent =
-            '⚠️ Using basic summarization (Ollama not available)';
+          statusBar.textContent = '⚠️ Using basic summarization (Ollama not available)';
           statusBar.className = 'assist-summary-status visible';
         }
       }
@@ -943,10 +956,10 @@ async function summarization_summarize(text, level = 'brief') {
         badge = '<span class="assist-summary-fallback-badge">Basic</span>';
       }
 
-      contentArea.innerHTML = `
+      contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-summary-text">${escapeHtml(summary)}</p>
         ${badge}
-      `;
+      `);
     }
   } catch (error) {
     console.error('[Summarization] Error:', error);
@@ -956,10 +969,10 @@ async function summarization_summarize(text, level = 'brief') {
     summarization_currentSummary = fallbackSummary;
 
     if (contentArea) {
-      contentArea.innerHTML = `
+      contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-summary-text">${escapeHtml(fallbackSummary)}</p>
         <span class="assist-summary-fallback-badge">Basic</span>
-      `;
+      `);
     }
 
     if (statusBar) {

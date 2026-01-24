@@ -62,7 +62,7 @@ async function googleClassroom_loadAdapter() {
   if (!GoogleClassroomAdapter) {
     try {
       GoogleClassroomAdapter = await import(
-        chrome.runtime.getURL('adapters/google-classroom-adapter.js')
+        chrome.runtime.getURL('src/adapters/google-classroom-adapter.js')
       );
       console.log('[GoogleClassroom] Adapter loaded');
     } catch (error) {

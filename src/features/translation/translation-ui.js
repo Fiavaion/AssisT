@@ -27,6 +27,8 @@
  * @module features/translation/translation-ui
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -176,7 +178,7 @@ function translationUI_createModal(originalText, translatedText = '') {
   `;
 
   const closeButton = document.createElement('button');
-  closeButton.innerHTML = '&times;';
+  closeButton.innerHTML = sanitizeHTML('&times;');
   closeButton.setAttribute('aria-label', 'Close translation modal');
   closeButton.style.cssText = `
     background: none;

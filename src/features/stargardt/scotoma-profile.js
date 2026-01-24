@@ -193,10 +193,7 @@ export async function save(profile) {
  */
 export async function loadSaved() {
   try {
-    const result = await chrome.storage.local.get([
-      STORAGE_KEY,
-      CURRENT_PROFILE_KEY,
-    ]);
+    const result = await chrome.storage.local.get([STORAGE_KEY, CURRENT_PROFILE_KEY]);
 
     const profiles = result[STORAGE_KEY] || [];
     const currentId = result[CURRENT_PROFILE_KEY];
@@ -389,8 +386,7 @@ export function compareProfiles(oldProfile, newProfile) {
 
   // Time between profiles
   const daysBetween = Math.floor(
-    (new Date(newProfile.createdAt) - new Date(oldProfile.createdAt)) /
-      (1000 * 60 * 60 * 24)
+    (new Date(newProfile.createdAt) - new Date(oldProfile.createdAt)) / (1000 * 60 * 60 * 24)
   );
 
   return {
@@ -416,9 +412,7 @@ export async function getProgressionHistory() {
   }
 
   // Sort by creation date
-  const sorted = profiles.sort(
-    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-  );
+  const sorted = profiles.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   // Compare consecutive profiles
   const history = [];
@@ -555,10 +549,10 @@ export async function recordFullAssessment(profileId) {
 
 /**
  * Record a micro-calibration check
- * @param {Object} checkResult - Result from micro-calibration
+ * @param {Object} _checkResult - Result from micro-calibration
  * @returns {Promise<{driftDetected: boolean, driftDetails: Object|null}>}
  */
-export async function recordMicroCheck(checkResult) {
+export async function recordMicroCheck(_checkResult) {
   const state = await getReassessmentState();
   const currentProfile = await loadSaved();
   const baselineProfile = state?.baselineProfileId
@@ -765,8 +759,7 @@ export async function getDiaryStats(days = 30) {
   }
 
   // Average quality
-  const avgQuality =
-    entries.reduce((sum, e) => sum + e.qualityRating, 0) / entries.length;
+  const avgQuality = entries.reduce((sum, e) => sum + e.qualityRating, 0) / entries.length;
 
   // Symptom frequency
   const symptomFrequency = {};
@@ -783,13 +776,14 @@ export async function getDiaryStats(days = 30) {
     const firstHalf = entries.slice(0, midpoint);
     const secondHalf = entries.slice(midpoint);
 
-    const firstAvg =
-      firstHalf.reduce((sum, e) => sum + e.qualityRating, 0) / firstHalf.length;
-    const secondAvg =
-      secondHalf.reduce((sum, e) => sum + e.qualityRating, 0) / secondHalf.length;
+    const firstAvg = firstHalf.reduce((sum, e) => sum + e.qualityRating, 0) / firstHalf.length;
+    const secondAvg = secondHalf.reduce((sum, e) => sum + e.qualityRating, 0) / secondHalf.length;
 
-    if (secondAvg - firstAvg > 0.5) trend = 'improving';
-    else if (firstAvg - secondAvg > 0.5) trend = 'declining';
+    if (secondAvg - firstAvg > 0.5) {
+      trend = 'improving';
+    } else if (firstAvg - secondAvg > 0.5) {
+      trend = 'declining';
+    }
   }
 
   return {
@@ -813,9 +807,7 @@ export async function getProgressionChartData() {
   const diaryEntries = await getDiaryEntries({ days: 365 });
 
   // Sort profiles by date
-  const sortedProfiles = profiles.sort(
-    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-  );
+  const sortedProfiles = profiles.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   // Profile data points
   const scotomaData = sortedProfiles.map(p => ({
@@ -837,7 +829,7 @@ export async function getProgressionChartData() {
   }));
 
   // Calculate overall progression summary
-  let progressionSummary = {
+  const progressionSummary = {
     scotomaChange: 'stable',
     qualityChange: 'stable',
     recommendation: '',
@@ -848,8 +840,11 @@ export async function getProgressionChartData() {
     const last = scotomaData[scotomaData.length - 1];
     const areaChange = ((last.area - first.area) / first.area) * 100;
 
-    if (areaChange > 10) progressionSummary.scotomaChange = 'increased';
-    else if (areaChange < -10) progressionSummary.scotomaChange = 'decreased';
+    if (areaChange > 10) {
+      progressionSummary.scotomaChange = 'increased';
+    } else if (areaChange < -10) {
+      progressionSummary.scotomaChange = 'decreased';
+    }
   }
 
   const diaryStats = await getDiaryStats(30);
@@ -941,9 +936,10 @@ function isPointInPolygon(x, y, polygon) {
     const xj = polygon[j].x;
     const yj = polygon[j].y;
 
-    const intersect =
-      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) {
+      inside = !inside;
+    }
   }
   return inside;
 }

@@ -54,10 +54,13 @@ function logDemoLoaded() {
 /**
  * Check if AssisT content script is available
  * @returns {boolean}
+ * Reserved for future use
  */
-function isAssistAvailable() {
+/*
+function _isAssistAvailable() {
   return typeof window.assistTools !== 'undefined';
 }
+*/
 
 /**
  * Get user's discovery profile if available

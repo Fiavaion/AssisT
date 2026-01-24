@@ -20,7 +20,7 @@
  * @module features/emotionalTTS
  */
 
-import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -28,7 +28,6 @@ import { showToast } from '../../core/ui/toast.js';
 
 let emotionalTTS_indicator = null;
 let emotionalTTS_isPlaying = false;
-let emotionalTTS_currentUtterance = null;
 
 const emotionalTTS_settings = {
   enabled: true,
@@ -126,7 +125,7 @@ async function emotionalTTS_checkLLM() {
       action: 'LOCAL_LLM_CHECK',
     });
     return { available: response?.success && response?.available };
-  } catch (error) {
+  } catch {
     return { available: false };
   }
 }
@@ -154,7 +153,10 @@ Emotion:`;
     });
 
     if (response?.success) {
-      const emotion = response.data.trim().toLowerCase().replace(/[^a-z]/g, '');
+      const emotion = response.data
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z]/g, '');
       if (EMOTION_PARAMS[emotion]) {
         return emotion;
       }
@@ -173,40 +175,135 @@ Emotion:`;
 // Emotion keyword mappings
 const EMOTION_KEYWORDS = {
   happy: [
-    'happy', 'joy', 'delighted', 'pleased', 'wonderful', 'amazing', 'fantastic',
-    'great', 'excellent', 'love', 'lovely', 'beautiful', 'glad', 'cheerful',
-    'congratulations', 'celebrate', 'success', 'win', 'won', 'awesome',
+    'happy',
+    'joy',
+    'delighted',
+    'pleased',
+    'wonderful',
+    'amazing',
+    'fantastic',
+    'great',
+    'excellent',
+    'love',
+    'lovely',
+    'beautiful',
+    'glad',
+    'cheerful',
+    'congratulations',
+    'celebrate',
+    'success',
+    'win',
+    'won',
+    'awesome',
   ],
   excited: [
-    'excited', 'thrilled', 'incredible', 'unbelievable', 'breakthrough',
-    'revolutionary', 'amazing', 'spectacular', 'extraordinary', 'wow',
-    'breaking news', 'just discovered', 'finally', '!',
+    'excited',
+    'thrilled',
+    'incredible',
+    'unbelievable',
+    'breakthrough',
+    'revolutionary',
+    'amazing',
+    'spectacular',
+    'extraordinary',
+    'wow',
+    'breaking news',
+    'just discovered',
+    'finally',
+    '!',
   ],
   sad: [
-    'sad', 'sorry', 'unfortunately', 'tragic', 'loss', 'died', 'death',
-    'passed away', 'regret', 'mourn', 'grief', 'heartbroken', 'devastating',
-    'miss', 'farewell', 'goodbye', 'closing', 'ending',
+    'sad',
+    'sorry',
+    'unfortunately',
+    'tragic',
+    'loss',
+    'died',
+    'death',
+    'passed away',
+    'regret',
+    'mourn',
+    'grief',
+    'heartbroken',
+    'devastating',
+    'miss',
+    'farewell',
+    'goodbye',
+    'closing',
+    'ending',
   ],
   angry: [
-    'angry', 'furious', 'outraged', 'unacceptable', 'disgraceful', 'terrible',
-    'horrible', 'worst', 'demand', 'must stop', 'enough', 'injustice',
+    'angry',
+    'furious',
+    'outraged',
+    'unacceptable',
+    'disgraceful',
+    'terrible',
+    'horrible',
+    'worst',
+    'demand',
+    'must stop',
+    'enough',
+    'injustice',
   ],
   calm: [
-    'peaceful', 'calm', 'relax', 'serene', 'gentle', 'slowly', 'breathe',
-    'meditation', 'mindful', 'quiet', 'tranquil', 'soothing',
+    'peaceful',
+    'calm',
+    'relax',
+    'serene',
+    'gentle',
+    'slowly',
+    'breathe',
+    'meditation',
+    'mindful',
+    'quiet',
+    'tranquil',
+    'soothing',
   ],
   serious: [
-    'important', 'critical', 'urgent', 'warning', 'caution', 'attention',
-    'significant', 'official', 'formal', 'hereby', 'pursuant', 'whereas',
-    'therefore', 'accordingly', 'must', 'required', 'mandatory',
+    'important',
+    'critical',
+    'urgent',
+    'warning',
+    'caution',
+    'attention',
+    'significant',
+    'official',
+    'formal',
+    'hereby',
+    'pursuant',
+    'whereas',
+    'therefore',
+    'accordingly',
+    'must',
+    'required',
+    'mandatory',
   ],
   fearful: [
-    'afraid', 'scared', 'worried', 'concern', 'danger', 'risk', 'threat',
-    'warning', 'careful', 'beware', 'alert', 'emergency', 'crisis',
+    'afraid',
+    'scared',
+    'worried',
+    'concern',
+    'danger',
+    'risk',
+    'threat',
+    'warning',
+    'careful',
+    'beware',
+    'alert',
+    'emergency',
+    'crisis',
   ],
   surprised: [
-    'surprised', 'unexpected', 'shocking', 'astonishing', 'remarkable',
-    'suddenly', 'out of nowhere', 'never expected', 'who knew',
+    'surprised',
+    'unexpected',
+    'shocking',
+    'astonishing',
+    'remarkable',
+    'suddenly',
+    'out of nowhere',
+    'never expected',
+    'who knew',
   ],
 };
 
@@ -286,7 +383,7 @@ function emotionalTTS_createIndicator() {
     transition: all 0.3s ease;
   `;
 
-  indicator.innerHTML = `
+  indicator.innerHTML = sanitizeHTML(`
     <span class="emotion-icon" style="font-size: 24px;">🗣️</span>
     <span class="emotion-label">Speaking...</span>
     <button class="emotion-stop" style="
@@ -299,7 +396,7 @@ function emotionalTTS_createIndicator() {
       font-size: 12px;
       margin-left: 8px;
     ">Stop</button>
-  `;
+  `);
 
   indicator.querySelector('.emotion-stop').onclick = () => {
     emotionalTTS_stop();
@@ -313,7 +410,9 @@ function emotionalTTS_createIndicator() {
  * @param {string} emotion - Current emotion
  */
 function emotionalTTS_showIndicator(emotion) {
-  if (!emotionalTTS_settings.showEmotionIndicator) return;
+  if (!emotionalTTS_settings.showEmotionIndicator) {
+    return;
+  }
 
   if (!emotionalTTS_indicator) {
     emotionalTTS_indicator = emotionalTTS_createIndicator();
@@ -347,7 +446,9 @@ function emotionalTTS_hideIndicator() {
  * @param {string} [overrideEmotion] - Optional emotion override
  */
 async function emotionalTTS_speak(text, overrideEmotion = null) {
-  if (!text || text.trim().length === 0) return;
+  if (!text || text.trim().length === 0) {
+    return;
+  }
 
   // Stop any current speech
   emotionalTTS_stop();
@@ -399,9 +500,9 @@ async function emotionalTTS_speak(text, overrideEmotion = null) {
 
   // Get preferred voice
   const voices = speechSynthesis.getVoices();
-  const preferredVoice = voices.find(v =>
-    v.lang.startsWith('en') && v.name.includes('Natural')
-  ) || voices.find(v => v.lang.startsWith('en'));
+  const preferredVoice =
+    voices.find(v => v.lang.startsWith('en') && v.name.includes('Natural')) ||
+    voices.find(v => v.lang.startsWith('en'));
 
   if (preferredVoice) {
     utterance.voice = preferredVoice;
@@ -416,7 +517,6 @@ async function emotionalTTS_speak(text, overrideEmotion = null) {
   utterance.onend = () => {
     emotionalTTS_isPlaying = false;
     emotionalTTS_hideIndicator();
-    emotionalTTS_currentUtterance = null;
   };
 
   utterance.onerror = e => {
@@ -425,7 +525,6 @@ async function emotionalTTS_speak(text, overrideEmotion = null) {
     emotionalTTS_hideIndicator();
   };
 
-  emotionalTTS_currentUtterance = utterance;
   speechSynthesis.speak(utterance);
 }
 
@@ -436,7 +535,6 @@ function emotionalTTS_stop() {
   speechSynthesis.cancel();
   emotionalTTS_isPlaying = false;
   emotionalTTS_hideIndicator();
-  emotionalTTS_currentUtterance = null;
 }
 
 /**

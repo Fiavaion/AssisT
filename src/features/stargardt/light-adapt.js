@@ -20,7 +20,7 @@
 
 let lightAdapt_enabled = false;
 let lightAdapt_settings = {};
-let lightAdapt_styleElement = null;
+// let _lightAdapt_styleElement = null; // Reserved for future use
 let lightAdapt_overlayElement = null;
 let lightAdapt_ambientSensor = null;
 let lightAdapt_currentBrightness = 100;
@@ -62,7 +62,9 @@ export function initialize(settings) {
  * Enable light adaptation
  */
 export function enable() {
-  if (lightAdapt_enabled) return;
+  if (lightAdapt_enabled) {
+    return;
+  }
 
   console.log('[LightAdapt] Enabling...');
   lightAdapt_enabled = true;
@@ -91,7 +93,9 @@ export function enable() {
  * Disable light adaptation
  */
 export function disable() {
-  if (!lightAdapt_enabled) return;
+  if (!lightAdapt_enabled) {
+    return;
+  }
 
   console.log('[LightAdapt] Disabling...');
   lightAdapt_enabled = false;
@@ -127,7 +131,10 @@ export function updateSettings(settings) {
   lightAdapt_settings = { ...lightAdapt_settings, ...settings };
 
   // Only transition if brightness target actually changed
-  if (settings.targetBrightness !== undefined && settings.targetBrightness !== lightAdapt_targetBrightness) {
+  if (
+    settings.targetBrightness !== undefined &&
+    settings.targetBrightness !== lightAdapt_targetBrightness
+  ) {
     transitionToBrightness(settings.targetBrightness);
   }
 
@@ -201,7 +208,9 @@ function injectStyles() {
  * Create brightness control overlay
  */
 function createBrightnessOverlay() {
-  if (lightAdapt_overlayElement) return;
+  if (lightAdapt_overlayElement) {
+    return;
+  }
 
   const overlay = document.createElement('div');
   overlay.id = 'stargardt-brightness-overlay';
@@ -321,7 +330,9 @@ function setupAmbientSensor() {
  * @param {number} illuminance - Light level in lux
  */
 function handleAmbientLightReading(illuminance) {
-  if (!lightAdapt_enabled || !lightAdapt_settings.autoAdjust) return;
+  if (!lightAdapt_enabled || !lightAdapt_settings.autoAdjust) {
+    return;
+  }
 
   // Map illuminance to brightness
   // Typical values: <50 lux = dark room, 300-500 = office, >1000 = daylight
@@ -346,9 +357,7 @@ function handleAmbientLightReading(illuminance) {
 
   // Only adjust if significantly different
   if (Math.abs(targetBrightness - lightAdapt_currentBrightness) > 10) {
-    console.log(
-      `[LightAdapt] Auto-adjusting for ${illuminance} lux -> ${targetBrightness}%`
-    );
+    console.log(`[LightAdapt] Auto-adjusting for ${illuminance} lux -> ${targetBrightness}%`);
     transitionToBrightness(targetBrightness);
   }
 }
@@ -361,14 +370,16 @@ function handleAmbientLightReading(illuminance) {
  * Detect and reduce bright glaring elements
  */
 function detectAndReduceGlare() {
-  if (!lightAdapt_settings.glareReduction) return;
+  if (!lightAdapt_settings.glareReduction) {
+    return;
+  }
 
   console.log('[LightAdapt] Detecting bright elements for glare reduction');
 
   // Find potentially bright elements
   const images = document.querySelectorAll('img');
   const videos = document.querySelectorAll('video');
-  const brightBgs = document.querySelectorAll('[style*="background"]');
+  // const _brightBgs = document.querySelectorAll('[style*="background"]'); // Reserved for future use
 
   // Check each image
   images.forEach(img => {
@@ -393,7 +404,9 @@ function detectAndReduceGlare() {
  */
 function checkImageBrightness(img) {
   // Skip small images
-  if (img.width < 100 || img.height < 100) return;
+  if (img.width < 100 || img.height < 100) {
+    return;
+  }
 
   try {
     // Sample image brightness using canvas
@@ -423,7 +436,7 @@ function checkImageBrightness(img) {
       img.style.filter = `brightness(${1 - dimAmount})`;
       console.log(`[LightAdapt] Dimmed bright image (brightness: ${Math.round(avgBrightness)})`);
     }
-  } catch (error) {
+  } catch {
     // Cross-origin images will fail - that's OK
   }
 }
@@ -458,7 +471,9 @@ function applyTimeOfDayProfile() {
 
   // Only apply if user hasn't set a custom brightness
   if (!lightAdapt_settings.targetBrightness) {
-    console.log(`[LightAdapt] Applying time-of-day profile: ${suggestedBrightness}% (hour: ${hour})`);
+    console.log(
+      `[LightAdapt] Applying time-of-day profile: ${suggestedBrightness}% (hour: ${hour})`
+    );
     lightAdapt_targetBrightness = suggestedBrightness;
     if (lightAdapt_enabled) {
       transitionToBrightness(suggestedBrightness);
