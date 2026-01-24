@@ -473,5 +473,82 @@ button,
 
 ---
 
-**Last Updated:** 2025-01-21
-**Next Review:** After next UI bug encounter
+## ✅ Fix Applied: January 24, 2026
+
+### What Was Done
+
+**Comprehensive event handler refactoring** to prevent recurring UI breakage pattern.
+
+**Changes:**
+
+- Created `attachInteractiveHandler()` helper function in `popup.js`
+- Replaced **83 `addEventListener('click')` patterns** with `onmousedown` approach
+- Added comprehensive debug logging throughout initialization sequence
+- Fixed missing `contextMenus` permission in manifest.json (service worker crash)
+
+**Files Modified:**
+
+- `src/popup/popup.js` - Main refactoring (~500 lines changed)
+- `manifest.json` - Added `contextMenus` permission
+
+**Pattern Used:**
+
+```javascript
+// Helper function (added at line ~630)
+attachInteractiveHandler(element, label, handler) {
+  if (!element) {
+    console.warn(`[Popup] Element not found for: ${label}`);
+    return;
+  }
+
+  element.onmousedown = e => {
+    console.log(`[Popup] ${label} triggered`);
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      handler(e);
+    } catch (error) {
+      console.error(`[Popup] ${label} error:`, error);
+      this.updateStatus(`Error: ${error.message}`, 'error');
+    }
+  };
+
+  // Visual feedback
+  element.onmouseenter = () => element.style.transform = 'scale(1.05)';
+  element.onmouseleave = () => element.style.transform = 'scale(1)';
+}
+
+// Usage (83 replacements throughout popup.js)
+this.attachInteractiveHandler(
+  document.getElementById('btn-reset'),
+  'Reset Button',
+  () => this.resetToDefaults()
+);
+```
+
+**Impact:**
+
+- All popup UI interactions now use mousedown pattern
+- Debug logging enables faster future debugging
+- Service worker now starts reliably (contextMenus permission fix)
+- Prevents race conditions with document-level mousedown listeners
+
+**Testing:**
+
+- ✅ Build completed successfully
+- ✅ Service worker starts (no longer crashes)
+- ✅ Popup initialization completes fully
+- ⚠️ Full UI interaction testing recommended
+
+**Prevention Measures Going Forward:**
+
+1. ❌ NEVER use `addEventListener('click')` in popup.js
+2. ✅ ALWAYS use `attachInteractiveHandler()` for new buttons
+3. ✅ ALWAYS verify `contextMenus` permission exists in manifest
+4. ✅ Use aggressive debug logging when issues occur
+
+---
+
+**Last Updated:** 2026-01-24
+**Next Review:** After next UI bug encounter (or if buttons stop responding)

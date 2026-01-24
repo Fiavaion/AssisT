@@ -123,7 +123,7 @@ class OrganizeMode {
       visibilityToggle.innerHTML = sanitizeHTML(
         `<span class="visibility-icon">${isVisible ? '👁️' : '👁️‍🗨️'}</span>`
       );
-      visibilityToggle.addEventListener('click', e => {
+      this.attachInteractiveHandler(visibilityToggle, 'Section Visibility Toggle', e => {
         e.stopPropagation();
         this.toggleSectionVisibility(sectionId, visibilityToggle);
       });
@@ -133,7 +133,7 @@ class OrganizeMode {
       editTitleBtn.className = 'edit-title-btn';
       editTitleBtn.setAttribute('aria-label', 'Edit section title');
       editTitleBtn.innerHTML = sanitizeHTML('✏️');
-      editTitleBtn.addEventListener('click', e => {
+      this.attachInteractiveHandler(editTitleBtn, 'Edit Section Title Button', e => {
         e.stopPropagation();
         this.editSectionTitle(sectionId);
       });
@@ -154,14 +154,22 @@ class OrganizeMode {
         <button class="move-btn move-up" aria-label="Move section up" title="Move up">▲</button>
         <button class="move-btn move-down" aria-label="Move section down" title="Move down">▼</button>
       `);
-      moveButtons.querySelector('.move-up').addEventListener('click', e => {
-        e.stopPropagation();
-        this.moveSection(section, 'up');
-      });
-      moveButtons.querySelector('.move-down').addEventListener('click', e => {
-        e.stopPropagation();
-        this.moveSection(section, 'down');
-      });
+      this.attachInteractiveHandler(
+        moveButtons.querySelector('.move-up'),
+        'Move Section Up Button',
+        e => {
+          e.stopPropagation();
+          this.moveSection(section, 'up');
+        }
+      );
+      this.attachInteractiveHandler(
+        moveButtons.querySelector('.move-down'),
+        'Move Section Down Button',
+        e => {
+          e.stopPropagation();
+          this.moveSection(section, 'down');
+        }
+      );
 
       // Insert controls
       header.insertBefore(dragHandle, header.firstChild);
@@ -511,25 +519,40 @@ class OrganizeMode {
    * Apply saved layout on popup load
    */
   applyLayout() {
+    console.log('[OrganizeMode][applyLayout] Starting layout application...');
     const layout = this.popup.settings?.ui_layout;
     if (!layout) {
+      console.log('[OrganizeMode][applyLayout] No layout settings found, using defaults');
       return;
     }
 
+    console.log('[OrganizeMode][applyLayout] Layout settings:', layout);
+
     const main = document.querySelector('.popup-main');
+    if (!main) {
+      console.error('[OrganizeMode][applyLayout] ❌ .popup-main element not found!');
+      return;
+    }
 
     // Apply section order
     if (layout.sectionOrder) {
+      console.log('[OrganizeMode][applyLayout] Applying section order:', layout.sectionOrder);
       layout.sectionOrder.forEach(sectionId => {
         const section = document.querySelector(`[data-section="${sectionId}"]`);
         if (section) {
           main.appendChild(section);
+        } else {
+          console.warn('[OrganizeMode][applyLayout] Section not found:', sectionId);
         }
       });
     }
 
     // Apply section visibility
     if (layout.sectionVisibility) {
+      console.log(
+        '[OrganizeMode][applyLayout] Applying section visibility:',
+        layout.sectionVisibility
+      );
       Object.entries(layout.sectionVisibility).forEach(([sectionId, visible]) => {
         const section = document.querySelector(`[data-section="${sectionId}"]`);
         if (section) {
@@ -540,6 +563,7 @@ class OrganizeMode {
 
     // Apply custom titles
     if (layout.sectionTitles) {
+      console.log('[OrganizeMode][applyLayout] Applying custom titles:', layout.sectionTitles);
       Object.entries(layout.sectionTitles).forEach(([sectionId, title]) => {
         const section = document.querySelector(`[data-section="${sectionId}"]`);
         if (section) {
@@ -563,7 +587,7 @@ class OrganizeMode {
       });
     }
 
-    console.log('[OrganizeMode] Layout applied');
+    console.log('[OrganizeMode][applyLayout] ✓ Layout applied successfully');
   }
 
   /**
@@ -607,31 +631,91 @@ class PopupController {
     this.organizeMode = new OrganizeMode(this);
   }
 
+  /**
+   * Attaches mousedown event handler to prevent race conditions
+   * Per LESSONS_UI_EVENT_HANDLING.md - mousedown fires before document listeners
+   * @param {HTMLElement} element - The element to attach handler to
+   * @param {string} label - Debug label for logging
+   * @param {Function} handler - The handler function to execute
+   */
+  attachInteractiveHandler(element, label, handler) {
+    if (!element) {
+      console.warn(`[Popup] Element not found for: ${label}`);
+      return;
+    }
+
+    element.onmousedown = e => {
+      console.log(`[Popup] ${label} triggered`);
+      e.preventDefault();
+      e.stopPropagation();
+
+      try {
+        handler(e);
+      } catch (error) {
+        console.error(`[Popup] ${label} error:`, error);
+        this.updateStatus(`Error: ${error.message}`, 'error');
+      }
+    };
+
+    // Visual feedback
+    element.onmouseenter = () => {
+      element.style.transform = 'scale(1.05)';
+    };
+    element.onmouseleave = () => {
+      element.style.transform = 'scale(1)';
+    };
+  }
+
   async initialize() {
     console.log('[Popup] Initializing...');
 
-    // Get current tab
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    this.currentTab = tabs[0];
+    try {
+      // Get current tab
+      console.log('[Popup] Step 1: Querying current tab...');
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      this.currentTab = tabs[0];
+      console.log('[Popup] Step 1: ✓ Current tab retrieved:', this.currentTab?.id);
 
-    // Load settings
-    await this.loadSettings();
+      // Load settings
+      console.log('[Popup] Step 2: Loading settings...');
+      await this.loadSettings();
+      console.log('[Popup] Step 2: ✓ Settings loaded');
 
-    // Setup UI
-    this.setupEventListeners();
-    this.setupAccordions();
-    this.updateUI();
-    this.loadVoices();
+      // Setup UI
+      console.log('[Popup] Step 3: Setting up event listeners...');
+      this.setupEventListeners();
+      console.log('[Popup] Step 3: ✓ Event listeners setup complete');
 
-    // Apply saved layout (section order, visibility, custom titles)
-    this.organizeMode.applyLayout();
+      console.log('[Popup] Step 4: Setting up accordions...');
+      this.setupAccordions();
+      console.log('[Popup] Step 4: ✓ Accordions setup complete');
 
-    // Setup organize mode event listeners
-    this.setupOrganizeModeListeners();
+      console.log('[Popup] Step 5: Updating UI...');
+      this.updateUI();
+      console.log('[Popup] Step 5: ✓ UI update complete');
 
-    this.isInitialized = true;
-    this.updateStatus('Ready');
-    console.log('[Popup] Initialized');
+      console.log('[Popup] Step 6: Loading voices...');
+      this.loadVoices();
+      console.log('[Popup] Step 6: ✓ Voices loaded');
+
+      // Apply saved layout (section order, visibility, custom titles)
+      console.log('[Popup] Step 7: Applying saved layout...');
+      this.organizeMode.applyLayout();
+      console.log('[Popup] Step 7: ✓ Layout applied');
+
+      // Setup organize mode event listeners
+      console.log('[Popup] Step 8: Setting up organize mode listeners...');
+      this.setupOrganizeModeListeners();
+      console.log('[Popup] Step 8: ✓ Organize mode listeners setup');
+
+      this.isInitialized = true;
+      this.updateStatus('Ready');
+      console.log('[Popup] ✓✓✓ INITIALIZATION COMPLETE ✓✓✓');
+    } catch (error) {
+      console.error('[Popup] ❌ INITIALIZATION FAILED:', error);
+      console.error('[Popup] Error stack:', error.stack);
+      this.updateStatus(`Initialization failed: ${error.message}`, 'error');
+    }
   }
 
   /**
@@ -639,35 +723,39 @@ class PopupController {
    */
   setupOrganizeModeListeners() {
     // Organize button in header
-    const organizeBtn = document.getElementById('btn-organize');
-    if (organizeBtn) {
-      organizeBtn.addEventListener('click', () => {
-        this.organizeMode.toggle();
-      });
-    }
+    this.attachInteractiveHandler(
+      document.getElementById('btn-organize'),
+      'Organize Mode Toggle',
+      () => this.organizeMode.toggle()
+    );
 
     // Done button in organize banner
-    const doneBtn = document.getElementById('btn-organize-done');
-    if (doneBtn) {
-      doneBtn.addEventListener('click', () => {
-        this.organizeMode.exit();
-      });
-    }
+    this.attachInteractiveHandler(
+      document.getElementById('btn-organize-done'),
+      'Organize Mode Done',
+      () => this.organizeMode.exit()
+    );
   }
 
   async loadSettings() {
     try {
+      console.log('[Popup][loadSettings] Sending GET_SETTINGS message to background...');
       const response = await chrome.runtime.sendMessage({
         type: MESSAGE_TYPES.GET_SETTINGS,
       });
+      console.log('[Popup][loadSettings] Response received:', response);
 
       if (response.success) {
         this.settings = response.data;
-        console.log('[Popup] Settings loaded:', this.settings);
+        console.log('[Popup][loadSettings] ✓ Settings loaded successfully:', this.settings);
+      } else {
+        console.error('[Popup][loadSettings] ❌ Response indicated failure:', response);
       }
     } catch (error) {
-      console.error('[Popup] Error loading settings:', error);
+      console.error('[Popup][loadSettings] ❌ Error loading settings:', error);
+      console.error('[Popup][loadSettings] Error stack:', error.stack);
       this.updateStatus('Error loading settings', 'error');
+      throw error; // Re-throw to be caught by initialize()
     }
   }
 
@@ -751,15 +839,33 @@ class PopupController {
    * Initialize accordion sections for cleaner UI organization
    */
   setupAccordions() {
+    console.log('[Popup][setupAccordions] Starting accordion setup...');
     const accordionSections = document.querySelectorAll('.accordion-section');
-    const savedState = this.loadAccordionState();
+    console.log('[Popup][setupAccordions] Found', accordionSections.length, 'accordion sections');
 
+    const savedState = this.loadAccordionState();
+    console.log('[Popup][setupAccordions] Loaded saved state:', savedState);
+
+    let processedCount = 0;
     accordionSections.forEach(section => {
       const header = section.querySelector('.accordion-header');
       const content = section.querySelector('.accordion-content');
       const sectionId = section.dataset.section;
 
+      console.log(
+        '[Popup][setupAccordions] Processing section:',
+        sectionId,
+        'header:',
+        !!header,
+        'content:',
+        !!content
+      );
+
       if (!header || !content) {
+        console.warn(
+          '[Popup][setupAccordions] ⚠️ Missing header or content for section:',
+          sectionId
+        );
         return;
       }
 
@@ -770,14 +876,14 @@ class PopupController {
 
       this.setAccordionState(header, content, isExpanded);
 
-      // Click handler
-      header.addEventListener('click', () => {
+      // Click handler (mousedown to prevent race conditions)
+      this.attachInteractiveHandler(header, `Accordion: ${sectionId}`, () => {
         const currentlyExpanded = header.getAttribute('aria-expanded') === 'true';
         this.setAccordionState(header, content, !currentlyExpanded);
         this.saveAccordionState();
       });
 
-      // Keyboard handler
+      // Keyboard handler (keep for accessibility)
       header.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -786,7 +892,11 @@ class PopupController {
           this.saveAccordionState();
         }
       });
+
+      processedCount++;
     });
+
+    console.log('[Popup][setupAccordions] ✓ Processed', processedCount, 'accordions');
   }
 
   setAccordionState(header, content, expanded) {
@@ -820,789 +930,809 @@ class PopupController {
   }
 
   setupEventListeners() {
-    // Apply visibility settings
-    this.applyVisibilitySettings();
+    console.log('[Popup][setupEventListeners] Starting event listener setup...');
 
-    const optionsContainer = document.getElementById('options-container');
-    const ocrOptionsContainer = document.getElementById('ocr-options-container');
+    try {
+      // Apply visibility settings
+      console.log('[Popup][setupEventListeners] Applying visibility settings...');
+      this.applyVisibilitySettings();
+      console.log('[Popup][setupEventListeners] ✓ Visibility settings applied');
 
-    // ============================================================
-    // OCR ENABLE/DISABLE
-    // ============================================================
-    const ocrEnabled = document.getElementById('ocr-enabled');
-    if (ocrEnabled) {
-      // Initialize OCR settings if they don't exist
-      if (!this.settings.ocr) {
-        this.settings.ocr = {
-          enabled: true,
-          autoActivateReadingMode: true,
-          filterNoise: true,
-          upscaleFactor: 1.5,
-        };
-      }
+      const optionsContainer = document.getElementById('options-container');
+      const ocrOptionsContainer = document.getElementById('ocr-options-container');
 
-      ocrEnabled.checked = this.settings.ocr.enabled !== false;
+      // ============================================================
+      // OCR ENABLE/DISABLE
+      // ============================================================
+      const ocrEnabled = document.getElementById('ocr-enabled');
+      if (ocrEnabled) {
+        // Initialize OCR settings if they don't exist
+        if (!this.settings.ocr) {
+          this.settings.ocr = {
+            enabled: true,
+            autoActivateReadingMode: true,
+            filterNoise: true,
+            upscaleFactor: 1.5,
+          };
+        }
 
-      // Show/hide OCR options based on enabled state
-      if (ocrEnabled.checked) {
-        ocrOptionsContainer.classList.remove('hidden');
-      } else {
-        ocrOptionsContainer.classList.add('hidden');
-      }
+        ocrEnabled.checked = this.settings.ocr.enabled !== false;
 
-      ocrEnabled.addEventListener('change', e => {
-        this.settings.ocr.enabled = e.target.checked;
-        this.saveSettings();
-
-        // Toggle OCR options visibility
-        if (e.target.checked) {
+        // Show/hide OCR options based on enabled state
+        if (ocrEnabled.checked) {
           ocrOptionsContainer.classList.remove('hidden');
         } else {
           ocrOptionsContainer.classList.add('hidden');
         }
-      });
-    }
 
-    // TTS Enable/Disable
-    const ttsEnabled = document.getElementById('tts-enabled');
-    ttsEnabled.checked = this.settings?.tts?.enabled || false;
+        ocrEnabled.addEventListener('change', e => {
+          this.settings.ocr.enabled = e.target.checked;
+          this.saveSettings();
 
-    // Show/hide options based on TTS enabled state
-    if (ttsEnabled.checked) {
-      optionsContainer.classList.remove('hidden');
-    } else {
-      optionsContainer.classList.add('hidden');
-    }
+          // Toggle OCR options visibility
+          if (e.target.checked) {
+            ocrOptionsContainer.classList.remove('hidden');
+          } else {
+            ocrOptionsContainer.classList.add('hidden');
+          }
+        });
+      }
 
-    ttsEnabled.addEventListener('change', e => {
-      this.settings.tts.enabled = e.target.checked;
-      this.saveSettings();
+      // TTS Enable/Disable
+      const ttsEnabled = document.getElementById('tts-enabled');
+      ttsEnabled.checked = this.settings?.tts?.enabled || false;
 
-      // Toggle options visibility
-      if (e.target.checked) {
+      // Show/hide options based on TTS enabled state
+      if (ttsEnabled.checked) {
         optionsContainer.classList.remove('hidden');
       } else {
         optionsContainer.classList.add('hidden');
       }
 
-      this.sendCommandToTab(e.target.checked ? 'enable' : 'disable');
-    });
-
-    // ============================================================
-    // SPRINT 6 FEATURE: READ ENTIRE PAGE
-    // ============================================================
-    const btnReadPage = document.getElementById('btn-read-page');
-    btnReadPage.addEventListener('click', () => {
-      console.log('[Popup] Read Page button clicked');
-      this.sendCommandToTab('readPage');
-      this.updateStatus('Reading page...', 'speaking');
-    });
-
-    // ============================================================
-    // OCR FEATURE: TRIGGER OCR CAPTURE
-    // ============================================================
-    const btnTriggerOCR = document.getElementById('btn-trigger-ocr');
-    if (btnTriggerOCR) {
-      btnTriggerOCR.addEventListener('click', async () => {
-        console.log('[Popup] OCR button clicked');
-        this.updateStatus('Starting OCR...', 'processing');
-
-        try {
-          // Send message to content script to trigger OCR
-          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: 'TRIGGER_OCR',
-          });
-
-          if (response && response.success) {
-            this.updateStatus('OCR complete!', 'success');
-          } else {
-            this.updateStatus('OCR failed', 'error');
-          }
-        } catch (error) {
-          console.error('[Popup] OCR trigger failed:', error);
-          this.updateStatus('OCR error: ' + error.message, 'error');
-        }
-      });
-    }
-
-    // ============================================================
-    // OCR SETTINGS: AUTO-ACTIVATE READING MODE
-    // ============================================================
-    const ocrAutoReadingMode = document.getElementById('ocr-auto-reading-mode');
-    if (ocrAutoReadingMode) {
-      // Initialize OCR settings if they don't exist
-      if (!this.settings.ocr) {
-        this.settings.ocr = {
-          autoActivateReadingMode: true,
-          filterNoise: true,
-          upscaleFactor: 1.5,
-        };
-      }
-
-      // Set initial state from settings
-      ocrAutoReadingMode.checked = this.settings.ocr.autoActivateReadingMode !== false;
-
-      // Handle toggle changes
-      ocrAutoReadingMode.addEventListener('change', e => {
-        this.settings.ocr.autoActivateReadingMode = e.target.checked;
+      ttsEnabled.addEventListener('change', e => {
+        this.settings.tts.enabled = e.target.checked;
         this.saveSettings();
-        console.log('[Popup] OCR auto-activate reading mode:', e.target.checked);
-      });
-    }
-
-    // ============================================================
-    // OCR SETTINGS: UPSCALE FACTOR SLIDER
-    // ============================================================
-    const ocrUpscaleSlider = document.getElementById('ocr-upscale-factor');
-    const ocrUpscaleLabel = document.getElementById('ocr-upscale-label');
-    if (ocrUpscaleSlider && ocrUpscaleLabel) {
-      // Initialize default if not set
-      if (!this.settings.ocr) {
-        this.settings.ocr = {
-          autoActivateReadingMode: true,
-          filterNoise: true,
-          upscaleFactor: 1.5,
-        };
-      }
-
-      // Get quality label for upscale factor
-      const getQualityLabel = factor => {
-        if (factor <= 1.0) {
-          return 'Low (1.0x)';
-        }
-        if (factor <= 1.4) {
-          return 'Medium-Low (1.3x)';
-        }
-        if (factor <= 1.6) {
-          return 'Medium (1.5x)';
-        }
-        if (factor <= 1.8) {
-          return 'Medium-High (1.8x)';
-        }
-        return 'High (2.0x)';
-      };
-
-      // Set initial state from settings
-      const initialFactor = this.settings.ocr.upscaleFactor ?? 1.5;
-      ocrUpscaleSlider.value = initialFactor;
-      ocrUpscaleLabel.textContent = getQualityLabel(initialFactor);
-
-      // Handle slider changes
-      ocrUpscaleSlider.addEventListener('input', e => {
-        const factor = parseFloat(e.target.value);
-        ocrUpscaleLabel.textContent = getQualityLabel(factor);
-        this.settings.ocr.upscaleFactor = factor;
-        this.saveSettings();
-        console.log('[Popup] OCR upscale factor:', factor);
-      });
-    }
-
-    // ============================================================
-    // OCR SETTINGS: LANGUAGE SELECTION
-    // ============================================================
-    const ocrLanguageSelect = document.getElementById('ocr-language');
-    if (ocrLanguageSelect) {
-      // Initialize default if not set
-      if (!this.settings.ocr) {
-        this.settings.ocr = {
-          autoActivateReadingMode: true,
-          filterNoise: true,
-          upscaleFactor: 1.5,
-          language: 'eng',
-          confidenceThreshold: 60,
-          autoTTS: true,
-        };
-      }
-
-      // Set initial state from settings
-      ocrLanguageSelect.value = this.settings.ocr.language || 'eng';
-
-      // Handle language changes
-      ocrLanguageSelect.addEventListener('change', e => {
-        this.settings.ocr.language = e.target.value;
-        this.saveSettings();
-        console.log('[Popup] OCR language changed to:', e.target.value);
-      });
-    }
-
-    // ============================================================
-    // OCR SETTINGS: CONFIDENCE THRESHOLD SLIDER
-    // ============================================================
-    const ocrConfidenceSlider = document.getElementById('ocr-confidence-threshold');
-    const ocrConfidenceLabel = document.getElementById('ocr-confidence-label');
-    if (ocrConfidenceSlider && ocrConfidenceLabel) {
-      // Initialize default if not set
-      if (!this.settings.ocr) {
-        this.settings.ocr = {
-          autoActivateReadingMode: true,
-          filterNoise: true,
-          upscaleFactor: 1.5,
-          language: 'eng',
-          confidenceThreshold: 60,
-          autoTTS: true,
-        };
-      }
-
-      // Set initial state from settings
-      const initialConfidence = this.settings.ocr.confidenceThreshold ?? 60;
-      ocrConfidenceSlider.value = initialConfidence;
-      ocrConfidenceLabel.textContent = `${initialConfidence}%`;
-
-      // Handle slider changes
-      ocrConfidenceSlider.addEventListener('input', e => {
-        const confidence = parseInt(e.target.value, 10);
-        ocrConfidenceLabel.textContent = `${confidence}%`;
-        this.settings.ocr.confidenceThreshold = confidence;
-        this.saveSettings();
-        console.log('[Popup] OCR confidence threshold:', confidence);
-      });
-    }
-
-    // ============================================================
-    // OCR SETTINGS: AUTO-TTS TOGGLE
-    // ============================================================
-    const ocrAutoTTS = document.getElementById('ocr-auto-tts');
-    if (ocrAutoTTS) {
-      // Initialize OCR settings if they don't exist
-      if (!this.settings.ocr) {
-        this.settings.ocr = {
-          autoActivateReadingMode: true,
-          filterNoise: true,
-          upscaleFactor: 1.5,
-          language: 'eng',
-          confidenceThreshold: 60,
-          autoTTS: true,
-        };
-      }
-
-      // Set initial state from settings
-      ocrAutoTTS.checked = this.settings.ocr.autoTTS !== false;
-
-      // Handle toggle changes
-      ocrAutoTTS.addEventListener('change', e => {
-        this.settings.ocr.autoTTS = e.target.checked;
-        this.saveSettings();
-        console.log('[Popup] OCR auto-TTS:', e.target.checked);
-      });
-    }
-
-    // ============================================================
-    // HIGHLIGHT MENU ENABLE/DISABLE
-    // ============================================================
-    const highlightMenuEnabled = document.getElementById('highlight-menu-enabled');
-    const highlightMenuOptionsContainer = document.getElementById(
-      'highlight-menu-options-container'
-    );
-
-    if (highlightMenuEnabled && highlightMenuOptionsContainer) {
-      // Initialize Highlight Menu settings if they don't exist
-      if (!this.settings.highlightMenu) {
-        this.settings.highlightMenu = {
-          enabled: true,
-          showTTS: true,
-          showDictionary: true,
-          showTranslate: true,
-          showSearch: true,
-          showAnnotate: true,
-          showCopy: true,
-          autoHideDelay: 5000,
-        };
-      }
-
-      highlightMenuEnabled.checked = this.settings.highlightMenu.enabled !== false;
-
-      // Show/hide options based on enabled state
-      if (highlightMenuEnabled.checked) {
-        highlightMenuOptionsContainer.classList.remove('hidden');
-      } else {
-        highlightMenuOptionsContainer.classList.add('hidden');
-      }
-
-      highlightMenuEnabled.addEventListener('change', e => {
-        this.settings.highlightMenu.enabled = e.target.checked;
-        this.saveSettings();
-        // Also save to highlightMenuSettings for the feature to read
-        this.saveHighlightMenuSettings();
 
         // Toggle options visibility
         if (e.target.checked) {
+          optionsContainer.classList.remove('hidden');
+        } else {
+          optionsContainer.classList.add('hidden');
+        }
+
+        this.sendCommandToTab(e.target.checked ? 'enable' : 'disable');
+      });
+
+      // ============================================================
+      // SPRINT 6 FEATURE: READ ENTIRE PAGE
+      // ============================================================
+      const btnReadPage = document.getElementById('btn-read-page');
+      this.attachInteractiveHandler(btnReadPage, 'Read Page Button', () => {
+        console.log('[Popup] Read Page button clicked');
+        this.sendCommandToTab('readPage');
+        this.updateStatus('Reading page...', 'speaking');
+      });
+
+      // ============================================================
+      // OCR FEATURE: TRIGGER OCR CAPTURE
+      // ============================================================
+      const btnTriggerOCR = document.getElementById('btn-trigger-ocr');
+      if (btnTriggerOCR) {
+        this.attachInteractiveHandler(btnTriggerOCR, 'OCR Trigger Button', async () => {
+          console.log('[Popup] OCR button clicked');
+          this.updateStatus('Starting OCR...', 'processing');
+
+          try {
+            // Send message to content script to trigger OCR
+            const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+              type: 'TRIGGER_OCR',
+            });
+
+            if (response && response.success) {
+              this.updateStatus('OCR complete!', 'success');
+            } else {
+              this.updateStatus('OCR failed', 'error');
+            }
+          } catch (error) {
+            console.error('[Popup] OCR trigger failed:', error);
+            this.updateStatus('OCR error: ' + error.message, 'error');
+          }
+        });
+      }
+
+      // ============================================================
+      // OCR SETTINGS: AUTO-ACTIVATE READING MODE
+      // ============================================================
+      const ocrAutoReadingMode = document.getElementById('ocr-auto-reading-mode');
+      if (ocrAutoReadingMode) {
+        // Initialize OCR settings if they don't exist
+        if (!this.settings.ocr) {
+          this.settings.ocr = {
+            autoActivateReadingMode: true,
+            filterNoise: true,
+            upscaleFactor: 1.5,
+          };
+        }
+
+        // Set initial state from settings
+        ocrAutoReadingMode.checked = this.settings.ocr.autoActivateReadingMode !== false;
+
+        // Handle toggle changes
+        ocrAutoReadingMode.addEventListener('change', e => {
+          this.settings.ocr.autoActivateReadingMode = e.target.checked;
+          this.saveSettings();
+          console.log('[Popup] OCR auto-activate reading mode:', e.target.checked);
+        });
+      }
+
+      // ============================================================
+      // OCR SETTINGS: UPSCALE FACTOR SLIDER
+      // ============================================================
+      const ocrUpscaleSlider = document.getElementById('ocr-upscale-factor');
+      const ocrUpscaleLabel = document.getElementById('ocr-upscale-label');
+      if (ocrUpscaleSlider && ocrUpscaleLabel) {
+        // Initialize default if not set
+        if (!this.settings.ocr) {
+          this.settings.ocr = {
+            autoActivateReadingMode: true,
+            filterNoise: true,
+            upscaleFactor: 1.5,
+          };
+        }
+
+        // Get quality label for upscale factor
+        const getQualityLabel = factor => {
+          if (factor <= 1.0) {
+            return 'Low (1.0x)';
+          }
+          if (factor <= 1.4) {
+            return 'Medium-Low (1.3x)';
+          }
+          if (factor <= 1.6) {
+            return 'Medium (1.5x)';
+          }
+          if (factor <= 1.8) {
+            return 'Medium-High (1.8x)';
+          }
+          return 'High (2.0x)';
+        };
+
+        // Set initial state from settings
+        const initialFactor = this.settings.ocr.upscaleFactor ?? 1.5;
+        ocrUpscaleSlider.value = initialFactor;
+        ocrUpscaleLabel.textContent = getQualityLabel(initialFactor);
+
+        // Handle slider changes
+        ocrUpscaleSlider.addEventListener('input', e => {
+          const factor = parseFloat(e.target.value);
+          ocrUpscaleLabel.textContent = getQualityLabel(factor);
+          this.settings.ocr.upscaleFactor = factor;
+          this.saveSettings();
+          console.log('[Popup] OCR upscale factor:', factor);
+        });
+      }
+
+      // ============================================================
+      // OCR SETTINGS: LANGUAGE SELECTION
+      // ============================================================
+      const ocrLanguageSelect = document.getElementById('ocr-language');
+      if (ocrLanguageSelect) {
+        // Initialize default if not set
+        if (!this.settings.ocr) {
+          this.settings.ocr = {
+            autoActivateReadingMode: true,
+            filterNoise: true,
+            upscaleFactor: 1.5,
+            language: 'eng',
+            confidenceThreshold: 60,
+            autoTTS: true,
+          };
+        }
+
+        // Set initial state from settings
+        ocrLanguageSelect.value = this.settings.ocr.language || 'eng';
+
+        // Handle language changes
+        ocrLanguageSelect.addEventListener('change', e => {
+          this.settings.ocr.language = e.target.value;
+          this.saveSettings();
+          console.log('[Popup] OCR language changed to:', e.target.value);
+        });
+      }
+
+      // ============================================================
+      // OCR SETTINGS: CONFIDENCE THRESHOLD SLIDER
+      // ============================================================
+      const ocrConfidenceSlider = document.getElementById('ocr-confidence-threshold');
+      const ocrConfidenceLabel = document.getElementById('ocr-confidence-label');
+      if (ocrConfidenceSlider && ocrConfidenceLabel) {
+        // Initialize default if not set
+        if (!this.settings.ocr) {
+          this.settings.ocr = {
+            autoActivateReadingMode: true,
+            filterNoise: true,
+            upscaleFactor: 1.5,
+            language: 'eng',
+            confidenceThreshold: 60,
+            autoTTS: true,
+          };
+        }
+
+        // Set initial state from settings
+        const initialConfidence = this.settings.ocr.confidenceThreshold ?? 60;
+        ocrConfidenceSlider.value = initialConfidence;
+        ocrConfidenceLabel.textContent = `${initialConfidence}%`;
+
+        // Handle slider changes
+        ocrConfidenceSlider.addEventListener('input', e => {
+          const confidence = parseInt(e.target.value, 10);
+          ocrConfidenceLabel.textContent = `${confidence}%`;
+          this.settings.ocr.confidenceThreshold = confidence;
+          this.saveSettings();
+          console.log('[Popup] OCR confidence threshold:', confidence);
+        });
+      }
+
+      // ============================================================
+      // OCR SETTINGS: AUTO-TTS TOGGLE
+      // ============================================================
+      const ocrAutoTTS = document.getElementById('ocr-auto-tts');
+      if (ocrAutoTTS) {
+        // Initialize OCR settings if they don't exist
+        if (!this.settings.ocr) {
+          this.settings.ocr = {
+            autoActivateReadingMode: true,
+            filterNoise: true,
+            upscaleFactor: 1.5,
+            language: 'eng',
+            confidenceThreshold: 60,
+            autoTTS: true,
+          };
+        }
+
+        // Set initial state from settings
+        ocrAutoTTS.checked = this.settings.ocr.autoTTS !== false;
+
+        // Handle toggle changes
+        ocrAutoTTS.addEventListener('change', e => {
+          this.settings.ocr.autoTTS = e.target.checked;
+          this.saveSettings();
+          console.log('[Popup] OCR auto-TTS:', e.target.checked);
+        });
+      }
+
+      // ============================================================
+      // HIGHLIGHT MENU ENABLE/DISABLE
+      // ============================================================
+      const highlightMenuEnabled = document.getElementById('highlight-menu-enabled');
+      const highlightMenuOptionsContainer = document.getElementById(
+        'highlight-menu-options-container'
+      );
+
+      if (highlightMenuEnabled && highlightMenuOptionsContainer) {
+        // Initialize Highlight Menu settings if they don't exist
+        if (!this.settings.highlightMenu) {
+          this.settings.highlightMenu = {
+            enabled: true,
+            showTTS: true,
+            showDictionary: true,
+            showTranslate: true,
+            showSearch: true,
+            showAnnotate: true,
+            showCopy: true,
+            autoHideDelay: 5000,
+          };
+        }
+
+        highlightMenuEnabled.checked = this.settings.highlightMenu.enabled !== false;
+
+        // Show/hide options based on enabled state
+        if (highlightMenuEnabled.checked) {
           highlightMenuOptionsContainer.classList.remove('hidden');
         } else {
           highlightMenuOptionsContainer.classList.add('hidden');
         }
 
-        console.log('[Popup] Highlight Menu enabled:', e.target.checked);
-      });
-    }
-
-    // ============================================================
-    // HIGHLIGHT MENU SETTINGS: BUTTON TOGGLES
-    // ============================================================
-    const buttonToggles = [
-      { id: 'highlight-menu-show-tts', key: 'showTTS' },
-      { id: 'highlight-menu-show-dictionary', key: 'showDictionary' },
-      { id: 'highlight-menu-show-translate', key: 'showTranslate' },
-      { id: 'highlight-menu-show-search', key: 'showSearch' },
-      { id: 'highlight-menu-show-annotate', key: 'showAnnotate' },
-      { id: 'highlight-menu-show-copy', key: 'showCopy' },
-    ];
-
-    buttonToggles.forEach(({ id, key }) => {
-      const toggle = document.getElementById(id);
-      console.log(`[Popup] Looking for toggle ${id}:`, toggle ? 'FOUND' : 'NOT FOUND');
-      if (toggle) {
-        // Initialize settings
-        if (!this.settings.highlightMenu) {
-          this.settings.highlightMenu = {};
-        }
-
-        // Set initial checked state
-        toggle.checked = this.settings.highlightMenu[key] !== false;
-        console.log(`[Popup] Toggle ${id} initial state:`, toggle.checked);
-
-        // Add change listener
-        toggle.addEventListener('change', e => {
-          console.log(`[Popup] Toggle ${id} CHANGED to:`, e.target.checked);
-          this.settings.highlightMenu[key] = e.target.checked;
+        highlightMenuEnabled.addEventListener('change', e => {
+          this.settings.highlightMenu.enabled = e.target.checked;
           this.saveSettings();
           // Also save to highlightMenuSettings for the feature to read
           this.saveHighlightMenuSettings();
-          console.log(`[Popup] Highlight Menu ${key}:`, e.target.checked);
+
+          // Toggle options visibility
+          if (e.target.checked) {
+            highlightMenuOptionsContainer.classList.remove('hidden');
+          } else {
+            highlightMenuOptionsContainer.classList.add('hidden');
+          }
+
+          console.log('[Popup] Highlight Menu enabled:', e.target.checked);
         });
       }
-    });
 
-    // ============================================================
-    // HIGHLIGHT MENU SETTINGS: AUTO-HIDE DELAY SLIDER
-    // ============================================================
-    const highlightMenuDelaySlider = document.getElementById('highlight-menu-auto-hide-delay');
-    const highlightMenuDelayLabel = document.getElementById('highlight-menu-delay-label');
+      // ============================================================
+      // HIGHLIGHT MENU SETTINGS: BUTTON TOGGLES
+      // ============================================================
+      const buttonToggles = [
+        { id: 'highlight-menu-show-tts', key: 'showTTS' },
+        { id: 'highlight-menu-show-dictionary', key: 'showDictionary' },
+        { id: 'highlight-menu-show-translate', key: 'showTranslate' },
+        { id: 'highlight-menu-show-search', key: 'showSearch' },
+        { id: 'highlight-menu-show-annotate', key: 'showAnnotate' },
+        { id: 'highlight-menu-show-copy', key: 'showCopy' },
+      ];
 
-    if (highlightMenuDelaySlider && highlightMenuDelayLabel) {
-      // Initialize default if not set
-      if (!this.settings.highlightMenu) {
-        this.settings.highlightMenu = { autoHideDelay: 5000 };
-      }
-
-      // Set initial value
-      const delayValue = this.settings.highlightMenu.autoHideDelay || 5000;
-      highlightMenuDelaySlider.value = delayValue;
-      highlightMenuDelayLabel.textContent = `${delayValue / 1000} second${delayValue === 1000 ? '' : 's'}`;
-
-      // Add input listener
-      highlightMenuDelaySlider.addEventListener('input', e => {
-        const delay = parseInt(e.target.value);
-        highlightMenuDelayLabel.textContent = `${delay / 1000} second${delay === 1000 ? '' : 's'}`;
-        this.settings.highlightMenu.autoHideDelay = delay;
-        this.saveSettings();
-        // Also save to highlightMenuSettings for the feature to read
-        this.saveHighlightMenuSettings();
-        console.log('[Popup] Highlight Menu auto-hide delay:', delay);
-      });
-    }
-
-    // ============================================================
-    // TRANSLATION: TRANSLATE PAGE BUTTON
-    // ============================================================
-    const btnTranslatePage = document.getElementById('btn-translate-page');
-    const targetLanguageSelect = document.getElementById('translation-target-language');
-
-    if (btnTranslatePage && targetLanguageSelect) {
-      // Set initial target language from settings
-      targetLanguageSelect.value = this.settings.translation?.targetLanguage || 'en';
-
-      // Handle target language change
-      targetLanguageSelect.addEventListener('change', e => {
-        if (!this.settings.translation) {
-          this.settings.translation = { enabled: true };
-        }
-        this.settings.translation.targetLanguage = e.target.value;
-        this.saveSettings();
-        console.log('[Popup] Translation target language:', e.target.value);
-      });
-
-      // Handle translate page button click
-      btnTranslatePage.addEventListener('click', async () => {
-        console.log('[Popup] Translate Page button clicked');
-        this.updateStatus('Translating page...', 'processing');
-
-        const targetLang = targetLanguageSelect.value;
-
-        try {
-          // Send message to content script to trigger full-page translation
-          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: 'TRANSLATE_PAGE',
-            targetLang: targetLang,
-          });
-
-          if (response && response.success) {
-            this.updateStatus('Page translated!', 'success');
-          } else {
-            this.updateStatus('Translation failed', 'error');
+      buttonToggles.forEach(({ id, key }) => {
+        const toggle = document.getElementById(id);
+        console.log(`[Popup] Looking for toggle ${id}:`, toggle ? 'FOUND' : 'NOT FOUND');
+        if (toggle) {
+          // Initialize settings
+          if (!this.settings.highlightMenu) {
+            this.settings.highlightMenu = {};
           }
-        } catch (error) {
-          console.error('[Popup] Translation trigger failed:', error);
-          this.updateStatus('Translation error: ' + error.message, 'error');
+
+          // Set initial checked state
+          toggle.checked = this.settings.highlightMenu[key] !== false;
+          console.log(`[Popup] Toggle ${id} initial state:`, toggle.checked);
+
+          // Add change listener
+          toggle.addEventListener('change', e => {
+            console.log(`[Popup] Toggle ${id} CHANGED to:`, e.target.checked);
+            this.settings.highlightMenu[key] = e.target.checked;
+            this.saveSettings();
+            // Also save to highlightMenuSettings for the feature to read
+            this.saveHighlightMenuSettings();
+            console.log(`[Popup] Highlight Menu ${key}:`, e.target.checked);
+          });
         }
       });
-    }
 
-    // ============================================================
-    // CITATION: ENABLE/DISABLE TOGGLE
-    // ============================================================
-    const citationEnabled = document.getElementById('citation-enabled');
-    const citationOptionsContainer = document.getElementById('citation-options-container');
+      // ============================================================
+      // HIGHLIGHT MENU SETTINGS: AUTO-HIDE DELAY SLIDER
+      // ============================================================
+      const highlightMenuDelaySlider = document.getElementById('highlight-menu-auto-hide-delay');
+      const highlightMenuDelayLabel = document.getElementById('highlight-menu-delay-label');
 
-    if (citationEnabled && citationOptionsContainer) {
-      // Set initial state from settings
-      citationEnabled.checked = this.settings.citation?.enabled !== false; // Default to true
+      if (highlightMenuDelaySlider && highlightMenuDelayLabel) {
+        // Initialize default if not set
+        if (!this.settings.highlightMenu) {
+          this.settings.highlightMenu = { autoHideDelay: 5000 };
+        }
 
-      // Initial visibility
-      if (citationEnabled.checked) {
-        citationOptionsContainer.classList.remove('hidden');
-      } else {
-        citationOptionsContainer.classList.add('hidden');
+        // Set initial value
+        const delayValue = this.settings.highlightMenu.autoHideDelay || 5000;
+        highlightMenuDelaySlider.value = delayValue;
+        highlightMenuDelayLabel.textContent = `${delayValue / 1000} second${delayValue === 1000 ? '' : 's'}`;
+
+        // Add input listener
+        highlightMenuDelaySlider.addEventListener('input', e => {
+          const delay = parseInt(e.target.value);
+          highlightMenuDelayLabel.textContent = `${delay / 1000} second${delay === 1000 ? '' : 's'}`;
+          this.settings.highlightMenu.autoHideDelay = delay;
+          this.saveSettings();
+          // Also save to highlightMenuSettings for the feature to read
+          this.saveHighlightMenuSettings();
+          console.log('[Popup] Highlight Menu auto-hide delay:', delay);
+        });
       }
 
-      // Handle toggle
-      citationEnabled.addEventListener('change', e => {
-        if (!this.settings.citation) {
-          this.settings.citation = { enabled: true };
-        }
-        this.settings.citation.enabled = e.target.checked;
-        this.saveSettings();
+      // ============================================================
+      // TRANSLATION: TRANSLATE PAGE BUTTON
+      // ============================================================
+      const btnTranslatePage = document.getElementById('btn-translate-page');
+      const targetLanguageSelect = document.getElementById('translation-target-language');
 
-        // Toggle options visibility
-        if (e.target.checked) {
+      if (btnTranslatePage && targetLanguageSelect) {
+        // Set initial target language from settings
+        targetLanguageSelect.value = this.settings.translation?.targetLanguage || 'en';
+
+        // Handle target language change
+        targetLanguageSelect.addEventListener('change', e => {
+          if (!this.settings.translation) {
+            this.settings.translation = { enabled: true };
+          }
+          this.settings.translation.targetLanguage = e.target.value;
+          this.saveSettings();
+          console.log('[Popup] Translation target language:', e.target.value);
+        });
+
+        // Handle translate page button click
+        this.attachInteractiveHandler(btnTranslatePage, 'Translate Page Button', async () => {
+          console.log('[Popup] Translate Page button clicked');
+          this.updateStatus('Translating page...', 'processing');
+
+          const targetLang = targetLanguageSelect.value;
+
+          try {
+            // Send message to content script to trigger full-page translation
+            const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+              type: 'TRANSLATE_PAGE',
+              targetLang: targetLang,
+            });
+
+            if (response && response.success) {
+              this.updateStatus('Page translated!', 'success');
+            } else {
+              this.updateStatus('Translation failed', 'error');
+            }
+          } catch (error) {
+            console.error('[Popup] Translation trigger failed:', error);
+            this.updateStatus('Translation error: ' + error.message, 'error');
+          }
+        });
+      }
+
+      // ============================================================
+      // CITATION: ENABLE/DISABLE TOGGLE
+      // ============================================================
+      const citationEnabled = document.getElementById('citation-enabled');
+      const citationOptionsContainer = document.getElementById('citation-options-container');
+
+      if (citationEnabled && citationOptionsContainer) {
+        // Set initial state from settings
+        citationEnabled.checked = this.settings.citation?.enabled !== false; // Default to true
+
+        // Initial visibility
+        if (citationEnabled.checked) {
           citationOptionsContainer.classList.remove('hidden');
         } else {
           citationOptionsContainer.classList.add('hidden');
         }
 
-        console.log('[Popup] Citation enabled:', e.target.checked);
-      });
-    }
+        // Handle toggle
+        citationEnabled.addEventListener('change', e => {
+          if (!this.settings.citation) {
+            this.settings.citation = { enabled: true };
+          }
+          this.settings.citation.enabled = e.target.checked;
+          this.saveSettings();
 
-    // ============================================================
-    // CITATION: SAVE CITATION BUTTON
-    // ============================================================
-    const btnSaveCitation = document.getElementById('btn-save-citation');
+          // Toggle options visibility
+          if (e.target.checked) {
+            citationOptionsContainer.classList.remove('hidden');
+          } else {
+            citationOptionsContainer.classList.add('hidden');
+          }
 
-    if (btnSaveCitation) {
-      btnSaveCitation.addEventListener('click', async () => {
-        console.log('[Popup] Save Citation button clicked');
-        this.updateStatus('Extracting citation...', 'processing');
+          console.log('[Popup] Citation enabled:', e.target.checked);
+        });
+      }
 
-        try {
-          // Send message to content script to extract and save citation
-          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: 'SAVE_CITATION',
-          });
+      // ============================================================
+      // CITATION: SAVE CITATION BUTTON
+      // ============================================================
+      const btnSaveCitation = document.getElementById('btn-save-citation');
 
-          if (response && response.success) {
-            this.updateStatus('Citation saved!', 'success');
-            // Refresh citation count
-            await this.updateCitationCount();
-            // Refresh panel if expanded
-            if (this.citationPanelExpanded && this.citationPanel) {
-              await this.citationPanel.loadCitations();
+      if (btnSaveCitation) {
+        this.attachInteractiveHandler(btnSaveCitation, 'Save Citation Button', async () => {
+          console.log('[Popup] Save Citation button clicked');
+          this.updateStatus('Extracting citation...', 'processing');
+
+          try {
+            // Send message to content script to extract and save citation
+            const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+              type: 'SAVE_CITATION',
+            });
+
+            if (response && response.success) {
+              this.updateStatus('Citation saved!', 'success');
+              // Refresh citation count
+              await this.updateCitationCount();
+              // Refresh panel if expanded
+              if (this.citationPanelExpanded && this.citationPanel) {
+                await this.citationPanel.loadCitations();
+              }
+            } else {
+              this.updateStatus('Failed to save citation', 'error');
             }
-          } else {
-            this.updateStatus('Failed to save citation', 'error');
+          } catch (error) {
+            console.error('[Popup] Citation save failed:', error);
+            this.updateStatus('Citation error: ' + error.message, 'error');
           }
-        } catch (error) {
-          console.error('[Popup] Citation save failed:', error);
-          this.updateStatus('Citation error: ' + error.message, 'error');
-        }
-      });
-    }
+        });
+      }
 
-    // ============================================================
-    // CITATION: CITATION MANAGER BUTTON
-    // ============================================================
-    const btnCitationManager = document.getElementById('btn-citation-manager');
+      // ============================================================
+      // CITATION: CITATION MANAGER BUTTON
+      // ============================================================
+      const btnCitationManager = document.getElementById('btn-citation-manager');
 
-    if (btnCitationManager) {
-      btnCitationManager.addEventListener('click', async () => {
-        console.log('[Popup] Citation Manager button clicked');
-        try {
-          // Send direct message to open bibliography manager
-          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: 'OPEN_BIBLIOGRAPHY_MANAGER',
-          });
-          if (response?.success) {
-            this.updateStatus('Opening Citation Library...', 'info');
-            // Close popup after a brief delay
-            setTimeout(() => window.close(), 300);
-          } else {
-            throw new Error(response?.error || 'Failed to open');
+      if (btnCitationManager) {
+        this.attachInteractiveHandler(btnCitationManager, 'Citation Manager Button', async () => {
+          console.log('[Popup] Citation Manager button clicked');
+          try {
+            // Send direct message to open bibliography manager
+            const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+              type: 'OPEN_BIBLIOGRAPHY_MANAGER',
+            });
+            if (response?.success) {
+              this.updateStatus('Opening Citation Library...', 'info');
+              // Close popup after a brief delay
+              setTimeout(() => window.close(), 300);
+            } else {
+              throw new Error(response?.error || 'Failed to open');
+            }
+          } catch (error) {
+            console.error('[Popup] Error opening citation manager:', error);
+            this.updateStatus('Failed to open Citation Library', 'error');
           }
-        } catch (error) {
-          console.error('[Popup] Error opening citation manager:', error);
-          this.updateStatus('Failed to open Citation Library', 'error');
-        }
-      });
-    }
+        });
+      }
 
-    // ============================================================
-    // CITATION: PROJECTS BUTTON
-    // ============================================================
-    const btnCitationProjects = document.getElementById('btn-citation-projects');
+      // ============================================================
+      // CITATION: PROJECTS BUTTON
+      // ============================================================
+      const btnCitationProjects = document.getElementById('btn-citation-projects');
 
-    if (btnCitationProjects) {
-      btnCitationProjects.addEventListener('click', async () => {
-        console.log('[Popup] Citation Projects button clicked');
-        try {
-          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: 'OPEN_PROJECT_MANAGER',
-          });
-          if (response?.success) {
-            this.updateStatus('Opening Projects...', 'info');
-            setTimeout(() => window.close(), 300);
-          } else {
-            throw new Error(response?.error || 'Failed to open');
+      if (btnCitationProjects) {
+        this.attachInteractiveHandler(btnCitationProjects, 'Citation Projects Button', async () => {
+          console.log('[Popup] Citation Projects button clicked');
+          try {
+            const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+              type: 'OPEN_PROJECT_MANAGER',
+            });
+            if (response?.success) {
+              this.updateStatus('Opening Projects...', 'info');
+              setTimeout(() => window.close(), 300);
+            } else {
+              throw new Error(response?.error || 'Failed to open');
+            }
+          } catch (error) {
+            console.error('[Popup] Error opening project manager:', error);
+            this.updateStatus('Failed to open Projects', 'error');
           }
-        } catch (error) {
-          console.error('[Popup] Error opening project manager:', error);
-          this.updateStatus('Failed to open Projects', 'error');
-        }
+        });
+      }
+
+      // ============================================================
+      // CITATION: EXPAND/COLLAPSE PANEL
+      // ============================================================
+      this.setupCitationPanel();
+
+      // Voice selection
+      const voiceSelect = document.getElementById('voice-select');
+      voiceSelect.addEventListener('change', e => {
+        this.settings.tts.voice = e.target.value;
+        this.saveSettings();
+        this.sendCommandToTab('setVoice', { voice: e.target.value });
       });
-    }
 
-    // ============================================================
-    // CITATION: EXPAND/COLLAPSE PANEL
-    // ============================================================
-    this.setupCitationPanel();
+      // Rate slider
+      const rateSlider = document.getElementById('rate-slider');
+      const rateValue = document.getElementById('rate-value');
+      rateSlider.value = this.settings?.tts?.rate || 1.0;
+      rateValue.textContent = `${rateSlider.value}x`;
+      rateSlider.addEventListener('input', e => {
+        const rate = parseFloat(e.target.value);
+        rateValue.textContent = `${rate}x`;
+        this.settings.tts.rate = rate;
+        this.saveSettings();
+        this.sendCommandToTab('setRate', { rate });
+        this.updatePresetButtonStates(rate);
+      });
 
-    // Voice selection
-    const voiceSelect = document.getElementById('voice-select');
-    voiceSelect.addEventListener('change', e => {
-      this.settings.tts.voice = e.target.value;
-      this.saveSettings();
-      this.sendCommandToTab('setVoice', { voice: e.target.value });
-    });
+      // Setup speed presets
+      this.setupSpeedPresets();
 
-    // Rate slider
-    const rateSlider = document.getElementById('rate-slider');
-    const rateValue = document.getElementById('rate-value');
-    rateSlider.value = this.settings?.tts?.rate || 1.0;
-    rateValue.textContent = `${rateSlider.value}x`;
-    rateSlider.addEventListener('input', e => {
-      const rate = parseFloat(e.target.value);
-      rateValue.textContent = `${rate}x`;
-      this.settings.tts.rate = rate;
-      this.saveSettings();
-      this.sendCommandToTab('setRate', { rate });
-      this.updatePresetButtonStates(rate);
-    });
+      // Pitch slider
+      const pitchSlider = document.getElementById('pitch-slider');
+      const pitchValue = document.getElementById('pitch-value');
+      pitchSlider.value = this.settings?.tts?.pitch || 1.0;
+      pitchValue.textContent = pitchSlider.value;
+      pitchSlider.addEventListener('input', e => {
+        const pitch = parseFloat(e.target.value);
+        pitchValue.textContent = pitch;
+        this.settings.tts.pitch = pitch;
+        this.saveSettings();
+        this.sendCommandToTab('setPitch', { pitch });
+      });
 
-    // Setup speed presets
-    this.setupSpeedPresets();
+      // Volume slider
+      const volumeSlider = document.getElementById('volume-slider');
+      const volumeValue = document.getElementById('volume-value');
+      volumeSlider.value = this.settings?.tts?.volume || 1.0;
+      volumeValue.textContent = `${Math.round(volumeSlider.value * 100)}%`;
+      volumeSlider.addEventListener('input', e => {
+        const volume = parseFloat(e.target.value);
+        volumeValue.textContent = `${Math.round(volume * 100)}%`;
+        this.settings.tts.volume = volume;
+        this.saveSettings();
+        this.sendCommandToTab('setVolume', { volume });
+      });
 
-    // Pitch slider
-    const pitchSlider = document.getElementById('pitch-slider');
-    const pitchValue = document.getElementById('pitch-value');
-    pitchSlider.value = this.settings?.tts?.pitch || 1.0;
-    pitchValue.textContent = pitchSlider.value;
-    pitchSlider.addEventListener('input', e => {
-      const pitch = parseFloat(e.target.value);
-      pitchValue.textContent = pitch;
-      this.settings.tts.pitch = pitch;
-      this.saveSettings();
-      this.sendCommandToTab('setPitch', { pitch });
-    });
+      // Highlighting toggle
+      const highlightOptionsContainer = document.getElementById('highlight-options-container');
+      const highlightEnabled = document.getElementById('highlight-enabled');
+      highlightEnabled.checked = this.settings?.tts?.highlightEnabled ?? true;
 
-    // Volume slider
-    const volumeSlider = document.getElementById('volume-slider');
-    const volumeValue = document.getElementById('volume-value');
-    volumeSlider.value = this.settings?.tts?.volume || 1.0;
-    volumeValue.textContent = `${Math.round(volumeSlider.value * 100)}%`;
-    volumeSlider.addEventListener('input', e => {
-      const volume = parseFloat(e.target.value);
-      volumeValue.textContent = `${Math.round(volume * 100)}%`;
-      this.settings.tts.volume = volume;
-      this.saveSettings();
-      this.sendCommandToTab('setVolume', { volume });
-    });
-
-    // Highlighting toggle
-    const highlightOptionsContainer = document.getElementById('highlight-options-container');
-    const highlightEnabled = document.getElementById('highlight-enabled');
-    highlightEnabled.checked = this.settings?.tts?.highlightEnabled ?? true;
-
-    // Show/hide highlight options based on highlighting enabled state
-    if (highlightEnabled.checked) {
-      highlightOptionsContainer.classList.remove('hidden');
-    } else {
-      highlightOptionsContainer.classList.add('hidden');
-    }
-
-    highlightEnabled.addEventListener('change', e => {
-      this.settings.tts.highlightEnabled = e.target.checked;
-      this.saveSettings();
-      this.sendCommandToTab('setHighlighting', { enabled: e.target.checked });
-
-      // Toggle highlight options visibility
-      if (e.target.checked) {
+      // Show/hide highlight options based on highlighting enabled state
+      if (highlightEnabled.checked) {
         highlightOptionsContainer.classList.remove('hidden');
       } else {
         highlightOptionsContainer.classList.add('hidden');
       }
-    });
 
-    // Highlight Color
-    const highlightColor = document.getElementById('highlight-color');
-    highlightColor.value = this.settings?.tts?.highlightColor || '#FFEB3B';
-    highlightColor.addEventListener('change', e => {
-      this.settings.tts.highlightColor = e.target.value;
-      this.saveSettings();
-      this.sendCommandToTab('setHighlightColor', { color: e.target.value });
-    });
+      highlightEnabled.addEventListener('change', e => {
+        this.settings.tts.highlightEnabled = e.target.checked;
+        this.saveSettings();
+        this.sendCommandToTab('setHighlighting', { enabled: e.target.checked });
 
-    // Highlight Opacity
-    const highlightOpacity = document.getElementById('highlight-opacity');
-    const opacityValue = document.getElementById('opacity-value');
-    highlightOpacity.value = this.settings?.tts?.highlightOpacity || 0.7;
-    opacityValue.textContent = `${Math.round(highlightOpacity.value * 100)}%`;
-    highlightOpacity.addEventListener('input', e => {
-      const opacity = parseFloat(e.target.value);
-      opacityValue.textContent = `${Math.round(opacity * 100)}%`;
-      this.settings.tts.highlightOpacity = opacity;
-      this.saveSettings();
-      this.sendCommandToTab('setHighlightOpacity', { opacity });
-    });
+        // Toggle highlight options visibility
+        if (e.target.checked) {
+          highlightOptionsContainer.classList.remove('hidden');
+        } else {
+          highlightOptionsContainer.classList.add('hidden');
+        }
+      });
 
-    // Word-by-Word Highlighting toggle
-    const wordByWordEnabled = document.getElementById('word-by-word-enabled');
-    wordByWordEnabled.checked = this.settings?.tts?.wordByWordEnabled || false;
-    wordByWordEnabled.addEventListener('change', e => {
-      this.settings.tts.wordByWordEnabled = e.target.checked;
-      this.saveSettings();
-      this.sendCommandToTab('setWordByWord', { enabled: e.target.checked });
-    });
+      // Highlight Color
+      const highlightColor = document.getElementById('highlight-color');
+      highlightColor.value = this.settings?.tts?.highlightColor || '#FFEB3B';
+      highlightColor.addEventListener('change', e => {
+        this.settings.tts.highlightColor = e.target.value;
+        this.saveSettings();
+        this.sendCommandToTab('setHighlightColor', { color: e.target.value });
+      });
 
-    // ============================================================
-    // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
-    // ============================================================
-    this.setupTextCustomization();
+      // Highlight Opacity
+      const highlightOpacity = document.getElementById('highlight-opacity');
+      const opacityValue = document.getElementById('opacity-value');
+      highlightOpacity.value = this.settings?.tts?.highlightOpacity || 0.7;
+      opacityValue.textContent = `${Math.round(highlightOpacity.value * 100)}%`;
+      highlightOpacity.addEventListener('input', e => {
+        const opacity = parseFloat(e.target.value);
+        opacityValue.textContent = `${Math.round(opacity * 100)}%`;
+        this.settings.tts.highlightOpacity = opacity;
+        this.saveSettings();
+        this.sendCommandToTab('setHighlightOpacity', { opacity });
+      });
 
-    // ============================================================
-    // SPRINT 3 FEATURE: READING GUIDE
-    // ============================================================
-    this.setupReadingGuide();
+      // Word-by-Word Highlighting toggle
+      const wordByWordEnabled = document.getElementById('word-by-word-enabled');
+      wordByWordEnabled.checked = this.settings?.tts?.wordByWordEnabled || false;
+      wordByWordEnabled.addEventListener('change', e => {
+        this.settings.tts.wordByWordEnabled = e.target.checked;
+        this.saveSettings();
+        this.sendCommandToTab('setWordByWord', { enabled: e.target.checked });
+      });
 
-    // ============================================================
-    // SPRINT 3 FEATURE: FOCUS MODE
-    // ============================================================
-    this.setupFocusMode();
+      // ============================================================
+      // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
+      // ============================================================
+      this.setupTextCustomization();
 
-    // ============================================================
-    // SPRINT 6 FEATURE: SCREEN COLOR OVERLAY
-    // ============================================================
-    this.setupScreenOverlay();
+      // ============================================================
+      // SPRINT 3 FEATURE: READING GUIDE
+      // ============================================================
+      this.setupReadingGuide();
 
-    // ============================================================
-    // NEURODIVERGENT PROFILE FEATURE: REDUCED MOTION
-    // ============================================================
-    this.setupReducedMotion();
+      // ============================================================
+      // SPRINT 3 FEATURE: FOCUS MODE
+      // ============================================================
+      this.setupFocusMode();
 
-    // ============================================================
-    // NEURODIVERGENT PROFILE FEATURE: AUTO-PLAY BLOCKING
-    // ============================================================
-    this.setupMediaControl();
+      // ============================================================
+      // SPRINT 6 FEATURE: SCREEN COLOR OVERLAY
+      // ============================================================
+      this.setupScreenOverlay();
 
-    // ============================================================
-    // NEURODIVERGENT PROFILE FEATURE: DARK MODE
-    // ============================================================
-    this.setupDarkMode();
+      // ============================================================
+      // NEURODIVERGENT PROFILE FEATURE: REDUCED MOTION
+      // ============================================================
+      this.setupReducedMotion();
 
-    // ============================================================
-    // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
-    // ============================================================
-    this.setupSimplify();
+      // ============================================================
+      // NEURODIVERGENT PROFILE FEATURE: AUTO-PLAY BLOCKING
+      // ============================================================
+      this.setupMediaControl();
 
-    // ============================================================
-    // NEURODIVERGENT PROFILE FEATURE: READING PROGRESS
-    // ============================================================
-    this.setupReadingProgress();
+      // ============================================================
+      // NEURODIVERGENT PROFILE FEATURE: DARK MODE
+      // ============================================================
+      this.setupDarkMode();
 
-    // ============================================================
-    // NEURODIVERGENT PROFILE FEATURE: POMODORO TIMER
-    // ============================================================
-    this.setupPomodoro();
+      // ============================================================
+      // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
+      // ============================================================
+      this.setupSimplify();
 
-    // ============================================================
-    // STARGARDT MODULE: CENTRAL VISION SUPPORT
-    // ============================================================
-    this.setupStargardt();
+      // ============================================================
+      // NEURODIVERGENT PROFILE FEATURE: READING PROGRESS
+      // ============================================================
+      this.setupReadingProgress();
 
-    // ============================================================
-    // SPRINT 4 FEATURE: CANVAS INTEGRATION
-    // ============================================================
-    this.setupCanvasIntegration();
+      // ============================================================
+      // NEURODIVERGENT PROFILE FEATURE: POMODORO TIMER
+      // ============================================================
+      this.setupPomodoro();
 
-    // ============================================================
-    // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
-    // ============================================================
-    this.setupSTT();
+      // ============================================================
+      // STARGARDT MODULE: CENTRAL VISION SUPPORT
+      // ============================================================
+      this.setupStargardt();
 
-    // ============================================================
-    // PHASE 2 FEATURE 3: READING MODE
-    // ============================================================
-    this.setupReadingMode();
+      // ============================================================
+      // SPRINT 4 FEATURE: CANVAS INTEGRATION
+      // ============================================================
+      this.setupCanvasIntegration();
 
-    // ============================================================
-    // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
-    // ============================================================
-    this.setupDyslexiaMode();
+      // ============================================================
+      // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
+      // ============================================================
+      this.setupSTT();
 
-    // ============================================================
-    // PHASE 2.2 FEATURE: ANNOTATIONS & STICKY NOTES
-    // ============================================================
-    this.setupAnnotations();
+      // ============================================================
+      // PHASE 2 FEATURE 3: READING MODE
+      // ============================================================
+      this.setupReadingMode();
 
-    // ============================================================
-    // LOCAL LLM INTEGRATION (AssisT LLM Edition)
-    // ============================================================
-    this.setupLocalLLM();
+      // ============================================================
+      // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
+      // ============================================================
+      this.setupDyslexiaMode();
 
-    // Settings link
-    document.getElementById('link-settings').addEventListener('click', e => {
-      e.preventDefault();
-      // Open settings page (to be implemented)
-      console.log('[Popup] Settings clicked');
-    });
+      // ============================================================
+      // PHASE 2.2 FEATURE: ANNOTATIONS & STICKY NOTES
+      // ============================================================
+      this.setupAnnotations();
 
-    // Reset button
-    document.getElementById('btn-reset').addEventListener('click', () => {
-      if (confirm('Reset all settings to defaults? This cannot be undone.')) {
-        this.resetToDefaults();
+      // ============================================================
+      // LOCAL LLM INTEGRATION (AssisT LLM Edition)
+      // ============================================================
+      this.setupLocalLLM();
+
+      // Settings link
+      this.attachInteractiveHandler(
+        document.getElementById('link-settings'),
+        'Settings Link',
+        e => {
+          e.preventDefault();
+          // Open settings page (to be implemented)
+          console.log('[Popup] Settings clicked');
+        }
+      );
+
+      // Reset button
+      this.attachInteractiveHandler(document.getElementById('btn-reset'), 'Reset Button', () => {
+        if (confirm('Reset all settings to defaults? This cannot be undone.')) {
+          this.resetToDefaults();
+        }
+      });
+
+      // Help button (WCAG 2.2 SC 3.2.6 - Consistent Help)
+      this.attachInteractiveHandler(document.getElementById('btn-help'), 'Help Button', () => {
+        // Open user guide in new tab
+        chrome.tabs.create({
+          url: 'https://github.com/MarJone/AssisT#readme',
+        });
+      });
+
+      // Discovery Quiz button - opens adaptive quiz to discover best tools
+      const btnDiscovery = document.getElementById('btn-discovery');
+      if (btnDiscovery) {
+        this.attachInteractiveHandler(btnDiscovery, 'Discovery Quiz Button', () => {
+          // Open discovery quiz in new tab via service worker
+          chrome.runtime.sendMessage({ action: 'OPEN_DISCOVERY_QUIZ' });
+          // Close the popup
+          window.close();
+        });
       }
-    });
 
-    // Help button (WCAG 2.2 SC 3.2.6 - Consistent Help)
-    document.getElementById('btn-help').addEventListener('click', () => {
-      // Open user guide in new tab
-      chrome.tabs.create({
-        url: 'https://github.com/MarJone/AssisT#readme',
-      });
-    });
+      // Options button
+      this.attachInteractiveHandler(
+        document.getElementById('btn-options'),
+        'Options Button',
+        () => {
+          this.showAdvancedOptions();
+        }
+      );
 
-    // Discovery Quiz button - opens adaptive quiz to discover best tools
-    const btnDiscovery = document.getElementById('btn-discovery');
-    if (btnDiscovery) {
-      btnDiscovery.addEventListener('click', () => {
-        // Open discovery quiz in new tab via service worker
-        chrome.runtime.sendMessage({ action: 'OPEN_DISCOVERY_QUIZ' });
-        // Close the popup
-        window.close();
-      });
+      console.log('[Popup][setupEventListeners] ✓ Event listener setup complete');
+    } catch (error) {
+      console.error('[Popup][setupEventListeners] ❌ FATAL ERROR during setup:', error);
+      console.error('[Popup][setupEventListeners] Error stack:', error.stack);
+      throw error; // Re-throw to be caught by initialize()
     }
-
-    // Options button
-    document.getElementById('btn-options').addEventListener('click', () => {
-      this.showAdvancedOptions();
-    });
   }
 
   async resetToDefaults() {
@@ -1633,7 +1763,7 @@ class PopupController {
 
     // Add click handlers to preset buttons
     presetButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
+      this.attachInteractiveHandler(btn, 'Rate Preset Button', () => {
         const speed = parseFloat(btn.getAttribute('data-speed'));
 
         // Update slider and value display
@@ -2430,7 +2560,7 @@ class PopupController {
     // Save profile button
     const saveBtn = modal.querySelector('#btn-profile-save-modal');
     if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(saveBtn, 'Profile Save Button', () => {
         this.profiles_showSaveModal();
         // Refresh selector after save
         setTimeout(() => this.populateModalProfileSelector(modal), 500);
@@ -2440,7 +2570,7 @@ class PopupController {
     // Delete profile button
     const deleteBtn = modal.querySelector('#btn-profile-delete-modal');
     if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(deleteBtn, 'Profile Delete Button', () => {
         this.profiles_confirmDelete();
         // Refresh selector after delete
         setTimeout(() => this.populateModalProfileSelector(modal), 500);
@@ -2450,7 +2580,7 @@ class PopupController {
     // Export profiles button
     const exportBtn = modal.querySelector('#btn-profile-export-modal');
     if (exportBtn) {
-      exportBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(exportBtn, 'Profile Export Button', () => {
         this.profiles_export();
       });
     }
@@ -2459,7 +2589,7 @@ class PopupController {
     const importBtn = modal.querySelector('#btn-profile-import-modal');
     const importInput = modal.querySelector('#profile-import-input-modal');
     if (importBtn && importInput) {
-      importBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(importBtn, 'Profile Import Button', () => {
         importInput.click();
       });
 
@@ -2475,7 +2605,7 @@ class PopupController {
     // Preset profile click handlers
     const presetItems = modal.querySelectorAll('.preset-item[data-preset]');
     presetItems.forEach(item => {
-      item.addEventListener('click', () => {
+      this.attachInteractiveHandler(item, 'Preset Profile Item', () => {
         const presetName = item.getAttribute('data-preset');
         if (
           confirm(
@@ -2631,7 +2761,7 @@ class PopupController {
     // API key test button
     const testBtn = modal.querySelector('#test-api-key');
     if (testBtn) {
-      testBtn.addEventListener('click', async () => {
+      this.attachInteractiveHandler(testBtn, 'API Key Test Button', async () => {
         const apiKeyInput = modal.querySelector('#api-key-input');
         const provider = modal.querySelector('#cloud-provider').value;
         await this.testAPIKey(provider, apiKeyInput.value, modal);
@@ -2641,7 +2771,7 @@ class PopupController {
     // Install model button
     const installModelBtn = modal.querySelector('#install-model');
     if (installModelBtn) {
-      installModelBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(installModelBtn, 'Install Model Button', () => {
         this.showInstallModelDialog();
       });
     }
@@ -2832,7 +2962,7 @@ class PopupController {
     const contents = modal.querySelectorAll('.tab-content');
 
     tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
+      this.attachInteractiveHandler(tab, 'Modal Tab', () => {
         // Remove active from all tabs
         tabs.forEach(t => t.classList.remove('active'));
         contents.forEach(c => c.classList.remove('active'));
@@ -2847,23 +2977,27 @@ class PopupController {
 
   setupModalActions(modal) {
     // Close button
-    modal.querySelector('#modal-close').addEventListener('click', () => {
+    this.attachInteractiveHandler(modal.querySelector('#modal-close'), 'Modal Close Button', () => {
       modal.remove();
     });
 
     // Cancel button
-    modal.querySelector('#modal-cancel').addEventListener('click', () => {
-      modal.remove();
-    });
+    this.attachInteractiveHandler(
+      modal.querySelector('#modal-cancel'),
+      'Modal Cancel Button',
+      () => {
+        modal.remove();
+      }
+    );
 
     // Save button
-    modal.querySelector('#modal-save').addEventListener('click', () => {
+    this.attachInteractiveHandler(modal.querySelector('#modal-save'), 'Modal Save Button', () => {
       this.saveModalSettings();
       modal.remove();
     });
 
     // Click outside to close
-    modal.addEventListener('click', e => {
+    this.attachInteractiveHandler(modal, 'Modal Backdrop', e => {
       if (e.target === modal) {
         modal.remove();
       }
@@ -3114,7 +3248,7 @@ class PopupController {
 
       // Toggle password visibility
       if (googleApiKeyToggle) {
-        googleApiKeyToggle.addEventListener('click', () => {
+        this.attachInteractiveHandler(googleApiKeyToggle, 'Google API Key Toggle', () => {
           if (googleApiKeyInput.type === 'password') {
             googleApiKeyInput.type = 'text';
             googleApiKeyToggle.textContent = 'Hide';
@@ -3191,12 +3325,16 @@ class PopupController {
         cacheCountSpan.textContent = cacheCount;
       });
 
-      clearCacheButton.addEventListener('click', async () => {
-        await chrome.storage.local.set({ translationCache: {} });
-        cacheCountSpan.textContent = '0';
-        console.log('[Popup] Translation cache cleared');
-        alert('Translation cache cleared successfully!');
-      });
+      this.attachInteractiveHandler(
+        clearCacheButton,
+        'Clear Translation Cache Button',
+        async () => {
+          await chrome.storage.local.set({ translationCache: {} });
+          cacheCountSpan.textContent = '0';
+          console.log('[Popup] Translation cache cleared');
+          alert('Translation cache cleared successfully!');
+        }
+      );
     }
 
     // Appearance settings
@@ -3280,7 +3418,7 @@ class PopupController {
 
     // Add event listeners to edit buttons
     grid.querySelectorAll('.shortcut-edit-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
+      this.attachInteractiveHandler(btn, 'Shortcut Edit Button', e => {
         const key = e.currentTarget.getAttribute('data-key');
         this.startShortcutRecording(key, shortcuts);
       });
@@ -3288,7 +3426,7 @@ class PopupController {
 
     // Add event listeners to clear buttons
     grid.querySelectorAll('.shortcut-clear-btn').forEach(btn => {
-      btn.addEventListener('click', async e => {
+      this.attachInteractiveHandler(btn, 'Shortcut Clear Button', async e => {
         const key = e.currentTarget.getAttribute('data-key');
         shortcuts[key] = '';
         await saveShortcuts(shortcuts);
@@ -3324,7 +3462,7 @@ class PopupController {
     const presetBtns = document.querySelectorAll('.preset-btn');
 
     presetBtns.forEach(btn => {
-      btn.addEventListener('click', async e => {
+      this.attachInteractiveHandler(btn, 'Shortcut Preset Button', async e => {
         const preset = e.target.getAttribute('data-preset');
 
         // Update active state
@@ -3665,18 +3803,24 @@ class PopupController {
 
   async loadVoices() {
     try {
+      console.log('[Popup][loadVoices] Loading voices from speechSynthesis...');
       const voices = speechSynthesis.getVoices();
+      console.log('[Popup][loadVoices] Found', voices.length, 'voices immediately');
 
       if (voices.length === 0) {
+        console.log('[Popup][loadVoices] No voices yet, waiting for voiceschanged event...');
         // Wait for voices to load
         speechSynthesis.addEventListener('voiceschanged', () => {
+          console.log('[Popup][loadVoices] voiceschanged event fired');
           this.populateVoices(speechSynthesis.getVoices());
         });
       } else {
         this.populateVoices(voices);
       }
+      console.log('[Popup][loadVoices] ✓ Voice loading initiated');
     } catch (error) {
-      console.error('[Popup] Error loading voices:', error);
+      console.error('[Popup][loadVoices] ❌ Error loading voices:', error);
+      console.error('[Popup][loadVoices] Error stack:', error.stack);
     }
   }
 
@@ -3768,7 +3912,9 @@ class PopupController {
   }
 
   updateUI() {
+    console.log('[Popup][updateUI] Starting UI update...');
     // UI updates can be added here as needed
+    console.log('[Popup][updateUI] ✓ UI update complete');
   }
 
   updateStatus(message, type = '') {
@@ -4866,7 +5012,7 @@ class PopupController {
 
     // Setup wizard button
     const setupBtn = document.getElementById('stargardt-setup-btn');
-    setupBtn.addEventListener('click', () => {
+    this.attachInteractiveHandler(setupBtn, 'Stargardt Setup Button', () => {
       // Send message to content script to show setup wizard
       chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
         if (tabs[0]) {
@@ -4879,7 +5025,7 @@ class PopupController {
 
     // Calibrate button
     const calibrateBtn = document.getElementById('stargardt-calibrate-btn');
-    calibrateBtn.addEventListener('click', () => {
+    this.attachInteractiveHandler(calibrateBtn, 'Stargardt Calibrate Button', () => {
       chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
         if (tabs[0]) {
           chrome.tabs.sendMessage(tabs[0].id, {
@@ -4891,7 +5037,7 @@ class PopupController {
 
     // PRL Training button
     const prlBtn = document.getElementById('stargardt-prl-btn');
-    prlBtn.addEventListener('click', () => {
+    this.attachInteractiveHandler(prlBtn, 'PRL Training Button', () => {
       chrome.runtime.sendMessage({
         action: 'openTab',
         url: chrome.runtime.getURL('pages/prl-training/training.html'),
@@ -5409,7 +5555,7 @@ class PopupController {
 
       // Show stats button handler
       if (showStatsBtn) {
-        showStatsBtn.addEventListener('click', async () => {
+        this.attachInteractiveHandler(showStatsBtn, 'STT Show Stats Button', async () => {
           // Toggle stats summary visibility
           if (statsSummary) {
             const isVisible = statsSummary.style.display !== 'none';
@@ -5450,7 +5596,7 @@ class PopupController {
       // Show Commands button
       const showCommandsBtn = document.getElementById('stt-show-commands');
       if (showCommandsBtn) {
-        showCommandsBtn.addEventListener('click', () => {
+        this.attachInteractiveHandler(showCommandsBtn, 'STT Show Commands Button', () => {
           this.showVoiceCommandsModal();
         });
       }
@@ -5523,7 +5669,7 @@ class PopupController {
       // Set initial state
       this.updatePresetButtonState(btn, isEnabled);
 
-      btn.addEventListener('click', async () => {
+      this.attachInteractiveHandler(btn, 'Vocabulary Preset Button', async () => {
         const currentlyEnabled = btn.getAttribute('aria-pressed') === 'true';
         const newState = !currentlyEnabled;
 
@@ -5559,7 +5705,7 @@ class PopupController {
     // Add Word button
     const addWordBtn = document.getElementById('btn-add-vocab-word');
     if (addWordBtn) {
-      addWordBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(addWordBtn, 'Add Vocabulary Word Button', () => {
         this.showAddVocabularyWordModal();
       });
     }
@@ -5567,7 +5713,7 @@ class PopupController {
     // Manage Vocabulary button
     const manageBtn = document.getElementById('btn-manage-vocabulary');
     if (manageBtn) {
-      manageBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(manageBtn, 'Manage Vocabulary Button', () => {
         this.showManageVocabularyModal();
       });
     }
@@ -5575,7 +5721,7 @@ class PopupController {
     // Import button
     const importBtn = document.getElementById('btn-import-vocabulary');
     if (importBtn) {
-      importBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(importBtn, 'Import Vocabulary Button', () => {
         this.importVocabulary();
       });
     }
@@ -5583,7 +5729,7 @@ class PopupController {
     // Export button
     const exportBtn = document.getElementById('btn-export-vocabulary');
     if (exportBtn) {
-      exportBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(exportBtn, 'Export Vocabulary Button', () => {
         this.exportVocabulary();
       });
     }
@@ -5702,51 +5848,63 @@ class PopupController {
     // Event handlers
     const closeModal = () => modal.remove();
 
-    document.getElementById('close-add-vocab-modal').addEventListener('click', closeModal);
-    document.getElementById('cancel-add-vocab').addEventListener('click', closeModal);
-    modal.addEventListener('click', e => {
+    this.attachInteractiveHandler(
+      document.getElementById('close-add-vocab-modal'),
+      'Close Add Vocab Modal Button',
+      closeModal
+    );
+    this.attachInteractiveHandler(
+      document.getElementById('cancel-add-vocab'),
+      'Cancel Add Vocab Button',
+      closeModal
+    );
+    this.attachInteractiveHandler(modal, 'Add Vocab Modal Backdrop', e => {
       if (e.target === modal) {
         closeModal();
       }
     });
 
-    document.getElementById('confirm-add-vocab').addEventListener('click', async () => {
-      const word = wordInput.value.trim();
-      const phonetic = document.getElementById('vocab-phonetic-input').value.trim();
+    this.attachInteractiveHandler(
+      document.getElementById('confirm-add-vocab'),
+      'Confirm Add Vocab Button',
+      async () => {
+        const word = wordInput.value.trim();
+        const phonetic = document.getElementById('vocab-phonetic-input').value.trim();
 
-      if (!word) {
-        wordInput.style.borderColor = '#e74c3c';
-        wordInput.focus();
-        return;
+        if (!word) {
+          wordInput.style.borderColor = '#e74c3c';
+          wordInput.focus();
+          return;
+        }
+
+        // Add to settings
+        if (!this.settings.stt.vocabulary.customWords) {
+          this.settings.stt.vocabulary.customWords = [];
+        }
+
+        const exists = this.settings.stt.vocabulary.customWords.some(
+          w => w.word.toLowerCase() === word.toLowerCase()
+        );
+
+        if (exists) {
+          alert('This word is already in your vocabulary.');
+          return;
+        }
+
+        this.settings.stt.vocabulary.customWords.push({ word, phonetic });
+        this.saveSettings();
+
+        // Send to content script
+        this.sendCommandToTab({
+          command: 'ADD_VOCABULARY_WORD',
+          word,
+          phonetic,
+        });
+
+        this.updateVocabularyStats();
+        closeModal();
       }
-
-      // Add to settings
-      if (!this.settings.stt.vocabulary.customWords) {
-        this.settings.stt.vocabulary.customWords = [];
-      }
-
-      const exists = this.settings.stt.vocabulary.customWords.some(
-        w => w.word.toLowerCase() === word.toLowerCase()
-      );
-
-      if (exists) {
-        alert('This word is already in your vocabulary.');
-        return;
-      }
-
-      this.settings.stt.vocabulary.customWords.push({ word, phonetic });
-      this.saveSettings();
-
-      // Send to content script
-      this.sendCommandToTab({
-        command: 'ADD_VOCABULARY_WORD',
-        word,
-        phonetic,
-      });
-
-      this.updateVocabularyStats();
-      closeModal();
-    });
+    );
 
     // Enter key to submit
     wordInput.addEventListener('keydown', e => {
@@ -5819,9 +5977,17 @@ class PopupController {
 
     const closeModal = () => modal.remove();
 
-    document.getElementById('close-manage-vocab-modal').addEventListener('click', closeModal);
-    document.getElementById('done-manage-vocab').addEventListener('click', closeModal);
-    modal.addEventListener('click', e => {
+    this.attachInteractiveHandler(
+      document.getElementById('close-manage-vocab-modal'),
+      'Close Manage Vocab Modal Button',
+      closeModal
+    );
+    this.attachInteractiveHandler(
+      document.getElementById('done-manage-vocab'),
+      'Done Manage Vocab Button',
+      closeModal
+    );
+    this.attachInteractiveHandler(modal, 'Manage Vocab Modal Backdrop', e => {
       if (e.target === modal) {
         closeModal();
       }
@@ -5829,7 +5995,7 @@ class PopupController {
 
     // Delete word buttons
     modal.querySelectorAll('.delete-vocab-word').forEach(btn => {
-      btn.addEventListener('click', () => {
+      this.attachInteractiveHandler(btn, 'Delete Vocab Word Button', () => {
         const index = parseInt(btn.dataset.index);
         const word = this.settings.stt.vocabulary.customWords[index];
 
@@ -5848,17 +6014,21 @@ class PopupController {
     });
 
     // Clear all button
-    document.getElementById('clear-all-vocab').addEventListener('click', () => {
-      if (confirm('Are you sure you want to delete all custom words?')) {
-        this.settings.stt.vocabulary.customWords = [];
-        this.saveSettings();
+    this.attachInteractiveHandler(
+      document.getElementById('clear-all-vocab'),
+      'Clear All Vocab Button',
+      () => {
+        if (confirm('Are you sure you want to delete all custom words?')) {
+          this.settings.stt.vocabulary.customWords = [];
+          this.saveSettings();
 
-        this.sendCommandToTab({ command: 'CLEAR_VOCABULARY' });
+          this.sendCommandToTab({ command: 'CLEAR_VOCABULARY' });
 
-        this.updateVocabularyStats();
-        closeModal();
+          this.updateVocabularyStats();
+          closeModal();
+        }
       }
-    });
+    );
   }
 
   /**
@@ -6100,8 +6270,10 @@ class PopupController {
 
     // Close modal handlers
     const closeBtn = document.getElementById('close-voice-commands-modal');
-    closeBtn.addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', e => {
+    this.attachInteractiveHandler(closeBtn, 'Close Voice Commands Modal Button', () =>
+      modal.remove()
+    );
+    this.attachInteractiveHandler(modal, 'Voice Commands Modal Backdrop', e => {
       if (e.target === modal) {
         modal.remove();
       }
@@ -6191,7 +6363,7 @@ class PopupController {
     });
 
     // Toggle Reading Mode button
-    toggleButton.addEventListener('click', async () => {
+    this.attachInteractiveHandler(toggleButton, 'Toggle Reading Mode Button', async () => {
       if (!this.currentTab) {
         this.updateStatus('No active tab', 'error');
         return;
@@ -6325,7 +6497,7 @@ class PopupController {
     // Migration modal close button
     const btnMigrationClose = document.getElementById('btn-migration-close');
     if (btnMigrationClose) {
-      btnMigrationClose.addEventListener('click', () => {
+      this.attachInteractiveHandler(btnMigrationClose, 'Migration Modal Close Button', () => {
         this.closeMigrationModal();
       });
     }
@@ -6834,7 +7006,7 @@ class PopupController {
     // Save current button (may be removed from main popup)
     const saveBtn = document.getElementById('btn-save-profile');
     if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(saveBtn, 'Save Profile Button', () => {
         this.profiles_showSaveModal();
       });
     }
@@ -6842,7 +7014,7 @@ class PopupController {
     // Export button
     const exportBtn = document.getElementById('btn-export-profiles');
     if (exportBtn) {
-      exportBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(exportBtn, 'Export Profiles Button', () => {
         this.profiles_export();
       });
     }
@@ -6850,7 +7022,7 @@ class PopupController {
     // Import button
     const importBtn = document.getElementById('btn-import-profiles');
     if (importBtn) {
-      importBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(importBtn, 'Import Profiles Button', () => {
         const importInput = document.getElementById('profile-import-input');
         if (importInput) {
           importInput.click();
@@ -6869,14 +7041,14 @@ class PopupController {
     // Save profile modal
     const cancelSaveBtn = document.getElementById('btn-cancel-save-profile');
     if (cancelSaveBtn) {
-      cancelSaveBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(cancelSaveBtn, 'Cancel Save Profile Button', () => {
         document.getElementById('save-profile-modal')?.classList.add('hidden');
       });
     }
 
     const confirmSaveBtn = document.getElementById('btn-confirm-save-profile');
     if (confirmSaveBtn) {
-      confirmSaveBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(confirmSaveBtn, 'Confirm Save Profile Button', () => {
         this.profiles_saveNew();
       });
     }
@@ -6884,21 +7056,21 @@ class PopupController {
     // Delete profile modal
     const cancelDeleteBtn = document.getElementById('btn-cancel-delete-profile');
     if (cancelDeleteBtn) {
-      cancelDeleteBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(cancelDeleteBtn, 'Cancel Delete Profile Button', () => {
         document.getElementById('delete-profile-modal')?.classList.add('hidden');
       });
     }
 
     const confirmDeleteBtn = document.getElementById('btn-confirm-delete-profile');
     if (confirmDeleteBtn) {
-      confirmDeleteBtn.addEventListener('click', () => {
+      this.attachInteractiveHandler(confirmDeleteBtn, 'Confirm Delete Profile Button', () => {
         this.profiles_confirmDelete();
       });
     }
 
     // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
-      overlay.addEventListener('click', () => {
+      this.attachInteractiveHandler(overlay, 'Profile Modal Overlay', () => {
         overlay.closest('.modal')?.classList.add('hidden');
       });
     });
@@ -7350,7 +7522,7 @@ class PopupController {
     });
 
     // Create sticky note button
-    createNoteButton.addEventListener('click', async () => {
+    this.attachInteractiveHandler(createNoteButton, 'Create Sticky Note Button', async () => {
       if (!this.currentTab) {
         this.updateStatus('No active tab', 'error');
         return;
@@ -7374,7 +7546,7 @@ class PopupController {
     });
 
     // View annotations button
-    viewAnnotationsButton.addEventListener('click', async () => {
+    this.attachInteractiveHandler(viewAnnotationsButton, 'View Annotations Button', async () => {
       if (!this.currentTab) {
         this.updateStatus('No active tab', 'error');
         return;
@@ -7420,7 +7592,7 @@ class PopupController {
     this.updateCitationCount();
 
     // Expand/collapse button handler
-    expandBtn.addEventListener('click', async () => {
+    this.attachInteractiveHandler(expandBtn, 'Citation Panel Expand Button', async () => {
       this.citationPanelExpanded = !this.citationPanelExpanded;
 
       if (this.citationPanelExpanded) {
@@ -7590,7 +7762,7 @@ class PopupController {
 
     // Refresh status button (legacy - may not exist in new UI)
     if (btnCheckLLM) {
-      btnCheckLLM.addEventListener('click', () => {
+      this.attachInteractiveHandler(btnCheckLLM, 'Check LLM Status Button', () => {
         this.checkLLMStatus();
       });
     }
@@ -7684,7 +7856,7 @@ class PopupController {
 
     // Model install buttons
     document.querySelectorAll('.llm-install-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      this.attachInteractiveHandler(btn, 'LLM Install Button', async () => {
         const modelName = btn.dataset.model;
         if (btn.classList.contains('installed') || btn.classList.contains('installing')) {
           return;
@@ -7799,7 +7971,7 @@ class PopupController {
     // Export profile button
     const btnExportProfile = document.getElementById('btn-export-profile');
     if (btnExportProfile) {
-      btnExportProfile.addEventListener('click', async () => {
+      this.attachInteractiveHandler(btnExportProfile, 'Export Profile Button', async () => {
         try {
           const exportData = {
             version: '1.0',
@@ -7827,7 +7999,7 @@ class PopupController {
     // Clear profile button
     const btnClearProfile = document.getElementById('btn-clear-profile');
     if (btnClearProfile) {
-      btnClearProfile.addEventListener('click', () => {
+      this.attachInteractiveHandler(btnClearProfile, 'Clear Profile Button', () => {
         if (confirm('Clear all cognitive profile data? This cannot be undone.')) {
           this.settings.localLLM.cognitiveProfile = {
             persistence: this.settings.localLLM.cognitiveProfile?.persistence || '6months',
