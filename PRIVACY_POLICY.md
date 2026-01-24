@@ -113,8 +113,8 @@ AssisT may be used by students under the age of 13 in educational settings. Sinc
 
 We may update this privacy policy from time to time to reflect changes in functionality or legal requirements. Updates will be posted at:
 
-- **GitHub Repository:** [https://github.com/yourusername/AssisT](https://github.com/yourusername/AssisT)
-- **Chrome Web Store Listing:** [Link to extension page]
+- **GitHub Repository:** https://github.com/fiavaion/AssisT
+- **Chrome Web Store Listing:** (Link will be added after publication)
 
 **Notification:** Material changes will be indicated by updating the "Last Updated" date at the top of this policy.
 
@@ -124,8 +124,8 @@ We may update this privacy policy from time to time to reflect changes in functi
 
 If you have questions about this privacy policy or AssisT's data practices, please contact:
 
-- **Email:** [your-email@example.com]
-- **GitHub Issues:** [https://github.com/yourusername/AssisT/issues](https://github.com/yourusername/AssisT/issues)
+- **Email:** info@fiavaion.com
+- **GitHub Issues:** https://github.com/fiavaion/AssisT/issues
 
 ---
 
