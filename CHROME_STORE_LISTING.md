@@ -2,15 +2,15 @@
 
 ## Extension Name
 
-@NCAD - Adaptive Accessibility
+AssisT: Adaptive Accessibility Tool
 
 ## Short Description (132 characters max)
 
-Accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for neurodivergent learners.
+Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites.
 
 ## Detailed Description
 
-**@NCAD (Neurodivergent-Centered Adaptive Design)** is a comprehensive accessibility extension designed to support neurodivergent students in their learning journey.
+**AssisT** is a comprehensive accessibility extension designed to support neurodivergent students and anyone who benefits from adaptive learning tools.
 
 ### Key Features
 
