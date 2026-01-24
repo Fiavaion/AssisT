@@ -23,13 +23,14 @@
  */
 
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
 let dictionary_modal = null;
-let dictionary_cache = new Map(); // LRU cache for lookups
+const dictionary_cache = new Map(); // LRU cache for lookups
 const dictionary_cacheMaxSize = 100;
 let dictionary_currentAudio = null;
 
@@ -149,7 +150,7 @@ function dictionary_createModal(word, data) {
   `;
 
   // Build content HTML
-  content.innerHTML = dictionary_buildContentHTML(word, data);
+  content.innerHTML = sanitizeHTML(dictionary_buildContentHTML(word, data));
 
   modal.appendChild(content);
 
@@ -213,8 +214,8 @@ function dictionary_buildPhoneticsHTML(phonetics) {
     return '';
   }
 
-  const phoneticWithAudio = phonetics.find((p) => p.audio);
-  const phoneticText = phonetics.find((p) => p.text)?.text || phoneticWithAudio?.text;
+  const phoneticWithAudio = phonetics.find(p => p.audio);
+  const phoneticText = phonetics.find(p => p.text)?.text || phoneticWithAudio?.text;
 
   let html = '<div style="margin-top: 8px; display: flex; align-items: center; gap: 12px;">';
 
@@ -276,7 +277,7 @@ function dictionary_buildMeaningHTML(meaning, index) {
 
   // Definitions
   html += '<ol style="margin: 0; padding-left: 20px;">';
-  definitions.forEach((def) => {
+  definitions.forEach(def => {
     html += `
       <li style="margin-bottom: 12px; color: #333; line-height: 1.6;">
         ${def.definition}
@@ -295,7 +296,7 @@ function dictionary_buildMeaningHTML(meaning, index) {
           ${synonyms
             .slice(0, 8)
             .map(
-              (syn) => `
+              syn => `
             <button
               class="assist-dictionary-synonym"
               data-word="${syn}"
@@ -326,7 +327,7 @@ function dictionary_buildMeaningHTML(meaning, index) {
           ${antonyms
             .slice(0, 8)
             .map(
-              (ant) => `
+              ant => `
             <span style="
               background: #fff3e0;
               border: 1px solid #ffe0b2;
@@ -352,9 +353,9 @@ function dictionary_buildMeaningHTML(meaning, index) {
  * Adds event listeners to modal elements
  *
  * @param {HTMLElement} modal - Modal element
- * @param {Object} data - Dictionary data (for audio)
+ * @param {Object} _data - Dictionary data (for audio)
  */
-function dictionary_addModalEventListeners(modal, data) {
+function dictionary_addModalEventListeners(modal, _data) {
   // Close button
   const closeBtn = modal.querySelector('.assist-dictionary-close');
   if (closeBtn) {
@@ -362,14 +363,14 @@ function dictionary_addModalEventListeners(modal, data) {
   }
 
   // Click outside to close
-  modal.onclick = (e) => {
+  modal.onclick = e => {
     if (e.target === modal) {
       dictionary_hide();
     }
   };
 
   // Escape key to close
-  const escapeHandler = (e) => {
+  const escapeHandler = e => {
     if (e.key === 'Escape') {
       dictionary_hide();
       document.removeEventListener('keydown', escapeHandler);
@@ -388,7 +389,7 @@ function dictionary_addModalEventListeners(modal, data) {
 
   // Synonym buttons (clickable to look up synonym)
   const synonymBtns = modal.querySelectorAll('.assist-dictionary-synonym');
-  synonymBtns.forEach((btn) => {
+  synonymBtns.forEach(btn => {
     btn.onclick = () => {
       const word = btn.getAttribute('data-word');
       dictionary_lookup(word);
@@ -443,7 +444,7 @@ function dictionary_showLoading(word) {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
 
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHTML(`
     <div style="
       background: white;
       border-radius: 12px;
@@ -454,7 +455,7 @@ function dictionary_showLoading(word) {
         Looking up "<strong>${word}</strong>"...
       </div>
     </div>
-  `;
+  `);
 
   document.body.appendChild(modal);
   dictionary_modal = modal;
@@ -501,7 +502,7 @@ function dictionary_showError(word, errorMessage) {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
 
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHTML(`
     <div style="
       background: white;
       border-radius: 12px;
@@ -528,9 +529,9 @@ function dictionary_showError(word, errorMessage) {
         "
       >Close</button>
     </div>
-  `;
+  `);
 
-  modal.onclick = (e) => {
+  modal.onclick = e => {
     if (e.target === modal || e.target.classList.contains('assist-dictionary-close')) {
       dictionary_hide();
     }
@@ -570,7 +571,7 @@ function dictionary_playAudio(audioUrl) {
   }
 
   dictionary_currentAudio = new Audio(audioUrl);
-  dictionary_currentAudio.play().catch((error) => {
+  dictionary_currentAudio.play().catch(error => {
     console.error('[Dictionary] Audio playback failed:', error);
   });
 
@@ -608,7 +609,7 @@ function dictionary_init() {
   });
 
   // Load settings
-  chrome.storage.local.get(['dictionarySettings'], (result) => {
+  chrome.storage.local.get(['dictionarySettings'], result => {
     if (result.dictionarySettings) {
       Object.assign(dictionary_settings, result.dictionarySettings);
       console.log('[Dictionary] Settings loaded:', dictionary_settings);

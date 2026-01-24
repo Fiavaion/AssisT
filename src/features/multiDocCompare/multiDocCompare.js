@@ -13,14 +13,16 @@
  * @module features/multiDocCompare
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
 let mdc_panel = null;
 let mdc_documents = [];
-let mdc_isLoading = false;
-let mdc_comparisonResult = null;
+// let _mdc_isLoading = false; // Reserved for future use
+// let _mdc_comparisonResult = null; // Reserved for future use
 
 const mdc_settings = {
   maxDocuments: 5,
@@ -107,9 +109,9 @@ async function mdc_compareDocuments() {
   mdc_updateLoadingState(true);
 
   // Prepare documents for comparison
-  const docSummaries = mdc_documents.map((d, i) =>
-    `[Source ${i + 1}: ${d.title}]\n${d.text.substring(0, 1500)}`
-  ).join('\n\n---\n\n');
+  const docSummaries = mdc_documents
+    .map((d, i) => `[Source ${i + 1}: ${d.title}]\n${d.text.substring(0, 1500)}`)
+    .join('\n\n---\n\n');
 
   const prompt = `You are an expert at comparative analysis. Compare the following ${mdc_documents.length} sources and provide a structured analysis.
 
@@ -164,7 +166,6 @@ Rules:
     mdc_comparisonResult = fallback;
     mdc_displayResults(fallback);
     return fallback;
-
   } catch (error) {
     console.error('[MultiDocCompare] Comparison failed:', error);
     const fallback = mdc_heuristicCompare();
@@ -184,13 +185,14 @@ Rules:
 function mdc_heuristicCompare() {
   // Extract keywords from each document
   const docKeywords = mdc_documents.map(doc => {
-    const words = doc.text.toLowerCase()
+    const words = doc.text
+      .toLowerCase()
       .replace(/[^\w\s]/g, '')
       .split(/\s+/)
       .filter(w => w.length > 4);
 
     const freq = {};
-    words.forEach(w => freq[w] = (freq[w] || 0) + 1);
+    words.forEach(w => (freq[w] = (freq[w] || 0) + 1));
 
     return Object.entries(freq)
       .sort((a, b) => b[1] - a[1])
@@ -201,7 +203,7 @@ function mdc_heuristicCompare() {
   // Find common keywords
   const allKeywords = docKeywords.flat();
   const keywordCounts = {};
-  allKeywords.forEach(k => keywordCounts[k] = (keywordCounts[k] || 0) + 1);
+  allKeywords.forEach(k => (keywordCounts[k] = (keywordCounts[k] || 0) + 1));
 
   const commonKeywords = Object.entries(keywordCounts)
     .filter(([_, count]) => count >= 2)
@@ -213,20 +215,20 @@ function mdc_heuristicCompare() {
     const unique = docKeywords[i].filter(k => keywordCounts[k] === 1).slice(0, 2);
     return {
       source: i + 1,
-      insight: unique.length > 0
-        ? `Focuses on: ${unique.join(', ')}`
-        : 'Similar focus to other sources',
+      insight:
+        unique.length > 0 ? `Focuses on: ${unique.join(', ')}` : 'Similar focus to other sources',
     };
   });
 
   // Calculate word count differences
   const wordCounts = mdc_documents.map(d => d.wordCount);
-  const avgWords = wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length;
+  // const _avgWords = wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length; // Reserved for future use
 
   return {
-    commonThemes: commonKeywords.length > 0
-      ? commonKeywords.map(k => `Both discuss "${k}"`)
-      : ['Sources cover related topics'],
+    commonThemes:
+      commonKeywords.length > 0
+        ? commonKeywords.map(k => `Both discuss "${k}"`)
+        : ['Sources cover related topics'],
     keyDifferences: [
       `Word counts vary: ${Math.min(...wordCounts)} to ${Math.max(...wordCounts)} words`,
       uniqueInsights.some(u => u.insight.includes('Focuses'))
@@ -236,10 +238,12 @@ function mdc_heuristicCompare() {
     contradictions: [],
     uniqueInsights,
     synthesis: `These ${mdc_documents.length} sources share common ground around ${commonKeywords.slice(0, 2).join(' and ') || 'related themes'}, while each brings unique perspectives.`,
-    recommendations: wordCounts.indexOf(Math.max(...wordCounts)) !== -1
-      ? `Source ${wordCounts.indexOf(Math.max(...wordCounts)) + 1} provides the most detailed coverage.`
-      : 'All sources provide comparable depth.',
-    agreement_level: commonKeywords.length > 3 ? 'high' : commonKeywords.length > 1 ? 'medium' : 'low',
+    recommendations:
+      wordCounts.indexOf(Math.max(...wordCounts)) !== -1
+        ? `Source ${wordCounts.indexOf(Math.max(...wordCounts)) + 1} provides the most detailed coverage.`
+        : 'All sources provide comparable depth.',
+    agreement_level:
+      commonKeywords.length > 3 ? 'high' : commonKeywords.length > 1 ? 'medium' : 'low',
     isHeuristic: true,
   };
 }
@@ -582,12 +586,16 @@ function mdc_updateDocumentList() {
   const emptyEl = document.getElementById('mdc-empty');
   const compareBtn = document.getElementById('mdc-compare-btn');
 
-  if (!listEl) return;
+  if (!listEl) {
+    return;
+  }
 
   if (mdc_documents.length === 0) {
     emptyEl.style.display = 'block';
     listEl.querySelectorAll('.mdc-doc-item').forEach(el => el.remove());
-    if (compareBtn) compareBtn.disabled = true;
+    if (compareBtn) {
+      compareBtn.disabled = true;
+    }
     return;
   }
 
@@ -597,17 +605,17 @@ function mdc_updateDocumentList() {
   listEl.querySelectorAll('.mdc-doc-item').forEach(el => el.remove());
 
   // Add document items
-  mdc_documents.forEach((doc, index) => {
+  mdc_documents.forEach((doc, _index) => {
     const item = document.createElement('div');
     item.className = 'mdc-doc-item';
-    item.innerHTML = `
+    item.innerHTML = sanitizeHTML(`
       <div class="mdc-doc-icon">📄</div>
       <div class="mdc-doc-info">
         <div class="mdc-doc-title">${doc.title}</div>
         <div class="mdc-doc-meta">${doc.wordCount} words • ${doc.text.substring(0, 50)}...</div>
       </div>
       <button class="mdc-doc-remove" data-id="${doc.id}" aria-label="Remove">×</button>
-    `;
+    `);
     listEl.appendChild(item);
 
     // Add remove handler
@@ -626,7 +634,9 @@ function mdc_updateDocumentList() {
  * @returns {string} Text content
  */
 function mdc_extractText(item) {
-  if (typeof item === 'string') return item;
+  if (typeof item === 'string') {
+    return item;
+  }
   if (typeof item === 'object' && item !== null) {
     // Try common text property names
     return item.text || item.description || item.content || item.message || JSON.stringify(item);
@@ -640,7 +650,9 @@ function mdc_extractText(item) {
  */
 function mdc_displayResults(result) {
   const resultsEl = document.getElementById('mdc-results');
-  if (!resultsEl) return;
+  if (!resultsEl) {
+    return;
+  }
 
   resultsEl.classList.add('visible');
   document.getElementById('mdc-tip').style.display = 'none';
@@ -656,10 +668,14 @@ function mdc_displayResults(result) {
   const themesSection = document.getElementById('mdc-themes-section');
   const themesEl = document.getElementById('mdc-themes');
   if (themesEl && result.commonThemes && result.commonThemes.length > 0) {
-    if (themesSection) themesSection.style.display = 'block';
-    themesEl.innerHTML = result.commonThemes
-      .map(t => `<div class="mdc-result-item">• ${mdc_extractText(t)}</div>`)
-      .join('');
+    if (themesSection) {
+      themesSection.style.display = 'block';
+    }
+    themesEl.innerHTML = sanitizeHTML(
+      result.commonThemes
+        .map(t => `<div class="mdc-result-item">• ${mdc_extractText(t)}</div>`)
+        .join('')
+    );
   } else if (themesSection) {
     themesSection.style.display = 'none';
   }
@@ -668,10 +684,14 @@ function mdc_displayResults(result) {
   const diffsSection = document.getElementById('mdc-differences-section');
   const diffsEl = document.getElementById('mdc-differences');
   if (diffsEl && result.keyDifferences && result.keyDifferences.length > 0) {
-    if (diffsSection) diffsSection.style.display = 'block';
-    diffsEl.innerHTML = result.keyDifferences
-      .map(d => `<div class="mdc-result-item">• ${mdc_extractText(d)}</div>`)
-      .join('');
+    if (diffsSection) {
+      diffsSection.style.display = 'block';
+    }
+    diffsEl.innerHTML = sanitizeHTML(
+      result.keyDifferences
+        .map(d => `<div class="mdc-result-item">• ${mdc_extractText(d)}</div>`)
+        .join('')
+    );
   } else if (diffsSection) {
     diffsSection.style.display = 'none';
   }
@@ -681,9 +701,11 @@ function mdc_displayResults(result) {
   const contradictionsEl = document.getElementById('mdc-contradictions');
   if (contradictionsSection && result.contradictions && result.contradictions.length > 0) {
     contradictionsSection.style.display = 'block';
-    contradictionsEl.innerHTML = result.contradictions
-      .map(c => `<div class="mdc-result-item">• ${mdc_extractText(c)}</div>`)
-      .join('');
+    contradictionsEl.innerHTML = sanitizeHTML(
+      result.contradictions
+        .map(c => `<div class="mdc-result-item">• ${mdc_extractText(c)}</div>`)
+        .join('')
+    );
   } else if (contradictionsSection) {
     contradictionsSection.style.display = 'none';
   }
@@ -692,16 +714,20 @@ function mdc_displayResults(result) {
   const insightsSection = document.getElementById('mdc-insights-section');
   const insightsEl = document.getElementById('mdc-insights');
   if (insightsEl && result.uniqueInsights && result.uniqueInsights.length > 0) {
-    if (insightsSection) insightsSection.style.display = 'block';
-    insightsEl.innerHTML = result.uniqueInsights
-      .map(u => {
-        const insight = typeof u === 'object' ? (u.insight || u.text || '') : u;
-        const source = typeof u === 'object' ? u.source : '';
-        return source
-          ? `<div class="mdc-result-item"><strong>Source ${source}:</strong> ${insight}</div>`
-          : `<div class="mdc-result-item">• ${insight}</div>`;
-      })
-      .join('');
+    if (insightsSection) {
+      insightsSection.style.display = 'block';
+    }
+    insightsEl.innerHTML = sanitizeHTML(
+      result.uniqueInsights
+        .map(u => {
+          const insight = typeof u === 'object' ? u.insight || u.text || '' : u;
+          const source = typeof u === 'object' ? u.source : '';
+          return source
+            ? `<div class="mdc-result-item"><strong>Source ${source}:</strong> ${insight}</div>`
+            : `<div class="mdc-result-item">• ${insight}</div>`;
+        })
+        .join('')
+    );
   } else if (insightsSection) {
     insightsSection.style.display = 'none';
   }
@@ -733,9 +759,15 @@ function mdc_updateLoadingState(loading) {
   const actionsEl = document.querySelector('.mdc-actions');
   const resultsEl = document.getElementById('mdc-results');
 
-  if (loadingEl) loadingEl.style.display = loading ? 'block' : 'none';
-  if (actionsEl) actionsEl.style.display = loading ? 'none' : 'flex';
-  if (resultsEl && loading) resultsEl.classList.remove('visible');
+  if (loadingEl) {
+    loadingEl.style.display = loading ? 'block' : 'none';
+  }
+  if (actionsEl) {
+    actionsEl.style.display = loading ? 'none' : 'flex';
+  }
+  if (resultsEl && loading) {
+    resultsEl.classList.remove('visible');
+  }
 }
 
 // ============================================================================

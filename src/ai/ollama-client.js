@@ -18,30 +18,30 @@ const MODEL_CONFIGS = {
     size: '3.8B',
     description: 'Fast responses for real-time tasks',
     bestFor: ['state-detection', 'quick-responses', 'simple-queries'],
-    avgResponseTime: 500 // ms estimate
+    avgResponseTime: 500, // ms estimate
   },
   'llama3.2': {
     name: 'Llama 3.2',
     size: '8B',
     description: 'Balanced performance for most tasks',
     bestFor: ['conversation', 'summaries', 'analysis', 'tutoring'],
-    avgResponseTime: 1500
+    avgResponseTime: 1500,
   },
-  'mistral': {
+  mistral: {
     name: 'Mistral 7B',
     size: '7B',
     description: 'Excellent instruction following',
     bestFor: ['complex-analysis', 'writing-help', 'detailed-explanations'],
-    avgResponseTime: 1200
+    avgResponseTime: 1200,
   },
-  'llava': {
+  llava: {
     name: 'LLaVA',
     size: '7B',
     description: 'Vision + Language model',
     bestFor: ['image-description', 'page-analysis', 'visual-understanding'],
     avgResponseTime: 2000,
-    isVision: true
-  }
+    isVision: true,
+  },
 };
 
 // Default configuration
@@ -53,7 +53,7 @@ const DEFAULT_CONFIG = {
   timeout: 30000,
   maxRetries: 2,
   cacheEnabled: true,
-  cacheTTL: 300000 // 5 minutes
+  cacheTTL: 300000, // 5 minutes
 };
 
 /**
@@ -98,7 +98,7 @@ class ResponseCache {
     const key = this.generateKey(prompt, options);
     this.cache.set(key, {
       response,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // Cleanup old entries if cache is large
@@ -152,7 +152,7 @@ export class OllamaClient {
       return {
         available: this.isAvailable,
         models: this.availableModels,
-        visionAvailable: this.visionAvailable
+        visionAvailable: this.visionAvailable,
       };
     }
 
@@ -162,7 +162,7 @@ export class OllamaClient {
 
       const response = await fetch(`${this.config.baseUrl}/api/tags`, {
         method: 'GET',
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
@@ -171,8 +171,8 @@ export class OllamaClient {
         const data = await response.json();
         this.availableModels = data.models?.map(m => m.name) || [];
         this.isAvailable = true;
-        this.visionAvailable = this.availableModels.some(m =>
-          m.includes('llava') || m.includes('bakllava')
+        this.visionAvailable = this.availableModels.some(
+          m => m.includes('llava') || m.includes('bakllava')
         );
         this.lastCheck = Date.now();
 
@@ -181,7 +181,7 @@ export class OllamaClient {
         return {
           available: true,
           models: this.availableModels,
-          visionAvailable: this.visionAvailable
+          visionAvailable: this.visionAvailable,
         };
       }
     } catch (error) {
@@ -198,7 +198,7 @@ export class OllamaClient {
     return {
       available: false,
       models: [],
-      visionAvailable: false
+      visionAvailable: false,
     };
   }
 
@@ -209,19 +209,19 @@ export class OllamaClient {
    */
   getBestModelForTask(taskType) {
     const modelPreferences = {
-      'fast': ['phi3:mini', 'phi3', 'llama3.2:latest'],
-      'balanced': ['llama3.2', 'llama3.2:latest', 'mistral', 'mistral:latest'],
-      'detailed': ['mistral', 'mistral:latest', 'llama3.2', 'llama3.2:latest'],
-      'vision': ['llava', 'llava:latest', 'bakllava']
+      fast: ['phi3:mini', 'phi3', 'llama3.2:latest'],
+      balanced: ['llama3.2', 'llama3.2:latest', 'mistral', 'mistral:latest'],
+      detailed: ['mistral', 'mistral:latest', 'llama3.2', 'llama3.2:latest'],
+      vision: ['llava', 'llava:latest', 'bakllava'],
     };
 
     const preferences = modelPreferences[taskType] || modelPreferences['balanced'];
 
     for (const pref of preferences) {
-      const match = this.availableModels.find(m =>
-        m === pref || m.startsWith(pref.split(':')[0])
-      );
-      if (match) return match;
+      const match = this.availableModels.find(m => m === pref || m.startsWith(pref.split(':')[0]));
+      if (match) {
+        return match;
+      }
     }
 
     // Fallback to first available model
@@ -246,7 +246,9 @@ export class OllamaClient {
     // Check cache
     if (this.config.cacheEnabled && !options.noCache) {
       const cached = this.cache.get(prompt, options);
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
     }
 
     // Deduplicate identical concurrent requests
@@ -294,10 +296,10 @@ export class OllamaClient {
             temperature: options.temperature ?? 0.7,
             num_predict: options.maxTokens ?? 500,
             top_p: options.topP ?? 0.9,
-            ...(options.ollamaOptions || {})
-          }
+            ...(options.ollamaOptions || {}),
+          },
         }),
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
@@ -314,7 +316,6 @@ export class OllamaClient {
       }
 
       return data.response;
-
     } catch (error) {
       clearTimeout(timeoutId);
 
@@ -325,10 +326,12 @@ export class OllamaClient {
 
       // Retry logic
       if (options._retryCount < this.config.maxRetries) {
-        console.log(`[OllamaClient] Retrying... (${options._retryCount + 1}/${this.config.maxRetries})`);
+        console.log(
+          `[OllamaClient] Retrying... (${options._retryCount + 1}/${this.config.maxRetries})`
+        );
         return this._executeGeneration(prompt, model, {
           ...options,
-          _retryCount: (options._retryCount || 0) + 1
+          _retryCount: (options._retryCount || 0) + 1,
         });
       }
 
@@ -350,7 +353,7 @@ export class OllamaClient {
         return {
           error: true,
           message: 'Vision model not installed. Click "Install Vision AI" to enable.',
-          requiresInstall: true
+          requiresInstall: true,
         };
       }
     }
@@ -368,10 +371,10 @@ export class OllamaClient {
           stream: false,
           options: {
             temperature: options.temperature ?? 0.5,
-            num_predict: options.maxTokens ?? 1000
-          }
+            num_predict: options.maxTokens ?? 1000,
+          },
         }),
-        signal: AbortSignal.timeout(this.config.timeout * 2) // Vision needs more time
+        signal: AbortSignal.timeout(this.config.timeout * 2), // Vision needs more time
       });
 
       if (!response.ok) {
@@ -380,7 +383,6 @@ export class OllamaClient {
 
       const data = await response.json();
       return data.response;
-
     } catch (error) {
       console.error('[OllamaClient] Vision error:', error);
       throw error;
@@ -400,7 +402,7 @@ export class OllamaClient {
       const response = await fetch(`${this.config.baseUrl}/api/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: modelName, stream: true })
+        body: JSON.stringify({ name: modelName, stream: true }),
       });
 
       if (!response.ok) {
@@ -412,7 +414,9 @@ export class OllamaClient {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         const lines = decoder.decode(value).split('\n').filter(Boolean);
         for (const line of lines) {
@@ -423,7 +427,7 @@ export class OllamaClient {
                 status: progress.status,
                 completed: progress.completed || 0,
                 total: progress.total,
-                percent: Math.round((progress.completed / progress.total) * 100)
+                percent: Math.round((progress.completed / progress.total) * 100),
               });
             }
           } catch {
@@ -438,7 +442,6 @@ export class OllamaClient {
 
       console.log(`[OllamaClient] Model ${modelName} installed successfully`);
       return true;
-
     } catch (error) {
       console.error(`[OllamaClient] Failed to install ${modelName}:`, error);
       throw error;
@@ -470,7 +473,7 @@ export class OllamaClient {
     return {
       unavailable: true,
       message: 'Local AI not running. Please start Ollama to enable AI features.',
-      suggestion: 'Run "ollama serve" in terminal, or download from ollama.ai'
+      suggestion: 'Run "ollama serve" in terminal, or download from ollama.ai',
     };
   }
 
@@ -504,7 +507,7 @@ export class OllamaClient {
       models: this.availableModels,
       visionAvailable: this.visionAvailable,
       cacheSize: this.cache.cache.size,
-      lastCheck: this.lastCheck
+      lastCheck: this.lastCheck,
     };
   }
 }

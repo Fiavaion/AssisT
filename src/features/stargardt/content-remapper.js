@@ -7,6 +7,7 @@
  * @module stargardt/content-remapper
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
 import * as scotomaProfile from './scotoma-profile.js';
 import { showToast } from '../../core/ui/toast.js';
 import * as eyeTrackingController from './eye-tracking-controller.js';
@@ -91,7 +92,9 @@ export function initialize(profile, settings, gazeTracker = null) {
  * Enable content remapping
  */
 export function enable() {
-  if (remapper_enabled) return;
+  if (remapper_enabled) {
+    return;
+  }
 
   console.log('[ContentRemapper] Enabling...');
   remapper_enabled = true;
@@ -127,7 +130,9 @@ export function enable() {
  * Disable content remapping
  */
 export function disable() {
-  if (!remapper_enabled) return;
+  if (!remapper_enabled) {
+    return;
+  }
 
   console.log('[ContentRemapper] Disabling...');
   remapper_enabled = false;
@@ -172,7 +177,12 @@ export function disable() {
  */
 export function updateSettings(settings) {
   console.log('[ContentRemapper] updateSettings called with:', settings);
-  console.log('[ContentRemapper] Current state - enabled:', remapper_enabled, 'mode:', remapper_mode);
+  console.log(
+    '[ContentRemapper] Current state - enabled:',
+    remapper_enabled,
+    'mode:',
+    remapper_mode
+  );
 
   const previousSide = remapper_settings.preferredSide;
   const previousMode = remapper_mode;
@@ -200,24 +210,40 @@ export function updateSettings(settings) {
       console.log('[ContentRemapper] Remapper not enabled, just updating mode');
       remapper_mode = settings.mode;
     }
-  } else if (settings.preferredSide && settings.preferredSide !== previousSide && remapper_enabled) {
+  } else if (
+    settings.preferredSide &&
+    settings.preferredSide !== previousSide &&
+    remapper_enabled
+  ) {
     // Preferred side changed while enabled - re-apply current mode
     console.log('[ContentRemapper] Preferred side changed to:', settings.preferredSide);
     if (remapper_mode === 'peripheral-push') {
       // Re-create the peripheral push panel with new side
       enablePeripheralPush();
     }
-  } else if (remapper_enabled && settings.fontSize !== undefined && settings.fontSize !== previousFontSize) {
+  } else if (
+    remapper_enabled &&
+    settings.fontSize !== undefined &&
+    settings.fontSize !== previousFontSize
+  ) {
     // Font size changed - apply dynamically to active mode
     console.log('[ContentRemapper] Font size changed to:', settings.fontSize);
     applyFontSizeToActiveMode(settings.fontSize);
-  } else if (remapper_enabled && settings.readingMode !== undefined && settings.readingMode !== previousReadingMode) {
+  } else if (
+    remapper_enabled &&
+    settings.readingMode !== undefined &&
+    settings.readingMode !== previousReadingMode
+  ) {
     // Reading mode changed - need to re-extract content
     console.log('[ContentRemapper] Reading mode changed to:', settings.readingMode);
     // Re-enable the current mode to re-extract content
     disable();
     enable();
-  } else if (remapper_enabled && settings.fontFamily !== undefined && settings.fontFamily !== previousFontFamily) {
+  } else if (
+    remapper_enabled &&
+    settings.fontFamily !== undefined &&
+    settings.fontFamily !== previousFontFamily
+  ) {
     // Font family changed - apply dynamically to RSVP overlay
     console.log('[ContentRemapper] Font family changed to:', settings.fontFamily);
     applyFontFamilyToActiveMode(settings.fontFamily);
@@ -227,7 +253,8 @@ export function updateSettings(settings) {
       (settings.magnifyScale !== undefined && settings.magnifyScale !== previousMagnifyScale) ||
       (settings.magnifySize !== undefined && settings.magnifySize !== previousMagnifySize) ||
       (settings.magnifyOffset !== undefined && settings.magnifyOffset !== previousMagnifyOffset) ||
-      (settings.magnifyOffsetDir !== undefined && settings.magnifyOffsetDir !== previousMagnifyOffsetDir) ||
+      (settings.magnifyOffsetDir !== undefined &&
+        settings.magnifyOffsetDir !== previousMagnifyOffsetDir) ||
       (settings.magnifyLock !== undefined && settings.magnifyLock !== previousMagnifyLock);
 
     if (magnifySettingsChanged) {
@@ -236,7 +263,12 @@ export function updateSettings(settings) {
       enable();
     }
   } else {
-    console.log('[ContentRemapper] No significant change detected, mode:', settings.mode, 'previousMode:', previousMode);
+    console.log(
+      '[ContentRemapper] No significant change detected, mode:',
+      settings.mode,
+      'previousMode:',
+      previousMode
+    );
   }
 }
 
@@ -262,7 +294,8 @@ function applyFontSizeToActiveMode(fontSize) {
         const elements = panel.querySelectorAll('p, h1, h2, h3, h4, h5, h6');
         elements.forEach(el => {
           const tag = el.tagName.toLowerCase();
-          const baseFontSize = tag === 'h1' ? 28 : tag === 'h2' ? 24 : tag.startsWith('h') ? 20 : 20;
+          const baseFontSize =
+            tag === 'h1' ? 28 : tag === 'h2' ? 24 : tag.startsWith('h') ? 20 : 20;
           el.style.fontSize = `${Math.round(baseFontSize * scale)}px`;
         });
       }
@@ -641,15 +674,21 @@ function extractAllPageContent() {
   const content = [];
 
   // Get all text-bearing elements
-  const elements = document.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, span, div');
+  const elements = document.body.querySelectorAll(
+    'p, h1, h2, h3, h4, h5, h6, li, td, th, span, div'
+  );
 
   elements.forEach(el => {
     // Skip elements inside scripts, styles, etc.
-    if (el.closest('script, style, noscript, template')) return;
+    if (el.closest('script, style, noscript, template')) {
+      return;
+    }
 
     // Skip hidden elements
     const style = window.getComputedStyle(el);
-    if (style.display === 'none' || style.visibility === 'hidden') return;
+    if (style.display === 'none' || style.visibility === 'hidden') {
+      return;
+    }
 
     // Get direct text content (not from children to avoid duplication)
     let text = '';
@@ -678,8 +717,17 @@ function extractAllPageContent() {
 function isNavigationText(text) {
   const lowerText = text.toLowerCase();
   const navPatterns = [
-    'cookie', 'privacy', 'subscribe', 'sign in', 'log in', 'menu',
-    'search', 'share', 'follow us', 'copyright', 'all rights reserved',
+    'cookie',
+    'privacy',
+    'subscribe',
+    'sign in',
+    'log in',
+    'menu',
+    'search',
+    'share',
+    'follow us',
+    'copyright',
+    'all rights reserved',
   ];
   return navPatterns.some(pattern => lowerText.includes(pattern)) && text.length < 100;
 }
@@ -754,20 +802,43 @@ function extractReadableText() {
 
   // Remove unwanted elements from clone
   const unwantedSelectors = [
-    'script', 'style', 'noscript', 'template', 'svg', 'iframe',
-    'nav', 'header', 'footer', 'aside',
-    '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
-    '.nav', '.menu', '.sidebar', '.ad', '.ads', '.advertisement',
-    '.social-share', '.share-buttons', '.comments', '.related-posts',
-    '.cookie-banner', '.newsletter', '.subscribe', '.popup',
-    '[hidden]', '[style*="display: none"]', '[style*="display:none"]',
+    'script',
+    'style',
+    'noscript',
+    'template',
+    'svg',
+    'iframe',
+    'nav',
+    'header',
+    'footer',
+    'aside',
+    '[role="navigation"]',
+    '[role="banner"]',
+    '[role="contentinfo"]',
+    '.nav',
+    '.menu',
+    '.sidebar',
+    '.ad',
+    '.ads',
+    '.advertisement',
+    '.social-share',
+    '.share-buttons',
+    '.comments',
+    '.related-posts',
+    '.cookie-banner',
+    '.newsletter',
+    '.subscribe',
+    '.popup',
+    '[hidden]',
+    '[style*="display: none"]',
+    '[style*="display:none"]',
   ];
 
   unwantedSelectors.forEach(selector => {
     try {
       const elements = clone.querySelectorAll(selector);
       elements.forEach(el => el.remove());
-    } catch (e) {
+    } catch {
       // Ignore selector errors
     }
   });
@@ -787,7 +858,13 @@ function extractReadableText() {
   // If we got good content, return it
   if (textParts.length > 0) {
     const result = textParts.join(' ').replace(/\s+/g, ' ').trim();
-    console.log('[ContentRemapper] Extracted', textParts.length, 'text blocks,', result.split(/\s+/).length, 'words');
+    console.log(
+      '[ContentRemapper] Extracted',
+      textParts.length,
+      'text blocks,',
+      result.split(/\s+/).length,
+      'words'
+    );
     return result;
   }
 
@@ -799,7 +876,10 @@ function extractReadableText() {
     return trimmed.length > 30 && !isNavigationText(trimmed);
   });
 
-  const result = sentences.slice(0, 100).map(s => s.trim()).join('. ');
+  const result = sentences
+    .slice(0, 100)
+    .map(s => s.trim())
+    .join('. ');
   console.log('[ContentRemapper] Extracted', sentences.length, 'sentences');
   return result;
 }
@@ -830,7 +910,12 @@ function createPeripheralReadingPanel(content, preferredSide, profile, fontSizeS
   const scotomaRadiusX = (boundary.radiusX / 100) * viewWidth;
   const scotomaRadiusY = (boundary.radiusY / 100) * viewHeight;
 
-  console.log('[ContentRemapper] Scotoma position:', { scotomaCenterX, scotomaCenterY, scotomaRadiusX, scotomaRadiusY });
+  console.log('[ContentRemapper] Scotoma position:', {
+    scotomaCenterX,
+    scotomaCenterY,
+    scotomaRadiusX,
+    scotomaRadiusY,
+  });
 
   // Create full-screen overlay
   const overlay = document.createElement('div');
@@ -930,7 +1015,8 @@ function createPeripheralReadingPanel(content, preferredSide, profile, fontSizeS
     el.textContent = item.text;
 
     // Calculate scaled font sizes
-    const baseFontSize = item.tag === 'h1' ? 28 : item.tag === 'h2' ? 24 : item.tag.startsWith('h') ? 20 : 20;
+    const baseFontSize =
+      item.tag === 'h1' ? 28 : item.tag === 'h2' ? 24 : item.tag.startsWith('h') ? 20 : 20;
     const scaledFontSize = Math.round(baseFontSize * fontSizeScale);
 
     if (item.tag.startsWith('h')) {
@@ -1183,7 +1269,7 @@ function createDonutContainer(text, profile, fontSizeScale = 1) {
     text-align: center;
     font-family: system-ui, sans-serif;
   `;
-  scotomaLabel.innerHTML = 'Scotoma<br>Zone';
+  scotomaLabel.innerHTML = sanitizeHTML('Scotoma<br>Zone');
   scotomaIndicator.appendChild(scotomaLabel);
 
   // Close button
@@ -1284,11 +1370,14 @@ export async function enableDonutEyeTracking() {
   console.log('[ContentRemapper] Enabling eye tracking for donut mode...');
 
   // Initialize eye tracking controller
-  await eyeTrackingController.initialize({
-    smoothing: true,
-    showVideo: false,
-    showPrediction: false,
-  }, handleDonutGazeUpdate);
+  await eyeTrackingController.initialize(
+    {
+      smoothing: true,
+      showVideo: false,
+      showPrediction: false,
+    },
+    handleDonutGazeUpdate
+  );
 
   // Enable eye tracking
   const enabled = await eyeTrackingController.enable();
@@ -1328,7 +1417,9 @@ export function disableDonutEyeTracking() {
  * @param {Object} gaze - Gaze position {x, y}
  */
 function handleDonutGazeUpdate(gaze) {
-  if (!donut_eyeTrackingEnabled || !gaze) return;
+  if (!donut_eyeTrackingEnabled || !gaze) {
+    return;
+  }
 
   donut_currentScotomaPosition = gaze;
 
@@ -1344,7 +1435,9 @@ function handleDonutGazeUpdate(gaze) {
  */
 function updateDonutScotomaVisual(x, y) {
   const scotomaVisual = document.getElementById('stargardt-scotoma-visual');
-  if (!scotomaVisual) return;
+  if (!scotomaVisual) {
+    return;
+  }
 
   // Smooth transition for the scotoma indicator
   scotomaVisual.style.transition = 'left 0.1s ease-out, top 0.1s ease-out';
@@ -1357,7 +1450,9 @@ function updateDonutScotomaVisual(x, y) {
  */
 function resetScotomaPosition() {
   const scotomaVisual = document.getElementById('stargardt-scotoma-visual');
-  if (!scotomaVisual) return;
+  if (!scotomaVisual) {
+    return;
+  }
 
   scotomaVisual.style.transition = 'left 0.5s ease, top 0.5s ease';
   scotomaVisual.style.left = '50%';
@@ -1387,7 +1482,7 @@ function showCalibrationPrompt() {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
-    overlay.innerHTML = `
+    overlay.innerHTML = sanitizeHTML(`
       <div style="
         background: #1a1a2e;
         border-radius: 16px;
@@ -1425,7 +1520,7 @@ function showCalibrationPrompt() {
           ">Calibrate</button>
         </div>
       </div>
-    `;
+    `);
 
     document.body.appendChild(overlay);
 
@@ -1475,26 +1570,30 @@ export function getCurrentScotomaPosition() {
  * @returns {string} Cleaned text safe for word splitting
  */
 function cleanTextForRSVP(text) {
-  if (!text) return '';
+  if (!text) {
+    return '';
+  }
 
-  return text
-    // Remove soft hyphens (­ or \u00AD)
-    .replace(/\u00AD/g, '')
-    // Remove zero-width spaces and joiners
-    .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    // Remove other invisible formatting characters
-    .replace(/[\u2028\u2029]/g, ' ') // Line/paragraph separators to space
-    // Remove word joiners
-    .replace(/\u2060/g, '')
-    // Remove non-breaking spaces and replace with regular spaces
-    .replace(/\u00A0/g, ' ')
-    // Remove HTML entities that might have slipped through
-    .replace(/&shy;/gi, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&#8203;/g, '') // Zero-width space HTML entity
-    // Normalize multiple spaces to single space
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    text
+      // Remove soft hyphens (­ or \u00AD)
+      .replace(/\u00AD/g, '')
+      // Remove zero-width spaces and joiners
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      // Remove other invisible formatting characters
+      .replace(/[\u2028\u2029]/g, ' ') // Line/paragraph separators to space
+      // Remove word joiners
+      .replace(/\u2060/g, '')
+      // Remove non-breaking spaces and replace with regular spaces
+      .replace(/\u00A0/g, ' ')
+      // Remove HTML entities that might have slipped through
+      .replace(/&shy;/gi, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&#8203;/g, '') // Zero-width space HTML entity
+      // Normalize multiple spaces to single space
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /**
@@ -1542,7 +1641,7 @@ function enableRSVP() {
     font-family: ${fontFamily};
   `;
 
-  overlay.innerHTML = `
+  overlay.innerHTML = sanitizeHTML(`
     <div class="stargardt-rsvp-drag-handle" id="rsvp-drag-handle"></div>
     <div class="stargardt-rsvp-word" id="rsvp-word">${rsvp_words[0]}</div>
     <div class="stargardt-rsvp-info">
@@ -1557,7 +1656,7 @@ function enableRSVP() {
     <div class="stargardt-rsvp-speed">
       Speed: <span id="rsvp-speed">${rsvp_wordsPerMinute}</span> WPM
     </div>
-  `;
+  `);
 
   document.body.appendChild(overlay);
   remapper_overlayElement = overlay;
@@ -1594,7 +1693,9 @@ function enableRSVP() {
  */
 function setupRSVPDrag(overlay) {
   const handle = document.getElementById('rsvp-drag-handle');
-  if (!handle) return;
+  if (!handle) {
+    return;
+  }
 
   let isDragging = false;
   let startX, startY, initialLeft, initialTop;
@@ -1609,7 +1710,9 @@ function setupRSVPDrag(overlay) {
   });
 
   document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
+    if (!isDragging) {
+      return;
+    }
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     overlay.style.left = `${initialLeft + dx}px`;
@@ -1630,7 +1733,9 @@ let rsvpKeyboardHandler = null;
 function setupRSVPKeyboard() {
   rsvpKeyboardHandler = e => {
     // Only respond when RSVP overlay is active
-    if (!document.getElementById('stargardt-rsvp-overlay')) return;
+    if (!document.getElementById('stargardt-rsvp-overlay')) {
+      return;
+    }
 
     switch (e.code) {
       case 'Space':
@@ -1673,11 +1778,17 @@ function cleanupRSVPKeyboard() {
  */
 function getWordFontSize(length, scale = 1) {
   let basePx;
-  if (length <= 6) basePx = 56;
-  else if (length <= 10) basePx = 44;
-  else if (length <= 14) basePx = 36;
-  else if (length <= 18) basePx = 28;
-  else basePx = 24;
+  if (length <= 6) {
+    basePx = 56;
+  } else if (length <= 10) {
+    basePx = 44;
+  } else if (length <= 14) {
+    basePx = 36;
+  } else if (length <= 18) {
+    basePx = 28;
+  } else {
+    basePx = 24;
+  }
 
   return `${Math.round(basePx * scale)}px`;
 }
@@ -1720,10 +1831,14 @@ function toggleRSVP() {
   if (rsvp_intervalId) {
     clearInterval(rsvp_intervalId);
     rsvp_intervalId = null;
-    if (btn) btn.textContent = '▶ Play';
+    if (btn) {
+      btn.textContent = '▶ Play';
+    }
   } else {
     startRSVP();
-    if (btn) btn.textContent = '⏸ Pause';
+    if (btn) {
+      btn.textContent = '⏸ Pause';
+    }
   }
 }
 
@@ -1752,7 +1867,7 @@ function adjustRSVPSpeed(delta) {
 // Magnify lens state
 let magnify_lens = null;
 let magnify_content = null;
-let magnify_bodyClone = null;
+// let _magnify_bodyClone = null; // Reserved for future use
 let magnify_mouseMoveHandler = null;
 let magnify_scrollHandler = null;
 let magnify_dragHandlers = null;
@@ -1778,7 +1893,13 @@ function enableMagnifyRemap() {
     const offsetDir = remapper_settings.magnifyOffsetDir || 'right';
     const lockPosition = remapper_settings.magnifyLock === true;
 
-    console.log('[ContentRemapper] Magnify settings:', { scale, size, offset, offsetDir, lockPosition });
+    console.log('[ContentRemapper] Magnify settings:', {
+      scale,
+      size,
+      offset,
+      offsetDir,
+      lockPosition,
+    });
 
     // Set lock state
     magnify_isLocked = lockPosition;
@@ -1833,7 +1954,9 @@ function enableMagnifyRemap() {
       bodyClone = document.body.cloneNode(true);
       // Remove our lens from the clone to avoid recursion
       const lensInClone = bodyClone.querySelector('#stargardt-magnify-lens');
-      if (lensInClone) lensInClone.remove();
+      if (lensInClone) {
+        lensInClone.remove();
+      }
       // Remove other stargardt overlays from clone
       bodyClone.querySelectorAll('[id^="stargardt-"]').forEach(el => el.remove());
       // Remove scripts to prevent execution
@@ -1876,8 +1999,14 @@ function enableMagnifyRemap() {
     // Set initial locked position (center of screen with offset applied)
     const halfSize = size / 2;
     if (lockPosition) {
-      magnify_lockedX = window.innerWidth / 2 + (offsetDir === 'right' ? offset : offsetDir === 'left' ? -offset : 0) - halfSize;
-      magnify_lockedY = window.innerHeight / 2 + (offsetDir === 'below' ? offset : offsetDir === 'above' ? -offset : 0) - halfSize;
+      magnify_lockedX =
+        window.innerWidth / 2 +
+        (offsetDir === 'right' ? offset : offsetDir === 'left' ? -offset : 0) -
+        halfSize;
+      magnify_lockedY =
+        window.innerHeight / 2 +
+        (offsetDir === 'below' ? offset : offsetDir === 'above' ? -offset : 0) -
+        halfSize;
       // Keep on screen
       magnify_lockedX = Math.max(0, Math.min(window.innerWidth - size, magnify_lockedX));
       magnify_lockedY = Math.max(0, Math.min(window.innerHeight - size, magnify_lockedY));
@@ -1893,10 +2022,14 @@ function enableMagnifyRemap() {
 
     // Show lens after a moment
     setTimeout(() => {
-      if (lens) lens.style.opacity = '1';
+      if (lens) {
+        lens.style.opacity = '1';
+      }
     }, 100);
 
-    const modeText = lockPosition ? 'Locked lens - drag to reposition, content follows cursor' : 'Lens follows cursor';
+    const modeText = lockPosition
+      ? 'Locked lens - drag to reposition, content follows cursor'
+      : 'Lens follows cursor';
     showToast(`Magnify Lens active - ${modeText}`, 'info');
     console.log('[ContentRemapper] Magnify Lens created');
   } catch (err) {
@@ -1916,7 +2049,9 @@ function setupMagnifyDrag(lens, size) {
 
   const onMouseDown = e => {
     // Only respond to left click
-    if (e.button !== 0) return;
+    if (e.button !== 0) {
+      return;
+    }
 
     magnify_isDragging = true;
     dragStartX = e.clientX;
@@ -1933,7 +2068,9 @@ function setupMagnifyDrag(lens, size) {
   };
 
   const onMouseMove = e => {
-    if (!magnify_isDragging) return;
+    if (!magnify_isDragging) {
+      return;
+    }
 
     const dx = e.clientX - dragStartX;
     const dy = e.clientY - dragStartY;
@@ -1958,7 +2095,9 @@ function setupMagnifyDrag(lens, size) {
   };
 
   const onMouseUp = e => {
-    if (!magnify_isDragging) return;
+    if (!magnify_isDragging) {
+      return;
+    }
 
     magnify_isDragging = false;
 
@@ -2033,7 +2172,9 @@ function startMagnifyTracking(scale, size, offset, offsetDir) {
 
   // Update lens position and content
   const updateLens = (gazeX, gazeY) => {
-    if (!magnify_lens || !magnify_content) return;
+    if (!magnify_lens || !magnify_content) {
+      return;
+    }
 
     // Smooth the cursor tracking
     magnify_lastGazeX += (gazeX - magnify_lastGazeX) * 0.3;
@@ -2058,8 +2199,8 @@ function startMagnifyTracking(scale, size, offset, offsetDir) {
 
     // Position the content so the cursor point appears centered in the lens
     // We scale the content, then translate to center the point of interest
-    const contentX = -docX + (halfSize / scale);
-    const contentY = -docY + (halfSize / scale);
+    const contentX = -docX + halfSize / scale;
+    const contentY = -docY + halfSize / scale;
 
     magnify_content.style.transform = `scale(${scale}) translate(${contentX}px, ${contentY}px)`;
   };
@@ -2090,7 +2231,9 @@ function startMagnifyTracking(scale, size, offset, offsetDir) {
 
   // Also start animation frame for smooth updates
   const animateLoop = () => {
-    if (!remapper_enabled || remapper_mode !== 'magnify-remap') return;
+    if (!remapper_enabled || remapper_mode !== 'magnify-remap') {
+      return;
+    }
 
     // Check for eye tracking updates
     if (remapper_gazeTracker) {
@@ -2140,10 +2283,14 @@ function startMagnifyTracking(scale, size, offset, offsetDir) {
  * Start gaze-aware content remapping loop
  */
 function startGazeAwareLoop() {
-  if (!remapper_gazeTracker) return;
+  if (!remapper_gazeTracker) {
+    return;
+  }
 
   const updateFromGaze = timestamp => {
-    if (!remapper_enabled) return;
+    if (!remapper_enabled) {
+      return;
+    }
 
     // Throttle to target FPS
     if (timestamp - lastFrameTime < FRAME_BUDGET) {
@@ -2176,7 +2323,9 @@ function updateRemappingFromGaze(gaze) {
     const mainContent = findMainContent();
 
     mainContent.forEach(element => {
-      if (!element.classList.contains('stargardt-remap-container')) return;
+      if (!element.classList.contains('stargardt-remap-container')) {
+        return;
+      }
 
       // Calculate dynamic shift based on gaze
       const rect = element.getBoundingClientRect();
@@ -2231,10 +2380,12 @@ function findMainContent() {
 
   // Fall back to large text containers
   const containers = document.querySelectorAll('div, section');
-  return Array.from(containers).filter(el => {
-    const text = el.textContent || '';
-    return text.length > 200 && el.children.length < 50;
-  }).slice(0, 10); // Limit to prevent performance issues
+  return Array.from(containers)
+    .filter(el => {
+      const text = el.textContent || '';
+      return text.length > 200 && el.children.length < 50;
+    })
+    .slice(0, 10); // Limit to prevent performance issues
 }
 
 /**
@@ -2244,7 +2395,10 @@ function extractPageText() {
   const mainContent = findMainContent();
 
   if (mainContent.length > 0) {
-    return mainContent.map(el => getCleanText(el)).join(' ').trim();
+    return mainContent
+      .map(el => getCleanText(el))
+      .join(' ')
+      .trim();
   }
 
   return getCleanText(document.body);
@@ -2267,7 +2421,9 @@ function getCleanText(element) {
   });
 
   // Also remove hidden elements
-  const hidden = clone.querySelectorAll('[hidden], [style*="display: none"], [style*="display:none"]');
+  const hidden = clone.querySelectorAll(
+    '[hidden], [style*="display: none"], [style*="display:none"]'
+  );
   hidden.forEach(el => el.remove());
 
   // Get text and clean up whitespace
@@ -2306,8 +2462,9 @@ function resetAllTransforms() {
  * Show scotoma indicator overlay
  * @private Reserved for future scotoma visualization feature
  */
+/*
 function _showScotomaIndicator() {
-  if (!remapper_profile) return;
+  if (!remapper_profile) {return;}
 
   const indicator = document.createElement('div');
   indicator.id = 'stargardt-scotoma-indicator';
@@ -2327,13 +2484,16 @@ function _showScotomaIndicator() {
 
   document.body.appendChild(indicator);
 }
+*/
 
 /**
  * Update scotoma indicator position based on gaze
+ * Reserved for future scotoma visualization feature
  */
+/*
 function updateScotomaIndicatorPosition(gazeX, gazeY) {
   const indicator = document.getElementById('stargardt-scotoma-indicator');
-  if (!indicator || !remapper_profile) return;
+  if (!indicator || !remapper_profile) {return;}
 
   const radiusX = (remapper_profile.boundary.radiusX / 100) * window.innerWidth;
   const radiusY = (remapper_profile.boundary.radiusY / 100) * window.innerHeight;
@@ -2341,6 +2501,7 @@ function updateScotomaIndicatorPosition(gazeX, gazeY) {
   indicator.style.left = `${gazeX - radiusX}px`;
   indicator.style.top = `${gazeY - radiusY}px`;
 }
+*/
 
 // ============================================================================
 // STATUS

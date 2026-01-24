@@ -203,7 +203,9 @@ function stt_cleanup() {
  * Handle settings changes
  */
 function stt_handleSettingsChange(newSettings) {
-  if (!newSettings.stt) return;
+  if (!newSettings.stt) {
+    return;
+  }
 
   const sttSettings = newSettings.stt;
   const newEnabled = sttSettings.enabled || false;

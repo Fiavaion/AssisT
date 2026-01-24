@@ -14,23 +14,9 @@
 
 import { CommandParser, CommandType } from './command-parser.js';
 import { VocabularyManager, VocabularyPresets } from './vocabulary-manager.js';
-import { STTProfileManager, STTProfileType, mapNeurodivergentProfile } from './stt-profiles.js';
-import {
-  AutoPunctuator,
-  PunctuationType,
-  DEFAULT_CONFIG as AUTO_PUNCT_CONFIG,
-} from './auto-punctuation.js';
-import {
-  ConfidenceFeedback,
-  ConfidenceLevel,
-  DEFAULT_CONFIG as CONFIDENCE_CONFIG,
-} from './confidence-feedback.js';
-import {
-  EngineManager,
-  EngineType,
-  EngineStatus,
-  createEngineManager,
-} from './engines/index.js';
+import { AutoPunctuator, PunctuationType } from './auto-punctuation.js';
+import { ConfidenceFeedback } from './confidence-feedback.js';
+import { EngineType, EngineStatus, createEngineManager } from './engines/index.js';
 
 /**
  * Enhanced STT Controller with multi-engine support
@@ -46,8 +32,7 @@ export class STTControllerEnhanced {
         options.punctuationCommands !== undefined ? options.punctuationCommands : true,
       voiceCommands: options.voiceCommands !== undefined ? options.voiceCommands : true,
       maxAlternatives: options.maxAlternatives || 1,
-      vocabularyEnabled:
-        options.vocabularyEnabled !== undefined ? options.vocabularyEnabled : true,
+      vocabularyEnabled: options.vocabularyEnabled !== undefined ? options.vocabularyEnabled : true,
       // Auto-punctuation settings
       autoPunctuation: options.autoPunctuation !== undefined ? options.autoPunctuation : true,
       autoPunctuationMode: options.autoPunctuationMode || 'auto',
@@ -277,7 +262,7 @@ export class STTControllerEnhanced {
       const success = await this.engineManager.pauseListening();
       console.log('[STT Enhanced] Paused listening');
       return success;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -296,7 +281,7 @@ export class STTControllerEnhanced {
       const success = await this.engineManager.resumeListening();
       console.log('[STT Enhanced] Resumed listening');
       return success;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -344,7 +329,7 @@ export class STTControllerEnhanced {
 
     console.log(
       `[STT Enhanced] Result from ${engineType}: "${transcript}" ` +
-      `(confidence: ${confidence?.toFixed(2)}, time: ${processingTime}ms)`
+        `(confidence: ${confidence?.toFixed(2)}, time: ${processingTime}ms)`
     );
 
     // Process voice commands if enabled
@@ -492,7 +477,9 @@ export class STTControllerEnhanced {
    */
   executeNavigate(params) {
     // Implementation from original STT controller
-    if (!this.targetElement) return;
+    if (!this.targetElement) {
+      return;
+    }
     // ... navigation logic
     this.handleCommandExecuted({
       type: CommandType.NAVIGATE,
@@ -507,7 +494,9 @@ export class STTControllerEnhanced {
    */
   executeFormat(params) {
     // Implementation from original STT controller
-    if (!this.targetElement) return;
+    if (!this.targetElement) {
+      return;
+    }
     // ... format logic
     this.handleCommandExecuted({
       type: CommandType.FORMAT,
@@ -567,7 +556,9 @@ export class STTControllerEnhanced {
    * @private
    */
   capitalizeFirstWord(text) {
-    if (!text || text.length === 0) return text;
+    if (!text || text.length === 0) {
+      return text;
+    }
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
@@ -578,7 +569,9 @@ export class STTControllerEnhanced {
    * @private
    */
   insertText(element, text) {
-    if (!element) return;
+    if (!element) {
+      return;
+    }
 
     const shouldAddSpace =
       element.value && element.value.trim().length > 0 && !element.value.endsWith(' ');
@@ -648,7 +641,9 @@ export class STTControllerEnhanced {
    * @returns {Promise<boolean>}
    */
   async setPreferredEngine(engineType) {
-    if (!this.engineManager) return false;
+    if (!this.engineManager) {
+      return false;
+    }
     return await this.engineManager.setActiveEngine(engineType);
   }
 
@@ -715,7 +710,8 @@ export class STTControllerEnhanced {
         autoLearnThreshold: options.autoLearnThreshold || 3,
         enabledCategories: options.enabledCategories || [VocabularyPresets.CUSTOM],
         onWordAdded: entry => console.log(`[STT Enhanced] Vocabulary word added: ${entry.word}`),
-        onWordRemoved: entry => console.log(`[STT Enhanced] Vocabulary word removed: ${entry.word}`),
+        onWordRemoved: entry =>
+          console.log(`[STT Enhanced] Vocabulary word removed: ${entry.word}`),
         onError: error => console.error('[STT Enhanced] Vocabulary error:', error),
       });
 

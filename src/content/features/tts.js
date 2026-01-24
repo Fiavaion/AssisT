@@ -5,6 +5,7 @@
 
 import { hexToRgba, showToast } from '../utils/dom-utils.js';
 import { getSettings, onSettingsChange } from '../utils/storage-utils.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // TTS State (Feature Isolated)
 let tts_currentUtterance = null;
@@ -131,7 +132,7 @@ function tts_highlightWordByWord(element, text, rate) {
     })
     .join('');
 
-  element.innerHTML = wrappedHTML;
+  element.innerHTML = sanitizeHTML(wrappedHTML);
 
   // Highlight words progressively
   const wordSpans = element.querySelectorAll('.assist-word');
@@ -174,7 +175,7 @@ function tts_cleanupWordByWord(element) {
 
   // Restore original HTML if it was modified
   if (element && element.dataset.originalHTML) {
-    element.innerHTML = element.dataset.originalHTML;
+    element.innerHTML = sanitizeHTML(element.dataset.originalHTML);
     delete element.dataset.originalHTML;
   }
 }
@@ -270,7 +271,9 @@ function tts_readText(text, element) {
  * Handle settings changes
  */
 function tts_handleSettingsChange(newSettings) {
-  if (!newSettings.tts) return;
+  if (!newSettings.tts) {
+    return;
+  }
 
   const ttsSettings = newSettings.tts;
   const oldRate = tts_settings.rate;

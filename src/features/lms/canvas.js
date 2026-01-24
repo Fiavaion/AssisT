@@ -60,7 +60,7 @@ let settingsObject = null;
 export async function canvas_loadAdapter() {
   if (!CanvasAdapter) {
     try {
-      CanvasAdapter = await import(chrome.runtime.getURL('adapters/canvas-adapter.js'));
+      CanvasAdapter = await import(chrome.runtime.getURL('src/adapters/canvas-adapter.js'));
       console.log('[Canvas] Adapter loaded');
     } catch (error) {
       console.error('[Canvas] Failed to load adapter:', error);

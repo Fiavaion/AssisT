@@ -7,45 +7,47 @@
  * @module components/model-dropdown
  */
 
+import { sanitizeHTML } from '../utils/sanitize.js';
+
 // Cloud model configurations
 const CLOUD_MODELS = {
-  'local': {
+  local: {
     id: 'local',
     name: 'Local (Ollama)',
     shortName: 'Local',
     description: 'Offline processing',
-    isLocal: true
+    isLocal: true,
   },
   'haiku-4.5': {
     id: 'claude-haiku-4-5-20251101',
     name: 'Haiku 4.5',
     shortName: 'Haiku',
-    description: 'Fast'
+    description: 'Fast',
   },
   'sonnet-4.5': {
     id: 'claude-sonnet-4-5-20250929',
     name: 'Sonnet 4.5',
     shortName: 'Sonnet',
-    description: 'Balanced'
+    description: 'Balanced',
   },
   'opus-4.5': {
     id: 'claude-opus-4-5-20251101',
     name: 'Opus 4.5',
     shortName: 'Opus',
-    description: 'Best'
-  }
+    description: 'Best',
+  },
 };
 
 // Feature default models
 const FEATURE_DEFAULTS = {
-  'summarization': 'haiku-4.5',
-  'textSimplification': 'sonnet-4.5',
-  'assignmentBreakdown': 'sonnet-4.5',
-  'citationAnalyzer': 'sonnet-4.5',
-  'socraticTutor': 'opus-4.5',
-  'imageUnderstanding': 'sonnet-4.5',
-  'studyPathGenerator': 'sonnet-4.5',
-  'multiDocCompare': 'opus-4.5'
+  summarization: 'haiku-4.5',
+  textSimplification: 'sonnet-4.5',
+  assignmentBreakdown: 'sonnet-4.5',
+  citationAnalyzer: 'sonnet-4.5',
+  socraticTutor: 'opus-4.5',
+  imageUnderstanding: 'sonnet-4.5',
+  studyPathGenerator: 'sonnet-4.5',
+  multiDocCompare: 'opus-4.5',
 };
 
 /**
@@ -91,7 +93,7 @@ function createModelDropdown(featureName, options = {}) {
   }
 
   // Create label and select
-  container.innerHTML = `
+  container.innerHTML = sanitizeHTML(`
     <label class="assist-model-label">
       <span class="assist-model-icon" title="AI Model">🤖</span>
       <select class="assist-model-select" aria-label="Select AI model for ${featureName}">
@@ -101,7 +103,7 @@ function createModelDropdown(featureName, options = {}) {
         <option value="opus-4.5">Opus 4.5</option>
       </select>
     </label>
-  `;
+  `);
 
   const select = container.querySelector('select');
   select.value = defaultModel;
@@ -117,13 +119,13 @@ function createModelDropdown(featureName, options = {}) {
     container,
     select,
     getSelectedModel: () => select.value,
-    setModel: (modelKey) => {
+    setModel: modelKey => {
       if (CLOUD_MODELS[modelKey]) {
         select.value = modelKey;
       }
     },
     getModelConfig: () => CLOUD_MODELS[select.value] || CLOUD_MODELS['local'],
-    isCloudModel: () => select.value !== 'local'
+    isCloudModel: () => select.value !== 'local',
   };
 }
 
@@ -264,8 +266,8 @@ async function generateWithModel(prompt, modelKey, options = {}) {
         model: modelKey,
         feature: options.feature,
         maxTokens: options.maxTokens || 1024,
-        temperature: options.temperature || 0.7
-      }
+        temperature: options.temperature || 0.7,
+      },
     });
 
     return response;
@@ -276,8 +278,8 @@ async function generateWithModel(prompt, modelKey, options = {}) {
       prompt,
       options: {
         maxTokens: options.maxTokens || 500,
-        temperature: options.temperature || 0.7
-      }
+        temperature: options.temperature || 0.7,
+      },
     });
 
     return response;
@@ -292,7 +294,7 @@ export {
   getDefaultModel,
   generateWithModel,
   CLOUD_MODELS,
-  FEATURE_DEFAULTS
+  FEATURE_DEFAULTS,
 };
 
 export default {
@@ -302,5 +304,5 @@ export default {
   getDefaultModel,
   generateWithModel,
   CLOUD_MODELS,
-  FEATURE_DEFAULTS
+  FEATURE_DEFAULTS,
 };

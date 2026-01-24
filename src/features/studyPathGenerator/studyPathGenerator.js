@@ -14,12 +14,14 @@
  * @module features/studyPathGenerator
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
 let spg_panel = null;
-let spg_isLoading = false;
+// let _spg_isLoading = false; // Reserved for future use
 let spg_currentPath = null;
 let spg_progress = {};
 
@@ -127,7 +129,6 @@ Rules:
     spg_currentPath = fallback;
     spg_displayPath(fallback);
     return fallback;
-
   } catch (error) {
     console.error('[StudyPathGenerator] Generation failed:', error);
     const fallback = spg_heuristicGenerate(text);
@@ -183,9 +184,12 @@ function spg_heuristicGenerate(text) {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
 
   // Extract main concepts
-  const words = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+  const words = text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/);
   const wordFreq = {};
-  words.filter(w => w.length > 5).forEach(w => wordFreq[w] = (wordFreq[w] || 0) + 1);
+  words.filter(w => w.length > 5).forEach(w => (wordFreq[w] = (wordFreq[w] || 0) + 1));
   const keyTerms = Object.entries(wordFreq)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 15)
@@ -235,7 +239,9 @@ function spg_heuristicGenerate(text) {
   const totalMinutes = topics.reduce((sum, t) => sum + t.estimatedMinutes, 0);
 
   return {
-    title: 'Study Path: ' + (keyTerms[0] ? keyTerms[0].charAt(0).toUpperCase() + keyTerms[0].slice(1) : 'Content Review'),
+    title:
+      'Study Path: ' +
+      (keyTerms[0] ? keyTerms[0].charAt(0).toUpperCase() + keyTerms[0].slice(1) : 'Content Review'),
     estimatedHours: Math.ceil(totalMinutes / 60),
     difficulty: 'intermediate',
     topics,
@@ -267,7 +273,9 @@ function spg_markComplete(topicId) {
 
   if (spg_currentPath) {
     const topic = spg_currentPath.topics.find(t => t.id === topicId);
-    if (topic) topic.completed = true;
+    if (topic) {
+      topic.completed = true;
+    }
     spg_updateProgressDisplay();
   }
 
@@ -284,7 +292,9 @@ function spg_markIncomplete(topicId) {
 
   if (spg_currentPath) {
     const topic = spg_currentPath.topics.find(t => t.id === topicId);
-    if (topic) topic.completed = false;
+    if (topic) {
+      topic.completed = false;
+    }
     spg_updateProgressDisplay();
   }
 
@@ -690,8 +700,12 @@ function spg_displayPath(path) {
   const contentEl = document.getElementById('spg-path-content');
   const headerMeta = document.getElementById('spg-header-meta');
 
-  if (emptyEl) emptyEl.style.display = 'none';
-  if (contentEl) contentEl.style.display = 'block';
+  if (emptyEl) {
+    emptyEl.style.display = 'none';
+  }
+  if (contentEl) {
+    contentEl.style.display = 'block';
+  }
 
   // Update header
   if (headerMeta) {
@@ -707,7 +721,10 @@ function spg_displayPath(path) {
   // Render topics
   const topicsEl = document.getElementById('spg-topics');
   if (topicsEl) {
-    topicsEl.innerHTML = path.topics.map(topic => `
+    topicsEl.innerHTML = sanitizeHTML(
+      path.topics
+        .map(
+          topic => `
       <div class="spg-topic ${topic.completed ? 'completed' : ''}" data-id="${topic.id}">
         <div class="spg-topic-header">
           <div class="spg-topic-checkbox">${topic.completed ? '✓' : ''}</div>
@@ -726,31 +743,46 @@ function spg_displayPath(path) {
             <h5>Description</h5>
             <div class="spg-detail-list">${topic.description}</div>
           </div>
-          ${topic.objectives && topic.objectives.length > 0 ? `
+          ${
+            topic.objectives && topic.objectives.length > 0
+              ? `
           <div class="spg-detail-section">
             <h5>Learning Objectives</h5>
             <div class="spg-detail-list">
               ${topic.objectives.map(o => `<div class="spg-detail-item">${o}</div>`).join('')}
             </div>
           </div>
-          ` : ''}
-          ${topic.keyTerms && topic.keyTerms.length > 0 ? `
+          `
+              : ''
+          }
+          ${
+            topic.keyTerms && topic.keyTerms.length > 0
+              ? `
           <div class="spg-detail-section">
             <h5>Key Terms</h5>
             <div class="spg-key-terms">
               ${topic.keyTerms.map(t => `<span class="spg-key-term">${t}</span>`).join('')}
             </div>
           </div>
-          ` : ''}
-          ${topic.practiceQuestions && topic.practiceQuestions.length > 0 ? `
+          `
+              : ''
+          }
+          ${
+            topic.practiceQuestions && topic.practiceQuestions.length > 0
+              ? `
           <div class="spg-detail-section">
             <h5>Practice Question</h5>
             <div class="spg-practice">${topic.practiceQuestions[0]}</div>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
       </div>
-    `).join('');
+    `
+        )
+        .join('')
+    );
 
     // Add event listeners
     topicsEl.querySelectorAll('.spg-topic').forEach(el => {
@@ -759,14 +791,14 @@ function spg_displayPath(path) {
       const topicId = parseInt(el.dataset.id);
 
       // Toggle expand
-      header.onclick = (e) => {
+      header.onclick = e => {
         if (!e.target.closest('.spg-topic-checkbox')) {
           el.classList.toggle('expanded');
         }
       };
 
       // Toggle completion
-      checkbox.onclick = (e) => {
+      checkbox.onclick = e => {
         e.stopPropagation();
         if (el.classList.contains('completed')) {
           spg_markIncomplete(topicId);
@@ -784,9 +816,9 @@ function spg_displayPath(path) {
   // Render tips
   const tipsEl = document.getElementById('spg-tips-list');
   if (tipsEl && path.tips) {
-    tipsEl.innerHTML = path.tips
-      .map(t => `<div class="spg-tip-item">• ${t}</div>`)
-      .join('');
+    tipsEl.innerHTML = sanitizeHTML(
+      path.tips.map(t => `<div class="spg-tip-item">• ${t}</div>`).join('')
+    );
   }
 
   spg_updateProgressDisplay();
@@ -796,7 +828,9 @@ function spg_displayPath(path) {
  * Update progress display
  */
 function spg_updateProgressDisplay() {
-  if (!spg_currentPath) return;
+  if (!spg_currentPath) {
+    return;
+  }
 
   const completed = spg_currentPath.topics.filter(t => t.completed).length;
   const total = spg_currentPath.topics.length;
@@ -822,9 +856,15 @@ function spg_updateLoadingState(loading) {
   const emptyEl = document.getElementById('spg-empty');
   const contentEl = document.getElementById('spg-path-content');
 
-  if (loadingEl) loadingEl.style.display = loading ? 'block' : 'none';
-  if (emptyEl) emptyEl.style.display = loading ? 'none' : (spg_currentPath ? 'none' : 'block');
-  if (contentEl) contentEl.style.display = loading ? 'none' : (spg_currentPath ? 'block' : 'none');
+  if (loadingEl) {
+    loadingEl.style.display = loading ? 'block' : 'none';
+  }
+  if (emptyEl) {
+    emptyEl.style.display = loading ? 'none' : spg_currentPath ? 'none' : 'block';
+  }
+  if (contentEl) {
+    contentEl.style.display = loading ? 'none' : spg_currentPath ? 'block' : 'none';
+  }
 }
 
 // ============================================================================

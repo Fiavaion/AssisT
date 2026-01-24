@@ -22,6 +22,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -723,7 +724,7 @@ async function simplification_createPanel() {
   panel.setAttribute('aria-label', 'Text Simplification');
   panel.setAttribute('aria-modal', 'true');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <div class="assist-simplify-header">
       <span class="assist-simplify-title">📝 Simplified Text</span>
       <div class="assist-simplify-controls">
@@ -750,7 +751,7 @@ async function simplification_createPanel() {
         <span class="assist-simplify-btn-icon">🔄</span> Regenerate
       </button>
     </div>
-  `;
+  `);
 
   // Inject styles
   simplification_injectStyles();
@@ -1278,12 +1279,12 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
   const modelName = SIMPLIFICATION_MODELS[modelKey]?.name || modelKey;
 
   if (contentArea) {
-    contentArea.innerHTML = `
+    contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-simplify-loading">
         <div class="assist-simplify-spinner"></div>
         <span>Creating ${levelLabels[level] || 'simplified'} version${isCloud ? ` with ${modelName}` : ''}...</span>
       </div>
-    `;
+    `);
   }
 
   // Disable action buttons
@@ -1345,10 +1346,10 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
         badge = '<span class="assist-simplify-fallback-badge">Basic</span>';
       }
 
-      contentArea.innerHTML = `
+      contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-simplify-text">${escapeHtml(simplified)}</p>
         ${badge}
-      `;
+      `);
     }
   } catch (error) {
     console.error('[TextSimplification] Error:', error);
@@ -1358,10 +1359,10 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
     simplification_currentResult = fallbackResult;
 
     if (contentArea) {
-      contentArea.innerHTML = `
+      contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-simplify-text">${escapeHtml(fallbackResult)}</p>
         <span class="assist-simplify-fallback-badge">Basic</span>
-      `;
+      `);
     }
 
     if (statusBar) {

@@ -3,13 +3,14 @@
  * Handles quiz flow, UI interactions, and state management
  */
 
-import { QUESTIONS, FEATURES } from './questions.js';
+import { QUESTIONS } from './questions.js';
 import {
   calculateScores,
   getTopRecommendations,
   createProfile,
   applyProfile,
 } from './recommendations.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // State Management
@@ -213,7 +214,9 @@ function skipAll() {
 
 function renderQuestion() {
   const question = QUESTIONS[state.currentQuestion];
-  if (!question) return;
+  if (!question) {
+    return;
+  }
 
   // Update question number
   if (elements.questionNumber) {
@@ -239,13 +242,16 @@ function renderQuestion() {
 }
 
 function renderOptions(question) {
-  if (!elements.optionsContainer) return;
+  if (!elements.optionsContainer) {
+    return;
+  }
 
   const selectedValue = state.responses.primary[question.id];
 
-  elements.optionsContainer.innerHTML = question.options
-    .map(
-      option => `
+  elements.optionsContainer.innerHTML = sanitizeHTML(
+    question.options
+      .map(
+        option => `
       <div class="option-item ${selectedValue === option.value ? 'selected' : ''}"
            data-value="${option.value}"
            role="radio"
@@ -261,8 +267,9 @@ function renderOptions(question) {
         <label for="opt-${question.id}-${option.value}">${option.label}</label>
       </div>
     `
-    )
-    .join('');
+      )
+      .join('')
+  );
 
   // Bind option click events
   elements.optionsContainer.querySelectorAll('.option-item').forEach(item => {
@@ -291,7 +298,9 @@ function selectOption(questionId, value) {
 }
 
 function renderSubQuestions(question) {
-  if (!elements.subQuestions) return;
+  if (!elements.subQuestions) {
+    return;
+  }
 
   if (!question.subQuestions || question.subQuestions.length === 0) {
     if (elements.tellMeMore) {
@@ -304,9 +313,10 @@ function renderSubQuestions(question) {
     elements.tellMeMore.style.display = 'block';
   }
 
-  elements.subQuestions.innerHTML = question.subQuestions
-    .map(
-      subQ => `
+  elements.subQuestions.innerHTML = sanitizeHTML(
+    question.subQuestions
+      .map(
+        subQ => `
       <div class="sub-question-item">
         <input
           type="checkbox"
@@ -316,8 +326,9 @@ function renderSubQuestions(question) {
         <label for="sub-${subQ.id}">${subQ.label}</label>
       </div>
     `
-    )
-    .join('');
+      )
+      .join('')
+  );
 
   // Bind sub-question events
   elements.subQuestions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
@@ -398,15 +409,17 @@ function updateNavigationButtons() {
 // ============================================================================
 
 function renderResults() {
-  if (!elements.recommendationsContainer) return;
+  if (!elements.recommendationsContainer) {
+    return;
+  }
 
   if (state.recommendations.length === 0) {
-    elements.recommendationsContainer.innerHTML = `
+    elements.recommendationsContainer.innerHTML = sanitizeHTML(`
       <p class="no-recommendations">
         Based on your responses, you may not need many accessibility features right now.
         Feel free to explore the extension and enable features as needed.
       </p>
-    `;
+    `);
     return;
   }
 
@@ -558,7 +571,9 @@ function showSuccessMessage(message) {
 
 function handleKeyboard(e) {
   // Only handle in questions screen
-  if (state.currentScreen !== 'questions') return;
+  if (state.currentScreen !== 'questions') {
+    return;
+  }
 
   const question = QUESTIONS[state.currentQuestion];
   const currentAnswer = state.responses.primary[question?.id];

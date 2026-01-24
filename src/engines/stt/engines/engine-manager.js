@@ -45,7 +45,9 @@ export class EngineManager {
    * @private
    */
   setupConnectionMonitoring() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      return;
+    }
 
     window.addEventListener('online', () => {
       console.log('[EngineManager] Network online');
@@ -150,9 +152,10 @@ export class EngineManager {
    */
   async selectBestEngine() {
     // If preferring offline and offline mode is available, prioritize Whisper
-    const priorityOrder = this.preferOffline && !this.isOnline
-      ? [EngineType.WHISPER, ...this.priority.filter(t => t !== EngineType.WHISPER)]
-      : this.priority;
+    const priorityOrder =
+      this.preferOffline && !this.isOnline
+        ? [EngineType.WHISPER, ...this.priority.filter(t => t !== EngineType.WHISPER)]
+        : this.priority;
 
     for (const type of priorityOrder) {
       const engine = this.engines.get(type);
@@ -247,7 +250,9 @@ export class EngineManager {
    * @returns {Promise<boolean>}
    */
   async stopListening() {
-    if (!this.activeEngine) return false;
+    if (!this.activeEngine) {
+      return false;
+    }
     return await this.activeEngine.stopListening();
   }
 
@@ -256,7 +261,9 @@ export class EngineManager {
    * @returns {Promise<boolean>}
    */
   async pauseListening() {
-    if (!this.activeEngine) return false;
+    if (!this.activeEngine) {
+      return false;
+    }
     return await this.activeEngine.pauseListening();
   }
 
@@ -265,7 +272,9 @@ export class EngineManager {
    * @returns {Promise<boolean>}
    */
   async resumeListening() {
-    if (!this.activeEngine) return false;
+    if (!this.activeEngine) {
+      return false;
+    }
     return await this.activeEngine.resumeListening();
   }
 
@@ -288,7 +297,9 @@ export class EngineManager {
 
       if (engine && engine.getStatus() === EngineStatus.READY) {
         const capabilities = engine.getCapabilities();
-        if (!this.isOnline && !capabilities.offline) continue;
+        if (!this.isOnline && !capabilities.offline) {
+          continue;
+        }
 
         console.log(`[EngineManager] Falling back to ${nextType}`);
         this.onFallback(nextType, currentType, error);
@@ -314,7 +325,9 @@ export class EngineManager {
    * @private
    */
   async handleOfflineMode() {
-    if (!this.activeEngine) return;
+    if (!this.activeEngine) {
+      return;
+    }
 
     const capabilities = this.activeEngine.getCapabilities();
     if (!capabilities.offline) {

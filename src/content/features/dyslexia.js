@@ -5,6 +5,7 @@
 
 import { getSettings, onSettingsChange } from '../utils/storage-utils.js';
 import { showToast } from '../utils/dom-utils.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 import nlp from 'compromise';
 
 // Dyslexia Mode State (Feature Isolated)
@@ -384,7 +385,7 @@ function dyslexiaMode_remove() {
   // Restore original HTML
   dyslexiaMode_originalContent.forEach((originalHTML, element) => {
     if (element && element.isConnected) {
-      element.innerHTML = originalHTML;
+      element.innerHTML = sanitizeHTML(originalHTML);
       delete element.dataset.assistDyslexiaProcessed;
     }
   });

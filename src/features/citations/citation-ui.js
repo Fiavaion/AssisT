@@ -12,6 +12,7 @@
 
 import { validateCitation } from './citation-model.js';
 import { formatReference } from './citation-formatter.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 /**
  * Show success toast notification
@@ -64,10 +65,10 @@ function createToast(message, type) {
   const icon = type === 'success' ? '✓' : '✕';
   const bgColor = type === 'success' ? '#4caf50' : '#f44336';
 
-  toast.innerHTML = `
+  toast.innerHTML = sanitizeHTML(`
     <span class="citation-toast-icon">${icon}</span>
     <span class="citation-toast-message">${message}</span>
-  `;
+  `);
 
   // Inline styles for toast (no external CSS dependency)
   Object.assign(toast.style, {
@@ -137,7 +138,7 @@ function createCitationModal(citationData, onClose) {
   const isEdit = citationData !== null;
   const data = citationData || {};
 
-  overlay.innerHTML = `
+  overlay.innerHTML = sanitizeHTML(`
     <div class="citation-modal">
       <div class="citation-modal-header">
         <h2 id="citation-modal-title">${isEdit ? 'Edit' : 'Save'} Citation</h2>
@@ -263,10 +264,7 @@ function createCitationModal(citationData, onClose) {
         <button type="submit" class="btn-save">Save Citation</button>
       </div>
     </div>
-  `;
-
-  // Apply styles
-  applyCitationModalStyles(overlay);
+  `);
 
   // Event handlers
   const form = overlay.querySelector('#citation-form');
@@ -381,176 +379,6 @@ function escapeHTML(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
-}
-
-/**
- * Apply styles to citation modal
- * @param {HTMLElement} _overlay
- */
-function applyCitationModalStyles(_overlay) {
-  const style = document.createElement('style');
-  style.textContent = `
-    .citation-modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999998;
-      padding: 20px;
-    }
-
-    .citation-modal {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      max-width: 600px;
-      width: 100%;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .citation-modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid #e0e0e0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .citation-modal-header h2 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .citation-modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: #666;
-      cursor: pointer;
-      padding: 0;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      transition: background 0.2s;
-    }
-
-    .citation-modal-close:hover {
-      background: #f5f5f5;
-    }
-
-    .citation-modal-body {
-      padding: 24px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #333;
-      font-size: 14px;
-    }
-
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #d0d0d0;
-      border-radius: 6px;
-      font-size: 14px;
-      font-family: system-ui, -apple-system, sans-serif;
-      transition: border-color 0.2s;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-      outline: none;
-      border-color: #2196f3;
-      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .citation-preview {
-      margin-top: 24px;
-      padding: 16px;
-      background: #f9f9f9;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
-    }
-
-    .citation-preview strong {
-      display: block;
-      margin-bottom: 8px;
-      color: #555;
-      font-size: 13px;
-    }
-
-    .preview-text {
-      font-size: 13px;
-      line-height: 1.6;
-      color: #333;
-      font-style: italic;
-    }
-
-    .citation-modal-footer {
-      padding: 16px 24px;
-      border-top: 1px solid #e0e0e0;
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-    }
-
-    .citation-modal-footer button {
-      padding: 10px 20px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: none;
-    }
-
-    .btn-cancel {
-      background: #f5f5f5;
-      color: #666;
-    }
-
-    .btn-cancel:hover {
-      background: #e0e0e0;
-    }
-
-    .btn-save {
-      background: #2196f3;
-      color: white;
-    }
-
-    .btn-save:hover {
-      background: #1976d2;
-    }
-  `;
-
-  document.head.appendChild(style);
 }
 
 export default {

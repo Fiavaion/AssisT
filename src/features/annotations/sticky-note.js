@@ -23,6 +23,7 @@
 
 import { getStorageAdapter } from './storage-adapter.js';
 import { createTagInput, renderTagPills } from './tag-manager.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -322,7 +323,7 @@ function renderStickyNote(note) {
   // Color picker button
   const colorBtn = document.createElement('button');
   colorBtn.className = 'assist-sticky-note-color-btn';
-  colorBtn.innerHTML = '🎨';
+  colorBtn.innerHTML = sanitizeHTML('🎨');
   colorBtn.setAttribute('aria-label', 'Change note color');
   colorBtn.setAttribute('title', 'Change color');
   colorBtn.addEventListener('click', e => {
@@ -333,7 +334,7 @@ function renderStickyNote(note) {
   // Delete button
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'assist-sticky-note-delete';
-  deleteBtn.innerHTML = '×';
+  deleteBtn.innerHTML = sanitizeHTML('×');
   deleteBtn.setAttribute('aria-label', 'Delete note');
   deleteBtn.setAttribute('title', 'Delete note');
   deleteBtn.addEventListener('click', e => {
@@ -351,7 +352,7 @@ function renderStickyNote(note) {
   const content = document.createElement('div');
   content.className = 'assist-sticky-note-content';
   content.contentEditable = 'true';
-  content.innerHTML = note.content || '';
+  content.innerHTML = sanitizeHTML(note.content || '');
   content.setAttribute('role', 'textbox');
   content.setAttribute('aria-label', 'Note content');
   content.setAttribute('aria-multiline', 'true');
@@ -475,7 +476,7 @@ function createRichTextToolbar(noteId) {
   buttons.forEach(btn => {
     const button = document.createElement('button');
     button.className = 'assist-toolbar-btn';
-    button.innerHTML = btn.icon;
+    button.innerHTML = sanitizeHTML(btn.icon);
     button.title = btn.title;
     button.setAttribute('aria-label', btn.ariaLabel);
     button.setAttribute('type', 'button');
@@ -502,7 +503,7 @@ function createRichTextToolbar(noteId) {
   // Add TTS (Read Aloud) button
   const ttsBtn = document.createElement('button');
   ttsBtn.className = 'assist-toolbar-btn assist-toolbar-btn-tts';
-  ttsBtn.innerHTML = '🔊';
+  ttsBtn.innerHTML = sanitizeHTML('🔊');
   ttsBtn.title = 'Read note aloud';
   ttsBtn.setAttribute('aria-label', 'Read note aloud');
   ttsBtn.setAttribute('type', 'button');
@@ -521,7 +522,7 @@ function createRichTextToolbar(noteId) {
   // Add STT (Voice Input) button
   const sttBtn = document.createElement('button');
   sttBtn.className = 'assist-toolbar-btn assist-toolbar-btn-stt';
-  sttBtn.innerHTML = '🎤';
+  sttBtn.innerHTML = sanitizeHTML('🎤');
   sttBtn.title = 'Voice input';
   sttBtn.setAttribute('aria-label', 'Voice input - dictate into note');
   sttBtn.setAttribute('type', 'button');
@@ -599,7 +600,7 @@ function speakNoteContent(noteId, button) {
     window.speechSynthesis.cancel();
     speakingNoteId = null;
     button.classList.remove('assist-toolbar-btn-active');
-    button.innerHTML = '🔊';
+    button.innerHTML = sanitizeHTML('🔊');
     button.title = 'Read note aloud';
     console.log('[StickyNotes] TTS stopped for note:', noteId);
     return;
@@ -611,7 +612,7 @@ function speakNoteContent(noteId, button) {
     // Reset previous button state
     document.querySelectorAll('.assist-toolbar-btn-tts.assist-toolbar-btn-active').forEach(btn => {
       btn.classList.remove('assist-toolbar-btn-active');
-      btn.innerHTML = '🔊';
+      btn.innerHTML = sanitizeHTML('🔊');
       btn.title = 'Read note aloud';
     });
   }
@@ -648,7 +649,7 @@ function speakNoteContent(noteId, button) {
 
   // Update button state
   button.classList.add('assist-toolbar-btn-active');
-  button.innerHTML = '⏹️';
+  button.innerHTML = sanitizeHTML('⏹️');
   button.title = 'Stop reading';
 
   console.log('[StickyNotes] TTS using settings:', {
@@ -662,7 +663,7 @@ function speakNoteContent(noteId, button) {
   currentUtterance.onend = () => {
     speakingNoteId = null;
     button.classList.remove('assist-toolbar-btn-active');
-    button.innerHTML = '🔊';
+    button.innerHTML = sanitizeHTML('🔊');
     button.title = 'Read note aloud';
     console.log('[StickyNotes] TTS finished for note:', noteId);
   };
@@ -671,7 +672,7 @@ function speakNoteContent(noteId, button) {
     console.error('[StickyNotes] TTS error:', error);
     speakingNoteId = null;
     button.classList.remove('assist-toolbar-btn-active');
-    button.innerHTML = '🔊';
+    button.innerHTML = sanitizeHTML('🔊');
     button.title = 'Read note aloud';
   };
 
@@ -708,7 +709,7 @@ function startNoteDictation(noteId, button) {
     // Reset previous button state
     document.querySelectorAll('.assist-toolbar-btn-stt.assist-toolbar-btn-active').forEach(btn => {
       btn.classList.remove('assist-toolbar-btn-active');
-      btn.innerHTML = '🎤';
+      btn.innerHTML = sanitizeHTML('🎤');
       btn.title = 'Voice input';
     });
   }
@@ -744,7 +745,7 @@ function startNoteDictation(noteId, button) {
 
   // Update button state
   button.classList.add('assist-toolbar-btn-active');
-  button.innerHTML = '⏹️';
+  button.innerHTML = sanitizeHTML('⏹️');
   button.title = 'Stop recording';
 
   // Track interim vs final results
@@ -777,7 +778,7 @@ function startNoteDictation(noteId, button) {
     recordingNoteId = null;
     currentRecognition = null;
     button.classList.remove('assist-toolbar-btn-active');
-    button.innerHTML = '🎤';
+    button.innerHTML = sanitizeHTML('🎤');
     button.title = 'Voice input';
     console.log('[StickyNotes] STT ended for note:', noteId);
   };
@@ -796,7 +797,7 @@ function startNoteDictation(noteId, button) {
     recordingNoteId = null;
     currentRecognition = null;
     button.classList.remove('assist-toolbar-btn-active');
-    button.innerHTML = '🎤';
+    button.innerHTML = sanitizeHTML('🎤');
     button.title = 'Voice input';
   };
 
@@ -809,7 +810,7 @@ function startNoteDictation(noteId, button) {
     recordingNoteId = null;
     currentRecognition = null;
     button.classList.remove('assist-toolbar-btn-active');
-    button.innerHTML = '🎤';
+    button.innerHTML = sanitizeHTML('🎤');
     button.title = 'Voice input';
   }
 }
@@ -831,10 +832,10 @@ function appendToNoteContent(noteId, contentElement, text) {
     const formattedText = applyFormatting(escapeHtml(text), formatting);
 
     // Add a line break then the new text
-    contentElement.innerHTML += '<br>' + formattedText;
+    contentElement.innerHTML += sanitizeHTML('<br>' + formattedText);
   } else {
     // Note is empty - just set the text (plain, user can format later)
-    contentElement.innerHTML = escapeHtml(text);
+    contentElement.innerHTML = sanitizeHTML(escapeHtml(text));
   }
 
   // Save the updated content
@@ -856,7 +857,7 @@ function detectTextFormatting(contentElement) {
   // Check if content ends with formatting tags (simplified detection)
   // Look at what tags are active at the end of the content
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = innerHTML;
+  tempDiv.innerHTML = sanitizeHTML(innerHTML);
 
   // Walk backwards to find the last text node and its parent formatting
   const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
@@ -958,7 +959,7 @@ function toggleColorPicker(noteId, colorBtn) {
   colors.forEach(color => {
     const option = document.createElement('button');
     option.className = 'assist-color-option';
-    option.innerHTML = `${color.emoji} ${color.label}`;
+    option.innerHTML = sanitizeHTML(`${color.emoji} ${color.label}`);
     option.setAttribute('aria-label', `Change to ${color.label}`);
     option.setAttribute('role', 'menuitem');
     option.dataset.color = color.name;
@@ -1353,7 +1354,7 @@ function openTagEditModal(noteId, currentTags = []) {
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-labelledby', 'tag-modal-title');
 
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHTML(`
     <div class="assist-tag-edit-modal" role="document">
       <div class="assist-tag-edit-modal-header">
         <h3 id="tag-modal-title">Edit Tags</h3>
@@ -1369,7 +1370,7 @@ function openTagEditModal(noteId, currentTags = []) {
         <button class="assist-tag-edit-btn assist-tag-edit-btn-save" aria-label="Save tags">Save</button>
       </div>
     </div>
-  `;
+  `);
 
   // Attach event listeners
   const closeBtn = modal.querySelector('.assist-tag-edit-modal-close');
@@ -1394,7 +1395,7 @@ function openTagEditModal(noteId, currentTags = []) {
       if (noteElement) {
         const tagsContainer = noteElement.querySelector('.assist-sticky-note-tags');
         if (tagsContainer) {
-          tagsContainer.innerHTML = '';
+          tagsContainer.innerHTML = sanitizeHTML('');
           if (newTags.length > 0) {
             renderTagPills(newTags, tagsContainer);
           }

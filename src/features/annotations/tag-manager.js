@@ -16,6 +16,8 @@
  * @module features/annotations/tag-manager
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 // ============================================================
 // CONSTANTS
 // ============================================================
@@ -182,7 +184,7 @@ export function createTagInput(container, initialTags = [], onChange = null) {
    * Render tag pills in display container
    */
   function renderTags() {
-    tagDisplay.innerHTML = '';
+    tagDisplay.innerHTML = sanitizeHTML('');
 
     currentTags.forEach(tagName => {
       const pill = createTagPill(tagName, () => {
@@ -263,7 +265,7 @@ export function createTagInput(container, initialTags = [], onChange = null) {
     }
 
     // Render suggestions
-    dropdown.innerHTML = '';
+    dropdown.innerHTML = sanitizeHTML('');
     suggestions.forEach(tagName => {
       const option = document.createElement('div');
       option.className = 'assist-tag-option';
@@ -328,7 +330,10 @@ export function createTagInput(container, initialTags = [], onChange = null) {
       if (value) {
         // Check if value contains commas (multiple tags)
         if (value.includes(',')) {
-          const tags = value.split(',').map(t => t.trim()).filter(t => t);
+          const tags = value
+            .split(',')
+            .map(t => t.trim())
+            .filter(t => t);
           tags.forEach(tag => addTag(tag));
         } else {
           addTag(value);
@@ -354,7 +359,10 @@ export function createTagInput(container, initialTags = [], onChange = null) {
       if (value) {
         // Check if value contains commas (multiple tags)
         if (value.includes(',')) {
-          const tags = value.split(',').map(t => t.trim()).filter(t => t);
+          const tags = value
+            .split(',')
+            .map(t => t.trim())
+            .filter(t => t);
           tags.forEach(tag => addTag(tag));
         } else {
           addTag(value);
@@ -442,7 +450,7 @@ export function createTagPill(tagName, onRemove = null) {
   if (onRemove) {
     const removeBtn = document.createElement('button');
     removeBtn.className = 'assist-tag-remove';
-    removeBtn.innerHTML = '×';
+    removeBtn.innerHTML = sanitizeHTML('×');
     removeBtn.setAttribute('aria-label', `Remove tag ${tagName}`);
     removeBtn.setAttribute('type', 'button');
 
@@ -464,7 +472,7 @@ export function createTagPill(tagName, onRemove = null) {
  */
 export function renderTagPills(tags, container) {
   // Clear container
-  container.innerHTML = '';
+  container.innerHTML = sanitizeHTML('');
 
   if (!tags || tags.length === 0) {
     return;

@@ -14,7 +14,6 @@
  */
 
 import { getDecryptedApiKey, hasApiKey } from './key-manager.js';
-import { trackUsage } from './usage-tracker.js';
 
 // Anthropic API endpoint
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -26,47 +25,47 @@ const ANTHROPIC_VERSION = '2023-06-01';
  * Claude 4.5 Model Configurations
  */
 export const CLOUD_MODELS = {
-  'local': {
+  local: {
     id: 'local',
     name: 'Local (Ollama)',
     description: 'Offline processing with local AI',
-    isLocal: true
+    isLocal: true,
   },
   'haiku-4.5': {
     id: 'claude-haiku-4-5',
     name: 'Haiku 4.5',
     description: 'Fastest for quick answers',
     avgCost: 0.001, // per 1K tokens (input)
-    outputCost: 0.005
+    outputCost: 0.005,
   },
   'sonnet-4.5': {
     id: 'claude-sonnet-4-5',
     name: 'Sonnet 4.5',
     description: 'Best for everyday tasks',
     avgCost: 0.003,
-    outputCost: 0.015
+    outputCost: 0.015,
   },
   'opus-4.5': {
     id: 'claude-opus-4-5',
     name: 'Opus 4.5',
     description: 'Most capable for complex work',
     avgCost: 0.015,
-    outputCost: 0.075
-  }
+    outputCost: 0.075,
+  },
 };
 
 /**
  * Feature-specific default model mappings
  */
 export const FEATURE_DEFAULT_MODELS = {
-  'summarization': 'haiku-4.5',
-  'textSimplification': 'sonnet-4.5',
-  'assignmentBreakdown': 'sonnet-4.5',
-  'citationAnalyzer': 'sonnet-4.5',
-  'socraticTutor': 'opus-4.5',
-  'imageUnderstanding': 'sonnet-4.5',
-  'studyPathGenerator': 'sonnet-4.5',
-  'multiDocCompare': 'opus-4.5'
+  summarization: 'haiku-4.5',
+  textSimplification: 'sonnet-4.5',
+  assignmentBreakdown: 'sonnet-4.5',
+  citationAnalyzer: 'sonnet-4.5',
+  socraticTutor: 'opus-4.5',
+  imageUnderstanding: 'sonnet-4.5',
+  studyPathGenerator: 'sonnet-4.5',
+  multiDocCompare: 'opus-4.5',
 };
 
 /**
@@ -76,14 +75,15 @@ const DEFAULT_OPTIONS = {
   maxTokens: 1024,
   temperature: 0.7,
   timeout: 60000, // 60 seconds
-  maxRetries: 2
+  maxRetries: 2,
 };
 
 /**
  * Response cache for performance
  */
 class ClaudeCache {
-  constructor(ttl = 300000) { // 5 minutes default
+  constructor(ttl = 300000) {
+    // 5 minutes default
     this.cache = new Map();
     this.ttl = ttl;
   }
@@ -112,7 +112,7 @@ class ClaudeCache {
     const key = this.generateKey(prompt, model);
     this.cache.set(key, {
       response,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     if (this.cache.size > 50) {
@@ -147,7 +147,7 @@ export async function checkCloudAvailability() {
   return {
     available: keyAvailable,
     models: keyAvailable ? CLOUD_MODELS : {},
-    reason: keyAvailable ? null : 'API key not configured'
+    reason: keyAvailable ? null : 'API key not configured',
   };
 }
 
@@ -206,17 +206,15 @@ export async function claudeGenerate(prompt, options = {}) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': ANTHROPIC_VERSION,
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
         model: modelId,
         max_tokens: opts.maxTokens,
         temperature: opts.temperature,
-        messages: [
-          { role: 'user', content: prompt }
-        ]
+        messages: [{ role: 'user', content: prompt }],
       }),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
@@ -224,8 +222,7 @@ export async function claudeGenerate(prompt, options = {}) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
-        errorData.error?.message ||
-        `Claude API error: ${response.status} ${response.statusText}`
+        errorData.error?.message || `Claude API error: ${response.status} ${response.statusText}`
       );
     }
 
@@ -237,20 +234,8 @@ export async function claudeGenerate(prompt, options = {}) {
     const usage = {
       inputTokens: data.usage?.input_tokens || 0,
       outputTokens: data.usage?.output_tokens || 0,
-      totalTokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+      totalTokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
     };
-
-    // Track usage for focus group analysis
-    await trackUsage({
-      model: modelId,
-      modelKey,
-      feature: opts.feature || 'unknown',
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      responseTime,
-      promptLength: prompt.length,
-      timestamp: Date.now()
-    });
 
     const result = { content, usage };
 
@@ -259,10 +244,11 @@ export async function claudeGenerate(prompt, options = {}) {
       cache.set(prompt, modelId, result);
     }
 
-    console.log(`[ClaudeClient] ${modelKey} response: ${usage.totalTokens} tokens in ${responseTime}ms`);
+    console.log(
+      `[ClaudeClient] ${modelKey} response: ${usage.totalTokens} tokens in ${responseTime}ms`
+    );
 
     return result;
-
   } catch (error) {
     if (error.name === 'AbortError') {
       console.error('[ClaudeClient] Request timed out');
@@ -280,7 +266,7 @@ export async function claudeGenerate(prompt, options = {}) {
       console.log(`[ClaudeClient] Retrying... (${(opts._retryCount || 0) + 1}/${opts.maxRetries})`);
       return claudeGenerate(prompt, {
         ...opts,
-        _retryCount: (opts._retryCount || 0) + 1
+        _retryCount: (opts._retryCount || 0) + 1,
       });
     }
 
@@ -306,7 +292,7 @@ export function getAvailableModels() {
     key,
     name: config.name,
     description: config.description,
-    isLocal: config.isLocal || false
+    isLocal: config.isLocal || false,
   }));
 }
 
@@ -336,7 +322,9 @@ export function clearCache() {
  */
 export function estimateCost(modelKey, inputTokens, outputTokens) {
   const model = CLOUD_MODELS[modelKey];
-  if (!model || model.isLocal) return 0;
+  if (!model || model.isLocal) {
+    return 0;
+  }
 
   const inputCost = (inputTokens / 1000) * (model.avgCost || 0);
   const outputCost = (outputTokens / 1000) * (model.outputCost || 0);
@@ -353,5 +341,5 @@ export default {
   clearCache,
   estimateCost,
   CLOUD_MODELS,
-  FEATURE_DEFAULT_MODELS
+  FEATURE_DEFAULT_MODELS,
 };

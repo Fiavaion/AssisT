@@ -134,8 +134,10 @@ export class WhisperEngine extends BaseSTTEngine {
   async isAvailable() {
     // Check for required APIs
     const hasWebAssembly = typeof WebAssembly !== 'undefined';
-    const hasAudioContext = typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined';
-    const hasMediaDevices = typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia;
+    const hasAudioContext =
+      typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined';
+    const hasMediaDevices =
+      typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia;
     const hasWorker = typeof Worker !== 'undefined';
 
     const available = hasWebAssembly && hasAudioContext && hasMediaDevices && hasWorker;
@@ -558,7 +560,9 @@ export class WhisperEngine extends BaseSTTEngine {
       this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
       this.scriptProcessor.onaudioprocess = event => {
-        if (this.status !== EngineStatus.LISTENING) return;
+        if (this.status !== EngineStatus.LISTENING) {
+          return;
+        }
 
         const inputData = event.inputBuffer.getChannelData(0);
         this.processAudioChunk(new Float32Array(inputData));
@@ -589,9 +593,10 @@ export class WhisperEngine extends BaseSTTEngine {
    */
   processAudioChunk(audioData) {
     // Resample if necessary (audioContext might not be 16kHz)
-    const resampledData = this.audioContext.sampleRate !== this.sampleRate
-      ? this.resampleAudio(audioData, this.audioContext.sampleRate, this.sampleRate)
-      : audioData;
+    const resampledData =
+      this.audioContext.sampleRate !== this.sampleRate
+        ? this.resampleAudio(audioData, this.audioContext.sampleRate, this.sampleRate)
+        : audioData;
 
     // Calculate RMS energy for VAD
     let energy = 0;
@@ -632,7 +637,9 @@ export class WhisperEngine extends BaseSTTEngine {
    * @private
    */
   resampleAudio(audioData, fromRate, toRate) {
-    if (fromRate === toRate) return audioData;
+    if (fromRate === toRate) {
+      return audioData;
+    }
 
     const ratio = fromRate / toRate;
     const newLength = Math.round(audioData.length / ratio);
@@ -732,7 +739,7 @@ export class WhisperEngine extends BaseSTTEngine {
       console.log('[Whisper] Stopped listening');
       this.onEnd();
       return true;
-    } catch (error) {
+    } catch {
       this.recordError();
       return false;
     }

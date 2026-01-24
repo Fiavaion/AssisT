@@ -24,6 +24,7 @@ import { showSuccessToast, showErrorToast, showCitationEditModal } from './citat
 import { openProjectManager } from './project-manager.js';
 import { SourceEvaluator, openCraapTest } from './source-evaluator.js';
 import { exportCitations, importCitations, createBackup } from './citation-export.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 /**
  * Bibliography Manager class
@@ -87,7 +88,7 @@ class BibliographyManager {
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-labelledby', 'bib-modal-title');
 
-    overlay.innerHTML = `
+    overlay.innerHTML = sanitizeHTML(`
       <div class="bib-modal">
         <div class="bib-modal-header">
           <h2 id="bib-modal-title">
@@ -173,7 +174,7 @@ class BibliographyManager {
           </div>
         </div>
       </div>
-    `;
+    `);
 
     // Event listeners
     this.attachEventListeners(overlay);
@@ -354,7 +355,7 @@ class BibliographyManager {
     const container = this.modal.querySelector('#bib-citation-list');
 
     if (this.filteredCitations.length === 0) {
-      container.innerHTML = `
+      container.innerHTML = sanitizeHTML(`
         <div class="bib-empty">
           <span class="bib-empty-icon">📚</span>
           <p>${this.searchQuery ? 'No citations match your search' : 'No citations saved yet'}</p>
@@ -362,13 +363,13 @@ class BibliographyManager {
             ${this.searchQuery ? 'Try a different search term' : 'Save citations using the "Save Citation" button'}
           </p>
         </div>
-      `;
+      `);
       return;
     }
 
-    container.innerHTML = this.filteredCitations
-      .map(citation => this.renderCitationCard(citation))
-      .join('');
+    container.innerHTML = sanitizeHTML(
+      this.filteredCitations.map(citation => this.renderCitationCard(citation)).join('')
+    );
 
     // Attach card event listeners
     this.attachCardListeners(container);
@@ -657,7 +658,7 @@ class BibliographyManager {
     // Create overlay
     const overlay = document.createElement('div');
     overlay.className = 'bib-summary-overlay';
-    overlay.innerHTML = `
+    overlay.innerHTML = sanitizeHTML(`
       <div class="bib-summary-modal">
         <div class="bib-summary-header">
           <h3>📊 Source Quality Summary</h3>
@@ -728,7 +729,7 @@ class BibliographyManager {
           }
         </div>
       </div>
-    `;
+    `);
 
     // Event listeners
     overlay.querySelector('.bib-summary-close').addEventListener('click', () => overlay.remove());

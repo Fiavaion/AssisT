@@ -145,7 +145,9 @@ function focusMode_handleMouseMove(event) {
  * Handle settings changes
  */
 function focusMode_handleSettingsChange(newSettings) {
-  if (!newSettings.focusMode) return;
+  if (!newSettings.focusMode) {
+    return;
+  }
 
   const fmSettings = newSettings.focusMode;
   const wasEnabled = focusMode_enabled;

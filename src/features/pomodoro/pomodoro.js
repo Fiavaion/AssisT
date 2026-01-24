@@ -28,6 +28,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
@@ -491,7 +492,7 @@ function pomodoro_createUI() {
   pomodoro_uiElement.className = pomodoro_settings.position;
 
   // Create widget HTML
-  pomodoro_uiElement.innerHTML = `
+  pomodoro_uiElement.innerHTML = sanitizeHTML(`
     <div class="assist-pomodoro-widget">
       <!-- Minimized View -->
       <div class="pomodoro-minimized-view">
@@ -550,7 +551,7 @@ function pomodoro_createUI() {
         </div>
       </div>
     </div>
-  `;
+  `);
 
   document.body.appendChild(pomodoro_uiElement);
 

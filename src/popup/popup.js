@@ -3,6 +3,7 @@
  * Manages user interactions with the TTS controls popup
  */
 
+import DOMPurify from 'dompurify';
 import { MESSAGE_TYPES } from '../config/constants.js';
 import {
   SHORTCUT_LABELS,
@@ -13,7 +14,11 @@ import {
 } from '../utils/keyboard-shortcuts.js';
 import { migrateAnnotations } from '../features/annotations/migration-manager.js';
 import { CitationManagerPanel } from './citation-manager-panel.js';
+import { sanitizeHTML } from '../utils/sanitize.js';
 import Sortable from 'sortablejs';
+
+// Make DOMPurify available for sanitize.js (popup runs in separate context from content script)
+window.DOMPurify = DOMPurify;
 
 /**
  * OrganizeMode - Manages drag-and-drop reordering and visibility of sections/features
@@ -107,7 +112,7 @@ class OrganizeMode {
       // Create drag handle
       const dragHandle = document.createElement('span');
       dragHandle.className = 'drag-handle';
-      dragHandle.innerHTML = '⠿';
+      dragHandle.innerHTML = sanitizeHTML('⠿');
       dragHandle.setAttribute('aria-hidden', 'true');
 
       // Create visibility toggle
@@ -115,7 +120,9 @@ class OrganizeMode {
       visibilityToggle.className = 'visibility-toggle';
       visibilityToggle.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
       visibilityToggle.setAttribute('aria-label', isVisible ? 'Hide section' : 'Show section');
-      visibilityToggle.innerHTML = `<span class="visibility-icon">${isVisible ? '👁️' : '👁️‍🗨️'}</span>`;
+      visibilityToggle.innerHTML = sanitizeHTML(
+        `<span class="visibility-icon">${isVisible ? '👁️' : '👁️‍🗨️'}</span>`
+      );
       visibilityToggle.addEventListener('click', e => {
         e.stopPropagation();
         this.toggleSectionVisibility(sectionId, visibilityToggle);
@@ -125,7 +132,7 @@ class OrganizeMode {
       const editTitleBtn = document.createElement('button');
       editTitleBtn.className = 'edit-title-btn';
       editTitleBtn.setAttribute('aria-label', 'Edit section title');
-      editTitleBtn.innerHTML = '✏️';
+      editTitleBtn.innerHTML = sanitizeHTML('✏️');
       editTitleBtn.addEventListener('click', e => {
         e.stopPropagation();
         this.editSectionTitle(sectionId);
@@ -143,10 +150,10 @@ class OrganizeMode {
       // Create move buttons for keyboard accessibility
       const moveButtons = document.createElement('div');
       moveButtons.className = 'move-buttons';
-      moveButtons.innerHTML = `
+      moveButtons.innerHTML = sanitizeHTML(`
         <button class="move-btn move-up" aria-label="Move section up" title="Move up">▲</button>
         <button class="move-btn move-down" aria-label="Move section down" title="Move down">▼</button>
-      `;
+      `);
       moveButtons.querySelector('.move-up').addEventListener('click', e => {
         e.stopPropagation();
         this.moveSection(section, 'up');
@@ -238,7 +245,7 @@ class OrganizeMode {
       // Create feature drag handle
       const dragHandle = document.createElement('span');
       dragHandle.className = 'feature-drag-handle';
-      dragHandle.innerHTML = '⠿';
+      dragHandle.innerHTML = sanitizeHTML('⠿');
       dragHandle.setAttribute('aria-hidden', 'true');
 
       // Insert at start of label
@@ -1194,7 +1201,6 @@ class PopupController {
       });
     }
 
-
     // ============================================================
     // TRANSLATION: TRANSLATE PAGE BUTTON
     // ============================================================
@@ -1600,12 +1606,14 @@ class PopupController {
   }
 
   async resetToDefaults() {
-    if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+    if (!confirm('Reset all settings to defaults? This cannot be undone.')) {
+      return;
+    }
 
     try {
       // Use the RESET_SETTINGS message type to reset via MessageRouter
       const defaults = await chrome.runtime.sendMessage({
-        type: 'RESET_SETTINGS'
+        type: 'RESET_SETTINGS',
       });
 
       console.log('[Popup] Settings reset to defaults:', defaults);
@@ -1668,7 +1676,7 @@ class PopupController {
     modal.id = 'advanced-options-modal';
     modal.className = 'modal-overlay';
 
-    modal.innerHTML = `
+    modal.innerHTML = sanitizeHTML(`
       <div class="modal-content">
         <div class="modal-header">
           <h2>Advanced Options</h2>
@@ -2382,7 +2390,7 @@ class PopupController {
           <button id="modal-cancel" class="modal-btn modal-btn-secondary">Cancel</button>
         </div>
       </div>
-    `;
+    `);
 
     document.body.appendChild(modal);
 
@@ -2469,7 +2477,11 @@ class PopupController {
     presetItems.forEach(item => {
       item.addEventListener('click', () => {
         const presetName = item.getAttribute('data-preset');
-        if (confirm(`Load the "${presetName}" preset profile?\n\nThis will apply all settings from this preset.`)) {
+        if (
+          confirm(
+            `Load the "${presetName}" preset profile?\n\nThis will apply all settings from this preset.`
+          )
+        ) {
           this.profiles_loadProfile(presetName);
           // Update the profile selector to show the loaded preset
           const profileSelect = modal.querySelector('#modal-profile-select');
@@ -2509,7 +2521,7 @@ class PopupController {
       const profiles = result.assist_profiles || this.profiles_createDefaults();
       const currentProfile = this.currentProfileName || 'Default';
 
-      selector.innerHTML = '';
+      selector.innerHTML = sanitizeHTML('');
 
       Object.entries(profiles).forEach(([name, profile]) => {
         const option = document.createElement('option');
@@ -2571,12 +2583,13 @@ class PopupController {
     // AI mode radio buttons
     const localRadio = modal.querySelector('[name="ai-mode"][value="local"]');
     const cloudRadio = modal.querySelector('[name="ai-mode"][value="cloud"]');
-    const cloudSection = modal.querySelector('#cloud-provider-section');
-    const localSection = modal.querySelector('#local-ai-section');
-    const usageSection = modal.querySelector('#usage-stats-section');
+    // Reserved for future use:
+    // const _cloudSection = modal.querySelector('#cloud-provider-section');
+    // const _localSection = modal.querySelector('#local-ai-section');
+    // const _usageSection = modal.querySelector('#usage-stats-section');
 
     // Load current AI mode from storage
-    chrome.storage.local.get(['cloudModeEnabled'], (result) => {
+    chrome.storage.local.get(['cloudModeEnabled'], result => {
       const isCloud = result.cloudModeEnabled || false;
       if (isCloud) {
         cloudRadio.checked = true;
@@ -2594,7 +2607,7 @@ class PopupController {
     // Cloud provider dropdown
     const providerSelect = modal.querySelector('#cloud-provider');
     if (providerSelect) {
-      providerSelect.addEventListener('change', (e) => {
+      providerSelect.addEventListener('change', e => {
         this.updateCloudProvider(e.target.value);
       });
     }
@@ -2603,14 +2616,14 @@ class PopupController {
     const cloudModelSelect = modal.querySelector('#cloud-model-select');
     if (cloudModelSelect) {
       // Load saved cloud model preference
-      chrome.storage.local.get(['cloudModel'], (result) => {
+      chrome.storage.local.get(['cloudModel'], result => {
         if (result.cloudModel) {
           cloudModelSelect.value = result.cloudModel;
         }
       });
 
       // Save cloud model selection
-      cloudModelSelect.addEventListener('change', (e) => {
+      cloudModelSelect.addEventListener('change', e => {
         chrome.storage.local.set({ cloudModel: e.target.value });
       });
     }
@@ -2633,21 +2646,6 @@ class PopupController {
       });
     }
 
-    // Usage stats export buttons
-    const exportJsonBtn = modal.querySelector('#export-stats-json');
-    const exportCsvBtn = modal.querySelector('#export-stats-csv');
-    const clearStatsBtn = modal.querySelector('#clear-stats');
-
-    if (exportJsonBtn) {
-      exportJsonBtn.addEventListener('click', () => this.exportUsageStats('json'));
-    }
-    if (exportCsvBtn) {
-      exportCsvBtn.addEventListener('click', () => this.exportUsageStats('csv'));
-    }
-    if (clearStatsBtn) {
-      clearStatsBtn.addEventListener('click', () => this.clearUsageStats());
-    }
-
     // Initialize Ollama status check
     this.checkOllamaStatus(modal);
   }
@@ -2665,7 +2663,9 @@ class PopupController {
     cloudSection.classList.add('hidden');
     usageSection.classList.add('hidden');
     localSection.classList.remove('hidden');
-    if (modelPrefsSection) modelPrefsSection.classList.remove('hidden');
+    if (modelPrefsSection) {
+      modelPrefsSection.classList.remove('hidden');
+    }
 
     chrome.storage.local.set({ cloudModeEnabled: false });
   }
@@ -2683,7 +2683,9 @@ class PopupController {
     cloudSection.classList.remove('hidden');
     usageSection.classList.remove('hidden');
     localSection.classList.add('hidden');
-    if (modelPrefsSection) modelPrefsSection.classList.add('hidden');
+    if (modelPrefsSection) {
+      modelPrefsSection.classList.add('hidden');
+    }
 
     chrome.storage.local.set({ cloudModeEnabled: true });
   }
@@ -2742,7 +2744,9 @@ class PopupController {
   showInstallModelDialog() {
     const modelName = prompt('Enter model name to install (e.g., llama3.2):');
     if (modelName) {
-      alert(`Installing model: ${modelName}\n\nRun this in your terminal:\n\nollama pull ${modelName}`);
+      alert(
+        `Installing model: ${modelName}\n\nRun this in your terminal:\n\nollama pull ${modelName}`
+      );
     }
   }
 
@@ -2766,7 +2770,7 @@ class PopupController {
       } else {
         throw new Error('Ollama not responding');
       }
-    } catch (error) {
+    } catch {
       statusDot.style.backgroundColor = '#ef4444';
       statusText.textContent = 'Not connected';
     }
@@ -2779,9 +2783,11 @@ class PopupController {
    */
   populateModelList(modal, models) {
     const modelSelect = modal.querySelector('#local-model-select');
-    if (!modelSelect) return;
+    if (!modelSelect) {
+      return;
+    }
 
-    modelSelect.innerHTML = '';
+    modelSelect.innerHTML = sanitizeHTML('');
 
     if (models.length === 0) {
       const option = document.createElement('option');
@@ -2801,7 +2807,7 @@ class PopupController {
     const featureModelSelects = modal.querySelectorAll('.model-select[data-feature]');
     featureModelSelects.forEach(select => {
       // Clear existing options
-      select.innerHTML = '';
+      select.innerHTML = sanitizeHTML('');
 
       // Add "Auto (Recommended)" option as default
       const autoOption = document.createElement('option');
@@ -2819,56 +2825,6 @@ class PopupController {
         });
       }
     });
-  }
-
-  /**
-   * Export usage statistics
-   * @param {string} format - 'json' or 'csv'
-   */
-  exportUsageStats(format) {
-    chrome.storage.local.get(['usageStats'], (result) => {
-      const stats = result.usageStats || { requests: 0, tokens: 0, history: [] };
-
-      let content, filename, mimeType;
-
-      if (format === 'json') {
-        content = JSON.stringify(stats, null, 2);
-        filename = `assist-usage-stats-${Date.now()}.json`;
-        mimeType = 'application/json';
-      } else {
-        // CSV format
-        content = 'Date,Feature,Requests,Tokens\n';
-        stats.history?.forEach(entry => {
-          content += `${entry.date},${entry.feature},${entry.requests},${entry.tokens}\n`;
-        });
-        filename = `assist-usage-stats-${Date.now()}.csv`;
-        mimeType = 'text/csv';
-      }
-
-      // Download file
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  /**
-   * Clear usage statistics
-   */
-  clearUsageStats() {
-    if (confirm('Clear all usage statistics? This cannot be undone.')) {
-      chrome.storage.local.set({
-        usageStats: { requests: 0, tokens: 0, history: [] }
-      }, () => {
-        alert('Usage statistics cleared.');
-        document.querySelector('#stat-requests').textContent = '0';
-        document.querySelector('#stat-tokens').textContent = '0';
-      });
-    }
   }
 
   setupModalTabs(modal) {
@@ -3291,7 +3247,7 @@ class PopupController {
     };
 
     // Clear existing cards
-    grid.innerHTML = '';
+    grid.innerHTML = sanitizeHTML('');
 
     // Create a card for each shortcut
     for (const [key, shortcut] of Object.entries(shortcuts)) {
@@ -3302,7 +3258,7 @@ class PopupController {
       const displayShortcut = shortcut || 'Not set';
       const isEmpty = !shortcut;
 
-      card.innerHTML = `
+      card.innerHTML = sanitizeHTML(`
         <div class="shortcut-header">
           <span class="shortcut-category">${categories[key] || 'General'}</span>
         </div>
@@ -3317,7 +3273,7 @@ class PopupController {
           </button>
           ${!isEmpty ? `<button class="shortcut-clear-btn" data-key="${key}" title="Clear shortcut">🗑️</button>` : ''}
         </div>
-      `;
+      `);
 
       grid.appendChild(card);
     }
@@ -3726,7 +3682,7 @@ class PopupController {
 
   populateVoices(voices) {
     const voiceSelect = document.getElementById('voice-select');
-    voiceSelect.innerHTML = '';
+    voiceSelect.innerHTML = sanitizeHTML('');
 
     // Try to find Google UK Female voice
     const preferredVoice =
@@ -5716,7 +5672,7 @@ class PopupController {
       z-index: 10000;
     `;
 
-    modal.innerHTML = `
+    modal.innerHTML = sanitizeHTML(`
       <div style="background: white; border-radius: 12px; padding: 20px; width: 300px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h3 style="margin: 0; font-size: 16px;">Add Custom Word</h3>
@@ -5735,7 +5691,7 @@ class PopupController {
           <button id="confirm-add-vocab" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: linear-gradient(135deg, #4a90d9, #357abd); color: white; cursor: pointer;">Add Word</button>
         </div>
       </div>
-    `;
+    `);
 
     document.body.appendChild(modal);
 
@@ -5843,7 +5799,7 @@ class PopupController {
             .join('')
         : '<p style="text-align: center; color: #888; padding: 20px;">No custom words added yet.</p>';
 
-    modal.innerHTML = `
+    modal.innerHTML = sanitizeHTML(`
       <div style="background: white; border-radius: 12px; padding: 20px; width: 350px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h3 style="margin: 0; font-size: 16px;">Manage Custom Words</h3>
@@ -5857,7 +5813,7 @@ class PopupController {
           <button id="done-manage-vocab" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: linear-gradient(135deg, #4a90d9, #357abd); color: white; cursor: pointer; font-size: 12px;">Done</button>
         </div>
       </div>
-    `;
+    `);
 
     document.body.appendChild(modal);
 
@@ -6067,7 +6023,7 @@ class PopupController {
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     `;
 
-    modalContent.innerHTML = `
+    modalContent.innerHTML = sanitizeHTML(`
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h2 style="margin: 0; font-size: 20px; color: #333;">Voice Commands Reference</h2>
         <button id="close-voice-commands-modal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
@@ -6120,7 +6076,7 @@ class PopupController {
           <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Go to beginning"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Go to end"</code></li>
           <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Move left 3 words"</code></li>
           <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Find hello"</code></li>
-          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Next"</code> / <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Previous"</code></li>
+          <li style="padding: 4px 0;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">"Next"</code> / <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"Previous"</code></li>
         </ul>
       </div>
 
@@ -6137,7 +6093,7 @@ class PopupController {
       <div style="background: #f0f7ff; padding: 12px; border-radius: 8px; font-size: 12px; color: #555;">
         <strong>Tip:</strong> You can also use punctuation commands like <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"period"</code>, <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"comma"</code>, <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"question mark"</code>, and <code style="background: #fff; padding: 1px 4px; border-radius: 2px;">"new line"</code> while dictating.
       </div>
-    `;
+    `);
 
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
@@ -6834,7 +6790,7 @@ class PopupController {
     // Populate main popup selector (if exists)
     const selector = document.getElementById('profile-select');
     if (selector) {
-      selector.innerHTML = '';
+      selector.innerHTML = sanitizeHTML('');
       Object.keys(this.profiles).forEach(name => {
         const option = document.createElement('option');
         option.value = name;
@@ -6847,7 +6803,7 @@ class PopupController {
     // Populate modal selector (if exists)
     const modalSelector = document.getElementById('modal-profile-select');
     if (modalSelector) {
-      modalSelector.innerHTML = '';
+      modalSelector.innerHTML = sanitizeHTML('');
       Object.keys(this.profiles).forEach(name => {
         const option = document.createElement('option');
         option.value = name;
@@ -7686,10 +7642,10 @@ class PopupController {
     const updateVramDescription = tier => {
       const config = VRAM_TIERS[tier];
       if (config && vramTierDescription) {
-        vramTierDescription.innerHTML = `
+        vramTierDescription.innerHTML = sanitizeHTML(`
           <span class="vram-quality">Quality: ${config.quality}</span>
           <span class="vram-models">Models: ${config.models}</span>
-        `;
+        `);
       }
     };
 
@@ -7738,10 +7694,18 @@ class PopupController {
         btn.textContent = 'Installing...';
 
         // Show progress (legacy UI elements - may not exist)
-        if (llmInstallProgress) llmInstallProgress.classList.remove('hidden');
-        if (llmProgressModel) llmProgressModel.textContent = `Installing ${modelName}...`;
-        if (llmProgressPercent) llmProgressPercent.textContent = '0%';
-        if (llmProgressFill) llmProgressFill.style.width = '0%';
+        if (llmInstallProgress) {
+          llmInstallProgress.classList.remove('hidden');
+        }
+        if (llmProgressModel) {
+          llmProgressModel.textContent = `Installing ${modelName}...`;
+        }
+        if (llmProgressPercent) {
+          llmProgressPercent.textContent = '0%';
+        }
+        if (llmProgressFill) {
+          llmProgressFill.style.width = '0%';
+        }
 
         try {
           const response = await chrome.runtime.sendMessage({
@@ -7766,7 +7730,9 @@ class PopupController {
           const errorMsg = error.message || 'Installation failed';
           this.updateStatus(errorMsg, 'error');
         } finally {
-          if (llmInstallProgress) llmInstallProgress.classList.add('hidden');
+          if (llmInstallProgress) {
+            llmInstallProgress.classList.add('hidden');
+          }
         }
       });
     });
@@ -7774,9 +7740,15 @@ class PopupController {
     // Listen for install progress updates (legacy UI)
     chrome.runtime.onMessage.addListener(message => {
       if (message.type === 'LLM_INSTALL_PROGRESS') {
-        if (llmProgressModel) llmProgressModel.textContent = `Installing ${message.modelName}...`;
-        if (llmProgressPercent) llmProgressPercent.textContent = `${message.progress.percent}%`;
-        if (llmProgressFill) llmProgressFill.style.width = `${message.progress.percent}%`;
+        if (llmProgressModel) {
+          llmProgressModel.textContent = `Installing ${message.modelName}...`;
+        }
+        if (llmProgressPercent) {
+          llmProgressPercent.textContent = `${message.progress.percent}%`;
+        }
+        if (llmProgressFill) {
+          llmProgressFill.style.width = `${message.progress.percent}%`;
+        }
       }
     });
 
@@ -7871,86 +7843,7 @@ class PopupController {
     // ========================================
     // CLOUD AI SETUP (Export/Clear buttons)
     // ========================================
-    const btnExportJson = document.getElementById('btn-export-usage-json');
-    const btnExportCsv = document.getElementById('btn-export-usage-csv');
-    const btnClearUsage = document.getElementById('btn-clear-usage');
-
-    // Export JSON button
-    if (btnExportJson) {
-      btnExportJson.addEventListener('click', async () => {
-        try {
-          const response = await chrome.runtime.sendMessage({
-            action: 'EXPORT_USAGE_JSON',
-          });
-
-          if (response.success) {
-            const blob = new Blob([response.data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `assist-cloud-usage-${Date.now()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.updateStatus('Usage exported (JSON)', 'success');
-          } else {
-            throw new Error(response.error);
-          }
-        } catch (error) {
-          console.error('[Popup] Export JSON failed:', error);
-          this.updateStatus('Export failed', 'error');
-        }
-      });
-    }
-
-    // Export CSV button
-    if (btnExportCsv) {
-      btnExportCsv.addEventListener('click', async () => {
-        try {
-          const response = await chrome.runtime.sendMessage({
-            action: 'EXPORT_USAGE_CSV',
-          });
-
-          if (response.success) {
-            const blob = new Blob([response.data], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `assist-cloud-usage-${Date.now()}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.updateStatus('Usage exported (CSV)', 'success');
-          } else {
-            throw new Error(response.error);
-          }
-        } catch (error) {
-          console.error('[Popup] Export CSV failed:', error);
-          this.updateStatus('Export failed', 'error');
-        }
-      });
-    }
-
-    // Clear usage button
-    if (btnClearUsage) {
-      btnClearUsage.addEventListener('click', async () => {
-        if (confirm('Clear all cloud usage data? This cannot be undone.')) {
-          try {
-            const response = await chrome.runtime.sendMessage({
-              action: 'CLEAR_USAGE_DATA',
-            });
-
-            if (response.success) {
-              this.loadCloudUsageStats();
-              this.updateStatus('Usage data cleared', 'success');
-            } else {
-              throw new Error(response.error);
-            }
-          } catch (error) {
-            console.error('[Popup] Clear usage failed:', error);
-            this.updateStatus('Clear failed', 'error');
-          }
-        }
-      });
-    }
+    // Usage tracking removed for Chrome Web Store compliance
 
     console.log('[Popup] AI Assist setup complete');
   }
@@ -7995,12 +7888,6 @@ class PopupController {
         cloudAIContainer?.classList.remove('hidden');
         llmStatusBadge.textContent = 'Cloud';
         llmStatusBadge.className = 'llm-badge online';
-
-        // Show usage stats and load data
-        if (cloudUsageStats) {
-          cloudUsageStats.style.display = 'block';
-          this.loadCloudUsageStats();
-        }
 
         // Update legacy settings for compatibility
         this.settings.localLLM.enabled = false;
@@ -8055,27 +7942,6 @@ class PopupController {
     }
   }
 
-  /**
-   * Load and display cloud usage statistics
-   */
-  async loadCloudUsageStats() {
-    try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'GET_USAGE_STATS',
-      });
-
-      if (response.success && response.data) {
-        const stats = response.data;
-        document.getElementById('cloud-stat-requests').textContent = stats.totalRequests || 0;
-        document.getElementById('cloud-stat-tokens').textContent = stats.totalTokens || 0;
-        document.getElementById('cloud-stat-avg-in').textContent = stats.averageInputTokens || 0;
-        document.getElementById('cloud-stat-avg-out').textContent = stats.averageOutputTokens || 0;
-      }
-    } catch (error) {
-      console.error('[Popup] Failed to load usage stats:', error);
-    }
-  }
-
   async checkLLMStatus() {
     const llmStatusBadge = document.getElementById('llm-status-badge');
     const llmConnectionStatus = document.getElementById('llm-connection-status');
@@ -8109,11 +7975,17 @@ class PopupController {
         // Show models (legacy UI)
         this.installedModels = response.models || [];
         if (this.installedModels.length > 0) {
-          if (llmModelsRow) llmModelsRow.style.display = 'flex';
-          if (llmInstalledModels) llmInstalledModels.textContent = this.installedModels.join(', ');
+          if (llmModelsRow) {
+            llmModelsRow.style.display = 'flex';
+          }
+          if (llmInstalledModels) {
+            llmInstalledModels.textContent = this.installedModels.join(', ');
+          }
           this.updateModelList();
         } else {
-          if (llmModelsRow) llmModelsRow.style.display = 'none';
+          if (llmModelsRow) {
+            llmModelsRow.style.display = 'none';
+          }
         }
       } else {
         // Ollama not available
@@ -8125,7 +7997,9 @@ class PopupController {
           llmConnectionStatus.textContent = 'Not connected - Start Ollama';
           llmConnectionStatus.className = 'llm-status-value disconnected';
         }
-        if (llmModelsRow) llmModelsRow.style.display = 'none';
+        if (llmModelsRow) {
+          llmModelsRow.style.display = 'none';
+        }
       }
     } catch (error) {
       console.error('[Popup] LLM check failed:', error);
@@ -8138,7 +8012,9 @@ class PopupController {
         llmConnectionStatus.textContent = 'Connection error';
         llmConnectionStatus.className = 'llm-status-value disconnected';
       }
-      if (llmModelsRow) llmModelsRow.style.display = 'none';
+      if (llmModelsRow) {
+        llmModelsRow.style.display = 'none';
+      }
     }
   }
 

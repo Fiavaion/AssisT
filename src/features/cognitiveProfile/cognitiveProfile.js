@@ -15,6 +15,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -49,10 +50,10 @@ const DEFAULT_PROFILE = {
 
   // Learning style indicators
   learningStyle: {
-    visual: 0,        // Preference for images/diagrams
-    stepByStep: 0,    // Preference for sequential instructions
-    conceptual: 0,    // Preference for big-picture explanations
-    examples: 0,      // Preference for concrete examples
+    visual: 0, // Preference for images/diagrams
+    stepByStep: 0, // Preference for sequential instructions
+    conceptual: 0, // Preference for big-picture explanations
+    examples: 0, // Preference for concrete examples
   },
 
   // Subject confidence (self-reported and inferred)
@@ -130,7 +131,11 @@ async function profile_load() {
       await profile_save();
     }
 
-    console.log('[CognitiveProfile] Profile loaded:', profile_data.stats.totalInteractions, 'interactions');
+    console.log(
+      '[CognitiveProfile] Profile loaded:',
+      profile_data.stats.totalInteractions,
+      'interactions'
+    );
     return profile_data;
   } catch (error) {
     console.error('[CognitiveProfile] Failed to load profile:', error);
@@ -144,7 +149,9 @@ async function profile_load() {
  * @returns {Promise<void>}
  */
 async function profile_save() {
-  if (!profile_data) return;
+  if (!profile_data) {
+    return;
+  }
 
   profile_data.meta.lastUpdated = new Date().toISOString();
 
@@ -166,7 +173,9 @@ async function profile_save() {
  * @param {Object} data - Interaction data
  */
 async function profile_trackInteraction(feature, data = {}) {
-  if (!profile_settings.trackInteractions || !profile_data) return;
+  if (!profile_settings.trackInteractions || !profile_data) {
+    return;
+  }
 
   profile_data.stats.totalInteractions++;
   profile_data.stats.lastActiveDate = new Date().toISOString();
@@ -214,8 +223,7 @@ async function profile_trackInteraction(feature, data = {}) {
       if (data.speed) {
         // Track preferred speed (running average)
         const currentSpeed = profile_data.reading.preferredSpeed;
-        profile_data.reading.preferredSpeed =
-          (currentSpeed * 0.8) + (data.speed * 0.2);
+        profile_data.reading.preferredSpeed = currentSpeed * 0.8 + data.speed * 0.2;
       }
       break;
   }
@@ -231,7 +239,9 @@ async function profile_trackInteraction(feature, data = {}) {
  * @param {string} type - Feedback type: 'positive' | 'negative' | 'regenerate' | 'simpler' | 'detailed'
  */
 async function profile_trackFeedback(type) {
-  if (!profile_data) return;
+  if (!profile_data) {
+    return;
+  }
 
   switch (type) {
     case 'positive':
@@ -258,7 +268,9 @@ async function profile_trackFeedback(type) {
  * Update streak tracking
  */
 function profile_updateStreak() {
-  if (!profile_data) return;
+  if (!profile_data) {
+    return;
+  }
 
   const today = new Date().toDateString();
   const lastActive = profile_data.stats.lastActiveDate
@@ -290,7 +302,9 @@ function profile_updateStreak() {
  * @returns {string}
  */
 function profile_getDominantStyle() {
-  if (!profile_data) return 'balanced';
+  if (!profile_data) {
+    return 'balanced';
+  }
 
   const styles = profile_data.learningStyle;
   let maxStyle = 'balanced';
@@ -385,7 +399,7 @@ function profile_createPanel() {
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Cognitive Profile');
 
-  panel.innerHTML = `
+  panel.innerHTML = sanitizeHTML(`
     <style>
       #assist-profile-panel {
         position: fixed;
@@ -608,7 +622,7 @@ function profile_createPanel() {
         Done
       </button>
     </div>
-  `;
+  `);
 
   // Close button
   panel.querySelector('.assist-profile-close').onclick = () => profile_hide();
@@ -630,10 +644,14 @@ function profile_createPanel() {
  * Render profile content
  */
 function profile_renderContent() {
-  if (!profile_panel || !profile_data) return;
+  if (!profile_panel || !profile_data) {
+    return;
+  }
 
   const content = profile_panel.querySelector('.assist-profile-content');
-  if (!content) return;
+  if (!content) {
+    return;
+  }
 
   const style = profile_getDominantStyle();
   const styleInfo = {
@@ -646,8 +664,10 @@ function profile_renderContent() {
 
   const currentStyle = styleInfo[style] || styleInfo.balanced;
 
-  content.innerHTML = `
-    ${profile_data.stats.streakDays > 0 ? `
+  content.innerHTML = sanitizeHTML(`
+    ${
+      profile_data.stats.streakDays > 0
+        ? `
       <div class="assist-profile-streak">
         <div class="assist-profile-streak-icon">🔥</div>
         <div class="assist-profile-streak-info">
@@ -655,7 +675,9 @@ function profile_renderContent() {
           <div class="assist-profile-streak-label">Learning Streak</div>
         </div>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div class="assist-profile-section">
       <div class="assist-profile-style">
@@ -712,7 +734,7 @@ function profile_renderContent() {
         </div>
       </div>
     </div>
-  `;
+  `);
 }
 
 // ============================================================================
@@ -770,7 +792,9 @@ function profile_get() {
  * @param {any} value - New value
  */
 async function profile_updatePreference(category, key, value) {
-  if (!profile_data || !profile_data[category]) return;
+  if (!profile_data || !profile_data[category]) {
+    return;
+  }
 
   profile_data[category][key] = value;
   await profile_save();

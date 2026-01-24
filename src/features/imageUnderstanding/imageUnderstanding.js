@@ -21,7 +21,7 @@ import { showToast } from '../../core/ui/toast.js';
 // ============================================================================
 
 let imageUI_panel = null;
-let imageUI_isLoading = false;
+// const _imageUI_isLoading = false; // Reserved for future use
 let imageUI_currentImage = null;
 let imageUI_currentDescription = '';
 
@@ -95,7 +95,7 @@ async function imageUI_getBase64(img) {
           const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
           resolve(base64);
-        } catch (e) {
+        } catch {
           reject(new Error('Failed to process image'));
         }
       };
@@ -168,7 +168,7 @@ async function imageUI_checkVision() {
       available: response?.success && response?.visionAvailable,
       models: response?.models || [],
     };
-  } catch (error) {
+  } catch {
     return { available: false, models: [] };
   }
 }
@@ -528,7 +528,9 @@ function imageUI_createPanel() {
  */
 function imageUI_renderResult(description, imageUrl, isAI = true) {
   const contentArea = imageUI_panel?.querySelector('.assist-image-content');
-  if (!contentArea) return;
+  if (!contentArea) {
+    return;
+  }
 
   const badge = isAI
     ? '<span class="assist-image-badge">AI Vision</span>'
@@ -565,7 +567,9 @@ function imageUI_renderResult(description, imageUrl, isAI = true) {
  */
 function imageUI_renderError(message) {
   const contentArea = imageUI_panel?.querySelector('.assist-image-content');
-  if (!contentArea) return;
+  if (!contentArea) {
+    return;
+  }
 
   contentArea.innerHTML = `
     <div class="assist-image-error">
@@ -586,7 +590,9 @@ function imageUI_renderError(message) {
  * Escape HTML
  */
 function escapeHtml(text) {
-  if (!text) return '';
+  if (!text) {
+    return '';
+  }
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
@@ -821,7 +827,9 @@ async function imageUI_loadTTSSettings() {
       // ALWAYS try fallback if no voice loaded yet - Find Google UK English Female
       if (!imageUI_ttsSettings.voice && voices.length > 0) {
         const fallbackVoice =
-          voices.find(v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')) ||
+          voices.find(
+            v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
+          ) ||
           voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
           voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
 
@@ -854,10 +862,4 @@ if (typeof window !== 'undefined') {
 // EXPORTS
 // ============================================================================
 
-export {
-  imageUI_analyze,
-  imageUI_describeImage,
-  imageUI_show,
-  imageUI_hide,
-  imageUI_settings,
-};
+export { imageUI_analyze, imageUI_describeImage, imageUI_show, imageUI_hide, imageUI_settings };

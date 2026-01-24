@@ -24,13 +24,15 @@
  * Feature enabled flag
  * @type {boolean}
  */
-let [featureName]_enabled = false;
+// TEMPLATE: Replace [featureName] with your actual feature name (e.g., myFeature)
+let featureName_enabled = false;
 
 /**
  * Feature-specific settings
  * @type {Object}
  */
-let [featureName]_settings = {
+// TEMPLATE: Replace featureName with your actual feature name
+let featureName_settings = {
   // Add your feature-specific settings here
   exampleSetting: true,
   exampleValue: 100,
@@ -40,7 +42,7 @@ let [featureName]_settings = {
  * Feature-specific state (if needed)
  * @type {any}
  */
-let [featureName]_state = null;
+// let featureName_state = null; // Uncomment when you need state
 
 // ============================================================
 // CORE FUNCTIONS
@@ -55,8 +57,8 @@ let [featureName]_state = null;
  *
  * @returns {void}
  */
-function [featureName]_initialize() {
-  if (![featureName]_enabled) {
+function featureName_initialize() {
+  if (!featureName_enabled) {
     console.log('[FeatureName] Not enabled, skipping initialization');
     return;
   }
@@ -71,10 +73,10 @@ function [featureName]_initialize() {
   // - Initialize feature state
 
   // Example: Add event listener
-  // document.addEventListener('click', [featureName]_handleClick);
+  // document.addEventListener('click', featureName_handleClick);
 
   // Example: Create UI
-  // [featureName]_createUI();
+  // featureName_createUI();
 
   console.log('[FeatureName] Initialized successfully');
 
@@ -93,22 +95,22 @@ function [featureName]_initialize() {
  *
  * @returns {void}
  */
-function [featureName]_cleanup() {
+function featureName_cleanup() {
   console.log('[FeatureName] Cleaning up...');
 
   // TODO: Remove event listeners
-  // document.removeEventListener('click', [featureName]_handleClick);
+  // document.removeEventListener('click', featureName_handleClick);
 
   // TODO: Remove UI elements
-  // [featureName]_removeUI();
+  // featureName_removeUI();
 
   // TODO: Clear timers/intervals
-  // if ([featureName]_state?.interval) {
-  //   clearInterval([featureName]_state.interval);
+  // if (featureName_state?.interval) {
+  //   clearInterval(featureName_state.interval);
   // }
 
   // TODO: Reset state
-  [featureName]_state = null;
+  // featureName_state = null; // Uncomment when you use state
 
   console.log('[FeatureName] Cleanup complete');
 }
@@ -121,18 +123,18 @@ function [featureName]_cleanup() {
  * @param {Object} newSettings - New settings from Chrome storage
  * @returns {void}
  */
-function [featureName]_applySettings(newSettings) {
+function featureName_applySettings(newSettings) {
   console.log('[FeatureName] Applying new settings:', newSettings);
 
   // Update local settings
-  [featureName]_settings = {
-    ...[featureName]_settings,
-    ...newSettings
+  featureName_settings = {
+    ...featureName_settings,
+    ...newSettings,
   };
 
   // TODO: Apply settings changes
   // Example: Update UI based on new settings
-  // [featureName]_updateUI();
+  // featureName_updateUI();
 }
 
 // ============================================================
@@ -141,33 +143,44 @@ function [featureName]_applySettings(newSettings) {
 
 /**
  * Example: Handle click events
- * @param {MouseEvent} e - Click event
+ * @param {MouseEvent} _e - Click event
  * @private
+ * Uncomment when you need event handling
  */
-function [featureName]_handleClick(e) {
-  if (![featureName]_enabled) return;
+/*
+function _featureName_handleClick(_e) {
+  if (!featureName_enabled) {
+    return;
+  }
 
   // Your click handling logic
   console.log('[FeatureName] Click detected');
 }
+*/
 
 /**
  * Example: Create UI elements
  * @private
+ * Uncomment when you need UI creation
  */
-function [featureName]_createUI() {
+/*
+function _featureName_createUI() {
   // Create and append UI elements
   console.log('[FeatureName] Creating UI');
 }
+*/
 
 /**
  * Example: Remove UI elements
  * @private
+ * Uncomment when you need UI removal
  */
-function [featureName]_removeUI() {
+/*
+function _featureName_removeUI() {
   // Remove UI elements
   console.log('[FeatureName] Removing UI');
 }
+*/
 
 // ============================================================
 // CHROME STORAGE INTEGRATION
@@ -178,26 +191,26 @@ function [featureName]_removeUI() {
  * This runs once when the extension loads
  */
 chrome.storage.local.get('assist_settings', result => {
-  if (result.assist_settings && result.assist_settings.[featureName]) {
-    const storedSettings = result.assist_settings.[featureName];
+  if (result.assist_settings && result.assist_settings.featureName) {
+    const storedSettings = result.assist_settings.featureName;
 
     // Load enabled state
-    [featureName]_enabled = storedSettings.enabled || false;
+    featureName_enabled = storedSettings.enabled || false;
 
     // Load feature settings
-    [featureName]_settings = {
-      ...[featureName]_settings,
-      ...storedSettings
+    featureName_settings = {
+      ...featureName_settings,
+      ...storedSettings,
     };
 
     // Initialize if enabled
-    if ([featureName]_enabled) {
-      [featureName]_initialize();
+    if (featureName_enabled) {
+      featureName_initialize();
     }
 
     console.log('[FeatureName] Settings loaded:', {
-      enabled: [featureName]_enabled,
-      settings: [featureName]_settings
+      enabled: featureName_enabled,
+      settings: featureName_settings,
     });
   } else {
     console.log('[FeatureName] No settings found, using defaults');
@@ -209,34 +222,32 @@ chrome.storage.local.get('assist_settings', result => {
  * This handles enable/disable toggle and settings changes from popup
  */
 chrome.storage.onChanged.addListener(changes => {
-  if (changes.assist_settings && changes.assist_settings.newValue?.[featureName]) {
-    const newSettings = changes.assist_settings.newValue.[featureName];
-    const wasEnabled = [featureName]_enabled;
+  if (changes.assist_settings && changes.assist_settings.newValue?.featureName) {
+    const newSettings = changes.assist_settings.newValue.featureName;
+    const wasEnabled = featureName_enabled;
     const newEnabled = newSettings.enabled || false;
 
     console.log('[FeatureName] Settings changed:', {
       wasEnabled,
       newEnabled,
-      newSettings
+      newSettings,
     });
 
     // Handle enable/disable transitions
     if (newEnabled && !wasEnabled) {
       // Feature was just enabled
-      [featureName]_enabled = true;
-      [featureName]_applySettings(newSettings);
-      [featureName]_initialize();
+      featureName_enabled = true;
+      featureName_applySettings(newSettings);
+      featureName_initialize();
       console.log('[FeatureName] Enabled');
-
     } else if (!newEnabled && wasEnabled) {
       // Feature was just disabled
-      [featureName]_enabled = false;
-      [featureName]_cleanup();
+      featureName_enabled = false;
+      featureName_cleanup();
       console.log('[FeatureName] Disabled');
-
     } else if (newEnabled && wasEnabled) {
       // Feature stayed enabled but settings changed
-      [featureName]_applySettings(newSettings);
+      featureName_applySettings(newSettings);
       console.log('[FeatureName] Settings updated');
     }
   }
@@ -251,8 +262,8 @@ chrome.storage.onChanged.addListener(changes => {
  * (Usually not needed for self-contained features)
  */
 export {
-  [featureName]_initialize,
-  [featureName]_cleanup,
+  featureName_initialize,
+  featureName_cleanup,
   // Add other exports if needed
 };
 

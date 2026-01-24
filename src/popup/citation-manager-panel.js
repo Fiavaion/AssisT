@@ -17,6 +17,7 @@
  */
 
 import { MESSAGE_TYPES } from '../config/constants.js';
+import { sanitizeHTML } from '../utils/sanitize.js';
 
 /**
  * Citation Manager Panel Component
@@ -146,7 +147,7 @@ export class CitationManagerPanel {
    * Render the main panel structure
    */
   render() {
-    this.container.innerHTML = `
+    this.container.innerHTML = sanitizeHTML(`
       <div class="citation-panel" role="region" aria-label="Citation Manager">
         <!-- Panel Header with View Switcher -->
         <div class="citation-panel-header">
@@ -215,7 +216,7 @@ export class CitationManagerPanel {
           </button>
         </div>
       </div>
-    `;
+    `);
 
     this.injectStyles();
   }
@@ -921,10 +922,12 @@ export class CitationManagerPanel {
       return;
     }
 
-    list.innerHTML = this.filteredCitations
-      .slice(0, 20) // Limit for performance
-      .map((citation, index) => this.renderCitationCard(citation, index))
-      .join('');
+    list.innerHTML = sanitizeHTML(
+      this.filteredCitations
+        .slice(0, 20) // Limit for performance
+        .map((citation, index) => this.renderCitationCard(citation, index))
+        .join('')
+    );
 
     // Attach click handlers to cards
     list.querySelectorAll('.citation-card').forEach((card, index) => {
@@ -997,7 +1000,7 @@ export class CitationManagerPanel {
           ? 'No citations in this project'
           : 'No citations saved yet';
 
-    list.innerHTML = `
+    list.innerHTML = sanitizeHTML(`
       <div class="citation-empty-state">
         <div class="citation-empty-icon">📚</div>
         <div class="citation-empty-text">${message}</div>
@@ -1011,7 +1014,7 @@ export class CitationManagerPanel {
             : ''
         }
       </div>
-    `;
+    `);
 
     const saveBtn = list.querySelector('[data-action="save-first"]');
     if (saveBtn) {
@@ -1031,12 +1034,12 @@ export class CitationManagerPanel {
     }
 
     if (this.isLoading) {
-      list.innerHTML = `
+      list.innerHTML = sanitizeHTML(`
         <div class="citation-loading">
           <div class="citation-loading-spinner"></div>
           <div style="font-size: 12px; color: #999;">Loading citations...</div>
         </div>
-      `;
+      `);
     }
   }
 
@@ -1080,7 +1083,7 @@ export class CitationManagerPanel {
       );
     });
 
-    select.innerHTML = options.join('');
+    select.innerHTML = sanitizeHTML(options.join(''));
   }
 
   /**

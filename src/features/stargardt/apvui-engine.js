@@ -10,6 +10,8 @@
  * @module stargardt/apvui-engine
  */
 
+import { sanitizeHTML } from '../../utils/sanitize.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -17,7 +19,7 @@
 let apvui_enabled = false;
 let apvui_settings = {};
 let apvui_profile = null;
-let apvui_styleElement = null;
+// let _apvui_styleElement = null; // Reserved for future use
 let apvui_radialMenu = null;
 let apvui_motionCueInterval = null;
 
@@ -52,7 +54,9 @@ export function initialize(settings, profile) {
  * Enable APVUI
  */
 export function enable() {
-  if (apvui_enabled) return;
+  if (apvui_enabled) {
+    return;
+  }
 
   console.log('[APVUI] Enabling...');
   apvui_enabled = true;
@@ -87,7 +91,9 @@ export function enable() {
  * Disable APVUI
  */
 export function disable() {
-  if (!apvui_enabled) return;
+  if (!apvui_enabled) {
+    return;
+  }
 
   console.log('[APVUI] Disabling...');
   apvui_enabled = false;
@@ -331,7 +337,9 @@ function removeRadialMenus() {
  * Handle context menu to show radial menu
  */
 function handleContextMenu(e) {
-  if (!apvui_enabled || !apvui_settings.radialMenus) return;
+  if (!apvui_enabled || !apvui_settings.radialMenus) {
+    return;
+  }
 
   e.preventDefault();
 
@@ -363,10 +371,12 @@ function handleContextMenu(e) {
  * Show radial menu at position
  */
 function showRadialMenu(x, y) {
-  if (!apvui_radialMenu) return;
+  if (!apvui_radialMenu) {
+    return;
+  }
 
   // Clear existing items
-  apvui_radialMenu.innerHTML = '';
+  apvui_radialMenu.innerHTML = sanitizeHTML('');
 
   // Menu items
   const items = [
@@ -389,7 +399,7 @@ function showRadialMenu(x, y) {
     btn.className = 'stargardt-radial-item';
     btn.style.left = `${itemX + x - 24}px`;
     btn.style.top = `${itemY + y - 24}px`;
-    btn.innerHTML = item.icon;
+    btn.innerHTML = sanitizeHTML(item.icon);
     btn.setAttribute('aria-label', item.label);
     btn.setAttribute('title', item.label);
     btn.onclick = () => {
@@ -411,7 +421,7 @@ function showRadialMenu(x, y) {
  */
 function hideRadialMenu() {
   if (apvui_radialMenu) {
-    apvui_radialMenu.innerHTML = '';
+    apvui_radialMenu.innerHTML = sanitizeHTML('');
   }
   document.removeEventListener('click', hideRadialMenuOnClick);
 }
@@ -508,10 +518,14 @@ function startMotionCues() {
 
   // Periodically show motion cues in peripheral vision
   apvui_motionCueInterval = setInterval(() => {
-    if (!apvui_enabled) return;
+    if (!apvui_enabled) {
+      return;
+    }
 
     // Only show cues occasionally
-    if (Math.random() > 0.3) return;
+    if (Math.random() > 0.3) {
+      return;
+    }
 
     showMotionCue();
   }, 5000);
@@ -618,7 +632,9 @@ function resetTouchTargets() {
  * @param {HTMLElement} element - Element to scale
  */
 export function applyDistanceScaling(element) {
-  if (!apvui_profile) return;
+  if (!apvui_profile) {
+    return;
+  }
 
   const rect = element.getBoundingClientRect();
   const elCenterX = rect.left + rect.width / 2;
@@ -628,9 +644,7 @@ export function applyDistanceScaling(element) {
   const scotomaY = (apvui_profile.boundary.centerY / 100) * window.innerHeight;
   const scotomaR = (apvui_profile.boundary.radiusX / 100) * window.innerWidth;
 
-  const distance = Math.sqrt(
-    Math.pow(elCenterX - scotomaX, 2) + Math.pow(elCenterY - scotomaY, 2)
-  );
+  const distance = Math.sqrt(Math.pow(elCenterX - scotomaX, 2) + Math.pow(elCenterY - scotomaY, 2));
 
   // Scale elements near the scotoma boundary larger
   if (distance < scotomaR * 1.5) {

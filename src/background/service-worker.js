@@ -8,8 +8,12 @@ import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
 
 // Cloud AI imports
-import { claudeGenerate, checkCloudAvailability, CLOUD_MODELS, FEATURE_DEFAULT_MODELS } from '../ai/claude-client.js';
-import { getUsageStats, exportUsageData, exportUsageCSV, clearUsageData } from '../ai/usage-tracker.js';
+import {
+  claudeGenerate,
+  checkCloudAvailability,
+  CLOUD_MODELS,
+  FEATURE_DEFAULT_MODELS,
+} from '../ai/claude-client.js';
 
 // ========================================
 // CONTEXT MENU SETUP (runs on every service worker start)
@@ -390,7 +394,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       success: true,
       tier: currentVramTier,
       defaultModel: getDefaultModel(),
-      fallbackModels: getTierFallbackModels()
+      fallbackModels: getTierFallbackModels(),
     });
     return true;
   }
@@ -424,7 +428,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Generate with the optimal model
         const result = await ollamaGenerate(message.prompt, {
           ...message.options,
-          model: routing.model
+          model: routing.model,
         });
 
         sendResponse({
@@ -433,8 +437,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           routing: {
             model: routing.model,
             reason: routing.reason,
-            matched: routing.matched
-          }
+            matched: routing.matched,
+          },
         });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
@@ -455,11 +459,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'LOCAL_LLM_INSTALL_MODEL') {
     ollamaInstallModel(message.modelName, progress => {
       // Send progress updates via broadcast (content scripts listen)
-      chrome.runtime.sendMessage({
-        type: 'LLM_INSTALL_PROGRESS',
-        modelName: message.modelName,
-        progress
-      }).catch(() => {}); // Ignore if no listeners
+      chrome.runtime
+        .sendMessage({
+          type: 'LLM_INSTALL_PROGRESS',
+          modelName: message.modelName,
+          progress,
+        })
+        .catch(() => {}); // Ignore if no listeners
     })
       .then(() => sendResponse({ success: true }))
       .catch(error => sendResponse({ success: false, error: error.message }));
@@ -489,11 +495,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Generate text with Claude API
   if (message.action === 'CLOUD_LLM_GENERATE') {
     claudeGenerate(message.prompt, message.options || {})
-      .then(result => sendResponse({
-        success: true,
-        data: result.content,
-        usage: result.usage
-      }))
+      .then(result =>
+        sendResponse({
+          success: true,
+          data: result.content,
+          usage: result.usage,
+        })
+      )
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
@@ -503,41 +511,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({
       success: true,
       models: CLOUD_MODELS,
-      featureDefaults: FEATURE_DEFAULT_MODELS
+      featureDefaults: FEATURE_DEFAULT_MODELS,
     });
     return false;
-  }
-
-  // Get usage statistics
-  if (message.action === 'GET_USAGE_STATS') {
-    getUsageStats()
-      .then(stats => sendResponse({ success: true, data: stats }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
-  }
-
-  // Export usage data as JSON
-  if (message.action === 'EXPORT_USAGE_JSON') {
-    exportUsageData()
-      .then(data => sendResponse({ success: true, data }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
-  }
-
-  // Export usage data as CSV
-  if (message.action === 'EXPORT_USAGE_CSV') {
-    exportUsageCSV()
-      .then(data => sendResponse({ success: true, data }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
-  }
-
-  // Clear usage data
-  if (message.action === 'CLEAR_USAGE_DATA') {
-    clearUsageData()
-      .then(() => sendResponse({ success: true }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
   }
 
   // ========================================
@@ -576,7 +552,7 @@ async function checkOllamaAvailability() {
 
     const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
       method: 'GET',
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
@@ -591,7 +567,7 @@ async function checkOllamaAvailability() {
       return {
         available: true,
         models,
-        visionAvailable
+        visionAvailable,
       };
     }
   } catch (error) {
@@ -603,7 +579,7 @@ async function checkOllamaAvailability() {
   return {
     available: false,
     models: [],
-    visionAvailable: false
+    visionAvailable: false,
   };
 }
 
@@ -630,8 +606,8 @@ async function findInstalledModel(requestedModel) {
     }
 
     // Check for any model starting with the requested name
-    const matchingModel = status.models.find(m =>
-      m.startsWith(requestedModel) || m.startsWith(`${requestedModel}:`)
+    const matchingModel = status.models.find(
+      m => m.startsWith(requestedModel) || m.startsWith(`${requestedModel}:`)
     );
 
     if (matchingModel) {
@@ -644,11 +620,13 @@ async function findInstalledModel(requestedModel) {
     console.log(`[LLM Bridge] Using ${currentVramTier} tier fallback models:`, tierFallback);
 
     for (const fallback of tierFallback) {
-      const fallbackMatch = status.models.find(m =>
-        m === fallback || m.startsWith(`${fallback}:`) || m.startsWith(fallback)
+      const fallbackMatch = status.models.find(
+        m => m === fallback || m.startsWith(`${fallback}:`) || m.startsWith(fallback)
       );
       if (fallbackMatch) {
-        console.log(`[LLM Bridge] Model '${requestedModel}' not found, using fallback '${fallbackMatch}'`);
+        console.log(
+          `[LLM Bridge] Model '${requestedModel}' not found, using fallback '${fallbackMatch}'`
+        );
         return fallbackMatch;
       }
     }
@@ -670,58 +648,58 @@ async function findInstalledModel(requestedModel) {
 const MODEL_OPTIMIZATION_PROFILES = {
   // Gemma 3 4B - Optimized for structured output
   'gemma3:4b': {
-    num_ctx: 4096,           // Reduced from 8k default for speed
-    temperature: 0.7,        // Google's recommended range
+    num_ctx: 4096, // Reduced from 8k default for speed
+    temperature: 0.7, // Google's recommended range
     top_k: 40,
     top_p: 0.9,
     repeat_penalty: 1.1,
-    strengths: ['formatting', 'structure', 'definitions']
+    strengths: ['formatting', 'structure', 'definitions'],
   },
-  'gemma3': {
+  gemma3: {
     num_ctx: 4096,
     temperature: 0.7,
     top_k: 40,
     top_p: 0.9,
     repeat_penalty: 1.1,
-    strengths: ['formatting', 'structure', 'definitions']
+    strengths: ['formatting', 'structure', 'definitions'],
   },
   // Mistral 7B - Optimized for reasoning (was slow due to 32k default context)
   'mistral:7b-instruct': {
-    num_ctx: 4096,           // Critical: reduced from 32k default
-    temperature: 0.4,        // Lower for educational content
+    num_ctx: 4096, // Critical: reduced from 32k default
+    temperature: 0.4, // Lower for educational content
     top_p: 0.9,
-    repeat_penalty: 1.15,    // Slight increase for less repetition
-    strengths: ['reasoning', 'pedagogy', 'analysis']
+    repeat_penalty: 1.15, // Slight increase for less repetition
+    strengths: ['reasoning', 'pedagogy', 'analysis'],
   },
   'mistral:7b': {
     num_ctx: 4096,
     temperature: 0.4,
     top_p: 0.9,
     repeat_penalty: 1.15,
-    strengths: ['reasoning', 'pedagogy', 'analysis']
+    strengths: ['reasoning', 'pedagogy', 'analysis'],
   },
   // Llama 3.2 - Optimized for speed
   'llama3.2': {
-    num_ctx: 2048,           // Minimal context for max speed
+    num_ctx: 2048, // Minimal context for max speed
     temperature: 0.6,
     top_p: 0.9,
     repeat_penalty: 1.1,
-    strengths: ['speed', 'simple-text', 'summarization']
+    strengths: ['speed', 'simple-text', 'summarization'],
   },
   'llama3.2:3b': {
     num_ctx: 2048,
     temperature: 0.6,
     top_p: 0.9,
     repeat_penalty: 1.1,
-    strengths: ['speed', 'simple-text', 'summarization']
+    strengths: ['speed', 'simple-text', 'summarization'],
   },
   // Phi3 Mini - Balance of quality and speed
   'phi3:mini': {
-    num_ctx: 2048,           // Reduced for speed
+    num_ctx: 2048, // Reduced for speed
     temperature: 0.5,
     top_p: 0.9,
     repeat_penalty: 1.1,
-    strengths: ['general', 'fallback']
+    strengths: ['general', 'fallback'],
   },
   // Qwen 2.5 7B - Good for academic text
   'qwen2.5:7b': {
@@ -729,16 +707,16 @@ const MODEL_OPTIMIZATION_PROFILES = {
     temperature: 0.5,
     top_p: 0.9,
     repeat_penalty: 1.1,
-    strengths: ['academic', 'multilingual']
+    strengths: ['academic', 'multilingual'],
   },
   // Default fallback profile
-  'default': {
+  default: {
     num_ctx: 4096,
     temperature: 0.5,
     top_p: 0.9,
     repeat_penalty: 1.1,
-    strengths: []
-  }
+    strengths: [],
+  },
 };
 
 /**
@@ -749,41 +727,41 @@ const TASK_OPTIMAL_MODELS = {
   // Speed-critical tasks → smaller, faster models
   summarization: {
     priority: ['llama3.2', 'llama3.2:3b', 'phi3:mini', 'gemma3:4b'],
-    reason: 'Summarization benefits from fast inference; quality differences minimal'
+    reason: 'Summarization benefits from fast inference; quality differences minimal',
   },
   // Formatting tasks → Gemma excels at structured output
   assignmentBreakdown: {
     priority: ['gemma3:4b', 'gemma3', 'mistral:7b-instruct', 'qwen2.5:7b'],
-    reason: 'Gemma produces better structured, formatted output'
+    reason: 'Gemma produces better structured, formatted output',
   },
   textSimplification: {
     basic: {
       priority: ['llama3.2', 'phi3:mini', 'gemma3:4b'],
-      reason: 'Basic simplification needs speed over complexity'
+      reason: 'Basic simplification needs speed over complexity',
     },
     moderate: {
       priority: ['gemma3:4b', 'mistral:7b-instruct', 'qwen2.5:7b'],
-      reason: 'Moderate simplification needs balanced capability'
+      reason: 'Moderate simplification needs balanced capability',
     },
     academic: {
       priority: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b'],
-      reason: 'Academic simplification needs reasoning + vocabulary'
-    }
+      reason: 'Academic simplification needs reasoning + vocabulary',
+    },
   },
   // Reasoning-heavy tasks → Mistral excels
   socraticTutor: {
     priority: ['mistral:7b-instruct', 'mistral:7b', 'qwen2.5:7b', 'gemma3:4b'],
-    reason: 'Socratic questioning requires strong reasoning/pedagogy'
+    reason: 'Socratic questioning requires strong reasoning/pedagogy',
   },
   citationAnalyzer: {
     priority: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2'],
-    reason: 'Citation analysis requires analytical reasoning'
+    reason: 'Citation analysis requires analytical reasoning',
   },
   // Default fallback
   default: {
     priority: ['gemma3:4b', 'mistral:7b-instruct', 'llama3.2', 'phi3:mini'],
-    reason: 'Balanced default for unknown tasks'
-  }
+    reason: 'Balanced default for unknown tasks',
+  },
 };
 
 /**
@@ -812,22 +790,21 @@ function getOptimalModelForTask(taskType, level = null, availableModels = []) {
     return {
       model: taskConfig.priority[0],
       reason: taskConfig.reason,
-      matched: false
+      matched: false,
     };
   }
 
   // Find first matching installed model
   for (const preferredModel of taskConfig.priority) {
-    const match = availableModels.find(m =>
-      m === preferredModel ||
-      m.startsWith(`${preferredModel}:`) ||
-      m.startsWith(preferredModel)
+    const match = availableModels.find(
+      m =>
+        m === preferredModel || m.startsWith(`${preferredModel}:`) || m.startsWith(preferredModel)
     );
     if (match) {
       return {
         model: match,
         reason: taskConfig.reason,
-        matched: true
+        matched: true,
       };
     }
   }
@@ -836,7 +813,7 @@ function getOptimalModelForTask(taskType, level = null, availableModels = []) {
   return {
     model: availableModels[0],
     reason: 'No optimal model available, using fallback',
-    matched: false
+    matched: false,
   };
 }
 
@@ -866,34 +843,34 @@ function getModelProfile(model) {
 let currentVramTier = '8gb'; // Default to 8GB tier
 
 const VRAM_TIER_MODELS = {
-  'auto': {
+  auto: {
     default: 'mistral:7b-instruct',
-    fallback: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b', 'phi3:mini']
+    fallback: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b', 'phi3:mini'],
   },
   '2gb': {
     default: 'phi3:mini',
-    fallback: ['phi3:mini', 'llama3.2', 'llama3.2:1b', 'tinyllama']
+    fallback: ['phi3:mini', 'llama3.2', 'llama3.2:1b', 'tinyllama'],
   },
   '4gb': {
     default: 'gemma3:4b',
-    fallback: ['gemma3:4b', 'qwen3:4b', 'llama3.2:3b', 'llama3.2', 'phi3:mini']
+    fallback: ['gemma3:4b', 'qwen3:4b', 'llama3.2:3b', 'llama3.2', 'phi3:mini'],
   },
   '8gb': {
     default: 'mistral:7b-instruct',
-    fallback: ['mistral:7b-instruct', 'mistral:7b', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b']
+    fallback: ['mistral:7b-instruct', 'mistral:7b', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b'],
   },
   '12gb': {
     default: 'llama3.1:8b',
-    fallback: ['llama3.1:8b', 'mixtral:8x7b', 'mistral:7b-instruct', 'qwen2.5:7b']
+    fallback: ['llama3.1:8b', 'mixtral:8x7b', 'mistral:7b-instruct', 'qwen2.5:7b'],
   },
   '16gb': {
     default: 'qwen2.5:14b',
-    fallback: ['qwen2.5:14b', 'llama3.1:70b-q4', 'llama3.1:8b', 'mixtral:8x7b']
+    fallback: ['qwen2.5:14b', 'llama3.1:70b-q4', 'llama3.1:8b', 'mixtral:8x7b'],
   },
   '24gb': {
     default: 'llama3.1:70b',
-    fallback: ['llama3.1:70b', 'mixtral:8x22b', 'qwen2.5:14b', 'llama3.1:8b']
-  }
+    fallback: ['llama3.1:70b', 'mixtral:8x22b', 'qwen2.5:14b', 'llama3.1:8b'],
+  },
 };
 
 /**
@@ -924,7 +901,7 @@ const BENCHMARK_PROMPTS = {
     const prompts = {
       basic: `Simplify this text for someone with reading difficulties. Use very simple words and short sentences:\n\n${text}\n\nSimplified version:`,
       moderate: `Simplify this academic text while keeping important terms. Add brief definitions in parentheses for difficult words:\n\n${text}\n\nSimplified version:`,
-      academic: `Improve the readability of this academic text while preserving scholarly vocabulary. Add definitions for complex terms:\n\n${text}\n\nImproved version:`
+      academic: `Improve the readability of this academic text while preserving scholarly vocabulary. Add definitions for complex terms:\n\n${text}\n\nImproved version:`,
     };
     return prompts[level] || prompts.moderate;
   },
@@ -933,16 +910,19 @@ const BENCHMARK_PROMPTS = {
     const prompts = {
       brief: `Summarize this text in 1-2 sentences:\n\n${text}\n\nSummary:`,
       moderate: `Provide a clear summary of this text in 3-4 sentences, capturing the main points:\n\n${text}\n\nSummary:`,
-      detailed: `Provide a comprehensive summary of this text, including key details and supporting points:\n\n${text}\n\nDetailed summary:`
+      detailed: `Provide a comprehensive summary of this text, including key details and supporting points:\n\n${text}\n\nDetailed summary:`,
     };
     return prompts[level] || prompts.brief;
   },
 
-  socraticTutor: (text) => `You are a Socratic tutor. Generate 3-4 thought-provoking questions to help a student understand this text deeply. Focus on comprehension, analysis, and critical thinking:\n\n${text}\n\nQuestions:`,
+  socraticTutor: text =>
+    `You are a Socratic tutor. Generate 3-4 thought-provoking questions to help a student understand this text deeply. Focus on comprehension, analysis, and critical thinking:\n\n${text}\n\nQuestions:`,
 
-  assignmentBreakdown: (text) => `Break down this assignment into clear, actionable steps. Include estimated time for each step and key requirements:\n\n${text}\n\nBreakdown:`,
+  assignmentBreakdown: text =>
+    `Break down this assignment into clear, actionable steps. Include estimated time for each step and key requirements:\n\n${text}\n\nBreakdown:`,
 
-  citationAnalyzer: (text) => `Analyze this text or source for credibility. Assess: source type, potential bias, key claims, and reliability. Provide a credibility score (1-10):\n\n${text}\n\nAnalysis:`
+  citationAnalyzer: text =>
+    `Analyze this text or source for credibility. Assess: source type, potential bias, key claims, and reliability. Provide a credibility score (1-10):\n\n${text}\n\nAnalysis:`,
 };
 
 /**
@@ -959,9 +939,12 @@ async function runBenchmarkTest(params) {
     return { success: false, error: `Unknown feature: ${feature}` };
   }
 
-  const prompt = typeof promptBuilder === 'function'
-    ? (level ? promptBuilder(text, level) : promptBuilder(text))
-    : promptBuilder;
+  const prompt =
+    typeof promptBuilder === 'function'
+      ? level
+        ? promptBuilder(text, level)
+        : promptBuilder(text)
+      : promptBuilder;
 
   const maxTokens = feature === 'summarization' ? 300 : 600;
 
@@ -973,7 +956,7 @@ async function runBenchmarkTest(params) {
       result = await claudeGenerate(prompt, {
         model: model,
         maxTokens,
-        temperature: 0.3
+        temperature: 0.3,
       });
 
       return {
@@ -981,14 +964,14 @@ async function runBenchmarkTest(params) {
         data: result.content,
         tokens: result.usage?.output_tokens || 0,
         model: model,
-        isCloud: true
+        isCloud: true,
       };
     } else {
       // Local model (Ollama) - use model-specific optimization profile
       const profile = getModelProfile(model);
       console.log(`[Benchmark] Using optimized profile for ${model}:`, {
         num_ctx: profile.num_ctx,
-        temperature: profile.temperature
+        temperature: profile.temperature,
       });
 
       const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
@@ -999,14 +982,14 @@ async function runBenchmarkTest(params) {
           prompt: prompt,
           stream: false,
           options: {
-            num_ctx: profile.num_ctx,          // Key optimization
+            num_ctx: profile.num_ctx, // Key optimization
             num_predict: maxTokens,
             temperature: profile.temperature,
             top_p: profile.top_p,
             top_k: profile.top_k,
-            repeat_penalty: profile.repeat_penalty
-          }
-        })
+            repeat_penalty: profile.repeat_penalty,
+          },
+        }),
       });
 
       if (!response.ok) {
@@ -1022,7 +1005,7 @@ async function runBenchmarkTest(params) {
         model: model,
         isCloud: false,
         evalDuration: data.eval_duration,
-        totalDuration: data.total_duration
+        totalDuration: data.total_duration,
       };
     }
   } catch (error) {
@@ -1031,7 +1014,7 @@ async function runBenchmarkTest(params) {
       success: false,
       error: error.message,
       model: model,
-      isCloud: isCloud
+      isCloud: isCloud,
     };
   }
 }
@@ -1048,7 +1031,7 @@ async function ollamaGenerate(prompt, options = {}) {
   const profile = getModelProfile(model);
   console.log(`[LLM Bridge] Using profile for ${model}:`, {
     num_ctx: profile.num_ctx,
-    temperature: options.temperature ?? profile.temperature
+    temperature: options.temperature ?? profile.temperature,
   });
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
@@ -1068,13 +1051,13 @@ async function ollamaGenerate(prompt, options = {}) {
         // Additional optimizations from profile
         top_p: profile.top_p,
         top_k: profile.top_k,
-        repeat_penalty: profile.repeat_penalty
-      }
+        repeat_penalty: profile.repeat_penalty,
+      },
     }),
     signal: AbortSignal.timeout(options.timeout || 30000),
     mode: 'cors',
     credentials: 'omit',
-    referrerPolicy: 'no-referrer'
+    referrerPolicy: 'no-referrer',
   });
 
   if (!response.ok) {
@@ -1090,7 +1073,7 @@ async function ollamaGenerate(prompt, options = {}) {
       const jsonMatch = data.response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       const jsonStr = jsonMatch ? jsonMatch[1] : data.response;
       return JSON.parse(jsonStr.trim());
-    } catch (e) {
+    } catch {
       return { raw: data.response, parseError: true };
     }
   }
@@ -1115,13 +1098,13 @@ async function ollamaVision(imageBase64, prompt, options = {}) {
       stream: false,
       options: {
         temperature: options.temperature ?? 0.5,
-        num_predict: options.maxTokens ?? 1000
-      }
+        num_predict: options.maxTokens ?? 1000,
+      },
     }),
     signal: AbortSignal.timeout(options.timeout || 60000),
     mode: 'cors',
     credentials: 'omit',
-    referrerPolicy: 'no-referrer'
+    referrerPolicy: 'no-referrer',
   });
 
   if (!response.ok) {
@@ -1146,12 +1129,12 @@ async function ollamaInstallModel(modelName, onProgress = null) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/x-ndjson'
+        Accept: 'application/x-ndjson',
       },
       body: JSON.stringify({ name: modelName }),
       mode: 'cors',
       credentials: 'omit',
-      referrerPolicy: 'no-referrer'
+      referrerPolicy: 'no-referrer',
     });
   } catch (networkError) {
     console.error('[LLM Bridge] Network error connecting to Ollama:', networkError);
@@ -1168,9 +1151,10 @@ async function ollamaInstallModel(modelName, onProgress = null) {
       // CORS issue - Ollama blocks POST requests from browser extensions by default
       throw new Error(
         'CORS blocked (403). To fix, restart Ollama with:\n' +
-        'OLLAMA_ORIGINS=* ollama serve\n\n' +
-        'Or install models in terminal:\n' +
-        'ollama pull ' + modelName
+          'OLLAMA_ORIGINS=* ollama serve\n\n' +
+          'Or install models in terminal:\n' +
+          'ollama pull ' +
+          modelName
       );
     }
     throw new Error(`Failed to start model download: ${response.status} - ${errorText}`);
@@ -1182,7 +1166,9 @@ async function ollamaInstallModel(modelName, onProgress = null) {
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      break;
+    }
 
     const lines = decoder.decode(value).split('\n').filter(Boolean);
     for (const line of lines) {
@@ -1196,13 +1182,13 @@ async function ollamaInstallModel(modelName, onProgress = null) {
 
         // Send progress updates (throttled to every 500ms)
         const now = Date.now();
-        if (onProgress && progress.total && (now - lastProgressUpdate > 500)) {
+        if (onProgress && progress.total && now - lastProgressUpdate > 500) {
           lastProgressUpdate = now;
           onProgress({
             status: progress.status,
             completed: progress.completed || 0,
             total: progress.total,
-            percent: Math.round((progress.completed / progress.total) * 100)
+            percent: Math.round((progress.completed / progress.total) * 100),
           });
         }
       } catch (e) {

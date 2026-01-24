@@ -172,7 +172,7 @@ export class WebSpeechEngine extends BaseSTTEngine {
       this.recognition.stop();
       console.log('[WebSpeech] Stopped listening');
       return true;
-    } catch (error) {
+    } catch {
       this.recordError();
       return false;
     }
@@ -208,7 +208,7 @@ export class WebSpeechEngine extends BaseSTTEngine {
       this.recognition.start();
       console.log('[WebSpeech] Resumed listening');
       return true;
-    } catch (error) {
+    } catch {
       this.recordError();
       return false;
     }

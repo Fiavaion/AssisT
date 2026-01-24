@@ -92,7 +92,9 @@ export async function initialize() {
  * Configure WebGazer settings
  */
 function configureWebGazer() {
-  if (!gazeTracker_webgazer) return;
+  if (!gazeTracker_webgazer) {
+    return;
+  }
 
   // Set the tracker algorithm (TFFacemesh is most accurate)
   gazeTracker_webgazer.setTracker('TFFacemesh');
@@ -422,11 +424,7 @@ export async function testAccuracyAtPoint(targetX, targetY, duration = 2000) {
         unsubscribe();
 
         // Calculate accuracy metrics
-        const accuracy = calculateAccuracyMetrics(
-          gazeReadings,
-          targetX,
-          targetY
-        );
+        const accuracy = calculateAccuracyMetrics(gazeReadings, targetX, targetY);
         resolve(accuracy);
       }
     });
@@ -467,9 +465,7 @@ function calculateAccuracyMetrics(readings, targetX, targetY) {
   const meanError = errors.reduce((sum, e) => sum + e, 0) / errors.length;
 
   // Calculate standard deviation
-  const variance =
-    errors.reduce((sum, e) => sum + Math.pow(e - meanError, 2), 0) /
-    errors.length;
+  const variance = errors.reduce((sum, e) => sum + Math.pow(e - meanError, 2), 0) / errors.length;
   const stdDev = Math.sqrt(variance);
 
   // Calculate mean position
@@ -497,9 +493,7 @@ export function getAccuracyState() {
   }
 
   const recentTests = gazeTracker_accuracyHistory.slice(-5);
-  const avgError =
-    recentTests.reduce((sum, t) => sum + (t.meanError || 0), 0) /
-    recentTests.length;
+  const avgError = recentTests.reduce((sum, t) => sum + (t.meanError || 0), 0) / recentTests.length;
 
   return {
     assessed: true,

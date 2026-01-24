@@ -12,10 +12,10 @@
 
 // Maximum context sizes (in characters) for different purposes
 const CONTEXT_LIMITS = {
-  conversation: 8000,   // Chat/tutoring context
-  document: 16000,      // Current document understanding
-  summary: 4000,        // Condensed context
-  profile: 2000         // User profile context
+  conversation: 8000, // Chat/tutoring context
+  document: 16000, // Current document understanding
+  summary: 4000, // Condensed context
+  profile: 2000, // User profile context
 };
 
 /**
@@ -39,7 +39,7 @@ class ContextWindow {
       role,
       content,
       timestamp: Date.now(),
-      ...meta
+      ...meta,
     });
 
     this._trimToSize();
@@ -50,16 +50,19 @@ class ContextWindow {
    * @returns {string}
    */
   getFormatted() {
-    return this.entries.map(e => {
-      const prefix = {
-        user: 'User',
-        assistant: 'Assistant',
-        system: 'Context',
-        document: 'Document'
-      }[e.role] || e.role;
+    return this.entries
+      .map(e => {
+        const prefix =
+          {
+            user: 'User',
+            assistant: 'Assistant',
+            system: 'Context',
+            document: 'Document',
+          }[e.role] || e.role;
 
-      return `${prefix}: ${e.content}`;
-    }).join('\n\n');
+        return `${prefix}: ${e.content}`;
+      })
+      .join('\n\n');
   }
 
   /**
@@ -241,7 +244,7 @@ export class ContextManager {
       id,
       size: window.getSize(),
       entries: window.entries.length,
-      metadata: window.metadata
+      metadata: window.metadata,
     }));
   }
 
@@ -274,27 +277,31 @@ export class ContextManager {
    */
   async compressContext(windowId, summarizer) {
     const window = this.windows.get(windowId);
-    if (!window || window.entries.length < 5) return;
+    if (!window || window.entries.length < 5) {
+      return;
+    }
 
     // Get all entries except the last 2
     const toSummarize = window.entries.slice(0, -2);
     const toKeep = window.entries.slice(-2);
 
-    if (toSummarize.length === 0) return;
+    if (toSummarize.length === 0) {
+      return;
+    }
 
-    const textToSummarize = toSummarize
-      .map(e => `${e.role}: ${e.content}`)
-      .join('\n');
+    const textToSummarize = toSummarize.map(e => `${e.role}: ${e.content}`).join('\n');
 
     try {
       const summary = await summarizer(textToSummarize);
 
       window.entries = [
         { role: 'system', content: `Previous context summary: ${summary}`, timestamp: Date.now() },
-        ...toKeep
+        ...toKeep,
       ];
 
-      console.log(`[ContextManager] Compressed ${windowId}: ${toSummarize.length} entries → 1 summary`);
+      console.log(
+        `[ContextManager] Compressed ${windowId}: ${toSummarize.length} entries → 1 summary`
+      );
     } catch (error) {
       console.error('[ContextManager] Compression failed:', error);
     }
@@ -308,15 +315,15 @@ export class ContextManager {
     const exported = {
       global: {
         entries: this.globalContext.entries,
-        metadata: this.globalContext.metadata
+        metadata: this.globalContext.metadata,
       },
-      windows: {}
+      windows: {},
     };
 
     for (const [id, window] of this.windows) {
       exported.windows[id] = {
         entries: window.entries,
-        metadata: window.metadata
+        metadata: window.metadata,
       };
     }
 
