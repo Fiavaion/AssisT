@@ -35,7 +35,6 @@ import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 let fullPageTranslate_isTranslated = false;
 let fullPageTranslate_progressModal = null;
 let fullPageTranslate_revertButton = null;
-const _fullPageTranslate_currentTargetLang = 'en';
 
 // ============================================================================
 // PROGRESS MODAL
@@ -325,16 +324,6 @@ function fullPageTranslate_getTextNodes() {
 async function fullPageTranslate_translateNodes(textNodes, targetLang, sourceLang = 'auto') {
   console.log(`[FullPageTranslate] Translating ${textNodes.length} nodes to ${targetLang}`);
 
-  const BATCH_SIZE = 50; // Translate 50 nodes at a time
-  const batches = [];
-
-  // Split into batches
-  for (let i = 0; i < textNodes.length; i += BATCH_SIZE) {
-    batches.push(textNodes.slice(i, i + BATCH_SIZE));
-  }
-
-  console.log(`[FullPageTranslate] Created ${batches.length} batches of ${BATCH_SIZE} nodes each`);
-
   // Get translation API
   const translationAPI = window.assistFeatures?.translation;
   if (!translationAPI) {
@@ -343,53 +332,56 @@ async function fullPageTranslate_translateNodes(textNodes, targetLang, sourceLan
 
   let processedNodes = 0;
 
-  // Process each batch sequentially
-  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-    const batch = batches[batchIndex];
+  // Process each node sequentially to avoid rate limiting (was causing HTTP 429 errors)
+  for (let i = 0; i < textNodes.length; i++) {
+    const node = textNodes[i];
 
-    // Translate each node in the batch
-    await Promise.all(
-      batch.map(async node => {
-        try {
-          const originalText = node.textContent.trim();
+    try {
+      const originalText = node.textContent.trim();
 
-          // Skip if already translated (has data-original-text attribute)
-          if (node.parentElement?.hasAttribute('data-original-text')) {
-            processedNodes++;
-            return;
-          }
+      // Skip if already translated (has data-original-text attribute)
+      if (node.parentElement?.hasAttribute('data-original-text')) {
+        processedNodes++;
+        fullPageTranslate_updateProgress(processedNodes, textNodes.length);
+        continue;
+      }
 
-          // Translate
-          const result = await translationAPI.translate(originalText, targetLang, sourceLang);
+      // Skip empty or whitespace-only nodes
+      if (!originalText || originalText.length < 2) {
+        processedNodes++;
+        fullPageTranslate_updateProgress(processedNodes, textNodes.length);
+        continue;
+      }
 
-          if (result.error) {
-            console.warn(`[FullPageTranslate] Translation error: ${result.error}`);
-            return;
-          }
+      // Translate
+      const result = await translationAPI.translate(originalText, targetLang, sourceLang);
 
-          if (result.translatedText && result.translatedText !== originalText) {
-            // Store original text in parent element
-            if (node.parentElement) {
-              node.parentElement.setAttribute('data-original-text', originalText);
-            }
+      if (result.error) {
+        console.warn(`[FullPageTranslate] Translation error: ${result.error}`);
+        processedNodes++;
+        fullPageTranslate_updateProgress(processedNodes, textNodes.length);
+        continue;
+      }
 
-            // Replace text content
-            node.textContent = result.translatedText;
-          }
-        } catch (error) {
-          console.error('[FullPageTranslate] Node translation error:', error);
-        } finally {
-          processedNodes++;
+      if (result.translatedText && result.translatedText !== originalText) {
+        // Store original text in parent element
+        if (node.parentElement) {
+          node.parentElement.setAttribute('data-original-text', originalText);
         }
-      })
-    );
 
-    // Update progress
-    fullPageTranslate_updateProgress(processedNodes, textNodes.length);
+        // Replace text content
+        node.textContent = result.translatedText;
+      }
+    } catch (error) {
+      console.error('[FullPageTranslate] Node translation error:', error);
+    } finally {
+      processedNodes++;
+      fullPageTranslate_updateProgress(processedNodes, textNodes.length);
+    }
 
-    // Small delay between batches to avoid overwhelming the API
-    if (batchIndex < batches.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    // Small delay between each request to avoid rate limiting (300ms)
+    if (i < textNodes.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
   }
 
@@ -417,9 +409,6 @@ async function fullPageTranslate_translate(targetLang = 'en', sourceLang = 'auto
     }
     return;
   }
-
-  // Store current target language
-  fullPageTranslate_currentTargetLang = targetLang;
 
   try {
     // Show progress modal
