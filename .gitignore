@@ -3,12 +3,18 @@ node_modules/
 package-lock.json
 yarn.lock
 
-# Build outputs
+# Build outputs (only .vite/ should exist - see CLAUDE.md)
 dist/
 build/
 Output/
 *.crx
 *.zip
+
+# Obsolete build directories (DO NOT CREATE - legacy from old build systems)
+AssistLLM/
+AssistV2a/
+FG_build/
+Ident/
 
 # Test coverage
 coverage/

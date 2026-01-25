@@ -13,6 +13,7 @@
 import { validateCitation } from './citation-model.js';
 import { formatReference } from './citation-formatter.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 /**
  * Show success toast notification
@@ -286,8 +287,8 @@ function createCitationModal(citationData, onClose) {
     onClose(null);
   };
 
-  closeBtn.addEventListener('click', handleClose);
-  cancelBtn.addEventListener('click', handleClose);
+  attachInteractiveHandler(closeBtn, 'Citation Close Button', handleClose);
+  attachInteractiveHandler(cancelBtn, 'Citation Cancel Button', handleClose);
   overlay.addEventListener('click', e => {
     if (e.target === overlay) {
       handleClose();
@@ -295,7 +296,7 @@ function createCitationModal(citationData, onClose) {
   });
 
   // Save handler
-  saveBtn.addEventListener('click', async () => {
+  attachInteractiveHandler(saveBtn, 'Citation Save Button', async () => {
     const formData = getFormData(form);
     const validation = validateCitation(formData);
 

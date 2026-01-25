@@ -24,6 +24,7 @@
 
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -359,15 +360,15 @@ function dictionary_addModalEventListeners(modal, _data) {
   // Close button
   const closeBtn = modal.querySelector('.assist-dictionary-close');
   if (closeBtn) {
-    closeBtn.onclick = () => dictionary_hide();
+    attachInteractiveHandler(closeBtn, 'Dictionary Close Button', () => dictionary_hide());
   }
 
   // Click outside to close
-  modal.onclick = e => {
+  attachInteractiveHandler(modal, 'Dictionary Modal Backdrop', e => {
     if (e.target === modal) {
       dictionary_hide();
     }
-  };
+  });
 
   // Escape key to close
   const escapeHandler = e => {
@@ -381,19 +382,19 @@ function dictionary_addModalEventListeners(modal, _data) {
   // Audio playback
   const audioBtn = modal.querySelector('.assist-dictionary-play-audio');
   if (audioBtn) {
-    audioBtn.onclick = () => {
+    attachInteractiveHandler(audioBtn, 'Dictionary Audio Playback Button', () => {
       const audioUrl = audioBtn.getAttribute('data-audio-url');
       dictionary_playAudio(audioUrl);
-    };
+    });
   }
 
   // Synonym buttons (clickable to look up synonym)
   const synonymBtns = modal.querySelectorAll('.assist-dictionary-synonym');
   synonymBtns.forEach(btn => {
-    btn.onclick = () => {
+    attachInteractiveHandler(btn, 'Dictionary Synonym Button', () => {
       const word = btn.getAttribute('data-word');
       dictionary_lookup(word);
-    };
+    });
   });
 }
 
@@ -531,11 +532,11 @@ function dictionary_showError(word, errorMessage) {
     </div>
   `);
 
-  modal.onclick = e => {
+  attachInteractiveHandler(modal, 'Dictionary Error Modal Backdrop', e => {
     if (e.target === modal || e.target.classList.contains('assist-dictionary-close')) {
       dictionary_hide();
     }
-  };
+  });
 
   document.body.appendChild(modal);
   dictionary_modal = modal;

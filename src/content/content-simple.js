@@ -70,6 +70,8 @@ import '../features/readingGuide/readingGuide.js'; // Self-initializing module
 import '../features/screenOverlay/screenOverlay.js'; // Self-initializing module
 import '../features/textCustomization/textCustomization.js'; // Self-initializing module with Chrome storage listeners
 import '../features/focusMode/focusMode.js'; // Self-initializing module with Chrome storage listeners
+import '../features/customCursor/custom-cursor.js'; // Self-initializing custom cursor for better visibility
+import '../features/magnifyingLens/magnifying-lens.js'; // Self-initializing magnifying lens for content magnification
 import '../features/stt/stt.js'; // Self-initializing module with Chrome storage listeners
 import '../features/ocr/ocr.js'; // Self-initializing OCR module with Tesseract.js lazy loading
 import '../features/highlightMenu/highlightMenu.js'; // Self-initializing highlight menu with text selection actions
@@ -98,7 +100,7 @@ import '../features/emotionalTTS/emotionalTTS.js'; // Self-initializing emotiona
 import '../features/imageUnderstanding/imageUnderstanding.js'; // Self-initializing AI vision for image descriptions
 import '../features/cognitiveProfile/cognitiveProfile.js'; // Self-initializing learning profile tracking
 import '../features/knowledgeGraph/knowledgeGraph.js'; // Self-initializing knowledge graph visualization
-import '../features/adaptiveRSVP/adaptiveRSVP.js'; // Self-initializing adaptive speed reading (RSVP)
+import '../features/rsvp/rsvp-controller.js'; // Self-initializing RSVP speed reading (modular architecture)
 import '../features/struggleDetection/struggleDetection.js'; // Self-initializing struggle detection and proactive assistance
 import '../features/citationAnalyzer/citationAnalyzer.js'; // Self-initializing AI citation analysis for source evaluation
 import '../features/cognitiveStateMonitor/cognitiveStateMonitor.js'; // Self-initializing cognitive state monitoring

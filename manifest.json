@@ -47,7 +47,9 @@
         "src/ui/components/microphone-button.js",
         "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
         "src/pages/discovery/*",
-        "src/pages/demo/*"
+        "src/pages/demo/*",
+        "src/pages/help/*",
+        "src/utils/*.js"
       ],
       "matches": [
         "<all_urls>"

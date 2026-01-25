@@ -3,6 +3,8 @@
  * Handles demo page interactions and AssisT feature integration
  */
 
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+
 // ============================================================================
 // Initialization
 // ============================================================================
@@ -24,7 +26,7 @@ function init() {
 function bindCloseButton() {
   const btnClose = document.getElementById('btn-close-demo');
   if (btnClose) {
-    btnClose.addEventListener('click', () => {
+    attachInteractiveHandler(btnClose, 'Demo Close Button', () => {
       // Try to go back in history, or close the tab
       if (window.history.length > 1) {
         window.history.back();

@@ -18,6 +18,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
@@ -1071,11 +1072,31 @@ async function graph_initSVG() {
   graph_initZoom();
 
   // Button events
-  graph_panel.querySelector('.kg-close').onclick = graph_hide;
-  graph_panel.querySelector('#kg-export').onclick = graph_export;
-  graph_panel.querySelector('#kg-reset').onclick = graph_resetView;
-  graph_panel.querySelector('#kg-zoom-in').onclick = graph_zoomIn;
-  graph_panel.querySelector('#kg-zoom-out').onclick = graph_zoomOut;
+  attachInteractiveHandler(
+    graph_panel.querySelector('.kg-close'),
+    'Knowledge Graph Close Button',
+    graph_hide
+  );
+  attachInteractiveHandler(
+    graph_panel.querySelector('#kg-export'),
+    'Knowledge Graph Export Button',
+    graph_export
+  );
+  attachInteractiveHandler(
+    graph_panel.querySelector('#kg-reset'),
+    'Knowledge Graph Reset View Button',
+    graph_resetView
+  );
+  attachInteractiveHandler(
+    graph_panel.querySelector('#kg-zoom-in'),
+    'Knowledge Graph Zoom In Button',
+    graph_zoomIn
+  );
+  attachInteractiveHandler(
+    graph_panel.querySelector('#kg-zoom-out'),
+    'Knowledge Graph Zoom Out Button',
+    graph_zoomOut
+  );
 
   // ESC to close
   document.addEventListener('keydown', e => {

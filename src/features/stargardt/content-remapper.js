@@ -8,7 +8,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import * as scotomaProfile from './scotoma-profile.js';
+import * as _scotomaProfile from './scotoma-profile.js';
 import { showToast } from '../../core/ui/toast.js';
 import * as eyeTrackingController from './eye-tracking-controller.js';
 
@@ -17,20 +17,14 @@ import * as eyeTrackingController from './eye-tracking-controller.js';
 // ============================================================================
 
 let remapper_enabled = false;
-let remapper_mode = 'peripheral-push'; // 'peripheral-push', 'text-donut', 'rsvp', 'magnify-remap'
+let remapper_mode = 'peripheral-push'; // 'peripheral-push', 'text-donut', 'magnify-remap'
 let remapper_profile = null;
 let remapper_settings = {};
 let remapper_gazeTracker = null;
 let remapper_animationFrameId = null;
-// eslint-disable-next-line no-unused-vars
+
 let _remapper_styleElement = null; // Reserved for future CSS injection
 let remapper_overlayElement = null;
-
-// RSVP mode state
-let rsvp_words = [];
-let rsvp_currentIndex = 0;
-let rsvp_intervalId = null;
-let rsvp_wordsPerMinute = 300;
 
 // Performance tracking
 let lastFrameTime = 0;
@@ -108,9 +102,6 @@ export function enable() {
     case 'text-donut':
       enableTextDonut();
       break;
-    case 'rsvp':
-      enableRSVP();
-      break;
     case 'magnify-remap':
       enableMagnifyRemap();
       break;
@@ -142,15 +133,6 @@ export function disable() {
     cancelAnimationFrame(remapper_animationFrameId);
     remapper_animationFrameId = null;
   }
-
-  // Stop RSVP if running
-  if (rsvp_intervalId) {
-    clearInterval(rsvp_intervalId);
-    rsvp_intervalId = null;
-  }
-
-  // Cleanup keyboard handlers
-  cleanupRSVPKeyboard();
 
   // Cleanup peripheral push (including Reading Mode)
   cleanupPeripheralPush();
@@ -244,7 +226,7 @@ export function updateSettings(settings) {
     settings.fontFamily !== undefined &&
     settings.fontFamily !== previousFontFamily
   ) {
-    // Font family changed - apply dynamically to RSVP overlay
+    // Font family changed - apply dynamically
     console.log('[ContentRemapper] Font family changed to:', settings.fontFamily);
     applyFontFamilyToActiveMode(settings.fontFamily);
   } else if (remapper_enabled && remapper_mode === 'magnify-remap') {
@@ -280,14 +262,6 @@ function applyFontSizeToActiveMode(fontSize) {
   const scale = (fontSize || 100) / 100;
 
   switch (remapper_mode) {
-    case 'rsvp': {
-      // For RSVP, scale the entire overlay instead of just font
-      const overlay = document.getElementById('stargardt-rsvp-overlay');
-      if (overlay) {
-        overlay.style.transform = `scale(${scale})`;
-      }
-      break;
-    }
     case 'peripheral-push': {
       const panel = document.getElementById('stargardt-reading-panel');
       if (panel) {
@@ -329,13 +303,6 @@ function applyFontFamilyToActiveMode(fontKey) {
   const fontFamily = getFontFamily(fontKey);
 
   switch (remapper_mode) {
-    case 'rsvp': {
-      const overlay = document.getElementById('stargardt-rsvp-overlay');
-      if (overlay) {
-        overlay.style.fontFamily = fontFamily;
-      }
-      break;
-    }
     case 'peripheral-push': {
       const panel = document.getElementById('stargardt-reading-panel');
       if (panel) {
@@ -385,93 +352,6 @@ function injectStyles() {
 
     .stargardt-remap-text {
       transition: transform 0.05s ease-out;
-    }
-
-    /* RSVP overlay */
-    .stargardt-rsvp-overlay {
-      position: fixed;
-      z-index: 2147483640;
-      background: rgba(0, 0, 0, 0.95);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      transform-origin: center center;
-      transition: transform 0.1s ease-out;
-    }
-
-    .stargardt-rsvp-drag-handle {
-      width: 100%;
-      height: 32px;
-      cursor: move;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #666;
-      font-size: 12px;
-      border-bottom: 1px solid #333;
-      margin-bottom: 16px;
-      user-select: none;
-    }
-
-    .stargardt-rsvp-drag-handle::before {
-      content: '⋮⋮ Drag to move | Space=Pause | ←→=Speed | Esc=Close ⋮⋮';
-    }
-
-    .stargardt-rsvp-word {
-      font-size: 56px;
-      font-weight: 600;
-      color: #ffffff;
-      text-align: center;
-      height: 100px;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      max-width: 460px;
-      word-break: break-word;
-      overflow-wrap: break-word;
-      box-sizing: border-box;
-      flex-shrink: 0;
-    }
-
-    .stargardt-rsvp-info {
-      color: #a0a0b0;
-      font-size: 14px;
-      margin: 12px 0;
-    }
-
-    .stargardt-rsvp-controls {
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid #333;
-    }
-
-    .stargardt-rsvp-btn {
-      padding: 10px 20px;
-      background: #6366f1;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
-      min-width: 80px;
-    }
-
-    .stargardt-rsvp-btn:hover {
-      background: #5558e3;
-    }
-
-    .stargardt-rsvp-speed {
-      color: #808090;
-      font-size: 12px;
-      margin-top: 12px;
     }
 
     /* Scotoma indicator overlay */
@@ -733,158 +613,6 @@ function isNavigationText(text) {
 }
 
 /**
- * Extract readable article text from the page (for RSVP reading mode)
- * Uses the same content detection as Peripheral Push but returns plain text
- * Filters out navigation, menus, ads, and other non-essential elements
- * @returns {string} Clean readable text content
- */
-function extractReadableText() {
-  console.log('[ContentRemapper] Extracting readable text for RSVP...');
-
-  // Strategy 1: Try semantic article selectors (same as extractArticleContent)
-  const selectors = [
-    'article',
-    '[role="main"]',
-    'main',
-    '.article-content',
-    '.post-content',
-    '.entry-content',
-    '.story-body',
-    '#article-body',
-    '.article__body',
-    '.article-body',
-    '.content-body',
-    '.story-content',
-    '.rte-article',
-    '.article',
-  ];
-
-  let contentElement = null;
-
-  for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el && el.textContent.trim().length > 100) {
-      console.log('[ContentRemapper] Found content using selector:', selector);
-      contentElement = el;
-      break;
-    }
-  }
-
-  // Strategy 2: Find container with most paragraphs
-  if (!contentElement) {
-    console.log('[ContentRemapper] Trying paragraph-based detection...');
-    const allDivs = document.querySelectorAll('div, section, article');
-    let bestContainer = null;
-    let maxParagraphs = 0;
-
-    allDivs.forEach(div => {
-      const paragraphs = div.querySelectorAll('p');
-      if (paragraphs.length > maxParagraphs) {
-        maxParagraphs = paragraphs.length;
-        bestContainer = div;
-      }
-    });
-
-    if (bestContainer && maxParagraphs >= 2) {
-      console.log('[ContentRemapper] Found container with', maxParagraphs, 'paragraphs');
-      contentElement = bestContainer;
-    }
-  }
-
-  // Strategy 3: Fallback to body
-  if (!contentElement) {
-    console.log('[ContentRemapper] Using body as fallback');
-    contentElement = document.body;
-  }
-
-  // Clone to avoid modifying the original DOM
-  const clone = contentElement.cloneNode(true);
-
-  // Remove unwanted elements from clone
-  const unwantedSelectors = [
-    'script',
-    'style',
-    'noscript',
-    'template',
-    'svg',
-    'iframe',
-    'nav',
-    'header',
-    'footer',
-    'aside',
-    '[role="navigation"]',
-    '[role="banner"]',
-    '[role="contentinfo"]',
-    '.nav',
-    '.menu',
-    '.sidebar',
-    '.ad',
-    '.ads',
-    '.advertisement',
-    '.social-share',
-    '.share-buttons',
-    '.comments',
-    '.related-posts',
-    '.cookie-banner',
-    '.newsletter',
-    '.subscribe',
-    '.popup',
-    '[hidden]',
-    '[style*="display: none"]',
-    '[style*="display:none"]',
-  ];
-
-  unwantedSelectors.forEach(selector => {
-    try {
-      const elements = clone.querySelectorAll(selector);
-      elements.forEach(el => el.remove());
-    } catch {
-      // Ignore selector errors
-    }
-  });
-
-  // Extract text from paragraphs and headings only (cleaner content)
-  const textElements = clone.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
-  const textParts = [];
-
-  textElements.forEach(el => {
-    const text = el.textContent.trim();
-    // Filter out short text and navigation patterns
-    if (text.length > 15 && !isNavigationText(text)) {
-      textParts.push(text);
-    }
-  });
-
-  // If we got good content, return it
-  if (textParts.length > 0) {
-    const result = textParts.join(' ').replace(/\s+/g, ' ').trim();
-    console.log(
-      '[ContentRemapper] Extracted',
-      textParts.length,
-      'text blocks,',
-      result.split(/\s+/).length,
-      'words'
-    );
-    return result;
-  }
-
-  // Last resort: Get visible text directly but still filter
-  console.log('[ContentRemapper] Last resort - extracting visible text');
-  const bodyText = clone.textContent || '';
-  const sentences = bodyText.split(/[.!?]+/).filter(s => {
-    const trimmed = s.trim();
-    return trimmed.length > 30 && !isNavigationText(trimmed);
-  });
-
-  const result = sentences
-    .slice(0, 100)
-    .map(s => s.trim())
-    .join('. ');
-  console.log('[ContentRemapper] Extracted', sentences.length, 'sentences');
-  return result;
-}
-
-/**
  * Create the peripheral reading panel
  * @param {Array} content - Array of {tag, text} objects
  * @param {string} preferredSide - 'left' or 'right'
@@ -1141,12 +869,8 @@ function enableTextDonut() {
       overflow: hidden;
     `;
 
-    // Check reading mode setting (defaults to true for clean content)
-    const useReadingMode = remapper_settings.readingMode !== false;
-    console.log('[ContentRemapper] Text Donut reading mode:', useReadingMode);
-
-    // Extract text content based on reading mode
-    const textContent = useReadingMode ? extractReadableText() : extractPageText();
+    // Extract text content
+    const textContent = extractPageText();
     console.log('[ContentRemapper] Extracted text length:', textContent.length);
 
     if (!textContent || textContent.length < 50) {
@@ -1558,306 +1282,6 @@ export function getCurrentScotomaPosition() {
     x: window.innerWidth / 2,
     y: window.innerHeight / 2,
   };
-}
-
-// ============================================================================
-// MODE: RSVP (Rapid Serial Visual Presentation)
-// ============================================================================
-
-/**
- * Clean text for RSVP display by removing hidden characters that break words
- * @param {string} text - Raw text content
- * @returns {string} Cleaned text safe for word splitting
- */
-function cleanTextForRSVP(text) {
-  if (!text) {
-    return '';
-  }
-
-  return (
-    text
-      // Remove soft hyphens (­ or \u00AD)
-      .replace(/\u00AD/g, '')
-      // Remove zero-width spaces and joiners
-      .replace(/[\u200B-\u200D\uFEFF]/g, '')
-      // Remove other invisible formatting characters
-      .replace(/[\u2028\u2029]/g, ' ') // Line/paragraph separators to space
-      // Remove word joiners
-      .replace(/\u2060/g, '')
-      // Remove non-breaking spaces and replace with regular spaces
-      .replace(/\u00A0/g, ' ')
-      // Remove HTML entities that might have slipped through
-      .replace(/&shy;/gi, '')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&#8203;/g, '') // Zero-width space HTML entity
-      // Normalize multiple spaces to single space
-      .replace(/\s+/g, ' ')
-      .trim()
-  );
-}
-
-/**
- * Enable RSVP mode
- * Shows one word at a time at the PRL location
- */
-function enableRSVP() {
-  console.log('[ContentRemapper] Enabling RSVP mode');
-
-  // Check reading mode setting (defaults to true for clean content)
-  const useReadingMode = remapper_settings.readingMode !== false;
-  let text = useReadingMode ? extractReadableText() : extractPageText();
-  console.log('[ContentRemapper] RSVP reading mode:', useReadingMode);
-
-  // Clean text of hidden characters that could break words
-  text = cleanTextForRSVP(text);
-
-  rsvp_words = text.split(/\s+/).filter(w => w.length > 0);
-  rsvp_currentIndex = 0;
-
-  if (rsvp_words.length === 0) {
-    console.warn('[ContentRemapper] No text content found for RSVP');
-    return;
-  }
-
-  // Calculate PRL position
-  const prl = scotomaProfile.calculatePRLPosition(remapper_profile);
-  const prlX = (prl.x / 100) * window.innerWidth;
-  const prlY = (prl.y / 100) * window.innerHeight;
-
-  // Get font size scale from settings (default 100%)
-  const fontSizeScale = (remapper_settings.fontSize || 100) / 100;
-  // Get font family from settings (default system)
-  const fontFamily = getFontFamily(remapper_settings.fontFamily || 'system');
-
-  // Create RSVP overlay
-  const overlay = document.createElement('div');
-  overlay.className = 'stargardt-rsvp-overlay';
-  overlay.id = 'stargardt-rsvp-overlay';
-  overlay.style.cssText += `
-    top: ${Math.max(50, prlY - 150)}px;
-    left: ${Math.max(50, prlX - 250)}px;
-    width: 500px;
-    height: 300px;
-    font-family: ${fontFamily};
-  `;
-
-  overlay.innerHTML = sanitizeHTML(`
-    <div class="stargardt-rsvp-drag-handle" id="rsvp-drag-handle"></div>
-    <div class="stargardt-rsvp-word" id="rsvp-word">${rsvp_words[0]}</div>
-    <div class="stargardt-rsvp-info">
-      Word <span id="rsvp-count">1</span> of ${rsvp_words.length}
-    </div>
-    <div class="stargardt-rsvp-controls">
-      <button class="stargardt-rsvp-btn" id="rsvp-slower">Slower</button>
-      <button class="stargardt-rsvp-btn" id="rsvp-play-pause">⏸ Pause</button>
-      <button class="stargardt-rsvp-btn" id="rsvp-faster">Faster</button>
-      <button class="stargardt-rsvp-btn" id="rsvp-close" style="background: #dc3545;">Close</button>
-    </div>
-    <div class="stargardt-rsvp-speed">
-      Speed: <span id="rsvp-speed">${rsvp_wordsPerMinute}</span> WPM
-    </div>
-  `);
-
-  document.body.appendChild(overlay);
-  remapper_overlayElement = overlay;
-
-  // Apply initial scale transform to the entire overlay (instead of font-size)
-  if (fontSizeScale !== 1) {
-    overlay.style.transform = `scale(${fontSizeScale})`;
-  }
-
-  // Set initial font size for first word (based on word length only, no scale)
-  const wordElement = document.getElementById('rsvp-word');
-  if (wordElement && rsvp_words[0]) {
-    wordElement.style.fontSize = getWordFontSize(rsvp_words[0].length, 1);
-  }
-
-  // Bind controls
-  document.getElementById('rsvp-play-pause').onclick = toggleRSVP;
-  document.getElementById('rsvp-slower').onclick = () => adjustRSVPSpeed(-50);
-  document.getElementById('rsvp-faster').onclick = () => adjustRSVPSpeed(50);
-  document.getElementById('rsvp-close').onclick = () => disable();
-
-  // Setup drag functionality
-  setupRSVPDrag(overlay);
-
-  // Setup keyboard controls (spacebar for pause/play)
-  setupRSVPKeyboard();
-
-  // Start RSVP
-  startRSVP();
-}
-
-/**
- * Setup drag functionality for RSVP overlay
- */
-function setupRSVPDrag(overlay) {
-  const handle = document.getElementById('rsvp-drag-handle');
-  if (!handle) {
-    return;
-  }
-
-  let isDragging = false;
-  let startX, startY, initialLeft, initialTop;
-
-  handle.addEventListener('mousedown', e => {
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    initialLeft = overlay.offsetLeft;
-    initialTop = overlay.offsetTop;
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!isDragging) {
-      return;
-    }
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    overlay.style.left = `${initialLeft + dx}px`;
-    overlay.style.top = `${initialTop + dy}px`;
-  });
-
-  document.addEventListener('mouseup', () => {
-    isDragging = false;
-  });
-}
-
-// Store keyboard handler reference for cleanup
-let rsvpKeyboardHandler = null;
-
-/**
- * Setup keyboard controls for RSVP
- */
-function setupRSVPKeyboard() {
-  rsvpKeyboardHandler = e => {
-    // Only respond when RSVP overlay is active
-    if (!document.getElementById('stargardt-rsvp-overlay')) {
-      return;
-    }
-
-    switch (e.code) {
-      case 'Space':
-        e.preventDefault();
-        toggleRSVP();
-        break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        adjustRSVPSpeed(-25);
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        adjustRSVPSpeed(25);
-        break;
-      case 'Escape':
-        e.preventDefault();
-        disable();
-        break;
-    }
-  };
-
-  document.addEventListener('keydown', rsvpKeyboardHandler);
-}
-
-/**
- * Cleanup keyboard handler
- */
-function cleanupRSVPKeyboard() {
-  if (rsvpKeyboardHandler) {
-    document.removeEventListener('keydown', rsvpKeyboardHandler);
-    rsvpKeyboardHandler = null;
-  }
-}
-
-/**
- * Calculate font size based on word length
- * @param {number} length - Word character length
- * @param {number} scale - Font size scale factor (default 1.0)
- * @returns {string} CSS font size value
- */
-function getWordFontSize(length, scale = 1) {
-  let basePx;
-  if (length <= 6) {
-    basePx = 56;
-  } else if (length <= 10) {
-    basePx = 44;
-  } else if (length <= 14) {
-    basePx = 36;
-  } else if (length <= 18) {
-    basePx = 28;
-  } else {
-    basePx = 24;
-  }
-
-  return `${Math.round(basePx * scale)}px`;
-}
-
-/**
- * Start RSVP playback
- */
-function startRSVP() {
-  const interval = 60000 / rsvp_wordsPerMinute; // ms per word
-
-  rsvp_intervalId = setInterval(() => {
-    rsvp_currentIndex++;
-
-    if (rsvp_currentIndex >= rsvp_words.length) {
-      // Loop back to start
-      rsvp_currentIndex = 0;
-    }
-
-    const wordElement = document.getElementById('rsvp-word');
-    const countElement = document.getElementById('rsvp-count');
-
-    if (wordElement) {
-      const word = rsvp_words[rsvp_currentIndex];
-      wordElement.textContent = word;
-      // Adjust font size for long words (scale is applied via overlay transform)
-      wordElement.style.fontSize = getWordFontSize(word.length, 1);
-    }
-    if (countElement) {
-      countElement.textContent = rsvp_currentIndex + 1;
-    }
-  }, interval);
-}
-
-/**
- * Toggle RSVP playback
- */
-function toggleRSVP() {
-  const btn = document.getElementById('rsvp-play-pause');
-
-  if (rsvp_intervalId) {
-    clearInterval(rsvp_intervalId);
-    rsvp_intervalId = null;
-    if (btn) {
-      btn.textContent = '▶ Play';
-    }
-  } else {
-    startRSVP();
-    if (btn) {
-      btn.textContent = '⏸ Pause';
-    }
-  }
-}
-
-/**
- * Adjust RSVP speed
- */
-function adjustRSVPSpeed(delta) {
-  rsvp_wordsPerMinute = Math.max(50, Math.min(1000, rsvp_wordsPerMinute + delta));
-
-  const speedElement = document.getElementById('rsvp-speed');
-  if (speedElement) {
-    speedElement.textContent = rsvp_wordsPerMinute;
-  }
-
-  // Restart with new speed if playing
-  if (rsvp_intervalId) {
-    clearInterval(rsvp_intervalId);
-    startRSVP();
-  }
 }
 
 // ============================================================================

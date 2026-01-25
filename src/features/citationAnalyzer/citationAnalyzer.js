@@ -22,6 +22,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -549,16 +550,32 @@ async function citation_createPanel() {
   `);
 
   // Event handlers
-  panel.querySelector('.assist-citation-close').addEventListener('click', citation_hide);
+  attachInteractiveHandler(
+    panel.querySelector('.assist-citation-close'),
+    'Citation Analyzer Close Button',
+    citation_hide
+  );
 
-  panel.querySelector('[data-action="copy"]').addEventListener('click', citation_copy);
-  panel.querySelector('[data-action="speak"]').addEventListener('click', citation_speak);
-  panel.querySelector('[data-action="reanalyze"]').addEventListener('click', async () => {
-    if (citation_currentText) {
-      const modelKey = await citation_getCurrentModel();
-      citation_runAnalysis(citation_currentText, {}, modelKey);
+  attachInteractiveHandler(
+    panel.querySelector('[data-action="copy"]'),
+    'Citation Analyzer Copy Button',
+    citation_copy
+  );
+  attachInteractiveHandler(
+    panel.querySelector('[data-action="speak"]'),
+    'Citation Analyzer Speak Button',
+    citation_speak
+  );
+  attachInteractiveHandler(
+    panel.querySelector('[data-action="reanalyze"]'),
+    'Citation Analyzer Reanalyze Button',
+    async () => {
+      if (citation_currentText) {
+        const modelKey = await citation_getCurrentModel();
+        citation_runAnalysis(citation_currentText, {}, modelKey);
+      }
     }
-  });
+  );
 
   // Make draggable
   citation_makeDraggable(panel);

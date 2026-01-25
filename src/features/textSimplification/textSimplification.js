@@ -23,6 +23,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -758,7 +759,7 @@ async function simplification_createPanel() {
 
   // Add event listeners
   const closeBtn = panel.querySelector('.assist-simplify-close');
-  closeBtn.addEventListener('click', simplification_hide);
+  attachInteractiveHandler(closeBtn, 'Text Simplification Close Button', simplification_hide);
 
   const levelSelect = panel.querySelector('.assist-simplify-level');
   levelSelect.value = simplification_settings.defaultLevel;
@@ -771,13 +772,13 @@ async function simplification_createPanel() {
   });
 
   const copyBtn = panel.querySelector('.assist-simplify-copy');
-  copyBtn.addEventListener('click', simplification_copy);
+  attachInteractiveHandler(copyBtn, 'Text Simplification Copy Button', simplification_copy);
 
   const speakBtn = panel.querySelector('.assist-simplify-speak');
-  speakBtn.addEventListener('click', simplification_speak);
+  attachInteractiveHandler(speakBtn, 'Text Simplification Speak Button', simplification_speak);
 
   const regenerateBtn = panel.querySelector('.assist-simplify-regenerate');
-  regenerateBtn.addEventListener('click', async () => {
+  attachInteractiveHandler(regenerateBtn, 'Text Simplification Regenerate Button', async () => {
     if (simplification_currentText) {
       const modelKey = await simplification_getCurrentModel();
       simplification_simplify(

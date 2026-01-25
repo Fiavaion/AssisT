@@ -15,6 +15,8 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { sanitizeHTML as _sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -458,57 +460,73 @@ function imageUI_createPanel() {
   `;
 
   // Close button
-  panel.querySelector('.assist-image-close').onclick = () => imageUI_hide();
+  attachInteractiveHandler(
+    panel.querySelector('.assist-image-close'),
+    'Image Understanding Close Button',
+    () => imageUI_hide()
+  );
 
   // Read aloud button - uses pre-loaded TTS settings (same pattern as StickyNotes)
-  panel.querySelector('#assist-image-read').onclick = () => {
-    console.log('[ImageUnderstanding] Read Aloud clicked');
+  attachInteractiveHandler(
+    panel.querySelector('#assist-image-read'),
+    'Image Understanding Read Button',
+    () => {
+      console.log('[ImageUnderstanding] Read Aloud clicked');
 
-    if (!imageUI_currentDescription) {
-      console.log('[ImageUnderstanding] No description to read');
-      return;
+      if (!imageUI_currentDescription) {
+        console.log('[ImageUnderstanding] No description to read');
+        return;
+      }
+
+      // Cancel any ongoing speech
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+
+      // Create utterance with pre-loaded TTS settings
+      const utterance = new SpeechSynthesisUtterance(imageUI_currentDescription);
+      utterance.rate = imageUI_ttsSettings.rate;
+      utterance.pitch = imageUI_ttsSettings.pitch;
+      utterance.volume = imageUI_ttsSettings.volume;
+
+      if (imageUI_ttsSettings.voice) {
+        utterance.voice = imageUI_ttsSettings.voice;
+        console.log('[ImageUnderstanding] Using voice:', imageUI_ttsSettings.voice.name);
+      } else {
+        console.log('[ImageUnderstanding] No voice loaded, using system default');
+      }
+
+      window.speechSynthesis.speak(utterance);
+      console.log('[ImageUnderstanding] TTS started');
     }
-
-    // Cancel any ongoing speech
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-    }
-
-    // Create utterance with pre-loaded TTS settings
-    const utterance = new SpeechSynthesisUtterance(imageUI_currentDescription);
-    utterance.rate = imageUI_ttsSettings.rate;
-    utterance.pitch = imageUI_ttsSettings.pitch;
-    utterance.volume = imageUI_ttsSettings.volume;
-
-    if (imageUI_ttsSettings.voice) {
-      utterance.voice = imageUI_ttsSettings.voice;
-      console.log('[ImageUnderstanding] Using voice:', imageUI_ttsSettings.voice.name);
-    } else {
-      console.log('[ImageUnderstanding] No voice loaded, using system default');
-    }
-
-    window.speechSynthesis.speak(utterance);
-    console.log('[ImageUnderstanding] TTS started');
-  };
+  );
 
   // Copy button
-  panel.querySelector('#assist-image-copy').onclick = async () => {
-    if (imageUI_currentDescription) {
-      try {
-        await navigator.clipboard.writeText(imageUI_currentDescription);
-        showToast?.('Description copied!') || alert('Copied!');
-      } catch (e) {
-        console.error('[ImageUnderstanding] Copy failed:', e);
+  attachInteractiveHandler(
+    panel.querySelector('#assist-image-copy'),
+    'Image Understanding Copy Button',
+    async () => {
+      if (imageUI_currentDescription) {
+        try {
+          await navigator.clipboard.writeText(imageUI_currentDescription);
+          showToast?.('Description copied!') || alert('Copied!');
+        } catch (e) {
+          console.error('[ImageUnderstanding] Copy failed:', e);
+        }
       }
     }
-  };
+  );
 
   // More detail button
-  panel.querySelector('#assist-image-detailed').onclick = () => {
-    if (imageUI_currentImage) {
-      imageUI_analyze(imageUI_currentImage, 'comprehensive');
+  attachInteractiveHandler(
+    panel.querySelector('#assist-image-detailed'),
+    'Image Understanding Detail Button',
+    () => {
+      if (imageUI_currentImage) {
+        imageUI_analyze(imageUI_currentImage, 'comprehensive');
+      }
     }
-  };
+  );
 
   // Close on escape
   panel.addEventListener('keydown', e => {

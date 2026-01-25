@@ -18,6 +18,7 @@
 
 import { textStatsEngine } from './textStats.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 /**
  * Text Statistics UI Manager
@@ -105,7 +106,12 @@ export class TextStatsUI {
         <div style="margin-bottom: 4px;">
           <span style="color: #666;">Reading:</span> <strong id="assist-textstats-time">0 min</strong>
         </div>
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 6px;">
+          <button
+            id="assist-textstats-speed-read-badge"
+            aria-label="Speed read this text"
+            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%; font-weight: 600;"
+          >⚡ Speed Read</button>
           <button
             id="assist-textstats-details"
             aria-label="View detailed statistics"
@@ -128,15 +134,31 @@ export class TextStatsUI {
 
     // Close button
     const closeBtn = this.badge.querySelector('#assist-textstats-close');
-    closeBtn.addEventListener('click', e => {
-      e.stopPropagation();
+    attachInteractiveHandler(closeBtn, 'TextStats Badge Close', () => {
       this.hideBadge();
+    });
+
+    // Speed Read button (on badge) - Calls new modular RSVP API
+    const speedReadBadgeBtn = this.badge.querySelector('#assist-textstats-speed-read-badge');
+    attachInteractiveHandler(speedReadBadgeBtn, 'TextStats Badge Speed Read', () => {
+      const text = document.body.innerText || '';
+
+      if (window.assistFeatures?.rsvp) {
+        this.hideBadge(); // Hide badge before launching to avoid UI clutter
+        window.assistFeatures.rsvp.start(text);
+      } else {
+        console.warn('[TextStats] RSVP feature not loaded');
+        if (window.showToast) {
+          window.showToast('Speed Read feature not available. Please reload the page.');
+        } else {
+          alert('Speed Read feature not available. Please reload the page.');
+        }
+      }
     });
 
     // Details button
     const detailsBtn = this.badge.querySelector('#assist-textstats-details');
-    detailsBtn.addEventListener('click', e => {
-      e.stopPropagation();
+    attachInteractiveHandler(detailsBtn, 'TextStats View Details', () => {
       this.showModal();
     });
 
@@ -260,11 +282,17 @@ export class TextStatsUI {
         </div>
 
         <!-- Action Buttons -->
-        <div style="display: flex; gap: 12px;">
+        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+          <button
+            id="assist-textstats-speed-read"
+            style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;"
+          >⚡ Speed Read</button>
           <button
             id="assist-textstats-refresh"
             style="flex: 1; padding: 12px; background: #4a90e2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;"
           >Refresh Stats</button>
+        </div>
+        <div style="display: flex; gap: 12px;">
           <button
             id="assist-textstats-modal-done"
             style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;"
@@ -277,8 +305,8 @@ export class TextStatsUI {
     const modalClose = this.modal.querySelector('#assist-textstats-modal-close');
     const modalDone = this.modal.querySelector('#assist-textstats-modal-done');
 
-    modalClose.addEventListener('click', () => this.hideModal());
-    modalDone.addEventListener('click', () => this.hideModal());
+    attachInteractiveHandler(modalClose, 'TextStats Modal Close', () => this.hideModal());
+    attachInteractiveHandler(modalDone, 'TextStats Modal Done', () => this.hideModal());
 
     // Click outside to close
     this.modal.addEventListener('click', e => {
@@ -290,7 +318,7 @@ export class TextStatsUI {
     // Scope buttons
     const scopeButtons = this.modal.querySelectorAll('.scope-btn');
     scopeButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
+      attachInteractiveHandler(btn, `TextStats Scope: ${btn.dataset.scope}`, () => {
         this.currentScope = btn.dataset.scope;
         scopeButtons.forEach(b => {
           b.style.border = '2px solid #e0e0e0';
@@ -306,9 +334,27 @@ export class TextStatsUI {
       });
     });
 
+    // Speed Read button (on modal) - Calls new modular RSVP API
+    const speedReadBtn = this.modal.querySelector('#assist-textstats-speed-read');
+    attachInteractiveHandler(speedReadBtn, 'TextStats Modal Speed Read', () => {
+      const text = this.getTextForScope();
+
+      if (window.assistFeatures?.rsvp) {
+        window.assistFeatures.rsvp.start(text);
+        this.hideModal();
+      } else {
+        console.warn('[TextStats] RSVP feature not loaded');
+        if (window.showToast) {
+          window.showToast('Speed Read feature not available. Please reload the page.');
+        } else {
+          alert('Speed Read feature not available. Please reload the page.');
+        }
+      }
+    });
+
     // Refresh button
     const refreshBtn = this.modal.querySelector('#assist-textstats-refresh');
-    refreshBtn.addEventListener('click', () => this.updateStats());
+    attachInteractiveHandler(refreshBtn, 'TextStats Refresh', () => this.updateStats());
 
     document.body.appendChild(this.modal);
   }

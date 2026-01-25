@@ -13,7 +13,7 @@
  * @module ai/claude-client
  */
 
-import { getDecryptedApiKey, hasApiKey } from './key-manager.js';
+import { getApiKey, hasApiKey } from './key-manager.js';
 
 // Anthropic API endpoint
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -142,7 +142,7 @@ const cache = new ClaudeCache();
  * @returns {Promise<{available: boolean, models: Object}>}
  */
 export async function checkCloudAvailability() {
-  const keyAvailable = await hasApiKey();
+  const keyAvailable = await hasApiKey('anthropic');
 
   return {
     available: keyAvailable,
@@ -189,9 +189,11 @@ export async function claudeGenerate(prompt, options = {}) {
   }
 
   // Get API key
-  const apiKey = await getDecryptedApiKey();
+  const apiKey = await getApiKey('anthropic');
   if (!apiKey) {
-    throw new Error('Claude API key not configured');
+    throw new Error(
+      'Claude API key not configured. Please add your API key in Advanced Options > AI tab.'
+    );
   }
 
   const startTime = Date.now();

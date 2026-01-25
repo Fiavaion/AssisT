@@ -28,6 +28,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -196,7 +197,9 @@ function translationUI_createModal(originalText, translatedText = '') {
   `;
   closeButton.onmouseenter = () => (closeButton.style.background = '#e0e0e0');
   closeButton.onmouseleave = () => (closeButton.style.background = 'none');
-  closeButton.onclick = () => translationUI_closeModal();
+  attachInteractiveHandler(closeButton, 'Translation Close Button', () =>
+    translationUI_closeModal()
+  );
 
   header.appendChild(title);
   header.appendChild(closeButton);
@@ -292,7 +295,9 @@ function translationUI_createModal(originalText, translatedText = '') {
   `;
   translateButton.onmouseenter = () => (translateButton.style.background = '#2563eb');
   translateButton.onmouseleave = () => (translateButton.style.background = '#3b82f6');
-  translateButton.onclick = () => translationUI_handleTranslate();
+  attachInteractiveHandler(translateButton, 'Translation Translate Button', () =>
+    translationUI_handleTranslate()
+  );
 
   footer.appendChild(sourceContainer);
   footer.appendChild(arrow);
@@ -370,11 +375,11 @@ function translationUI_createColumn(label, text, type, langCode) {
 
   // Store reference to textarea ID for accessing current text
   const textareaId = `assist-translation-${type}-text`;
-  ttsButton.onclick = () => {
+  attachInteractiveHandler(ttsButton, 'Translation TTS Button', () => {
     const textarea = document.getElementById(textareaId);
     const currentText = textarea ? textarea.textContent : text;
     translationUI_speakText(currentText, langCode);
-  };
+  });
 
   actions.appendChild(ttsButton);
 
@@ -404,7 +409,9 @@ function translationUI_createColumn(label, text, type, langCode) {
       copyButton.style.background = 'none';
       copyButton.style.transform = 'scale(1)';
     };
-    copyButton.onclick = () => translationUI_copyToClipboard(text);
+    attachInteractiveHandler(copyButton, 'Translation Copy Button', () =>
+      translationUI_copyToClipboard(text)
+    );
 
     actions.appendChild(copyButton);
   }

@@ -21,6 +21,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -387,7 +388,7 @@ function summarization_createPanel() {
 
   // Add event listeners
   const closeBtn = panel.querySelector('.assist-summary-close');
-  closeBtn.addEventListener('click', summarization_hide);
+  attachInteractiveHandler(closeBtn, 'Summarization Close Button', summarization_hide);
 
   const levelSelect = panel.querySelector('.assist-summary-level');
   levelSelect.value = summarization_settings.defaultLevel;
@@ -399,13 +400,13 @@ function summarization_createPanel() {
   });
 
   const copyBtn = panel.querySelector('.assist-summary-copy');
-  copyBtn.addEventListener('click', summarization_copy);
+  attachInteractiveHandler(copyBtn, 'Summarization Copy Button', summarization_copy);
 
   const speakBtn = panel.querySelector('.assist-summary-speak');
-  speakBtn.addEventListener('click', summarization_speak);
+  attachInteractiveHandler(speakBtn, 'Summarization Speak Button', summarization_speak);
 
   const regenerateBtn = panel.querySelector('.assist-summary-regenerate');
-  regenerateBtn.addEventListener('click', () => {
+  attachInteractiveHandler(regenerateBtn, 'Summarization Regenerate Button', () => {
     if (summarization_currentText) {
       summarization_summarize(summarization_currentText, summarization_settings.defaultLevel);
     }

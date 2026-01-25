@@ -14,6 +14,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -674,15 +675,15 @@ function csm_show() {
   // Setup event handlers
   const closeBtn = csm_panel.querySelector('.csm-close');
   if (closeBtn) {
-    closeBtn.onclick = csm_hide;
+    attachInteractiveHandler(closeBtn, 'Cognitive State Monitor Close Button', csm_hide);
   }
 
   const autoToggle = document.getElementById('csm-auto-toggle');
   if (autoToggle) {
-    autoToggle.onclick = () => {
+    attachInteractiveHandler(autoToggle, 'Cognitive State Monitor Auto Toggle', () => {
       csm_settings.autoSuggest = !csm_settings.autoSuggest;
       autoToggle.classList.toggle('active', csm_settings.autoSuggest);
-    };
+    });
   }
 
   // Escape key to close

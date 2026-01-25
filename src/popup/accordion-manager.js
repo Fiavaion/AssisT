@@ -5,6 +5,8 @@
  * @module AccordionManager
  */
 
+import { attachInteractiveHandler } from '../utils/event-handlers.js';
+
 class AccordionManager {
   constructor() {
     this.sections = new Map();
@@ -55,7 +57,9 @@ class AccordionManager {
       content.style.transition = `max-height ${this.animationDuration.collapse}ms ease-in`;
 
       // Event listeners
-      header.addEventListener('click', () => this.toggle(sectionId));
+      attachInteractiveHandler(header, 'Accordion Header', () => this.toggle(sectionId), {
+        enableVisualFeedback: false,
+      });
       header.addEventListener('keydown', e => this.handleKeydown(e));
     });
 

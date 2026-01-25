@@ -13,6 +13,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachQuietHandler } from '../../utils/event-handlers.js';
 
 export class MicrophoneButton {
   constructor(options = {}) {
@@ -53,9 +54,8 @@ export class MicrophoneButton {
     `);
 
     // Click handler (left click = toggle pause/resume)
-    this.button.addEventListener('click', e => {
-      e.preventDefault();
-      e.stopPropagation();
+    // Use quiet handler (no visual feedback - button has custom tooltip/hover logic)
+    attachQuietHandler(this.button, 'Microphone Button', () => {
       this.toggle();
     });
 

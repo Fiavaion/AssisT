@@ -14,6 +14,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -619,7 +620,9 @@ function mdc_updateDocumentList() {
     listEl.appendChild(item);
 
     // Add remove handler
-    item.querySelector('.mdc-doc-remove').onclick = () => mdc_removeDocument(doc.id);
+    attachInteractiveHandler(item.querySelector('.mdc-doc-remove'), 'Multi-Doc Remove Button', () =>
+      mdc_removeDocument(doc.id)
+    );
   });
 
   // Enable compare button if 2+ documents
@@ -796,24 +799,24 @@ function mdc_show(initialText = null) {
   // Setup event handlers
   const closeBtn = mdc_panel.querySelector('.mdc-close');
   if (closeBtn) {
-    closeBtn.onclick = mdc_hide;
+    attachInteractiveHandler(closeBtn, 'Multi-Doc Close Button', mdc_hide);
   }
 
   const addBtn = document.getElementById('mdc-add-btn');
   if (addBtn) {
-    addBtn.onclick = () => {
+    attachInteractiveHandler(addBtn, 'Multi-Doc Add Button', () => {
       const selection = window.getSelection().toString().trim();
       if (selection) {
         mdc_addDocument(selection);
       } else {
         alert('Please select some text first');
       }
-    };
+    });
   }
 
   const compareBtn = document.getElementById('mdc-compare-btn');
   if (compareBtn) {
-    compareBtn.onclick = mdc_compareDocuments;
+    attachInteractiveHandler(compareBtn, 'Multi-Doc Compare Button', mdc_compareDocuments);
   }
 
   // Escape to close

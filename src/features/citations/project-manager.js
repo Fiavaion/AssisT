@@ -17,6 +17,7 @@ import { CitationStorage, ProjectStorage } from './citation-storage.js';
 import { formatInText } from './citation-formatter.js';
 import { showSuccessToast, showErrorToast } from './citation-ui.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler, attachQuietHandler } from '../../utils/event-handlers.js';
 
 /**
  * Citation status for Kanban columns
@@ -184,7 +185,7 @@ class ProjectManager {
   attachEventListeners(overlay) {
     // Close button
     const closeBtn = overlay.querySelector('.proj-close-btn');
-    closeBtn.addEventListener('click', () => this.close());
+    attachQuietHandler(closeBtn, 'Project Manager Close', () => this.close());
 
     // Click outside
     overlay.addEventListener('click', e => {
@@ -204,11 +205,11 @@ class ProjectManager {
 
     // New project button
     const newBtn = overlay.querySelector('.proj-new-btn');
-    newBtn.addEventListener('click', () => this.showCreateProjectModal());
+    attachInteractiveHandler(newBtn, 'New Project', () => this.showCreateProjectModal());
 
     // All citations button
     const allBtn = overlay.querySelector('.proj-all-btn');
-    allBtn.addEventListener('click', () => {
+    attachInteractiveHandler(allBtn, 'All Citations', () => {
       this.currentProject = null;
       this.renderProjectList();
       this.renderKanban();
@@ -217,13 +218,13 @@ class ProjectManager {
     // Edit project button
     const editBtn = overlay.querySelector('.proj-edit-btn');
     if (editBtn) {
-      editBtn.addEventListener('click', () => this.showEditProjectModal());
+      attachInteractiveHandler(editBtn, 'Edit Project', () => this.showEditProjectModal());
     }
 
     // Delete project button
     const deleteBtn = overlay.querySelector('.proj-delete-btn');
     if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => this.deleteProject());
+      attachInteractiveHandler(deleteBtn, 'Delete Project', () => this.deleteProject());
     }
 
     // Drag and drop on columns
@@ -298,7 +299,7 @@ class ProjectManager {
 
     // Add click listeners
     container.querySelectorAll('.proj-item').forEach(item => {
-      item.addEventListener('click', () => {
+      attachInteractiveHandler(item, `Project Item: ${item.dataset.id}`, () => {
         const projectId = item.dataset.id;
         this.currentProject = this.projects.find(p => String(p.id) === projectId);
         this.renderProjectList();
@@ -346,12 +347,12 @@ class ProjectManager {
     // Re-attach event listeners
     const editBtn = header.querySelector('.proj-edit-btn');
     if (editBtn) {
-      editBtn.addEventListener('click', () => this.showEditProjectModal());
+      attachInteractiveHandler(editBtn, 'Edit Project', () => this.showEditProjectModal());
     }
 
     const deleteBtn = header.querySelector('.proj-delete-btn');
     if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => this.deleteProject());
+      attachInteractiveHandler(deleteBtn, 'Delete Project', () => this.deleteProject());
     }
   }
 

@@ -15,6 +15,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -588,18 +589,30 @@ async function tutor_createPanel() {
   `);
 
   // Close button
-  panel.querySelector('.assist-tutor-close').onclick = () => tutor_hide();
+  attachInteractiveHandler(
+    panel.querySelector('.assist-tutor-close'),
+    'Socratic Tutor Close Button',
+    () => tutor_hide()
+  );
 
   // Copy button
-  panel.querySelector('#assist-tutor-copy').onclick = () => tutor_copyQuestions();
+  attachInteractiveHandler(
+    panel.querySelector('#assist-tutor-copy'),
+    'Socratic Tutor Copy Button',
+    () => tutor_copyQuestions()
+  );
 
   // New questions button
-  panel.querySelector('#assist-tutor-new').onclick = async () => {
-    if (tutor_currentText) {
-      const modelKey = await tutor_getCurrentModel();
-      tutor_analyze(tutor_currentText, modelKey);
+  attachInteractiveHandler(
+    panel.querySelector('#assist-tutor-new'),
+    'Socratic Tutor New Questions Button',
+    async () => {
+      if (tutor_currentText) {
+        const modelKey = await tutor_getCurrentModel();
+        tutor_analyze(tutor_currentText, modelKey);
+      }
     }
-  };
+  );
 
   // Close on escape
   panel.addEventListener('keydown', e => {

@@ -28,6 +28,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
@@ -592,7 +593,7 @@ function pomodoro_attachEventListeners() {
   // Start/Pause button
   const startBtn = pomodoro_uiElement.querySelector('#pomodoro-start-btn');
   if (startBtn) {
-    startBtn.addEventListener('click', () => {
+    attachInteractiveHandler(startBtn, 'Pomodoro Start/Pause Button', () => {
       if (pomodoro_timerInterval) {
         pomodoro_pauseTimer();
       } else {
@@ -604,25 +605,25 @@ function pomodoro_attachEventListeners() {
   // Reset button
   const resetBtn = pomodoro_uiElement.querySelector('#pomodoro-reset-btn');
   if (resetBtn) {
-    resetBtn.addEventListener('click', pomodoro_resetTimer);
+    attachInteractiveHandler(resetBtn, 'Pomodoro Reset Button', pomodoro_resetTimer);
   }
 
   // Skip button
   const skipBtn = pomodoro_uiElement.querySelector('#pomodoro-skip-btn');
   if (skipBtn) {
-    skipBtn.addEventListener('click', pomodoro_skipSession);
+    attachInteractiveHandler(skipBtn, 'Pomodoro Skip Button', pomodoro_skipSession);
   }
 
   // Minimize button
   const minimizeBtn = pomodoro_uiElement.querySelector('#pomodoro-minimize-btn');
   if (minimizeBtn) {
-    minimizeBtn.addEventListener('click', pomodoro_toggleMinimize);
+    attachInteractiveHandler(minimizeBtn, 'Pomodoro Minimize Button', pomodoro_toggleMinimize);
   }
 
   // Close button
   const closeBtn = pomodoro_uiElement.querySelector('#pomodoro-close-btn');
   if (closeBtn) {
-    closeBtn.addEventListener('click', pomodoro_disable);
+    attachInteractiveHandler(closeBtn, 'Pomodoro Close Button', pomodoro_disable);
   }
 
   // Drag functionality
@@ -634,7 +635,7 @@ function pomodoro_attachEventListeners() {
   // Click to expand when minimized
   const widget = pomodoro_uiElement.querySelector('.assist-pomodoro-widget');
   if (widget) {
-    widget.addEventListener('click', e => {
+    attachInteractiveHandler(widget, 'Pomodoro Widget Expand', e => {
       if (pomodoro_isMinimized && e.target === widget) {
         pomodoro_toggleMinimize();
       }

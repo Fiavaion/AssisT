@@ -4,23 +4,23 @@
  * Designed for neurodivergent users
  */
 
-/* CSS Variables */
+/* CSS Variables - Dark Mode by Default */
 :root {
-  /* Colors - High contrast by default */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-light: #dbeafe;
-  --color-secondary: #64748b;
-  --color-secondary-hover: #475569;
-  --color-success: #16a34a;
-  --color-success-light: #dcfce7;
-  --color-warning: #f59e0b;
-  --color-background: #ffffff;
-  --color-surface: #f8fafc;
-  --color-text: #1e293b;
-  --color-text-muted: #64748b;
-  --color-border: #e2e8f0;
-  --color-focus: #2563eb;
+  /* Colors - Dark Mode (High contrast) */
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93c5fd;
+  --color-primary-light: #1e3a8a;
+  --color-secondary: #94a3b8;
+  --color-secondary-hover: #cbd5e1;
+  --color-success: #4ade80;
+  --color-success-light: #14532d;
+  --color-warning: #fbbf24;
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-text: #f1f5f9;
+  --color-text-muted: #cbd5e1;
+  --color-border: #334155;
+  --color-focus: #60a5fa;
 
   /* NCAD Brand Colors (for demo) */
   --ncad-orange: #f36f21;
@@ -357,7 +357,7 @@ body {
   background: var(--color-primary-light);
 }
 
-.option-item input[type="radio"] {
+.option-item input[type='radio'] {
   width: 20px;
   height: 20px;
   margin-right: var(--space-md);
@@ -388,7 +388,7 @@ body {
   margin-right: var(--space-sm);
 }
 
-#btn-tell-more[aria-expanded="true"] .expand-icon {
+#btn-tell-more[aria-expanded='true'] .expand-icon {
   transform: rotate(90deg);
 }
 
@@ -415,7 +415,7 @@ body {
   border-bottom: none;
 }
 
-.sub-question-item input[type="checkbox"] {
+.sub-question-item input[type='checkbox'] {
   width: 18px;
   height: 18px;
   margin-right: var(--space-md);
@@ -662,7 +662,7 @@ body {
 
 .toggle-slider::before {
   position: absolute;
-  content: "";
+  content: '';
   height: 20px;
   width: 20px;
   left: 3px;

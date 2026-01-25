@@ -30,6 +30,9 @@ class OrganizeMode {
     this.sectionSortable = null;
     this.featureSortables = [];
     this.originalState = null;
+
+    // Delegate to popup controller's event handler method
+    this.attachInteractiveHandler = this.popup.attachInteractiveHandler.bind(this.popup);
   }
 
   /**
@@ -123,7 +126,13 @@ class OrganizeMode {
       visibilityToggle.innerHTML = sanitizeHTML(
         `<span class="visibility-icon">${isVisible ? '👁️' : '👁️‍🗨️'}</span>`
       );
+      console.log(
+        '[OrganizeMode] Visibility toggle created for section:',
+        sectionId,
+        visibilityToggle
+      );
       this.attachInteractiveHandler(visibilityToggle, 'Section Visibility Toggle', e => {
+        console.log('[OrganizeMode] Visibility toggle clicked for section:', sectionId);
         e.stopPropagation();
         this.toggleSectionVisibility(sectionId, visibilityToggle);
       });
@@ -133,14 +142,23 @@ class OrganizeMode {
       editTitleBtn.className = 'edit-title-btn';
       editTitleBtn.setAttribute('aria-label', 'Edit section title');
       editTitleBtn.innerHTML = sanitizeHTML('✏️');
+      console.log('[OrganizeMode] Edit title button created for section:', sectionId, editTitleBtn);
       this.attachInteractiveHandler(editTitleBtn, 'Edit Section Title Button', e => {
+        console.log('[OrganizeMode] Edit title clicked for section:', sectionId);
         e.stopPropagation();
         this.editSectionTitle(sectionId);
       });
 
-      // Wrap title text for editing
-      const titleText = titleSpan.childNodes[1]; // Text node after icon
-      if (titleText && titleText.nodeType === Node.TEXT_NODE) {
+      // Wrap title text for editing - find the text node (not whitespace-only)
+      let titleText = null;
+      for (let i = 0; i < titleSpan.childNodes.length; i++) {
+        const node = titleSpan.childNodes[i];
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          titleText = node;
+          break;
+        }
+      }
+      if (titleText) {
         const titleTextSpan = document.createElement('span');
         titleTextSpan.className = 'accordion-title-text';
         titleTextSpan.textContent = titleText.textContent.trim();
@@ -154,22 +172,21 @@ class OrganizeMode {
         <button class="move-btn move-up" aria-label="Move section up" title="Move up">▲</button>
         <button class="move-btn move-down" aria-label="Move section down" title="Move down">▼</button>
       `);
-      this.attachInteractiveHandler(
-        moveButtons.querySelector('.move-up'),
-        'Move Section Up Button',
-        e => {
-          e.stopPropagation();
-          this.moveSection(section, 'up');
-        }
-      );
-      this.attachInteractiveHandler(
-        moveButtons.querySelector('.move-down'),
-        'Move Section Down Button',
-        e => {
-          e.stopPropagation();
-          this.moveSection(section, 'down');
-        }
-      );
+
+      const moveUpBtn = moveButtons.querySelector('.move-up');
+      const moveDownBtn = moveButtons.querySelector('.move-down');
+      console.log('[OrganizeMode] Move buttons created:', { moveUpBtn, moveDownBtn, sectionId });
+
+      this.attachInteractiveHandler(moveUpBtn, 'Move Section Up Button', e => {
+        console.log('[OrganizeMode] Move up clicked for section:', sectionId);
+        e.stopPropagation();
+        this.moveSection(section, 'up');
+      });
+      this.attachInteractiveHandler(moveDownBtn, 'Move Section Down Button', e => {
+        console.log('[OrganizeMode] Move down clicked for section:', sectionId);
+        e.stopPropagation();
+        this.moveSection(section, 'down');
+      });
 
       // Insert controls
       header.insertBefore(dragHandle, header.firstChild);
@@ -189,6 +206,9 @@ class OrganizeMode {
    */
   initSortables() {
     const main = document.querySelector('.popup-main');
+    const dragHandles = document.querySelectorAll('.drag-handle');
+    console.log('[OrganizeMode] Initializing sortables. Main element:', main);
+    console.log('[OrganizeMode] Found', dragHandles.length, 'drag handles:', dragHandles);
 
     // Section-level sortable
     this.sectionSortable = new Sortable(main, {
@@ -198,11 +218,16 @@ class OrganizeMode {
       chosenClass: 'section-chosen',
       dragClass: 'section-dragging',
       filter: '.visibility-toggle, .edit-title-btn, .move-buttons',
+      onStart: e => {
+        console.log('[OrganizeMode] Section drag started:', e.item);
+      },
       onEnd: () => {
+        console.log('[OrganizeMode] Section drag ended');
         this.saveLayout();
         this.announceForScreenReader('Section order updated');
       },
     });
+    console.log('[OrganizeMode] Section sortable initialized:', this.sectionSortable);
 
     // Feature-level sortables (one per accordion content)
     document.querySelectorAll('.accordion-content').forEach(content => {
@@ -278,9 +303,11 @@ class OrganizeMode {
    * Toggle section visibility
    */
   toggleSectionVisibility(sectionId, toggleBtn) {
+    console.log('[OrganizeMode] toggleSectionVisibility called for:', sectionId);
     const section = document.querySelector(`[data-section="${sectionId}"]`);
     const isCurrentlyVisible = toggleBtn.getAttribute('aria-pressed') === 'true';
     const newVisibility = !isCurrentlyVisible;
+    console.log('[OrganizeMode] Current visibility:', isCurrentlyVisible, '-> New:', newVisibility);
 
     // Update button state
     toggleBtn.setAttribute('aria-pressed', newVisibility ? 'true' : 'false');
@@ -828,7 +855,7 @@ class PopupController {
     toggleSection('simplify-section', 'show_simplify'); // Simplified Interface
     toggleSection('reading-progress-section', 'show_reading_progress'); // Reading Progress Tracker
     toggleSection('pomodoro-section', 'show_pomodoro'); // Pomodoro Timer
-    toggleSection('stargardt-section', 'show_stargardt'); // Stargardt Support
+    // toggleSection('stargardt-section', 'show_stargardt'); // Stargardt Support - HIDDEN FOR BETA
     toggleSection('reduced-motion-section', 'show_reduced_motion'); // Reduced Motion
     toggleSection('media-control-section', 'show_media_control'); // Media Control
 
@@ -1607,6 +1634,16 @@ class PopupController {
       this.setupReadingGuide();
 
       // ============================================================
+      // CUSTOM CURSOR (Extracted from Stargardt)
+      // ============================================================
+      this.setupCustomCursor();
+
+      // ============================================================
+      // MAGNIFYING LENS (Extracted from Stargardt)
+      // ============================================================
+      this.setupMagnifyingLens();
+
+      // ============================================================
       // SPRINT 3 FEATURE: FOCUS MODE
       // ============================================================
       this.setupFocusMode();
@@ -1701,9 +1738,9 @@ class PopupController {
 
       // Help button (WCAG 2.2 SC 3.2.6 - Consistent Help)
       this.attachInteractiveHandler(document.getElementById('btn-help'), 'Help Button', () => {
-        // Open user guide in new tab
+        // Open help page in new tab
         chrome.tabs.create({
-          url: 'https://github.com/MarJone/AssisT#readme',
+          url: chrome.runtime.getURL('src/pages/help/help.html'),
         });
       });
 
@@ -1801,12 +1838,15 @@ class PopupController {
   }
 
   showAdvancedOptions() {
+    console.log('[Popup] showAdvancedOptions called');
     // Create modal overlay
     const modal = document.createElement('div');
     modal.id = 'advanced-options-modal';
     modal.className = 'modal-overlay';
+    console.log('[Popup] Modal element created:', modal);
 
-    modal.innerHTML = sanitizeHTML(`
+    // Safe innerHTML: all content is extension-controlled (hardcoded, no user input)
+    modal.innerHTML = `
       <div class="modal-content">
         <div class="modal-header">
           <h2>Advanced Options</h2>
@@ -2277,6 +2317,84 @@ class PopupController {
               </div>
             </div>
 
+            <!-- UI Overlay Visibility Section -->
+            <div class="preferences-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
+              <h4>🎨 UI Overlay Visibility</h4>
+              <p style="font-size: 13px; color: #666; margin-bottom: 16px;">
+                Control which on-page overlays and notifications are displayed. These settings help reduce visual clutter.
+              </p>
+
+              <!-- Global Toggle -->
+              <div class="option-group" style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                <label style="font-weight: 600;">Minimize UI Clutter</label>
+                <div class="option-control">
+                  <label class="toggle-switch-small">
+                    <input type="checkbox" id="minimize-ui-clutter">
+                    <span class="toggle-slider-small"></span>
+                  </label>
+                  <span class="option-desc">Hide all UI overlays below (text stats, notifications, tokens)</span>
+                </div>
+              </div>
+
+              <!-- Individual Overlay Controls -->
+              <div id="ui-overlay-controls" style="margin-left: 16px;">
+                <div class="option-group">
+                  <label>Text Stats Badge</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="show-text-stats-badge" checked>
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Show floating word count badge</span>
+                  </div>
+                </div>
+
+                <div class="option-group">
+                  <label>Text Stats Notifications</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="show-text-stats-notifications" checked>
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Show text statistics toasts and popups</span>
+                  </div>
+                </div>
+
+                <div class="option-group">
+                  <label>Feature Notifications</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="show-feature-notifications" checked>
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Show toast notifications when features activate</span>
+                  </div>
+                </div>
+
+                <div class="option-group">
+                  <label>AI Token Counter</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="show-token-counter" checked>
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Show AI usage token display</span>
+                  </div>
+                </div>
+
+                <div class="option-group">
+                  <label>Reading Progress Badge</label>
+                  <div class="option-control">
+                    <label class="toggle-switch-small">
+                      <input type="checkbox" id="show-reading-progress-badge" checked>
+                      <span class="toggle-slider-small"></span>
+                    </label>
+                    <span class="option-desc">Show reading progress indicator</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Profile Management Section -->
             <div class="preferences-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
               <h4>Profile Management</h4>
@@ -2399,18 +2517,41 @@ class PopupController {
             <!-- Cloud AI Provider (shown when cloud mode selected) -->
             <section id="cloud-provider-section" class="ai-subsection hidden">
               <h4>Cloud Provider</h4>
-              <select id="cloud-provider" class="ai-select" disabled style="opacity: 0.6; cursor: not-allowed;">
-                <option value="anthropic">Anthropic (Claude) - Embedded API Key</option>
+              <select id="cloud-provider" class="ai-select">
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="openai">OpenAI (ChatGPT)</option>
+                <option value="google">Google (Gemini)</option>
+                <option value="perplexity">Perplexity AI</option>
               </select>
-              <p class="subsection-description" style="margin-top: 4px; color: #666; font-size: 12px;">Using built-in API key for seamless experience</p>
+              <p class="subsection-description" style="margin-top: 4px; color: #666; font-size: 12px;">Select your preferred AI provider</p>
 
-              <h4 style="margin-top: 16px;">Claude Model</h4>
+              <h4 style="margin-top: 16px;">API Key</h4>
+              <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <input
+                  type="password"
+                  id="cloud-api-key"
+                  class="ai-input"
+                  placeholder="Enter your API key"
+                  style="flex: 1; font-family: monospace; font-size: 12px;"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button id="test-api-key" class="ai-btn ai-btn-secondary" style="white-space: nowrap;">Test Connection</button>
+              </div>
+              <p class="subsection-description" style="margin-top: 4px;">
+                <span id="api-key-status"></span>
+                Get your API key from:
+                <a href="#" id="api-key-link" target="_blank" style="color: #2563eb; text-decoration: underline;">Provider Website</a>
+              </p>
+
+              <h4 style="margin-top: 16px;" id="model-selection-header">Model</h4>
               <select id="cloud-model-select" class="ai-select">
+                <!-- Populated dynamically based on provider -->
                 <option value="haiku-4.5">Haiku 4.5 (Fast & Economical)</option>
                 <option value="sonnet-4.5" selected>Sonnet 4.5 (Balanced - Recommended)</option>
                 <option value="opus-4.5">Opus 4.5 (Most Capable)</option>
               </select>
-              <p class="subsection-description" style="margin-top: 4px;">Select the Claude model for all AI features</p>
+              <p class="subsection-description" style="margin-top: 4px;" id="model-description">Select the model for all AI features</p>
             </section>
 
             <!-- Local AI Configuration (shown when local mode selected) -->
@@ -2520,12 +2661,14 @@ class PopupController {
           <button id="modal-cancel" class="modal-btn modal-btn-secondary">Cancel</button>
         </div>
       </div>
-    `);
+    `;
 
     document.body.appendChild(modal);
+    console.log('[Popup] Modal appended to body');
 
     // Setup tab switching
     this.setupModalTabs(modal);
+    console.log('[Popup] Modal tabs setup complete');
 
     // Setup modal actions
     this.setupModalActions(modal);
@@ -2537,7 +2680,9 @@ class PopupController {
     this.setupProfilesTab(modal);
 
     // Setup AI tab
+    console.log('[Popup] About to call setupAITab');
     this.setupAITab(modal);
+    console.log('[Popup] setupAITab complete');
   }
 
   /**
@@ -2710,9 +2855,11 @@ class PopupController {
    * @param {HTMLElement} modal - The modal element
    */
   setupAITab(modal) {
+    console.log('[Popup] setupAITab called with modal:', modal);
     // AI mode radio buttons
     const localRadio = modal.querySelector('[name="ai-mode"][value="local"]');
     const cloudRadio = modal.querySelector('[name="ai-mode"][value="cloud"]');
+    console.log('[Popup] AI mode radios found:', { localRadio, cloudRadio });
     // Reserved for future use:
     // const _cloudSection = modal.querySelector('#cloud-provider-section');
     // const _localSection = modal.querySelector('#local-ai-section');
@@ -2736,14 +2883,31 @@ class PopupController {
 
     // Cloud provider dropdown
     const providerSelect = modal.querySelector('#cloud-provider');
+    console.log('[Popup] Cloud provider dropdown found:', providerSelect);
     if (providerSelect) {
-      providerSelect.addEventListener('change', e => {
-        this.updateCloudProvider(e.target.value);
+      // Load saved provider
+      chrome.storage.local.get(['cloudProvider'], result => {
+        if (result.cloudProvider) {
+          providerSelect.value = result.cloudProvider;
+          this.updateCloudProviderUI(modal, result.cloudProvider);
+        } else {
+          // Default to Anthropic
+          this.updateCloudProviderUI(modal, 'anthropic');
+        }
       });
+
+      providerSelect.addEventListener('change', e => {
+        console.log('[Popup] Cloud provider changed to:', e.target.value);
+        this.updateCloudProvider(modal, e.target.value);
+      });
+      console.log('[Popup] Cloud provider change listener attached');
+    } else {
+      console.warn('[Popup] Cloud provider dropdown NOT found in modal');
     }
 
     // Cloud model selection dropdown
     const cloudModelSelect = modal.querySelector('#cloud-model-select');
+    console.log('[Popup] Cloud model dropdown found:', cloudModelSelect);
     if (cloudModelSelect) {
       // Load saved cloud model preference
       chrome.storage.local.get(['cloudModel'], result => {
@@ -2754,7 +2918,26 @@ class PopupController {
 
       // Save cloud model selection
       cloudModelSelect.addEventListener('change', e => {
+        console.log('[Popup] Cloud model changed to:', e.target.value);
         chrome.storage.local.set({ cloudModel: e.target.value });
+      });
+      console.log('[Popup] Cloud model change listener attached');
+    } else {
+      console.warn('[Popup] Cloud model dropdown NOT found in modal');
+    }
+
+    // API key input - load saved key
+    const apiKeyInput = modal.querySelector('#cloud-api-key');
+    if (apiKeyInput) {
+      const provider = providerSelect?.value || 'anthropic';
+      this.loadApiKey(modal, provider);
+
+      // Save API key on change
+      apiKeyInput.addEventListener('change', async () => {
+        const provider = modal.querySelector('#cloud-provider').value;
+        const { saveApiKey } = await import('../ai/key-manager.js');
+        await saveApiKey(provider, apiKeyInput.value);
+        this.updateApiKeyStatus(modal, 'Saved', 'success');
       });
     }
 
@@ -2762,7 +2945,7 @@ class PopupController {
     const testBtn = modal.querySelector('#test-api-key');
     if (testBtn) {
       this.attachInteractiveHandler(testBtn, 'API Key Test Button', async () => {
-        const apiKeyInput = modal.querySelector('#api-key-input');
+        const apiKeyInput = modal.querySelector('#cloud-api-key');
         const provider = modal.querySelector('#cloud-provider').value;
         await this.testAPIKey(provider, apiKeyInput.value, modal);
       });
@@ -2822,10 +3005,131 @@ class PopupController {
 
   /**
    * Update cloud provider selection
-   * @param {string} provider - The selected provider (anthropic/openai/google)
+   * @param {HTMLElement} modal - The modal element
+   * @param {string} provider - The selected provider (anthropic/openai/google/perplexity)
    */
-  updateCloudProvider(provider) {
+  updateCloudProvider(modal, provider) {
     chrome.storage.local.set({ cloudProvider: provider });
+    this.updateCloudProviderUI(modal, provider);
+    this.loadApiKey(modal, provider);
+  }
+
+  /**
+   * Update UI elements based on selected cloud provider
+   * @param {HTMLElement} modal - The modal element
+   * @param {string} provider - The selected provider
+   */
+  updateCloudProviderUI(modal, provider) {
+    const modelSelect = modal.querySelector('#cloud-model-select');
+    const apiKeyLink = modal.querySelector('#api-key-link');
+    const modelHeader = modal.querySelector('#model-selection-header');
+    const modelDescription = modal.querySelector('#model-description');
+
+    // Update API key link
+    const providerLinks = {
+      anthropic: 'https://console.anthropic.com/settings/keys',
+      openai: 'https://platform.openai.com/api-keys',
+      google: 'https://aistudio.google.com/app/apikey',
+      perplexity: 'https://www.perplexity.ai/settings/api',
+    };
+    if (apiKeyLink) {
+      apiKeyLink.href = providerLinks[provider] || '#';
+    }
+
+    // Update model options based on provider
+    if (modelSelect) {
+      const modelOptions = {
+        anthropic: `
+          <option value="haiku-4.5">Claude Haiku 4.5 (Fast & Economical)</option>
+          <option value="sonnet-4.5" selected>Claude Sonnet 4.5 (Balanced - Recommended)</option>
+          <option value="opus-4.5">Claude Opus 4.5 (Most Capable)</option>
+        `,
+        openai: `
+          <option value="gpt-4o-mini">GPT-4o Mini (Fast & Economical)</option>
+          <option value="gpt-4o" selected>GPT-4o (Balanced - Recommended)</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo (Most Capable)</option>
+          <option value="o1-preview">o1 Preview (Advanced Reasoning)</option>
+        `,
+        google: `
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast & Economical)</option>
+          <option value="gemini-1.5-pro" selected>Gemini 1.5 Pro (Balanced - Recommended)</option>
+          <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Experimental (Latest)</option>
+        `,
+        perplexity: `
+          <option value="llama-3.1-sonar-small">Llama 3.1 Sonar Small (Fast & Economical)</option>
+          <option value="llama-3.1-sonar-large" selected>Llama 3.1 Sonar Large (Balanced - Recommended)</option>
+          <option value="llama-3.1-sonar-huge">Llama 3.1 Sonar Huge (Most Capable)</option>
+        `,
+      };
+      modelSelect.innerHTML = modelOptions[provider] || modelOptions.anthropic;
+    }
+
+    // Update model header and description
+    const providerNames = {
+      anthropic: 'Claude',
+      openai: 'GPT',
+      google: 'Gemini',
+      perplexity: 'Perplexity',
+    };
+    if (modelHeader) {
+      modelHeader.textContent = `${providerNames[provider] || 'Model'} Selection`;
+    }
+    if (modelDescription) {
+      modelDescription.textContent = `Select the ${providerNames[provider] || 'model'} for all AI features`;
+    }
+  }
+
+  /**
+   * Load API key for provider from storage
+   * @param {HTMLElement} modal - The modal element
+   * @param {string} provider - The provider name
+   */
+  async loadApiKey(modal, provider) {
+    const apiKeyInput = modal.querySelector('#cloud-api-key');
+    if (!apiKeyInput) {
+      return;
+    }
+
+    try {
+      const { getApiKey } = await import('../ai/key-manager.js');
+      const key = await getApiKey(provider);
+
+      if (key) {
+        apiKeyInput.value = key;
+        this.updateApiKeyStatus(modal, '✓ API key configured', 'success');
+      } else {
+        apiKeyInput.value = '';
+        this.updateApiKeyStatus(modal, 'No API key configured', 'warning');
+      }
+    } catch (error) {
+      console.error('[Popup] Failed to load API key:', error);
+      this.updateApiKeyStatus(modal, 'Error loading API key', 'error');
+    }
+  }
+
+  /**
+   * Update API key status message
+   * @param {HTMLElement} modal - The modal element
+   * @param {string} message - Status message
+   * @param {string} type - Status type (success/warning/error)
+   */
+  updateApiKeyStatus(modal, message, type = 'info') {
+    const statusEl = modal.querySelector('#api-key-status');
+    if (!statusEl) {
+      return;
+    }
+
+    const colors = {
+      success: '#16a34a',
+      warning: '#ea580c',
+      error: '#dc2626',
+      info: '#666',
+    };
+
+    statusEl.textContent = message;
+    statusEl.style.color = colors[type] || colors.info;
+    statusEl.style.marginRight = '8px';
+    statusEl.style.fontWeight = '600';
   }
 
   /**
@@ -2836,7 +3140,7 @@ class PopupController {
    */
   async testAPIKey(provider, apiKey, modal) {
     if (!apiKey) {
-      alert('Please enter an API key');
+      this.updateApiKeyStatus(modal, 'Please enter an API key', 'warning');
       return;
     }
 
@@ -2844,24 +3148,32 @@ class PopupController {
     const originalText = testBtn.textContent;
     testBtn.textContent = 'Testing...';
     testBtn.disabled = true;
+    this.updateApiKeyStatus(modal, 'Testing connection...', 'info');
 
     try {
       // Import API key manager
-      const { saveAPIKey, testConnection } = await import('../core/storage/api-key-manager.js');
+      const { saveApiKey, isValidKeyFormat } = await import('../ai/key-manager.js');
 
-      // Test connection
-      const isValid = await testConnection(provider, apiKey);
+      // Validate format first
+      if (!isValidKeyFormat(provider, apiKey)) {
+        this.updateApiKeyStatus(modal, '❌ Invalid API key format', 'error');
+        testBtn.textContent = originalText;
+        testBtn.disabled = false;
+        return;
+      }
 
-      if (isValid) {
-        // Save encrypted API key
-        await saveAPIKey(provider, apiKey);
-        alert('✅ Connection successful! API key saved.');
+      // For now, just validate format and save
+      // TODO: Implement actual API connection test for each provider
+      const saved = await saveApiKey(provider, apiKey);
+
+      if (saved) {
+        this.updateApiKeyStatus(modal, '✅ API key saved successfully', 'success');
       } else {
-        alert('❌ Connection failed. Please check your API key.');
+        this.updateApiKeyStatus(modal, '❌ Failed to save API key', 'error');
       }
     } catch (error) {
-      console.error('API key test failed:', error);
-      alert('❌ Connection failed: ' + error.message);
+      console.error('[Popup] API key test failed:', error);
+      this.updateApiKeyStatus(modal, `❌ Error: ${error.message}`, 'error');
     } finally {
       testBtn.textContent = originalText;
       testBtn.disabled = false;
@@ -2997,8 +3309,12 @@ class PopupController {
     });
 
     // Click outside to close
-    this.attachInteractiveHandler(modal, 'Modal Backdrop', e => {
+    // NOTE: Use regular addEventListener (not attachInteractiveHandler) to avoid
+    // preventing default behavior on dropdowns/inputs inside the modal
+    modal.addEventListener('click', e => {
+      console.log('[Popup] Modal click event:', e.target);
       if (e.target === modal) {
+        console.log('[Popup] Click on backdrop - closing modal');
         modal.remove();
       }
     });
@@ -3353,6 +3669,55 @@ class PopupController {
       debugMode.checked = this.settings.appearance?.debug_mode === true;
     }
 
+    // Load UI overlay visibility settings
+    const uiOverlay = this.settings.ui_overlay || {};
+
+    const minimizeClutter = document.getElementById('minimize-ui-clutter');
+    if (minimizeClutter) {
+      minimizeClutter.checked = uiOverlay.minimize_clutter === true;
+
+      // Toggle individual controls based on global toggle
+      const overlayControls = document.getElementById('ui-overlay-controls');
+      if (overlayControls) {
+        overlayControls.style.opacity = minimizeClutter.checked ? '0.5' : '1';
+        overlayControls.style.pointerEvents = minimizeClutter.checked ? 'none' : 'auto';
+      }
+
+      // Add event listener for global toggle
+      minimizeClutter.addEventListener('change', e => {
+        const overlayControls = document.getElementById('ui-overlay-controls');
+        if (overlayControls) {
+          overlayControls.style.opacity = e.target.checked ? '0.5' : '1';
+          overlayControls.style.pointerEvents = e.target.checked ? 'none' : 'auto';
+        }
+      });
+    }
+
+    const showTextStatsBadge = document.getElementById('show-text-stats-badge');
+    if (showTextStatsBadge) {
+      showTextStatsBadge.checked = uiOverlay.show_text_stats_badge !== false;
+    }
+
+    const showTextStatsNotifications = document.getElementById('show-text-stats-notifications');
+    if (showTextStatsNotifications) {
+      showTextStatsNotifications.checked = uiOverlay.show_text_stats_notifications !== false;
+    }
+
+    const showFeatureNotifications = document.getElementById('show-feature-notifications');
+    if (showFeatureNotifications) {
+      showFeatureNotifications.checked = uiOverlay.show_feature_notifications !== false;
+    }
+
+    const showTokenCounter = document.getElementById('show-token-counter');
+    if (showTokenCounter) {
+      showTokenCounter.checked = uiOverlay.show_token_counter !== false;
+    }
+
+    const showReadingProgressBadge = document.getElementById('show-reading-progress-badge');
+    if (showReadingProgressBadge) {
+      showReadingProgressBadge.checked = uiOverlay.show_reading_progress_badge !== false;
+    }
+
     // Load keyboard shortcuts
     this.loadKeyboardShortcuts();
   }
@@ -3438,7 +3803,7 @@ class PopupController {
     // Clear all shortcuts button
     const clearAllBtn = document.getElementById('btn-clear-all-shortcuts');
     if (clearAllBtn) {
-      clearAllBtn.onclick = async () => {
+      this.attachInteractiveHandler(clearAllBtn, 'Clear All Shortcuts Button', async () => {
         if (confirm('Clear all keyboard shortcuts? This cannot be undone.')) {
           const emptyShortcuts = {};
           for (const key of Object.keys(shortcuts)) {
@@ -3448,7 +3813,7 @@ class PopupController {
           this.loadKeyboardShortcuts();
           this.updateStatus('All shortcuts cleared');
         }
-      };
+      });
     }
 
     // Setup preset buttons
@@ -3623,21 +3988,21 @@ class PopupController {
     };
 
     // Cancel button
-    cancelBtn.onclick = closeOverlay;
+    this.attachInteractiveHandler(cancelBtn, 'Shortcut Capture Cancel Button', closeOverlay);
 
     // Clear button
     if (clearBtn) {
-      clearBtn.onclick = () => {
+      this.attachInteractiveHandler(clearBtn, 'Shortcut Capture Clear Button', () => {
         recordedShortcut = null;
         display.textContent = 'Press keys...';
         errorDiv.textContent = '';
         saveBtn.disabled = true;
         modifierKeys.forEach(key => key.classList.remove('active'));
-      };
+      });
     }
 
     // Save button
-    saveBtn.onclick = async () => {
+    this.attachInteractiveHandler(saveBtn, 'Shortcut Capture Save Button', async () => {
       if (isValid && recordedShortcut) {
         // Update shortcuts
         currentShortcuts[featureKey] = recordedShortcut;
@@ -3651,7 +4016,7 @@ class PopupController {
 
         this.updateStatus(`Shortcut updated: ${SHORTCUT_LABELS[featureKey]}`);
       }
-    };
+    });
 
     // Close on escape (but not record it)
     const escapeHandler = e => {
@@ -3774,8 +4139,62 @@ class PopupController {
       this.settings.appearance.debug_mode = debugMode.checked;
     }
 
-    // Save to storage
+    // Save UI overlay visibility settings
+    if (!this.settings.ui_overlay) {
+      this.settings.ui_overlay = {};
+    }
+
+    const minimizeClutter = document.getElementById('minimize-ui-clutter');
+    if (minimizeClutter) {
+      this.settings.ui_overlay.minimize_clutter = minimizeClutter.checked;
+    }
+
+    const showTextStatsBadge = document.getElementById('show-text-stats-badge');
+    if (showTextStatsBadge) {
+      this.settings.ui_overlay.show_text_stats_badge = showTextStatsBadge.checked;
+    }
+
+    const showTextStatsNotifications = document.getElementById('show-text-stats-notifications');
+    if (showTextStatsNotifications) {
+      this.settings.ui_overlay.show_text_stats_notifications = showTextStatsNotifications.checked;
+    }
+
+    const showFeatureNotifications = document.getElementById('show-feature-notifications');
+    if (showFeatureNotifications) {
+      this.settings.ui_overlay.show_feature_notifications = showFeatureNotifications.checked;
+    }
+
+    const showTokenCounter = document.getElementById('show-token-counter');
+    if (showTokenCounter) {
+      this.settings.ui_overlay.show_token_counter = showTokenCounter.checked;
+    }
+
+    const showReadingProgressBadge = document.getElementById('show-reading-progress-badge');
+    if (showReadingProgressBadge) {
+      this.settings.ui_overlay.show_reading_progress_badge = showReadingProgressBadge.checked;
+    }
+
+    // Save to storage (includes both chrome.storage.sync for settings and chrome.storage.local for ui_overlay)
     this.saveSettings();
+
+    // Also save UI overlay settings to chrome.storage.local for content scripts
+    chrome.storage.local.set({
+      textStatsBadgeVisible: this.settings.ui_overlay.minimize_clutter
+        ? false
+        : this.settings.ui_overlay.show_text_stats_badge !== false,
+      textStatsNotificationsEnabled: this.settings.ui_overlay.minimize_clutter
+        ? false
+        : this.settings.ui_overlay.show_text_stats_notifications !== false,
+      featureNotificationsEnabled: this.settings.ui_overlay.minimize_clutter
+        ? false
+        : this.settings.ui_overlay.show_feature_notifications !== false,
+      tokenCounterVisible: this.settings.ui_overlay.minimize_clutter
+        ? false
+        : this.settings.ui_overlay.show_token_counter !== false,
+      readingProgressBadgeVisible: this.settings.ui_overlay.minimize_clutter
+        ? false
+        : this.settings.ui_overlay.show_reading_progress_badge !== false,
+    });
 
     // Show confirmation
     this.updateStatus('Settings saved');
@@ -4117,6 +4536,209 @@ class PopupController {
     });
 
     console.log('[Popup] Reading Guide initialized');
+  }
+
+  // ============================================================
+  // CUSTOM CURSOR (Extracted from Stargardt)
+  // ============================================================
+  setupCustomCursor() {
+    // Initialize customCursor settings if they don't exist
+    if (!this.settings.customCursor) {
+      this.settings.customCursor = {
+        enabled: false,
+        size: 32,
+        style: 'crosshair',
+        color: '#ff0000',
+      };
+    }
+
+    const cursorEnabled = document.getElementById('custom-cursor-enabled');
+    const cursorDescription = document.getElementById('custom-cursor-description');
+    const cursorOptions = document.getElementById('custom-cursor-options');
+
+    // Set initial state
+    cursorEnabled.checked = this.settings.customCursor.enabled || false;
+
+    // Show/hide description and options based on enabled state
+    if (cursorEnabled.checked) {
+      cursorDescription.classList.remove('hidden');
+      cursorOptions.classList.remove('hidden');
+    } else {
+      cursorDescription.classList.add('hidden');
+      cursorOptions.classList.add('hidden');
+    }
+
+    // Toggle event
+    cursorEnabled.addEventListener('change', e => {
+      this.settings.customCursor.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle description and options visibility
+      if (e.target.checked) {
+        cursorDescription.classList.remove('hidden');
+        cursorOptions.classList.remove('hidden');
+      } else {
+        cursorDescription.classList.add('hidden');
+        cursorOptions.classList.add('hidden');
+      }
+    });
+
+    // Cursor Size slider
+    const cursorSizeSlider = document.getElementById('custom-cursor-size');
+    const cursorSizeValue = document.getElementById('custom-cursor-size-value');
+    cursorSizeSlider.value = this.settings.customCursor.size || 32;
+    cursorSizeValue.textContent = cursorSizeSlider.value + 'px';
+    cursorSizeSlider.addEventListener('input', e => {
+      const value = parseInt(e.target.value);
+      cursorSizeValue.textContent = value + 'px';
+      this.settings.customCursor.size = value;
+      this.saveSettings();
+    });
+
+    // Cursor Style selector
+    const cursorStyleSelect = document.getElementById('custom-cursor-style');
+    cursorStyleSelect.value = this.settings.customCursor.style || 'crosshair';
+    cursorStyleSelect.addEventListener('change', e => {
+      this.settings.customCursor.style = e.target.value;
+      this.saveSettings();
+    });
+
+    // Cursor Color selector
+    const cursorColorSelect = document.getElementById('custom-cursor-color');
+    cursorColorSelect.value = this.settings.customCursor.color || '#ff0000';
+    cursorColorSelect.addEventListener('change', e => {
+      this.settings.customCursor.color = e.target.value;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Custom Cursor initialized');
+  }
+
+  // ============================================================
+  // MAGNIFYING LENS (Extracted from Stargardt)
+  // ============================================================
+  setupMagnifyingLens() {
+    // Initialize magnifyingLens settings if they don't exist
+    if (!this.settings.magnifyingLens) {
+      this.settings.magnifyingLens = {
+        enabled: false,
+        scale: 2.0,
+        size: 275,
+        offsetEnabled: false,
+        offset: 150,
+        offsetDir: 'right',
+        lock: false,
+      };
+    }
+
+    const lensEnabled = document.getElementById('magnifying-lens-enabled');
+    const lensDescription = document.getElementById('magnifying-lens-description');
+    const lensOptions = document.getElementById('magnifying-lens-options');
+
+    // Set initial state
+    lensEnabled.checked = this.settings.magnifyingLens.enabled || false;
+
+    // Show/hide description and options based on enabled state
+    if (lensEnabled.checked) {
+      lensDescription.classList.remove('hidden');
+      lensOptions.classList.remove('hidden');
+    } else {
+      lensDescription.classList.add('hidden');
+      lensOptions.classList.add('hidden');
+    }
+
+    // Toggle event
+    lensEnabled.addEventListener('change', e => {
+      this.settings.magnifyingLens.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle description and options visibility
+      if (e.target.checked) {
+        lensDescription.classList.remove('hidden');
+        lensOptions.classList.remove('hidden');
+      } else {
+        lensDescription.classList.add('hidden');
+        lensOptions.classList.add('hidden');
+      }
+    });
+
+    // Magnification Scale slider
+    const scaleSlider = document.getElementById('magnifying-lens-scale');
+    const scaleValue = document.getElementById('magnifying-lens-scale-value');
+    scaleSlider.value = this.settings.magnifyingLens.scale || 2.0;
+    scaleValue.textContent = scaleSlider.value + 'x';
+    scaleSlider.addEventListener('input', e => {
+      const value = parseFloat(e.target.value);
+      scaleValue.textContent = value + 'x';
+      this.settings.magnifyingLens.scale = value;
+      this.saveSettings();
+    });
+
+    // Lens Size slider
+    const sizeSlider = document.getElementById('magnifying-lens-size');
+    const sizeValue = document.getElementById('magnifying-lens-size-value');
+    sizeSlider.value = this.settings.magnifyingLens.size || 275;
+    sizeValue.textContent = sizeSlider.value + 'px';
+    sizeSlider.addEventListener('input', e => {
+      const value = parseInt(e.target.value);
+      sizeValue.textContent = value + 'px';
+      this.settings.magnifyingLens.size = value;
+      this.saveSettings();
+    });
+
+    // Offset Enabled toggle
+    const offsetEnabledToggle = document.getElementById('magnifying-lens-offset-enabled');
+    const offsetControls = document.getElementById('magnifying-lens-offset-controls');
+    offsetEnabledToggle.checked = this.settings.magnifyingLens.offsetEnabled || false;
+
+    // Show/hide offset controls based on initial state
+    if (offsetEnabledToggle.checked) {
+      offsetControls.classList.remove('hidden');
+    } else {
+      offsetControls.classList.add('hidden');
+    }
+
+    offsetEnabledToggle.addEventListener('change', e => {
+      this.settings.magnifyingLens.offsetEnabled = e.target.checked;
+      this.saveSettings();
+
+      // Toggle offset controls visibility
+      if (e.target.checked) {
+        offsetControls.classList.remove('hidden');
+      } else {
+        offsetControls.classList.add('hidden');
+      }
+    });
+
+    // Offset Distance slider
+    const offsetSlider = document.getElementById('magnifying-lens-offset');
+    const offsetValue = document.getElementById('magnifying-lens-offset-value');
+    offsetSlider.value = this.settings.magnifyingLens.offset || 150;
+    offsetValue.textContent = offsetSlider.value + 'px';
+    offsetSlider.addEventListener('input', e => {
+      const value = parseInt(e.target.value);
+      offsetValue.textContent = value + 'px';
+      this.settings.magnifyingLens.offset = value;
+      this.saveSettings();
+    });
+
+    // Offset Direction selector
+    const offsetDirSelect = document.getElementById('magnifying-lens-offset-dir');
+    offsetDirSelect.value = this.settings.magnifyingLens.offsetDir || 'right';
+    offsetDirSelect.addEventListener('change', e => {
+      this.settings.magnifyingLens.offsetDir = e.target.value;
+      this.saveSettings();
+    });
+
+    // Lock Position toggle
+    const lockToggle = document.getElementById('magnifying-lens-lock');
+    lockToggle.checked = this.settings.magnifyingLens.lock || false;
+    lockToggle.addEventListener('change', e => {
+      this.settings.magnifyingLens.lock = e.target.checked;
+      this.saveSettings();
+    });
+
+    console.log('[Popup] Magnifying Lens initialized');
   }
 
   // ============================================================
@@ -5818,7 +6440,8 @@ class PopupController {
       z-index: 10000;
     `;
 
-    modal.innerHTML = sanitizeHTML(`
+    // Safe innerHTML: hardcoded modal content (no user input)
+    modal.innerHTML = `
       <div style="background: white; border-radius: 12px; padding: 20px; width: 300px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h3 style="margin: 0; font-size: 16px;">Add Custom Word</h3>
@@ -5837,7 +6460,7 @@ class PopupController {
           <button id="confirm-add-vocab" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: linear-gradient(135deg, #4a90d9, #357abd); color: white; cursor: pointer;">Add Word</button>
         </div>
       </div>
-    `);
+    `;
 
     document.body.appendChild(modal);
 
@@ -5957,7 +6580,8 @@ class PopupController {
             .join('')
         : '<p style="text-align: center; color: #888; padding: 20px;">No custom words added yet.</p>';
 
-    modal.innerHTML = sanitizeHTML(`
+    // Safe innerHTML: hardcoded modal content (no user input)
+    modal.innerHTML = `
       <div style="background: white; border-radius: 12px; padding: 20px; width: 350px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h3 style="margin: 0; font-size: 16px;">Manage Custom Words</h3>
@@ -5971,7 +6595,7 @@ class PopupController {
           <button id="done-manage-vocab" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: linear-gradient(135deg, #4a90d9, #357abd); color: white; cursor: pointer; font-size: 12px;">Done</button>
         </div>
       </div>
-    `);
+    `;
 
     document.body.appendChild(modal);
 
@@ -7674,7 +8298,6 @@ class PopupController {
           emotionalProsody: true,
           visionAnalysis: true,
           knowledgeGraph: true,
-          adaptiveRSVP: true,
           predictiveLoading: true,
         },
         cognitiveProfile: {
@@ -8053,6 +8676,8 @@ class PopupController {
           })
           .catch(() => {});
 
+        chrome.storage.local.set({ llmEnabled: true, cloudModeEnabled: false });
+
         this.updateStatus('Local AI enabled', 'success');
         break;
 
@@ -8073,7 +8698,7 @@ class PopupController {
           })
           .catch(() => {});
 
-        chrome.storage.local.set({ cloudModeEnabled: true });
+        chrome.storage.local.set({ llmEnabled: false, cloudModeEnabled: true });
 
         this.updateStatus('Cloud AI enabled', 'success');
         break;
@@ -8107,7 +8732,7 @@ class PopupController {
           })
           .catch(() => {});
 
-        chrome.storage.local.set({ cloudModeEnabled: false });
+        chrome.storage.local.set({ llmEnabled: false, cloudModeEnabled: false });
 
         this.updateStatus('AI Assist disabled', 'success');
         break;

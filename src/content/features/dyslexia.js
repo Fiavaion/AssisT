@@ -315,16 +315,8 @@ async function dyslexiaMode_apply() {
 
   const startTime = performance.now();
 
-  // Find main content areas
+  // Find main content areas - ONLY leaf elements, not containers
   const contentSelectors = [
-    'main',
-    'article',
-    '[role="main"]',
-    '.main-content',
-    '.content',
-    '#content',
-    '.user_content',
-    '.ic-Layout-contentMain', // Canvas-specific
     'p',
     'h1',
     'h2',
@@ -334,6 +326,11 @@ async function dyslexiaMode_apply() {
     'h6',
     'li',
     'blockquote',
+    'td',
+    'th',
+    'figcaption',
+    'label',
+    'span.user_content', // Canvas-specific content spans
   ];
 
   const elements = new Set();
@@ -341,7 +338,21 @@ async function dyslexiaMode_apply() {
     document.querySelectorAll(selector).forEach(el => {
       // Skip already processed elements
       if (!dyslexiaMode_processedElements.has(el)) {
-        elements.add(el);
+        // Skip if element has no text content
+        if (!el.textContent.trim()) {
+          return;
+        }
+        // Skip if this element is inside another element we're already processing
+        let hasParentInSet = false;
+        for (const otherEl of elements) {
+          if (otherEl.contains(el)) {
+            hasParentInSet = true;
+            break;
+          }
+        }
+        if (!hasParentInSet) {
+          elements.add(el);
+        }
       }
     });
   });
@@ -354,11 +365,32 @@ async function dyslexiaMode_apply() {
   console.log('[DyslexiaMode] Processing', elements.size, 'elements');
 
   // Store original content for reset
+  let storedCount = 0;
+  let skippedCount = 0;
   elements.forEach(el => {
     if (!dyslexiaMode_originalContent.has(el)) {
-      dyslexiaMode_originalContent.set(el, el.innerHTML);
+      const html = el.innerHTML;
+      dyslexiaMode_originalContent.set(el, html);
+      storedCount++;
+
+      // Debug first stored element
+      if (storedCount === 1) {
+        console.log('[DyslexiaMode] FIRST ELEMENT STORE:');
+        console.log('  - Current HTML:', html.substring(0, 200));
+        console.log('  - Has processed attr?', el.dataset.assistDyslexiaProcessed);
+      }
+    } else {
+      skippedCount++;
+      // This is suspicious - we should have cleared the Map!
+      if (skippedCount === 1) {
+        console.warn('[DyslexiaMode] WARNING: Element already in originalContent Map!');
+        console.warn('  - This should not happen after remove() was called');
+        console.warn('  - Current HTML:', el.innerHTML.substring(0, 200));
+      }
     }
   });
+
+  console.log('[DyslexiaMode] Stored', storedCount, 'new, skipped', skippedCount, 'existing');
 
   // Apply selected features
   for (const element of elements) {
@@ -382,14 +414,57 @@ async function dyslexiaMode_apply() {
  * Remove dyslexia mode (restore original content)
  */
 function dyslexiaMode_remove() {
+  console.log(
+    '[DyslexiaMode] REMOVE called - restoring',
+    dyslexiaMode_originalContent.size,
+    'elements'
+  );
+
   // Restore original HTML
+  let restoredCount = 0;
+  let disconnectedCount = 0;
   dyslexiaMode_originalContent.forEach((originalHTML, element) => {
     if (element && element.isConnected) {
-      element.innerHTML = sanitizeHTML(originalHTML);
+      const beforeHTML = element.innerHTML;
+      const sanitized = sanitizeHTML(originalHTML);
+      element.innerHTML = sanitized;
       delete element.dataset.assistDyslexiaProcessed;
+      restoredCount++;
+
+      // Debug first element in detail
+      if (restoredCount === 1) {
+        console.log('[DyslexiaMode] FIRST ELEMENT RESTORE:');
+        console.log('  - Tag:', element.tagName);
+        console.log('  - Text preview:', element.textContent.substring(0, 100));
+        console.log('  - Original stored:', originalHTML.substring(0, 200));
+        console.log('  - Before restore:', beforeHTML.substring(0, 200));
+      }
+    } else {
+      disconnectedCount++;
+      if (disconnectedCount === 1) {
+        console.warn('[DyslexiaMode] DISCONNECTED ELEMENT - cannot restore!');
+        console.warn('  - Tag:', element?.tagName || 'null');
+        console.warn('  - This suggests nested element selection bug');
+      }
     }
   });
 
+  console.log(
+    '[DyslexiaMode] Restored',
+    restoredCount,
+    'elements, skipped',
+    disconnectedCount,
+    'disconnected'
+  );
+
+  if (disconnectedCount > 0) {
+    console.warn(
+      '[DyslexiaMode] WARNING:',
+      disconnectedCount,
+      'elements were disconnected and could not be restored!'
+    );
+    console.warn('[DyslexiaMode] This may cause scrambled text on next mode application');
+  }
   dyslexiaMode_originalContent.clear();
   dyslexiaMode_processedElements.clear();
 

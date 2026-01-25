@@ -22,6 +22,7 @@
 
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachQuietHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -150,24 +151,48 @@ function readingMode_createOverlay(article) {
   // Add close button
   const closeButton = document.createElement('button');
   closeButton.id = 'assist-reading-mode-close';
-  closeButton.textContent = '×';
   closeButton.setAttribute('aria-label', 'Exit Reading Mode');
   closeButton.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 48px;
-    height: 48px;
+    padding: 12px 20px;
     background: white;
-    border: 1px solid #ccc;
+    border: 2px solid #333;
     border-radius: 24px;
-    font-size: 32px;
+    font-size: 16px;
+    font-weight: 600;
     line-height: 1;
+    color: #333;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     z-index: 999997;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
   `;
-  closeButton.onclick = () => readingMode_exit();
+  closeButton.innerHTML = `
+    <span style="font-size: 20px; line-height: 1;">✕</span>
+    <span>Exit</span>
+  `;
+  closeButton.onmouseenter = function () {
+    this.style.background = '#f44336';
+    this.style.borderColor = '#f44336';
+    this.style.color = 'white';
+    this.style.transform = 'scale(1.05)';
+  };
+  closeButton.onmouseleave = function () {
+    this.style.background = 'white';
+    this.style.borderColor = '#333';
+    this.style.color = '#333';
+    this.style.transform = 'scale(1)';
+  };
+
+  // Use quiet handler (button has custom hover logic above)
+  attachQuietHandler(closeButton, 'Reading Mode Exit', () => {
+    readingMode_exit();
+  });
 
   overlay.appendChild(content);
   overlay.appendChild(closeButton);

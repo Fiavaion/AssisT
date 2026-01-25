@@ -29,6 +29,7 @@ import { getStorageAdapter } from './storage-adapter.js';
 import { exportAnnotations } from './export-manager.js';
 import { getExistingTags } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler, attachAccessibleHandler } from '../../utils/event-handlers.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -270,19 +271,19 @@ function createSidebar() {
 
   // Attach event listeners
   const closeBtn = sidebar.querySelector('#sidebar-close-btn');
-  closeBtn.addEventListener('click', closeSidebar);
+  attachInteractiveHandler(closeBtn, 'Sidebar Close', closeSidebar);
 
   const filterBtn = sidebar.querySelector('#sidebar-filter-btn');
-  filterBtn.addEventListener('click', handleFilterClick);
+  attachInteractiveHandler(filterBtn, 'Sidebar Filter', handleFilterClick);
 
   const exportBtn = sidebar.querySelector('#sidebar-export-btn');
-  exportBtn.addEventListener('click', handleExportClick);
+  attachInteractiveHandler(exportBtn, 'Sidebar Export', handleExportClick);
 
   const searchInput = sidebar.querySelector('#sidebar-search-input');
   const searchClearBtn = sidebar.querySelector('#sidebar-search-clear');
 
   searchInput.addEventListener('input', handleSearchInput);
-  searchClearBtn.addEventListener('click', clearSearch);
+  attachInteractiveHandler(searchClearBtn, 'Search Clear', clearSearch);
 
   // Keyboard support (Escape to close or clear search)
   sidebar.addEventListener('keydown', e => {
@@ -613,7 +614,7 @@ async function showFilterDropdown() {
   // Attach clear all filters button listener
   const clearBtn = dropdownContainer.querySelector('#clear-all-filters-btn');
   if (clearBtn) {
-    clearBtn.addEventListener('click', clearAllFilters);
+    attachInteractiveHandler(clearBtn, 'Clear All Filters', clearAllFilters);
   }
 
   console.log('[AnnotationSidebar] Filter dropdown shown');
@@ -752,7 +753,7 @@ function renderActiveFilters() {
 
   // Attach remove listeners
   container.querySelectorAll('.assist-filter-badge-remove').forEach(btn => {
-    btn.addEventListener('click', _e => {
+    attachInteractiveHandler(btn, 'Filter Badge Remove', () => {
       const filterType = btn.dataset.filterType;
       const filterValue = btn.dataset.filterValue;
       removeFilter(filterType, filterValue);
@@ -866,20 +867,11 @@ function renderFilteredAnnotations() {
 
   content.innerHTML = sanitizeHTML(itemsHTML);
 
-  // Attach click handlers
+  // Attach click handlers with keyboard support
   content.querySelectorAll('.assist-sidebar-item').forEach(item => {
-    item.addEventListener('click', () => {
+    attachAccessibleHandler(item, 'Sidebar Item', () => {
       const id = parseInt(item.dataset.id);
       scrollToAnnotation(id);
-    });
-
-    // Keyboard support (Enter/Space to activate)
-    item.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        const id = parseInt(item.dataset.id);
-        scrollToAnnotation(id);
-      }
     });
   });
 }
@@ -1095,25 +1087,13 @@ function renderSearchResults(results) {
 
   content.innerHTML = sanitizeHTML(itemsHTML);
 
-  // Attach click handlers
+  // Attach click handlers with keyboard support
   content.querySelectorAll('.assist-sidebar-item').forEach(item => {
-    item.addEventListener('click', () => {
+    attachAccessibleHandler(item, 'Search Result Item', () => {
       const id = parseInt(item.dataset.id);
       const result = results.find(r => r.id === id);
       if (result) {
         scrollToAnnotationFromSearch(result);
-      }
-    });
-
-    // Keyboard support (Enter/Space to activate)
-    item.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        const id = parseInt(item.dataset.id);
-        const result = results.find(r => r.id === id);
-        if (result) {
-          scrollToAnnotationFromSearch(result);
-        }
       }
     });
   });
@@ -1231,20 +1211,11 @@ function renderAnnotations() {
 
   content.innerHTML = sanitizeHTML(itemsHTML);
 
-  // Attach click handlers
+  // Attach click handlers with keyboard support
   content.querySelectorAll('.assist-sidebar-item').forEach(item => {
-    item.addEventListener('click', () => {
+    attachAccessibleHandler(item, 'Sidebar Item', () => {
       const id = parseInt(item.dataset.id);
       scrollToAnnotation(id);
-    });
-
-    // Keyboard support (Enter/Space to activate)
-    item.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        const id = parseInt(item.dataset.id);
-        scrollToAnnotation(id);
-      }
     });
   });
 }
@@ -1487,7 +1458,7 @@ function showExportDropdown() {
 
   // Attach click handlers
   dropdownContainer.querySelectorAll('.assist-export-option').forEach(btn => {
-    btn.addEventListener('click', () => {
+    attachInteractiveHandler(btn, `Export ${btn.dataset.format}`, () => {
       const format = btn.dataset.format;
       handleExportFormat(format);
     });
