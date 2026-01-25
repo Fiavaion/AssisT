@@ -21,6 +21,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -398,9 +399,13 @@ function emotionalTTS_createIndicator() {
     ">Stop</button>
   `);
 
-  indicator.querySelector('.emotion-stop').onclick = () => {
-    emotionalTTS_stop();
-  };
+  attachInteractiveHandler(
+    indicator.querySelector('.emotion-stop'),
+    'Emotional TTS Stop Button',
+    () => {
+      emotionalTTS_stop();
+    }
+  );
 
   return indicator;
 }

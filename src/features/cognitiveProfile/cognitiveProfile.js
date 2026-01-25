@@ -16,6 +16,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -625,17 +626,29 @@ function profile_createPanel() {
   `);
 
   // Close button
-  panel.querySelector('.assist-profile-close').onclick = () => profile_hide();
-  panel.querySelector('#assist-profile-close-btn').onclick = () => profile_hide();
+  attachInteractiveHandler(
+    panel.querySelector('.assist-profile-close'),
+    'Cognitive Profile Close Button',
+    () => profile_hide()
+  );
+  attachInteractiveHandler(
+    panel.querySelector('#assist-profile-close-btn'),
+    'Cognitive Profile Close Bottom Button',
+    () => profile_hide()
+  );
 
   // Reset button
-  panel.querySelector('#assist-profile-reset').onclick = async () => {
-    if (confirm('Reset your learning profile? This cannot be undone.')) {
-      await profile_reset();
-      profile_renderContent();
-      showToast?.('Profile reset') || alert('Profile reset');
+  attachInteractiveHandler(
+    panel.querySelector('#assist-profile-reset'),
+    'Cognitive Profile Reset Button',
+    async () => {
+      if (confirm('Reset your learning profile? This cannot be undone.')) {
+        await profile_reset();
+        profile_renderContent();
+        showToast?.('Profile reset') || alert('Profile reset');
+      }
     }
-  };
+  );
 
   return panel;
 }

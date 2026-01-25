@@ -19,6 +19,8 @@
  * @module features/highlightMenu
  */
 
+import { attachQuietHandler } from '../../utils/event-handlers.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -35,13 +37,12 @@ const highlightMenu_settings = {
   showDictionary: true,
   showTranslate: true,
   showAnnotate: true,
-  showCopy: true,
   showSummarize: true, // AI summarization (LLM Edition)
   showSimplify: true, // AI text simplification (LLM Edition)
   showBreakdown: true, // AI assignment breakdown (LLM Edition)
   showSocraticTutor: true, // AI Socratic questioning (LLM Edition)
   showKnowledgeGraph: true, // AI knowledge graph visualization
-  showSpeedRead: true, // Adaptive RSVP speed reading
+  showSpeedRead: true, // RSVP speed reading (modular system)
   showCitationAnalyzer: true, // AI citation/source analysis
   showCognitiveMonitor: true, // AI cognitive state monitoring
   showMultiDocCompare: true, // Multi-document comparison
@@ -326,12 +327,12 @@ function highlightMenu_createToolbar() {
       index: buttonIndex++,
     });
   }
-  if (highlightMenu_settings.showCopy) {
+  if (highlightMenu_settings.showSpeedRead) {
     allButtons.push({
-      icon: '📋',
-      label: 'Copy',
-      fullLabel: 'Copy Text',
-      handler: highlightMenu_handleCopy,
+      icon: '⚡',
+      label: 'Speed',
+      fullLabel: 'Speed Read (RSVP)',
+      handler: highlightMenu_handleSpeedRead,
       index: buttonIndex++,
     });
   }
@@ -390,16 +391,6 @@ function highlightMenu_createToolbar() {
   }
 
   // Row 3: AI tools part 2 (5 buttons) - Show if Local AI OR Cloud AI is enabled
-  if (aiEnabled && highlightMenu_settings.showSpeedRead) {
-    allButtons.push({
-      icon: '⚡',
-      label: 'Speed',
-      fullLabel: 'Speed Read (RSVP)',
-      handler: highlightMenu_handleSpeedRead,
-      index: buttonIndex++,
-      isAI: true,
-    });
-  }
   if (aiEnabled && highlightMenu_settings.showCitationAnalyzer) {
     allButtons.push({
       icon: '⚖️',
@@ -498,12 +489,10 @@ function highlightMenu_createButton(icon, shortLabel, fullLabel, onClick, index)
   labelSpan.textContent = shortLabel;
   button.appendChild(labelSpan);
 
-  // Use mousedown instead of onclick to prevent race condition with document mousedown listener
-  button.onmousedown = e => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Attach event handler using shared utility (provides race-condition prevention, logging, error handling)
+  attachQuietHandler(button, `HighlightMenu ${fullLabel}`, () => {
     onClick();
-  };
+  });
 
   return button;
 }
@@ -761,30 +750,6 @@ function highlightMenu_handleAnnotate() {
 }
 
 /**
- * Handles Copy action
- */
-async function highlightMenu_handleCopy() {
-  console.log('[HighlightMenu] Copy action triggered');
-
-  try {
-    await navigator.clipboard.writeText(highlightMenu_selectedText);
-    console.log('[HighlightMenu] Text copied to clipboard');
-
-    // Show toast if available
-    if (window.showToast) {
-      window.showToast('Text copied to clipboard');
-    } else {
-      alert('Text copied to clipboard');
-    }
-  } catch (error) {
-    console.error('[HighlightMenu] Clipboard copy failed:', error);
-    alert('Failed to copy text');
-  }
-
-  highlightMenu_hide();
-}
-
-/**
  * Handles Summarize action (AI-powered summarization)
  */
 function highlightMenu_handleSummarize() {
@@ -905,18 +870,17 @@ function highlightMenu_handleKnowledgeGraph() {
 }
 
 /**
- * Handles Speed Read action (Adaptive RSVP)
+ * Handles Speed Read action (RSVP) - Calls new modular RSVP API
  */
 function highlightMenu_handleSpeedRead() {
   console.log('[HighlightMenu] Speed Read (RSVP) action triggered');
 
-  // Check if adaptive RSVP feature is available
-  if (window.assistFeatures?.adaptiveRSVP) {
-    window.assistFeatures.adaptiveRSVP.start(highlightMenu_selectedText);
+  if (window.assistFeatures?.rsvp) {
+    window.assistFeatures.rsvp.start(highlightMenu_selectedText);
   } else {
-    console.warn('[HighlightMenu] Adaptive RSVP feature not loaded');
+    console.warn('[HighlightMenu] RSVP feature not loaded');
     if (window.showToast) {
-      window.showToast('Speed Read feature not available.');
+      window.showToast('Speed Read feature not available. Please reload the page.');
     } else {
       alert('Speed Read feature not available. Please reload the page.');
     }

@@ -23,6 +23,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 
 // ============================================================================
@@ -545,9 +546,21 @@ function struggle_showAssistancePanel(message, action) {
   document.body.appendChild(struggle_panel);
 
   // Event listeners
-  struggle_panel.querySelector('.struggle-close').onclick = () => struggle_dismissPanel();
-  struggle_panel.querySelector('#struggle-dismiss').onclick = () => struggle_dismissPanel();
-  struggle_panel.querySelector('#struggle-accept').onclick = () => struggle_acceptHelp(action);
+  attachInteractiveHandler(
+    struggle_panel.querySelector('.struggle-close'),
+    'Struggle Detection Close Button',
+    () => struggle_dismissPanel()
+  );
+  attachInteractiveHandler(
+    struggle_panel.querySelector('#struggle-dismiss'),
+    'Struggle Detection Dismiss Button',
+    () => struggle_dismissPanel()
+  );
+  attachInteractiveHandler(
+    struggle_panel.querySelector('#struggle-accept'),
+    'Struggle Detection Accept Button',
+    () => struggle_acceptHelp(action)
+  );
 
   // Auto-dismiss after 15 seconds
   setTimeout(() => {

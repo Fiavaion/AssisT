@@ -108,6 +108,57 @@ When encountering ANY bug (UI, logic, integration, build):
 - THIRD ACTION: Check CSS (`pointer-events`, `z-index`) and DOM structure
 - See `LESSONS_UI_EVENT_HANDLING.md` for full playbook
 
+**🚨 MANDATORY: Event Handler Standard**
+
+ALL interactive UI elements (buttons, clickable divs, controls) MUST use the shared utility from `src/utils/event-handlers.js`:
+
+```javascript
+import { attachInteractiveHandler } from '../utils/event-handlers.js';
+
+// Basic usage
+attachInteractiveHandler(button, 'Button Label', () => {
+  // Handler logic
+});
+
+// With cleanup
+const cleanup = attachInteractiveHandler(element, 'Close Button', handleClose);
+// Later: cleanup();
+
+// Batch handlers
+import { attachHandlerBatch } from '../utils/event-handlers.js';
+attachHandlerBatch([
+  { element: playBtn, label: 'Play', handler: play },
+  { element: pauseBtn, label: 'Pause', handler: pause },
+]);
+
+// With keyboard support (for accessibility)
+import { attachAccessibleHandler } from '../utils/event-handlers.js';
+attachAccessibleHandler(button, 'Submit', submitForm);
+```
+
+**❌ NEVER use these patterns:**
+
+- `element.addEventListener('click', handler)`
+- `element.onclick = handler` (without preventDefault/stopPropagation)
+- Inline onclick attributes (except during debugging)
+
+**✅ ALWAYS use:**
+
+- `attachInteractiveHandler()` or variants from `src/utils/event-handlers.js`
+- Provides automatic race condition prevention
+- Built-in visual feedback for accessibility
+- Error handling and debug logging
+- Cleanup function for proper teardown
+
+**Why this matters:**
+Document-level mousedown listeners can hide UI elements before button click handlers execute, causing buttons to appear broken. Using mousedown with stopPropagation() prevents this race condition.
+
+**See:**
+
+- `src/utils/event-handlers.js` - Utility implementation
+- `LESSONS_UI_EVENT_HANDLING.md` - Full technical explanation
+- `src/popup/popup.js` - Reference implementation (lines 641-665)
+
 ---
 
 🧠 OPUS 4.5 ENHANCED CAPABILITIES

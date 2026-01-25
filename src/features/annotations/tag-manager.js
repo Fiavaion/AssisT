@@ -17,6 +17,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================
 // CONSTANTS
@@ -274,7 +275,7 @@ export function createTagInput(container, initialTags = [], onChange = null) {
       option.setAttribute('tabindex', '0');
 
       // Click to select
-      option.addEventListener('click', () => {
+      attachInteractiveHandler(option, 'Tag Autocomplete Option', () => {
         addTag(tagName);
         input.value = '';
         dropdown.style.display = 'none';
@@ -454,7 +455,7 @@ export function createTagPill(tagName, onRemove = null) {
     removeBtn.setAttribute('aria-label', `Remove tag ${tagName}`);
     removeBtn.setAttribute('type', 'button');
 
-    removeBtn.addEventListener('click', e => {
+    attachInteractiveHandler(removeBtn, 'Tag Remove Button', e => {
       e.stopPropagation();
       onRemove();
     });

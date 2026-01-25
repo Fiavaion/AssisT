@@ -21,6 +21,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -891,51 +892,63 @@ async function ocr_showScreenshotUI() {
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
-  // Handle button clicks
+  // Handle button clicks using shared event handler utility
   return new Promise(resolve => {
-    document.getElementById('assist-ocr-visible').onclick = async () => {
-      overlay.remove();
-      // Wait for modal to be completely removed from DOM
-      await new Promise(r => setTimeout(r, 100));
-      try {
-        const dataUrl = await ocr_captureVisibleTab();
-        resolve(dataUrl);
-      } catch (error) {
-        console.error('[OCR] Visible capture failed:', error);
-        resolve(null);
+    attachInteractiveHandler(
+      document.getElementById('assist-ocr-visible'),
+      'OCR Capture Visible',
+      async () => {
+        overlay.remove();
+        // Wait for modal to be completely removed from DOM
+        await new Promise(r => setTimeout(r, 100));
+        try {
+          const dataUrl = await ocr_captureVisibleTab();
+          resolve(dataUrl);
+        } catch (error) {
+          console.error('[OCR] Visible capture failed:', error);
+          resolve(null);
+        }
       }
-    };
+    );
 
-    document.getElementById('assist-ocr-fullpage').onclick = async () => {
-      overlay.remove();
-      // Wait for modal to be completely removed from DOM
-      await new Promise(r => setTimeout(r, 100));
-      try {
-        const dataUrl = await ocr_captureFullPage();
-        resolve(dataUrl);
-      } catch (error) {
-        console.error('[OCR] Full-page capture failed:', error);
-        resolve(null);
+    attachInteractiveHandler(
+      document.getElementById('assist-ocr-fullpage'),
+      'OCR Capture Full Page',
+      async () => {
+        overlay.remove();
+        // Wait for modal to be completely removed from DOM
+        await new Promise(r => setTimeout(r, 100));
+        try {
+          const dataUrl = await ocr_captureFullPage();
+          resolve(dataUrl);
+        } catch (error) {
+          console.error('[OCR] Full-page capture failed:', error);
+          resolve(null);
+        }
       }
-    };
+    );
 
-    document.getElementById('assist-ocr-region').onclick = async () => {
-      overlay.remove();
-      // Wait for modal to be completely removed from DOM
-      await new Promise(r => setTimeout(r, 100));
-      try {
-        const dataUrl = await ocr_captureRegion();
-        resolve(dataUrl);
-      } catch (error) {
-        console.error('[OCR] Region capture failed:', error);
-        resolve(null);
+    attachInteractiveHandler(
+      document.getElementById('assist-ocr-region'),
+      'OCR Capture Region',
+      async () => {
+        overlay.remove();
+        // Wait for modal to be completely removed from DOM
+        await new Promise(r => setTimeout(r, 100));
+        try {
+          const dataUrl = await ocr_captureRegion();
+          resolve(dataUrl);
+        } catch (error) {
+          console.error('[OCR] Region capture failed:', error);
+          resolve(null);
+        }
       }
-    };
+    );
 
-    document.getElementById('assist-ocr-cancel').onclick = () => {
+    attachInteractiveHandler(document.getElementById('assist-ocr-cancel'), 'OCR Cancel', () => {
       overlay.remove();
       resolve(null);
-    };
+    });
   });
 }
 
@@ -1850,7 +1863,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
     };
 
     // Play/Pause button handler
-    document.getElementById('ocr-play-pause').onclick = () => {
+    attachInteractiveHandler(document.getElementById('ocr-play-pause'), 'OCR Play/Pause', () => {
       const btn = document.getElementById('ocr-play-pause');
       if (ocrMediaPlayer.isPlaying) {
         // Pause
@@ -1870,38 +1883,44 @@ async function ocr_showResultModal(result, imageDataUrl) {
         // Start playing current chunk
         ocr_playChunk(ocrMediaPlayer.currentChunkIndex, btn);
       }
-    };
+    });
 
     // Stop button handler
-    document.getElementById('ocr-stop').onclick = () => {
+    attachInteractiveHandler(document.getElementById('ocr-stop'), 'OCR Stop', () => {
       ocr_stopPlayback();
       const btn = document.getElementById('ocr-play-pause');
       btn.textContent = '▶';
-    };
+    });
 
     // Chunk navigation
-    document.getElementById('ocr-prev-chunk')?.addEventListener('click', () => {
-      if (ocrMediaPlayer.currentChunkIndex > 0) {
-        ocr_stopPlayback();
-        ocrMediaPlayer.currentChunkIndex--;
-        updateChunkDisplay();
-        console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
-      }
-    });
+    const prevChunkBtn = document.getElementById('ocr-prev-chunk');
+    if (prevChunkBtn) {
+      attachInteractiveHandler(prevChunkBtn, 'OCR Previous Chunk', () => {
+        if (ocrMediaPlayer.currentChunkIndex > 0) {
+          ocr_stopPlayback();
+          ocrMediaPlayer.currentChunkIndex--;
+          updateChunkDisplay();
+          console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
+        }
+      });
+    }
 
-    document.getElementById('ocr-next-chunk')?.addEventListener('click', () => {
-      if (ocrMediaPlayer.currentChunkIndex < ocrMediaPlayer.chunks.length - 1) {
-        ocr_stopPlayback();
-        ocrMediaPlayer.currentChunkIndex++;
-        updateChunkDisplay();
-        console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
-      }
-    });
+    const nextChunkBtn = document.getElementById('ocr-next-chunk');
+    if (nextChunkBtn) {
+      attachInteractiveHandler(nextChunkBtn, 'OCR Next Chunk', () => {
+        if (ocrMediaPlayer.currentChunkIndex < ocrMediaPlayer.chunks.length - 1) {
+          ocr_stopPlayback();
+          ocrMediaPlayer.currentChunkIndex++;
+          updateChunkDisplay();
+          console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
+        }
+      });
+    }
 
     // Speed control buttons
     document.querySelectorAll('.speed-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const speed = parseFloat(btn.getAttribute('data-speed'));
+      const speed = parseFloat(btn.getAttribute('data-speed'));
+      attachInteractiveHandler(btn, `OCR Speed ${speed}x`, () => {
         ocrMediaPlayer.rate = speed;
 
         // Update visual state
@@ -1924,29 +1943,29 @@ async function ocr_showResultModal(result, imageDataUrl) {
     });
 
     // Utility buttons
-    document.getElementById('assist-ocr-close').onclick = () => {
+    attachInteractiveHandler(document.getElementById('assist-ocr-close'), 'OCR Close', () => {
       ocr_stopPlayback();
       overlay.remove();
       resolve();
-    };
+    });
 
-    document.getElementById('assist-ocr-copy').onclick = () => {
+    attachInteractiveHandler(document.getElementById('assist-ocr-copy'), 'OCR Copy', () => {
       ocr_copyToClipboard(ocrMediaPlayer.fullText);
       alert('Full text copied to clipboard!');
-    };
+    });
 
-    document.getElementById('assist-ocr-save').onclick = () => {
+    attachInteractiveHandler(document.getElementById('assist-ocr-save'), 'OCR Save', () => {
       ocr_saveAsFile(ocrMediaPlayer.fullText);
-    };
+    });
 
     // Close on overlay click
-    overlay.onclick = e => {
+    attachInteractiveHandler(overlay, 'OCR Modal Backdrop', e => {
       if (e.target === overlay) {
         ocr_stopPlayback();
         overlay.remove();
         resolve();
       }
-    };
+    });
 
     // ESC key to close
     const handleEsc = e => {

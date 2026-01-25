@@ -135,6 +135,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // Handle generic tab opening (with custom URL)
+  if (message.action === 'openTab' && message.url) {
+    chrome.tabs.create({
+      url: message.url,
+    });
+    sendResponse({ success: true });
+    return false;
+  }
+
   // Handle screenshot capture requests
   if (message.action === 'CAPTURE_SCREENSHOT') {
     chrome.tabs.captureVisibleTab(null, { format: message.options?.format || 'png' }, dataUrl => {

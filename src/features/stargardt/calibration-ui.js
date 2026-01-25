@@ -8,6 +8,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler, attachDelegatedHandler } from '../../utils/event-handlers.js';
 import * as gazeTracker from './gaze-tracker.js';
 import * as scotomaProfile from './scotoma-profile.js';
 
@@ -398,13 +399,21 @@ function showIntroPhase() {
   `);
 
   // Bind buttons
-  document.getElementById('cal-skip').onclick = () => {
-    closeCalibration({ success: false, profile: null, skipped: true });
-  };
+  attachInteractiveHandler(
+    document.getElementById('cal-skip'),
+    'Stargardt Skip Calibration',
+    () => {
+      closeCalibration({ success: false, profile: null, skipped: true });
+    }
+  );
 
-  document.getElementById('cal-start').onclick = () => {
-    startEyeTrackingCalibration();
-  };
+  attachInteractiveHandler(
+    document.getElementById('cal-start'),
+    'Stargardt Start Calibration',
+    () => {
+      startEyeTrackingCalibration();
+    }
+  );
 
   // Focus the start button
   document.getElementById('cal-start').focus();
@@ -489,7 +498,9 @@ function renderCalibrationUI() {
   // Bind point click events
   CALIBRATION_POSITIONS.forEach((_, i) => {
     const point = document.getElementById(`cal-point-${i}`);
-    point.onclick = () => handleCalibrationPointClick(i);
+    attachInteractiveHandler(point, `Stargardt Calibration Point ${i + 1}`, () =>
+      handleCalibrationPointClick(i)
+    );
     point.onkeydown = e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -499,9 +510,13 @@ function renderCalibrationUI() {
   });
 
   // Skip button
-  document.getElementById('cal-skip-btn').onclick = () => {
-    closeCalibration({ success: false, profile: null, skipped: true });
-  };
+  attachInteractiveHandler(
+    document.getElementById('cal-skip-btn'),
+    'Stargardt Skip During Calibration',
+    () => {
+      closeCalibration({ success: false, profile: null, skipped: true });
+    }
+  );
 }
 
 /**
@@ -627,14 +642,22 @@ function startScotomaMapping() {
     </div>
   `);
 
-  document.getElementById('scotoma-skip').onclick = () => {
-    // Use estimated defaults
-    completeScotomaMapping(true);
-  };
+  attachInteractiveHandler(
+    document.getElementById('scotoma-skip'),
+    'Stargardt Skip Scotoma Mapping',
+    () => {
+      // Use estimated defaults
+      completeScotomaMapping(true);
+    }
+  );
 
-  document.getElementById('scotoma-start').onclick = () => {
-    runScotomaTest();
-  };
+  attachInteractiveHandler(
+    document.getElementById('scotoma-start'),
+    'Stargardt Start Scotoma Mapping',
+    () => {
+      runScotomaTest();
+    }
+  );
 
   document.getElementById('scotoma-start').focus();
 }
@@ -842,9 +865,9 @@ function showCompletionPhase(profile) {
 
   playFeedbackSound('complete');
 
-  document.getElementById('cal-finish').onclick = () => {
+  attachInteractiveHandler(document.getElementById('cal-finish'), 'Stargardt Finish Setup', () => {
     closeCalibration({ success: true, profile, skipped: false });
-  };
+  });
 
   document.getElementById('cal-finish').focus();
 }
@@ -885,9 +908,9 @@ function showError(message) {
     </div>
   `);
 
-  document.getElementById('cal-close').onclick = () => {
+  attachInteractiveHandler(document.getElementById('cal-close'), 'Stargardt Close Error', () => {
     closeCalibration({ success: false, profile: null, skipped: false });
-  };
+  });
 }
 
 /**
@@ -1009,13 +1032,21 @@ function showMicroCheckIntro() {
     </div>
   `);
 
-  document.getElementById('micro-skip').onclick = () => {
-    closeMicroCheck({ completed: false, results: [], driftDetected: false, skipped: true });
-  };
+  attachInteractiveHandler(
+    document.getElementById('micro-skip'),
+    'Stargardt Micro-Check Skip',
+    () => {
+      closeMicroCheck({ completed: false, results: [], driftDetected: false, skipped: true });
+    }
+  );
 
-  document.getElementById('micro-start').onclick = () => {
-    runMicroCheckTest();
-  };
+  attachInteractiveHandler(
+    document.getElementById('micro-start'),
+    'Stargardt Micro-Check Start',
+    () => {
+      runMicroCheckTest();
+    }
+  );
 
   document.getElementById('micro-start').focus();
 }
@@ -1161,34 +1192,46 @@ function completeMicroCheck(results) {
   playFeedbackSound(driftDetected ? 'success' : 'complete');
 
   if (driftDetected) {
-    document.getElementById('micro-later').onclick = () => {
-      closeMicroCheck({
-        completed: true,
-        results,
-        driftDetected,
-        driftDetails,
-        requestRecalibration: false,
-      });
-    };
-    document.getElementById('micro-recalibrate').onclick = () => {
-      closeMicroCheck({
-        completed: true,
-        results,
-        driftDetected,
-        driftDetails,
-        requestRecalibration: true,
-      });
-    };
+    attachInteractiveHandler(
+      document.getElementById('micro-later'),
+      'Stargardt Micro-Check Later',
+      () => {
+        closeMicroCheck({
+          completed: true,
+          results,
+          driftDetected,
+          driftDetails,
+          requestRecalibration: false,
+        });
+      }
+    );
+    attachInteractiveHandler(
+      document.getElementById('micro-recalibrate'),
+      'Stargardt Micro-Check Recalibrate',
+      () => {
+        closeMicroCheck({
+          completed: true,
+          results,
+          driftDetected,
+          driftDetails,
+          requestRecalibration: true,
+        });
+      }
+    );
   } else {
-    document.getElementById('micro-done').onclick = () => {
-      closeMicroCheck({
-        completed: true,
-        results,
-        driftDetected,
-        driftDetails,
-        requestRecalibration: false,
-      });
-    };
+    attachInteractiveHandler(
+      document.getElementById('micro-done'),
+      'Stargardt Micro-Check Done',
+      () => {
+        closeMicroCheck({
+          completed: true,
+          results,
+          driftDetected,
+          driftDetails,
+          requestRecalibration: false,
+        });
+      }
+    );
     document.getElementById('micro-done').focus();
   }
 }
@@ -1391,18 +1434,29 @@ export function showReassessmentPrompt(options) {
     document.body.appendChild(reassessmentPromptOverlay);
 
     // Bind events
-    reassessmentPromptOverlay.querySelector('.stargardt-reassessment-prompt-close').onclick =
+    attachInteractiveHandler(
+      reassessmentPromptOverlay.querySelector('.stargardt-reassessment-prompt-close'),
+      'Stargardt Reassessment Dismiss',
       () => {
         closeReassessmentPrompt({ action: null, dismissed: true });
-      };
+      }
+    );
 
-    document.getElementById('reassess-later').onclick = () => {
-      closeReassessmentPrompt({ action: null, dismissed: true, remindLater: true });
-    };
+    attachInteractiveHandler(
+      document.getElementById('reassess-later'),
+      'Stargardt Reassess Later',
+      () => {
+        closeReassessmentPrompt({ action: null, dismissed: true, remindLater: true });
+      }
+    );
 
-    document.getElementById('reassess-now').onclick = () => {
-      closeReassessmentPrompt({ action: options.action, dismissed: false });
-    };
+    attachInteractiveHandler(
+      document.getElementById('reassess-now'),
+      'Stargardt Reassess Now',
+      () => {
+        closeReassessmentPrompt({ action: options.action, dismissed: false });
+      }
+    );
 
     // Announce to screen readers
     announceToScreenReader(`${title}: ${options.reason}`);
@@ -1540,22 +1594,26 @@ export function showDiaryEntry() {
     let selectedRating = 3;
     const selectedSymptoms = new Set();
 
-    // Rating buttons
-    document.getElementById('diary-rating').addEventListener('click', e => {
-      const btn = e.target.closest('[data-rating]');
-      if (btn) {
+    // Rating buttons (delegated handler for dynamic buttons)
+    attachDelegatedHandler(
+      document.getElementById('diary-rating'),
+      '[data-rating]',
+      'Stargardt Diary Rating',
+      (e, btn) => {
         selectedRating = parseInt(btn.dataset.rating);
         document.querySelectorAll('#diary-rating button').forEach(b => {
           b.style.background = '#3a3a5a';
         });
         btn.style.background = '#6366f1';
       }
-    });
+    );
 
-    // Symptom buttons
-    document.getElementById('diary-symptoms').addEventListener('click', e => {
-      const btn = e.target.closest('[data-symptom]');
-      if (btn) {
+    // Symptom buttons (delegated handler for dynamic buttons)
+    attachDelegatedHandler(
+      document.getElementById('diary-symptoms'),
+      '[data-symptom]',
+      'Stargardt Diary Symptom',
+      (e, btn) => {
         const symptom = btn.dataset.symptom;
         if (selectedSymptoms.has(symptom)) {
           selectedSymptoms.delete(symptom);
@@ -1565,22 +1623,26 @@ export function showDiaryEntry() {
           btn.style.background = '#6366f1';
         }
       }
-    });
+    );
 
     // Cancel
-    document.getElementById('diary-cancel').onclick = () => {
-      closeDiary({ completed: false, entry: null });
-    };
+    attachInteractiveHandler(
+      document.getElementById('diary-cancel'),
+      'Stargardt Diary Cancel',
+      () => {
+        closeDiary({ completed: false, entry: null });
+      }
+    );
 
     // Save
-    document.getElementById('diary-save').onclick = () => {
+    attachInteractiveHandler(document.getElementById('diary-save'), 'Stargardt Diary Save', () => {
       const entry = {
         qualityRating: selectedRating,
         symptoms: Array.from(selectedSymptoms),
         notes: document.getElementById('diary-notes').value.trim(),
       };
       closeDiary({ completed: true, entry });
-    };
+    });
 
     // Focus first rating
     document.querySelector('#diary-rating button').focus();

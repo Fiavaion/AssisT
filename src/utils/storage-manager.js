@@ -89,6 +89,13 @@ export class StorageManager {
       boxHeight: 100, // px, min: 50, max: 250, step: 5
       overlayOpacity: 0.7, // 0.0-1.0 (darkness of surrounding area)
     },
+    // OCR (Optical Character Recognition)
+    ocr: {
+      enabled: false, // Default OFF - requires user activation
+      autoActivateReadingMode: true,
+      filterNoise: true,
+      upscaleFactor: 1.5,
+    },
     // Sprint 4 Features
     canvasIntegration: {
       enabled: false, // Default OFF - user will test post-launch

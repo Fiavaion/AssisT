@@ -11,6 +11,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -22,6 +23,7 @@ let apvui_profile = null;
 // let _apvui_styleElement = null; // Reserved for future use
 let apvui_radialMenu = null;
 let apvui_motionCueInterval = null;
+let apvui_radialMenuCloseHandler = null;
 
 // ============================================================================
 // INITIALIZATION
@@ -402,17 +404,25 @@ function showRadialMenu(x, y) {
     btn.innerHTML = sanitizeHTML(item.icon);
     btn.setAttribute('aria-label', item.label);
     btn.setAttribute('title', item.label);
-    btn.onclick = () => {
+
+    attachInteractiveHandler(btn, `Radial Menu - ${item.label}`, () => {
       handleRadialAction(item.action);
       hideRadialMenu();
-    };
+    });
 
     apvui_radialMenu.appendChild(btn);
   });
 
   // Click outside to close
   setTimeout(() => {
-    document.addEventListener('click', hideRadialMenuOnClick);
+    apvui_radialMenuCloseHandler = attachInteractiveHandler(
+      document,
+      'Radial Menu - Close on Click Outside',
+      hideRadialMenuOnClick,
+      {
+        enableVisualFeedback: false,
+      }
+    );
   }, 100);
 }
 
@@ -423,7 +433,10 @@ function hideRadialMenu() {
   if (apvui_radialMenu) {
     apvui_radialMenu.innerHTML = sanitizeHTML('');
   }
-  document.removeEventListener('click', hideRadialMenuOnClick);
+  if (apvui_radialMenuCloseHandler) {
+    apvui_radialMenuCloseHandler();
+    apvui_radialMenuCloseHandler = null;
+  }
 }
 
 function hideRadialMenuOnClick(e) {

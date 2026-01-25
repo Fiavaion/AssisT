@@ -26,6 +26,7 @@
 import { getStorageAdapter } from './storage-adapter.js';
 import { createTagInput } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -319,10 +320,8 @@ function applyAnnotationColor(element, color) {
  * @param {Object} annotation - Annotation data
  */
 function attachAnnotationListeners(element, annotation) {
-  // Click to edit
-  element.addEventListener('click', e => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Click/keyboard to edit (includes Enter/Space key support)
+  attachAccessibleHandler(element, 'Annotation Highlight', () => {
     openEditModal(annotation);
   });
 
@@ -338,14 +337,6 @@ function attachAnnotationListeners(element, annotation) {
     if (tooltip) {
       tooltip.remove();
       tooltip = null;
-    }
-  });
-
-  // Keyboard accessibility
-  element.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      openEditModal(annotation);
     }
   });
 
@@ -469,14 +460,16 @@ export function openAnnotationModal(annotation = null, selectedText = '', positi
   const tagInputContainer = modal.querySelector('#annotation-tag-input-container');
   const tagInput = createTagInput(tagInputContainer, annotation?.tags || []);
 
-  closeBtn.addEventListener('click', () => closeAnnotationModal());
-  cancelBtn.addEventListener('click', () => closeAnnotationModal());
-  saveBtn.addEventListener('click', () =>
+  attachInteractiveHandler(closeBtn, 'Annotation Modal Close', () => closeAnnotationModal());
+  attachInteractiveHandler(cancelBtn, 'Annotation Modal Cancel', () => closeAnnotationModal());
+  attachInteractiveHandler(saveBtn, 'Annotation Modal Save', () =>
     saveAnnotationFromModal(selectedText, position, tagInput)
   );
 
   if (deleteBtn) {
-    deleteBtn.addEventListener('click', () => deleteAnnotationFromModal());
+    attachInteractiveHandler(deleteBtn, 'Annotation Modal Delete', () =>
+      deleteAnnotationFromModal()
+    );
   }
 
   // Close on overlay click
@@ -496,7 +489,7 @@ export function openAnnotationModal(annotation = null, selectedText = '', positi
   // Color picker handlers
   const colorOptions = modal.querySelectorAll('.assist-annotation-color-option');
   colorOptions.forEach(option => {
-    option.addEventListener('click', () => {
+    attachInteractiveHandler(option, 'Annotation Color', () => {
       colorOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
     });

@@ -10,7 +10,10 @@ import {
   createProfile,
   applyProfile,
 } from './recommendations.js';
-import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+
+// Note: sanitizeHTML removed - all HTML content is extension-controlled
+// (hardcoded in questions.js, no user input) - safe for Chrome Web Store
 
 // ============================================================================
 // State Management
@@ -87,19 +90,97 @@ function cacheElements() {
 }
 
 function bindEvents() {
+  // NOTE: Discovery page uses standard click events instead of attachInteractiveHandler
+  // because it's a standalone page without competing event listeners that would cause
+  // the race conditions that mousedown handlers prevent in the popup context.
+
   // Welcome screen
-  elements.btnStart?.addEventListener('click', startQuiz);
+  if (elements.btnStart) {
+    elements.btnStart.addEventListener('click', _e => {
+      console.log('[Discovery] Start Quiz button clicked');
+      try {
+        startQuiz();
+      } catch (error) {
+        console.error('[Discovery] Start Quiz error:', error);
+      }
+    });
+  } else {
+    console.error('[Discovery] btnStart element not found - check HTML IDs');
+  }
 
   // Question screen
-  elements.btnBack?.addEventListener('click', goBack);
-  elements.btnNext?.addEventListener('click', goNext);
-  elements.btnTellMore?.addEventListener('click', toggleTellMeMore);
+  if (elements.btnBack) {
+    elements.btnBack.addEventListener('click', _e => {
+      console.log('[Discovery] Back button clicked');
+      try {
+        goBack();
+      } catch (error) {
+        console.error('[Discovery] Back error:', error);
+      }
+    });
+  }
+  if (elements.btnNext) {
+    elements.btnNext.addEventListener('click', _e => {
+      console.log('[Discovery] Next button clicked');
+      try {
+        goNext();
+      } catch (error) {
+        console.error('[Discovery] Next error:', error);
+      }
+    });
+  }
+  if (elements.btnTellMore) {
+    elements.btnTellMore.addEventListener('click', _e => {
+      console.log('[Discovery] Tell Me More button clicked');
+      try {
+        toggleTellMeMore();
+      } catch (error) {
+        console.error('[Discovery] Tell Me More error:', error);
+      }
+    });
+  }
 
   // Results screen
-  elements.btnTryDemo?.addEventListener('click', openDemoPage);
-  elements.btnApply?.addEventListener('click', applyAndClose);
-  elements.btnRetake?.addEventListener('click', retakeQuiz);
-  elements.btnSkipAll?.addEventListener('click', skipAll);
+  if (elements.btnTryDemo) {
+    elements.btnTryDemo.addEventListener('click', _e => {
+      console.log('[Discovery] Try Demo button clicked');
+      try {
+        openDemoPage();
+      } catch (error) {
+        console.error('[Discovery] Try Demo error:', error);
+      }
+    });
+  }
+  if (elements.btnApply) {
+    elements.btnApply.addEventListener('click', _e => {
+      console.log('[Discovery] Apply Profile button clicked');
+      try {
+        applyAndClose();
+      } catch (error) {
+        console.error('[Discovery] Apply Profile error:', error);
+      }
+    });
+  }
+  if (elements.btnRetake) {
+    elements.btnRetake.addEventListener('click', _e => {
+      console.log('[Discovery] Retake Quiz button clicked');
+      try {
+        retakeQuiz();
+      } catch (error) {
+        console.error('[Discovery] Retake Quiz error:', error);
+      }
+    });
+  }
+  if (elements.btnSkipAll) {
+    elements.btnSkipAll.addEventListener('click', _e => {
+      console.log('[Discovery] Skip All button clicked');
+      try {
+        skipAll();
+      } catch (error) {
+        console.error('[Discovery] Skip All error:', error);
+      }
+    });
+  }
 
   // Keyboard navigation
   document.addEventListener('keydown', handleKeyboard);
@@ -248,10 +329,10 @@ function renderOptions(question) {
 
   const selectedValue = state.responses.primary[question.id];
 
-  elements.optionsContainer.innerHTML = sanitizeHTML(
-    question.options
-      .map(
-        option => `
+  // Safe innerHTML: content is extension-controlled (from questions.js)
+  elements.optionsContainer.innerHTML = question.options
+    .map(
+      option => `
       <div class="option-item ${selectedValue === option.value ? 'selected' : ''}"
            data-value="${option.value}"
            role="radio"
@@ -267,13 +348,14 @@ function renderOptions(question) {
         <label for="opt-${question.id}-${option.value}">${option.label}</label>
       </div>
     `
-      )
-      .join('')
-  );
+    )
+    .join('');
 
   // Bind option click events
   elements.optionsContainer.querySelectorAll('.option-item').forEach(item => {
-    item.addEventListener('click', () => selectOption(question.id, parseInt(item.dataset.value)));
+    attachInteractiveHandler(item, 'Discovery Quiz Option', () =>
+      selectOption(question.id, parseInt(item.dataset.value))
+    );
     item.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -313,10 +395,10 @@ function renderSubQuestions(question) {
     elements.tellMeMore.style.display = 'block';
   }
 
-  elements.subQuestions.innerHTML = sanitizeHTML(
-    question.subQuestions
-      .map(
-        subQ => `
+  // Safe innerHTML: content is extension-controlled (from questions.js)
+  elements.subQuestions.innerHTML = question.subQuestions
+    .map(
+      subQ => `
       <div class="sub-question-item">
         <input
           type="checkbox"
@@ -326,9 +408,8 @@ function renderSubQuestions(question) {
         <label for="sub-${subQ.id}">${subQ.label}</label>
       </div>
     `
-      )
-      .join('')
-  );
+    )
+    .join('');
 
   // Bind sub-question events
   elements.subQuestions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
@@ -414,12 +495,13 @@ function renderResults() {
   }
 
   if (state.recommendations.length === 0) {
-    elements.recommendationsContainer.innerHTML = sanitizeHTML(`
+    // Safe innerHTML: hardcoded message (no user input)
+    elements.recommendationsContainer.innerHTML = `
       <p class="no-recommendations">
         Based on your responses, you may not need many accessibility features right now.
         Feel free to explore the extension and enable features as needed.
       </p>
-    `);
+    `;
     return;
   }
 
@@ -440,7 +522,7 @@ function renderResults() {
 
   // Bind expand/collapse events
   elements.recommendationsContainer.querySelectorAll('.expand-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
+    attachInteractiveHandler(btn, 'Discovery Recommendation Expand Button', e => {
       const card = e.target.closest('.recommendation-card');
       const details = card.querySelector('.card-details');
       const isExpanded = btn.getAttribute('aria-expanded') === 'true';

@@ -15,6 +15,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -791,14 +792,14 @@ function spg_displayPath(path) {
       const topicId = parseInt(el.dataset.id);
 
       // Toggle expand
-      header.onclick = e => {
+      attachInteractiveHandler(header, 'Study Path Topic Header', e => {
         if (!e.target.closest('.spg-topic-checkbox')) {
           el.classList.toggle('expanded');
         }
-      };
+      });
 
       // Toggle completion
-      checkbox.onclick = e => {
+      attachInteractiveHandler(checkbox, 'Study Path Topic Checkbox', e => {
         e.stopPropagation();
         if (el.classList.contains('completed')) {
           spg_markIncomplete(topicId);
@@ -809,7 +810,7 @@ function spg_displayPath(path) {
           el.classList.add('completed');
           checkbox.textContent = '✓';
         }
-      };
+      });
     });
   }
 
@@ -889,19 +890,19 @@ function spg_show(text = null) {
   // Setup event handlers
   const closeBtn = spg_panel.querySelector('.spg-close');
   if (closeBtn) {
-    closeBtn.onclick = spg_hide;
+    attachInteractiveHandler(closeBtn, 'Study Path Close Button', spg_hide);
   }
 
   const generateBtn = document.getElementById('spg-generate-btn');
   if (generateBtn) {
-    generateBtn.onclick = () => {
+    attachInteractiveHandler(generateBtn, 'Study Path Generate Button', () => {
       const selection = text || window.getSelection().toString().trim();
       if (selection && selection.length > 100) {
         spg_generatePath(selection);
       } else {
         alert('Please select more text (at least 100 characters) to generate a study path.');
       }
-    };
+    });
   }
 
   // If text provided, generate immediately

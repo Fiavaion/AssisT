@@ -18,6 +18,7 @@
 
 import { MESSAGE_TYPES } from '../config/constants.js';
 import { sanitizeHTML } from '../utils/sanitize.js';
+import { attachInteractiveHandler, attachDelegatedHandler } from '../utils/event-handlers.js';
 
 /**
  * Citation Manager Panel Component
@@ -659,7 +660,7 @@ export class CitationManagerPanel {
     // View tabs
     const viewTabs = this.container.querySelectorAll('.view-tab');
     viewTabs.forEach(tab => {
-      tab.addEventListener('click', e => {
+      attachInteractiveHandler(tab, 'View Tab', e => {
         this.setView(e.target.dataset.view);
       });
 
@@ -671,7 +672,7 @@ export class CitationManagerPanel {
     // Display mode toggle
     const displayBtns = this.container.querySelectorAll('.display-btn');
     displayBtns.forEach(btn => {
-      btn.addEventListener('click', e => {
+      attachInteractiveHandler(btn, 'Display Mode Button', e => {
         this.setDisplayMode(e.currentTarget.dataset.mode);
       });
     });
@@ -708,7 +709,7 @@ export class CitationManagerPanel {
     // Quick action buttons
     const quickActions = this.container.querySelectorAll('.quick-action-btn');
     quickActions.forEach(btn => {
-      btn.addEventListener('click', () => {
+      attachInteractiveHandler(btn, 'Quick Action Button', () => {
         this.handleQuickAction(btn.dataset.action);
       });
     });
@@ -929,21 +930,22 @@ export class CitationManagerPanel {
         .join('')
     );
 
-    // Attach click handlers to cards
-    list.querySelectorAll('.citation-card').forEach((card, index) => {
-      card.addEventListener('click', () => {
+    // Attach delegated handlers to cards
+    attachDelegatedHandler(list, '.citation-card', 'Citation Card', (e, card) => {
+      const index = Array.from(list.querySelectorAll('.citation-card')).indexOf(card);
+      if (index >= 0) {
         this.openCitation(this.filteredCitations[index]);
-      });
+      }
     });
 
-    // Attach action button handlers
-    list.querySelectorAll('.citation-action-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const action = btn.dataset.action;
-        const id = btn.closest('.citation-card').dataset.id;
+    // Attach delegated handlers to action buttons
+    attachDelegatedHandler(list, '.citation-action-btn', 'Citation Action Button', (e, btn) => {
+      const action = btn.dataset.action;
+      const card = btn.closest('.citation-card');
+      const id = card?.dataset.id;
+      if (id) {
         this.handleCitationAction(action, id);
-      });
+      }
     });
   }
 
@@ -1018,7 +1020,7 @@ export class CitationManagerPanel {
 
     const saveBtn = list.querySelector('[data-action="save-first"]');
     if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
+      attachInteractiveHandler(saveBtn, 'Save First Action', () => {
         this.handleQuickAction('save');
       });
     }

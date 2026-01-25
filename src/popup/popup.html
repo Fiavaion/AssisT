@@ -1761,6 +1761,240 @@
               </div>
             </section>
 
+            <!-- Custom Cursor -->
+            <section class="control-section" id="custom-cursor-section">
+              <div class="toggle-control">
+                <label for="custom-cursor-enabled" class="toggle-label">
+                  <span class="label-text">🎯 Custom Cursor</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="custom-cursor-enabled"
+                      data-testid="custom-cursor-toggle"
+                      role="switch"
+                      aria-label="Enable custom large cursor"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="custom-cursor-description">
+                Large, high-contrast cursor for better visibility
+              </p>
+              <div id="custom-cursor-options" class="custom-cursor-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="custom-cursor-size">Cursor Size</label>
+                    <span class="control-value" id="custom-cursor-size-value">32px</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="custom-cursor-size"
+                      data-testid="custom-cursor-size-slider"
+                      class="slider"
+                      min="24"
+                      max="96"
+                      step="4"
+                      value="32"
+                      aria-label="Cursor size"
+                    />
+                    <div class="slider-labels">
+                      <span>Small</span>
+                      <span>Large</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="custom-cursor-style">Cursor Style</label>
+                  </h3>
+                  <select
+                    id="custom-cursor-style"
+                    data-testid="custom-cursor-style-select"
+                    class="voice-select"
+                    aria-label="Select cursor style"
+                  >
+                    <option value="crosshair">Crosshair</option>
+                    <option value="circle">Circle</option>
+                    <option value="dot">Dot with Ring</option>
+                    <option value="arrow">Large Arrow</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="custom-cursor-color">Cursor Color</label>
+                  </h3>
+                  <select
+                    id="custom-cursor-color"
+                    data-testid="custom-cursor-color-select"
+                    class="voice-select"
+                    aria-label="Select cursor color"
+                  >
+                    <option value="#ff0000">Red</option>
+                    <option value="#00ff00">Green</option>
+                    <option value="#ffff00">Yellow</option>
+                    <option value="#00ffff">Cyan</option>
+                    <option value="#ff00ff">Magenta</option>
+                    <option value="#ffffff">White</option>
+                    <option value="#000000">Black</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <!-- Magnifying Lens -->
+            <section class="control-section" id="magnifying-lens-section">
+              <div class="toggle-control">
+                <label for="magnifying-lens-enabled" class="toggle-label">
+                  <span class="label-text">🔍 Magnifying Lens</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="magnifying-lens-enabled"
+                      data-testid="magnifying-lens-toggle"
+                      role="switch"
+                      aria-label="Enable magnifying lens"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="magnifying-lens-description">
+                Movable magnification lens that follows your cursor
+              </p>
+              <div id="magnifying-lens-options" class="magnifying-lens-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="magnifying-lens-scale">Magnification</label>
+                    <span class="control-value" id="magnifying-lens-scale-value">2.0x</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="magnifying-lens-scale"
+                      data-testid="magnifying-lens-scale-slider"
+                      class="slider"
+                      min="1.5"
+                      max="4"
+                      step="0.25"
+                      value="2"
+                      aria-label="Magnification level"
+                    />
+                    <div class="slider-labels">
+                      <span>1.5x</span>
+                      <span>4x</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="magnifying-lens-size">Lens Size</label>
+                    <span class="control-value" id="magnifying-lens-size-value">275px</span>
+                  </h3>
+                  <div class="slider-control">
+                    <input
+                      type="range"
+                      id="magnifying-lens-size"
+                      data-testid="magnifying-lens-size-slider"
+                      class="slider"
+                      min="100"
+                      max="600"
+                      step="25"
+                      value="275"
+                      aria-label="Lens size in pixels"
+                    />
+                    <div class="slider-labels">
+                      <span>Small</span>
+                      <span>Large</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="magnifying-lens-offset-enabled" class="toggle-label">
+                      <span class="label-text">Enable Offset from Cursor</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="magnifying-lens-offset-enabled"
+                          data-testid="magnifying-lens-offset-enabled-toggle"
+                          role="switch"
+                          aria-label="Enable offset from cursor position"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description" style="font-size: 11px; margin-top: 4px">
+                    When off, lens follows cursor directly. When on, lens is offset from cursor.
+                  </p>
+                </div>
+                <div id="magnifying-lens-offset-controls" class="hidden">
+                  <div class="control-subsection">
+                    <h3 class="subsection-title">
+                      <label for="magnifying-lens-offset">Offset Distance</label>
+                      <span class="control-value" id="magnifying-lens-offset-value">150px</span>
+                    </h3>
+                    <div class="slider-control">
+                      <input
+                        type="range"
+                        id="magnifying-lens-offset"
+                        data-testid="magnifying-lens-offset-slider"
+                        class="slider"
+                        min="0"
+                        max="500"
+                        step="25"
+                        value="150"
+                        aria-label="Offset distance from cursor"
+                      />
+                      <div class="slider-labels">
+                        <span>0px</span>
+                        <span>500px</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="control-subsection">
+                    <h3 class="subsection-title">
+                      <label for="magnifying-lens-offset-dir">Offset Direction</label>
+                    </h3>
+                    <select
+                      id="magnifying-lens-offset-dir"
+                      data-testid="magnifying-lens-offset-dir-select"
+                      class="voice-select"
+                      aria-label="Direction to offset the magnify lens"
+                    >
+                      <option value="right">Right of cursor</option>
+                      <option value="left">Left of cursor</option>
+                      <option value="above">Above cursor</option>
+                      <option value="below">Below cursor</option>
+                      <option value="auto">Auto (peripheral)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="magnifying-lens-lock" class="toggle-label">
+                      <span class="label-text">🔒 Lock Lens Position</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="magnifying-lens-lock"
+                          data-testid="magnifying-lens-lock-toggle"
+                          role="switch"
+                          aria-label="Lock lens position, content follows cursor"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                  <p class="feature-description" style="font-size: 11px; margin-top: 4px">
+                    Lock keeps lens in place while magnified content follows cursor
+                  </p>
+                </div>
+              </div>
+            </section>
+
             <!-- Focus Mode -->
             <section class="control-section" id="focus-mode-section">
               <div class="toggle-control">
@@ -2298,8 +2532,12 @@
               </div>
             </section>
 
-            <!-- Stargardt Module -->
-            <section class="control-section" id="stargardt-section">
+            <!-- Stargardt Module (HIDDEN FOR BETA - will enable post-beta) -->
+            <section
+              class="control-section"
+              id="stargardt-section"
+              style="display: none !important"
+            >
               <div class="toggle-control">
                 <label for="stargardt-enabled" class="toggle-label">
                   <span class="label-text"

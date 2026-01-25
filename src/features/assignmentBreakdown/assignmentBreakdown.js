@@ -23,6 +23,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -575,16 +576,16 @@ async function breakdown_createPanel() {
 
   // Add event listeners
   const closeBtn = panel.querySelector('.assist-breakdown-close');
-  closeBtn.addEventListener('click', breakdown_hide);
+  attachInteractiveHandler(closeBtn, 'Assignment Breakdown Close Button', breakdown_hide);
 
   const copyBtn = panel.querySelector('.assist-breakdown-copy');
-  copyBtn.addEventListener('click', breakdown_copy);
+  attachInteractiveHandler(copyBtn, 'Assignment Breakdown Copy Button', breakdown_copy);
 
   const speakBtn = panel.querySelector('.assist-breakdown-speak');
-  speakBtn.addEventListener('click', breakdown_speak);
+  attachInteractiveHandler(speakBtn, 'Assignment Breakdown Speak Button', breakdown_speak);
 
   const regenerateBtn = panel.querySelector('.assist-breakdown-regenerate');
-  regenerateBtn.addEventListener('click', async () => {
+  attachInteractiveHandler(regenerateBtn, 'Assignment Breakdown Regenerate Button', async () => {
     if (breakdown_currentText) {
       const modelKey = await breakdown_getCurrentModel();
       breakdown_analyze(breakdown_currentText, modelKey);

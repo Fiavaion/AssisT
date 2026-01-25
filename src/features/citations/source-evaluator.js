@@ -16,6 +16,7 @@
  */
 
 import { CitationStorage } from './citation-storage.js';
+import { attachInteractiveHandler, attachQuietHandler } from '../../utils/event-handlers.js';
 
 /**
  * CRAAP Test Categories with scoring weights
@@ -602,17 +603,24 @@ class CraapTestModal {
    */
   attachEventListeners(overlay) {
     // Close button
-    overlay.querySelector('.craap-close-btn').addEventListener('click', () => this.close());
+    const closeBtn = overlay.querySelector('.craap-close-btn');
+    attachQuietHandler(closeBtn, 'CRAAP Close Button', () => this.close());
 
     // Cancel button
-    overlay.querySelector('.craap-cancel-btn').addEventListener('click', () => this.close());
+    const cancelBtn = overlay.querySelector('.craap-cancel-btn');
+    attachInteractiveHandler(cancelBtn, 'CRAAP Cancel Button', () => this.close());
 
-    // Click outside
-    overlay.addEventListener('click', e => {
-      if (e.target === overlay) {
-        this.close();
-      }
-    });
+    // Click outside overlay
+    attachInteractiveHandler(
+      overlay,
+      'CRAAP Overlay',
+      e => {
+        if (e.target === overlay) {
+          this.close();
+        }
+      },
+      { enableVisualFeedback: false }
+    );
 
     // ESC key
     document.addEventListener('keydown', e => {
@@ -621,7 +629,7 @@ class CraapTestModal {
       }
     });
 
-    // Sliders
+    // Sliders (keep input event listeners as-is)
     const categories = Object.values(CRAAPCategories);
     for (const cat of categories) {
       const slider = overlay.querySelector(`#slider-${cat.id}`);
@@ -635,7 +643,8 @@ class CraapTestModal {
     }
 
     // Save button
-    overlay.querySelector('.craap-save-btn').addEventListener('click', async () => {
+    const saveBtn = overlay.querySelector('.craap-save-btn');
+    attachInteractiveHandler(saveBtn, 'CRAAP Save Button', async _e => {
       try {
         const evaluation = await SourceEvaluator.saveCraapEvaluation(
           String(this.citation.id),

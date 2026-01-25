@@ -26,6 +26,8 @@
  * @module features/translation/full-page-translate
  */
 
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
@@ -33,7 +35,7 @@
 let fullPageTranslate_isTranslated = false;
 let fullPageTranslate_progressModal = null;
 let fullPageTranslate_revertButton = null;
-// let _fullPageTranslate_currentTargetLang = 'en'; // Reserved for future use
+const _fullPageTranslate_currentTargetLang = 'en';
 
 // ============================================================================
 // PROGRESS MODAL
@@ -198,7 +200,9 @@ function fullPageTranslate_createRevertButton() {
     button.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
   };
 
-  button.onclick = () => fullPageTranslate_revert();
+  attachInteractiveHandler(button, 'Full Page Translate Revert Button', () =>
+    fullPageTranslate_revert()
+  );
 
   return button;
 }

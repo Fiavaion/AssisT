@@ -25,6 +25,7 @@ import { openProjectManager } from './project-manager.js';
 import { SourceEvaluator, openCraapTest } from './source-evaluator.js';
 import { exportCitations, importCitations, createBackup } from './citation-export.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 /**
  * Bibliography Manager class
@@ -188,10 +189,10 @@ class BibliographyManager {
   attachEventListeners(overlay) {
     // Close button
     const closeBtn = overlay.querySelector('.bib-close-btn');
-    closeBtn.addEventListener('click', () => this.close());
+    attachInteractiveHandler(closeBtn, 'Bibliography Close', () => this.close());
 
     // Click outside to close
-    overlay.addEventListener('click', e => {
+    attachInteractiveHandler(overlay, 'Bibliography View Modal Backdrop', e => {
       if (e.target === overlay) {
         this.close();
       }
@@ -235,13 +236,13 @@ class BibliographyManager {
     // Summary button - shows quality distribution
     const summaryBtn = overlay.querySelector('.bib-summary-btn');
     if (summaryBtn) {
-      summaryBtn.addEventListener('click', () => this.showQualitySummary());
+      attachInteractiveHandler(summaryBtn, 'Bibliography Summary', () => this.showQualitySummary());
     }
 
     // Export buttons
     const exportBtns = overlay.querySelectorAll('.bib-export-btn');
     exportBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
+      attachInteractiveHandler(btn, `Export ${btn.dataset.format}`, () => {
         const format = btn.dataset.format;
         this.exportBibliography(format);
       });
@@ -251,7 +252,7 @@ class BibliographyManager {
     const importBtn = overlay.querySelector('.bib-import-btn');
     const importFile = overlay.querySelector('#bib-import-file');
     if (importBtn && importFile) {
-      importBtn.addEventListener('click', () => importFile.click());
+      attachInteractiveHandler(importBtn, 'Bibliography Import', () => importFile.click());
       importFile.addEventListener('change', async e => {
         if (e.target.files?.length > 0) {
           try {
@@ -270,13 +271,13 @@ class BibliographyManager {
     // Backup button
     const backupBtn = overlay.querySelector('.bib-backup-btn');
     if (backupBtn) {
-      backupBtn.addEventListener('click', () => createBackup());
+      attachInteractiveHandler(backupBtn, 'Bibliography Backup', () => createBackup());
     }
 
     // Projects button - opens Project Manager
     const projectsBtn = overlay.querySelector('.bib-projects-btn');
     if (projectsBtn) {
-      projectsBtn.addEventListener('click', async () => {
+      attachInteractiveHandler(projectsBtn, 'Bibliography Projects', async () => {
         this.close();
         await openProjectManager();
       });
@@ -473,8 +474,7 @@ class BibliographyManager {
   attachCardListeners(container) {
     // Copy in-text button
     container.querySelectorAll('.bib-copy-intext').forEach(btn => {
-      btn.addEventListener('click', async e => {
-        e.stopPropagation();
+      attachInteractiveHandler(btn, 'Copy In-Text Citation', async () => {
         const card = btn.closest('.bib-card');
         const citation = this.citations.find(c => String(c.id) === card.dataset.id);
         if (citation) {
@@ -487,8 +487,7 @@ class BibliographyManager {
 
     // Copy reference button
     container.querySelectorAll('.bib-copy-btn').forEach(btn => {
-      btn.addEventListener('click', async e => {
-        e.stopPropagation();
+      attachInteractiveHandler(btn, 'Copy Reference', async () => {
         const card = btn.closest('.bib-card');
         const citation = this.citations.find(c => String(c.id) === card.dataset.id);
         if (citation) {
@@ -501,8 +500,7 @@ class BibliographyManager {
 
     // Edit button
     container.querySelectorAll('.bib-edit-btn').forEach(btn => {
-      btn.addEventListener('click', async e => {
-        e.stopPropagation();
+      attachInteractiveHandler(btn, 'Edit Citation', async () => {
         const card = btn.closest('.bib-card');
         const citation = this.citations.find(c => String(c.id) === card.dataset.id);
         if (citation) {
@@ -519,8 +517,7 @@ class BibliographyManager {
 
     // Evaluate button (CRAAP test)
     container.querySelectorAll('.bib-evaluate-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
+      attachInteractiveHandler(btn, 'Evaluate Source', () => {
         const card = btn.closest('.bib-card');
         const citation = this.citations.find(c => String(c.id) === card.dataset.id);
         if (citation) {
@@ -535,8 +532,7 @@ class BibliographyManager {
 
     // Delete button
     container.querySelectorAll('.bib-delete-btn').forEach(btn => {
-      btn.addEventListener('click', async e => {
-        e.stopPropagation();
+      attachInteractiveHandler(btn, 'Delete Citation', async () => {
         const card = btn.closest('.bib-card');
         const citation = this.citations.find(c => String(c.id) === card.dataset.id);
         if (citation && confirm(`Delete "${citation.title}"?`)) {
@@ -732,8 +728,10 @@ class BibliographyManager {
     `);
 
     // Event listeners
-    overlay.querySelector('.bib-summary-close').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', e => {
+    attachInteractiveHandler(overlay.querySelector('.bib-summary-close'), 'Summary Close', () =>
+      overlay.remove()
+    );
+    attachInteractiveHandler(overlay, 'Bibliography Summary Modal Backdrop', e => {
       if (e.target === overlay) {
         overlay.remove();
       }

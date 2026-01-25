@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Event Handlers Utility - Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        padding: 40px;
+        background: #f5f5f5;
+      }
+
+      .test-section {
+        background: white;
+        padding: 24px;
+        margin-bottom: 24px;
+        border-radius: 8px;
+        border: 2px solid #e0e0e0;
+      }
+
+      .test-section h2 {
+        margin-top: 0;
+        color: #333;
+      }
+
+      .test-button {
+        padding: 12px 24px;
+        margin: 8px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: all 0.2s;
+      }
+
+      .test-result {
+        margin-top: 16px;
+        padding: 12px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 14px;
+      }
+
+      .success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Event Handlers Utility Test</h1>
+
+    <div class="test-section">
+      <h2>Test 1: Basic attachInteractiveHandler</h2>
+      <button id="test1-btn" class="test-button">Click Me (Basic Handler)</button>
+      <div id="test1-result" class="test-result">Waiting for click...</div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 2: Visual Feedback</h2>
+      <button id="test2-btn" class="test-button">Hover Me (Visual Feedback)</button>
+      <div id="test2-result" class="test-result">Hover over button to test scale effect...</div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 3: Quiet Handler (No Visual Feedback)</h2>
+      <button id="test3-btn" class="test-button">Click Me (Quiet Handler)</button>
+      <div id="test3-result" class="test-result">Waiting for click (no hover effect)...</div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 4: Batch Handlers</h2>
+      <button id="test4-btn1" class="test-button">Batch 1</button>
+      <button id="test4-btn2" class="test-button">Batch 2</button>
+      <button id="test4-btn3" class="test-button">Batch 3</button>
+      <div id="test4-result" class="test-result">Click any batch button...</div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 5: Accessible Handler (Keyboard Support)</h2>
+      <button id="test5-btn" class="test-button">Tab Here & Press Enter/Space</button>
+      <div id="test5-result" class="test-result">Try clicking OR keyboard (Enter/Space)...</div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 6: Cleanup Function</h2>
+      <button id="test6-btn" class="test-button">Click Me (Will Detach)</button>
+      <button id="test6-detach" class="test-button" style="background: #dc3545">
+        Detach Handler
+      </button>
+      <div id="test6-result" class="test-result">
+        Click button, then detach, then try clicking again...
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 7: Race Condition Prevention</h2>
+      <button id="test7-btn" class="test-button">Click Me (Race Test)</button>
+      <div id="test7-result" class="test-result">
+        Button should respond even with document listener...
+      </div>
+      <div style="margin-top: 8px; font-size: 12px; color: #666">
+        Document mousedown listener will log but button handler should fire first
+      </div>
+    </div>
+
+    <div
+      id="console-output"
+      style="
+        margin-top: 24px;
+        padding: 16px;
+        background: #000;
+        color: #0f0;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+      "
+    >
+      <div style="color: #fff; margin-bottom: 8px">Console Output:</div>
+    </div>
+
+    <script type="module">
+      import {
+        attachInteractiveHandler,
+        attachQuietHandler,
+        attachHandlerBatch,
+        attachAccessibleHandler,
+      } from './event-handlers.js';
+
+      const consoleOutput = document.getElementById('console-output');
+
+      // Override console.log to show in page
+      const originalLog = console.log;
+      console.log = (...args) => {
+        originalLog(...args);
+        const line = document.createElement('div');
+        line.textContent = args.join(' ');
+        line.style.color = '#0f0';
+        consoleOutput.appendChild(line);
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      };
+
+      const originalWarn = console.warn;
+      console.warn = (...args) => {
+        originalWarn(...args);
+        const line = document.createElement('div');
+        line.textContent = '⚠️ ' + args.join(' ');
+        line.style.color = '#ff0';
+        consoleOutput.appendChild(line);
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      };
+
+      const originalError = console.error;
+      console.error = (...args) => {
+        originalError(...args);
+        const line = document.createElement('div');
+        line.textContent = '❌ ' + args.join(' ');
+        line.style.color = '#f00';
+        consoleOutput.appendChild(line);
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      };
+
+      // Test 1: Basic handler
+      const test1Btn = document.getElementById('test1-btn');
+      const test1Result = document.getElementById('test1-result');
+
+      attachInteractiveHandler(test1Btn, 'Test 1 Button', () => {
+        test1Result.textContent = '✅ Handler executed successfully!';
+        test1Result.className = 'test-result success';
+      });
+
+      // Test 2: Visual feedback
+      const test2Result = document.getElementById('test2-result');
+      test2Result.textContent = 'Hover over button - should scale to 1.05x';
+
+      attachInteractiveHandler(document.getElementById('test2-btn'), 'Test 2 Button', () => {
+        test2Result.textContent = '✅ Click registered with visual feedback!';
+        test2Result.className = 'test-result success';
+      });
+
+      // Test 3: Quiet handler
+      const test3Btn = document.getElementById('test3-btn');
+      const test3Result = document.getElementById('test3-result');
+
+      attachQuietHandler(test3Btn, 'Test 3 Button', () => {
+        test3Result.textContent = '✅ Quiet handler executed (no hover effect)';
+        test3Result.className = 'test-result success';
+      });
+
+      // Test 4: Batch handlers
+      const test4Result = document.getElementById('test4-result');
+
+      attachHandlerBatch([
+        {
+          element: document.getElementById('test4-btn1'),
+          label: 'Batch Button 1',
+          handler: () => {
+            test4Result.textContent = '✅ Batch Button 1 clicked!';
+            test4Result.className = 'test-result success';
+          },
+        },
+        {
+          element: document.getElementById('test4-btn2'),
+          label: 'Batch Button 2',
+          handler: () => {
+            test4Result.textContent = '✅ Batch Button 2 clicked!';
+            test4Result.className = 'test-result success';
+          },
+        },
+        {
+          element: document.getElementById('test4-btn3'),
+          label: 'Batch Button 3',
+          handler: () => {
+            test4Result.textContent = '✅ Batch Button 3 clicked!';
+            test4Result.className = 'test-result success';
+          },
+        },
+      ]);
+
+      // Test 5: Accessible handler
+      const test5Btn = document.getElementById('test5-btn');
+      const test5Result = document.getElementById('test5-result');
+
+      attachAccessibleHandler(test5Btn, 'Test 5 Button', e => {
+        const method = e.key ? `Keyboard (${e.key})` : 'Mouse';
+        test5Result.textContent = `✅ Triggered via ${method}!`;
+        test5Result.className = 'test-result success';
+      });
+
+      // Test 6: Cleanup function
+      const test6Btn = document.getElementById('test6-btn');
+      const test6DetachBtn = document.getElementById('test6-detach');
+      const test6Result = document.getElementById('test6-result');
+
+      const test6Cleanup = attachInteractiveHandler(test6Btn, 'Test 6 Button', () => {
+        test6Result.textContent = '✅ Handler is active!';
+        test6Result.className = 'test-result success';
+      });
+
+      test6DetachBtn.onclick = () => {
+        test6Cleanup();
+        test6Result.textContent = 'Handler detached - button should no longer respond';
+        test6Result.className = 'test-result error';
+      };
+
+      // Test 7: Race condition prevention
+      const test7Btn = document.getElementById('test7-btn');
+      const test7Result = document.getElementById('test7-result');
+
+      // Add document-level listener (simulates potential race condition)
+      document.addEventListener('mousedown', e => {
+        if (e.target === test7Btn) {
+          console.log('[Document] Mousedown on Test 7 button');
+        }
+      });
+
+      attachInteractiveHandler(test7Btn, 'Test 7 Button', () => {
+        test7Result.textContent = '✅ Button handler fired BEFORE document listener!';
+        test7Result.className = 'test-result success';
+      });
+
+      console.log('=== Event Handlers Utility Test Initialized ===');
+      console.log('All tests ready. Try interacting with buttons above.');
+    </script>
+  </body>
+</html>

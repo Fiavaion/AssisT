@@ -24,6 +24,7 @@
 import { getStorageAdapter } from './storage-adapter.js';
 import { createTagInput, renderTagPills } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -326,8 +327,7 @@ function renderStickyNote(note) {
   colorBtn.innerHTML = sanitizeHTML('🎨');
   colorBtn.setAttribute('aria-label', 'Change note color');
   colorBtn.setAttribute('title', 'Change color');
-  colorBtn.addEventListener('click', e => {
-    e.stopPropagation();
+  attachInteractiveHandler(colorBtn, 'Sticky Note Color', () => {
     toggleColorPicker(note.id, colorBtn);
   });
 
@@ -337,8 +337,7 @@ function renderStickyNote(note) {
   deleteBtn.innerHTML = sanitizeHTML('×');
   deleteBtn.setAttribute('aria-label', 'Delete note');
   deleteBtn.setAttribute('title', 'Delete note');
-  deleteBtn.addEventListener('click', e => {
-    e.stopPropagation();
+  attachInteractiveHandler(deleteBtn, 'Sticky Note Delete', () => {
     deleteStickyNote(note.id);
   });
 
@@ -384,8 +383,7 @@ function renderStickyNote(note) {
   }
 
   // Add click handler to edit tags
-  tagsContainer.addEventListener('click', e => {
-    e.stopPropagation();
+  attachInteractiveHandler(tagsContainer, 'Sticky Note Tags', () => {
     openTagEditModal(note.id, note.tags || []);
   });
 
@@ -482,12 +480,8 @@ function createRichTextToolbar(noteId) {
     button.setAttribute('type', 'button');
     button.dataset.command = btn.command;
 
-    button.addEventListener('mousedown', e => {
-      // Prevent blur on content area
-      e.preventDefault();
-    });
-
-    button.addEventListener('click', () => {
+    // Attach handler (mousedown prevents blur on content area)
+    attachInteractiveHandler(button, `Format ${btn.command}`, () => {
       executeFormatCommand(btn.command);
     });
 
@@ -509,11 +503,7 @@ function createRichTextToolbar(noteId) {
   ttsBtn.setAttribute('type', 'button');
   ttsBtn.dataset.noteId = noteId;
 
-  ttsBtn.addEventListener('mousedown', e => {
-    e.preventDefault();
-  });
-
-  ttsBtn.addEventListener('click', () => {
+  attachInteractiveHandler(ttsBtn, 'Note TTS', () => {
     speakNoteContent(noteId, ttsBtn);
   });
 
@@ -528,11 +518,7 @@ function createRichTextToolbar(noteId) {
   sttBtn.setAttribute('type', 'button');
   sttBtn.dataset.noteId = noteId;
 
-  sttBtn.addEventListener('mousedown', e => {
-    e.preventDefault();
-  });
-
-  sttBtn.addEventListener('click', () => {
+  attachInteractiveHandler(sttBtn, 'Note STT', () => {
     startNoteDictation(noteId, sttBtn);
   });
 
@@ -964,8 +950,7 @@ function toggleColorPicker(noteId, colorBtn) {
     option.setAttribute('role', 'menuitem');
     option.dataset.color = color.name;
 
-    option.addEventListener('click', async e => {
-      e.stopPropagation();
+    attachInteractiveHandler(option, `Color ${color.name}`, async () => {
       await changeNoteColor(noteId, color.name);
       picker.remove();
     });
@@ -991,7 +976,7 @@ function toggleColorPicker(noteId, colorBtn) {
   };
 
   setTimeout(() => {
-    document.addEventListener('click', closeHandler);
+    attachInteractiveHandler(document, 'Sticky Note Color Picker Backdrop', closeHandler);
   }, 0);
 
   console.log('[StickyNotes] Color picker opened for note:', noteId);
@@ -1381,10 +1366,10 @@ function openTagEditModal(noteId, currentTags = []) {
   const tagInputContainer = modal.querySelector('#tag-input-container');
   const tagInput = createTagInput(tagInputContainer, currentTags);
 
-  closeBtn.addEventListener('click', () => modal.remove());
-  cancelBtn.addEventListener('click', () => modal.remove());
+  attachInteractiveHandler(closeBtn, 'Tag Modal Close', () => modal.remove());
+  attachInteractiveHandler(cancelBtn, 'Tag Modal Cancel', () => modal.remove());
 
-  saveBtn.addEventListener('click', async () => {
+  attachInteractiveHandler(saveBtn, 'Tag Modal Save', async () => {
     const newTags = tagInput.getTags();
     try {
       // Update note with new tags
@@ -1411,7 +1396,7 @@ function openTagEditModal(noteId, currentTags = []) {
   });
 
   // Close on overlay click
-  modal.addEventListener('click', e => {
+  attachInteractiveHandler(modal, 'Sticky Note Delete Modal Backdrop', e => {
     if (e.target === modal) {
       modal.remove();
     }
