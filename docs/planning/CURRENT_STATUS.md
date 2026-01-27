@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-01-27
 **Version**: v0.1.0 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
-**Current Phase**: Phase 2 Extension - UI Overhaul
+**Current Phase**: Phase 2 Extension - UI Overhaul & Maintenance
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Modular Popup with Organize Mode)
-**Session**: Phase 2 Session 065 (UI Overhaul - Organize Mode Implementation)
+**Session**: Phase 2 Session 066 (Sanitization Audit & Cloud AI Mode)
 
 ---
 
@@ -47,6 +47,39 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 066 (2026-01-27)
+
+**Sanitization Audit & Cloud AI Mode**
+
+**Key Accomplishments**:
+
+1. **Full Sanitization Audit** (100%):
+   - Audited all AI-enabled features for sanitization issues
+   - Identified 2 bugs caused by DOMPurify stripping CSS/handlers
+
+2. **multiDocCompare.js Fix** (100%):
+   - Fixed CSS loss from `innerHTML +=` destroying appended style element
+   - Extracted CSS to constant, created inject function for document.head
+
+3. **assignmentBreakdown.js Fix** (100%):
+   - Fixed onclick handlers stripped by sanitizeHTML
+   - Replaced inline onclick with data attributes + programmatic handlers
+
+4. **Study Path Generator Cloud AI Support** (100%):
+   - Added aiMode support (was always using local)
+   - Added API key check for cloud mode
+   - Added warning screen with "Open Advanced Options" and "Use Local AI" buttons
+
+**Files Modified**:
+
+- multiDocCompare.js (+260 lines)
+- assignmentBreakdown.js (+10 lines)
+- studyPathGenerator.js (+150 lines)
+
+**Build Status**: Successful
+
+---
 
 ### Phase 2 Session 065 (2026-01-06)
 

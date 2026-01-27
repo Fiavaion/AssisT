@@ -66,8 +66,7 @@
     "activeTab",
     "scripting",
     "tabs",
-    "contextMenus",
-    "alarms"
+    "contextMenus"
   ],
   "host_permissions": [
     "<all_urls>"

@@ -18,11 +18,332 @@ import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
+// CSS STYLES (injected separately to avoid innerHTML overwriting)
+// ============================================================================
+
+const SPG_PANEL_CSS = `
+  #assist-spg-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 650px;
+    max-width: 90vw;
+    max-height: 85vh;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    z-index: 999998;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .spg-header {
+    background: linear-gradient(135deg, #5f2c82 0%, #49a09d 100%);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .spg-header-info h3 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .spg-header-meta {
+    font-size: 13px;
+    opacity: 0.9;
+  }
+
+  .spg-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 24px;
+  }
+
+  .spg-close:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  .spg-content {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .spg-progress-bar {
+    background: #f0f0f0;
+    border-radius: 10px;
+    height: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .spg-progress-fill {
+    background: linear-gradient(90deg, #5f2c82, #49a09d);
+    height: 100%;
+    transition: width 0.3s ease;
+  }
+
+  .spg-progress-text {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .spg-topic {
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .spg-topic.completed {
+    border-color: #4CAF50;
+    background: #f1f8f1;
+  }
+
+  .spg-topic-header {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+  }
+
+  .spg-topic-header:hover {
+    background: rgba(0,0,0,0.02);
+  }
+
+  .spg-topic-checkbox {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .spg-topic.completed .spg-topic-checkbox {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: white;
+  }
+
+  .spg-topic-info {
+    flex: 1;
+  }
+
+  .spg-topic-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .spg-topic-meta {
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    gap: 12px;
+  }
+
+  .spg-topic-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .spg-topic-badge.easy {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .spg-topic-badge.medium {
+    background: #fff3e0;
+    color: #ef6c00;
+  }
+
+  .spg-topic-badge.hard {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  .spg-topic-expand {
+    font-size: 18px;
+    color: #999;
+    transition: transform 0.2s;
+  }
+
+  .spg-topic.expanded .spg-topic-expand {
+    transform: rotate(180deg);
+  }
+
+  .spg-topic-details {
+    display: none;
+    padding: 0 16px 16px;
+    border-top: 1px solid #eee;
+  }
+
+  .spg-topic.expanded .spg-topic-details {
+    display: block;
+  }
+
+  .spg-detail-section {
+    margin-top: 12px;
+  }
+
+  .spg-detail-section h5 {
+    margin: 0 0 6px 0;
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+  }
+
+  .spg-detail-list {
+    font-size: 13px;
+  }
+
+  .spg-detail-item {
+    padding: 4px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .spg-detail-item::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: #5f2c82;
+  }
+
+  .spg-key-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .spg-key-term {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .spg-practice {
+    background: #fff8e1;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #f57f17;
+  }
+
+  .spg-loading {
+    text-align: center;
+    padding: 60px;
+  }
+
+  .spg-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f0f0f0;
+    border-top-color: #5f2c82;
+    border-radius: 50%;
+    animation: spg-spin 1s linear infinite;
+    margin: 0 auto 20px;
+  }
+
+  @keyframes spg-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .spg-tips {
+    background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 20px;
+  }
+
+  .spg-tips h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #333;
+  }
+
+  .spg-tip-item {
+    font-size: 13px;
+    color: #555;
+    padding: 4px 0;
+  }
+
+  .spg-empty {
+    text-align: center;
+    padding: 60px;
+    color: #666;
+  }
+
+  .spg-empty-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+
+  .spg-generate-btn {
+    background: linear-gradient(135deg, #5f2c82 0%, #49a09d 100%);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 16px;
+  }
+
+  .spg-generate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(95, 44, 130, 0.3);
+  }
+`;
+
+/**
+ * Inject CSS styles into document head
+ */
+function spg_injectStyles() {
+  if (document.getElementById('assist-spg-styles')) {
+    return; // Already injected
+  }
+  const styleEl = document.createElement('style');
+  styleEl.id = 'assist-spg-styles';
+  styleEl.textContent = SPG_PANEL_CSS;
+  document.head.appendChild(styleEl);
+}
+
+// ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
 let spg_panel = null;
-// let _spg_isLoading = false; // Reserved for future use
+let spg_isLoading = false;
 let spg_currentPath = null;
 let spg_progress = {};
 
@@ -31,6 +352,58 @@ const spg_settings = {
   difficultyPreference: 'balanced', // easy-first, hard-first, balanced
   includeReview: true,
 };
+
+// Cloud model configurations
+const SPG_MODELS = {
+  local: { id: 'local', name: 'Local', isLocal: true },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
+  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+};
+
+// Default cloud model for this feature (Sonnet for balanced quality/speed)
+const SPG_DEFAULT_CLOUD_MODEL = 'sonnet-4.5';
+
+// ============================================================================
+// AI MODE DETECTION
+// ============================================================================
+
+/**
+ * Get the current AI model from global settings
+ * @returns {Promise<string>} Model key
+ */
+async function spg_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return 'local';
+    } else if (aiMode === 'cloud') {
+      return result.cloudModel || SPG_DEFAULT_CLOUD_MODEL;
+    } else {
+      return 'local'; // Default to local if AI is off
+    }
+  } catch (error) {
+    console.warn('[StudyPathGenerator] Failed to get current model:', error);
+    return 'local';
+  }
+}
+
+/**
+ * Check if cloud API key is configured
+ * @returns {Promise<boolean>}
+ */
+async function spg_checkCloudApiKey() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_CHECK',
+    });
+    return response?.success && response?.available;
+  } catch {
+    return false;
+  }
+}
 
 // ============================================================================
 // AI STUDY PATH GENERATION
@@ -48,6 +421,25 @@ async function spg_generatePath(text) {
 
   spg_isLoading = true;
   spg_updateLoadingState(true);
+
+  // Get current AI mode setting
+  const modelKey = await spg_getCurrentModel();
+  const isCloud = modelKey !== 'local';
+  const modelConfig = SPG_MODELS[modelKey];
+  const modelName = modelConfig?.name || modelKey;
+
+  console.log(`[StudyPathGenerator] Using ${isCloud ? 'cloud' : 'local'} AI: ${modelName}`);
+
+  // If cloud mode, check for API key
+  if (isCloud) {
+    const hasKey = await spg_checkCloudApiKey();
+    if (!hasKey) {
+      spg_isLoading = false;
+      spg_updateLoadingState(false);
+      spg_showApiKeyWarning();
+      return null;
+    }
+  }
 
   const prompt = `You are an expert learning designer. Analyze this educational content and create a structured study path.
 
@@ -103,22 +495,41 @@ Rules:
 - Respond with ONLY valid JSON`;
 
   try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GENERATE',
-      prompt,
-      options: {
-        maxTokens: 2000,
-        temperature: 0.4,
-      },
-    });
+    let response;
+
+    if (isCloud) {
+      // Use cloud model (Claude API)
+      response = await chrome.runtime.sendMessage({
+        action: 'CLOUD_LLM_GENERATE',
+        prompt,
+        options: {
+          model: modelKey,
+          maxTokens: 2000,
+          temperature: 0.4,
+          feature: 'studyPathGenerator',
+        },
+      });
+    } else {
+      // Use local model (Ollama)
+      response = await chrome.runtime.sendMessage({
+        action: 'LOCAL_LLM_GENERATE',
+        prompt,
+        taskType: 'assignmentBreakdown', // Uses academic category
+        options: {
+          maxTokens: 2000,
+          temperature: 0.4,
+        },
+      });
+    }
 
     if (response && response.success) {
-      console.log('[StudyPathGenerator] AI response:', response.data);
+      console.log(`[StudyPathGenerator] ${isCloud ? 'Cloud' : 'Local'} AI response received`);
 
       const jsonMatch = response.data.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         spg_currentPath = spg_enhancePath(parsed);
+        spg_currentPath._generatedBy = isCloud ? `Cloud (${modelName})` : 'Local AI';
         spg_displayPath(spg_currentPath);
         return spg_currentPath;
       }
@@ -127,18 +538,107 @@ Rules:
     // Fallback to heuristic generation
     console.log('[StudyPathGenerator] Using heuristic generation');
     const fallback = spg_heuristicGenerate(text);
+    fallback._generatedBy = 'Heuristic (AI unavailable)';
     spg_currentPath = fallback;
     spg_displayPath(fallback);
     return fallback;
   } catch (error) {
     console.error('[StudyPathGenerator] Generation failed:', error);
     const fallback = spg_heuristicGenerate(text);
+    fallback._generatedBy = `Heuristic (${error.message})`;
     spg_currentPath = fallback;
     spg_displayPath(fallback);
     return fallback;
   } finally {
     spg_isLoading = false;
     spg_updateLoadingState(false);
+  }
+}
+
+/**
+ * Show warning when cloud mode is selected but no API key is configured
+ */
+function spg_showApiKeyWarning() {
+  const contentArea = spg_panel?.querySelector('.spg-content');
+  if (!contentArea) {
+    return;
+  }
+
+  contentArea.innerHTML = sanitizeHTML(`
+    <div class="spg-empty">
+      <div class="spg-empty-icon">🔑</div>
+      <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
+      <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
+        Cloud AI mode is enabled but no API key is configured.<br>
+        Please add your Anthropic API key to use cloud features.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
+        <button class="spg-generate-btn" id="spg-open-settings" style="background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);">
+          ⚙️ Open Advanced Options
+        </button>
+        <button class="spg-generate-btn" id="spg-use-local" style="background: #6b7280;">
+          💻 Use Local AI Instead
+        </button>
+      </div>
+      <p style="color: #999; font-size: 12px; margin-top: 16px;">
+        Go to: Extension Popup → Advanced Options → AI tab → Enter API Key
+      </p>
+    </div>
+  `);
+
+  // Attach handlers for buttons
+  const openSettingsBtn = contentArea.querySelector('#spg-open-settings');
+  if (openSettingsBtn) {
+    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+      // Open the popup's advanced options
+      chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
+      // Also show an alert with instructions
+      alert(
+        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Enter your Anthropic API key\n5. Click Save'
+      );
+    });
+  }
+
+  const useLocalBtn = contentArea.querySelector('#spg-use-local');
+  if (useLocalBtn) {
+    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+      // Switch to local mode
+      await chrome.storage.local.set({ aiMode: 'local' });
+      console.log('[StudyPathGenerator] Switched to local AI mode');
+      // Show the empty state again so user can generate
+      spg_showEmptyState();
+    });
+  }
+}
+
+/**
+ * Show the empty state for generating a study path
+ */
+function spg_showEmptyState() {
+  const contentArea = spg_panel?.querySelector('.spg-content');
+  if (!contentArea) {
+    return;
+  }
+
+  contentArea.innerHTML = sanitizeHTML(`
+    <div class="spg-empty" id="spg-empty-state">
+      <div class="spg-empty-icon">📚</div>
+      <div>Select educational content to generate a personalized study path</div>
+      <button class="spg-generate-btn" id="spg-generate">Generate Study Path</button>
+    </div>
+  `);
+
+  // Re-attach generate button handler
+  const generateBtn = contentArea.querySelector('#spg-generate');
+  if (generateBtn) {
+    attachInteractiveHandler(generateBtn, 'Study Path Generate Button', () => {
+      const selection = window.getSelection().toString().trim();
+      if (selection && selection.length > 100) {
+        spg_generatePath(selection);
+      } else {
+        alert('Please select more text (at least 100 characters) to generate a study path.');
+      }
+    });
   }
 }
 
@@ -342,313 +842,9 @@ function spg_createPanel() {
   panel.setAttribute('aria-label', 'Study Path Generator');
   panel.tabIndex = -1;
 
-  const style = document.createElement('style');
-  style.textContent = `
-    #assist-spg-panel {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 650px;
-      max-width: 90vw;
-      max-height: 85vh;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      z-index: 999998;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .spg-header {
-      background: linear-gradient(135deg, #5f2c82 0%, #49a09d 100%);
-      color: white;
-      padding: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    .spg-header-info h3 {
-      margin: 0 0 4px 0;
-      font-size: 20px;
-      font-weight: 600;
-    }
-
-    .spg-header-meta {
-      font-size: 13px;
-      opacity: 0.9;
-    }
-
-    .spg-close {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: white;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 24px;
-    }
-
-    .spg-close:hover {
-      background: rgba(255,255,255,0.3);
-    }
-
-    .spg-content {
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .spg-progress-bar {
-      background: #f0f0f0;
-      border-radius: 10px;
-      height: 8px;
-      margin-bottom: 20px;
-      overflow: hidden;
-    }
-
-    .spg-progress-fill {
-      background: linear-gradient(90deg, #5f2c82, #49a09d);
-      height: 100%;
-      transition: width 0.3s ease;
-    }
-
-    .spg-progress-text {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .spg-topic {
-      background: #f8f9fa;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      overflow: hidden;
-      border: 2px solid transparent;
-      transition: border-color 0.2s;
-    }
-
-    .spg-topic.completed {
-      border-color: #4CAF50;
-      background: #f1f8f1;
-    }
-
-    .spg-topic-header {
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-    }
-
-    .spg-topic-header:hover {
-      background: rgba(0,0,0,0.02);
-    }
-
-    .spg-topic-checkbox {
-      width: 24px;
-      height: 24px;
-      border: 2px solid #ccc;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-
-    .spg-topic.completed .spg-topic-checkbox {
-      background: #4CAF50;
-      border-color: #4CAF50;
-      color: white;
-    }
-
-    .spg-topic-info {
-      flex: 1;
-    }
-
-    .spg-topic-title {
-      font-weight: 600;
-      font-size: 15px;
-      margin-bottom: 4px;
-    }
-
-    .spg-topic-meta {
-      font-size: 12px;
-      color: #666;
-      display: flex;
-      gap: 12px;
-    }
-
-    .spg-topic-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 500;
-    }
-
-    .spg-topic-badge.easy {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-
-    .spg-topic-badge.medium {
-      background: #fff3e0;
-      color: #ef6c00;
-    }
-
-    .spg-topic-badge.hard {
-      background: #ffebee;
-      color: #c62828;
-    }
-
-    .spg-topic-expand {
-      font-size: 18px;
-      color: #999;
-      transition: transform 0.2s;
-    }
-
-    .spg-topic.expanded .spg-topic-expand {
-      transform: rotate(180deg);
-    }
-
-    .spg-topic-details {
-      display: none;
-      padding: 0 16px 16px;
-      border-top: 1px solid #eee;
-    }
-
-    .spg-topic.expanded .spg-topic-details {
-      display: block;
-    }
-
-    .spg-detail-section {
-      margin-top: 12px;
-    }
-
-    .spg-detail-section h5 {
-      margin: 0 0 6px 0;
-      font-size: 12px;
-      color: #666;
-      text-transform: uppercase;
-    }
-
-    .spg-detail-list {
-      font-size: 13px;
-    }
-
-    .spg-detail-item {
-      padding: 4px 0;
-      padding-left: 16px;
-      position: relative;
-    }
-
-    .spg-detail-item::before {
-      content: '•';
-      position: absolute;
-      left: 0;
-      color: #5f2c82;
-    }
-
-    .spg-key-terms {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .spg-key-term {
-      background: #e3f2fd;
-      color: #1976d2;
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-    }
-
-    .spg-practice {
-      background: #fff8e1;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #f57f17;
-    }
-
-    .spg-loading {
-      text-align: center;
-      padding: 60px;
-    }
-
-    .spg-spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid #f0f0f0;
-      border-top-color: #5f2c82;
-      border-radius: 50%;
-      animation: spg-spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-
-    @keyframes spg-spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .spg-tips {
-      background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%);
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 20px;
-    }
-
-    .spg-tips h4 {
-      margin: 0 0 10px 0;
-      font-size: 14px;
-      color: #333;
-    }
-
-    .spg-tip-item {
-      font-size: 13px;
-      color: #555;
-      padding: 4px 0;
-    }
-
-    .spg-empty {
-      text-align: center;
-      padding: 60px;
-      color: #666;
-    }
-
-    .spg-empty-icon {
-      font-size: 64px;
-      margin-bottom: 16px;
-    }
-
-    .spg-generate-btn {
-      background: linear-gradient(135deg, #5f2c82 0%, #49a09d 100%);
-      color: white;
-      border: none;
-      padding: 14px 28px;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
-      margin-top: 16px;
-    }
-
-    .spg-generate-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(95, 44, 130, 0.3);
-    }
-  `;
-  panel.appendChild(style);
-
-  panel.innerHTML += `
+  // CSS is injected into document.head via spg_injectStyles()
+  // Using direct innerHTML assignment (not +=) to preserve DOM structure
+  panel.innerHTML = `
     <div class="spg-header">
       <div class="spg-header-info">
         <h3>📚 Study Path</h3>
@@ -881,6 +1077,9 @@ function spg_show(text = null) {
     spg_panel.remove();
   }
 
+  // Inject CSS into document head (prevents style loss from innerHTML operations)
+  spg_injectStyles();
+
   spg_panel = spg_createPanel();
   document.body.appendChild(spg_panel);
 
@@ -956,6 +1155,7 @@ function spg_init() {
     hide: spg_hide,
     generate: spg_generatePath,
     getCurrentPath: () => spg_currentPath,
+    isLoading: () => spg_isLoading,
     markComplete: spg_markComplete,
     markIncomplete: spg_markIncomplete,
     getProgress: () => ({ ...spg_progress }),

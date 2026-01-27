@@ -182,6 +182,7 @@ RULES:
       response = await chrome.runtime.sendMessage({
         action: 'LOCAL_LLM_GENERATE',
         prompt,
+        taskType: 'assignmentBreakdown',
         options: {
           maxTokens,
           temperature: 0.2,
@@ -1193,7 +1194,7 @@ function breakdown_renderResult(result, isAI, isCloud = false, modelName = '') {
       html += `
         <div class="assist-breakdown-task ${isChecked ? 'completed' : ''}" data-step="${task.step}">
           <div class="assist-breakdown-task-checkbox ${isChecked ? 'checked' : ''}"
-               onclick="window.assistFeatures?.assignmentBreakdown?.toggleTask(${task.step})"
+               data-task-step="${task.step}"
                role="checkbox"
                aria-checked="${isChecked}"
                tabindex="0">
@@ -1241,6 +1242,16 @@ function breakdown_renderResult(result, isAI, isCloud = false, modelName = '') {
   }
 
   contentArea.innerHTML = sanitizeHTML(html);
+
+  // Attach event handlers to checkboxes (onclick is stripped by sanitizeHTML)
+  contentArea.querySelectorAll('.assist-breakdown-task-checkbox').forEach(checkbox => {
+    const step = parseInt(checkbox.getAttribute('data-task-step'), 10);
+    if (!isNaN(step)) {
+      attachInteractiveHandler(checkbox, `Task ${step} Checkbox`, () => {
+        breakdown_toggleTask(step);
+      });
+    }
+  });
 }
 
 /**

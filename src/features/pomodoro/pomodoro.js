@@ -33,23 +33,50 @@ import { sanitizeHTML } from '../../utils/sanitize.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
 // ============================================================
-// STATE MANAGEMENT (Synced from background service worker)
+// STATE MANAGEMENT
 // ============================================================
 
 /**
- * Local cache of Pomodoro state (synced from background)
- * @type {Object}
+ * Whether Pomodoro Timer is currently enabled
+ * @type {boolean}
  * @private
  */
-let pomodoro_state = {
-  enabled: false,
-  currentSession: 'work',
-  timeRemaining: 25 * 60,
-  sessionsCompleted: 0,
-  isPaused: true,
-  isRunning: false,
-  isMinimized: false,
-};
+let pomodoro_enabled = false;
+
+/**
+ * Interval ID for the countdown timer
+ * @type {number|null}
+ * @private
+ */
+let pomodoro_timerInterval = null;
+
+/**
+ * Current session type
+ * @type {'work'|'shortBreak'|'longBreak'}
+ * @private
+ */
+let pomodoro_currentSession = 'work';
+
+/**
+ * Time remaining in current session (seconds)
+ * @type {number}
+ * @private
+ */
+let pomodoro_timeRemaining = 0;
+
+/**
+ * Number of work sessions completed (resets after long break)
+ * @type {number}
+ * @private
+ */
+let pomodoro_sessionsCompleted = 0;
+
+/**
+ * Whether the timer is currently paused
+ * @type {boolean}
+ * @private
+ */
+let pomodoro_isPaused = false;
 
 /**
  * Reference to the UI container element
@@ -66,6 +93,21 @@ let pomodoro_uiElement = null;
 let pomodoro_styleElement = null;
 
 /**
+ * Whether the widget is currently minimized
+ * @type {boolean}
+ * @private
+ */
+let pomodoro_isMinimized = false;
+
+/**
+ * Audio element for notification sound
+ * @type {HTMLAudioElement|null}
+ * @private
+ */
+// eslint-disable-next-line no-unused-vars
+const pomodoro_audioElement = null;
+
+/**
  * Tracks if widget is being dragged
  * @type {boolean}
  * @private
@@ -78,13 +120,6 @@ let pomodoro_isDragging = false;
  * @private
  */
 const pomodoro_dragOffset = { x: 0, y: 0 };
-
-/**
- * Whether the message listener has been set up
- * @type {boolean}
- * @private
- */
-let pomodoro_listenerSetup = false;
 
 // ============================================================
 // SETTINGS
@@ -202,11 +237,6 @@ function pomodoro_injectStyles() {
       font-size: 14px;
       font-weight: 600;
       color: #333;
-      cursor: pointer;
-    }
-
-    .pomodoro-minimized-view:hover {
-      opacity: 0.8;
     }
 
     .pomodoro-minimized-view .session-dot {
@@ -560,48 +590,40 @@ function pomodoro_attachEventListeners() {
     return;
   }
 
-  // Start/Pause button - sends message to background
+  // Start/Pause button
   const startBtn = pomodoro_uiElement.querySelector('#pomodoro-start-btn');
   if (startBtn) {
     attachInteractiveHandler(startBtn, 'Pomodoro Start/Pause Button', () => {
-      if (pomodoro_state.isRunning) {
-        chrome.runtime.sendMessage({ action: 'POMODORO_PAUSE' });
+      if (pomodoro_timerInterval) {
+        pomodoro_pauseTimer();
       } else {
-        chrome.runtime.sendMessage({ action: 'POMODORO_START' });
+        pomodoro_startTimer();
       }
     });
   }
 
-  // Reset button - sends message to background
+  // Reset button
   const resetBtn = pomodoro_uiElement.querySelector('#pomodoro-reset-btn');
   if (resetBtn) {
-    attachInteractiveHandler(resetBtn, 'Pomodoro Reset Button', () => {
-      chrome.runtime.sendMessage({ action: 'POMODORO_RESET' });
-    });
+    attachInteractiveHandler(resetBtn, 'Pomodoro Reset Button', pomodoro_resetTimer);
   }
 
-  // Skip button - sends message to background
+  // Skip button
   const skipBtn = pomodoro_uiElement.querySelector('#pomodoro-skip-btn');
   if (skipBtn) {
-    attachInteractiveHandler(skipBtn, 'Pomodoro Skip Button', () => {
-      chrome.runtime.sendMessage({ action: 'POMODORO_SKIP' });
-    });
+    attachInteractiveHandler(skipBtn, 'Pomodoro Skip Button', pomodoro_skipSession);
   }
 
-  // Minimize button - sends message to background for sync
+  // Minimize button
   const minimizeBtn = pomodoro_uiElement.querySelector('#pomodoro-minimize-btn');
   if (minimizeBtn) {
-    attachInteractiveHandler(minimizeBtn, 'Pomodoro Minimize Button', () => {
-      chrome.runtime.sendMessage({ action: 'POMODORO_TOGGLE_MINIMIZE' });
-    });
+    attachInteractiveHandler(minimizeBtn, 'Pomodoro Minimize Button', pomodoro_toggleMinimize);
   }
 
-  // Close button - sends message to background
+  // Close button
   const closeBtn = pomodoro_uiElement.querySelector('#pomodoro-close-btn');
   if (closeBtn) {
-    attachInteractiveHandler(closeBtn, 'Pomodoro Close Button', () => {
-      chrome.runtime.sendMessage({ action: 'POMODORO_DISABLE' });
-    });
+    attachInteractiveHandler(closeBtn, 'Pomodoro Close Button', pomodoro_disable);
   }
 
   // Drag functionality
@@ -610,133 +632,16 @@ function pomodoro_attachEventListeners() {
     header.addEventListener('mousedown', pomodoro_handleDragStart);
   }
 
-  // Click to expand when minimized - sends message to background for sync
-  const minimizedView = pomodoro_uiElement.querySelector('.pomodoro-minimized-view');
-  if (minimizedView) {
-    attachInteractiveHandler(minimizedView, 'Pomodoro Widget Expand', () => {
-      if (pomodoro_state.isMinimized) {
-        chrome.runtime.sendMessage({ action: 'POMODORO_TOGGLE_MINIMIZE' });
+  // Click to expand when minimized
+  const widget = pomodoro_uiElement.querySelector('.assist-pomodoro-widget');
+  if (widget) {
+    attachInteractiveHandler(widget, 'Pomodoro Widget Expand', e => {
+      if (pomodoro_isMinimized && e.target === widget) {
+        pomodoro_toggleMinimize();
       }
     });
   }
 }
-
-// ============================================================
-// BACKGROUND COMMUNICATION & STATE SYNC
-// ============================================================
-
-/**
- * Set up message listener for state updates from background
- * @function pomodoro_setupMessageListener
- * @returns {void}
- * @private
- */
-function pomodoro_setupMessageListener() {
-  if (pomodoro_listenerSetup) {
-    return;
-  }
-  pomodoro_listenerSetup = true;
-
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // Handle state updates from background
-    if (message.type === 'POMODORO_STATE_UPDATE') {
-      pomodoro_handleStateUpdate(message);
-      sendResponse({ success: true });
-      return false;
-    }
-
-    // Handle session complete notifications
-    if (message.type === 'POMODORO_SESSION_COMPLETE') {
-      if (message.showNotification) {
-        showToast(message.message, 4000);
-      }
-      if (message.playSound) {
-        pomodoro_playNotificationSound();
-      }
-      sendResponse({ success: true });
-      return false;
-    }
-
-    return false;
-  });
-
-  console.log('[Pomodoro] Message listener set up');
-}
-
-/**
- * Handle state update from background
- * @function pomodoro_handleStateUpdate
- * @param {Object} state - The new state from background
- * @returns {void}
- * @private
- */
-function pomodoro_handleStateUpdate(state) {
-  const wasEnabled = pomodoro_state.enabled;
-  const wasMinimized = pomodoro_state.isMinimized;
-
-  // Update local state cache
-  pomodoro_state = {
-    enabled: state.enabled,
-    currentSession: state.currentSession,
-    timeRemaining: state.timeRemaining,
-    sessionsCompleted: state.sessionsCompleted,
-    isPaused: state.isPaused,
-    isRunning: state.isRunning,
-    isMinimized: state.isMinimized,
-  };
-
-  // Handle enable/disable
-  if (state.enabled && !wasEnabled) {
-    // Create UI if not exists
-    if (!pomodoro_uiElement) {
-      pomodoro_injectStyles();
-      pomodoro_createUI();
-    }
-  } else if (!state.enabled && wasEnabled) {
-    // Remove UI
-    pomodoro_removeUI();
-    pomodoro_removeStyles();
-    return;
-  }
-
-  // Update UI if enabled
-  if (state.enabled && pomodoro_uiElement) {
-    pomodoro_updateDisplay();
-    pomodoro_updateButtonStates();
-    pomodoro_updateSessionUI();
-
-    // Handle minimize state change
-    if (state.isMinimized !== wasMinimized) {
-      const widget = pomodoro_uiElement.querySelector('.assist-pomodoro-widget');
-      if (widget) {
-        if (state.isMinimized) {
-          widget.classList.add('minimized');
-        } else {
-          widget.classList.remove('minimized');
-        }
-      }
-    }
-  }
-}
-
-/**
- * Request current state from background
- * @function pomodoro_requestState
- * @returns {Promise<void>}
- * @private
- */
-async function pomodoro_requestState() {
-  try {
-    const response = await chrome.runtime.sendMessage({ action: 'POMODORO_GET_STATE' });
-    if (response && response.success) {
-      pomodoro_handleStateUpdate(response);
-    }
-  } catch (error) {
-    console.log('[Pomodoro] Could not get state from background:', error);
-  }
-}
-
-// Legacy functions kept for API compatibility - now just send messages to background
 
 /**
  * Start the Pomodoro timer
@@ -744,7 +649,26 @@ async function pomodoro_requestState() {
  * @returns {void}
  */
 function pomodoro_startTimer() {
-  chrome.runtime.sendMessage({ action: 'POMODORO_START' });
+  if (pomodoro_timerInterval) {
+    return; // Already running
+  }
+
+  console.log('[Pomodoro] Timer started');
+
+  // Start interval (1 second)
+  pomodoro_timerInterval = setInterval(() => {
+    if (pomodoro_timeRemaining > 0) {
+      pomodoro_timeRemaining--;
+      pomodoro_updateDisplay();
+    } else {
+      // Session complete
+      pomodoro_handleSessionComplete();
+    }
+  }, 1000);
+
+  // Update UI
+  pomodoro_isPaused = false;
+  pomodoro_updateButtonStates();
 }
 
 /**
@@ -753,7 +677,13 @@ function pomodoro_startTimer() {
  * @returns {void}
  */
 function pomodoro_pauseTimer() {
-  chrome.runtime.sendMessage({ action: 'POMODORO_PAUSE' });
+  if (pomodoro_timerInterval) {
+    clearInterval(pomodoro_timerInterval);
+    pomodoro_timerInterval = null;
+    pomodoro_isPaused = true;
+    console.log('[Pomodoro] Timer paused');
+    pomodoro_updateButtonStates();
+  }
 }
 
 /**
@@ -762,56 +692,80 @@ function pomodoro_pauseTimer() {
  * @returns {void}
  */
 function pomodoro_resetTimer() {
-  chrome.runtime.sendMessage({ action: 'POMODORO_RESET' });
+  // Stop timer if running
+  if (pomodoro_timerInterval) {
+    clearInterval(pomodoro_timerInterval);
+    pomodoro_timerInterval = null;
+  }
+
+  // Reset to current session duration
+  const duration = pomodoro_getSessionDuration(pomodoro_currentSession);
+  pomodoro_timeRemaining = duration * 60;
+  pomodoro_isPaused = false;
+
+  // Update display
+  pomodoro_updateDisplay();
+  pomodoro_updateButtonStates();
+
+  console.log('[Pomodoro] Timer reset');
 }
 
 /**
- * Update the timer display
- * @function pomodoro_updateDisplay
+ * Skip to next session
+ * @function pomodoro_skipSession
  * @returns {void}
- * @private
  */
-function pomodoro_updateDisplay() {
-  if (!pomodoro_uiElement) {
-    return;
+function pomodoro_skipSession() {
+  // Stop current timer
+  if (pomodoro_timerInterval) {
+    clearInterval(pomodoro_timerInterval);
+    pomodoro_timerInterval = null;
   }
 
-  // Calculate minutes and seconds
-  const minutes = Math.floor(pomodoro_state.timeRemaining / 60);
-  const seconds = pomodoro_state.timeRemaining % 60;
-  const timeString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  // Determine next session
+  if (pomodoro_currentSession === 'work') {
+    pomodoro_sessionsCompleted++;
 
-  // Update time text (main and minimized)
-  const timeText = pomodoro_uiElement.querySelector('#pomodoro-time-text');
-  if (timeText) {
-    timeText.textContent = timeString;
+    // Check if it's time for long break
+    if (pomodoro_sessionsCompleted >= pomodoro_settings.sessionsUntilLongBreak) {
+      pomodoro_switchSession('longBreak');
+      pomodoro_sessionsCompleted = 0; // Reset counter
+    } else {
+      pomodoro_switchSession('shortBreak');
+    }
+  } else {
+    // After any break, go back to work
+    pomodoro_switchSession('work');
   }
 
-  const minimizedTime = pomodoro_uiElement.querySelector('.pomodoro-minimized-view .time-text');
-  if (minimizedTime) {
-    minimizedTime.textContent = timeString;
-  }
+  console.log('[Pomodoro] Session skipped');
+}
 
-  // Update progress ring
-  const totalDuration = pomodoro_getSessionDuration(pomodoro_state.currentSession) * 60;
-  const progress = pomodoro_state.timeRemaining / totalDuration;
-  const circumference = 2 * Math.PI * 90; // radius = 90
-  const offset = circumference * (1 - progress);
+/**
+ * Switch to a different session type
+ * @function pomodoro_switchSession
+ * @param {'work'|'shortBreak'|'longBreak'} sessionType - The session type to switch to
+ * @returns {void}
+ */
+function pomodoro_switchSession(sessionType) {
+  pomodoro_currentSession = sessionType;
+  pomodoro_resetTimer();
+  pomodoro_updateSessionUI();
 
-  const progressRing = pomodoro_uiElement.querySelector('.pomodoro-progress-ring');
-  if (progressRing) {
-    progressRing.style.strokeDashoffset = offset;
-  }
+  console.log(`[Pomodoro] Switched to ${sessionType} session`);
 
-  // Update sessions count
-  const sessionsCount = pomodoro_uiElement.querySelector('#pomodoro-sessions-count');
-  if (sessionsCount) {
-    sessionsCount.textContent = `${pomodoro_state.sessionsCompleted} / ${pomodoro_settings.sessionsUntilLongBreak}`;
+  // Auto-start if enabled
+  const shouldAutoStart =
+    (sessionType === 'work' && pomodoro_settings.autoStartWork) ||
+    (sessionType !== 'work' && pomodoro_settings.autoStartBreaks);
+
+  if (shouldAutoStart) {
+    setTimeout(() => pomodoro_startTimer(), 500);
   }
 }
 
 /**
- * Get duration for a session type (uses local settings)
+ * Get duration for a session type
  * @function pomodoro_getSessionDuration
  * @param {'work'|'shortBreak'|'longBreak'} sessionType - The session type
  * @returns {number} Duration in minutes
@@ -827,6 +781,94 @@ function pomodoro_getSessionDuration(sessionType) {
       return pomodoro_settings.longBreakDuration;
     default:
       return 25;
+  }
+}
+
+/**
+ * Handle session completion
+ * @function pomodoro_handleSessionComplete
+ * @returns {void}
+ * @private
+ */
+function pomodoro_handleSessionComplete() {
+  // Stop timer
+  if (pomodoro_timerInterval) {
+    clearInterval(pomodoro_timerInterval);
+    pomodoro_timerInterval = null;
+  }
+
+  // Determine message and next session
+  let message = '';
+  let nextSession = 'work';
+
+  if (pomodoro_currentSession === 'work') {
+    pomodoro_sessionsCompleted++;
+
+    if (pomodoro_sessionsCompleted >= pomodoro_settings.sessionsUntilLongBreak) {
+      message = '🎉 Work session complete! Time for a long break!';
+      nextSession = 'longBreak';
+      pomodoro_sessionsCompleted = 0;
+    } else {
+      message = '✅ Work session complete! Time for a short break!';
+      nextSession = 'shortBreak';
+    }
+  } else if (pomodoro_currentSession === 'shortBreak') {
+    message = '☕ Break over! Ready to work?';
+    nextSession = 'work';
+  } else {
+    message = '🌟 Long break over! Ready to work?';
+    nextSession = 'work';
+  }
+
+  // Notify user
+  pomodoro_notifyUser(message);
+
+  // Switch to next session
+  pomodoro_switchSession(nextSession);
+}
+
+/**
+ * Update the timer display
+ * @function pomodoro_updateDisplay
+ * @returns {void}
+ * @private
+ */
+function pomodoro_updateDisplay() {
+  if (!pomodoro_uiElement) {
+    return;
+  }
+
+  // Calculate minutes and seconds
+  const minutes = Math.floor(pomodoro_timeRemaining / 60);
+  const seconds = pomodoro_timeRemaining % 60;
+  const timeString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+  // Update time text (main and minimized)
+  const timeText = pomodoro_uiElement.querySelector('#pomodoro-time-text');
+  if (timeText) {
+    timeText.textContent = timeString;
+  }
+
+  const minimizedTime = pomodoro_uiElement.querySelector('.pomodoro-minimized-view .time-text');
+  if (minimizedTime) {
+    minimizedTime.textContent = timeString;
+  }
+
+  // Update progress ring
+  const totalDuration = pomodoro_getSessionDuration(pomodoro_currentSession) * 60;
+  const progress = pomodoro_timeRemaining / totalDuration;
+  const circumference = 2 * Math.PI * 90; // radius = 90
+  const offset = circumference * (1 - progress);
+
+  const progressRing = pomodoro_uiElement.querySelector('.pomodoro-progress-ring');
+  if (progressRing) {
+    progressRing.style.strokeDashoffset = offset;
+  }
+
+  // Update sessions count
+  const sessionsCount = pomodoro_uiElement.querySelector('#pomodoro-sessions-count');
+  if (sessionsCount) {
+    sessionsCount.textContent = `${pomodoro_sessionsCompleted} / ${pomodoro_settings.sessionsUntilLongBreak}`;
   }
 }
 
@@ -849,13 +891,13 @@ function pomodoro_updateSessionUI() {
       shortBreak: 'Short Break',
       longBreak: 'Long Break',
     };
-    sessionLabel.textContent = labels[pomodoro_state.currentSession] || 'Session';
+    sessionLabel.textContent = labels[pomodoro_currentSession] || 'Session';
   }
 
   // Update progress ring color
   const progressRing = pomodoro_uiElement.querySelector('.pomodoro-progress-ring');
   if (progressRing) {
-    if (pomodoro_state.currentSession === 'work') {
+    if (pomodoro_currentSession === 'work') {
       progressRing.classList.remove('break');
     } else {
       progressRing.classList.add('break');
@@ -865,7 +907,7 @@ function pomodoro_updateSessionUI() {
   // Update minimized dot color
   const sessionDot = pomodoro_uiElement.querySelector('.session-dot');
   if (sessionDot) {
-    if (pomodoro_state.currentSession === 'work') {
+    if (pomodoro_currentSession === 'work') {
       sessionDot.classList.remove('break');
     } else {
       sessionDot.classList.add('break');
@@ -875,7 +917,7 @@ function pomodoro_updateSessionUI() {
   // Update sessions count
   const sessionsCount = pomodoro_uiElement.querySelector('#pomodoro-sessions-count');
   if (sessionsCount) {
-    sessionsCount.textContent = `${pomodoro_state.sessionsCompleted} / ${pomodoro_settings.sessionsUntilLongBreak}`;
+    sessionsCount.textContent = `${pomodoro_sessionsCompleted} / ${pomodoro_settings.sessionsUntilLongBreak}`;
   }
 }
 
@@ -892,11 +934,11 @@ function pomodoro_updateButtonStates() {
 
   const startBtn = pomodoro_uiElement.querySelector('#pomodoro-start-btn');
   if (startBtn) {
-    if (pomodoro_state.isRunning) {
+    if (pomodoro_timerInterval) {
       startBtn.textContent = 'Pause';
       startBtn.className = 'pomodoro-btn pomodoro-btn-secondary';
     } else {
-      startBtn.textContent = pomodoro_state.isPaused ? 'Resume' : 'Start';
+      startBtn.textContent = pomodoro_isPaused ? 'Resume' : 'Start';
       startBtn.className = 'pomodoro-btn pomodoro-btn-primary';
     }
   }
@@ -909,7 +951,7 @@ function pomodoro_updateButtonStates() {
  * @returns {void}
  * @private
  */
-function _pomodoro_notifyUser(message) {
+function pomodoro_notifyUser(message) {
   // Show toast notification
   if (pomodoro_settings.showNotifications) {
     showToast(message, 4000);
@@ -953,13 +995,28 @@ function pomodoro_playNotificationSound() {
 }
 
 /**
- * Toggle minimized state - sends message to background for cross-tab sync
+ * Toggle minimized state
  * @function pomodoro_toggleMinimize
  * @returns {void}
  * @private
  */
-function _pomodoro_toggleMinimize() {
-  chrome.runtime.sendMessage({ action: 'POMODORO_TOGGLE_MINIMIZE' });
+function pomodoro_toggleMinimize() {
+  if (!pomodoro_uiElement) {
+    return;
+  }
+
+  pomodoro_isMinimized = !pomodoro_isMinimized;
+  const widget = pomodoro_uiElement.querySelector('.assist-pomodoro-widget');
+
+  if (widget) {
+    if (pomodoro_isMinimized) {
+      widget.classList.add('minimized');
+    } else {
+      widget.classList.remove('minimized');
+    }
+  }
+
+  console.log(`[Pomodoro] ${pomodoro_isMinimized ? 'Minimized' : 'Expanded'}`);
 }
 
 /**
@@ -970,7 +1027,7 @@ function _pomodoro_toggleMinimize() {
  * @private
  */
 function pomodoro_handleDragStart(e) {
-  if (pomodoro_state.isMinimized) {
+  if (pomodoro_isMinimized) {
     return;
   } // Don't drag when minimized (let click expand)
 
@@ -1042,34 +1099,51 @@ function pomodoro_handleDragEnd() {
 }
 
 /**
- * Enable the Pomodoro Timer - sends message to background for cross-tab sync
+ * Enable the Pomodoro Timer
  * @function pomodoro_enable
  * @returns {void}
  */
 function pomodoro_enable() {
-  // Set up message listener first
-  pomodoro_setupMessageListener();
+  if (pomodoro_enabled) {
+    return;
+  }
 
-  // Send enable message to background (will broadcast to all tabs)
-  chrome.runtime.sendMessage({
-    action: 'POMODORO_ENABLE',
-    settings: pomodoro_settings,
-  });
+  pomodoro_enabled = true;
+  pomodoro_injectStyles();
+  pomodoro_createUI();
 
-  console.log('[Pomodoro] Enable requested');
+  console.log('[Pomodoro] Enabled');
   showToast('🍅 Pomodoro Timer enabled');
 }
 
 /**
- * Disable the Pomodoro Timer - sends message to background for cross-tab sync
+ * Disable the Pomodoro Timer
  * @function pomodoro_disable
  * @returns {void}
  */
 function pomodoro_disable() {
-  // Send disable message to background (will broadcast to all tabs)
-  chrome.runtime.sendMessage({ action: 'POMODORO_DISABLE' });
+  if (!pomodoro_enabled) {
+    return;
+  }
 
-  console.log('[Pomodoro] Disable requested');
+  // Stop timer
+  if (pomodoro_timerInterval) {
+    clearInterval(pomodoro_timerInterval);
+    pomodoro_timerInterval = null;
+  }
+
+  // Clean up UI
+  pomodoro_removeUI();
+  pomodoro_removeStyles();
+
+  // Reset state
+  pomodoro_enabled = false;
+  pomodoro_currentSession = 'work';
+  pomodoro_sessionsCompleted = 0;
+  pomodoro_isPaused = false;
+  pomodoro_isMinimized = false;
+
+  console.log('[Pomodoro] Disabled');
   showToast('Pomodoro Timer disabled');
 }
 
@@ -1079,7 +1153,15 @@ function pomodoro_disable() {
  * @returns {Object} Current state object
  */
 function pomodoro_getState() {
-  return { ...pomodoro_state };
+  return {
+    enabled: pomodoro_enabled,
+    currentSession: pomodoro_currentSession,
+    timeRemaining: pomodoro_timeRemaining,
+    sessionsCompleted: pomodoro_sessionsCompleted,
+    isPaused: pomodoro_isPaused,
+    isRunning: pomodoro_timerInterval !== null,
+    isMinimized: pomodoro_isMinimized,
+  };
 }
 
 // ============================================================
@@ -1093,14 +1175,11 @@ function pomodoro_getState() {
  * @private
  */
 function applySettings(settings, isInit = false) {
-  const wasEnabled = pomodoro_state.enabled;
+  const wasEnabled = pomodoro_enabled;
   const newEnabled = settings.enabled || false;
 
-  // Update local settings
+  // Update settings
   Object.assign(pomodoro_settings, settings);
-
-  // Set up message listener on first run
-  pomodoro_setupMessageListener();
 
   // Handle enable/disable
   if (newEnabled && !wasEnabled) {
@@ -1108,22 +1187,18 @@ function applySettings(settings, isInit = false) {
   } else if (!newEnabled && wasEnabled) {
     pomodoro_disable();
   } else if (newEnabled && !isInit) {
-    // Settings changed - send update to background
-    chrome.runtime.sendMessage({
-      action: 'POMODORO_UPDATE_SETTINGS',
-      settings: pomodoro_settings,
-    });
+    // Update UI if already enabled (settings changed)
+    if (pomodoro_uiElement) {
+      // Update position if changed
+      if (pomodoro_settings.position && !pomodoro_isDragging) {
+        pomodoro_uiElement.className = pomodoro_settings.position;
+      }
 
-    // Update UI position if changed
-    if (pomodoro_uiElement && pomodoro_settings.position && !pomodoro_isDragging) {
-      pomodoro_uiElement.className = pomodoro_settings.position;
+      // Recalculate time if durations changed and timer is not running
+      if (!pomodoro_timerInterval) {
+        pomodoro_resetTimer();
+      }
     }
-  }
-
-  // On initialization, request current state from background
-  // This allows timer to persist and show across tabs
-  if (isInit) {
-    pomodoro_requestState();
   }
 
   console.log(
