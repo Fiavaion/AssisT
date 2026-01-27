@@ -75,7 +75,13 @@ export function onSettingsChange(callback) {
  */
 export function onFeatureSettingsChange(featureKey, callback) {
   const listener = changes => {
-    if (changes.assist_settings?.newValue?.[featureKey]) {
+    // Use 'in' operator to check property existence, not truthy value
+    // This ensures callback fires even if settings value is falsy (false, null, 0)
+    if (changes.assist_settings?.newValue && featureKey in changes.assist_settings.newValue) {
+      console.log(
+        `[StorageUtils] ${featureKey} settings changed:`,
+        changes.assist_settings.newValue[featureKey]
+      );
       callback(changes.assist_settings.newValue[featureKey]);
     }
   };
