@@ -31,6 +31,277 @@ const mdc_settings = {
 };
 
 // ============================================================================
+// CSS STYLES (Injected to document.head to avoid innerHTML stripping)
+// ============================================================================
+
+const MDC_PANEL_CSS = `
+  #assist-mdc-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-width: 90vw;
+    max-height: 85vh;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    z-index: 999998;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mdc-header {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .mdc-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .mdc-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+  }
+
+  .mdc-close:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  .mdc-content {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .mdc-doc-list {
+    margin-bottom: 20px;
+  }
+
+  .mdc-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .mdc-doc-icon {
+    font-size: 24px;
+  }
+
+  .mdc-doc-info {
+    flex: 1;
+  }
+
+  .mdc-doc-title {
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .mdc-doc-meta {
+    font-size: 12px;
+    color: #666;
+  }
+
+  .mdc-doc-remove {
+    background: #ffebee;
+    border: none;
+    color: #f44336;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .mdc-doc-remove:hover {
+    background: #ffcdd2;
+  }
+
+  .mdc-empty {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+  }
+
+  .mdc-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+
+  .mdc-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .mdc-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .mdc-btn-primary {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+  }
+
+  .mdc-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
+  }
+
+  .mdc-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .mdc-btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+  }
+
+  .mdc-btn-secondary:hover {
+    background: #e0e0e0;
+  }
+
+  .mdc-results {
+    display: none;
+  }
+
+  .mdc-results.visible {
+    display: block;
+  }
+
+  .mdc-result-section {
+    margin-bottom: 16px;
+  }
+
+  .mdc-result-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mdc-result-list {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .mdc-result-item {
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .mdc-result-item:last-child {
+    border-bottom: none;
+  }
+
+  .mdc-synthesis {
+    background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .mdc-agreement {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: 8px;
+  }
+
+  .mdc-agreement.high {
+    background: #c8e6c9;
+    color: #2e7d32;
+  }
+
+  .mdc-agreement.medium {
+    background: #fff3e0;
+    color: #ef6c00;
+  }
+
+  .mdc-agreement.low {
+    background: #ffcdd2;
+    color: #c62828;
+  }
+
+  .mdc-loading {
+    text-align: center;
+    padding: 40px;
+  }
+
+  .mdc-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f0f0f0;
+    border-top-color: #11998e;
+    border-radius: 50%;
+    animation: mdc-spin 1s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes mdc-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .mdc-tip {
+    background: #fff8e1;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    color: #f57f17;
+    margin-top: 16px;
+  }
+`;
+
+/**
+ * Inject CSS styles into document head
+ */
+function mdc_injectStyles() {
+  if (document.getElementById('assist-mdc-styles')) {
+    return; // Already injected
+  }
+
+  const styleEl = document.createElement('style');
+  styleEl.id = 'assist-mdc-styles';
+  styleEl.textContent = MDC_PANEL_CSS;
+  document.head.appendChild(styleEl);
+}
+
+// ============================================================================
 // DOCUMENT MANAGEMENT
 // ============================================================================
 
@@ -142,6 +413,7 @@ Rules:
     const response = await chrome.runtime.sendMessage({
       action: 'LOCAL_LLM_GENERATE',
       prompt,
+      taskType: 'summarization', // Uses general category
       options: {
         maxTokens: 1200,
         temperature: 0.3,
@@ -264,262 +536,9 @@ function mdc_createPanel() {
   panel.setAttribute('aria-label', 'Multi-Document Comparison');
   panel.tabIndex = -1;
 
-  const style = document.createElement('style');
-  style.textContent = `
-    #assist-mdc-panel {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 600px;
-      max-width: 90vw;
-      max-height: 85vh;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      z-index: 999998;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
+  // CSS is now injected into document.head via mdc_injectStyles()
 
-    .mdc-header {
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-      color: white;
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    .mdc-header h3 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .mdc-close {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: white;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 20px;
-    }
-
-    .mdc-close:hover {
-      background: rgba(255,255,255,0.3);
-    }
-
-    .mdc-content {
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .mdc-doc-list {
-      margin-bottom: 20px;
-    }
-
-    .mdc-doc-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-
-    .mdc-doc-icon {
-      font-size: 24px;
-    }
-
-    .mdc-doc-info {
-      flex: 1;
-    }
-
-    .mdc-doc-title {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .mdc-doc-meta {
-      font-size: 12px;
-      color: #666;
-    }
-
-    .mdc-doc-remove {
-      background: #ffebee;
-      border: none;
-      color: #f44336;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    .mdc-doc-remove:hover {
-      background: #ffcdd2;
-    }
-
-    .mdc-empty {
-      text-align: center;
-      padding: 40px;
-      color: #666;
-    }
-
-    .mdc-empty-icon {
-      font-size: 48px;
-      margin-bottom: 12px;
-    }
-
-    .mdc-actions {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .mdc-btn {
-      flex: 1;
-      padding: 12px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .mdc-btn-primary {
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-      color: white;
-    }
-
-    .mdc-btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(17, 153, 142, 0.3);
-    }
-
-    .mdc-btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .mdc-btn-secondary {
-      background: #f0f0f0;
-      color: #333;
-    }
-
-    .mdc-btn-secondary:hover {
-      background: #e0e0e0;
-    }
-
-    .mdc-results {
-      display: none;
-    }
-
-    .mdc-results.visible {
-      display: block;
-    }
-
-    .mdc-result-section {
-      margin-bottom: 16px;
-    }
-
-    .mdc-result-section h4 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-      color: #333;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .mdc-result-list {
-      background: #f8f9fa;
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .mdc-result-item {
-      padding: 6px 0;
-      font-size: 13px;
-      border-bottom: 1px solid #eee;
-    }
-
-    .mdc-result-item:last-child {
-      border-bottom: none;
-    }
-
-    .mdc-synthesis {
-      background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%);
-      border-radius: 8px;
-      padding: 16px;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-
-    .mdc-agreement {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 500;
-      margin-left: 8px;
-    }
-
-    .mdc-agreement.high {
-      background: #c8e6c9;
-      color: #2e7d32;
-    }
-
-    .mdc-agreement.medium {
-      background: #fff3e0;
-      color: #ef6c00;
-    }
-
-    .mdc-agreement.low {
-      background: #ffcdd2;
-      color: #c62828;
-    }
-
-    .mdc-loading {
-      text-align: center;
-      padding: 40px;
-    }
-
-    .mdc-spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid #f0f0f0;
-      border-top-color: #11998e;
-      border-radius: 50%;
-      animation: mdc-spin 1s linear infinite;
-      margin: 0 auto 16px;
-    }
-
-    @keyframes mdc-spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .mdc-tip {
-      background: #fff8e1;
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 13px;
-      color: #f57f17;
-      margin-top: 16px;
-    }
-  `;
-  panel.appendChild(style);
-
-  panel.innerHTML += `
+  panel.innerHTML = `
     <div class="mdc-header">
       <h3>📊 Compare Documents</h3>
       <button class="mdc-close" aria-label="Close">&times;</button>
@@ -785,6 +804,9 @@ function mdc_show(initialText = null) {
   if (mdc_panel) {
     mdc_panel.remove();
   }
+
+  // Inject CSS to document.head before creating panel
+  mdc_injectStyles();
 
   mdc_panel = mdc_createPanel();
   document.body.appendChild(mdc_panel);
