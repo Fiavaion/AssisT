@@ -111,10 +111,25 @@ function darkMode_getPresetCSS(presetKey) {
 }
 
 /**
+ * Exclusion selector to prevent dark mode from affecting extension UI elements.
+ * Uses :not() pseudo-class to exclude assist-* elements at the selector level.
+ */
+const ASSIST_EXCLUDE = ':not([id^="assist-"]):not([class^="assist-"]):not([class*=" assist-"])';
+
+/**
+ * Helper function to add exclusion to an array of selectors
+ * @param {string[]} selectors - Array of CSS selectors
+ * @returns {string} Comma-separated selectors with exclusions
+ */
+function excludeAssist(selectors) {
+  return selectors.map(s => `${s}${ASSIST_EXCLUDE}`).join(',\n    ');
+}
+
+/**
  * Generates the dark mode CSS.
  *
- * Uses aggressive background-color overrides similar to screenOverlay
- * to ensure complete coverage of all page elements.
+ * Uses aggressive background-color overrides with :not() exclusions
+ * to ensure complete coverage while preserving extension UI styling.
  *
  * @function darkMode_generateCSS
  * @param {string} presetKey - The preset to use
@@ -122,6 +137,146 @@ function darkMode_getPresetCSS(presetKey) {
  */
 function darkMode_generateCSS(presetKey) {
   const preset = DARK_MODE_PRESETS[presetKey] || DARK_MODE_PRESETS['dark-gray'];
+
+  // Define element groups for organized CSS generation
+  const containerElements = [
+    'main',
+    'article',
+    'section',
+    'div',
+    'aside',
+    'nav',
+    'header',
+    'footer',
+    'span',
+    '.content',
+    '.container',
+    '.wrapper',
+    '.page',
+    '.post',
+    '.entry',
+    '[class*="content"]',
+    '[class*="article"]',
+    '[class*="main"]',
+    '[class*="body"]',
+    '[class*="wrapper"]',
+    '[class*="container"]',
+    '[class*="sidebar"]',
+    '[class*="panel"]',
+    '[class*="card"]',
+    '[class*="box"]',
+    '[class*="block"]',
+    '[class*="section"]',
+    '[class*="header"]',
+    '[class*="footer"]',
+    '[class*="nav"]',
+    '[class*="menu"]',
+    '[class*="list"]',
+    '[class*="item"]',
+    '[class*="row"]',
+    '[class*="col"]',
+    '[class*="grid"]',
+    '[class*="layout"]',
+    '[class*="page"]',
+    '[class*="view"]',
+    '[class*="modal"]',
+    '[class*="dialog"]',
+    '[class*="popup"]',
+    '[class*="dropdown"]',
+    '[class*="tooltip"]',
+    '[class*="popover"]',
+    'ul',
+    'ol',
+    'li',
+    'dl',
+    'dt',
+    'dd',
+    'table',
+    'thead',
+    'tbody',
+    'tfoot',
+    'tr',
+  ];
+
+  const secondaryBgElements = [
+    '.card',
+    '.panel',
+    '.modal',
+    '.modal-content',
+    '.modal-body',
+    '.modal-header',
+    '.modal-footer',
+    '.dropdown-menu',
+    '.popover',
+    '.tooltip-inner',
+    'td',
+    'th',
+    'blockquote',
+    'figure',
+    'fieldset',
+    'legend',
+    '[class*="widget"]',
+    '[class*="tile"]',
+    '[class*="thumbnail"]',
+  ];
+
+  const textElements = [
+    'p',
+    'span',
+    'div',
+    'li',
+    'td',
+    'th',
+    'label',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'article',
+    'section',
+    'main',
+    'aside',
+    'blockquote',
+    'figcaption',
+    'legend',
+    'dt',
+    'dd',
+    'address',
+  ];
+
+  const secondaryTextElements = [
+    '.text-muted',
+    '.text-secondary',
+    'small',
+    '.caption',
+    'figcaption',
+    'cite',
+    'time',
+    '.subtitle',
+    '.meta',
+    '[class*="muted"]',
+    '[class*="secondary"]',
+    '[class*="hint"]',
+    '[class*="caption"]',
+    '[class*="subtitle"]',
+  ];
+
+  const formElements = ['input', 'textarea', 'select'];
+
+  const buttonElements = [
+    'button',
+    '[type="button"]',
+    '[type="submit"]',
+    '[type="reset"]',
+    '.btn',
+    '[class*="button"]',
+  ];
+
+  const codeElements = ['pre', 'code', 'kbd', 'samp'];
+
+  const linkElements = ['a', 'a:visited'];
 
   return `
     /* Dark Mode - AssisT Extension */
@@ -134,92 +289,72 @@ function darkMode_generateCSS(presetKey) {
     }
 
     /* Aggressive background override for ALL common container elements */
-    main, article, section, div, aside, nav, header, footer, span,
-    .content, .container, .wrapper, .page, .post, .entry,
-    [class*="content"], [class*="article"], [class*="main"],
-    [class*="body"], [class*="wrapper"], [class*="container"],
-    [class*="sidebar"], [class*="panel"], [class*="card"],
-    [class*="box"], [class*="block"], [class*="section"],
-    [class*="header"], [class*="footer"], [class*="nav"],
-    [class*="menu"], [class*="list"], [class*="item"],
-    [class*="row"], [class*="col"], [class*="grid"],
-    [class*="layout"], [class*="page"], [class*="view"],
-    [class*="modal"], [class*="dialog"], [class*="popup"],
-    [class*="dropdown"], [class*="tooltip"], [class*="popover"],
-    ul, ol, li, dl, dt, dd, table, thead, tbody, tfoot, tr {
+    /* Excludes assist-* elements so extension UI is preserved */
+    ${excludeAssist(containerElements)} {
       background-color: ${preset.bgPrimary} !important;
     }
 
     /* Secondary background for nested/card-like elements */
-    .card, .panel, .modal, .modal-content, .modal-body, .modal-header, .modal-footer,
-    .dropdown-menu, .popover, .tooltip-inner,
-    td, th, blockquote, figure, fieldset, legend,
-    [class*="widget"], [class*="tile"], [class*="thumbnail"] {
+    ${excludeAssist(secondaryBgElements)} {
       background-color: ${preset.bgSecondary} !important;
     }
 
     /* Target elements with white/light inline backgrounds */
-    *[style*="background-color: white"],
-    *[style*="background-color: #fff"],
-    *[style*="background-color: #FFF"],
-    *[style*="background-color: #ffffff"],
-    *[style*="background-color: #FFFFFF"],
-    *[style*="background-color: rgb(255"],
-    *[style*="background: white"],
-    *[style*="background: #fff"],
-    *[style*="background: #FFF"],
-    *[style*="background: rgb(255"] {
+    *[style*="background-color: white"]${ASSIST_EXCLUDE},
+    *[style*="background-color: #fff"]${ASSIST_EXCLUDE},
+    *[style*="background-color: #FFF"]${ASSIST_EXCLUDE},
+    *[style*="background-color: #ffffff"]${ASSIST_EXCLUDE},
+    *[style*="background-color: #FFFFFF"]${ASSIST_EXCLUDE},
+    *[style*="background-color: rgb(255"]${ASSIST_EXCLUDE},
+    *[style*="background: white"]${ASSIST_EXCLUDE},
+    *[style*="background: #fff"]${ASSIST_EXCLUDE},
+    *[style*="background: #FFF"]${ASSIST_EXCLUDE},
+    *[style*="background: rgb(255"]${ASSIST_EXCLUDE} {
       background-color: ${preset.bgPrimary} !important;
     }
 
     /* Text colors - primary text */
-    p, span, div, li, td, th, label,
-    h1, h2, h3, h4, h5, h6,
-    article, section, main, aside,
-    blockquote, figcaption, legend,
-    dt, dd, address {
+    ${excludeAssist(textElements)} {
       color: ${preset.textPrimary} !important;
     }
 
     /* Links - use accent color */
-    a, a:visited {
+    ${excludeAssist(linkElements)} {
       color: ${preset.accent} !important;
     }
 
-    a:hover, a:focus {
+    a:hover${ASSIST_EXCLUDE}, a:focus${ASSIST_EXCLUDE} {
       color: ${preset.textPrimary} !important;
     }
 
     /* Secondary text */
-    .text-muted, .text-secondary, small, .caption,
-    figcaption, cite, time, .subtitle, .meta,
-    [class*="muted"], [class*="secondary"], [class*="hint"],
-    [class*="caption"], [class*="subtitle"] {
+    ${excludeAssist(secondaryTextElements)} {
       color: ${preset.textSecondary} !important;
     }
 
     /* Form elements - slightly lighter background */
-    input, textarea, select {
+    ${excludeAssist(formElements)} {
       background-color: ${preset.bgSecondary} !important;
       color: ${preset.textPrimary} !important;
       border-color: ${preset.border} !important;
     }
 
     /* Buttons - keep distinct */
-    button, [type="button"], [type="submit"], [type="reset"],
-    .btn, [class*="button"] {
+    ${excludeAssist(buttonElements)} {
       background-color: ${preset.bgSecondary} !important;
       color: ${preset.textPrimary} !important;
       border-color: ${preset.border} !important;
     }
 
-    /* Borders for all elements */
-    *, *::before, *::after {
+    /* Borders for all elements (excluding assist-*) */
+    *${ASSIST_EXCLUDE},
+    *${ASSIST_EXCLUDE}::before,
+    *${ASSIST_EXCLUDE}::after {
       border-color: ${preset.border} !important;
     }
 
     /* Code blocks */
-    pre, code, kbd, samp {
+    ${excludeAssist(codeElements)} {
       background-color: ${preset.bgSecondary} !important;
       color: ${preset.textSecondary} !important;
     }
@@ -237,8 +372,8 @@ function darkMode_generateCSS(presetKey) {
     .navigation-tray,
     .ic-Layout-contentMain,
     .ic-Layout-columns,
-    #content,
-    #main {
+    #content:not([id^="assist-"]),
+    #main:not([id^="assist-"]) {
       background-color: ${preset.bgPrimary} !important;
     }
 
@@ -248,14 +383,6 @@ function darkMode_generateCSS(presetKey) {
     .ic-RichContentEditor {
       background-color: ${preset.bgPrimary} !important;
       color: ${preset.textPrimary} !important;
-    }
-
-    /* Don't affect extension UI */
-    .assist-toast,
-    [id^="assist-"] {
-      background-color: revert !important;
-      color: revert !important;
-      border-color: revert !important;
     }
 
     /* Scrollbar styling */
@@ -425,6 +552,17 @@ function darkMode_systemPreference() {
  * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
 function applySettings(settings, isInit = false) {
+  // Debug logging - show received settings and current module state
+  console.log('[DarkMode] applySettings called:', {
+    isInit,
+    settingsReceived: settings,
+    currentModuleState: {
+      darkMode_enabled,
+      darkMode_currentPreset,
+      styleElementExists: !!darkMode_styleElement,
+    },
+  });
+
   const wasEnabled = darkMode_enabled;
 
   // Update preset
@@ -442,7 +580,16 @@ function applySettings(settings, isInit = false) {
   // This means: user enabled dark mode, but wants it to follow system light/dark
   if (settings.enabled && settings.respectSystemPreference) {
     shouldEnable = darkMode_systemPreference();
+    console.log('[DarkMode] Following system preference:', darkMode_systemPreference());
   }
+
+  console.log('[DarkMode] Decision:', {
+    wasEnabled,
+    shouldEnable,
+    willEnable: shouldEnable && !wasEnabled,
+    willDisable: !shouldEnable && wasEnabled,
+    willUpdatePreset: shouldEnable && wasEnabled,
+  });
 
   // Handle enable/disable
   if (shouldEnable && !wasEnabled) {
@@ -455,10 +602,7 @@ function applySettings(settings, isInit = false) {
   }
 
   console.log(
-    `[DarkMode] Settings ${isInit ? 'loaded' : 'updated'}:`,
-    shouldEnable,
-    'preset:',
-    darkMode_currentPreset
+    `[DarkMode] Settings ${isInit ? 'loaded' : 'updated'}: enabled=${shouldEnable}, preset=${darkMode_currentPreset}`
   );
 }
 

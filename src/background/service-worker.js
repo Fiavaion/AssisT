@@ -526,6 +526,118 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // ========================================
+  // POMODORO MESSAGE HANDLERS (Cross-tab sync)
+  // ========================================
+
+  // Get current Pomodoro state
+  if (message.action === 'POMODORO_GET_STATE') {
+    sendResponse({
+      success: true,
+      ...pomodoroState,
+      isRunning: !pomodoroState.isPaused && pomodoroState.enabled,
+    });
+    return false;
+  }
+
+  // Start Pomodoro timer
+  if (message.action === 'POMODORO_START') {
+    pomodoroState.enabled = true;
+    pomodoroState.isPaused = false;
+    // Create alarm that fires every second (1/60 of a minute)
+    chrome.alarms.create('pomodoro-tick', { periodInMinutes: 1 / 60 });
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Pause Pomodoro timer
+  if (message.action === 'POMODORO_PAUSE') {
+    pomodoroState.isPaused = true;
+    chrome.alarms.clear('pomodoro-tick');
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Reset Pomodoro timer
+  if (message.action === 'POMODORO_RESET') {
+    pomodoroState.isPaused = true;
+    pomodoroState.timeRemaining = getSessionDuration(pomodoroState.currentSession) * 60;
+    chrome.alarms.clear('pomodoro-tick');
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Skip to next session
+  if (message.action === 'POMODORO_SKIP') {
+    chrome.alarms.clear('pomodoro-tick');
+
+    if (pomodoroState.currentSession === 'work') {
+      pomodoroState.sessionsCompleted++;
+      if (pomodoroState.sessionsCompleted >= pomodoroState.settings.sessionsUntilLongBreak) {
+        pomodoroState.currentSession = 'longBreak';
+        pomodoroState.sessionsCompleted = 0;
+      } else {
+        pomodoroState.currentSession = 'shortBreak';
+      }
+    } else {
+      pomodoroState.currentSession = 'work';
+    }
+
+    pomodoroState.timeRemaining = getSessionDuration(pomodoroState.currentSession) * 60;
+    pomodoroState.isPaused = true;
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Enable Pomodoro (show UI on all tabs)
+  if (message.action === 'POMODORO_ENABLE') {
+    pomodoroState.enabled = true;
+    pomodoroState.isPaused = true;
+    pomodoroState.timeRemaining = getSessionDuration(pomodoroState.currentSession) * 60;
+    if (message.settings) {
+      Object.assign(pomodoroState.settings, message.settings);
+    }
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Disable Pomodoro (hide UI on all tabs)
+  if (message.action === 'POMODORO_DISABLE') {
+    pomodoroState.enabled = false;
+    pomodoroState.isPaused = true;
+    chrome.alarms.clear('pomodoro-tick');
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Toggle minimized state
+  if (message.action === 'POMODORO_TOGGLE_MINIMIZE') {
+    pomodoroState.isMinimized = !pomodoroState.isMinimized;
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Update Pomodoro settings
+  if (message.action === 'POMODORO_UPDATE_SETTINGS') {
+    if (message.settings) {
+      Object.assign(pomodoroState.settings, message.settings);
+      // If timer is paused and at start, update time remaining
+      if (pomodoroState.isPaused) {
+        pomodoroState.timeRemaining = getSessionDuration(pomodoroState.currentSession) * 60;
+      }
+    }
+    broadcastPomodoroState();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // ========================================
   // BENCHMARK MESSAGE HANDLERS
   // ========================================
 
@@ -1247,6 +1359,166 @@ chrome.action.onClicked.addListener(async tab => {
   chrome.tabs.sendMessage(tab.id, {
     type: 'TOGGLE_ASSIST_PANEL',
   });
+});
+
+// ========================================
+// POMODORO TIMER STATE (Cross-tab persistence)
+// ========================================
+
+const pomodoroState = {
+  enabled: false,
+  currentSession: 'work',
+  timeRemaining: 25 * 60, // seconds
+  sessionsCompleted: 0,
+  isPaused: true,
+  isMinimized: false,
+  settings: {
+    workDuration: 25,
+    shortBreakDuration: 5,
+    longBreakDuration: 15,
+    sessionsUntilLongBreak: 4,
+    autoStartBreaks: false,
+    autoStartWork: false,
+    showNotifications: true,
+    playSound: true,
+  },
+};
+
+/**
+ * Broadcast Pomodoro state to all tabs
+ */
+async function broadcastPomodoroState() {
+  const state = {
+    type: 'POMODORO_STATE_UPDATE',
+    ...pomodoroState,
+    isRunning: !pomodoroState.isPaused && pomodoroState.enabled,
+  };
+
+  // Send to all tabs
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (
+        tab.id &&
+        !tab.url?.startsWith('chrome://') &&
+        !tab.url?.startsWith('chrome-extension://')
+      ) {
+        chrome.tabs.sendMessage(tab.id, state).catch(() => {
+          // Ignore errors for tabs without content scripts
+        });
+      }
+    }
+  } catch (error) {
+    console.log('[Pomodoro] Broadcast error:', error);
+  }
+}
+
+/**
+ * Handle Pomodoro timer tick (called by alarm)
+ */
+async function handlePomodoroTick() {
+  if (!pomodoroState.enabled || pomodoroState.isPaused) {
+    // Clear alarm if timer is paused or disabled
+    await chrome.alarms.clear('pomodoro-tick');
+    return;
+  }
+
+  if (pomodoroState.timeRemaining > 0) {
+    pomodoroState.timeRemaining--;
+    await broadcastPomodoroState();
+  } else {
+    // Session complete
+    await handlePomodoroSessionComplete();
+  }
+}
+
+/**
+ * Handle session completion
+ */
+async function handlePomodoroSessionComplete() {
+  let message = '';
+  let nextSession = 'work';
+
+  if (pomodoroState.currentSession === 'work') {
+    pomodoroState.sessionsCompleted++;
+
+    if (pomodoroState.sessionsCompleted >= pomodoroState.settings.sessionsUntilLongBreak) {
+      message = '🎉 Work session complete! Time for a long break!';
+      nextSession = 'longBreak';
+      pomodoroState.sessionsCompleted = 0;
+    } else {
+      message = '✅ Work session complete! Time for a short break!';
+      nextSession = 'shortBreak';
+    }
+  } else if (pomodoroState.currentSession === 'shortBreak') {
+    message = '☕ Break over! Ready to work?';
+    nextSession = 'work';
+  } else {
+    message = '🌟 Long break over! Ready to work?';
+    nextSession = 'work';
+  }
+
+  // Switch to next session
+  pomodoroState.currentSession = nextSession;
+  pomodoroState.timeRemaining = getSessionDuration(nextSession) * 60;
+
+  // Determine if we should auto-start
+  const shouldAutoStart =
+    (nextSession === 'work' && pomodoroState.settings.autoStartWork) ||
+    (nextSession !== 'work' && pomodoroState.settings.autoStartBreaks);
+
+  pomodoroState.isPaused = !shouldAutoStart;
+
+  // Broadcast the notification message to all tabs
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (
+      tab.id &&
+      !tab.url?.startsWith('chrome://') &&
+      !tab.url?.startsWith('chrome-extension://')
+    ) {
+      chrome.tabs
+        .sendMessage(tab.id, {
+          type: 'POMODORO_SESSION_COMPLETE',
+          message,
+          playSound: pomodoroState.settings.playSound,
+          showNotification: pomodoroState.settings.showNotifications,
+        })
+        .catch(() => {});
+    }
+  }
+
+  // Continue alarm if auto-starting
+  if (shouldAutoStart) {
+    await chrome.alarms.create('pomodoro-tick', { periodInMinutes: 1 / 60 }); // 1 second
+  } else {
+    await chrome.alarms.clear('pomodoro-tick');
+  }
+
+  await broadcastPomodoroState();
+}
+
+/**
+ * Get duration for a session type
+ */
+function getSessionDuration(sessionType) {
+  switch (sessionType) {
+    case 'work':
+      return pomodoroState.settings.workDuration;
+    case 'shortBreak':
+      return pomodoroState.settings.shortBreakDuration;
+    case 'longBreak':
+      return pomodoroState.settings.longBreakDuration;
+    default:
+      return 25;
+  }
+}
+
+// Listen for Pomodoro alarm
+chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === 'pomodoro-tick') {
+    await handlePomodoroTick();
+  }
 });
 
 console.log('[AssisT] Background service worker initialized');
