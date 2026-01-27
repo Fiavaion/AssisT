@@ -80,7 +80,8 @@
         <!-- SECTION 1: READING HELP (Most commonly used) -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="reading">
-          <button
+          <div
+            role="button"
             class="accordion-header"
             aria-expanded="true"
             aria-controls="reading-content"
@@ -91,7 +92,7 @@
               Reading Help
             </span>
             <span class="accordion-icon">▼</span>
-          </button>
+          </div>
           <div id="reading-content" class="accordion-content" role="region">
             <!-- TTS Enable/Disable -->
             <section class="control-section">
@@ -597,7 +598,8 @@
         <!-- SECTION 2: WRITING HELP -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="writing">
-          <button
+          <div
+            role="button"
             class="accordion-header"
             aria-expanded="false"
             aria-controls="writing-content"
@@ -608,7 +610,7 @@
               Writing Help
             </span>
             <span class="accordion-icon">▼</span>
-          </button>
+          </div>
           <div id="writing-content" class="accordion-content" role="region">
             <!-- Speech-to-Text -->
             <section class="control-section" id="stt-section">
@@ -1334,7 +1336,8 @@
         <!-- SECTION 3: LOOK UP WORDS -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="lookup">
-          <button
+          <div
+            role="button"
             class="accordion-header"
             aria-expanded="false"
             aria-controls="lookup-content"
@@ -1345,7 +1348,7 @@
               Look Up Words
             </span>
             <span class="accordion-icon">▼</span>
-          </button>
+          </div>
           <div id="lookup-content" class="accordion-content" role="region">
             <!-- Full-Page Translation -->
             <section id="translation-section" class="control-section">
@@ -1360,6 +1363,89 @@
                 <span class="btn-icon">🌐</span>
                 <span class="btn-text">Translate Page</span>
               </button>
+
+              <!-- Translation Provider Selection -->
+              <div style="margin-top: 12px">
+                <label for="translation-provider" class="section-title">Translation Provider</label>
+                <select
+                  id="translation-provider"
+                  data-testid="translation-provider-select"
+                  class="voice-select"
+                  aria-label="Translation provider"
+                >
+                  <option value="mymemory">MyMemory (Free, No Key)</option>
+                  <option value="deepl">DeepL (Requires Key)</option>
+                  <option value="azure">Azure Translator (Requires Key)</option>
+                </select>
+              </div>
+
+              <!-- API Key Section for DeepL -->
+              <div
+                id="deepl-key-section"
+                class="api-key-section"
+                style="display: none; margin-top: 12px"
+              >
+                <label for="deepl-api-key" class="section-title">DeepL API Key</label>
+                <div class="input-group">
+                  <input
+                    type="password"
+                    id="deepl-api-key"
+                    class="api-key-input"
+                    placeholder="Enter DeepL API key"
+                    aria-label="DeepL API key"
+                  />
+                  <button id="btn-test-deepl" class="test-key-btn" title="Test API key">
+                    Test
+                  </button>
+                </div>
+                <a
+                  href="https://www.deepl.com/pro-api"
+                  target="_blank"
+                  class="api-link"
+                  rel="noopener noreferrer"
+                  >Get Free Key (500k chars/month)</a
+                >
+              </div>
+
+              <!-- API Key Section for Azure -->
+              <div
+                id="azure-key-section"
+                class="api-key-section"
+                style="display: none; margin-top: 12px"
+              >
+                <label for="azure-api-key" class="section-title">Azure API Key</label>
+                <div class="input-group">
+                  <input
+                    type="password"
+                    id="azure-api-key"
+                    class="api-key-input"
+                    placeholder="Enter Azure API key"
+                    aria-label="Azure API key"
+                  />
+                  <button id="btn-test-azure" class="test-key-btn" title="Test API key">
+                    Test
+                  </button>
+                </div>
+                <label for="azure-region" class="section-title" style="margin-top: 8px"
+                  >Azure Region</label
+                >
+                <input
+                  type="text"
+                  id="azure-region"
+                  class="api-key-input"
+                  placeholder="global"
+                  value="global"
+                  aria-label="Azure region"
+                />
+                <a
+                  href="https://azure.microsoft.com/services/cognitive-services/translator/"
+                  target="_blank"
+                  class="api-link"
+                  rel="noopener noreferrer"
+                  >Get Free Key (2M chars/month)</a
+                >
+              </div>
+
               <div style="margin-top: 12px">
                 <label for="translation-target-language" class="section-title"
                   >Target Language</label
@@ -1458,21 +1544,6 @@
                     </label>
                   </div>
                   <div class="toggle-control" style="margin-bottom: 6px">
-                    <label for="highlight-menu-show-search" class="toggle-label">
-                      <span class="label-text" style="font-size: 12px">Search</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="highlight-menu-show-search"
-                          role="switch"
-                          aria-label="Show search"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                  <div class="toggle-control" style="margin-bottom: 6px">
                     <label for="highlight-menu-show-annotate" class="toggle-label">
                       <span class="label-text" style="font-size: 12px">Annotate</span>
                       <div class="toggle-switch">
@@ -1488,14 +1559,14 @@
                     </label>
                   </div>
                   <div class="toggle-control">
-                    <label for="highlight-menu-show-copy" class="toggle-label">
-                      <span class="label-text" style="font-size: 12px">Copy</span>
+                    <label for="highlight-menu-show-speed-read" class="toggle-label">
+                      <span class="label-text" style="font-size: 12px">Speed Read</span>
                       <div class="toggle-switch">
                         <input
                           type="checkbox"
-                          id="highlight-menu-show-copy"
+                          id="highlight-menu-show-speed-read"
                           role="switch"
-                          aria-label="Show copy"
+                          aria-label="Show speed read"
                           checked
                         />
                         <span class="toggle-slider"></span>
@@ -1530,7 +1601,8 @@
         <!-- SECTION 4: PAGE DISPLAY -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="display">
-          <button
+          <div
+            role="button"
             class="accordion-header"
             aria-expanded="false"
             aria-controls="display-content"
@@ -1541,7 +1613,7 @@
               Page Display
             </span>
             <span class="accordion-icon">▼</span>
-          </button>
+          </div>
           <div id="display-content" class="accordion-content" role="region">
             <!-- Text Customization -->
             <section class="control-section" id="text-customization-section">
@@ -3057,7 +3129,8 @@
         <!-- SECTION 5: SCHOOL TOOLS -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="school">
-          <button
+          <div
+            role="button"
             class="accordion-header"
             aria-expanded="false"
             aria-controls="school-content"
@@ -3066,10 +3139,10 @@
             <span class="accordion-title">
               <span class="accordion-icon-left">🎓</span>
               School Tools
-              <span class="beta-badge">BETA</span>
+              <span class="alpha-badge">ALPHA</span>
             </span>
             <span class="accordion-icon">▼</span>
-          </button>
+          </div>
           <div id="school-content" class="accordion-content" role="region">
             <!-- Citation Feature -->
             <section id="citation-section" class="control-section citation-section">
@@ -3542,7 +3615,8 @@
         <!-- SECTION 6: AI ASSIST (Unified Local & Cloud AI) -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="ai-assist" id="ai-assist-section">
-          <button
+          <div
+            role="button"
             class="accordion-header"
             aria-expanded="false"
             aria-controls="ai-assist-content"
@@ -3554,7 +3628,7 @@
               <span class="llm-badge" id="llm-status-badge">Off</span>
             </span>
             <span class="accordion-icon">▼</span>
-          </button>
+          </div>
           <div id="ai-assist-content" class="accordion-content" role="region">
             <!-- AI Mode Selector (Radio Toggles) -->
             <section class="control-section">

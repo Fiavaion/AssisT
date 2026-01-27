@@ -30,9 +30,55 @@ class OrganizeMode {
     this.sectionSortable = null;
     this.featureSortables = [];
     this.originalState = null;
+    this.controlCleanupFns = []; // Track cleanup functions for control handlers
 
     // Delegate to popup controller's event handler method
     this.attachInteractiveHandler = this.popup.attachInteractiveHandler.bind(this.popup);
+  }
+
+  /**
+   * Attach handler to organize control using capture phase to ensure it fires first
+   * This prevents SortableJS and accordion handlers from intercepting the events
+   */
+  attachOrganizeControlHandler(element, label, handler) {
+    if (!element) {
+      console.warn(`[OrganizeMode] Element not found for: ${label}`);
+      return () => {};
+    }
+
+    const wrappedHandler = e => {
+      console.log(`[OrganizeMode] ${label} triggered (capture phase)`);
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation(); // Prevent other listeners on same element
+
+      try {
+        handler(e);
+      } catch (error) {
+        console.error(`[OrganizeMode] ${label} error:`, error);
+      }
+    };
+
+    // Use capture phase to ensure we handle the event before it reaches other listeners
+    element.addEventListener('mousedown', wrappedHandler, true);
+    element.addEventListener('click', wrappedHandler, true);
+
+    // Visual feedback
+    element.addEventListener('mouseenter', () => {
+      element.style.transform = 'scale(1.1)';
+    });
+    element.addEventListener('mouseleave', () => {
+      element.style.transform = 'scale(1)';
+    });
+
+    // Return cleanup function
+    const cleanup = () => {
+      element.removeEventListener('mousedown', wrappedHandler, true);
+      element.removeEventListener('click', wrappedHandler, true);
+    };
+
+    this.controlCleanupFns.push(cleanup);
+    return cleanup;
   }
 
   /**
@@ -80,6 +126,10 @@ class OrganizeMode {
     document.querySelector('.popup-container').classList.remove('organize-mode');
     document.getElementById('btn-organize').classList.remove('active');
     document.getElementById('organize-banner').classList.add('hidden');
+
+    // Clean up control handlers
+    this.controlCleanupFns.forEach(cleanup => cleanup());
+    this.controlCleanupFns = [];
 
     // Destroy sortables
     this.destroySortables();
@@ -131,9 +181,8 @@ class OrganizeMode {
         sectionId,
         visibilityToggle
       );
-      this.attachInteractiveHandler(visibilityToggle, 'Section Visibility Toggle', e => {
+      this.attachOrganizeControlHandler(visibilityToggle, 'Visibility Toggle', () => {
         console.log('[OrganizeMode] Visibility toggle clicked for section:', sectionId);
-        e.stopPropagation();
         this.toggleSectionVisibility(sectionId, visibilityToggle);
       });
 
@@ -143,9 +192,8 @@ class OrganizeMode {
       editTitleBtn.setAttribute('aria-label', 'Edit section title');
       editTitleBtn.innerHTML = sanitizeHTML('✏️');
       console.log('[OrganizeMode] Edit title button created for section:', sectionId, editTitleBtn);
-      this.attachInteractiveHandler(editTitleBtn, 'Edit Section Title Button', e => {
+      this.attachOrganizeControlHandler(editTitleBtn, 'Edit Title', () => {
         console.log('[OrganizeMode] Edit title clicked for section:', sectionId);
-        e.stopPropagation();
         this.editSectionTitle(sectionId);
       });
 
@@ -177,14 +225,12 @@ class OrganizeMode {
       const moveDownBtn = moveButtons.querySelector('.move-down');
       console.log('[OrganizeMode] Move buttons created:', { moveUpBtn, moveDownBtn, sectionId });
 
-      this.attachInteractiveHandler(moveUpBtn, 'Move Section Up Button', e => {
+      this.attachOrganizeControlHandler(moveUpBtn, 'Move Up', () => {
         console.log('[OrganizeMode] Move up clicked for section:', sectionId);
-        e.stopPropagation();
         this.moveSection(section, 'up');
       });
-      this.attachInteractiveHandler(moveDownBtn, 'Move Section Down Button', e => {
+      this.attachOrganizeControlHandler(moveDownBtn, 'Move Down', () => {
         console.log('[OrganizeMode] Move down clicked for section:', sectionId);
-        e.stopPropagation();
         this.moveSection(section, 'down');
       });
 
@@ -851,6 +897,8 @@ class PopupController {
       false
     ); // EXPERIMENTAL - hidden by default
     toggleSection('dyslexia-mode-section', 'show_dyslexia_mode');
+    toggleSection('citation-section', 'show_citations', false); // Citation Manager toggle - EXPERIMENTAL default off
+    toggleSection('citation-options-container', 'show_citations', false); // Citation Manager buttons
     toggleSection('dark-mode-section', 'show_dark_mode'); // Dark Mode
     toggleSection('simplify-section', 'show_simplify'); // Simplified Interface
     toggleSection('reading-progress-section', 'show_reading_progress'); // Reading Progress Tracker
@@ -858,6 +906,70 @@ class PopupController {
     // toggleSection('stargardt-section', 'show_stargardt'); // Stargardt Support - HIDDEN FOR BETA
     toggleSection('reduced-motion-section', 'show_reduced_motion'); // Reduced Motion
     toggleSection('media-control-section', 'show_media_control'); // Media Control
+
+    // =========================================================================
+    // ACCORDION AUTO-HIDE: Hide accordion sections with no visible features
+    // =========================================================================
+
+    // Helper to check if a feature is visible (uses same logic as toggleSection)
+    const isFeatureVisible = (visibilityKey, defaultValue = true) => {
+      return visibility[visibilityKey] !== undefined ? visibility[visibilityKey] : defaultValue;
+    };
+
+    // Helper to hide/show an accordion section
+    const toggleAccordion = (accordionDataSection, isVisible) => {
+      const accordion = document.querySelector(
+        `.accordion-section[data-section="${accordionDataSection}"]`
+      );
+      if (accordion) {
+        accordion.style.display = isVisible ? '' : 'none';
+      }
+    };
+
+    // Define accordion sections and their visibility-controlled features
+    // Accordions with 'alwaysVisible: true' have features without visibility controls
+    const accordionConfig = {
+      reading: { alwaysVisible: true }, // TTS has no visibility toggle
+      writing: {
+        features: [{ key: 'show_stt', default: false }],
+      },
+      lookup: { alwaysVisible: true }, // Translation has no visibility toggle
+      display: {
+        features: [
+          { key: 'show_text_customization', default: true },
+          { key: 'show_reading_guide', default: true },
+          { key: 'show_focus_mode', default: true },
+          { key: 'show_dyslexia_mode', default: true },
+          { key: 'show_screen_overlay', default: true },
+          { key: 'show_dark_mode', default: true },
+          { key: 'show_simplify', default: true },
+          { key: 'show_reading_progress', default: true },
+          { key: 'show_pomodoro', default: true },
+          { key: 'show_reduced_motion', default: true },
+          { key: 'show_media_control', default: true },
+        ],
+      },
+      school: {
+        features: [
+          { key: 'show_citations', default: false },
+          { key: 'show_canvas_integration', default: false },
+          { key: 'show_moodle_integration', default: false },
+          { key: 'show_google_classroom_integration', default: false },
+        ],
+      },
+      'ai-assist': { alwaysVisible: true }, // AI mode has no visibility toggle
+    };
+
+    // Apply accordion visibility
+    for (const [accordionId, config] of Object.entries(accordionConfig)) {
+      if (config.alwaysVisible) {
+        toggleAccordion(accordionId, true);
+      } else {
+        // Check if ANY feature in this accordion is visible
+        const hasVisibleFeature = config.features.some(f => isFeatureVisible(f.key, f.default));
+        toggleAccordion(accordionId, hasVisibleFeature);
+      }
+    }
 
     console.log('[Popup] Visibility settings applied:', visibility);
   }
@@ -1284,9 +1396,8 @@ class PopupController {
         { id: 'highlight-menu-show-tts', key: 'showTTS' },
         { id: 'highlight-menu-show-dictionary', key: 'showDictionary' },
         { id: 'highlight-menu-show-translate', key: 'showTranslate' },
-        { id: 'highlight-menu-show-search', key: 'showSearch' },
         { id: 'highlight-menu-show-annotate', key: 'showAnnotate' },
-        { id: 'highlight-menu-show-copy', key: 'showCopy' },
+        { id: 'highlight-menu-show-speed-read', key: 'showSpeedRead' },
       ];
 
       buttonToggles.forEach(({ id, key }) => {
@@ -1387,6 +1498,185 @@ class PopupController {
             this.updateStatus('Translation error: ' + error.message, 'error');
           }
         });
+      }
+
+      // ============================================================
+      // TRANSLATION: PROVIDER SELECTION & API KEYS
+      // ============================================================
+      const providerSelect = document.getElementById('translation-provider');
+      const deeplKeySection = document.getElementById('deepl-key-section');
+      const azureKeySection = document.getElementById('azure-key-section');
+      const deeplKeyInput = document.getElementById('deepl-api-key');
+      const azureKeyInput = document.getElementById('azure-api-key');
+      const azureRegionInput = document.getElementById('azure-region');
+      const btnTestDeepL = document.getElementById('btn-test-deepl');
+      const btnTestAzure = document.getElementById('btn-test-azure');
+
+      if (providerSelect && deeplKeySection && azureKeySection) {
+        // Load provider settings and API keys
+        chrome.storage.local.get(['translationSettings', 'translationApiKeys'], result => {
+          if (result.translationSettings?.provider) {
+            providerSelect.value = result.translationSettings.provider;
+          }
+
+          if (result.translationApiKeys) {
+            if (result.translationApiKeys.deepl) {
+              deeplKeyInput.value = result.translationApiKeys.deepl;
+            }
+            if (result.translationApiKeys.azure) {
+              azureKeyInput.value = result.translationApiKeys.azure;
+            }
+            if (result.translationApiKeys.azureRegion) {
+              azureRegionInput.value = result.translationApiKeys.azureRegion;
+            }
+          }
+
+          // Show/hide API key sections based on provider
+          this.updateProviderUI(providerSelect.value);
+        });
+
+        // Handle provider change
+        providerSelect.addEventListener('change', async e => {
+          const provider = e.target.value;
+
+          // Save provider to settings
+          const settings = await chrome.storage.local.get('translationSettings');
+          const updatedSettings = {
+            ...(settings.translationSettings || {}),
+            provider: provider,
+          };
+          await chrome.storage.local.set({ translationSettings: updatedSettings });
+
+          // Update UI
+          this.updateProviderUI(provider);
+
+          console.log('[Popup] Translation provider changed to:', provider);
+        });
+
+        // Handle DeepL API key input
+        if (deeplKeyInput) {
+          deeplKeyInput.addEventListener('change', async () => {
+            const apiKeys = await chrome.storage.local.get('translationApiKeys');
+            const updatedKeys = {
+              ...(apiKeys.translationApiKeys || {}),
+              deepl: deeplKeyInput.value,
+            };
+            await chrome.storage.local.set({ translationApiKeys: updatedKeys });
+            console.log('[Popup] DeepL API key updated');
+          });
+        }
+
+        // Handle Azure API key input
+        if (azureKeyInput) {
+          azureKeyInput.addEventListener('change', async () => {
+            const apiKeys = await chrome.storage.local.get('translationApiKeys');
+            const updatedKeys = {
+              ...(apiKeys.translationApiKeys || {}),
+              azure: azureKeyInput.value,
+            };
+            await chrome.storage.local.set({ translationApiKeys: updatedKeys });
+            console.log('[Popup] Azure API key updated');
+          });
+        }
+
+        // Handle Azure region input
+        if (azureRegionInput) {
+          azureRegionInput.addEventListener('change', async () => {
+            const apiKeys = await chrome.storage.local.get('translationApiKeys');
+            const updatedKeys = {
+              ...(apiKeys.translationApiKeys || {}),
+              azureRegion: azureRegionInput.value,
+            };
+            await chrome.storage.local.set({ translationApiKeys: updatedKeys });
+            console.log('[Popup] Azure region updated');
+          });
+        }
+
+        // Test DeepL API key
+        if (btnTestDeepL) {
+          this.attachInteractiveHandler(btnTestDeepL, 'Test DeepL Key', async () => {
+            const apiKey = deeplKeyInput.value;
+            if (!apiKey) {
+              this.updateStatus('Please enter a DeepL API key', 'error');
+              return;
+            }
+
+            btnTestDeepL.disabled = true;
+            btnTestDeepL.textContent = 'Testing...';
+
+            try {
+              // Test with a simple translation
+              const response = await fetch('https://api-free.deepl.com/v2/translate', {
+                method: 'POST',
+                body: new URLSearchParams({
+                  auth_key: apiKey,
+                  text: 'Hello',
+                  target_lang: 'ES',
+                }),
+              });
+
+              if (response.ok) {
+                this.updateStatus('DeepL API key is valid!', 'success');
+              } else if (response.status === 403) {
+                this.updateStatus('DeepL API key is invalid', 'error');
+              } else {
+                this.updateStatus(`DeepL API test failed: ${response.status}`, 'error');
+              }
+            } catch (error) {
+              console.error('[Popup] DeepL API test error:', error);
+              this.updateStatus('DeepL API test failed', 'error');
+            } finally {
+              btnTestDeepL.disabled = false;
+              btnTestDeepL.textContent = 'Test';
+            }
+          });
+        }
+
+        // Test Azure API key
+        if (btnTestAzure) {
+          this.attachInteractiveHandler(btnTestAzure, 'Test Azure Key', async () => {
+            const apiKey = azureKeyInput.value;
+            const region = azureRegionInput.value || 'global';
+
+            if (!apiKey) {
+              this.updateStatus('Please enter an Azure API key', 'error');
+              return;
+            }
+
+            btnTestAzure.disabled = true;
+            btnTestAzure.textContent = 'Testing...';
+
+            try {
+              // Test with a simple translation
+              const response = await fetch(
+                'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=es',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Ocp-Apim-Subscription-Key': apiKey,
+                    'Ocp-Apim-Subscription-Region': region,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify([{ text: 'Hello' }]),
+                }
+              );
+
+              if (response.ok) {
+                this.updateStatus('Azure API key is valid!', 'success');
+              } else if (response.status === 401 || response.status === 403) {
+                this.updateStatus('Azure API key is invalid', 'error');
+              } else {
+                this.updateStatus(`Azure API test failed: ${response.status}`, 'error');
+              }
+            } catch (error) {
+              console.error('[Popup] Azure API test error:', error);
+              this.updateStatus('Azure API test failed', 'error');
+            } finally {
+              btnTestAzure.disabled = false;
+              btnTestAzure.textContent = 'Test';
+            }
+          });
+        }
       }
 
       // ============================================================
@@ -2002,7 +2292,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-stt">
                   <span>Speech-to-Text</span>
-                  <span class="feature-badge experimental">Experimental</span>
+                  <span class="feature-badge alpha">Alpha</span>
                 </label>
               </div>
 
@@ -2194,8 +2484,9 @@ class PopupController {
 
               <div class="feature-item">
                 <label class="feature-label">
-                  <input type="checkbox" id="show-citations" checked>
-                  <span>Citations Generator</span>
+                  <input type="checkbox" id="show-citations">
+                  <span>Citation Manager</span>
+                  <span class="feature-badge experimental">Experimental</span>
                 </label>
               </div>
 
@@ -2203,7 +2494,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-canvas-integration">
                   <span>Canvas LMS</span>
-                  <span class="feature-badge experimental">Experimental</span>
+                  <span class="feature-badge alpha">Alpha</span>
                 </label>
               </div>
 
@@ -2211,7 +2502,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-moodle-integration">
                   <span>Moodle LMS</span>
-                  <span class="feature-badge experimental">Experimental</span>
+                  <span class="feature-badge alpha">Alpha</span>
                 </label>
               </div>
 
@@ -2219,27 +2510,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-google-classroom-integration">
                   <span>Google Classroom</span>
-                  <span class="feature-badge experimental">Experimental</span>
-                </label>
-              </div>
-
-              <div class="feature-section-header">
-                <span>🤖 Local AI Features</span>
-              </div>
-
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-llm-core" checked>
-                  <span>LLM Core Integration</span>
-                  <span class="feature-badge experimental">Experimental</span>
-                </label>
-              </div>
-
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-llm-features" checked>
-                  <span>LLM-Powered Features</span>
-                  <span class="feature-badge experimental">Experimental</span>
+                  <span class="feature-badge alpha">Alpha</span>
                 </label>
               </div>
 
@@ -2251,17 +2522,12 @@ class PopupController {
 
           <!-- Keyboard Tab -->
           <div id="tab-keyboard" class="tab-content">
-            <h3>Keyboard Shortcuts</h3>
-            <p class="tab-description">Click on a shortcut field to assign a key combination. All shortcuts are empty by default.</p>
-
-            <div class="shortcuts-info" style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
-              <p style="margin: 0; font-size: 13px; color: #0c4a6e;">
-                <strong>💡 Tip:</strong> Shortcuts must include a modifier key (Ctrl, Alt, or Shift). Chrome reserved shortcuts (like Ctrl+T) cannot be used.
-              </p>
-            </div>
-
-            <div class="shortcuts-actions" style="margin-bottom: 20px; display: flex; gap: 12px;">
-              <button id="btn-clear-all-shortcuts" class="btn-secondary" style="padding: 8px 16px;">
+            <div class="tab-header-row">
+              <div>
+                <h3>Keyboard Shortcuts</h3>
+                <p class="tab-description">Click on a shortcut to assign a key combination</p>
+              </div>
+              <button id="btn-clear-all-shortcuts" class="modal-btn modal-btn-secondary">
                 🗑️ Clear All
               </button>
             </div>
@@ -2494,131 +2760,108 @@ class PopupController {
 
           <!-- AI Tab -->
           <div id="tab-ai" class="tab-content">
-            <h3>🤖 AI Configuration</h3>
-            <p class="tab-description">Configure AI features and API settings</p>
+            <h3>Select your preferred AI provider</h3>
+            <p class="tab-description"></p>
 
             <!-- AI Mode Selection -->
-            <section class="ai-mode-section">
-              <h4>AI Mode</h4>
-              <div class="radio-group">
-                <label class="radio-label">
-                  <input type="radio" name="ai-mode" value="local" checked>
-                  <span>Local AI (Ollama)</span>
-                  <span class="mode-description">100% private, runs on your computer</span>
-                </label>
-                <label class="radio-label">
-                  <input type="radio" name="ai-mode" value="cloud">
-                  <span>Cloud AI</span>
-                  <span class="mode-description">Enhanced quality, requires API key</span>
-                </label>
+            <div class="ai-section">
+              <div class="option-group">
+                <label class="option-group-label">AI Mode</label>
+                <div class="ai-mode-selector">
+                  <label class="ai-mode-option">
+                    <input type="radio" name="ai-mode" value="local" checked>
+                    <span class="ai-mode-label">Local AI (Ollama)</span>
+                  </label>
+                  <label class="ai-mode-option">
+                    <input type="radio" name="ai-mode" value="cloud">
+                    <span class="ai-mode-label">Cloud AI</span>
+                  </label>
+                </div>
               </div>
-            </section>
+            </div>
 
             <!-- Cloud AI Provider (shown when cloud mode selected) -->
-            <section id="cloud-provider-section" class="ai-subsection hidden">
-              <h4>Cloud Provider</h4>
-              <select id="cloud-provider" class="ai-select">
-                <option value="anthropic">Anthropic (Claude)</option>
-                <option value="openai">OpenAI (ChatGPT)</option>
-                <option value="google">Google (Gemini)</option>
-                <option value="perplexity">Perplexity AI</option>
-              </select>
-              <p class="subsection-description" style="margin-top: 4px; color: #666; font-size: 12px;">Select your preferred AI provider</p>
-
-              <h4 style="margin-top: 16px;">API Key</h4>
-              <div style="display: flex; gap: 8px; align-items: flex-start;">
-                <input
-                  type="password"
-                  id="cloud-api-key"
-                  class="ai-input"
-                  placeholder="Enter your API key"
-                  style="flex: 1; font-family: monospace; font-size: 12px;"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-                <button id="test-api-key" class="ai-btn ai-btn-secondary" style="white-space: nowrap;">Test Connection</button>
+            <section id="cloud-provider-section" class="ai-section hidden">
+              <div class="option-group">
+                <label for="cloud-provider" class="option-group-label">Cloud Provider</label>
+                <select id="cloud-provider" class="voice-select">
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="openai">OpenAI (ChatGPT)</option>
+                  <option value="google">Google (Gemini)</option>
+                  <option value="perplexity">Perplexity AI</option>
+                </select>
               </div>
-              <p class="subsection-description" style="margin-top: 4px;">
-                <span id="api-key-status"></span>
-                Get your API key from:
-                <a href="#" id="api-key-link" target="_blank" style="color: #2563eb; text-decoration: underline;">Provider Website</a>
-              </p>
 
-              <h4 style="margin-top: 16px;" id="model-selection-header">Model</h4>
-              <select id="cloud-model-select" class="ai-select">
-                <!-- Populated dynamically based on provider -->
-                <option value="haiku-4.5">Haiku 4.5 (Fast & Economical)</option>
-                <option value="sonnet-4.5" selected>Sonnet 4.5 (Balanced - Recommended)</option>
-                <option value="opus-4.5">Opus 4.5 (Most Capable)</option>
-              </select>
-              <p class="subsection-description" style="margin-top: 4px;" id="model-description">Select the model for all AI features</p>
+              <div class="option-group">
+                <label for="cloud-api-key" class="option-group-label">API Key</label>
+                <div class="input-group">
+                  <input
+                    type="password"
+                    id="cloud-api-key"
+                    class="api-key-input"
+                    placeholder="Enter your API key"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button id="test-api-key" class="test-key-btn">Test Connection</button>
+                </div>
+                <div class="api-key-help">
+                  <span id="api-key-status" class="api-key-status-text"></span>
+                  Get your API key from:
+                  <a href="#" id="api-key-link" class="api-link" target="_blank">Provider Website</a>
+                </div>
+              </div>
+
+              <!-- Model Selection - hidden when no API key -->
+              <div id="cloud-model-section" class="option-group" style="display: none;">
+                <label for="cloud-model-select" class="option-group-label" id="model-selection-header">Claude Selection</label>
+                <select id="cloud-model-select" class="voice-select">
+                  <!-- Populated dynamically based on provider -->
+                  <option value="haiku-4.5">Claude Haiku 4.5 (Fast & Economical)</option>
+                  <option value="sonnet-4.5" selected>Claude Sonnet 4.5 (Balanced - Recommended)</option>
+                  <option value="opus-4.5">Claude Opus 4.5 (Most Capable)</option>
+                </select>
+                <p class="feature-description" id="model-description">Select the Claude for all AI features</p>
+              </div>
             </section>
 
             <!-- Local AI Configuration (shown when local mode selected) -->
-            <section id="local-ai-section" class="ai-subsection">
-              <h4>Ollama Status</h4>
-              <div id="ollama-status" class="status-indicator">
-                <span class="status-dot"></span>
-                <span class="status-text">Checking...</span>
+            <section id="local-ai-section" class="ai-section">
+              <div class="option-group">
+                <label class="option-group-label">Ollama Status</label>
+                <div id="ollama-status" class="status-indicator">
+                  <span class="status-dot"></span>
+                  <span class="status-text">Checking...</span>
+                </div>
               </div>
 
-              <h4 style="margin-top: 16px;">Available Models</h4>
-              <select id="local-model-select" class="ai-select" multiple size="5">
-                <!-- Populated dynamically -->
-              </select>
-              <button id="install-model" class="ai-btn ai-btn-secondary" style="margin-top: 8px;">Install New Model</button>
-            </section>
-
-            <!-- Model Selection Per Feature -->
-            <section class="feature-models-section" style="margin-top: 24px;">
-              <h4>Model Preferences</h4>
-              <p class="subsection-description">Choose which model to use for each AI feature</p>
-
-              <div class="model-preference-grid">
-                <label class="model-pref-label">
-                  Summarization:
-                  <select class="model-select" data-feature="summarize">
-                    <option value="auto">Auto (Recommended)</option>
-                  </select>
-                </label>
-                <label class="model-pref-label">
-                  Text Simplification:
-                  <select class="model-select" data-feature="simplify">
-                    <option value="auto">Auto (Recommended)</option>
-                  </select>
-                </label>
-                <label class="model-pref-label">
-                  Socratic Tutor:
-                  <select class="model-select" data-feature="tutor">
-                    <option value="auto">Auto (Recommended)</option>
-                  </select>
-                </label>
-                <label class="model-pref-label">
-                  Assignment Breakdown:
-                  <select class="model-select" data-feature="breakdown">
-                    <option value="auto">Auto (Recommended)</option>
-                  </select>
-                </label>
+              <div class="option-group">
+                <label for="local-model-select" class="option-group-label">Available Models</label>
+                <select id="local-model-select" class="voice-select" multiple size="4">
+                  <!-- Populated dynamically -->
+                </select>
+                <button id="install-model" class="modal-btn modal-btn-secondary" style="margin-top: 8px;">Install New Model</button>
               </div>
             </section>
 
-            <!-- Usage Statistics (for cloud mode) -->
-            <section id="usage-stats-section" class="ai-subsection hidden" style="margin-top: 24px;">
-              <h4>Usage Statistics</h4>
-              <div class="stats-grid">
-                <div class="stat-item">
-                  <span class="stat-label">Requests:</span>
-                  <span class="stat-value" id="stat-requests">0</span>
+            <!-- Usage Statistics (for cloud mode) - hidden when no API key -->
+            <section id="usage-stats-section" class="ai-section hidden">
+              <div class="option-group">
+                <label class="option-group-label">Usage Statistics</label>
+                <div class="stats-grid">
+                  <div class="stat-row">
+                    <span class="stat-label">Requests:</span>
+                    <span class="stat-value" id="stat-requests">0</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">Total Tokens:</span>
+                    <span class="stat-value" id="stat-tokens">0</span>
+                  </div>
                 </div>
-                <div class="stat-item">
-                  <span class="stat-label">Total Tokens:</span>
-                  <span class="stat-value" id="stat-tokens">0</span>
+                <div class="stats-actions">
+                  <button id="export-stats-json" class="modal-btn modal-btn-secondary">📤 Export JSON</button>
+                  <button id="export-stats-csv" class="modal-btn modal-btn-secondary">📊 Export CSV</button>
                 </div>
-              </div>
-              <div class="stats-actions" style="margin-top: 12px;">
-                <button id="export-stats-json" class="ai-btn ai-btn-secondary">📤 Export JSON</button>
-                <button id="export-stats-csv" class="ai-btn ai-btn-secondary">📊 Export CSV</button>
-                <button id="clear-stats" class="ai-btn ai-btn-danger">🗑️ Clear Stats</button>
               </div>
             </section>
           </div>
@@ -3097,13 +3340,33 @@ class PopupController {
       if (key) {
         apiKeyInput.value = key;
         this.updateApiKeyStatus(modal, '✓ API key configured', 'success');
+        this.toggleModelSelection(modal, true);
       } else {
         apiKeyInput.value = '';
         this.updateApiKeyStatus(modal, 'No API key configured', 'warning');
+        this.toggleModelSelection(modal, false);
       }
     } catch (error) {
       console.error('[Popup] Failed to load API key:', error);
       this.updateApiKeyStatus(modal, 'Error loading API key', 'error');
+      this.toggleModelSelection(modal, false);
+    }
+  }
+
+  /**
+   * Show/hide the model selection section based on API key presence
+   * @param {HTMLElement} modal - The modal element
+   * @param {boolean} show - Whether to show the section
+   */
+  toggleModelSelection(modal, show) {
+    const modelSection = modal.querySelector('#cloud-model-section');
+    const usageSection = modal.querySelector('#usage-stats-section');
+
+    if (modelSection) {
+      modelSection.style.display = show ? 'block' : 'none';
+    }
+    if (usageSection) {
+      usageSection.style.display = show ? 'block' : 'none';
     }
   }
 
@@ -3157,6 +3420,7 @@ class PopupController {
       // Validate format first
       if (!isValidKeyFormat(provider, apiKey)) {
         this.updateApiKeyStatus(modal, '❌ Invalid API key format', 'error');
+        this.toggleModelSelection(modal, false);
         testBtn.textContent = originalText;
         testBtn.disabled = false;
         return;
@@ -3168,12 +3432,15 @@ class PopupController {
 
       if (saved) {
         this.updateApiKeyStatus(modal, '✅ API key saved successfully', 'success');
+        this.toggleModelSelection(modal, true);
       } else {
         this.updateApiKeyStatus(modal, '❌ Failed to save API key', 'error');
+        this.toggleModelSelection(modal, false);
       }
     } catch (error) {
       console.error('[Popup] API key test failed:', error);
       this.updateApiKeyStatus(modal, `❌ Error: ${error.message}`, 'error');
+      this.toggleModelSelection(modal, false);
     } finally {
       testBtn.textContent = originalText;
       testBtn.disabled = false;
@@ -3350,6 +3617,7 @@ class PopupController {
     loadCheckbox('show-google-classroom-integration', 'show_google_classroom_integration', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     loadCheckbox('show-annotations', 'show_annotations'); // Annotations
+    loadCheckbox('show-citations', 'show_citations'); // Citations
     loadCheckbox('show-dark-mode', 'show_dark_mode'); // Dark Mode
     loadCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
     loadCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
@@ -3762,19 +4030,14 @@ class PopupController {
       const isEmpty = !shortcut;
 
       card.innerHTML = sanitizeHTML(`
-        <div class="shortcut-header">
+        <div class="shortcut-info">
+          <span class="shortcut-name">${SHORTCUT_LABELS[key] || key}</span>
           <span class="shortcut-category">${categories[key] || 'General'}</span>
         </div>
-        <div class="shortcut-body">
-          <span class="shortcut-name">${SHORTCUT_LABELS[key] || key}</span>
-          <kbd class="shortcut-key${isEmpty ? ' empty' : ''}">${displayShortcut}</kbd>
-        </div>
-        <div class="shortcut-footer">
-          <button class="shortcut-edit-btn" data-key="${key}" title="Click to assign shortcut">
-            <span class="btn-icon">✏️</span>
-            <span class="btn-text">Assign</span>
-          </button>
-          ${!isEmpty ? `<button class="shortcut-clear-btn" data-key="${key}" title="Clear shortcut">🗑️</button>` : ''}
+        <kbd class="shortcut-key${isEmpty ? ' empty' : ''}">${displayShortcut}</kbd>
+        <div class="shortcut-actions">
+          <button class="shortcut-edit-btn" data-key="${key}" title="Click to assign shortcut">✏️</button>
+          ${!isEmpty ? `<button class="shortcut-clear-btn" data-key="${key}" title="Clear shortcut">✕</button>` : ''}
         </div>
       `);
 
@@ -4064,6 +4327,7 @@ class PopupController {
     saveCheckbox('show-google-classroom-integration', 'show_google_classroom_integration');
     saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     saveCheckbox('show-annotations', 'show_annotations'); // Annotations
+    saveCheckbox('show-citations', 'show_citations'); // Citations
     saveCheckbox('show-translation', 'show_translation'); // Translation
     saveCheckbox('show-dark-mode', 'show_dark_mode'); // Dark Mode
     saveCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
@@ -4340,6 +4604,26 @@ class PopupController {
     const statusIndicator = document.getElementById('status-indicator');
     statusIndicator.textContent = message;
     statusIndicator.className = 'status-indicator ' + type;
+  }
+
+  updateProviderUI(provider) {
+    const deeplKeySection = document.getElementById('deepl-key-section');
+    const azureKeySection = document.getElementById('azure-key-section');
+
+    if (!deeplKeySection || !azureKeySection) {
+      return;
+    }
+
+    // Hide all API key sections first
+    deeplKeySection.style.display = 'none';
+    azureKeySection.style.display = 'none';
+
+    // Show the relevant section based on provider
+    if (provider === 'deepl') {
+      deeplKeySection.style.display = 'block';
+    } else if (provider === 'azure') {
+      azureKeySection.style.display = 'block';
+    }
   }
 
   // ============================================================
