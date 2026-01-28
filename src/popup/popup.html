@@ -1598,23 +1598,23 @@
         </div>
 
         <!-- ============================================================ -->
-        <!-- SECTION 4: PAGE DISPLAY -->
+        <!-- SECTION 4: READING AIDS -->
         <!-- ============================================================ -->
-        <div class="accordion-section" data-section="display">
+        <div class="accordion-section" data-section="reading-aids">
           <div
             role="button"
             class="accordion-header"
             aria-expanded="false"
-            aria-controls="display-content"
+            aria-controls="reading-aids-content"
             tabindex="0"
           >
             <span class="accordion-title">
-              <span class="accordion-icon-left">🎨</span>
-              Page Display
+              <span class="accordion-icon-left">👓</span>
+              Reading Aids
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="display-content" class="accordion-content" role="region">
+          <div id="reading-aids-content" class="accordion-content" role="region">
             <!-- Text Customization -->
             <section class="control-section" id="text-customization-section">
               <div class="toggle-control">
@@ -1833,6 +1833,98 @@
               </div>
             </section>
 
+            <!-- Reading Progress Bar -->
+            <section class="control-section" id="reading-progress-section">
+              <div class="toggle-control">
+                <label for="reading-progress-enabled" class="toggle-label">
+                  <span class="label-text">📊 Reading Progress</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="reading-progress-enabled"
+                      data-testid="reading-progress-toggle"
+                      role="switch"
+                      aria-label="Enable reading progress bar"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description hidden" id="reading-progress-description">
+                Shows how far you've read on the page
+              </p>
+              <div id="reading-progress-options" class="reading-progress-options hidden">
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="reading-progress-position">Position</label>
+                  </h3>
+                  <select
+                    id="reading-progress-position"
+                    data-testid="reading-progress-position-select"
+                    class="voice-select"
+                    aria-label="Select progress bar position"
+                  >
+                    <option value="top" selected>Top of page</option>
+                    <option value="bottom">Bottom of page</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title">
+                    <label for="reading-progress-color">Bar Color</label>
+                  </h3>
+                  <select
+                    id="reading-progress-color"
+                    data-testid="reading-progress-color-select"
+                    class="voice-select"
+                    aria-label="Select progress bar color"
+                  >
+                    <option value="#4CAF50" selected>Green</option>
+                    <option value="#2196F3">Blue</option>
+                    <option value="#FF9800">Orange</option>
+                    <option value="#9C27B0">Purple</option>
+                    <option value="#E91E63">Pink</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <div class="toggle-control">
+                    <label for="reading-progress-percentage" class="toggle-label">
+                      <span class="label-text">Show Percentage</span>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="reading-progress-percentage"
+                          data-testid="reading-progress-percentage-toggle"
+                          role="switch"
+                          aria-label="Show percentage indicator"
+                        />
+                        <span class="toggle-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 5: POINTER & ZOOM -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="pointer-zoom">
+          <div
+            role="button"
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="pointer-zoom-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">🔍</span>
+              Pointer & Zoom
+            </span>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="pointer-zoom-content" class="accordion-content" role="region">
             <!-- Custom Cursor -->
             <section class="control-section" id="custom-cursor-section">
               <div class="toggle-control">
@@ -2066,7 +2158,27 @@
                 </div>
               </div>
             </section>
+          </div>
+        </div>
 
+        <!-- ============================================================ -->
+        <!-- SECTION 6: VISUAL COMFORT -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="visual-comfort">
+          <div
+            role="button"
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="visual-comfort-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">👁️</span>
+              Visual Comfort
+            </span>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="visual-comfort-content" class="accordion-content" role="region">
             <!-- Focus Mode -->
             <section class="control-section" id="focus-mode-section">
               <div class="toggle-control">
@@ -2339,7 +2451,27 @@
                 </div>
               </div>
             </section>
+          </div>
+        </div>
 
+        <!-- ============================================================ -->
+        <!-- SECTION 7: PRODUCTIVITY -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="productivity">
+          <div
+            role="button"
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="productivity-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">⏱️</span>
+              Productivity
+            </span>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="productivity-content" class="accordion-content" role="region">
             <!-- Simplified Interface -->
             <section class="control-section" id="simplify-section">
               <div class="toggle-control">
@@ -2388,78 +2520,6 @@
                           role="switch"
                           aria-label="Focus on main content"
                           checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <!-- Reading Progress Bar -->
-            <section class="control-section" id="reading-progress-section">
-              <div class="toggle-control">
-                <label for="reading-progress-enabled" class="toggle-label">
-                  <span class="label-text">📊 Reading Progress</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="reading-progress-enabled"
-                      data-testid="reading-progress-toggle"
-                      role="switch"
-                      aria-label="Enable reading progress bar"
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description hidden" id="reading-progress-description">
-                Shows how far you've read on the page
-              </p>
-              <div id="reading-progress-options" class="reading-progress-options hidden">
-                <div class="control-subsection">
-                  <h3 class="subsection-title">
-                    <label for="reading-progress-position">Position</label>
-                  </h3>
-                  <select
-                    id="reading-progress-position"
-                    data-testid="reading-progress-position-select"
-                    class="voice-select"
-                    aria-label="Select progress bar position"
-                  >
-                    <option value="top" selected>Top of page</option>
-                    <option value="bottom">Bottom of page</option>
-                  </select>
-                </div>
-                <div class="control-subsection">
-                  <h3 class="subsection-title">
-                    <label for="reading-progress-color">Bar Color</label>
-                  </h3>
-                  <select
-                    id="reading-progress-color"
-                    data-testid="reading-progress-color-select"
-                    class="voice-select"
-                    aria-label="Select progress bar color"
-                  >
-                    <option value="#4CAF50" selected>Green</option>
-                    <option value="#2196F3">Blue</option>
-                    <option value="#FF9800">Orange</option>
-                    <option value="#9C27B0">Purple</option>
-                    <option value="#E91E63">Pink</option>
-                  </select>
-                </div>
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="reading-progress-percentage" class="toggle-label">
-                      <span class="label-text">Show Percentage</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="reading-progress-percentage"
-                          data-testid="reading-progress-percentage-toggle"
-                          role="switch"
-                          aria-label="Show percentage indicator"
                         />
                         <span class="toggle-slider"></span>
                       </div>
@@ -2603,7 +2663,28 @@
                 </div>
               </div>
             </section>
+          </div>
+        </div>
 
+        <!-- ============================================================ -->
+        <!-- SECTION 8: LOW VISION (Hidden until Stargardt ready) -->
+        <!-- ============================================================ -->
+        <div class="accordion-section" data-section="low-vision" style="display: none">
+          <div
+            role="button"
+            class="accordion-header"
+            aria-expanded="false"
+            aria-controls="low-vision-content"
+            tabindex="0"
+          >
+            <span class="accordion-title">
+              <span class="accordion-icon-left">👁️</span>
+              Low Vision Support
+              <span class="future-badge">Future</span>
+            </span>
+            <span class="accordion-icon">▼</span>
+          </div>
+          <div id="low-vision-content" class="accordion-content" role="region">
             <!-- Stargardt Module (HIDDEN FOR BETA - will enable post-beta) -->
             <section
               class="control-section"
@@ -3126,7 +3207,7 @@
         </div>
 
         <!-- ============================================================ -->
-        <!-- SECTION 5: SCHOOL TOOLS -->
+        <!-- SECTION 9: SCHOOL TOOLS -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="school">
           <div
@@ -3612,7 +3693,7 @@
         </div>
 
         <!-- ============================================================ -->
-        <!-- SECTION 6: AI ASSIST (Unified Local & Cloud AI) -->
+        <!-- SECTION 10: AI ASSIST (Unified Local & Cloud AI) -->
         <!-- ============================================================ -->
         <div class="accordion-section" data-section="ai-assist" id="ai-assist-section">
           <div
