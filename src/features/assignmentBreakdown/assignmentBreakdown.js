@@ -82,6 +82,21 @@ async function breakdown_getCurrentModel() {
 }
 
 /**
+ * Check if cloud API key is configured
+ * @returns {Promise<boolean>}
+ */
+async function breakdown_checkCloudApiKey() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_CHECK',
+    });
+    return response?.success && response?.available;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Check if local LLM is available
  * @returns {Promise<{available: boolean, models: string[]}>}
  */
@@ -1395,6 +1410,16 @@ async function breakdown_analyze(text, modelKey = null) {
     let usedCloud = false;
 
     if (isCloud) {
+      // Check for API key before using cloud model
+      const hasKey = await breakdown_checkCloudApiKey();
+      if (!hasKey) {
+        breakdown_isLoading = false;
+        actionBtns?.forEach(btn => {
+          btn.disabled = false;
+        });
+        breakdown_showApiKeyWarning();
+        return;
+      }
       // Use cloud model (Claude API)
       const response = await breakdown_generate(text, modelKey);
       result = response.breakdown;
@@ -1560,6 +1585,92 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ============================================================================
+// API KEY WARNING
+// ============================================================================
+
+/**
+ * Show API key warning when cloud mode is enabled but no key is configured
+ */
+function breakdown_showApiKeyWarning() {
+  const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
+  if (!contentArea) {
+    return;
+  }
+
+  contentArea.innerHTML = sanitizeHTML(`
+    <div style="text-align: center; padding: 40px 20px;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🔑</div>
+      <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
+      <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
+        Cloud AI mode is enabled but no API key is configured.<br>
+        Please add your Anthropic API key to use cloud features.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
+        <button class="breakdown-open-settings" style="
+          background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">⚙️ Open Advanced Options</button>
+        <button class="breakdown-use-local" style="
+          background: #6b7280;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">💻 Use Local AI Instead</button>
+      </div>
+      <p style="color: #999; font-size: 12px; margin-top: 16px;">
+        Go to: Extension Popup → Advanced Options → AI tab → Enter API Key
+      </p>
+    </div>
+  `);
+
+  // Attach handlers for buttons
+  const openSettingsBtn = contentArea.querySelector('.breakdown-open-settings');
+  if (openSettingsBtn) {
+    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+      chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
+      alert(
+        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Enter your Anthropic API key\n5. Click Save'
+      );
+    });
+  }
+
+  const useLocalBtn = contentArea.querySelector('.breakdown-use-local');
+  if (useLocalBtn) {
+    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+      await chrome.storage.local.set({ aiMode: 'local' });
+      console.log('[AssignmentBreakdown] Switched to local AI mode');
+      breakdown_showEmptyState();
+    });
+  }
+}
+
+/**
+ * Show the empty state
+ */
+function breakdown_showEmptyState() {
+  const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
+  if (!contentArea) {
+    return;
+  }
+
+  contentArea.innerHTML = sanitizeHTML(`
+    <div style="text-align: center; padding: 40px 20px; color: #666;">
+      <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
+      <p>Select assignment text on the page to get a breakdown of tasks.</p>
+      <p style="font-size: 13px; margin-top: 12px;">Now using Local AI mode.</p>
+    </div>
+  `);
 }
 
 // ============================================================================

@@ -80,6 +80,21 @@ async function graph_getCurrentModel() {
   }
 }
 
+/**
+ * Check if cloud API key is configured
+ * @returns {Promise<boolean>}
+ */
+async function graph_checkCloudApiKey() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_CHECK',
+    });
+    return response?.success && response?.available;
+  } catch {
+    return false;
+  }
+}
+
 // Node types with colors
 const NODE_TYPES = {
   concept: { color: '#4CAF50', icon: '💡' },
@@ -176,6 +191,7 @@ JSON OUTPUT:`;
       response = await chrome.runtime.sendMessage({
         action: 'LOCAL_LLM_GENERATE',
         prompt,
+        taskType: 'knowledgeGraph',
         options: {
           maxTokens,
           temperature: 0.3,
@@ -639,34 +655,13 @@ function graph_getOrCreateTooltip() {
     return graph_tooltip;
   }
 
+  // Ensure CSS is injected (includes tooltip styles)
+  graph_injectStyles();
+
   graph_tooltip = document.createElement('div');
   graph_tooltip.id = 'kg-tooltip-external';
+  // HTML only - CSS is in GRAPH_PANEL_CSS
   graph_tooltip.innerHTML = sanitizeHTML(`
-    <style>
-      #kg-tooltip-external {
-        position: fixed;
-        background: #333;
-        color: white;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-size: 13px;
-        max-width: 280px;
-        pointer-events: none;
-        z-index: 999999;
-        display: none;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      }
-      #kg-tooltip-external .kg-tooltip-title {
-        font-weight: 600;
-        margin-bottom: 6px;
-      }
-      #kg-tooltip-external .kg-tooltip-type {
-        font-size: 11px;
-        opacity: 0.8;
-        margin-bottom: 6px;
-      }
-    </style>
     <div class="kg-tooltip-title"></div>
     <div class="kg-tooltip-type"></div>
     <div class="kg-tooltip-def"></div>
@@ -763,236 +758,198 @@ function graph_hideTooltip() {
 // UI COMPONENTS
 // ============================================================================
 
+// CSS for Knowledge Graph panel (injected separately to avoid sanitization stripping)
+const GRAPH_PANEL_CSS = `
+  .kg-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kg-title {
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kg-controls {
+    display: flex;
+    gap: 8px;
+  }
+  .kg-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+  }
+  .kg-btn:hover {
+    background: rgba(255,255,255,0.3);
+  }
+  .kg-close {
+    background: rgba(0,0,0,0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+  }
+  .kg-svg-container {
+    flex: 1;
+    position: relative;
+    background: #f8f9fa;
+    overflow: hidden;
+  }
+  .kg-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .kg-legend {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    font-size: 12px;
+    z-index: 10;
+  }
+  .kg-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .kg-legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+  }
+  .kg-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 10;
+  }
+  .kg-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e0e0e0;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: kg-spin 1s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes kg-spin {
+    to { transform: rotate(360deg); }
+  }
+  .kg-empty {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #666;
+    z-index: 10;
+  }
+  .kg-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  .kg-zoom-controls {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+  }
+  .kg-zoom-btn {
+    width: 36px;
+    height: 36px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .kg-zoom-btn:hover {
+    background: #f0f0f0;
+  }
+  .kg-node {
+    cursor: grab;
+  }
+  .kg-node:active {
+    cursor: grabbing;
+  }
+  #kg-tooltip-external {
+    position: fixed;
+    background: #333;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    max-width: 280px;
+    pointer-events: none;
+    z-index: 999999;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  #kg-tooltip-external .kg-tooltip-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  #kg-tooltip-external .kg-tooltip-type {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-bottom: 6px;
+  }
+`;
+
+/**
+ * Inject Knowledge Graph CSS into document head (once)
+ */
+function graph_injectStyles() {
+  if (document.getElementById('assist-kg-styles')) {
+    return; // Already injected
+  }
+  const styleEl = document.createElement('style');
+  styleEl.id = 'assist-kg-styles';
+  styleEl.textContent = GRAPH_PANEL_CSS;
+  document.head.appendChild(styleEl);
+}
+
 /**
  * Create the graph panel with SVG instead of Canvas
  * @returns {Promise<HTMLElement>}
  */
 async function graph_createPanel() {
+  // Inject CSS (only once)
+  graph_injectStyles();
+
   const panel = document.createElement('div');
   panel.id = 'assist-knowledge-graph';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Knowledge Graph');
 
+  // HTML structure only - CSS is injected separately
   panel.innerHTML = sanitizeHTML(`
-    <style>
-      #assist-knowledge-graph {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 90%;
-        max-width: 900px;
-        height: 80vh;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        z-index: 999998;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-
-      .kg-header {
-        padding: 16px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .kg-title {
-        font-size: 18px;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .kg-controls {
-        display: flex;
-        gap: 8px;
-      }
-
-      .kg-btn {
-        background: rgba(255,255,255,0.2);
-        border: none;
-        color: white;
-        padding: 8px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        transition: background 0.2s;
-      }
-
-      .kg-btn:hover {
-        background: rgba(255,255,255,0.3);
-      }
-
-      .kg-close {
-        background: rgba(0,0,0,0.2);
-        border: none;
-        color: white;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 18px;
-      }
-
-      .kg-model-selector {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 8px;
-        background: rgba(255, 255, 255, 0.15);
-        border-radius: 6px;
-      }
-
-      .kg-model-selector.hidden {
-        display: none !important;
-      }
-
-      .kg-model-icon {
-        font-size: 14px;
-      }
-
-      .kg-model-select {
-        padding: 4px 8px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
-        font-size: 12px;
-        font-family: inherit;
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        cursor: pointer;
-        min-width: 110px;
-      }
-
-      .kg-model-select:focus {
-        outline: none;
-        border-color: rgba(255, 255, 255, 0.5);
-        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
-      }
-
-      .kg-model-select option {
-        background: #333;
-        color: white;
-      }
-
-      .kg-svg-container {
-        flex: 1;
-        position: relative;
-        background: #f8f9fa;
-        overflow: hidden;
-      }
-
-      .kg-svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-
-      .kg-legend {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        background: white;
-        padding: 12px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        font-size: 12px;
-        z-index: 10;
-      }
-
-      .kg-legend-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 6px;
-      }
-
-      .kg-legend-color {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-      }
-
-      .kg-loading {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        z-index: 10;
-      }
-
-      .kg-spinner {
-        width: 48px;
-        height: 48px;
-        border: 4px solid #e0e0e0;
-        border-top-color: #667eea;
-        border-radius: 50%;
-        animation: kg-spin 1s linear infinite;
-        margin: 0 auto 16px;
-      }
-
-      @keyframes kg-spin {
-        to { transform: rotate(360deg); }
-      }
-
-      .kg-empty {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        color: #666;
-        z-index: 10;
-      }
-
-      .kg-empty-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
-      }
-
-      .kg-zoom-controls {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        display: flex;
-        gap: 4px;
-        z-index: 10;
-      }
-
-      .kg-zoom-btn {
-        width: 36px;
-        height: 36px;
-        background: white;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .kg-zoom-btn:hover {
-        background: #f0f0f0;
-      }
-
-      /* SVG node styles */
-      .kg-node {
-        cursor: grab;
-      }
-
-      .kg-node:active {
-        cursor: grabbing;
-      }
-    </style>
-
     <div class="kg-header">
       <div class="kg-title">
         <span>🕸️</span>
@@ -1154,6 +1111,26 @@ function graph_export() {
 async function graph_show() {
   if (!graph_panel) {
     graph_panel = await graph_createPanel();
+
+    // Apply critical styles directly to element (don't rely on CSS in innerHTML)
+    Object.assign(graph_panel.style, {
+      position: 'fixed',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: '90%',
+      maxWidth: '900px',
+      height: '80vh',
+      background: 'white',
+      borderRadius: '16px',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+      zIndex: '999998',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    });
+
     document.body.appendChild(graph_panel);
     await graph_initSVG();
   }
@@ -1197,6 +1174,15 @@ async function graph_build(text, modelKey = null) {
 
   const isCloud = modelKey !== 'local';
   const modelName = GRAPH_MODELS[modelKey]?.name || modelKey;
+
+  // Check for API key if cloud mode
+  if (isCloud) {
+    const hasKey = await graph_checkCloudApiKey();
+    if (!hasKey) {
+      graph_showApiKeyWarning();
+      return;
+    }
+  }
 
   // Show loading
   const loading = graph_panel?.querySelector('#kg-loading');
@@ -1245,6 +1231,88 @@ async function graph_build(text, modelKey = null) {
     if (loading) {
       loading.style.display = 'none';
     }
+  }
+}
+
+/**
+ * Show API key warning when cloud mode is enabled but no key is configured
+ */
+function graph_showApiKeyWarning() {
+  const empty = graph_panel?.querySelector('#kg-empty');
+  const loading = graph_panel?.querySelector('#kg-loading');
+
+  if (loading) {
+    loading.style.display = 'none';
+  }
+
+  if (empty) {
+    empty.style.display = 'block';
+    empty.innerHTML = sanitizeHTML(`
+      <div style="font-size: 48px; margin-bottom: 16px;">🔑</div>
+      <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
+      <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
+        Cloud AI mode is enabled but no API key is configured.<br>
+        Please add your Anthropic API key to use cloud features.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
+        <button class="graph-open-settings" style="
+          background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">⚙️ Open Advanced Options</button>
+        <button class="graph-use-local" style="
+          background: #6b7280;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">💻 Use Local AI Instead</button>
+      </div>
+      <p style="color: #999; font-size: 12px; margin-top: 16px;">
+        Go to: Extension Popup → Advanced Options → AI tab → Enter API Key
+      </p>
+    `);
+
+    // Attach handlers for buttons
+    const openSettingsBtn = empty.querySelector('.graph-open-settings');
+    if (openSettingsBtn) {
+      attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+        chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
+        alert(
+          'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Enter your Anthropic API key\n5. Click Save'
+        );
+      });
+    }
+
+    const useLocalBtn = empty.querySelector('.graph-use-local');
+    if (useLocalBtn) {
+      attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+        await chrome.storage.local.set({ aiMode: 'local' });
+        console.log('[KnowledgeGraph] Switched to local AI mode');
+        graph_showEmptyState();
+      });
+    }
+  }
+}
+
+/**
+ * Show the empty state for building a graph
+ */
+function graph_showEmptyState() {
+  const empty = graph_panel?.querySelector('#kg-empty');
+  if (empty) {
+    empty.style.display = 'block';
+    empty.innerHTML = sanitizeHTML(`
+      <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+      <p>Select text on the page and click "Build Knowledge Graph" to visualize concept relationships.</p>
+      <p style="font-size: 13px; margin-top: 12px;">Now using Local AI mode.</p>
+    `);
   }
 }
 

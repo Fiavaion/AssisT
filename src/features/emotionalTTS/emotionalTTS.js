@@ -36,6 +36,53 @@ const emotionalTTS_settings = {
   intensityLevel: 'moderate', // 'subtle' | 'moderate' | 'expressive'
 };
 
+// Cloud model configurations
+const EMOTIONALTTS_MODELS = {
+  local: { id: 'local', name: 'Local', isLocal: true },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
+  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+};
+
+const EMOTIONALTTS_DEFAULT_CLOUD_MODEL = 'haiku-4.5'; // Fast model for quick emotion detection
+
+/**
+ * Get the current AI mode setting
+ * @returns {Promise<{aiMode: string, modelKey: string}>}
+ */
+async function emotionalTTS_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return { aiMode: 'local', modelKey: 'local' };
+    } else if (aiMode === 'cloud') {
+      return { aiMode: 'cloud', modelKey: result.cloudModel || EMOTIONALTTS_DEFAULT_CLOUD_MODEL };
+    } else {
+      return { aiMode: 'local', modelKey: 'local' };
+    }
+  } catch (error) {
+    console.warn('[EmotionalTTS] Failed to get current model:', error);
+    return { aiMode: 'local', modelKey: 'local' };
+  }
+}
+
+/**
+ * Check if cloud API key is configured
+ * @returns {Promise<boolean>}
+ */
+async function emotionalTTS_checkCloudApiKey() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_CHECK',
+    });
+    return response?.success && response?.available;
+  } catch {
+    return false;
+  }
+}
+
 // Emotion-to-speech parameter mappings
 const EMOTION_PARAMS = {
   happy: {
@@ -147,6 +194,7 @@ Emotion:`;
     const response = await chrome.runtime.sendMessage({
       action: 'LOCAL_LLM_GENERATE',
       prompt,
+      taskType: 'summarization', // Uses general category for emotion detection
       options: {
         maxTokens: 10,
         temperature: 0.3,
@@ -165,6 +213,50 @@ Emotion:`;
     return 'neutral';
   } catch (error) {
     console.warn('[EmotionalTTS] LLM detection failed:', error);
+    return 'neutral';
+  }
+}
+
+/**
+ * Detect emotion using Cloud LLM (Claude API)
+ * @param {string} text - Text to analyze
+ * @param {string} modelKey - Model key to use
+ * @returns {Promise<string>} Detected emotion
+ */
+async function emotionalTTS_detectWithCloud(text, modelKey) {
+  const prompt = `Analyze the emotional tone of this text and respond with ONLY ONE word from this list: happy, excited, sad, angry, calm, serious, neutral, fearful, surprised
+
+Text: "${text.substring(0, 500)}"
+
+Emotion:`;
+
+  // Look up the actual model ID from the models constant
+  const modelId = EMOTIONALTTS_MODELS[modelKey]?.id || modelKey;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_GENERATE',
+      prompt,
+      options: {
+        model: modelId,
+        maxTokens: 10,
+        temperature: 0.3,
+        feature: 'emotionalTTS',
+      },
+    });
+
+    if (response?.success) {
+      const emotion = response.data
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z]/g, '');
+      if (EMOTION_PARAMS[emotion]) {
+        return emotion;
+      }
+    }
+    return 'neutral';
+  } catch (error) {
+    console.warn('[EmotionalTTS] Cloud detection failed:', error);
     return 'neutral';
   }
 }
@@ -462,14 +554,33 @@ async function emotionalTTS_speak(text, overrideEmotion = null) {
 
   // Detect emotion if not provided
   if (!emotion) {
-    const llmStatus = await emotionalTTS_checkLLM();
+    const { aiMode, modelKey } = await emotionalTTS_getCurrentModel();
 
-    if (llmStatus.available) {
-      emotion = await emotionalTTS_detectWithLLM(text);
-      console.log('[EmotionalTTS] LLM detected emotion:', emotion);
+    if (aiMode === 'cloud') {
+      // Check for API key
+      const hasKey = await emotionalTTS_checkCloudApiKey();
+      if (!hasKey) {
+        console.warn('[EmotionalTTS] Cloud mode enabled but no API key configured');
+        alert(
+          'Cloud AI mode is enabled but no API key is configured.\n\nTo add your API key:\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Enter your Anthropic API key\n\nUsing keyword-based emotion detection instead.'
+        );
+        emotion = emotionalTTS_detectWithKeywords(text);
+        console.log('[EmotionalTTS] Fallback keyword detected emotion:', emotion);
+      } else {
+        emotion = await emotionalTTS_detectWithCloud(text, modelKey);
+        console.log('[EmotionalTTS] Cloud detected emotion:', emotion);
+      }
     } else {
-      emotion = emotionalTTS_detectWithKeywords(text);
-      console.log('[EmotionalTTS] Keyword detected emotion:', emotion);
+      // Local mode
+      const llmStatus = await emotionalTTS_checkLLM();
+
+      if (llmStatus.available) {
+        emotion = await emotionalTTS_detectWithLLM(text);
+        console.log('[EmotionalTTS] Local LLM detected emotion:', emotion);
+      } else {
+        emotion = emotionalTTS_detectWithKeywords(text);
+        console.log('[EmotionalTTS] Keyword detected emotion:', emotion);
+      }
     }
   }
 
