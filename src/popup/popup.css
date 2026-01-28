@@ -2226,6 +2226,128 @@ body {
   outline-offset: 2px;
 }
 
+/* ================================ */
+/* Quick Start Section              */
+/* ================================ */
+.quick-start-section {
+  background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 50%, #e0e7ff 100%);
+  padding: 12px 16px;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.quick-start-section.hidden {
+  display: none;
+}
+
+.quick-start-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.quick-start-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e40af;
+  margin: 0;
+}
+
+.quick-start-dismiss {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-start-dismiss:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #334155;
+}
+
+.quick-start-subtitle {
+  font-size: 11px;
+  color: #64748b;
+  margin: 0 0 10px 0;
+}
+
+.quick-start-presets {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.quick-start-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 60px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.quick-start-btn:hover {
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.quick-start-btn:active {
+  transform: translateY(0);
+}
+
+.quick-start-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.quick-start-btn.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.quick-start-icon {
+  font-size: 20px;
+}
+
+.quick-start-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+}
+
+.quick-start-hint {
+  font-size: 11px;
+  color: #64748b;
+  margin: 8px 0 0 0;
+  text-align: center;
+}
+
+.quick-start-hint a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.quick-start-hint a:hover {
+  text-decoration: underline;
+}
+
 /* Organize Mode Active State */
 .popup-container.organize-mode {
   border: 3px solid #8b5cf6;

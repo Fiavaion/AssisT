@@ -2045,6 +2045,9 @@ class PopupController {
         });
       }
 
+      // Quick Start section handlers
+      this.setupQuickStart();
+
       // Options button
       this.attachInteractiveHandler(
         document.getElementById('btn-options'),
@@ -2125,6 +2128,77 @@ class PopupController {
         btn.classList.remove('active');
       }
     });
+  }
+
+  /**
+   * Setup Quick Start section handlers
+   * Allows users to quickly apply preset profiles
+   */
+  setupQuickStart() {
+    const quickStartSection = document.getElementById('quick-start-section');
+    if (!quickStartSection) {
+      console.log('[Popup] Quick Start section not found');
+      return;
+    }
+
+    // Check if Quick Start should be hidden (user dismissed it)
+    chrome.storage.local.get('quick_start_hidden', result => {
+      if (result.quick_start_hidden) {
+        quickStartSection.classList.add('hidden');
+      }
+    });
+
+    // Dismiss button handler
+    const dismissBtn = document.getElementById('btn-quick-start-dismiss');
+    if (dismissBtn) {
+      this.attachInteractiveHandler(dismissBtn, 'Quick Start Dismiss', () => {
+        quickStartSection.classList.add('hidden');
+        // Remember the dismissal
+        chrome.storage.local.set({ quick_start_hidden: true });
+      });
+    }
+
+    // Preset button handlers
+    const presetBtns = quickStartSection.querySelectorAll('.quick-start-btn[data-preset]');
+    presetBtns.forEach(btn => {
+      this.attachInteractiveHandler(btn, 'Quick Start Preset', async () => {
+        const presetName = btn.getAttribute('data-preset');
+
+        // Visual feedback - show active state
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Load the preset profile
+        if (
+          confirm(
+            `Apply the "${presetName}" preset?\n\nThis will configure settings optimized for your needs.`
+          )
+        ) {
+          await this.profiles_loadProfile(presetName);
+          console.log(`[Popup] Quick Start: Applied preset "${presetName}"`);
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    });
+
+    // "More presets" link handler
+    const moreLink = document.getElementById('quick-start-more-link');
+    if (moreLink) {
+      this.attachInteractiveHandler(moreLink, 'Quick Start More Link', e => {
+        e.preventDefault();
+        this.showAdvancedOptions();
+        // Switch to Preferences tab after a short delay
+        setTimeout(() => {
+          const preferencesTab = document.querySelector('.modal-tab[data-tab="preferences"]');
+          if (preferencesTab) {
+            preferencesTab.click();
+          }
+        }, 100);
+      });
+    }
+
+    console.log('[Popup] Quick Start section initialized');
   }
 
   showAdvancedOptions() {
