@@ -10,7 +10,21 @@
     <div class="popup-container">
       <!-- Header -->
       <header class="popup-header">
-        <div class="header-top">
+        <!-- Brand Row: Logo + Name -->
+        <div class="header-brand">
+          <img
+            src="../../public/icons/assist-logo.jpg"
+            alt="AssisT Logo"
+            class="header-logo"
+            onerror="this.style.display='none'"
+          />
+          <h1 class="header-title">AssisT</h1>
+        </div>
+
+        <p class="subtitle">Learning Support Tools</p>
+
+        <!-- Action Buttons Row -->
+        <div class="header-actions">
           <button
             id="btn-reset"
             class="header-btn"
@@ -20,10 +34,6 @@
           >
             <span class="header-btn-icon">🔄</span>
           </button>
-          <h1>
-            <span class="logo">🎯</span>
-            AssisT
-          </h1>
           <button
             id="btn-help"
             class="header-btn"
@@ -52,7 +62,7 @@
             <span class="header-btn-icon">📐</span>
           </button>
         </div>
-        <p class="subtitle">Learning Support Tools</p>
+
         <!-- Discovery Quiz Button -->
         <button
           id="btn-discovery"

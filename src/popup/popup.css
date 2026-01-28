@@ -54,23 +54,48 @@ body {
 
 /* Header */
 .popup-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  background: #223b56;
   color: white;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
   text-align: center;
 }
 
-.header-top {
+/* Brand Row: Logo + Name */
+.header-brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: var(--spacing-sm);
+  margin-bottom: 2px;
+}
+
+.header-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.header-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+/* Action Buttons Row */
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
 }
 
 .header-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
   padding: 8px 10px;
   min-width: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
   min-height: 44px; /* WCAG 2.2 SC 2.5.8: Target Size minimum */
@@ -83,7 +108,7 @@ body {
 }
 
 .header-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.22);
   transform: scale(1.05);
 }
 
@@ -92,30 +117,22 @@ body {
 }
 
 .header-btn-icon {
-  font-size: 20px; /* Increased from 16px for better visibility */
+  font-size: 18px;
   display: block;
 }
 
+/* Legacy h1 style - now using .header-title */
 .popup-header h1 {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex: 1;
-}
-
-.logo {
-  font-size: 20px;
 }
 
 .subtitle {
-  font-size: 11px;
-  opacity: 0.9;
+  font-size: 12px;
+  opacity: 0.85;
   font-weight: 400;
-  margin-top: 2px;
+  margin: 0;
 }
 
 /* Discovery Button */
