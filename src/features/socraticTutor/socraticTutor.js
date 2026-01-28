@@ -92,6 +92,21 @@ async function tutor_getCurrentModel() {
 }
 
 /**
+ * Check if cloud API key is configured
+ * @returns {Promise<boolean>}
+ */
+async function tutor_checkCloudApiKey() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_CHECK',
+    });
+    return response?.success && response?.available;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Check if local LLM is available
  * @returns {Promise<{available: boolean, models: string[]}>}
  */
@@ -171,6 +186,7 @@ RULES:
       response = await chrome.runtime.sendMessage({
         action: 'LOCAL_LLM_GENERATE',
         prompt,
+        taskType: 'socraticTutor',
         options: {
           maxTokens,
           temperature: 0.5,
@@ -280,289 +296,222 @@ function tutor_fallback(text) {
 // UI COMPONENTS
 // ============================================================================
 
+// CSS for Socratic Tutor panel (injected separately to avoid sanitization stripping)
+const TUTOR_PANEL_CSS = `
+  .assist-tutor-header {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .assist-tutor-title {
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .assist-tutor-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .assist-tutor-close:hover {
+    background: rgba(255,255,255,0.3);
+  }
+  .assist-tutor-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .assist-tutor-topic {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+  }
+  .assist-tutor-question {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-left: 4px solid #43e97b;
+  }
+  .assist-tutor-question-type {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .assist-tutor-question-text {
+    font-size: 15px;
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .assist-tutor-hint {
+    display: none;
+    background: #fff3e0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #e65100;
+    margin-bottom: 8px;
+  }
+  .assist-tutor-hint.visible {
+    display: block;
+  }
+  .assist-tutor-hint-btn {
+    background: none;
+    border: 1px solid #43e97b;
+    color: #43e97b;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .assist-tutor-hint-btn:hover {
+    background: #43e97b;
+    color: white;
+  }
+  .assist-tutor-followup {
+    display: none;
+    font-size: 13px;
+    color: #666;
+    font-style: italic;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #ddd;
+  }
+  .assist-tutor-followup.visible {
+    display: block;
+  }
+  .assist-tutor-thinking {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px;
+    border-radius: 12px;
+    margin-top: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .assist-tutor-thinking-label {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .assist-tutor-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+  }
+  .assist-tutor-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #43e97b;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    animation: tutor-spin 1s linear infinite;
+  }
+  @keyframes tutor-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .assist-tutor-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+  .assist-tutor-ai-badge {
+    background: #43e97b;
+    color: white;
+  }
+  .assist-tutor-fallback-badge {
+    background: #ff9800;
+    color: white;
+  }
+  .assist-tutor-cloud-badge {
+    background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+    color: white;
+  }
+  .assist-tutor-controls {
+    padding: 12px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .assist-tutor-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+  .assist-tutor-btn-primary {
+    background: #43e97b;
+    color: white;
+  }
+  .assist-tutor-btn-primary:hover {
+    background: #38d96c;
+  }
+  .assist-tutor-btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+  }
+  .assist-tutor-btn-secondary:hover {
+    background: #e0e0e0;
+  }
+`;
+
+/**
+ * Inject Socratic Tutor CSS into document head (once)
+ */
+function tutor_injectStyles() {
+  if (document.getElementById('assist-tutor-styles')) {
+    return; // Already injected
+  }
+  const styleEl = document.createElement('style');
+  styleEl.id = 'assist-tutor-styles';
+  styleEl.textContent = TUTOR_PANEL_CSS;
+  document.head.appendChild(styleEl);
+}
+
 /**
  * Create the Socratic tutor panel
  * @returns {HTMLElement}
  */
 async function tutor_createPanel() {
-  // Check if cloud mode is enabled (reserved for future use)
-  // const _cloudEnabled = await tutor_isCloudEnabled();
+  // Inject CSS (only once)
+  tutor_injectStyles();
 
   const panel = document.createElement('div');
   panel.id = 'assist-socratic-tutor-panel';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Socratic Tutor');
 
+  // HTML structure only - CSS is injected separately
   panel.innerHTML = sanitizeHTML(`
-    <style>
-      #assist-socratic-tutor-panel {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 90%;
-        max-width: 550px;
-        max-height: 80vh;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        z-index: 999999;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .assist-tutor-header {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        color: white;
-        padding: 16px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .assist-tutor-title {
-        font-size: 18px;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .assist-tutor-close {
-        background: rgba(255,255,255,0.2);
-        border: none;
-        color: white;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.2s;
-      }
-
-      .assist-tutor-close:hover {
-        background: rgba(255,255,255,0.3);
-      }
-
-      .assist-tutor-content {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-      }
-
-      .assist-tutor-topic {
-        font-size: 14px;
-        color: #666;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #eee;
-      }
-
-      .assist-tutor-question {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-        border-left: 4px solid #43e97b;
-      }
-
-      .assist-tutor-question-type {
-        font-size: 11px;
-        text-transform: uppercase;
-        color: #666;
-        margin-bottom: 8px;
-        font-weight: 600;
-      }
-
-      .assist-tutor-question-text {
-        font-size: 15px;
-        color: #333;
-        line-height: 1.5;
-        margin-bottom: 12px;
-      }
-
-      .assist-tutor-hint {
-        display: none;
-        background: #fff3e0;
-        padding: 10px 12px;
-        border-radius: 8px;
-        font-size: 13px;
-        color: #e65100;
-        margin-bottom: 8px;
-      }
-
-      .assist-tutor-hint.visible {
-        display: block;
-      }
-
-      .assist-tutor-hint-btn {
-        background: none;
-        border: 1px solid #43e97b;
-        color: #43e97b;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .assist-tutor-hint-btn:hover {
-        background: #43e97b;
-        color: white;
-      }
-
-      .assist-tutor-followup {
-        display: none;
-        font-size: 13px;
-        color: #666;
-        font-style: italic;
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px dashed #ddd;
-      }
-
-      .assist-tutor-followup.visible {
-        display: block;
-      }
-
-      .assist-tutor-thinking {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 16px;
-        border-radius: 12px;
-        margin-top: 16px;
-        font-size: 14px;
-        line-height: 1.5;
-      }
-
-      .assist-tutor-thinking-label {
-        font-size: 12px;
-        opacity: 0.8;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-      }
-
-      .assist-tutor-loading {
-        text-align: center;
-        padding: 40px;
-        color: #666;
-      }
-
-      .assist-tutor-spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #43e97b;
-        border-radius: 50%;
-        margin: 0 auto 16px;
-        animation: tutor-spin 1s linear infinite;
-      }
-
-      @keyframes tutor-spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      .assist-tutor-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 10px;
-        font-weight: 600;
-        margin-left: 8px;
-      }
-
-      .assist-tutor-ai-badge {
-        background: #43e97b;
-        color: white;
-      }
-
-      .assist-tutor-fallback-badge {
-        background: #ff9800;
-        color: white;
-      }
-
-      .assist-tutor-cloud-badge {
-        background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-        color: white;
-      }
-
-      .assist-tutor-model-selector {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 8px;
-        background: rgba(0, 0, 0, 0.05);
-        border-radius: 4px;
-        margin-right: auto;
-      }
-
-      .assist-tutor-model-selector.hidden {
-        display: none !important;
-      }
-
-      .assist-tutor-model-icon {
-        font-size: 14px;
-      }
-
-      .assist-tutor-model {
-        padding: 4px 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 12px;
-        font-family: inherit;
-        background: white;
-        cursor: pointer;
-        min-width: 100px;
-      }
-
-      .assist-tutor-model:focus {
-        outline: none;
-        border-color: #43e97b;
-        box-shadow: 0 0 0 2px rgba(67, 233, 123, 0.2);
-      }
-
-      .assist-tutor-controls {
-        padding: 12px 20px;
-        border-top: 1px solid #eee;
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
-      }
-
-      .assist-tutor-btn {
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 13px;
-        cursor: pointer;
-        transition: all 0.2s;
-        border: none;
-      }
-
-      .assist-tutor-btn-primary {
-        background: #43e97b;
-        color: white;
-      }
-
-      .assist-tutor-btn-primary:hover {
-        background: #38d96c;
-      }
-
-      .assist-tutor-btn-secondary {
-        background: #f0f0f0;
-        color: #333;
-      }
-
-      .assist-tutor-btn-secondary:hover {
-        background: #e0e0e0;
-      }
-    </style>
-
     <div class="assist-tutor-header">
       <div class="assist-tutor-title">
         <span>🎓</span>
@@ -632,10 +581,31 @@ async function tutor_createPanel() {
  * @param {string} modelName - Name of the model used
  */
 function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
+  console.log('[SocraticTutor] tutor_renderResult called with:', {
+    result,
+    isAI,
+    isCloud,
+    modelName,
+  });
+  console.log(
+    '[SocraticTutor] Result details - topic:',
+    result?.topic,
+    'questions:',
+    result?.questions?.length
+  );
+
   const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
   if (!contentArea) {
+    console.error('[SocraticTutor] No content area found in panel!');
     return;
   }
+  console.log('[SocraticTutor] Content area found, rendering...');
+  console.log(
+    '[SocraticTutor] Panel visibility:',
+    tutor_panel?.style.display,
+    'Panel in DOM:',
+    document.body.contains(tutor_panel)
+  );
 
   let badge;
   if (isCloud) {
@@ -673,7 +643,7 @@ function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
           <div class="assist-tutor-followup" id="followup-${i}">
             ➡️ <strong>Go deeper:</strong> ${escapeHtml(q.followUp || '')}
           </div>
-          <button class="assist-tutor-hint-btn" onclick="document.getElementById('hint-${i}').classList.toggle('visible'); document.getElementById('followup-${i}').classList.toggle('visible'); this.textContent = this.textContent.includes('Show') ? 'Hide Hint' : 'Show Hint';">
+          <button class="assist-tutor-hint-btn" data-hint-index="${i}">
             Show Hint
           </button>
         </div>
@@ -692,6 +662,29 @@ function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
   }
 
   contentArea.innerHTML = sanitizeHTML(html);
+
+  // Attach hint button handlers (onclick attributes stripped by sanitizeHTML)
+  const hintButtons = contentArea.querySelectorAll('.assist-tutor-hint-btn');
+  hintButtons.forEach(btn => {
+    const index = btn.getAttribute('data-hint-index');
+    attachInteractiveHandler(btn, `Show Hint ${index}`, () => {
+      const hint = document.getElementById(`hint-${index}`);
+      const followup = document.getElementById(`followup-${index}`);
+      if (hint) {
+        hint.classList.toggle('visible');
+      }
+      if (followup) {
+        followup.classList.toggle('visible');
+      }
+      btn.textContent = btn.textContent.includes('Show') ? 'Hide Hint' : 'Show Hint';
+    });
+  });
+
+  console.log(
+    '[SocraticTutor] Render complete. Content length:',
+    contentArea.innerHTML.length,
+    'chars'
+  );
 }
 
 /**
@@ -749,20 +742,88 @@ function escapeHtml(text) {
  * Show the tutor panel
  */
 async function tutor_show() {
+  console.log('[SocraticTutor] tutor_show() called');
+
+  // Remove existing panel and overlay
   if (tutor_panel) {
+    console.log('[SocraticTutor] Removing existing panel');
     tutor_panel.remove();
   }
+  const existingOverlay = document.getElementById('assist-tutor-overlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+
+  // Create backdrop overlay first
+  const overlay = document.createElement('div');
+  overlay.id = 'assist-tutor-overlay';
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: '999998',
+  });
+  document.body.appendChild(overlay);
+
+  // Close on overlay click
+  overlay.addEventListener('click', () => tutor_hide());
+
   tutor_panel = await tutor_createPanel();
+  console.log('[SocraticTutor] Panel created:', tutor_panel);
+
+  // Apply critical styles directly to element (don't rely on CSS in innerHTML)
+  Object.assign(tutor_panel.style, {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '90%',
+    maxWidth: '550px',
+    maxHeight: '80vh',
+    background: 'white',
+    borderRadius: '16px',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+    zIndex: '999999',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+  });
+
   document.body.appendChild(tutor_panel);
-  tutor_panel.style.display = 'flex';
+  console.log('[SocraticTutor] Panel appended to body');
+
+  // Log computed styles for debugging
+  const computedStyle = window.getComputedStyle(tutor_panel);
+  console.log(
+    '[SocraticTutor] Computed styles - position:',
+    computedStyle.position,
+    'display:',
+    computedStyle.display,
+    'zIndex:',
+    computedStyle.zIndex,
+    'visibility:',
+    computedStyle.visibility,
+    'opacity:',
+    computedStyle.opacity
+  );
 }
 
 /**
  * Hide the tutor panel
  */
 function tutor_hide() {
+  console.log('[SocraticTutor] tutor_hide() called');
   if (tutor_panel) {
-    tutor_panel.style.display = 'none';
+    tutor_panel.remove();
+    tutor_panel = null;
+  }
+  const overlay = document.getElementById('assist-tutor-overlay');
+  if (overlay) {
+    overlay.remove();
   }
 }
 
@@ -809,6 +870,12 @@ async function tutor_analyze(text, modelKey = null) {
     let usedCloud = false;
 
     if (isCloud) {
+      // Check for API key before using cloud model
+      const hasKey = await tutor_checkCloudApiKey();
+      if (!hasKey) {
+        tutor_showApiKeyWarning();
+        return;
+      }
       // Use cloud model (Claude API)
       const response = await tutor_generate(text, modelKey);
       result = response.questions;
@@ -835,6 +902,88 @@ async function tutor_analyze(text, modelKey = null) {
     tutor_currentQuestions = fallback;
     tutor_renderResult(fallback, false, false, '');
   }
+}
+
+/**
+ * Show API key warning when cloud mode is enabled but no key is configured
+ */
+function tutor_showApiKeyWarning() {
+  const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
+  if (!contentArea) {
+    return;
+  }
+
+  contentArea.innerHTML = sanitizeHTML(`
+    <div style="text-align: center; padding: 40px 20px;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🔑</div>
+      <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
+      <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
+        Cloud AI mode is enabled but no API key is configured.<br>
+        Please add your Anthropic API key to use cloud features.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
+        <button class="tutor-open-settings" style="
+          background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">⚙️ Open Advanced Options</button>
+        <button class="tutor-use-local" style="
+          background: #6b7280;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">💻 Use Local AI Instead</button>
+      </div>
+      <p style="color: #999; font-size: 12px; margin-top: 16px;">
+        Go to: Extension Popup → Advanced Options → AI tab → Enter API Key
+      </p>
+    </div>
+  `);
+
+  // Attach handlers for buttons
+  const openSettingsBtn = contentArea.querySelector('.tutor-open-settings');
+  if (openSettingsBtn) {
+    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+      chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
+      alert(
+        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Enter your Anthropic API key\n5. Click Save'
+      );
+    });
+  }
+
+  const useLocalBtn = contentArea.querySelector('.tutor-use-local');
+  if (useLocalBtn) {
+    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+      await chrome.storage.local.set({ aiMode: 'local' });
+      console.log('[SocraticTutor] Switched to local AI mode');
+      tutor_showEmptyState();
+    });
+  }
+}
+
+/**
+ * Show the empty state for generating questions
+ */
+function tutor_showEmptyState() {
+  const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
+  if (!contentArea) {
+    return;
+  }
+
+  contentArea.innerHTML = sanitizeHTML(`
+    <div style="text-align: center; padding: 40px 20px; color: #666;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🤔</div>
+      <p>Select text on the page and use Socratic Tutor to generate thought-provoking questions.</p>
+      <p style="font-size: 13px; margin-top: 12px;">Now using Local AI mode.</p>
+    </div>
+  `);
 }
 
 /**

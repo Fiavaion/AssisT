@@ -30,6 +30,68 @@ const mdc_settings = {
   minTextLength: 50,
 };
 
+// Cloud model configurations
+const MDC_MODELS = {
+  local: { id: 'local', name: 'Local', isLocal: true },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
+  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
+  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+};
+
+const MDC_DEFAULT_CLOUD_MODEL = 'sonnet-4.5'; // Good for multi-doc analysis
+
+/**
+ * Get the current AI mode setting
+ * @returns {Promise<{aiMode: string, modelKey: string}>}
+ */
+async function mdc_getCurrentModel() {
+  try {
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const aiMode = result.aiMode || 'off';
+
+    if (aiMode === 'local') {
+      return { aiMode: 'local', modelKey: 'local' };
+    } else if (aiMode === 'cloud') {
+      return { aiMode: 'cloud', modelKey: result.cloudModel || MDC_DEFAULT_CLOUD_MODEL };
+    } else {
+      return { aiMode: 'local', modelKey: 'local' };
+    }
+  } catch (error) {
+    console.warn('[MultiDocCompare] Failed to get current model:', error);
+    return { aiMode: 'local', modelKey: 'local' };
+  }
+}
+
+/**
+ * Check if cloud API key is configured
+ * @returns {Promise<boolean>}
+ */
+async function mdc_checkCloudApiKey() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_CHECK',
+    });
+    return response?.success && response?.available;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if local LLM is available
+ * @returns {Promise<boolean>}
+ */
+async function mdc_checkLocalLLM() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'LOCAL_LLM_CHECK',
+    });
+    return response?.success && response?.available;
+  } catch {
+    return false;
+  }
+}
+
 // ============================================================================
 // CSS STYLES (Injected to document.head to avoid innerHTML stripping)
 // ============================================================================
@@ -377,8 +439,22 @@ async function mdc_compareDocuments() {
     throw new Error('Need at least 2 documents to compare');
   }
 
+  // Get current AI mode
+  const { aiMode, modelKey } = await mdc_getCurrentModel();
+  const isCloud = aiMode === 'cloud';
+  const modelName = MDC_MODELS[modelKey]?.name || modelKey;
+
+  // Check for API key if cloud mode
+  if (isCloud) {
+    const hasKey = await mdc_checkCloudApiKey();
+    if (!hasKey) {
+      mdc_showApiKeyWarning();
+      return null;
+    }
+  }
+
   mdc_isLoading = true;
-  mdc_updateLoadingState(true);
+  mdc_updateLoadingState(true, isCloud ? `Comparing with ${modelName}...` : null);
 
   // Prepare documents for comparison
   const docSummaries = mdc_documents
@@ -410,25 +486,53 @@ Rules:
 - Respond with ONLY valid JSON`;
 
   try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GENERATE',
-      prompt,
-      taskType: 'summarization', // Uses general category
-      options: {
-        maxTokens: 1200,
-        temperature: 0.3,
-      },
-    });
+    let response;
+
+    if (isCloud) {
+      // Use cloud model (Claude API)
+      response = await chrome.runtime.sendMessage({
+        action: 'CLOUD_LLM_GENERATE',
+        prompt,
+        options: {
+          model: modelKey,
+          maxTokens: 1200,
+          temperature: 0.3,
+          feature: 'multiDocCompare',
+        },
+      });
+      console.log(`[MultiDocCompare] Cloud response (${modelName}):`, response?.data);
+    } else {
+      // Check local LLM availability
+      const localAvailable = await mdc_checkLocalLLM();
+
+      if (localAvailable) {
+        response = await chrome.runtime.sendMessage({
+          action: 'LOCAL_LLM_GENERATE',
+          prompt,
+          taskType: 'summarization', // Uses general category
+          options: {
+            maxTokens: 1200,
+            temperature: 0.3,
+          },
+        });
+        console.log('[MultiDocCompare] Local AI response:', response?.data);
+      } else {
+        // Fallback to heuristic
+        console.log('[MultiDocCompare] Local LLM unavailable, using heuristic');
+        const fallback = mdc_heuristicCompare();
+        mdc_comparisonResult = fallback;
+        mdc_displayResults(fallback);
+        return fallback;
+      }
+    }
 
     if (response && response.success) {
-      console.log('[MultiDocCompare] AI response:', response.data);
-
       // Parse JSON response
       const jsonMatch = response.data.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         mdc_comparisonResult = parsed;
-        mdc_displayResults(parsed);
+        mdc_displayResults(parsed, isCloud, modelName);
         return parsed;
       }
     }
@@ -865,6 +969,93 @@ function mdc_hide() {
 function mdc_handleKeydown(e) {
   if (e.key === 'Escape' && mdc_panel) {
     mdc_hide();
+  }
+}
+
+// ============================================================================
+// API KEY WARNING
+// ============================================================================
+
+/**
+ * Show API key warning when cloud mode is enabled but no key is configured
+ */
+function mdc_showApiKeyWarning() {
+  const resultsDiv = mdc_panel?.querySelector('.mdc-results');
+  const emptyDiv = mdc_panel?.querySelector('.mdc-empty');
+
+  if (emptyDiv) {
+    emptyDiv.style.display = 'block';
+    emptyDiv.innerHTML = sanitizeHTML(`
+      <div style="font-size: 48px; margin-bottom: 16px;">🔑</div>
+      <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
+      <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
+        Cloud AI mode is enabled but no API key is configured.<br>
+        Please add your Anthropic API key to use cloud features.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
+        <button class="mdc-open-settings" style="
+          background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">⚙️ Open Advanced Options</button>
+        <button class="mdc-use-local" style="
+          background: #6b7280;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+        ">💻 Use Local AI Instead</button>
+      </div>
+      <p style="color: #999; font-size: 12px; margin-top: 16px;">
+        Go to: Extension Popup → Advanced Options → AI tab → Enter API Key
+      </p>
+    `);
+
+    // Attach handlers for buttons
+    const openSettingsBtn = emptyDiv.querySelector('.mdc-open-settings');
+    if (openSettingsBtn) {
+      attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+        chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
+        alert(
+          'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Enter your Anthropic API key\n5. Click Save'
+        );
+      });
+    }
+
+    const useLocalBtn = emptyDiv.querySelector('.mdc-use-local');
+    if (useLocalBtn) {
+      attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+        await chrome.storage.local.set({ aiMode: 'local' });
+        console.log('[MultiDocCompare] Switched to local AI mode');
+        mdc_showEmptyState();
+      });
+    }
+  }
+
+  if (resultsDiv) {
+    resultsDiv.style.display = 'none';
+    resultsDiv.classList.remove('visible');
+  }
+}
+
+/**
+ * Show the empty state
+ */
+function mdc_showEmptyState() {
+  const emptyDiv = mdc_panel?.querySelector('.mdc-empty');
+  if (emptyDiv) {
+    emptyDiv.style.display = 'block';
+    emptyDiv.innerHTML = sanitizeHTML(`
+      <div class="mdc-empty-icon">📄</div>
+      <p>Select text from different sources and add them here to compare.</p>
+      <p style="font-size: 13px; margin-top: 12px;">Now using Local AI mode.</p>
+    `);
   }
 }
 
