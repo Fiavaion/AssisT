@@ -605,3 +605,24 @@ export const CATEGORIES = {
   organization: { name: 'Organization', icon: '📁' },
   language: { name: 'Language Help', icon: '🌐' },
 };
+
+/**
+ * Quick Quiz question IDs
+ * Selected to cover the three main preset profiles:
+ * - reading → Dyslexia Support preset
+ * - focus → ADHD Focus preset
+ * - visual → Sensory Sensitive preset
+ */
+export const QUICK_QUIZ_IDS = ['reading', 'focus', 'visual'];
+
+/**
+ * Get questions for a specific quiz mode
+ * @param {string} mode - 'quick' or 'full'
+ * @returns {Array} Array of question objects
+ */
+export function getQuestionsForMode(mode) {
+  if (mode === 'quick') {
+    return QUESTIONS.filter(q => QUICK_QUIZ_IDS.includes(q.id));
+  }
+  return QUESTIONS;
+}

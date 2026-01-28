@@ -16,6 +16,109 @@ const THRESHOLDS = {
 };
 
 /**
+ * Preset profiles that match Quick Start presets in popup
+ * Each preset maps to specific features and has scoring criteria
+ */
+export const PRESETS = {
+  'ADHD Focus': {
+    id: 'adhd-focus',
+    name: 'ADHD Focus',
+    icon: '🎯',
+    description: 'Enables features to help with focus, attention, and working in timed bursts.',
+    features: [
+      'focusModeEnabled',
+      'pomodoroEnabled',
+      'reducedMotionEnabled',
+      'mediaControlEnabled',
+      'readingProgressEnabled',
+    ],
+    // Score weights: which question categories contribute to this preset
+    scoreWeights: {
+      focus: 3, // Primary - highest weight
+      reading: 1,
+      visual: 1,
+    },
+  },
+  'Dyslexia Support': {
+    id: 'dyslexia-support',
+    name: 'Dyslexia Support',
+    icon: '📖',
+    description:
+      'Enables text-to-speech, dyslexia-friendly fonts, reading guides, and visual aids.',
+    features: [
+      'ttsEnabled',
+      'dyslexiaEnabled',
+      'readingGuideEnabled',
+      'readingModeEnabled',
+      'textCustomizationEnabled',
+    ],
+    scoreWeights: {
+      reading: 3, // Primary
+      visual: 2,
+      language: 1,
+    },
+  },
+  'Sensory Sensitive': {
+    id: 'sensory-sensitive',
+    name: 'Sensory Sensitive',
+    icon: '🌙',
+    description: 'Reduces visual strain with dark mode, color overlays, and motion reduction.',
+    features: [
+      'darkModeEnabled',
+      'screenOverlayEnabled',
+      'reducedMotionEnabled',
+      'mediaControlEnabled',
+      'focusModeEnabled',
+    ],
+    scoreWeights: {
+      visual: 3, // Primary
+      focus: 2,
+    },
+  },
+};
+
+/**
+ * Calculate which preset best matches the user's quiz responses
+ * @param {Object} responses - Quiz responses { primary: {}, sub: {} }
+ * @returns {Object|null} Best matching preset or null if no strong match
+ */
+export function calculateBestPreset(responses) {
+  const presetScores = {};
+
+  // Calculate score for each preset based on question responses
+  Object.entries(PRESETS).forEach(([presetName, preset]) => {
+    let score = 0;
+    let maxPossible = 0;
+
+    Object.entries(preset.scoreWeights).forEach(([questionId, weight]) => {
+      const answer = responses.primary[questionId] || 0;
+      score += answer * weight;
+      maxPossible += 3 * weight; // Max answer is 3
+    });
+
+    // Normalize to 0-100
+    presetScores[presetName] = maxPossible > 0 ? Math.round((score / maxPossible) * 100) : 0;
+  });
+
+  // Find the best matching preset (must be above threshold)
+  const threshold = 40; // At least 40% match to recommend
+  let bestPreset = null;
+  let bestScore = 0;
+
+  Object.entries(presetScores).forEach(([presetName, score]) => {
+    if (score >= threshold && score > bestScore) {
+      bestScore = score;
+      bestPreset = {
+        ...PRESETS[presetName],
+        matchScore: score,
+      };
+    }
+  });
+
+  return bestPreset;
+}
+
+/**
  * Calculate feature scores from quiz responses
  * @param {Object} responses - User's quiz responses
  * @param {Object} responses.primary - Primary question answers { questionId: answerValue }
@@ -224,5 +327,27 @@ export async function getExistingProfile() {
 export async function clearProfile() {
   if (typeof chrome !== 'undefined' && chrome.storage) {
     await chrome.storage.local.remove('discoveryProfile');
+  }
+}
+
+/**
+ * Apply a preset profile to Chrome storage
+ * @param {Object} preset - Preset from PRESETS or calculateBestPreset()
+ * @returns {Promise<void>}
+ */
+export async function applyPreset(preset) {
+  const settings = {};
+
+  // Enable all features in the preset
+  preset.features.forEach(settingKey => {
+    settings[settingKey] = true;
+  });
+
+  // Save to Chrome storage
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    await chrome.storage.local.set({
+      discoveryPreset: preset.name,
+      ...settings,
+    });
   }
 }
