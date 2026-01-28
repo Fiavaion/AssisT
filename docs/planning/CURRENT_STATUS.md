@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - UI Overhaul & Maintenance
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Modular Popup with Organize Mode)
-**Session**: Phase 2 Session 067 (Cloud AI API Key Validation)
+**Session**: Phase 2 Session 068 (UI Overhaul: Discovery Quiz & Popup Header)
 
 ---
 
@@ -47,6 +47,35 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 068 (2026-01-28)
+
+**UI Overhaul: Discovery Quiz & Popup Header**
+
+**Key Accomplishments**:
+
+1. **Discovery Quiz Improvements**:
+   - Added Quick Quiz mode (3 questions, ~1 min) vs Full Quiz (6 questions, ~2 min)
+   - Added preset recommendations: ADHD Focus, Dyslexia Support, Sensory Sensitive
+   - Presets calculated from quiz responses with weighted scoring algorithm
+   - "Apply Preset" button enables recommended features instantly
+
+2. **Popup Header Redesign**:
+   - Added AssisT logo image to header (AssisTCircleAlpha.png with transparency)
+   - Changed background color to #223b56 (navy blue matching logo)
+   - Reorganized header: logo + title row, then subtitle, then button row
+
+3. **Extension Icons Updated**:
+   - Regenerated all icon sizes (16, 32, 48, 128px) from new logo
+   - Icons now have transparency support
+
+**Files Modified**: 8 files (discovery quiz, popup HTML/CSS, manifest, icons)
+
+**Commits**: `a6d628c`, `83e5a56`, `76e4f3b`
+
+**Build Status**: Successful
+
+---
 
 ### Phase 2 Session 067 (2026-01-28)
 
