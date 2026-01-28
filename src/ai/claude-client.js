@@ -13,7 +13,11 @@
  * @module ai/claude-client
  */
 
-import { getApiKey, hasApiKey } from './key-manager.js';
+// SECURITY: Use AES-GCM-256 encrypted API key storage with PBKDF2 key derivation
+import {
+  getSecureAPIKey as getApiKey,
+  hasSecureAPIKey as hasApiKey,
+} from '../core/storage/secure-key-storage.js';
 
 // Anthropic API endpoint
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -202,6 +206,8 @@ export async function claudeGenerate(prompt, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), opts.timeout);
 
+    // SECURITY: credentials:'omit' prevents cookies/auth leaking to API
+    // SECURITY: cache:'no-store' prevents caching of request/response with API key
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
@@ -217,6 +223,8 @@ export async function claudeGenerate(prompt, options = {}) {
         messages: [{ role: 'user', content: prompt }],
       }),
       signal: controller.signal,
+      credentials: 'omit',
+      cache: 'no-store',
     });
 
     clearTimeout(timeoutId);

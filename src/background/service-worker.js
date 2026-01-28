@@ -7,6 +7,106 @@
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
 
+// ========================================
+// SECURITY UTILITIES
+// ========================================
+
+/**
+ * Validate that a message sender is from this extension
+ * @param {chrome.runtime.MessageSender} sender - Message sender object
+ * @returns {boolean} True if sender is trusted (from this extension)
+ */
+function isValidSender(sender) {
+  // Accept messages from this extension's ID
+  if (sender.id === chrome.runtime.id) {
+    return true;
+  }
+  // Accept messages from content scripts running in tabs (they have sender.tab)
+  if (sender.tab && sender.id === chrome.runtime.id) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Validate URL for safe navigation/fetching
+ * Blocks dangerous protocols and internal network addresses
+ * @param {string} url - URL to validate
+ * @param {Object} options - Validation options
+ * @param {boolean} options.allowFile - Allow file:// protocol (default: false)
+ * @param {boolean} options.allowExtension - Allow chrome-extension:// protocol (default: true)
+ * @returns {{ valid: boolean, error?: string }} Validation result
+ */
+function validateURL(url, options = {}) {
+  const { allowFile = false, allowExtension = true } = options;
+
+  if (!url || typeof url !== 'string') {
+    return { valid: false, error: 'URL is required' };
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { valid: false, error: 'Invalid URL format' };
+  }
+
+  // Block dangerous protocols
+  const dangerousProtocols = ['javascript:', 'data:', 'vbscript:'];
+  if (dangerousProtocols.includes(parsed.protocol)) {
+    return { valid: false, error: `Blocked protocol: ${parsed.protocol}` };
+  }
+
+  // Handle file:// protocol
+  if (parsed.protocol === 'file:') {
+    if (!allowFile) {
+      return { valid: false, error: 'file:// URLs not allowed' };
+    }
+    return { valid: true };
+  }
+
+  // Handle chrome-extension:// protocol
+  if (parsed.protocol === 'chrome-extension:') {
+    if (!allowExtension) {
+      return { valid: false, error: 'Extension URLs not allowed' };
+    }
+    // Only allow URLs from this extension
+    if (parsed.hostname !== chrome.runtime.id) {
+      return { valid: false, error: 'External extension URLs not allowed' };
+    }
+    return { valid: true };
+  }
+
+  // Allow http/https
+  if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+    // Block internal/private network addresses to prevent SSRF
+    const hostname = parsed.hostname.toLowerCase();
+    const blockedHostnames = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
+
+    if (blockedHostnames.includes(hostname)) {
+      // Allow localhost for local Ollama server
+      if (hostname === 'localhost' && parsed.port === '11434') {
+        return { valid: true }; // Ollama API
+      }
+      return { valid: false, error: 'Internal network URLs blocked' };
+    }
+
+    // Block private IP ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+    const ipv4Pattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const ipMatch = hostname.match(ipv4Pattern);
+    if (ipMatch) {
+      const [, a, b] = ipMatch.map(Number);
+      if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
+        return { valid: false, error: 'Private network IPs blocked' };
+      }
+    }
+
+    return { valid: true };
+  }
+
+  return { valid: false, error: `Unsupported protocol: ${parsed.protocol}` };
+}
+
 // Cloud AI imports
 import {
   claudeGenerate,
@@ -67,7 +167,27 @@ chrome.runtime.onInstalled.addListener(async details => {
 
   if (details.reason === 'update') {
     console.log('[AssisT] Extension updated from', details.previousVersion);
-    // Handle migration if needed
+
+    // SECURITY: Migrate legacy plain-text API keys and auto-rotate if needed
+    try {
+      const { migrateLegacyKeys, autoRotateIfNeeded } = await import(
+        '../core/storage/secure-key-storage.js'
+      );
+
+      // Migrate any legacy plain-text keys
+      const stats = await migrateLegacyKeys();
+      if (stats.migrated > 0) {
+        console.log(`[AssisT] Migrated ${stats.migrated} credentials to encrypted storage`);
+      }
+
+      // Auto-rotate keys if rotation interval has passed
+      const rotationResult = await autoRotateIfNeeded();
+      if (rotationResult.rotated) {
+        console.log(`[AssisT] Auto-rotated ${rotationResult.keysRotated} credentials`);
+      }
+    } catch (err) {
+      console.error('[AssisT] Security initialization failed:', err.message);
+    }
   }
 
   // Context menus are now set up in setupContextMenus() above
@@ -117,6 +237,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 // Message handling from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // SECURITY: Validate sender is from this extension
+  if (!isValidSender(sender)) {
+    console.warn('[AssisT Security] Rejected message from untrusted sender:', sender);
+    sendResponse({ success: false, error: 'Unauthorized sender' });
+    return false;
+  }
+
   // Handle opening discovery quiz page
   if (message.action === 'OPEN_DISCOVERY_QUIZ') {
     chrome.tabs.create({
@@ -137,6 +264,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle generic tab opening (with custom URL)
   if (message.action === 'openTab' && message.url) {
+    // SECURITY: Validate URL to prevent open redirect attacks
+    const validation = validateURL(message.url, { allowFile: false, allowExtension: true });
+    if (!validation.valid) {
+      console.warn(
+        '[AssisT Security] Blocked openTab with invalid URL:',
+        message.url,
+        validation.error
+      );
+      sendResponse({ success: false, error: validation.error });
+      return false;
+    }
     chrome.tabs.create({
       url: message.url,
     });
@@ -161,6 +299,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle image fetch requests (for cross-origin images)
   if (message.action === 'FETCH_IMAGE') {
+    // SECURITY: Validate URL to prevent SSRF attacks
+    const validation = validateURL(message.url, { allowFile: false, allowExtension: false });
+    if (!validation.valid) {
+      console.warn(
+        '[AssisT Security] Blocked FETCH_IMAGE with invalid URL:',
+        message.url,
+        validation.error
+      );
+      sendResponse({ success: false, error: validation.error });
+      return true;
+    }
+
     console.log('[AssisT] Fetching image:', message.url);
 
     fetch(message.url, {
@@ -199,6 +349,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle PDF fetch requests (for local file:// URLs that content scripts can't access)
   if (message.action === 'FETCH_PDF') {
+    // SECURITY: Validate URL - allow file:// for local PDFs, but validate http/https
+    const validation = validateURL(message.url, { allowFile: true, allowExtension: false });
+    if (!validation.valid) {
+      console.warn(
+        '[AssisT Security] Blocked FETCH_PDF with invalid URL:',
+        message.url,
+        validation.error
+      );
+      sendResponse({ success: false, error: validation.error });
+      return true;
+    }
+
     console.log('[AssisT] Fetching PDF:', message.url);
 
     fetch(message.url)

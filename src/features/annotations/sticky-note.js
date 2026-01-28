@@ -1425,6 +1425,12 @@ function openTagEditModal(noteId, currentTags = []) {
  * @param {Function} sendResponse - Response callback
  */
 function handleMessage(message, sender, sendResponse) {
+  // SECURITY: Validate sender is from this extension
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[StickyNotes Security] Rejected message from untrusted sender');
+    return false;
+  }
+
   if (message.action === 'createStickyNote') {
     // Create note at specified position or center of viewport
     const x = message.x || window.innerWidth / 2 - 100;

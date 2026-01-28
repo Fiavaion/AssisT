@@ -13,6 +13,7 @@
  */
 
 import { BaseSTTEngine, EngineStatus, EngineType, RecognitionResult } from './base-engine.js';
+import { saveSecureAPIKey, getSecureAPIKey } from '../../../core/storage/secure-key-storage.js';
 
 /**
  * Azure Speech recognition modes
@@ -227,28 +228,36 @@ export class AzureEngine extends BaseSTTEngine {
   }
 
   /**
-   * Load credentials from Chrome storage
+   * Load credentials from Chrome storage (encrypted, local-only)
+   * SECURITY: Uses chrome.storage.local with AES-GCM-256 encryption
+   * to prevent keys from syncing to Google Account in plain text
    * @private
    */
   async loadCredentialsFromStorage() {
-    return new Promise(resolve => {
+    try {
       if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.sync.get(['azureSubscriptionKey', 'azureRegion'], result => {
-          if (result.azureSubscriptionKey) {
-            this.subscriptionKey = result.azureSubscriptionKey;
-            this.region = result.azureRegion || this.region;
-            console.log('[Azure] Credentials loaded from storage');
-          }
-          resolve();
-        });
-      } else {
-        resolve();
+        // Load encrypted subscription key from secure storage
+        const subscriptionKey = await getSecureAPIKey('azure');
+        if (subscriptionKey) {
+          this.subscriptionKey = subscriptionKey;
+          console.log('[Azure] Subscription key loaded from secure storage');
+        }
+
+        // Load region from local storage (not sensitive)
+        const result = await chrome.storage.local.get('azureRegion');
+        if (result.azureRegion) {
+          this.region = result.azureRegion;
+        }
       }
-    });
+    } catch (error) {
+      console.error('[Azure] Failed to load credentials:', error.message);
+    }
   }
 
   /**
-   * Save credentials to Chrome storage
+   * Save credentials to Chrome storage (encrypted, local-only)
+   * SECURITY: Uses chrome.storage.local with AES-GCM-256 encryption
+   * to prevent keys from syncing to Google Account in plain text
    * @param {string} subscriptionKey
    * @param {string} region
    */
@@ -257,11 +266,13 @@ export class AzureEngine extends BaseSTTEngine {
     this.region = region;
 
     if (typeof chrome !== 'undefined' && chrome.storage) {
-      await chrome.storage.sync.set({
-        azureSubscriptionKey: subscriptionKey,
-        azureRegion: region,
-      });
-      console.log('[Azure] Credentials saved to storage');
+      // Save subscription key using secure encrypted storage
+      await saveSecureAPIKey('azure', subscriptionKey);
+
+      // Save region to local storage (not sensitive, no encryption needed)
+      await chrome.storage.local.set({ azureRegion: region });
+
+      console.log('[Azure] Credentials saved to secure storage');
     }
 
     // Reinitialize with new credentials

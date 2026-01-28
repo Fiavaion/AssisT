@@ -877,6 +877,13 @@ initCitation();
 // MESSAGE LISTENER FOR POPUP COMMANDS
 // ============================================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // SECURITY: Validate sender is from this extension
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[AssisT Security] Rejected message from untrusted sender:', sender.id);
+    sendResponse({ success: false, error: 'Unauthorized sender' });
+    return false;
+  }
+
   console.log('[AssisT] Received message:', message.type);
 
   switch (message.type) {

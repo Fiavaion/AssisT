@@ -132,6 +132,12 @@ async function loadStorageMode() {
  * Handle Chrome messages (toggle sidebar)
  */
 function handleMessage(message, sender, sendResponse) {
+  // SECURITY: Validate sender is from this extension
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[AnnotationSidebar Security] Rejected message from untrusted sender');
+    return false;
+  }
+
   if (message.type === 'toggleAnnotationSidebar') {
     toggleSidebar();
     sendResponse({ success: true });
