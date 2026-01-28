@@ -1038,6 +1038,33 @@ body {
   color: var(--text-secondary);
 }
 
+/* Model Preference Rows */
+.model-preference-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.model-pref-label {
+  min-width: 70px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.model-pref-select {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+#model-preferences-group {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 /* Small Toggle Switch (for appearance options) */
 .toggle-switch-small {
   position: relative;

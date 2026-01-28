@@ -2842,6 +2842,40 @@ class PopupController {
                 </select>
                 <button id="install-model" class="modal-btn modal-btn-secondary" style="margin-top: 8px;">Install New Model</button>
               </div>
+
+              <!-- Model Preferences by Task Type -->
+              <div class="option-group" id="model-preferences-group">
+                <label class="option-group-label">Model Preferences</label>
+                <p class="feature-description" style="margin-bottom: 12px;">Select which model to use for each task type</p>
+
+                <div class="model-preference-row">
+                  <label for="model-general" class="model-pref-label">General</label>
+                  <select id="model-general" class="voice-select model-pref-select">
+                    <option value="auto">Auto (Best Available)</option>
+                  </select>
+                </div>
+
+                <div class="model-preference-row">
+                  <label for="model-academic" class="model-pref-label">Academic</label>
+                  <select id="model-academic" class="voice-select model-pref-select">
+                    <option value="auto">Auto (Best Available)</option>
+                  </select>
+                </div>
+
+                <div class="model-preference-row">
+                  <label for="model-vision" class="model-pref-label">Vision</label>
+                  <select id="model-vision" class="voice-select model-pref-select">
+                    <option value="auto">Auto (Best Available)</option>
+                  </select>
+                </div>
+
+                <div class="model-preference-row">
+                  <label for="model-code" class="model-pref-label">Code</label>
+                  <select id="model-code" class="voice-select model-pref-select">
+                    <option value="auto">Auto (Best Available)</option>
+                  </select>
+                </div>
+              </div>
             </section>
 
             <!-- Usage Statistics (for cloud mode) - hidden when no API key -->
@@ -3534,6 +3568,135 @@ class PopupController {
         });
       }
     });
+
+    // Populate the new task-type model preference dropdowns
+    this.populateModelPreferences(modal, models);
+  }
+
+  /**
+   * Populate model preference dropdowns for task types
+   * @param {HTMLElement} modal - The modal element
+   * @param {Array} models - List of Ollama models
+   */
+  async populateModelPreferences(modal, models) {
+    const taskTypes = ['general', 'academic', 'vision', 'code'];
+
+    // Load saved preferences
+    const savedPrefs = await new Promise(resolve => {
+      chrome.storage.local.get('modelPreferences', result => {
+        resolve(result.modelPreferences || {});
+      });
+    });
+
+    taskTypes.forEach(taskType => {
+      const select = modal.querySelector(`#model-${taskType}`);
+      if (!select) {
+        return;
+      }
+
+      // Clear existing options except "Auto"
+      select.innerHTML = '';
+
+      // Add "Auto (Best Available)" option
+      const autoOption = document.createElement('option');
+      autoOption.value = 'auto';
+      autoOption.textContent = 'Auto (Best Available)';
+      select.appendChild(autoOption);
+
+      // Filter models for vision (only show llava/bakllava)
+      let filteredModels = models;
+      if (taskType === 'vision') {
+        filteredModels = models.filter(
+          m => m.name.includes('llava') || m.name.includes('bakllava') || m.name.includes('minicpm')
+        );
+        if (filteredModels.length === 0) {
+          const noVisionOption = document.createElement('option');
+          noVisionOption.value = 'none';
+          noVisionOption.textContent = 'No vision models installed';
+          noVisionOption.disabled = true;
+          select.appendChild(noVisionOption);
+        }
+      }
+
+      // Filter models for code (prioritize code models)
+      if (taskType === 'code') {
+        const codeModels = models.filter(
+          m => m.name.includes('code') || m.name.includes('coder') || m.name.includes('deepseek')
+        );
+        // Add code models first, then others
+        if (codeModels.length > 0) {
+          const codeGroup = document.createElement('optgroup');
+          codeGroup.label = 'Code Models';
+          codeModels.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.name;
+            option.textContent = model.name;
+            codeGroup.appendChild(option);
+          });
+          select.appendChild(codeGroup);
+        }
+        // Add other models
+        const otherModels = models.filter(
+          m => !m.name.includes('code') && !m.name.includes('coder') && !m.name.includes('deepseek')
+        );
+        if (otherModels.length > 0) {
+          const otherGroup = document.createElement('optgroup');
+          otherGroup.label = 'General Models';
+          otherModels.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.name;
+            option.textContent = model.name;
+            otherGroup.appendChild(option);
+          });
+          select.appendChild(otherGroup);
+        }
+      } else if (taskType !== 'vision' || filteredModels.length > 0) {
+        // Add all models for general/academic, or filtered for vision
+        filteredModels.forEach(model => {
+          const option = document.createElement('option');
+          option.value = model.name;
+          option.textContent = model.name;
+          select.appendChild(option);
+        });
+      }
+
+      // Set saved value if exists
+      if (savedPrefs[taskType] && select.querySelector(`option[value="${savedPrefs[taskType]}"]`)) {
+        select.value = savedPrefs[taskType];
+      }
+
+      // Add change handler to save preference
+      select.addEventListener('change', () => {
+        this.saveModelPreference(taskType, select.value);
+      });
+    });
+  }
+
+  /**
+   * Save model preference for a task type
+   * @param {string} taskType - The task type (general, academic, vision, code)
+   * @param {string} modelName - The selected model name
+   */
+  async saveModelPreference(taskType, modelName) {
+    const result = await new Promise(resolve => {
+      chrome.storage.local.get('modelPreferences', r => resolve(r));
+    });
+
+    const prefs = result.modelPreferences || {};
+    prefs[taskType] = modelName;
+
+    await chrome.storage.local.set({ modelPreferences: prefs });
+
+    // Notify service worker of preference change
+    chrome.runtime
+      .sendMessage({
+        action: 'SET_MODEL_PREFERENCE',
+        taskType,
+        model: modelName,
+      })
+      .catch(() => {});
+
+    console.log(`[Settings] Model preference saved: ${taskType} → ${modelName}`);
   }
 
   setupModalTabs(modal) {
