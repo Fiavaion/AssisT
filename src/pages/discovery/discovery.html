@@ -35,8 +35,35 @@
           <h2 class="tagline">Discover Your Learning Tools</h2>
           <p class="intro-text">
             Everyone learns differently. Let's find which accessibility tools work best for you.
-            This takes about 2 minutes.
           </p>
+
+          <!-- Quiz Mode Selector -->
+          <div class="quiz-mode-selector" role="radiogroup" aria-labelledby="quiz-mode-label">
+            <span id="quiz-mode-label" class="quiz-mode-label">Choose your quiz type:</span>
+            <div class="quiz-mode-options">
+              <label class="quiz-mode-option selected" data-mode="quick">
+                <input type="radio" name="quiz-mode" value="quick" checked />
+                <span class="option-card">
+                  <span class="option-icon" aria-hidden="true">⚡</span>
+                  <span class="option-content">
+                    <span class="option-title">Quick Quiz</span>
+                    <span class="option-desc">3 questions • ~1 min</span>
+                  </span>
+                </span>
+              </label>
+              <label class="quiz-mode-option" data-mode="full">
+                <input type="radio" name="quiz-mode" value="full" />
+                <span class="option-card">
+                  <span class="option-icon" aria-hidden="true">📋</span>
+                  <span class="option-content">
+                    <span class="option-title">Full Quiz</span>
+                    <span class="option-desc">6 questions • ~2 min</span>
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
           <div class="feature-preview">
             <div class="preview-item">
               <span aria-hidden="true">🔊</span>
@@ -121,6 +148,27 @@
             <span class="celebration-icon" aria-hidden="true">🎉</span>
             <h2 id="results-heading">Your Personalized Toolkit</h2>
             <p class="results-intro">Based on your responses, here are the tools we recommend:</p>
+          </div>
+
+          <!-- Preset Recommendation -->
+          <div class="preset-recommendation hidden" id="preset-recommendation">
+            <div class="preset-recommendation-content">
+              <span class="preset-icon" id="preset-icon" aria-hidden="true">🎯</span>
+              <div class="preset-info">
+                <h3 class="preset-title">Best Match: <span id="preset-name">ADHD Focus</span></h3>
+                <p class="preset-desc" id="preset-desc">
+                  This preset enables features designed to help with focus and attention.
+                </p>
+              </div>
+            </div>
+            <button id="btn-apply-preset" class="btn btn-preset" type="button">
+              <span class="btn-icon" aria-hidden="true">⚡</span>
+              Apply Preset
+            </button>
+          </div>
+
+          <div class="recommendations-divider hidden" id="recommendations-divider">
+            <span>Or customize your features below</span>
           </div>
 
           <div class="recommendations-container" id="recommendations-container">

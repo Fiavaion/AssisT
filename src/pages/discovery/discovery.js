@@ -3,12 +3,14 @@
  * Handles quiz flow, UI interactions, and state management
  */
 
-import { QUESTIONS } from './questions.js';
+import { QUESTIONS, getQuestionsForMode } from './questions.js';
 import {
   calculateScores,
   getTopRecommendations,
   createProfile,
   applyProfile,
+  calculateBestPreset,
+  applyPreset,
 } from './recommendations.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
@@ -22,12 +24,15 @@ import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 const state = {
   currentScreen: 'welcome',
   currentQuestion: 0,
+  quizMode: 'quick', // 'quick' or 'full'
+  activeQuestions: [], // Questions for current mode
   responses: {
     primary: {},
     sub: {},
   },
   recommendations: [],
   scores: {},
+  recommendedPreset: null, // Best matching preset
 };
 
 // ============================================================================
@@ -51,6 +56,15 @@ const elements = {
   btnRetake: null,
   btnSkipAll: null,
   recommendationsContainer: null,
+  // Quiz mode elements
+  quizModeOptions: null,
+  // Preset recommendation elements
+  presetRecommendation: null,
+  presetIcon: null,
+  presetName: null,
+  presetDesc: null,
+  btnApplyPreset: null,
+  recommendationsDivider: null,
 };
 
 // ============================================================================
@@ -87,6 +101,15 @@ function cacheElements() {
   elements.btnRetake = document.getElementById('btn-retake');
   elements.btnSkipAll = document.getElementById('btn-skip-all');
   elements.recommendationsContainer = document.getElementById('recommendations-container');
+  // Quiz mode elements
+  elements.quizModeOptions = document.querySelectorAll('.quiz-mode-option');
+  // Preset recommendation elements
+  elements.presetRecommendation = document.getElementById('preset-recommendation');
+  elements.presetIcon = document.getElementById('preset-icon');
+  elements.presetName = document.getElementById('preset-name');
+  elements.presetDesc = document.getElementById('preset-desc');
+  elements.btnApplyPreset = document.getElementById('btn-apply-preset');
+  elements.recommendationsDivider = document.getElementById('recommendations-divider');
 }
 
 function bindEvents() {
@@ -182,6 +205,27 @@ function bindEvents() {
     });
   }
 
+  // Quiz mode selection
+  elements.quizModeOptions.forEach(option => {
+    option.addEventListener('click', _e => {
+      const mode = option.dataset.mode;
+      console.log('[Discovery] Quiz mode selected:', mode);
+      selectQuizMode(mode);
+    });
+  });
+
+  // Apply preset button
+  if (elements.btnApplyPreset) {
+    elements.btnApplyPreset.addEventListener('click', _e => {
+      console.log('[Discovery] Apply Preset button clicked');
+      try {
+        applyPresetAndClose();
+      } catch (error) {
+        console.error('[Discovery] Apply Preset error:', error);
+      }
+    });
+  }
+
   // Keyboard navigation
   document.addEventListener('keydown', handleKeyboard);
 }
@@ -209,7 +253,9 @@ function showScreen(screenName) {
 }
 
 function updateProgress() {
-  const total = QUESTIONS.length + 1; // +1 for results
+  // Use activeQuestions if available, otherwise default to full quiz length
+  const questionsLength = state.activeQuestions.length || QUESTIONS.length;
+  const total = questionsLength + 1; // +1 for results
   let current = 0;
 
   if (state.currentScreen === 'welcome') {
@@ -233,12 +279,34 @@ function updateProgress() {
 }
 
 // ============================================================================
+// Quiz Mode Selection
+// ============================================================================
+
+function selectQuizMode(mode) {
+  state.quizMode = mode;
+
+  // Update UI
+  elements.quizModeOptions.forEach(option => {
+    const isSelected = option.dataset.mode === mode;
+    option.classList.toggle('selected', isSelected);
+    option.querySelector('input[type="radio"]').checked = isSelected;
+  });
+
+  console.log('[Discovery] Quiz mode set to:', mode);
+}
+
+// ============================================================================
 // Quiz Flow
 // ============================================================================
 
 function startQuiz() {
   state.currentQuestion = 0;
   state.responses = { primary: {}, sub: {} };
+  // Get questions based on selected mode
+  state.activeQuestions = getQuestionsForMode(state.quizMode);
+  console.log(
+    `[Discovery] Starting ${state.quizMode} quiz with ${state.activeQuestions.length} questions`
+  );
   showScreen('questions');
   renderQuestion();
   updateProgress();
@@ -253,12 +321,12 @@ function goBack() {
 }
 
 function goNext() {
-  const currentQ = QUESTIONS[state.currentQuestion];
+  const currentQ = state.activeQuestions[state.currentQuestion];
   if (state.responses.primary[currentQ.id] === undefined) {
     return; // Must select an option
   }
 
-  if (state.currentQuestion < QUESTIONS.length - 1) {
+  if (state.currentQuestion < state.activeQuestions.length - 1) {
     state.currentQuestion++;
     renderQuestion();
     updateProgress();
@@ -270,6 +338,8 @@ function goNext() {
 function finishQuiz() {
   state.scores = calculateScores(state.responses);
   state.recommendations = getTopRecommendations(state.scores, 8);
+  state.recommendedPreset = calculateBestPreset(state.responses);
+  console.log('[Discovery] Calculated preset:', state.recommendedPreset);
   renderResults();
   showScreen('results');
   updateProgress();
@@ -280,6 +350,7 @@ function retakeQuiz() {
   state.responses = { primary: {}, sub: {} };
   state.scores = {};
   state.recommendations = [];
+  state.recommendedPreset = null;
   showScreen('welcome');
   updateProgress();
 }
@@ -294,14 +365,14 @@ function skipAll() {
 // ============================================================================
 
 function renderQuestion() {
-  const question = QUESTIONS[state.currentQuestion];
+  const question = state.activeQuestions[state.currentQuestion];
   if (!question) {
     return;
   }
 
   // Update question number
   if (elements.questionNumber) {
-    elements.questionNumber.textContent = `Question ${state.currentQuestion + 1} of ${QUESTIONS.length}`;
+    elements.questionNumber.textContent = `Question ${state.currentQuestion + 1} of ${state.activeQuestions.length}`;
   }
 
   // Update question text
@@ -459,7 +530,7 @@ function collapseTellMeMore() {
 // ============================================================================
 
 function updateNavigationButtons() {
-  const currentQ = QUESTIONS[state.currentQuestion];
+  const currentQ = state.activeQuestions[state.currentQuestion];
   const hasAnswer = state.responses.primary[currentQ?.id] !== undefined;
 
   if (elements.btnBack) {
@@ -468,19 +539,18 @@ function updateNavigationButtons() {
 
   if (elements.btnNext) {
     elements.btnNext.disabled = !hasAnswer;
-    elements.btnNext.textContent =
-      state.currentQuestion === QUESTIONS.length - 1 ? 'See Results' : 'Next';
+    const isLastQuestion = state.currentQuestion === state.activeQuestions.length - 1;
+    elements.btnNext.textContent = isLastQuestion ? 'See Results' : 'Next';
 
     // Re-add icon
     if (!elements.btnNext.querySelector('.btn-icon')) {
       const icon = document.createElement('span');
       icon.className = 'btn-icon';
       icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = state.currentQuestion === QUESTIONS.length - 1 ? '✓' : '→';
+      icon.textContent = isLastQuestion ? '✓' : '→';
       elements.btnNext.appendChild(icon);
     } else {
-      elements.btnNext.querySelector('.btn-icon').textContent =
-        state.currentQuestion === QUESTIONS.length - 1 ? '✓' : '→';
+      elements.btnNext.querySelector('.btn-icon').textContent = isLastQuestion ? '✓' : '→';
     }
   }
 }
@@ -493,6 +563,9 @@ function renderResults() {
   if (!elements.recommendationsContainer) {
     return;
   }
+
+  // Show preset recommendation if available
+  renderPresetRecommendation();
 
   if (state.recommendations.length === 0) {
     // Safe innerHTML: hardcoded message (no user input)
@@ -534,6 +607,48 @@ function renderResults() {
       btn.querySelector('.expand-icon').textContent = isExpanded ? '▼' : '▲';
     });
   });
+}
+
+/**
+ * Render the preset recommendation section
+ */
+function renderPresetRecommendation() {
+  const preset = state.recommendedPreset;
+
+  if (!preset || !elements.presetRecommendation) {
+    // Hide preset section if no preset match
+    if (elements.presetRecommendation) {
+      elements.presetRecommendation.classList.add('hidden');
+    }
+    if (elements.recommendationsDivider) {
+      elements.recommendationsDivider.classList.add('hidden');
+    }
+    return;
+  }
+
+  // Show preset recommendation
+  elements.presetRecommendation.classList.remove('hidden');
+  if (elements.recommendationsDivider) {
+    elements.recommendationsDivider.classList.remove('hidden');
+  }
+
+  // Update preset content
+  if (elements.presetIcon) {
+    elements.presetIcon.textContent = preset.icon;
+  }
+  if (elements.presetName) {
+    elements.presetName.textContent = preset.name;
+  }
+  if (elements.presetDesc) {
+    elements.presetDesc.textContent = preset.description;
+  }
+
+  console.log(
+    '[Discovery] Showing preset recommendation:',
+    preset.name,
+    'with score:',
+    preset.matchScore
+  );
 }
 
 function renderRecommendationCard(rec) {
@@ -615,6 +730,32 @@ async function applyAndClose() {
   }
 }
 
+/**
+ * Apply the recommended preset and close the quiz
+ */
+async function applyPresetAndClose() {
+  const preset = state.recommendedPreset;
+  if (!preset) {
+    console.error('[Discovery] No preset to apply');
+    return;
+  }
+
+  try {
+    await applyPreset(preset);
+    console.log('[Discovery] Preset applied successfully:', preset.name);
+
+    // Show success message briefly then close
+    showSuccessMessage(`${preset.name} preset applied!`);
+
+    setTimeout(() => {
+      window.close();
+    }, 1500);
+  } catch (error) {
+    console.error('[Discovery] Failed to apply preset:', error);
+    alert('There was an error applying the preset. Please try again.');
+  }
+}
+
 function openDemoPage() {
   // Open demo page in new tab
   if (typeof chrome !== 'undefined' && chrome.runtime) {
@@ -657,7 +798,7 @@ function handleKeyboard(e) {
     return;
   }
 
-  const question = QUESTIONS[state.currentQuestion];
+  const question = state.activeQuestions[state.currentQuestion];
   const currentAnswer = state.responses.primary[question?.id];
 
   switch (e.key) {

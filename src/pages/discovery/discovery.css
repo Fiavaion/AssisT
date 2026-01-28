@@ -754,3 +754,217 @@ body {
     transform: translateX(0);
   }
 }
+
+/* ============================================
+   Quiz Mode Selector
+   ============================================ */
+.quiz-mode-selector {
+  margin-bottom: var(--space-xl);
+}
+
+.quiz-mode-label {
+  display: block;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-md);
+  font-weight: 500;
+}
+
+.quiz-mode-options {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.quiz-mode-option {
+  cursor: pointer;
+  flex: 1;
+  max-width: 200px;
+}
+
+.quiz-mode-option input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.quiz-mode-option .option-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.quiz-mode-option:hover .option-card {
+  border-color: var(--color-primary);
+}
+
+.quiz-mode-option.selected .option-card,
+.quiz-mode-option input:checked + .option-card {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.quiz-mode-option .option-icon {
+  font-size: 1.5rem;
+}
+
+.quiz-mode-option .option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quiz-mode-option .option-title {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.quiz-mode-option .option-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.quiz-mode-option input:focus-visible + .option-card {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Preset Recommendation (Results Screen)
+   ============================================ */
+.preset-recommendation {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-surface) 100%);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  animation: fadeIn var(--transition-base) ease-out;
+}
+
+.preset-recommendation.hidden {
+  display: none;
+}
+
+.preset-recommendation-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.preset-icon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+}
+
+.preset-info {
+  flex: 1;
+}
+
+.preset-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-xs);
+}
+
+.preset-title span {
+  color: var(--color-primary);
+}
+
+.preset-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.btn-preset {
+  width: 100%;
+  background: var(--color-primary);
+  color: white;
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 48px;
+}
+
+.btn-preset:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-preset:active {
+  transform: translateY(0);
+}
+
+.btn-preset:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Recommendations Divider */
+.recommendations-divider {
+  text-align: center;
+  margin: var(--space-lg) 0;
+  position: relative;
+}
+
+.recommendations-divider.hidden {
+  display: none;
+}
+
+.recommendations-divider span {
+  background: var(--color-background);
+  padding: 0 var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  position: relative;
+  z-index: 1;
+}
+
+.recommendations-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Responsive adjustments for quiz mode */
+@media (max-width: 480px) {
+  .quiz-mode-options {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .quiz-mode-option {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .preset-recommendation-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .preset-icon {
+    font-size: 3rem;
+  }
+}
