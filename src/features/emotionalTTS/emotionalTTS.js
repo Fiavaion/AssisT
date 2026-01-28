@@ -562,7 +562,7 @@ async function emotionalTTS_speak(text, overrideEmotion = null) {
       if (!hasKey) {
         console.warn('[EmotionalTTS] Cloud mode enabled but no API key configured');
         alert(
-          'Cloud AI mode is enabled but no API key is configured.\n\nTo add your API key:\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Enter your Anthropic API key\n\nUsing keyword-based emotion detection instead.'
+          'Cloud AI mode is enabled but no API key is configured.\n\nTo add your API key:\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n\nUsing keyword-based emotion detection instead.'
         );
         emotion = emotionalTTS_detectWithKeywords(text);
         console.log('[EmotionalTTS] Fallback keyword detected emotion:', emotion);

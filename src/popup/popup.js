@@ -1605,7 +1605,6 @@ class PopupController {
               deepl: deeplKeyInput.value,
             };
             await chrome.storage.local.set({ translationApiKeys: updatedKeys });
-            console.log('[Popup] DeepL API key updated');
           });
         }
 
@@ -1618,7 +1617,6 @@ class PopupController {
               azure: azureKeyInput.value,
             };
             await chrome.storage.local.set({ translationApiKeys: updatedKeys });
-            console.log('[Popup] Azure API key updated');
           });
         }
 
@@ -3266,18 +3264,24 @@ class PopupController {
     }
 
     // Update description
+    // SECURITY: Sanitize even trusted content for defense-in-depth
     if (descriptionEl) {
-      descriptionEl.innerHTML = `<strong>${config.name}:</strong> ${config.description}`;
+      descriptionEl.innerHTML = sanitizeHTML(
+        `<strong>${config.name}:</strong> ${config.description}`
+      );
     }
 
     // Update sections preview
+    // SECURITY: Sanitize even trusted content for defense-in-depth
     if (previewEl) {
-      previewEl.innerHTML = config.sections
-        .map(
-          section =>
-            `<span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 11px;">${section.icon} ${section.name}</span>`
-        )
-        .join('');
+      previewEl.innerHTML = sanitizeHTML(
+        config.sections
+          .map(
+            section =>
+              `<span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 11px;">${section.icon} ${section.name}</span>`
+          )
+          .join('')
+      );
     }
   }
 
@@ -3487,12 +3491,16 @@ class PopupController {
       const provider = providerSelect?.value || 'anthropic';
       this.loadApiKey(modal, provider);
 
-      // Save API key on change
+      // Save API key on change (using secure encrypted storage)
       apiKeyInput.addEventListener('change', async () => {
         const provider = modal.querySelector('#cloud-provider').value;
-        const { saveApiKey } = await import('../ai/key-manager.js');
-        await saveApiKey(provider, apiKeyInput.value);
-        this.updateApiKeyStatus(modal, 'Saved', 'success');
+        const { saveSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
+        const success = await saveSecureAPIKey(provider, apiKeyInput.value);
+        this.updateApiKeyStatus(
+          modal,
+          success ? 'Saved (encrypted)' : 'Save failed',
+          success ? 'success' : 'error'
+        );
       });
     }
 
@@ -3646,12 +3654,13 @@ class PopupController {
     }
 
     try {
-      const { getApiKey } = await import('../ai/key-manager.js');
-      const key = await getApiKey(provider);
+      // Use secure encrypted storage
+      const { getSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
+      const key = await getSecureAPIKey(provider);
 
       if (key) {
         apiKeyInput.value = key;
-        this.updateApiKeyStatus(modal, '✓ API key configured', 'success');
+        this.updateApiKeyStatus(modal, '✓ API key configured (encrypted)', 'success');
         this.toggleModelSelection(modal, true);
       } else {
         apiKeyInput.value = '';
@@ -3659,7 +3668,7 @@ class PopupController {
         this.toggleModelSelection(modal, false);
       }
     } catch (error) {
-      console.error('[Popup] Failed to load API key:', error);
+      console.error('[Popup] Failed to load API key:', error.message);
       this.updateApiKeyStatus(modal, 'Error loading API key', 'error');
       this.toggleModelSelection(modal, false);
     }
@@ -3726,8 +3735,10 @@ class PopupController {
     this.updateApiKeyStatus(modal, 'Testing connection...', 'info');
 
     try {
-      // Import API key manager
-      const { saveApiKey, isValidKeyFormat } = await import('../ai/key-manager.js');
+      // Import secure API key manager
+      const { saveSecureAPIKey, isValidKeyFormat, testSecureConnection } = await import(
+        '../core/storage/secure-key-storage.js'
+      );
 
       // Validate format first
       if (!isValidKeyFormat(provider, apiKey)) {
@@ -3738,19 +3749,29 @@ class PopupController {
         return;
       }
 
-      // For now, just validate format and save
-      // TODO: Implement actual API connection test for each provider
-      const saved = await saveApiKey(provider, apiKey);
+      // Test the API connection (key passed securely in headers)
+      const testResult = await testSecureConnection(provider, apiKey);
+
+      if (!testResult.success) {
+        this.updateApiKeyStatus(modal, `❌ ${testResult.message}`, 'error');
+        this.toggleModelSelection(modal, false);
+        testBtn.textContent = originalText;
+        testBtn.disabled = false;
+        return;
+      }
+
+      // Save with encryption
+      const saved = await saveSecureAPIKey(provider, apiKey);
 
       if (saved) {
-        this.updateApiKeyStatus(modal, '✅ API key saved successfully', 'success');
+        this.updateApiKeyStatus(modal, '✅ API key verified & encrypted', 'success');
         this.toggleModelSelection(modal, true);
       } else {
         this.updateApiKeyStatus(modal, '❌ Failed to save API key', 'error');
         this.toggleModelSelection(modal, false);
       }
     } catch (error) {
-      console.error('[Popup] API key test failed:', error);
+      console.error('[Popup] API key test failed:', error.message);
       this.updateApiKeyStatus(modal, `❌ Error: ${error.message}`, 'error');
       this.toggleModelSelection(modal, false);
     } finally {
@@ -4268,7 +4289,6 @@ class PopupController {
         this.settings.translationSettings.googleApiKey = e.target.value;
         updateApiKeyStatus(e.target.value);
         this.saveSettings();
-        console.log('[Popup] Translation Google API key updated');
       });
 
       // Toggle password visibility
@@ -9258,7 +9278,12 @@ class PopupController {
     });
 
     // Listen for install progress updates (legacy UI)
-    chrome.runtime.onMessage.addListener(message => {
+    chrome.runtime.onMessage.addListener((message, sender) => {
+      // SECURITY: Validate sender is from this extension
+      if (sender.id !== chrome.runtime.id) {
+        return;
+      }
+
       if (message.type === 'LLM_INSTALL_PROGRESS') {
         if (llmProgressModel) {
           llmProgressModel.textContent = `Installing ${message.modelName}...`;

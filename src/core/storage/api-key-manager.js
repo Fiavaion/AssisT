@@ -54,10 +54,8 @@ export async function saveAPIKey(provider, apiKey) {
   const encrypted = CryptoJS.AES.encrypt(apiKey, key).toString();
 
   await chrome.storage.local.set({
-    [`apiKey_${provider}_encrypted`]: encrypted
+    [`apiKey_${provider}_encrypted`]: encrypted,
   });
-
-  console.log(`[API Key Manager] API key saved for provider: ${provider}`);
 }
 
 /**
@@ -82,10 +80,9 @@ export async function getAPIKey(provider) {
   }
 
   try {
-    const decrypted = CryptoJS.AES.decrypt(
-      result[`apiKey_${provider}_encrypted`],
-      key
-    ).toString(CryptoJS.enc.Utf8);
+    const decrypted = CryptoJS.AES.decrypt(result[`apiKey_${provider}_encrypted`], key).toString(
+      CryptoJS.enc.Utf8
+    );
 
     return decrypted;
   } catch (error) {
@@ -109,7 +106,6 @@ export async function deleteAPIKey(provider) {
   }
 
   await chrome.storage.local.remove(`apiKey_${provider}_encrypted`);
-  console.log(`[API Key Manager] API key deleted for provider: ${provider}`);
 }
 
 /**
@@ -159,6 +155,7 @@ export async function testConnection(provider, apiKey) {
 
 /**
  * Test Anthropic API connection
+ * SECURITY: Uses credentials:'omit' and cache:'no-store' to prevent key leakage
  * @param {string} apiKey - Anthropic API key
  * @returns {Promise<boolean>}
  */
@@ -175,6 +172,8 @@ async function testAnthropicConnection(apiKey) {
       max_tokens: 10,
       messages: [{ role: 'user', content: 'test' }],
     }),
+    credentials: 'omit',
+    cache: 'no-store',
   });
 
   return response.ok;
@@ -182,6 +181,7 @@ async function testAnthropicConnection(apiKey) {
 
 /**
  * Test OpenAI API connection
+ * SECURITY: Uses credentials:'omit' and cache:'no-store' to prevent key leakage
  * @param {string} apiKey - OpenAI API key
  * @returns {Promise<boolean>}
  */
@@ -189,8 +189,10 @@ async function testOpenAIConnection(apiKey) {
   const response = await fetch('https://api.openai.com/v1/models', {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
     },
+    credentials: 'omit',
+    cache: 'no-store',
   });
 
   return response.ok;
@@ -198,16 +200,22 @@ async function testOpenAIConnection(apiKey) {
 
 /**
  * Test Google AI connection
+ * SECURITY: API key passed in header, NOT URL parameter
+ * SECURITY: Uses credentials:'omit' and cache:'no-store' to prevent key leakage
  * @param {string} apiKey - Google AI API key
  * @returns {Promise<boolean>}
  */
 async function testGoogleConnection(apiKey) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-    {
-      method: 'GET',
-    }
-  );
+  // SECURITY FIX: Use x-goog-api-key header instead of URL parameter
+  // URL parameters are logged in browser history, server logs, and referrer headers
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+    method: 'GET',
+    headers: {
+      'x-goog-api-key': apiKey,
+    },
+    credentials: 'omit',
+    cache: 'no-store',
+  });
 
   return response.ok;
 }

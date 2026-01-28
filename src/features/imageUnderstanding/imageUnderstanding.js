@@ -15,7 +15,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
-import { sanitizeHTML as _sanitizeHTML } from '../../utils/sanitize.js';
+import { sanitizeHTML as _sanitizeHTML, sanitizeURL } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
@@ -554,8 +554,9 @@ function imageUI_renderResult(description, imageUrl, isAI = true) {
     ? '<span class="assist-image-badge">AI Vision</span>'
     : '<span class="assist-image-badge" style="background:#ff9800">Basic</span>';
 
+  const safeImageUrl = sanitizeURL(imageUrl);
   contentArea.innerHTML = `
-    ${imageUrl ? `<img src="${imageUrl}" alt="Image being described" class="assist-image-preview">` : ''}
+    ${safeImageUrl ? `<img src="${safeImageUrl}" alt="Image being described" class="assist-image-preview">` : ''}
     <div class="assist-image-description">
       ${badge}
       <p style="margin-top: 12px; white-space: pre-wrap;">${escapeHtml(description)}</p>
