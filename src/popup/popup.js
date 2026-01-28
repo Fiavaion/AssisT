@@ -21,6 +21,49 @@ import Sortable from 'sortablejs';
 window.DOMPurify = DOMPurify;
 
 /**
+ * Layout Mode Configurations
+ * Defines how sections are organized in each layout mode
+ */
+const LAYOUT_MODES = {
+  'feature-category': {
+    name: 'Feature Category',
+    description: 'Groups by what features do (Reading, Writing, Visual, etc.)',
+    sections: [
+      { id: 'reading', name: 'Reading Help', icon: '🔊' },
+      { id: 'writing', name: 'Writing Help', icon: '✍️' },
+      { id: 'lookup', name: 'Look Up Words', icon: '📚' },
+      { id: 'reading-aids', name: 'Reading Aids', icon: '👓' },
+      { id: 'pointer-zoom', name: 'Pointer & Zoom', icon: '🔍' },
+      { id: 'visual-comfort', name: 'Visual Comfort', icon: '👁️' },
+      { id: 'productivity', name: 'Productivity', icon: '⏱️' },
+      { id: 'school', name: 'School Tools', icon: '🎓' },
+      { id: 'ai-assist', name: 'AI Assist', icon: '✨' },
+    ],
+  },
+  'user-need': {
+    name: 'User Need',
+    description: 'Groups by what you need help with (Focus, Reading, Writing, etc.)',
+    sections: [
+      { id: 'focus-attention', name: 'Focus & Attention', icon: '🎯' },
+      { id: 'reading-support', name: 'Reading Support', icon: '📖' },
+      { id: 'writing-support', name: 'Writing Support', icon: '✍️' },
+      { id: 'visual-access', name: 'Visual Accessibility', icon: '👁️' },
+      { id: 'study-tools', name: 'Study Tools', icon: '🎓' },
+    ],
+  },
+  'disability-profile': {
+    name: 'Disability Profile',
+    description: 'Groups optimized for specific needs (ADHD, Dyslexia, Low Vision)',
+    sections: [
+      { id: 'adhd-tools', name: 'ADHD Tools', icon: '🎯' },
+      { id: 'dyslexia-tools', name: 'Dyslexia Tools', icon: '📖' },
+      { id: 'low-vision-tools', name: 'Low Vision Tools', icon: '👁️' },
+      { id: 'general-tools', name: 'General Tools', icon: '🔧' },
+    ],
+  },
+};
+
+/**
  * OrganizeMode - Manages drag-and-drop reordering and visibility of sections/features
  */
 class OrganizeMode {
@@ -2657,6 +2700,40 @@ class PopupController {
               </div>
             </div>
 
+            <!-- Layout Organization Section -->
+            <div class="preferences-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
+              <h4>📐 Section Organization</h4>
+              <p style="font-size: 13px; color: #666; margin-bottom: 16px;">
+                Choose how features are grouped in the popup. Different layouts work better for different needs.
+              </p>
+
+              <div class="option-group">
+                <label for="layout-mode-select">Organize Sections By:</label>
+                <div class="option-control" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                  <select id="layout-mode-select" class="voice-select" style="width: 100%;">
+                    <option value="feature-category">Feature Category (Default)</option>
+                    <option value="user-need">User Need</option>
+                    <option value="disability-profile">Disability Profile</option>
+                  </select>
+                  <div id="layout-mode-description" style="font-size: 12px; color: #666; line-height: 1.4;">
+                    <strong>Feature Category:</strong> Groups by what features do (Reading, Writing, Visual, etc.)
+                  </div>
+                </div>
+              </div>
+
+              <div class="layout-mode-preview" style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 12px;">
+                <strong style="display: block; margin-bottom: 8px;">Current Sections:</strong>
+                <div id="layout-sections-preview" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <button id="btn-apply-layout" class="profile-btn profile-btn-primary" style="margin-top: 12px; width: 100%;">
+                <span class="profile-btn-icon">✨</span>
+                Apply Layout
+              </button>
+            </div>
+
             <!-- UI Overlay Visibility Section -->
             <div class="preferences-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
               <h4>🎨 UI Overlay Visibility</h4>
@@ -3030,6 +3107,9 @@ class PopupController {
     // Setup profiles tab
     this.setupProfilesTab(modal);
 
+    // Setup layout mode selector
+    this.setupLayoutModeSelector(modal);
+
     // Setup AI tab
     console.log('[Popup] About to call setupAITab');
     this.setupAITab(modal);
@@ -3130,6 +3210,130 @@ class PopupController {
     // Initialize profile description
     const currentProfile = this.currentProfileName || 'Default';
     this.updateProfileDescription(modal, currentProfile);
+  }
+
+  /**
+   * Setup the layout mode selector in the Preferences tab
+   * @param {HTMLElement} modal - The modal element
+   */
+  setupLayoutModeSelector(modal) {
+    const layoutSelect = modal.querySelector('#layout-mode-select');
+    const descriptionEl = modal.querySelector('#layout-mode-description');
+    const previewEl = modal.querySelector('#layout-sections-preview');
+    const applyBtn = modal.querySelector('#btn-apply-layout');
+
+    if (!layoutSelect) {
+      console.log('[Popup] Layout mode selector not found');
+      return;
+    }
+
+    // Load current layout mode from storage
+    chrome.storage.local.get('layout_mode', result => {
+      const currentMode = result.layout_mode || 'feature-category';
+      layoutSelect.value = currentMode;
+      this.updateLayoutModeUI(descriptionEl, previewEl, currentMode);
+    });
+
+    // Handle layout mode selection change
+    layoutSelect.addEventListener('change', () => {
+      const selectedMode = layoutSelect.value;
+      this.updateLayoutModeUI(descriptionEl, previewEl, selectedMode);
+    });
+
+    // Handle apply button
+    if (applyBtn) {
+      this.attachInteractiveHandler(applyBtn, 'Apply Layout Button', async () => {
+        const selectedMode = layoutSelect.value;
+        await this.applyLayoutMode(selectedMode);
+        // Show confirmation
+        applyBtn.innerHTML = '<span class="profile-btn-icon">✓</span> Applied!';
+        setTimeout(() => {
+          applyBtn.innerHTML = '<span class="profile-btn-icon">✨</span> Apply Layout';
+        }, 2000);
+      });
+    }
+
+    console.log('[Popup] Layout mode selector initialized');
+  }
+
+  /**
+   * Update layout mode description and preview
+   */
+  updateLayoutModeUI(descriptionEl, previewEl, mode) {
+    const config = LAYOUT_MODES[mode];
+    if (!config) {
+      return;
+    }
+
+    // Update description
+    if (descriptionEl) {
+      descriptionEl.innerHTML = `<strong>${config.name}:</strong> ${config.description}`;
+    }
+
+    // Update sections preview
+    if (previewEl) {
+      previewEl.innerHTML = config.sections
+        .map(
+          section =>
+            `<span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 11px;">${section.icon} ${section.name}</span>`
+        )
+        .join('');
+    }
+  }
+
+  /**
+   * Apply the selected layout mode
+   * @param {string} mode - The layout mode to apply
+   */
+  async applyLayoutMode(mode) {
+    console.log(`[Popup] Applying layout mode: ${mode}`);
+
+    // Save the layout mode
+    await chrome.storage.local.set({ layout_mode: mode });
+
+    // For now, we'll just show/hide sections based on the current HTML structure
+    // A full implementation would reorganize or rebuild sections dynamically
+    const config = LAYOUT_MODES[mode];
+    if (!config) {
+      console.error(`[Popup] Unknown layout mode: ${mode}`);
+      return;
+    }
+
+    // If switching to a different layout mode than feature-category,
+    // we need to reorganize the sections
+    if (mode === 'feature-category') {
+      // Show all default sections, hide alternative layout sections
+      this.showDefaultSections();
+    } else {
+      // For user-need and disability-profile modes,
+      // we show a message that this feature is coming soon
+      // In a full implementation, we would dynamically reorganize sections
+      console.log(`[Popup] Layout mode "${mode}" selected - section reorganization coming soon`);
+      alert(
+        `Layout mode "${config.name}" has been saved.\n\n` +
+          `Note: Dynamic section reorganization will be fully implemented in a future update. ` +
+          `For now, you can use Organize Mode to manually reorder and hide sections.`
+      );
+    }
+
+    // Notify that layout changed
+    console.log(`[Popup] Layout mode "${mode}" applied`);
+  }
+
+  /**
+   * Show the default feature-category sections
+   */
+  showDefaultSections() {
+    const defaultSections = LAYOUT_MODES['feature-category'].sections.map(s => s.id);
+    const allSections = document.querySelectorAll('.accordion-section[data-section]');
+
+    allSections.forEach(section => {
+      const sectionId = section.getAttribute('data-section');
+      // Show if it's a default section, respect hidden-by-user class
+      if (defaultSections.includes(sectionId) && !section.classList.contains('hidden-by-user')) {
+        section.style.display = '';
+      }
+    });
   }
 
   /**
