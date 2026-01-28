@@ -408,11 +408,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Set model preference for a task type
+  if (message.action === 'SET_MODEL_PREFERENCE') {
+    const { taskType, model } = message;
+    if (taskType && model) {
+      userModelPreferences[taskType] = model;
+      console.log(`[LLM Bridge] Model preference set: ${taskType} → ${model}`);
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'Missing taskType or model' });
+    }
+    return false;
+  }
+
+  // Get model preferences
+  if (message.action === 'GET_MODEL_PREFERENCES') {
+    sendResponse({ success: true, preferences: userModelPreferences });
+    return false;
+  }
+
   // Generate text with local LLM
   if (message.action === 'LOCAL_LLM_GENERATE') {
-    ollamaGenerate(message.prompt, message.options || {})
-      .then(result => sendResponse({ success: true, data: result }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+    (async () => {
+      try {
+        let options = message.options || {};
+
+        // If taskType provided, use model routing to get optimal model
+        if (message.taskType || options.taskType) {
+          const status = await checkOllamaAvailability();
+          if (status.available && status.models.length > 0) {
+            const taskType = message.taskType || options.taskType;
+            const routing = getOptimalModelForTask(taskType, options.level, status.models);
+            options = { ...options, model: routing.model };
+            console.log(`[LLM Generate] Task "${taskType}" → ${routing.model} (${routing.reason})`);
+          }
+        }
+
+        const result = await ollamaGenerate(message.prompt, options);
+        sendResponse({ success: true, data: result });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   }
 
@@ -780,7 +817,53 @@ const TASK_OPTIMAL_MODELS = {
  * @param {string[]} availableModels - List of installed models
  * @returns {Object} - { model: string, reason: string }
  */
+// Map task types to preference categories
+const TASK_TO_PREFERENCE_CATEGORY = {
+  // General tasks
+  summarization: 'general',
+  multiDocCompare: 'general',
+  emotionalTTS: 'general',
+
+  // Academic tasks
+  textSimplification: 'academic',
+  socraticTutor: 'academic',
+  assignmentBreakdown: 'academic',
+  knowledgeGraph: 'academic',
+  citationAnalyzer: 'academic',
+  studyPathGenerator: 'academic',
+
+  // Vision tasks
+  imageUnderstanding: 'vision',
+
+  // Code tasks
+  codeAnalysis: 'code',
+  codeGeneration: 'code',
+
+  // Default fallback
+  default: 'general',
+};
+
 function getOptimalModelForTask(taskType, level = null, availableModels = []) {
+  // Check user preferences first
+  const prefCategory = TASK_TO_PREFERENCE_CATEGORY[taskType] || 'general';
+  const userPref = userModelPreferences[prefCategory];
+
+  if (userPref && userPref !== 'auto' && availableModels.length > 0) {
+    // User has set a specific preference - check if it's available
+    const userMatch = availableModels.find(
+      m => m === userPref || m.startsWith(`${userPref}:`) || m.startsWith(userPref)
+    );
+    if (userMatch) {
+      console.log(`[LLM Routing] Using user preference: ${prefCategory} → ${userMatch}`);
+      return {
+        model: userMatch,
+        reason: `User preference for ${prefCategory} tasks`,
+        matched: true,
+        userPreference: true,
+      };
+    }
+  }
+
   // Get task configuration
   let taskConfig = TASK_OPTIMAL_MODELS[taskType];
 
@@ -850,6 +933,22 @@ function getModelProfile(model) {
  * Allows demo mode to simulate different hardware capabilities
  */
 let currentVramTier = '8gb'; // Default to 8GB tier
+
+// User model preferences by task type (general, academic, vision, code)
+let userModelPreferences = {
+  general: 'auto',
+  academic: 'auto',
+  vision: 'auto',
+  code: 'auto',
+};
+
+// Load model preferences from storage on startup
+chrome.storage.local.get('modelPreferences', result => {
+  if (result.modelPreferences) {
+    userModelPreferences = { ...userModelPreferences, ...result.modelPreferences };
+    console.log('[LLM Bridge] Loaded model preferences:', userModelPreferences);
+  }
+});
 
 const VRAM_TIER_MODELS = {
   auto: {
@@ -1043,38 +1142,47 @@ async function ollamaGenerate(prompt, options = {}) {
     temperature: options.temperature ?? profile.temperature,
   });
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      prompt,
-      stream: false,
-      options: {
-        // Core optimization: reduced context window for speed
-        num_ctx: options.num_ctx ?? profile.num_ctx,
-        // Model-specific temperature (can be overridden)
-        temperature: options.temperature ?? profile.temperature,
-        // Token prediction limit
-        num_predict: options.maxTokens ?? 500,
-        // Additional optimizations from profile
-        top_p: profile.top_p,
-        top_k: profile.top_k,
-        repeat_penalty: profile.repeat_penalty,
-      },
-    }),
-    signal: AbortSignal.timeout(options.timeout || 30000),
-    mode: 'cors',
-    credentials: 'omit',
-    referrerPolicy: 'no-referrer',
-  });
+  console.log(`[LLM Bridge] Sending request to Ollama...`);
+
+  let response;
+  try {
+    response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: {
+          // Core optimization: reduced context window for speed
+          num_ctx: options.num_ctx ?? profile.num_ctx,
+          // Model-specific temperature (can be overridden)
+          temperature: options.temperature ?? profile.temperature,
+          // Token prediction limit
+          num_predict: options.maxTokens ?? 500,
+          // Additional optimizations from profile
+          top_p: profile.top_p,
+          top_k: profile.top_k,
+          repeat_penalty: profile.repeat_penalty,
+        },
+      }),
+      signal: AbortSignal.timeout(options.timeout || 30000),
+    });
+  } catch (fetchError) {
+    console.error(`[LLM Bridge] Fetch error:`, fetchError.message);
+    throw fetchError;
+  }
+
+  console.log(`[LLM Bridge] Response status: ${response.status}`);
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
+    console.error(`[LLM Bridge] Request failed: ${response.status} ${errorText}`);
     throw new Error(`Ollama request failed: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
+  console.log(`[LLM Bridge] Response received, length: ${data.response?.length || 0} chars`);
 
   // Parse JSON if requested
   if (options.format === 'json') {
