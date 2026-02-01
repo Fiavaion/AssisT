@@ -1,8 +1,0 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-# Run lint-staged (formatting only)
-npx lint-staged
-
-# Unit tests disabled - run manually with: npm test
-# E2E tests disabled - run manually with: npm run test:e2e
