@@ -54,3 +54,11 @@ nul
 
 # Documentation output
 docs/typst/output/*.pdf
+
+# === Project Documentation (internal/session notes) ===
+docs/*.md
+docs/archive/
+docs/sessions/
+docs/setup/
+docs/testing/
+!docs/user/
