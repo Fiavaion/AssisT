@@ -1,5 +1,5 @@
 /**
- * NCAD Demo Page Script
+ * AssisT Demo Page Script
  * Handles demo page interactions and AssisT feature integration
  */
 
@@ -41,7 +41,7 @@ function bindCloseButton() {
  * Log that demo page loaded for debugging
  */
 function logDemoLoaded() {
-  console.log('[AssisT Demo] NCAD demo page loaded');
+  console.log('[AssisT Demo] Demo page loaded');
   console.log('[AssisT Demo] Try using your recommended AssisT features on this page:');
   console.log('  - TTS: Select text and press Alt+R to read aloud');
   console.log('  - Focus Mode: Press Alt+F to reduce distractions');

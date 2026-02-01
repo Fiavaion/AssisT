@@ -20,7 +20,6 @@
     "postbuild": "node scripts/inject-popup-scripts.js",
     "prepare": "husky",
     "switch:assist": "node scripts/generate-manifest.js assist && npm run build && echo Switched to AssisT - reload extension from .vite/",
-    "switch:ncad": "node scripts/generate-manifest.js ncad && npm run build && echo Switched to @NCAD - reload extension from .vite/",
     "switch:llm": "node scripts/generate-manifest.js llm && npm run build && echo Switched to AssisT LLM - reload extension from .vite/",
     "docs:build": "node scripts/build-docs.cjs",
     "docs:watch": "node scripts/build-docs.cjs --watch"

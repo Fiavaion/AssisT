@@ -1,19 +1,19 @@
 /**
- * NCAD Demo Page Styles
- * Styled according to NCAD Brand Identity Guidelines
- * Colors: Black, White, Orange (#f36f21)
+ * AssisT Demo Page Styles
+ * Generic Canvas VLE demo styling
+ * Colors: Black, White, Accent Orange (#f36f21)
  */
 
-/* CSS Variables - NCAD Brand */
+/* CSS Variables - Brand */
 :root {
-  /* NCAD Brand Colors */
-  --ncad-black: #000000;
-  --ncad-white: #ffffff;
-  --ncad-orange: #f36f21;
-  --ncad-gray-dark: #333333;
-  --ncad-gray: #666666;
-  --ncad-gray-light: #e5e5e5;
-  --ncad-bg: #f5f5f5;
+  /* Brand Colors */
+  --brand-black: #000000;
+  --brand-white: #ffffff;
+  --brand-accent: #f36f21;
+  --brand-gray-dark: #333333;
+  --brand-gray: #666666;
+  --brand-gray-light: #e5e5e5;
+  --brand-bg: #f5f5f5;
 
   /* Spacing */
   --space-xs: 0.25rem;
@@ -49,13 +49,13 @@ html {
 body {
   font-family: var(--font-body);
   line-height: 1.6;
-  color: var(--ncad-black);
-  background: var(--ncad-bg);
+  color: var(--brand-black);
+  background: var(--brand-bg);
 }
 
 /* Focus Styles */
 :focus-visible {
-  outline: 3px solid var(--ncad-orange);
+  outline: 3px solid var(--brand-orange);
   outline-offset: 2px;
 }
 
@@ -104,11 +104,11 @@ body {
 }
 
 /* ============================================
-   NCAD Header
+   Site Header
    ============================================ */
-.ncad-header {
-  background: var(--ncad-black);
-  color: var(--ncad-white);
+.site-header {
+  background: var(--brand-black);
+  color: var(--brand-white);
   padding: var(--space-md) var(--space-lg);
 }
 
@@ -120,7 +120,7 @@ body {
   align-items: center;
 }
 
-.ncad-logo {
+.site-logo {
   display: flex;
   flex-direction: column;
 }
@@ -138,13 +138,13 @@ body {
   letter-spacing: 0.5px;
 }
 
-.ncad-nav {
+.site-nav {
   display: flex;
   gap: var(--space-lg);
 }
 
 .nav-link {
-  color: var(--ncad-white);
+  color: var(--brand-white);
   text-decoration: none;
   font-size: 0.9rem;
   padding: var(--space-xs) var(--space-sm);
@@ -154,7 +154,7 @@ body {
 
 .nav-link:hover,
 .nav-link.active {
-  border-color: var(--ncad-orange);
+  border-color: var(--brand-orange);
 }
 
 /* ============================================
@@ -176,16 +176,16 @@ body {
 .breadcrumb {
   grid-column: 1 / -1;
   font-size: 0.85rem;
-  color: var(--ncad-gray);
+  color: var(--brand-gray);
 }
 
 .breadcrumb a {
-  color: var(--ncad-gray);
+  color: var(--brand-gray);
   text-decoration: none;
 }
 
 .breadcrumb a:hover {
-  color: var(--ncad-orange);
+  color: var(--brand-orange);
   text-decoration: underline;
 }
 
@@ -197,7 +197,7 @@ body {
 .page-header {
   grid-column: 1 / -1;
   padding-bottom: var(--space-lg);
-  border-bottom: 3px solid var(--ncad-black);
+  border-bottom: 3px solid var(--brand-black);
   margin-bottom: var(--space-lg);
 }
 
@@ -217,20 +217,20 @@ body {
 .info-badge {
   display: inline-block;
   padding: var(--space-xs) var(--space-sm);
-  background: var(--ncad-gray-light);
+  background: var(--brand-gray-light);
   font-size: 0.8rem;
   font-weight: 500;
   border-radius: 2px;
 }
 
 .info-badge.deadline {
-  background: var(--ncad-orange);
-  color: var(--ncad-white);
+  background: var(--brand-orange);
+  color: var(--brand-white);
 }
 
 /* Assignment Brief */
 .assignment-brief {
-  background: var(--ncad-white);
+  background: var(--brand-white);
   padding: var(--space-xl);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
@@ -238,7 +238,7 @@ body {
 .brief-section {
   margin-bottom: var(--space-xl);
   padding-bottom: var(--space-xl);
-  border-bottom: 1px solid var(--ncad-gray-light);
+  border-bottom: 1px solid var(--brand-gray-light);
 }
 
 .brief-section:last-child {
@@ -252,12 +252,12 @@ body {
   font-size: 1.25rem;
   font-weight: 700;
   margin-bottom: var(--space-md);
-  color: var(--ncad-black);
+  color: var(--brand-black);
 }
 
 .brief-section p {
   margin-bottom: var(--space-md);
-  color: var(--ncad-gray-dark);
+  color: var(--brand-gray-dark);
 }
 
 .brief-section ul,
@@ -268,7 +268,7 @@ body {
 
 .brief-section li {
   margin-bottom: var(--space-sm);
-  color: var(--ncad-gray-dark);
+  color: var(--brand-gray-dark);
 }
 
 /* Learning Outcomes */
@@ -279,9 +279,9 @@ body {
 
 .learning-outcomes li {
   padding: var(--space-md);
-  background: var(--ncad-bg);
+  background: var(--brand-bg);
   margin-bottom: var(--space-sm);
-  border-left: 3px solid var(--ncad-orange);
+  border-left: 3px solid var(--brand-orange);
 }
 
 /* Requirements Grid */
@@ -295,12 +295,12 @@ body {
   display: flex;
   flex-direction: column;
   padding: var(--space-md);
-  background: var(--ncad-bg);
+  background: var(--brand-bg);
 }
 
 .requirement-label {
   font-size: 0.8rem;
-  color: var(--ncad-gray);
+  color: var(--brand-gray);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: var(--space-xs);
@@ -308,7 +308,7 @@ body {
 
 .requirement-value {
   font-weight: 600;
-  color: var(--ncad-black);
+  color: var(--brand-black);
 }
 
 /* Assessment Criteria Table */
@@ -321,38 +321,38 @@ body {
 .criteria-table td {
   padding: var(--space-md);
   text-align: left;
-  border-bottom: 1px solid var(--ncad-gray-light);
+  border-bottom: 1px solid var(--brand-gray-light);
 }
 
 .criteria-table th {
-  background: var(--ncad-black);
-  color: var(--ncad-white);
+  background: var(--brand-black);
+  color: var(--brand-white);
   font-weight: 600;
 }
 
 .criteria-table tr:hover td {
-  background: var(--ncad-bg);
+  background: var(--brand-bg);
 }
 
 /* Reference Example */
 .reference-example {
-  background: var(--ncad-bg);
+  background: var(--brand-bg);
   padding: var(--space-lg);
 }
 
 .example-label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--ncad-gray);
+  color: var(--brand-gray);
   margin-bottom: var(--space-xs);
 }
 
 .reference-example blockquote {
   margin: var(--space-sm) 0 var(--space-lg);
   padding-left: var(--space-md);
-  border-left: 3px solid var(--ncad-orange);
+  border-left: 3px solid var(--brand-orange);
   font-style: italic;
-  color: var(--ncad-gray-dark);
+  color: var(--brand-gray-dark);
 }
 
 .reference-entry {
@@ -367,7 +367,7 @@ body {
 
 .reading-list li {
   padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--ncad-gray-light);
+  border-bottom: 1px solid var(--brand-gray-light);
 }
 
 .reading-list li:last-child {
@@ -383,7 +383,7 @@ body {
 
 .support-card {
   padding: var(--space-lg);
-  background: var(--ncad-bg);
+  background: var(--brand-bg);
   text-align: center;
 }
 
@@ -400,13 +400,13 @@ body {
 
 .support-card p {
   font-size: 0.85rem;
-  color: var(--ncad-gray);
+  color: var(--brand-gray);
   margin-bottom: var(--space-sm);
 }
 
 .support-link {
   display: inline-block;
-  color: var(--ncad-orange);
+  color: var(--brand-orange);
   text-decoration: none;
   font-weight: 500;
 }
@@ -425,7 +425,7 @@ body {
 }
 
 .sidebar-section {
-  background: var(--ncad-white);
+  background: var(--brand-white);
   padding: var(--space-lg);
   margin-bottom: var(--space-md);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -436,7 +436,7 @@ body {
   font-weight: 700;
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-sm);
-  border-bottom: 2px solid var(--ncad-orange);
+  border-bottom: 2px solid var(--brand-orange);
 }
 
 .sidebar-links {
@@ -448,13 +448,13 @@ body {
 }
 
 .sidebar-links a {
-  color: var(--ncad-gray-dark);
+  color: var(--brand-gray-dark);
   text-decoration: none;
   font-size: 0.9rem;
 }
 
 .sidebar-links a:hover {
-  color: var(--ncad-orange);
+  color: var(--brand-orange);
 }
 
 .dates-list {
@@ -465,7 +465,7 @@ body {
   display: flex;
   gap: var(--space-sm);
   padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--ncad-gray-light);
+  border-bottom: 1px solid var(--brand-gray-light);
   font-size: 0.9rem;
 }
 
@@ -475,16 +475,16 @@ body {
 
 .dates-list .date {
   font-weight: 600;
-  color: var(--ncad-orange);
+  color: var(--brand-orange);
   min-width: 60px;
 }
 
 /* ============================================
    Footer
    ============================================ */
-.ncad-footer {
-  background: var(--ncad-black);
-  color: var(--ncad-white);
+.site-footer {
+  background: var(--brand-black);
+  color: var(--brand-white);
   padding: var(--space-lg);
   margin-top: var(--space-2xl);
 }
@@ -517,7 +517,7 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .ncad-nav {
+  .site-nav {
     display: none;
   }
 }
@@ -553,10 +553,10 @@ body {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ncad-bg: #1a1a1a;
-    --ncad-gray-light: #333;
-    --ncad-gray: #999;
-    --ncad-gray-dark: #ccc;
+    --brand-bg: #1a1a1a;
+    --brand-gray-light: #333;
+    --brand-gray: #999;
+    --brand-gray-dark: #ccc;
   }
 
   .assignment-brief,

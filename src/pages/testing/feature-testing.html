@@ -1,849 +1,1023 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@NCAD Extension - Feature Testing Tool</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AssisT Extension - Feature Testing Tool</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f0f2f5;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f0f2f5;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
 
-    .app-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      height: 100vh;
-    }
-
-    /* Left Panel - Testing Checklist */
-    .checklist-panel {
-      background: white;
-      border-right: 2px solid #e9ecef;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .panel-header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 20px;
-      text-align: center;
-    }
-
-    .panel-header h1 {
-      font-size: 1.8em;
-      margin-bottom: 8px;
-    }
-
-    .panel-header p {
-      font-size: 1em;
-      opacity: 0.9;
-    }
-
-    .progress-container {
-      background: #f8f9fa;
-      padding: 20px;
-      border-bottom: 2px solid #e9ecef;
-    }
-
-    .progress-stats {
-      display: flex;
-      justify-content: space-around;
-      margin-bottom: 15px;
-    }
-
-    .stat {
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 2em;
-      font-weight: bold;
-      color: #667eea;
-    }
-
-    .stat-label {
-      font-size: 0.8em;
-      color: #6c757d;
-      text-transform: uppercase;
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 25px;
-      background: #e9ecef;
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-      transition: width 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-      font-size: 0.95em;
-    }
-
-    .controls {
-      padding: 15px 20px;
-      background: #f8f9fa;
-      border-bottom: 2px solid #e9ecef;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.95em;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
-    }
-
-    .btn-success {
-      background: #28a745;
-      color: white;
-    }
-
-    .btn-success:hover {
-      background: #218838;
-    }
-
-    .btn-secondary {
-      background: white;
-      color: #667eea;
-      border: 1px solid #667eea;
-    }
-
-    .checklist-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-    }
-
-    .section {
-      margin-bottom: 20px;
-      border: 2px solid #e9ecef;
-      border-radius: 10px;
-      overflow: hidden;
-      background: white;
-    }
-
-    .section-header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 15px 20px;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      user-select: none;
-    }
-
-    .section-header:hover {
-      opacity: 0.95;
-    }
-
-    .section-title {
-      font-size: 1.2em;
-      font-weight: 600;
-    }
-
-    .section-progress {
-      background: rgba(255,255,255,0.2);
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.8em;
-    }
-
-    .section-content {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease;
-    }
-
-    .section-content.expanded {
-      max-height: 5000px;
-    }
-
-    .feature-item {
-      padding: 15px 20px;
-      border-bottom: 1px solid #e9ecef;
-    }
-
-    .feature-item:last-child {
-      border-bottom: none;
-    }
-
-    .feature-header {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-
-    .feature-checkbox {
-      display: flex;
-      gap: 10px;
-      margin-top: 2px;
-    }
-
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-    }
-
-    input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-    }
-
-    .feature-title {
-      flex: 1;
-      font-size: 1.05em;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .feature-notes {
-      margin-left: 0px;
-      margin-top: 10px;
-    }
-
-    .notes-textarea {
-      width: 100%;
-      min-height: 100px;
-      padding: 12px;
-      border: 2px solid #e9ecef;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 0.95em;
-      resize: vertical;
-      line-height: 1.5;
-    }
-
-    .notes-textarea:focus {
-      outline: none;
-      border-color: #667eea;
-    }
-
-    /* Right Panel - Test Content */
-    .content-panel {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .content-header {
-      background: white;
-      padding: 20px;
-      border-bottom: 2px solid #e9ecef;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .content-header h2 {
-      color: #333;
-      margin-bottom: 10px;
-    }
-
-    .content-header p {
-      color: #6c757d;
-    }
-
-    .test-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 30px;
-      background: white;
-    }
-
-    .test-section {
-      margin-bottom: 40px;
-      padding: 25px;
-      background: #f8f9fa;
-      border-radius: 12px;
-      border: 2px solid #e9ecef;
-    }
-
-    .test-section h3 {
-      color: #667eea;
-      margin-bottom: 15px;
-      font-size: 1.4em;
-    }
-
-    .test-section h4 {
-      color: #764ba2;
-      margin: 20px 0 10px 0;
-      font-size: 1.1em;
-    }
-
-    .test-section p {
-      line-height: 1.8;
-      margin-bottom: 15px;
-      color: #333;
-    }
-
-    .sample-text {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      border-left: 4px solid #667eea;
-      margin: 15px 0;
-    }
-
-    .sample-image {
-      max-width: 100%;
-      border-radius: 8px;
-      margin: 15px 0;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-
-    .language-sample {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      margin: 10px 0;
-      border: 2px solid #e9ecef;
-    }
-
-    .language-label {
-      font-weight: bold;
-      color: #667eea;
-      margin-bottom: 5px;
-    }
-
-    .complex-text {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      font-size: 1.05em;
-      line-height: 1.6;
-      margin: 15px 0;
-    }
-
-    .instruction-box {
-      background: #fff3cd;
-      border: 2px solid #ffc107;
-      padding: 15px;
-      border-radius: 8px;
-      margin: 15px 0;
-    }
-
-    .instruction-box strong {
-      color: #856404;
-    }
-
-    @media (max-width: 1200px) {
       .app-container {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        height: 100vh;
       }
 
+      /* Left Panel - Testing Checklist */
       .checklist-panel {
-        max-height: 50vh;
+        background: white;
+        border-right: 2px solid #e9ecef;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
-    }
-  </style>
-</head>
-<body>
-  <div class="app-container">
-    <!-- Left Panel: Testing Checklist -->
-    <div class="checklist-panel">
-      <div class="panel-header">
-        <h1>@NCAD Testing</h1>
-        <p>Feature Validation Tool</p>
-      </div>
 
-      <div class="progress-container">
-        <div class="progress-stats">
-          <div class="stat">
-            <div class="stat-value" id="total-features">0</div>
-            <div class="stat-label">Total</div>
+      .panel-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .panel-header h1 {
+        font-size: 1.8em;
+        margin-bottom: 8px;
+      }
+
+      .panel-header p {
+        font-size: 1em;
+        opacity: 0.9;
+      }
+
+      .progress-container {
+        background: #f8f9fa;
+        padding: 20px;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .progress-stats {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 15px;
+      }
+
+      .stat {
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 2em;
+        font-weight: bold;
+        color: #667eea;
+      }
+
+      .stat-label {
+        font-size: 0.8em;
+        color: #6c757d;
+        text-transform: uppercase;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 25px;
+        background: #e9ecef;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 0.95em;
+      }
+
+      .controls {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-bottom: 2px solid #e9ecef;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.95em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn-success {
+        background: #28a745;
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #218838;
+      }
+
+      .btn-secondary {
+        background: white;
+        color: #667eea;
+        border: 1px solid #667eea;
+      }
+
+      .checklist-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+      }
+
+      .section {
+        margin-bottom: 20px;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        background: white;
+      }
+
+      .section-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+      }
+
+      .section-header:hover {
+        opacity: 0.95;
+      }
+
+      .section-title {
+        font-size: 1.2em;
+        font-weight: 600;
+      }
+
+      .section-progress {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8em;
+      }
+
+      .section-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+
+      .section-content.expanded {
+        max-height: 5000px;
+      }
+
+      .feature-item {
+        padding: 15px 20px;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .feature-item:last-child {
+        border-bottom: none;
+      }
+
+      .feature-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .feature-checkbox {
+        display: flex;
+        gap: 10px;
+        margin-top: 2px;
+      }
+
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+      }
+
+      input[type='checkbox'] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+      }
+
+      .feature-title {
+        flex: 1;
+        font-size: 1.05em;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .feature-notes {
+        margin-left: 0px;
+        margin-top: 10px;
+      }
+
+      .notes-textarea {
+        width: 100%;
+        min-height: 100px;
+        padding: 12px;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 0.95em;
+        resize: vertical;
+        line-height: 1.5;
+      }
+
+      .notes-textarea:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      /* Right Panel - Test Content */
+      .content-panel {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .content-header {
+        background: white;
+        padding: 20px;
+        border-bottom: 2px solid #e9ecef;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .content-header h2 {
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .content-header p {
+        color: #6c757d;
+      }
+
+      .test-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 30px;
+        background: white;
+      }
+
+      .test-section {
+        margin-bottom: 40px;
+        padding: 25px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+      }
+
+      .test-section h3 {
+        color: #667eea;
+        margin-bottom: 15px;
+        font-size: 1.4em;
+      }
+
+      .test-section h4 {
+        color: #764ba2;
+        margin: 20px 0 10px 0;
+        font-size: 1.1em;
+      }
+
+      .test-section p {
+        line-height: 1.8;
+        margin-bottom: 15px;
+        color: #333;
+      }
+
+      .sample-text {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        margin: 15px 0;
+      }
+
+      .sample-image {
+        max-width: 100%;
+        border-radius: 8px;
+        margin: 15px 0;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .language-sample {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+        border: 2px solid #e9ecef;
+      }
+
+      .language-label {
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 5px;
+      }
+
+      .complex-text {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        font-size: 1.05em;
+        line-height: 1.6;
+        margin: 15px 0;
+      }
+
+      .instruction-box {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+      }
+
+      .instruction-box strong {
+        color: #856404;
+      }
+
+      @media (max-width: 1200px) {
+        .app-container {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto 1fr;
+        }
+
+        .checklist-panel {
+          max-height: 50vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Left Panel: Testing Checklist -->
+      <div class="checklist-panel">
+        <div class="panel-header">
+          <h1>AssisT Testing</h1>
+          <p>Feature Validation Tool</p>
+        </div>
+
+        <div class="progress-container">
+          <div class="progress-stats">
+            <div class="stat">
+              <div class="stat-value" id="total-features">0</div>
+              <div class="stat-label">Total</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="tested-features">0</div>
+              <div class="stat-label">Tested</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="passed-features">0</div>
+              <div class="stat-label">Passed</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="failed-features">0</div>
+              <div class="stat-label">Failed</div>
+            </div>
           </div>
-          <div class="stat">
-            <div class="stat-value" id="tested-features">0</div>
-            <div class="stat-label">Tested</div>
-          </div>
-          <div class="stat">
-            <div class="stat-value" id="passed-features">0</div>
-            <div class="stat-label">Passed</div>
-          </div>
-          <div class="stat">
-            <div class="stat-value" id="failed-features">0</div>
-            <div class="stat-label">Failed</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill">0%</div>
           </div>
         </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="progress-fill">0%</div>
+
+        <div class="controls">
+          <button class="btn btn-primary" onclick="expandAll()">Expand All</button>
+          <button class="btn btn-primary" onclick="collapseAll()">Collapse All</button>
+          <button class="btn btn-secondary" onclick="clearAll()">Clear Data</button>
+          <button class="btn btn-success" onclick="exportResults()">Export Report</button>
+          <button class="btn btn-success" onclick="exportProgress()">💾 Export Progress</button>
+          <input
+            type="file"
+            id="import-progress-file"
+            accept=".json"
+            style="display: none"
+            onchange="importProgress(event)"
+          />
+          <button
+            class="btn btn-success"
+            onclick="document.getElementById('import-progress-file').click()"
+          >
+            📥 Import Progress
+          </button>
+        </div>
+
+        <div class="checklist-content" id="testing-content">
+          <!-- Sections will be dynamically generated -->
         </div>
       </div>
 
-      <div class="controls">
-        <button class="btn btn-primary" onclick="expandAll()">Expand All</button>
-        <button class="btn btn-primary" onclick="collapseAll()">Collapse All</button>
-        <button class="btn btn-secondary" onclick="clearAll()">Clear Data</button>
-        <button class="btn btn-success" onclick="exportResults()">Export Report</button>
-        <button class="btn btn-success" onclick="exportProgress()">💾 Export Progress</button>
-        <input type="file" id="import-progress-file" accept=".json" style="display: none;" onchange="importProgress(event)">
-        <button class="btn btn-success" onclick="document.getElementById('import-progress-file').click()">📥 Import Progress</button>
-      </div>
+      <!-- Right Panel: Test Content -->
+      <div class="content-panel">
+        <div class="content-header">
+          <h2>Testing Content & Instructions</h2>
+          <p>
+            Use the content below to test each feature. Select text, interact with elements, and
+            validate functionality.
+          </p>
+        </div>
 
-      <div class="checklist-content" id="testing-content">
-        <!-- Sections will be dynamically generated -->
+        <div class="test-content">
+          <!-- READING HELP TEST CONTENT -->
+          <div class="test-section">
+            <h3>🔊 Reading Help - Test Content</h3>
+
+            <div class="instruction-box">
+              <strong>Instructions:</strong> Use the text samples below to test TTS, highlighting,
+              reading mode, OCR, and highlight menu features.
+            </div>
+
+            <h4>Sample Text for TTS & Highlighting</h4>
+            <div class="sample-text">
+              <p>
+                The quick brown fox jumps over the lazy dog. This pangram contains every letter of
+                the English alphabet and is commonly used for testing typography and text-to-speech
+                systems. Listen to how each word is pronounced and watch the synchronized
+                highlighting as the text is read aloud.
+              </p>
+
+              <p>
+                Accessibility is not just about compliance; it's about creating inclusive
+                experiences for everyone. Students with dyslexia, visual impairments, or attention
+                difficulties benefit greatly from tools that adapt to their unique learning needs.
+                Text-to-speech technology, customizable fonts, and distraction-free reading modes
+                can transform educational content from frustrating to empowering.
+              </p>
+            </div>
+
+            <h4>Complex Text for Reading Mode</h4>
+            <div class="complex-text">
+              <p>
+                In the realm of cognitive neuroscience, the phenomenon of neuroplasticity represents
+                the brain's remarkable ability to reorganize itself by forming new neural
+                connections throughout life. This adaptability is particularly crucial for
+                individuals recovering from traumatic brain injuries or those developing
+                compensatory mechanisms for learning differences.
+              </p>
+
+              <p>
+                Research conducted at leading universities has demonstrated that targeted
+                interventions, including the use of assistive technologies, can significantly
+                enhance neuroplastic processes. These interventions leverage the brain's inherent
+                capacity for adaptation, making educational content more accessible and fostering
+                improved learning outcomes across diverse populations.
+              </p>
+            </div>
+
+            <h4>Text for OCR Testing</h4>
+            <div class="instruction-box">
+              <strong>OCR Test:</strong> Take a screenshot of the text below, then use the OCR
+              feature to extract and read it.
+            </div>
+            <div
+              class="sample-text"
+              style="background: #667eea; color: white; padding: 30px; font-size: 1.2em"
+            >
+              <p style="color: white">THIS TEXT IS FOR OCR TESTING</p>
+              <p style="color: white">
+                Enable OCR in the extension, then click on this area to extract the text and have it
+                read aloud automatically.
+              </p>
+            </div>
+
+            <h4>Sample for Highlight Menu</h4>
+            <div class="sample-text">
+              <p>
+                <strong>Select this text</strong> to trigger the highlight menu. Test each button:
+                🔊 Read Aloud, 📖 Dictionary, 🌐 Translate, 📝 Annotate, and 📋 Copy.
+              </p>
+            </div>
+          </div>
+
+          <!-- WRITING HELP TEST CONTENT -->
+          <div class="test-section">
+            <h3>✏️ Writing Help - Test Content</h3>
+
+            <div class="instruction-box">
+              <strong>Instructions:</strong> Use the text field below to test STT, annotations, and
+              citations features.
+            </div>
+
+            <h4>Voice Input Test Area</h4>
+            <textarea
+              style="
+                width: 100%;
+                min-height: 150px;
+                padding: 15px;
+                border: 2px solid #667eea;
+                border-radius: 8px;
+                font-size: 1em;
+              "
+              placeholder="Click here and enable STT to test voice input. Try voice commands like 'new paragraph', 'delete that', 'period', 'comma'."
+            ></textarea>
+
+            <h4>Text for Annotations</h4>
+            <div class="sample-text">
+              <p>
+                Highlight any part of this text to create an annotation. Test the annotation
+                sidebar, color options, and note sizes. The mitochondria is the powerhouse of the
+                cell, a phrase that has become iconic in biology education despite oversimplifying
+                the organelle's complex functions.
+              </p>
+            </div>
+
+            <h4>Text with Citations</h4>
+            <div class="sample-text">
+              <p>
+                According to Smith et al. (2023), adaptive learning technologies have shown a 35%
+                improvement in student outcomes. This research supports the implementation of
+                accessibility features in educational platforms [1].
+              </p>
+              <p>
+                References:<br />
+                [1] Smith, J., Jones, A., & Brown, T. (2023). "Impact of Assistive Technologies on
+                Learning Outcomes." Journal of Educational Technology, 45(2), 123-145.
+              </p>
+            </div>
+
+            <h4>Complex Text for Simplification</h4>
+            <div class="sample-text">
+              <p>
+                The implementation of a comprehensive pedagogical framework necessitates the
+                integration of multifaceted instructional methodologies that accommodate
+                heterogeneous learning modalities and cognitive processing variations among the
+                student population.
+              </p>
+              <p>
+                <em
+                  >Select this text and use Text Simplification to make it easier to understand.</em
+                >
+              </p>
+            </div>
+          </div>
+
+          <!-- LOOK UP WORDS TEST CONTENT -->
+          <div class="test-section">
+            <h3>📚 Look Up Words - Test Content</h3>
+
+            <div class="instruction-box">
+              <strong>Instructions:</strong> Select individual words or phrases to test dictionary
+              and translation features.
+            </div>
+
+            <h4>Words for Dictionary Lookup</h4>
+            <div class="sample-text">
+              <p>
+                Test dictionary lookup with these words: <strong>serendipity</strong>,
+                <strong>ubiquitous</strong>, <strong>ephemeral</strong>, <strong>paradigm</strong>,
+                <strong>juxtaposition</strong>, <strong>eloquent</strong>,
+                <strong>resilience</strong>.
+              </p>
+            </div>
+
+            <h4>Multi-Language Text for Translation</h4>
+            <div class="language-sample">
+              <div class="language-label">Spanish:</div>
+              <p>La educación es la llave del futuro. El aprendizaje accesible transforma vidas.</p>
+            </div>
+
+            <div class="language-sample">
+              <div class="language-label">French:</div>
+              <p>
+                L'accessibilité numérique est essentielle pour l'inclusion de tous les étudiants.
+              </p>
+            </div>
+
+            <div class="language-sample">
+              <div class="language-label">German:</div>
+              <p>Barrierefreies Lernen ermöglicht allen Schülern gleiche Chancen auf Bildung.</p>
+            </div>
+
+            <div class="sample-text">
+              <p>
+                <em
+                  >Select any of the text above and test the translation feature. Try translating to
+                  different languages.</em
+                >
+              </p>
+            </div>
+          </div>
+
+          <!-- PAGE DISPLAY TEST CONTENT -->
+          <div class="test-section">
+            <h3>🎨 Page Display - Test Content</h3>
+
+            <div class="instruction-box">
+              <strong>Instructions:</strong> Use the content below to test visual customization
+              features.
+            </div>
+
+            <h4>Text Customization Test</h4>
+            <div class="sample-text">
+              <p style="font-family: 'Times New Roman'">
+                This paragraph uses Times New Roman. Test different font families to see the
+                changes.
+              </p>
+              <p style="line-height: 1.2">
+                This text has tight line spacing (1.2). Adjust the line spacing slider.
+              </p>
+              <p style="letter-spacing: 5px">
+                This text has wide letter spacing. Test the letter spacing control.
+              </p>
+              <p>Normal paragraph spacing here.</p>
+              <p style="margin-top: 2em">
+                This paragraph has extra spacing above. Test paragraph spacing adjustments.
+              </p>
+            </div>
+
+            <h4>Reading Guide & Focus Mode Test</h4>
+            <div class="sample-text">
+              <p>
+                Enable the reading guide and move your cursor down these lines to see the ruler
+                effect.
+              </p>
+              <p>Each line should be easier to follow with the guide active.</p>
+              <p>Enable focus mode to spotlight specific areas of text while dimming the rest.</p>
+              <p>This helps reduce visual clutter and improve concentration.</p>
+              <p>Adjust the focus window size and darkness to find what works best.</p>
+            </div>
+
+            <h4>Screen Overlay & Dark Mode Test</h4>
+            <div class="sample-text" style="background: white; color: black; padding: 20px">
+              <p>This text has a white background. Enable screen overlay to add a color tint.</p>
+              <p>Try different overlay colors and opacity levels.</p>
+              <p>Toggle dark mode to see how it affects the entire page appearance.</p>
+            </div>
+
+            <h4>Pomodoro Timer Instructions</h4>
+            <div class="instruction-box">
+              <strong>Pomodoro Test:</strong> Enable the Pomodoro timer, set a work duration (try 1
+              minute for testing), and verify the timer starts, pauses, and resets correctly. Check
+              that break timers also function.
+            </div>
+
+            <h4>Media Control Test</h4>
+            <div class="instruction-box">
+              <strong>Media Test:</strong> Find a page with a video (like YouTube), enable Media
+              Control and Auto-Pause, then start TTS. Verify that media pauses automatically.
+            </div>
+          </div>
+
+          <!-- KEYBOARD SHORTCUTS TEST -->
+          <div class="test-section">
+            <h3>⌨️ Keyboard Shortcuts - Test Instructions</h3>
+
+            <div class="instruction-box">
+              <strong>Test each shortcut:</strong>
+              <ul style="margin: 10px 0 0 20px">
+                <li><strong>Ctrl+Shift+R</strong> - Toggle Reading Mode</li>
+                <li><strong>Ctrl+Shift+T</strong> - Toggle TTS</li>
+                <li><strong>Ctrl+Shift+S</strong> - Toggle STT</li>
+                <li><strong>Ctrl+Shift+F</strong> - Toggle Focus Mode</li>
+                <li><strong>Ctrl+Shift+D</strong> - Toggle Dark Mode</li>
+                <li><strong>Ctrl+Shift+W</strong> - Open Text Stats</li>
+                <li><strong>ESC</strong> - Exit Reading Mode</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- CONTEXT MENU TEST -->
+          <div class="test-section">
+            <h3>🖱️ Context Menu (Right-Click) - Test Content</h3>
+
+            <div class="instruction-box">
+              <strong>Instructions:</strong> Select the text below, then right-click to access
+              context menu options.
+            </div>
+
+            <div class="sample-text">
+              <p>
+                <strong>Right-click this text</strong> to test context menu options: Read Selected
+                Text, Translate Selected Text, Simplify Selected Text, and Look Up in Dictionary.
+              </p>
+            </div>
+          </div>
+
+          <!-- SCHOOL TOOLS TEST -->
+          <div class="test-section">
+            <h3>🎓 School Tools - Test Instructions</h3>
+
+            <div class="instruction-box">
+              <strong>LMS Integration Tests:</strong>
+              <ul style="margin: 10px 0 0 20px">
+                <li>
+                  <strong>Canvas:</strong> Navigate to a Canvas LMS page (*.instructure.com) and
+                  verify integration features appear
+                </li>
+                <li><strong>Moodle:</strong> Navigate to a Moodle page and test integration</li>
+                <li>
+                  <strong>Google Classroom:</strong> Navigate to classroom.google.com and test
+                  integration
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- LOCAL AI & CLOUD AI TEST -->
+          <div class="test-section">
+            <h3>🤖 AI Features - Test Content</h3>
+
+            <div class="instruction-box">
+              <strong>Instructions:</strong> Use the text below to test AI summarization,
+              simplification, and analysis features.
+            </div>
+
+            <h4>Text for AI Summarization</h4>
+            <div class="sample-text">
+              <p>
+                Neuroplasticity, also known as brain plasticity or neural plasticity, is the ability
+                of neural networks in the brain to change through growth and reorganization. These
+                changes range from individual neuron pathways making new connections to systematic
+                adjustments like cortical remapping. During development, the immature brain is
+                especially plastic and is significantly influenced by experience and environmental
+                factors. Neuroplasticity continues throughout life, albeit at reduced levels
+                compared to childhood, allowing the brain to compensate for injury and adjust to new
+                situations or changes in the environment.
+              </p>
+              <p>
+                The concept of neuroplasticity has revolutionized neuroscience and medicine by
+                demonstrating that the brain is not a static organ but a dynamic, ever-changing
+                system. This understanding has profound implications for rehabilitation after brain
+                injury, treatment of neurological conditions, and optimization of learning
+                strategies across all ages.
+              </p>
+              <p><em>Select this text and test AI Summarization to get a concise summary.</em></p>
+            </div>
+
+            <h4>Text for Socratic Tutor</h4>
+            <div class="sample-text">
+              <p>
+                Photosynthesis is the process by which plants use sunlight, water, and carbon
+                dioxide to create oxygen and energy in the form of sugar.
+              </p>
+              <p>
+                <em
+                  >Select this text and use Socratic Tutor to get guided questions that help you
+                  understand the concept better.</em
+                >
+              </p>
+            </div>
+
+            <h4>Assignment for AI Breakdown</h4>
+            <div class="sample-text">
+              <p>
+                <strong>Assignment:</strong> Write a 5-page research paper analyzing the impact of
+                social media on adolescent mental health. Include at least 10 peer-reviewed sources,
+                discuss both positive and negative effects, and propose evidence-based
+                interventions. Due in 2 weeks.
+              </p>
+              <p>
+                <em
+                  >Select this assignment text and use Assignment Breakdown to get a step-by-step
+                  task list.</em
+                >
+              </p>
+            </div>
+          </div>
+
+          <!-- ADDITIONAL TEST SCENARIOS -->
+          <div class="test-section">
+            <h3>🧪 Edge Cases & Special Scenarios</h3>
+
+            <h4>Very Long Text (Scroll Test)</h4>
+            <div class="sample-text">
+              <p>
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
+                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute
+                irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+                pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia
+                deserunt mollit anim id est laborum.
+              </p>
+              <p>
+                Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium
+                doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore
+                veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam
+                voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur
+                magni dolores eos qui ratione voluptatem sequi nesciunt.
+              </p>
+              <p>
+                At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis
+                praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias
+                excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui
+                officia deserunt mollitia animi, id est laborum et dolorum fuga.
+              </p>
+            </div>
+
+            <h4>Mixed Content (Text + Formatting)</h4>
+            <div class="sample-text">
+              <p>
+                This text contains <strong>bold</strong>, <em>italic</em>, <u>underlined</u>, and
+                <code>code-formatted</code> text. Test how TTS handles different formatting.
+              </p>
+              <p>Numbers: 1, 2, 3, 100, 1,000, $50.99</p>
+              <p>Special characters: @#$%^&*()_+-=[]{}|;':",./<>?</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Right Panel: Test Content -->
-    <div class="content-panel">
-      <div class="content-header">
-        <h2>Testing Content & Instructions</h2>
-        <p>Use the content below to test each feature. Select text, interact with elements, and validate functionality.</p>
-      </div>
+    <script>
+      // Feature testing data structure
+      const testingSections = [
+        {
+          id: 'header-controls',
+          title: '📋 Header Controls',
+          features: [
+            { id: 'reset-button', name: 'Reset Button' },
+            { id: 'help-button', name: 'Help Button' },
+            { id: 'settings-button', name: 'Settings Button' },
+            { id: 'organize-button', name: 'Organize Button' },
+            { id: 'discovery-button', name: 'Discovery Quiz' },
+            { id: 'organize-drag', name: 'Organize - Drag/Drop' },
+            { id: 'organize-visibility', name: 'Organize - Visibility' },
+            { id: 'organize-persist', name: 'Organize - Persistence' },
+          ],
+        },
+        {
+          id: 'reading-help',
+          title: '🔊 Reading Help',
+          features: [
+            { id: 'tts-toggle', name: 'TTS Toggle' },
+            { id: 'tts-voice', name: 'Voice Select' },
+            { id: 'tts-speed', name: 'Speed Slider' },
+            { id: 'tts-pitch', name: 'Pitch Slider' },
+            { id: 'tts-volume', name: 'Volume Slider' },
+            { id: 'tts-highlight-toggle', name: 'Sync Highlighting' },
+            { id: 'tts-highlight-color', name: 'Highlight Color' },
+            { id: 'tts-highlight-opacity', name: 'Highlight Opacity' },
+            { id: 'tts-word-by-word', name: 'Word-by-Word' },
+            { id: 'reading-mode-toggle', name: 'Reading Mode Toggle' },
+            { id: 'reading-mode-exit', name: 'Exit Reading Mode' },
+            { id: 'dyslexia-toggle', name: 'Dyslexia Mode' },
+            { id: 'dyslexia-intensity', name: 'Dyslexia Intensity' },
+            { id: 'ocr-toggle', name: 'OCR Toggle' },
+            { id: 'ocr-auto-reading', name: 'OCR Auto Reading' },
+            { id: 'ocr-language', name: 'OCR Language' },
+            { id: 'ocr-duration', name: 'Reading Duration' },
+            { id: 'ocr-auto-tts', name: 'Auto TTS after OCR' },
+            { id: 'ocr-confidence', name: 'OCR Confidence' },
+            { id: 'highlight-menu-toggle', name: 'Highlight Menu' },
+            { id: 'highlight-menu-read', name: 'HM - Read Aloud' },
+            { id: 'highlight-menu-dict', name: 'HM - Dictionary' },
+            { id: 'highlight-menu-translate', name: 'HM - Translate' },
+            { id: 'highlight-menu-annotate', name: 'HM - Annotate' },
+            { id: 'highlight-menu-copy', name: 'HM - Copy' },
+          ],
+        },
+        {
+          id: 'writing-help',
+          title: '✏️ Writing Help',
+          features: [
+            { id: 'stt-toggle', name: 'STT Toggle' },
+            { id: 'stt-button', name: 'Microphone Button' },
+            { id: 'stt-voice-input', name: 'Voice Input Test' },
+            { id: 'stt-pause-resume', name: 'STT Pause/Resume' },
+            { id: 'stt-auto-punctuation', name: 'Auto-Punctuation' },
+            { id: 'stt-voice-commands', name: 'Voice Commands' },
+            { id: 'annotations-toggle', name: 'Annotations Toggle' },
+            { id: 'annotations-create', name: 'Create Annotation' },
+            { id: 'citations-toggle', name: 'Citations Toggle' },
+            { id: 'text-simplification', name: 'Text Simplification' },
+          ],
+        },
+        {
+          id: 'lookup-words',
+          title: '📚 Look Up Words',
+          features: [
+            { id: 'dictionary-toggle', name: 'Dictionary Toggle' },
+            { id: 'dictionary-test', name: 'Dictionary Test' },
+            { id: 'translation-toggle', name: 'Translation Toggle' },
+            { id: 'translation-test', name: 'Translation Test' },
+            { id: 'translation-full-page', name: 'Full-Page Translation' },
+          ],
+        },
+        {
+          id: 'page-display',
+          title: '🎨 Page Display',
+          features: [
+            { id: 'quiet-mode-toggle', name: 'Quiet Mode' },
+            { id: 'text-custom-toggle', name: 'Text Customization' },
+            { id: 'text-font-family', name: 'Font Family' },
+            { id: 'text-line-spacing', name: 'Line Spacing' },
+            { id: 'text-letter-spacing', name: 'Letter Spacing' },
+            { id: 'reading-guide-toggle', name: 'Reading Guide' },
+            { id: 'focus-mode-toggle', name: 'Focus Mode' },
+            { id: 'screen-overlay-toggle', name: 'Screen Overlay' },
+            { id: 'dark-mode-toggle', name: 'Dark Mode' },
+            { id: 'reduced-motion-toggle', name: 'Reduced Motion' },
+            { id: 'pomodoro-toggle', name: 'Pomodoro Timer' },
+            { id: 'stargardt-toggle', name: 'Stargardt Mode' },
+          ],
+        },
+        {
+          id: 'school-tools',
+          title: '🎓 School Tools',
+          features: [
+            { id: 'canvas-toggle', name: 'Canvas Toggle' },
+            { id: 'canvas-test', name: 'Canvas Test' },
+            { id: 'moodle-toggle', name: 'Moodle Toggle' },
+            { id: 'google-classroom-toggle', name: 'Google Classroom' },
+          ],
+        },
+        {
+          id: 'local-ai',
+          title: '🤖 Local AI',
+          features: [
+            { id: 'local-ai-master', name: 'Local AI Master' },
+            { id: 'ai-summarization', name: 'Summarization' },
+            { id: 'ai-text-simplification', name: 'AI Simplification' },
+            { id: 'ai-socratic-tutor', name: 'Socratic Tutor' },
+            { id: 'ai-assignment-breakdown', name: 'Assignment Breakdown' },
+          ],
+        },
+        {
+          id: 'cloud-ai',
+          title: '☁️ Cloud AI',
+          features: [
+            { id: 'cloud-ai-master', name: 'Cloud AI Master' },
+            { id: 'cloud-ai-api-key', name: 'API Key Setup' },
+            { id: 'cloud-ai-models', name: 'Cloud AI Models' },
+          ],
+        },
+        {
+          id: 'keyboard-shortcuts',
+          title: '⌨️ Keyboard Shortcuts',
+          features: [
+            { id: 'shortcut-reading-mode', name: 'Ctrl+Shift+R' },
+            { id: 'shortcut-tts', name: 'Ctrl+Shift+T' },
+            { id: 'shortcut-stt', name: 'Ctrl+Shift+S' },
+            { id: 'shortcut-focus', name: 'Ctrl+Shift+F' },
+            { id: 'shortcut-dark', name: 'Ctrl+Shift+D' },
+            { id: 'shortcut-stats', name: 'Ctrl+Shift+W' },
+            { id: 'shortcut-esc', name: 'ESC (Exit Reading)' },
+          ],
+        },
+        {
+          id: 'context-menu',
+          title: '🖱️ Context Menu',
+          features: [
+            { id: 'context-read', name: 'Read Selected' },
+            { id: 'context-translate', name: 'Translate Selected' },
+            { id: 'context-simplify', name: 'Simplify Selected' },
+            { id: 'context-dictionary', name: 'Dictionary Lookup' },
+          ],
+        },
+      ];
 
-      <div class="test-content">
-        <!-- READING HELP TEST CONTENT -->
-        <div class="test-section">
-          <h3>🔊 Reading Help - Test Content</h3>
+      let testingData = {};
 
-          <div class="instruction-box">
-            <strong>Instructions:</strong> Use the text samples below to test TTS, highlighting, reading mode, OCR, and highlight menu features.
-          </div>
-
-          <h4>Sample Text for TTS & Highlighting</h4>
-          <div class="sample-text">
-            <p>The quick brown fox jumps over the lazy dog. This pangram contains every letter of the English alphabet and is commonly used for testing typography and text-to-speech systems. Listen to how each word is pronounced and watch the synchronized highlighting as the text is read aloud.</p>
-
-            <p>Accessibility is not just about compliance; it's about creating inclusive experiences for everyone. Students with dyslexia, visual impairments, or attention difficulties benefit greatly from tools that adapt to their unique learning needs. Text-to-speech technology, customizable fonts, and distraction-free reading modes can transform educational content from frustrating to empowering.</p>
-          </div>
-
-          <h4>Complex Text for Reading Mode</h4>
-          <div class="complex-text">
-            <p>In the realm of cognitive neuroscience, the phenomenon of neuroplasticity represents the brain's remarkable ability to reorganize itself by forming new neural connections throughout life. This adaptability is particularly crucial for individuals recovering from traumatic brain injuries or those developing compensatory mechanisms for learning differences.</p>
-
-            <p>Research conducted at leading universities has demonstrated that targeted interventions, including the use of assistive technologies, can significantly enhance neuroplastic processes. These interventions leverage the brain's inherent capacity for adaptation, making educational content more accessible and fostering improved learning outcomes across diverse populations.</p>
-          </div>
-
-          <h4>Text for OCR Testing</h4>
-          <div class="instruction-box">
-            <strong>OCR Test:</strong> Take a screenshot of the text below, then use the OCR feature to extract and read it.
-          </div>
-          <div class="sample-text" style="background: #667eea; color: white; padding: 30px; font-size: 1.2em;">
-            <p style="color: white;">THIS TEXT IS FOR OCR TESTING</p>
-            <p style="color: white;">Enable OCR in the extension, then click on this area to extract the text and have it read aloud automatically.</p>
-          </div>
-
-          <h4>Sample for Highlight Menu</h4>
-          <div class="sample-text">
-            <p><strong>Select this text</strong> to trigger the highlight menu. Test each button: 🔊 Read Aloud, 📖 Dictionary, 🌐 Translate, 📝 Annotate, and 📋 Copy.</p>
-          </div>
-        </div>
-
-        <!-- WRITING HELP TEST CONTENT -->
-        <div class="test-section">
-          <h3>✏️ Writing Help - Test Content</h3>
-
-          <div class="instruction-box">
-            <strong>Instructions:</strong> Use the text field below to test STT, annotations, and citations features.
-          </div>
-
-          <h4>Voice Input Test Area</h4>
-          <textarea style="width: 100%; min-height: 150px; padding: 15px; border: 2px solid #667eea; border-radius: 8px; font-size: 1em;" placeholder="Click here and enable STT to test voice input. Try voice commands like 'new paragraph', 'delete that', 'period', 'comma'."></textarea>
-
-          <h4>Text for Annotations</h4>
-          <div class="sample-text">
-            <p>Highlight any part of this text to create an annotation. Test the annotation sidebar, color options, and note sizes. The mitochondria is the powerhouse of the cell, a phrase that has become iconic in biology education despite oversimplifying the organelle's complex functions.</p>
-          </div>
-
-          <h4>Text with Citations</h4>
-          <div class="sample-text">
-            <p>According to Smith et al. (2023), adaptive learning technologies have shown a 35% improvement in student outcomes. This research supports the implementation of accessibility features in educational platforms [1].</p>
-            <p>References:<br>
-            [1] Smith, J., Jones, A., & Brown, T. (2023). "Impact of Assistive Technologies on Learning Outcomes." Journal of Educational Technology, 45(2), 123-145.</p>
-          </div>
-
-          <h4>Complex Text for Simplification</h4>
-          <div class="sample-text">
-            <p>The implementation of a comprehensive pedagogical framework necessitates the integration of multifaceted instructional methodologies that accommodate heterogeneous learning modalities and cognitive processing variations among the student population.</p>
-            <p><em>Select this text and use Text Simplification to make it easier to understand.</em></p>
-          </div>
-        </div>
-
-        <!-- LOOK UP WORDS TEST CONTENT -->
-        <div class="test-section">
-          <h3>📚 Look Up Words - Test Content</h3>
-
-          <div class="instruction-box">
-            <strong>Instructions:</strong> Select individual words or phrases to test dictionary and translation features.
-          </div>
-
-          <h4>Words for Dictionary Lookup</h4>
-          <div class="sample-text">
-            <p>Test dictionary lookup with these words: <strong>serendipity</strong>, <strong>ubiquitous</strong>, <strong>ephemeral</strong>, <strong>paradigm</strong>, <strong>juxtaposition</strong>, <strong>eloquent</strong>, <strong>resilience</strong>.</p>
-          </div>
-
-          <h4>Multi-Language Text for Translation</h4>
-          <div class="language-sample">
-            <div class="language-label">Spanish:</div>
-            <p>La educación es la llave del futuro. El aprendizaje accesible transforma vidas.</p>
-          </div>
-
-          <div class="language-sample">
-            <div class="language-label">French:</div>
-            <p>L'accessibilité numérique est essentielle pour l'inclusion de tous les étudiants.</p>
-          </div>
-
-          <div class="language-sample">
-            <div class="language-label">German:</div>
-            <p>Barrierefreies Lernen ermöglicht allen Schülern gleiche Chancen auf Bildung.</p>
-          </div>
-
-          <div class="sample-text">
-            <p><em>Select any of the text above and test the translation feature. Try translating to different languages.</em></p>
-          </div>
-        </div>
-
-        <!-- PAGE DISPLAY TEST CONTENT -->
-        <div class="test-section">
-          <h3>🎨 Page Display - Test Content</h3>
-
-          <div class="instruction-box">
-            <strong>Instructions:</strong> Use the content below to test visual customization features.
-          </div>
-
-          <h4>Text Customization Test</h4>
-          <div class="sample-text">
-            <p style="font-family: 'Times New Roman';">This paragraph uses Times New Roman. Test different font families to see the changes.</p>
-            <p style="line-height: 1.2;">This text has tight line spacing (1.2). Adjust the line spacing slider.</p>
-            <p style="letter-spacing: 5px;">This text has wide letter spacing. Test the letter spacing control.</p>
-            <p>Normal paragraph spacing here.</p>
-            <p style="margin-top: 2em;">This paragraph has extra spacing above. Test paragraph spacing adjustments.</p>
-          </div>
-
-          <h4>Reading Guide & Focus Mode Test</h4>
-          <div class="sample-text">
-            <p>Enable the reading guide and move your cursor down these lines to see the ruler effect.</p>
-            <p>Each line should be easier to follow with the guide active.</p>
-            <p>Enable focus mode to spotlight specific areas of text while dimming the rest.</p>
-            <p>This helps reduce visual clutter and improve concentration.</p>
-            <p>Adjust the focus window size and darkness to find what works best.</p>
-          </div>
-
-          <h4>Screen Overlay & Dark Mode Test</h4>
-          <div class="sample-text" style="background: white; color: black; padding: 20px;">
-            <p>This text has a white background. Enable screen overlay to add a color tint.</p>
-            <p>Try different overlay colors and opacity levels.</p>
-            <p>Toggle dark mode to see how it affects the entire page appearance.</p>
-          </div>
-
-          <h4>Pomodoro Timer Instructions</h4>
-          <div class="instruction-box">
-            <strong>Pomodoro Test:</strong> Enable the Pomodoro timer, set a work duration (try 1 minute for testing), and verify the timer starts, pauses, and resets correctly. Check that break timers also function.
-          </div>
-
-          <h4>Media Control Test</h4>
-          <div class="instruction-box">
-            <strong>Media Test:</strong> Find a page with a video (like YouTube), enable Media Control and Auto-Pause, then start TTS. Verify that media pauses automatically.
-          </div>
-        </div>
-
-        <!-- KEYBOARD SHORTCUTS TEST -->
-        <div class="test-section">
-          <h3>⌨️ Keyboard Shortcuts - Test Instructions</h3>
-
-          <div class="instruction-box">
-            <strong>Test each shortcut:</strong>
-            <ul style="margin: 10px 0 0 20px;">
-              <li><strong>Ctrl+Shift+R</strong> - Toggle Reading Mode</li>
-              <li><strong>Ctrl+Shift+T</strong> - Toggle TTS</li>
-              <li><strong>Ctrl+Shift+S</strong> - Toggle STT</li>
-              <li><strong>Ctrl+Shift+F</strong> - Toggle Focus Mode</li>
-              <li><strong>Ctrl+Shift+D</strong> - Toggle Dark Mode</li>
-              <li><strong>Ctrl+Shift+W</strong> - Open Text Stats</li>
-              <li><strong>ESC</strong> - Exit Reading Mode</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- CONTEXT MENU TEST -->
-        <div class="test-section">
-          <h3>🖱️ Context Menu (Right-Click) - Test Content</h3>
-
-          <div class="instruction-box">
-            <strong>Instructions:</strong> Select the text below, then right-click to access context menu options.
-          </div>
-
-          <div class="sample-text">
-            <p><strong>Right-click this text</strong> to test context menu options: Read Selected Text, Translate Selected Text, Simplify Selected Text, and Look Up in Dictionary.</p>
-          </div>
-        </div>
-
-        <!-- SCHOOL TOOLS TEST -->
-        <div class="test-section">
-          <h3>🎓 School Tools - Test Instructions</h3>
-
-          <div class="instruction-box">
-            <strong>LMS Integration Tests:</strong>
-            <ul style="margin: 10px 0 0 20px;">
-              <li><strong>Canvas:</strong> Navigate to a Canvas LMS page (*.instructure.com) and verify integration features appear</li>
-              <li><strong>Moodle:</strong> Navigate to a Moodle page and test integration</li>
-              <li><strong>Google Classroom:</strong> Navigate to classroom.google.com and test integration</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- LOCAL AI & CLOUD AI TEST -->
-        <div class="test-section">
-          <h3>🤖 AI Features - Test Content</h3>
-
-          <div class="instruction-box">
-            <strong>Instructions:</strong> Use the text below to test AI summarization, simplification, and analysis features.
-          </div>
-
-          <h4>Text for AI Summarization</h4>
-          <div class="sample-text">
-            <p>Neuroplasticity, also known as brain plasticity or neural plasticity, is the ability of neural networks in the brain to change through growth and reorganization. These changes range from individual neuron pathways making new connections to systematic adjustments like cortical remapping. During development, the immature brain is especially plastic and is significantly influenced by experience and environmental factors. Neuroplasticity continues throughout life, albeit at reduced levels compared to childhood, allowing the brain to compensate for injury and adjust to new situations or changes in the environment.</p>
-            <p>The concept of neuroplasticity has revolutionized neuroscience and medicine by demonstrating that the brain is not a static organ but a dynamic, ever-changing system. This understanding has profound implications for rehabilitation after brain injury, treatment of neurological conditions, and optimization of learning strategies across all ages.</p>
-            <p><em>Select this text and test AI Summarization to get a concise summary.</em></p>
-          </div>
-
-          <h4>Text for Socratic Tutor</h4>
-          <div class="sample-text">
-            <p>Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to create oxygen and energy in the form of sugar.</p>
-            <p><em>Select this text and use Socratic Tutor to get guided questions that help you understand the concept better.</em></p>
-          </div>
-
-          <h4>Assignment for AI Breakdown</h4>
-          <div class="sample-text">
-            <p><strong>Assignment:</strong> Write a 5-page research paper analyzing the impact of social media on adolescent mental health. Include at least 10 peer-reviewed sources, discuss both positive and negative effects, and propose evidence-based interventions. Due in 2 weeks.</p>
-            <p><em>Select this assignment text and use Assignment Breakdown to get a step-by-step task list.</em></p>
-          </div>
-        </div>
-
-        <!-- ADDITIONAL TEST SCENARIOS -->
-        <div class="test-section">
-          <h3>🧪 Edge Cases & Special Scenarios</h3>
-
-          <h4>Very Long Text (Scroll Test)</h4>
-          <div class="sample-text">
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-            <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
-            <p>At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga.</p>
-          </div>
-
-          <h4>Mixed Content (Text + Formatting)</h4>
-          <div class="sample-text">
-            <p>This text contains <strong>bold</strong>, <em>italic</em>, <u>underlined</u>, and <code>code-formatted</code> text. Test how TTS handles different formatting.</p>
-            <p>Numbers: 1, 2, 3, 100, 1,000, $50.99</p>
-            <p>Special characters: @#$%^&*()_+-=[]{}|;':",./<>?</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Feature testing data structure
-    const testingSections = [
-      {
-        id: 'header-controls',
-        title: '📋 Header Controls',
-        features: [
-          { id: 'reset-button', name: 'Reset Button' },
-          { id: 'help-button', name: 'Help Button' },
-          { id: 'settings-button', name: 'Settings Button' },
-          { id: 'organize-button', name: 'Organize Button' },
-          { id: 'discovery-button', name: 'Discovery Quiz' },
-          { id: 'organize-drag', name: 'Organize - Drag/Drop' },
-          { id: 'organize-visibility', name: 'Organize - Visibility' },
-          { id: 'organize-persist', name: 'Organize - Persistence' }
-        ]
-      },
-      {
-        id: 'reading-help',
-        title: '🔊 Reading Help',
-        features: [
-          { id: 'tts-toggle', name: 'TTS Toggle' },
-          { id: 'tts-voice', name: 'Voice Select' },
-          { id: 'tts-speed', name: 'Speed Slider' },
-          { id: 'tts-pitch', name: 'Pitch Slider' },
-          { id: 'tts-volume', name: 'Volume Slider' },
-          { id: 'tts-highlight-toggle', name: 'Sync Highlighting' },
-          { id: 'tts-highlight-color', name: 'Highlight Color' },
-          { id: 'tts-highlight-opacity', name: 'Highlight Opacity' },
-          { id: 'tts-word-by-word', name: 'Word-by-Word' },
-          { id: 'reading-mode-toggle', name: 'Reading Mode Toggle' },
-          { id: 'reading-mode-exit', name: 'Exit Reading Mode' },
-          { id: 'dyslexia-toggle', name: 'Dyslexia Mode' },
-          { id: 'dyslexia-intensity', name: 'Dyslexia Intensity' },
-          { id: 'ocr-toggle', name: 'OCR Toggle' },
-          { id: 'ocr-auto-reading', name: 'OCR Auto Reading' },
-          { id: 'ocr-language', name: 'OCR Language' },
-          { id: 'ocr-duration', name: 'Reading Duration' },
-          { id: 'ocr-auto-tts', name: 'Auto TTS after OCR' },
-          { id: 'ocr-confidence', name: 'OCR Confidence' },
-          { id: 'highlight-menu-toggle', name: 'Highlight Menu' },
-          { id: 'highlight-menu-read', name: 'HM - Read Aloud' },
-          { id: 'highlight-menu-dict', name: 'HM - Dictionary' },
-          { id: 'highlight-menu-translate', name: 'HM - Translate' },
-          { id: 'highlight-menu-annotate', name: 'HM - Annotate' },
-          { id: 'highlight-menu-copy', name: 'HM - Copy' }
-        ]
-      },
-      {
-        id: 'writing-help',
-        title: '✏️ Writing Help',
-        features: [
-          { id: 'stt-toggle', name: 'STT Toggle' },
-          { id: 'stt-button', name: 'Microphone Button' },
-          { id: 'stt-voice-input', name: 'Voice Input Test' },
-          { id: 'stt-pause-resume', name: 'STT Pause/Resume' },
-          { id: 'stt-auto-punctuation', name: 'Auto-Punctuation' },
-          { id: 'stt-voice-commands', name: 'Voice Commands' },
-          { id: 'annotations-toggle', name: 'Annotations Toggle' },
-          { id: 'annotations-create', name: 'Create Annotation' },
-          { id: 'citations-toggle', name: 'Citations Toggle' },
-          { id: 'text-simplification', name: 'Text Simplification' }
-        ]
-      },
-      {
-        id: 'lookup-words',
-        title: '📚 Look Up Words',
-        features: [
-          { id: 'dictionary-toggle', name: 'Dictionary Toggle' },
-          { id: 'dictionary-test', name: 'Dictionary Test' },
-          { id: 'translation-toggle', name: 'Translation Toggle' },
-          { id: 'translation-test', name: 'Translation Test' },
-          { id: 'translation-full-page', name: 'Full-Page Translation' }
-        ]
-      },
-      {
-        id: 'page-display',
-        title: '🎨 Page Display',
-        features: [
-          { id: 'quiet-mode-toggle', name: 'Quiet Mode' },
-          { id: 'text-custom-toggle', name: 'Text Customization' },
-          { id: 'text-font-family', name: 'Font Family' },
-          { id: 'text-line-spacing', name: 'Line Spacing' },
-          { id: 'text-letter-spacing', name: 'Letter Spacing' },
-          { id: 'reading-guide-toggle', name: 'Reading Guide' },
-          { id: 'focus-mode-toggle', name: 'Focus Mode' },
-          { id: 'screen-overlay-toggle', name: 'Screen Overlay' },
-          { id: 'dark-mode-toggle', name: 'Dark Mode' },
-          { id: 'reduced-motion-toggle', name: 'Reduced Motion' },
-          { id: 'pomodoro-toggle', name: 'Pomodoro Timer' },
-          { id: 'stargardt-toggle', name: 'Stargardt Mode' }
-        ]
-      },
-      {
-        id: 'school-tools',
-        title: '🎓 School Tools',
-        features: [
-          { id: 'canvas-toggle', name: 'Canvas Toggle' },
-          { id: 'canvas-test', name: 'Canvas Test' },
-          { id: 'moodle-toggle', name: 'Moodle Toggle' },
-          { id: 'google-classroom-toggle', name: 'Google Classroom' }
-        ]
-      },
-      {
-        id: 'local-ai',
-        title: '🤖 Local AI',
-        features: [
-          { id: 'local-ai-master', name: 'Local AI Master' },
-          { id: 'ai-summarization', name: 'Summarization' },
-          { id: 'ai-text-simplification', name: 'AI Simplification' },
-          { id: 'ai-socratic-tutor', name: 'Socratic Tutor' },
-          { id: 'ai-assignment-breakdown', name: 'Assignment Breakdown' }
-        ]
-      },
-      {
-        id: 'cloud-ai',
-        title: '☁️ Cloud AI',
-        features: [
-          { id: 'cloud-ai-master', name: 'Cloud AI Master' },
-          { id: 'cloud-ai-api-key', name: 'API Key Setup' },
-          { id: 'cloud-ai-models', name: 'Cloud AI Models' }
-        ]
-      },
-      {
-        id: 'keyboard-shortcuts',
-        title: '⌨️ Keyboard Shortcuts',
-        features: [
-          { id: 'shortcut-reading-mode', name: 'Ctrl+Shift+R' },
-          { id: 'shortcut-tts', name: 'Ctrl+Shift+T' },
-          { id: 'shortcut-stt', name: 'Ctrl+Shift+S' },
-          { id: 'shortcut-focus', name: 'Ctrl+Shift+F' },
-          { id: 'shortcut-dark', name: 'Ctrl+Shift+D' },
-          { id: 'shortcut-stats', name: 'Ctrl+Shift+W' },
-          { id: 'shortcut-esc', name: 'ESC (Exit Reading)' }
-        ]
-      },
-      {
-        id: 'context-menu',
-        title: '🖱️ Context Menu',
-        features: [
-          { id: 'context-read', name: 'Read Selected' },
-          { id: 'context-translate', name: 'Translate Selected' },
-          { id: 'context-simplify', name: 'Simplify Selected' },
-          { id: 'context-dictionary', name: 'Dictionary Lookup' }
-        ]
+      function init() {
+        loadSavedData();
+        renderSections();
+        updateProgress();
       }
-    ];
 
-    let testingData = {};
+      function renderSections() {
+        const container = document.getElementById('testing-content');
+        container.innerHTML = '';
 
-    function init() {
-      loadSavedData();
-      renderSections();
-      updateProgress();
-    }
+        testingSections.forEach(section => {
+          const sectionElement = createSection(section);
+          container.appendChild(sectionElement);
+        });
+      }
 
-    function renderSections() {
-      const container = document.getElementById('testing-content');
-      container.innerHTML = '';
+      function createSection(section) {
+        const div = document.createElement('div');
+        div.className = 'section';
 
-      testingSections.forEach(section => {
-        const sectionElement = createSection(section);
-        container.appendChild(sectionElement);
-      });
-    }
+        const tested = section.features.filter(f => testingData[f.id]?.status).length;
+        const total = section.features.length;
 
-    function createSection(section) {
-      const div = document.createElement('div');
-      div.className = 'section';
-
-      const tested = section.features.filter(f => testingData[f.id]?.status).length;
-      const total = section.features.length;
-
-      div.innerHTML = `
+        div.innerHTML = `
         <div class="section-header" onclick="toggleSection(event, '${section.id}')">
           <div class="section-title">${section.title}</div>
           <div class="section-progress">${tested}/${total}</div>
@@ -853,13 +1027,13 @@
         </div>
       `;
 
-      return div;
-    }
+        return div;
+      }
 
-    function createFeature(feature) {
-      const data = testingData[feature.id] || { status: null, notes: '' };
+      function createFeature(feature) {
+        const data = testingData[feature.id] || { status: null, notes: '' };
 
-      return `
+        return `
         <div class="feature-item" data-feature-id="${feature.id}">
           <div class="feature-header">
             <div class="feature-checkbox">
@@ -898,264 +1072,268 @@
           </div>
         </div>
       `;
-    }
+      }
 
-    function toggleSection(event, sectionId) {
-      // Prevent toggling if clicking on interactive elements
-      if (event.target.tagName === 'INPUT' ||
+      function toggleSection(event, sectionId) {
+        // Prevent toggling if clicking on interactive elements
+        if (
+          event.target.tagName === 'INPUT' ||
           event.target.tagName === 'TEXTAREA' ||
           event.target.tagName === 'LABEL' ||
           event.target.closest('.feature-checkbox') ||
-          event.target.closest('.feature-notes')) {
-        return;
-      }
-
-      const content = document.getElementById(`section-${sectionId}`);
-      content.classList.toggle('expanded');
-    }
-
-    function expandAll() {
-      document.querySelectorAll('.section-content').forEach(content => {
-        content.classList.add('expanded');
-      });
-    }
-
-    function collapseAll() {
-      document.querySelectorAll('.section-content').forEach(content => {
-        content.classList.remove('expanded');
-      });
-    }
-
-    function updateStatus(featureId, status, checked) {
-      if (!testingData[featureId]) {
-        testingData[featureId] = { status: null, notes: '' };
-      }
-
-      const featureElement = document.querySelector(`[data-feature-id="${featureId}"]`);
-      const checkboxes = featureElement.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach(cb => cb.checked = false);
-
-      if (checked) {
-        testingData[featureId].status = status;
-        // Find the correct checkbox by data attribute or position
-        const inputs = featureElement.querySelectorAll('input[type="checkbox"]');
-        const statusMap = { 'pass': 0, 'fail': 1, 'skip': 2 };
-        inputs[statusMap[status]].checked = true;
-      } else {
-        testingData[featureId].status = null;
-      }
-
-      saveData();
-      updateProgress();
-
-      // Save expanded state before re-rendering
-      const expandedSections = [];
-      document.querySelectorAll('.section-content.expanded').forEach(section => {
-        expandedSections.push(section.id);
-      });
-
-      renderSections();
-
-      // Restore expanded state after re-rendering
-      expandedSections.forEach(sectionId => {
-        const section = document.getElementById(sectionId);
-        if (section) {
-          section.classList.add('expanded');
+          event.target.closest('.feature-notes')
+        ) {
+          return;
         }
-      });
-    }
 
-    function updateNotes(featureId, notes) {
-      if (!testingData[featureId]) {
-        testingData[featureId] = { status: null, notes: '' };
+        const content = document.getElementById(`section-${sectionId}`);
+        content.classList.toggle('expanded');
       }
-      testingData[featureId].notes = notes;
-      saveData();
-    }
 
-    function updateProgress() {
-      const total = testingSections.reduce((sum, s) => sum + s.features.length, 0);
-      const tested = Object.values(testingData).filter(d => d.status).length;
-      const passed = Object.values(testingData).filter(d => d.status === 'pass').length;
-      const failed = Object.values(testingData).filter(d => d.status === 'fail').length;
-
-      document.getElementById('total-features').textContent = total;
-      document.getElementById('tested-features').textContent = tested;
-      document.getElementById('passed-features').textContent = passed;
-      document.getElementById('failed-features').textContent = failed;
-
-      const percentage = total > 0 ? Math.round((tested / total) * 100) : 0;
-      const progressFill = document.getElementById('progress-fill');
-      progressFill.style.width = `${percentage}%`;
-      progressFill.textContent = `${percentage}%`;
-    }
-
-    function saveData() {
-      localStorage.setItem('ncad-testing-data', JSON.stringify(testingData));
-    }
-
-    function loadSavedData() {
-      const saved = localStorage.getItem('ncad-testing-data');
-      if (saved) {
-        testingData = JSON.parse(saved);
+      function expandAll() {
+        document.querySelectorAll('.section-content').forEach(content => {
+          content.classList.add('expanded');
+        });
       }
-    }
 
-    function clearAll() {
-      if (confirm('Clear all testing data? This cannot be undone.')) {
-        testingData = {};
-        localStorage.removeItem('ncad-testing-data');
-        renderSections();
+      function collapseAll() {
+        document.querySelectorAll('.section-content').forEach(content => {
+          content.classList.remove('expanded');
+        });
+      }
+
+      function updateStatus(featureId, status, checked) {
+        if (!testingData[featureId]) {
+          testingData[featureId] = { status: null, notes: '' };
+        }
+
+        const featureElement = document.querySelector(`[data-feature-id="${featureId}"]`);
+        const checkboxes = featureElement.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => (cb.checked = false));
+
+        if (checked) {
+          testingData[featureId].status = status;
+          // Find the correct checkbox by data attribute or position
+          const inputs = featureElement.querySelectorAll('input[type="checkbox"]');
+          const statusMap = { pass: 0, fail: 1, skip: 2 };
+          inputs[statusMap[status]].checked = true;
+        } else {
+          testingData[featureId].status = null;
+        }
+
+        saveData();
         updateProgress();
-      }
-    }
 
-    function exportResults() {
-      let markdown = '# @NCAD Extension - Testing Results & Bug Report\n\n';
-      markdown += `**Generated:** ${new Date().toLocaleString()}\n\n`;
-      markdown += '---\n\n';
+        // Save expanded state before re-rendering
+        const expandedSections = [];
+        document.querySelectorAll('.section-content.expanded').forEach(section => {
+          expandedSections.push(section.id);
+        });
 
-      const stats = {
-        total: testingSections.reduce((sum, s) => sum + s.features.length, 0),
-        tested: Object.values(testingData).filter(d => d.status).length,
-        passed: Object.values(testingData).filter(d => d.status === 'pass').length,
-        failed: Object.values(testingData).filter(d => d.status === 'fail').length,
-        skipped: Object.values(testingData).filter(d => d.status === 'skip').length
-      };
+        renderSections();
 
-      markdown += '## Summary\n\n';
-      markdown += `- **Total Features:** ${stats.total}\n`;
-      markdown += `- **Tested:** ${stats.tested}\n`;
-      markdown += `- **Passed:** ${stats.passed} ✓\n`;
-      markdown += `- **Failed:** ${stats.failed} ✗\n`;
-      markdown += `- **Skipped:** ${stats.skipped} ○\n`;
-      markdown += `- **Progress:** ${Math.round((stats.tested / stats.total) * 100)}%\n\n`;
-      markdown += '---\n\n';
-
-      markdown += '## ❌ Failed Features (Require Fixes)\n\n';
-      let hasFailures = false;
-      testingSections.forEach(section => {
-        const failedFeatures = section.features.filter(f => testingData[f.id]?.status === 'fail');
-        if (failedFeatures.length > 0) {
-          hasFailures = true;
-          markdown += `### ${section.title}\n\n`;
-          failedFeatures.forEach(feature => {
-            const data = testingData[feature.id];
-            markdown += `#### ${feature.name}\n`;
-            if (data.notes) {
-              markdown += `**Issues:**\n${data.notes}\n\n`;
-            }
-            markdown += '---\n\n';
-          });
-        }
-      });
-      if (!hasFailures) {
-        markdown += '*No failed features!*\n\n';
-      }
-
-      markdown += '## 📝 All Notes & Improvements\n\n';
-      let hasNotes = false;
-      testingSections.forEach(section => {
-        const featuresWithNotes = section.features.filter(f =>
-          testingData[f.id]?.notes && testingData[f.id]?.notes.trim() !== ''
-        );
-        if (featuresWithNotes.length > 0) {
-          hasNotes = true;
-          markdown += `### ${section.title}\n\n`;
-          featuresWithNotes.forEach(feature => {
-            const data = testingData[feature.id];
-            const statusEmoji = data.status === 'pass' ? '✓' : data.status === 'fail' ? '✗' : '○';
-            markdown += `#### ${statusEmoji} ${feature.name}\n`;
-            markdown += `${data.notes}\n\n`;
-            markdown += '---\n\n';
-          });
-        }
-      });
-      if (!hasNotes) {
-        markdown += '*No notes recorded.*\n\n';
-      }
-
-      downloadFile(markdown, 'ncad-testing-results.md', 'text/markdown');
-    }
-
-    function exportProgress() {
-      const progressData = {
-        timestamp: new Date().toISOString(),
-        testingData: testingData,
-        version: '1.0'
-      };
-
-      const filename = `ncad-testing-progress-${new Date().toISOString().split('T')[0]}.json`;
-      downloadFile(
-        JSON.stringify(progressData, null, 2),
-        filename,
-        'application/json'
-      );
-
-      alert(`Progress exported to ${filename}\n\nYou can import this file on another computer to continue testing where you left off.`);
-    }
-
-    function importProgress(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const imported = JSON.parse(e.target.result);
-
-          if (!imported.testingData) {
-            alert('Invalid progress file format.');
-            return;
+        // Restore expanded state after re-rendering
+        expandedSections.forEach(sectionId => {
+          const section = document.getElementById(sectionId);
+          if (section) {
+            section.classList.add('expanded');
           }
+        });
+      }
 
-          // Confirm with user before overwriting
-          const currentCount = Object.keys(testingData).length;
-          const importCount = Object.keys(imported.testingData).length;
+      function updateNotes(featureId, notes) {
+        if (!testingData[featureId]) {
+          testingData[featureId] = { status: null, notes: '' };
+        }
+        testingData[featureId].notes = notes;
+        saveData();
+      }
 
-          const confirmMsg = currentCount > 0
-            ? `This will replace your current progress (${currentCount} items tested) with imported data (${importCount} items tested).\n\nContinue?`
-            : `Import ${importCount} tested items?\n\nContinue?`;
+      function updateProgress() {
+        const total = testingSections.reduce((sum, s) => sum + s.features.length, 0);
+        const tested = Object.values(testingData).filter(d => d.status).length;
+        const passed = Object.values(testingData).filter(d => d.status === 'pass').length;
+        const failed = Object.values(testingData).filter(d => d.status === 'fail').length;
 
-          if (!confirm(confirmMsg)) {
-            return;
-          }
+        document.getElementById('total-features').textContent = total;
+        document.getElementById('tested-features').textContent = tested;
+        document.getElementById('passed-features').textContent = passed;
+        document.getElementById('failed-features').textContent = failed;
 
-          // Load imported data
-          testingData = imported.testingData;
-          saveData();
+        const percentage = total > 0 ? Math.round((tested / total) * 100) : 0;
+        const progressFill = document.getElementById('progress-fill');
+        progressFill.style.width = `${percentage}%`;
+        progressFill.textContent = `${percentage}%`;
+      }
 
-          // Update UI
+      function saveData() {
+        localStorage.setItem('assist-testing-data', JSON.stringify(testingData));
+      }
+
+      function loadSavedData() {
+        const saved = localStorage.getItem('assist-testing-data');
+        if (saved) {
+          testingData = JSON.parse(saved);
+        }
+      }
+
+      function clearAll() {
+        if (confirm('Clear all testing data? This cannot be undone.')) {
+          testingData = {};
+          localStorage.removeItem('assist-testing-data');
           renderSections();
           updateProgress();
-
-          alert(`Successfully imported progress!\n\n${importCount} items loaded.\nImported from: ${new Date(imported.timestamp).toLocaleString()}`);
-
-        } catch (error) {
-          alert('Error importing progress file. Please make sure it\'s a valid JSON file exported from this testing tool.');
-          console.error('Import error:', error);
         }
-      };
+      }
 
-      reader.readAsText(file);
+      function exportResults() {
+        let markdown = '# AssisT Extension - Testing Results & Bug Report\n\n';
+        markdown += `**Generated:** ${new Date().toLocaleString()}\n\n`;
+        markdown += '---\n\n';
 
-      // Reset file input so the same file can be imported again if needed
-      event.target.value = '';
-    }
+        const stats = {
+          total: testingSections.reduce((sum, s) => sum + s.features.length, 0),
+          tested: Object.values(testingData).filter(d => d.status).length,
+          passed: Object.values(testingData).filter(d => d.status === 'pass').length,
+          failed: Object.values(testingData).filter(d => d.status === 'fail').length,
+          skipped: Object.values(testingData).filter(d => d.status === 'skip').length,
+        };
 
-    function downloadFile(content, filename, mimeType) {
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+        markdown += '## Summary\n\n';
+        markdown += `- **Total Features:** ${stats.total}\n`;
+        markdown += `- **Tested:** ${stats.tested}\n`;
+        markdown += `- **Passed:** ${stats.passed} ✓\n`;
+        markdown += `- **Failed:** ${stats.failed} ✗\n`;
+        markdown += `- **Skipped:** ${stats.skipped} ○\n`;
+        markdown += `- **Progress:** ${Math.round((stats.tested / stats.total) * 100)}%\n\n`;
+        markdown += '---\n\n';
 
-    window.addEventListener('DOMContentLoaded', init);
-  </script>
-</body>
+        markdown += '## ❌ Failed Features (Require Fixes)\n\n';
+        let hasFailures = false;
+        testingSections.forEach(section => {
+          const failedFeatures = section.features.filter(f => testingData[f.id]?.status === 'fail');
+          if (failedFeatures.length > 0) {
+            hasFailures = true;
+            markdown += `### ${section.title}\n\n`;
+            failedFeatures.forEach(feature => {
+              const data = testingData[feature.id];
+              markdown += `#### ${feature.name}\n`;
+              if (data.notes) {
+                markdown += `**Issues:**\n${data.notes}\n\n`;
+              }
+              markdown += '---\n\n';
+            });
+          }
+        });
+        if (!hasFailures) {
+          markdown += '*No failed features!*\n\n';
+        }
+
+        markdown += '## 📝 All Notes & Improvements\n\n';
+        let hasNotes = false;
+        testingSections.forEach(section => {
+          const featuresWithNotes = section.features.filter(
+            f => testingData[f.id]?.notes && testingData[f.id]?.notes.trim() !== ''
+          );
+          if (featuresWithNotes.length > 0) {
+            hasNotes = true;
+            markdown += `### ${section.title}\n\n`;
+            featuresWithNotes.forEach(feature => {
+              const data = testingData[feature.id];
+              const statusEmoji = data.status === 'pass' ? '✓' : data.status === 'fail' ? '✗' : '○';
+              markdown += `#### ${statusEmoji} ${feature.name}\n`;
+              markdown += `${data.notes}\n\n`;
+              markdown += '---\n\n';
+            });
+          }
+        });
+        if (!hasNotes) {
+          markdown += '*No notes recorded.*\n\n';
+        }
+
+        downloadFile(markdown, 'assist-testing-results.md', 'text/markdown');
+      }
+
+      function exportProgress() {
+        const progressData = {
+          timestamp: new Date().toISOString(),
+          testingData: testingData,
+          version: '1.0',
+        };
+
+        const filename = `assist-testing-progress-${new Date().toISOString().split('T')[0]}.json`;
+        downloadFile(JSON.stringify(progressData, null, 2), filename, 'application/json');
+
+        alert(
+          `Progress exported to ${filename}\n\nYou can import this file on another computer to continue testing where you left off.`
+        );
+      }
+
+      function importProgress(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const imported = JSON.parse(e.target.result);
+
+            if (!imported.testingData) {
+              alert('Invalid progress file format.');
+              return;
+            }
+
+            // Confirm with user before overwriting
+            const currentCount = Object.keys(testingData).length;
+            const importCount = Object.keys(imported.testingData).length;
+
+            const confirmMsg =
+              currentCount > 0
+                ? `This will replace your current progress (${currentCount} items tested) with imported data (${importCount} items tested).\n\nContinue?`
+                : `Import ${importCount} tested items?\n\nContinue?`;
+
+            if (!confirm(confirmMsg)) {
+              return;
+            }
+
+            // Load imported data
+            testingData = imported.testingData;
+            saveData();
+
+            // Update UI
+            renderSections();
+            updateProgress();
+
+            alert(
+              `Successfully imported progress!\n\n${importCount} items loaded.\nImported from: ${new Date(imported.timestamp).toLocaleString()}`
+            );
+          } catch (error) {
+            alert(
+              "Error importing progress file. Please make sure it's a valid JSON file exported from this testing tool."
+            );
+            console.error('Import error:', error);
+          }
+        };
+
+        reader.readAsText(file);
+
+        // Reset file input so the same file can be imported again if needed
+        event.target.value = '';
+      }
+
+      function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      window.addEventListener('DOMContentLoaded', init);
+    </script>
+  </body>
 </html>
