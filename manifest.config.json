@@ -14,20 +14,6 @@
         "<all_urls>"
       ]
     },
-    "ncad": {
-      "name": "@NCAD",
-      "description": "NCAD accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for Canvas VLE",
-      "default_title": "@NCAD - Adaptive Accessibility",
-      "permissions": [
-        "storage",
-        "activeTab",
-        "scripting",
-        "tabs"
-      ],
-      "host_permissions": [
-        "<all_urls>"
-      ]
-    },
     "llm": {
       "name": "AssisT: Adaptive Accessibility Tool",
       "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",

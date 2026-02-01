@@ -639,7 +639,7 @@ function simplification_addDefinitions(text) {
     discourse: '(= discussion or conversation)',
     nuance: '(= subtle difference)',
 
-    // Art & Design Theory terms (NCAD context)
+    // Art & Design Theory terms (academic context)
     phenomenological: '(= relating to direct lived experience)',
     phenomenology: '(= the study of direct experience)',
     ontological: '(= relating to the nature of being)',

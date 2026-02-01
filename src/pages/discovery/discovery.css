@@ -22,10 +22,10 @@
   --color-border: #334155;
   --color-focus: #60a5fa;
 
-  /* NCAD Brand Colors (for demo) */
-  --ncad-orange: #f36f21;
-  --ncad-black: #000000;
-  --ncad-white: #ffffff;
+  /* Brand Colors (for demo) */
+  --brand-accent: #f36f21;
+  --brand-black: #000000;
+  --brand-white: #ffffff;
 
   /* Spacing */
   --space-xs: 0.25rem;

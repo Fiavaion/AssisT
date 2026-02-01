@@ -24,6 +24,10 @@ coverage/
 .env
 .env.local
 .env.*.local
+tmpclaude-*
+
+# Claude/AI Development Config
+.claude/
 
 # IDE files
 .vscode/
