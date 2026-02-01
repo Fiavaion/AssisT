@@ -9,6 +9,7 @@ build/
 Output/
 *.crx
 *.zip
+*.extensionpkg
 
 # Obsolete build directories (DO NOT CREATE - legacy from old build systems)
 AssistLLM/
@@ -16,18 +17,23 @@ AssistV2a/
 FG_build/
 Ident/
 
-# Test coverage
+# Test coverage & results
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+test-output.txt
+build-output.txt
 
 # Environment variables
 .env
 .env.local
 .env.*.local
-tmpclaude-*
 
-# Claude/AI Development Config
+# Claude/AI Development Config & Temp Files
 .claude/
+tmpclaude-*
+task-agent-config.json
 
 # IDE files
 .vscode/
@@ -48,16 +54,36 @@ yarn-error.log*
 tmp/
 temp/
 *.tmp
+nul
 
 # OS files
 Thumbs.db
 
 # Vite build output
 .vite/
-nul
 
-# Documentation output
-docs/typst/output/*.pdf
+# === Development & Testing Assets (not needed in repo) ===
+# Generated marketing/promo assets
+generated-assets/
+store-screenshots/
+
+# Reference images for development
+REfImages/
+TestingImages/
+
+# Benchmark results (regeneratable)
+benchmark/
+
+# Feature development materials
+FeaturePass_*/
+
+# Prototypes and experiments
+prototypes/
+
+# Test/demo HTML files (standalone, not part of extension)
+demo-all-ai-features.html
+test-ai-features.html
+start-ollama-cors.bat
 
 # === Project Documentation (internal/session notes) ===
 docs/*.md
@@ -65,4 +91,5 @@ docs/archive/
 docs/sessions/
 docs/setup/
 docs/testing/
+docs/planning/
 !docs/user/
