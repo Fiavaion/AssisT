@@ -1521,11 +1521,35 @@ async function handleExportFormat(format) {
 }
 
 /**
+ * Check if toasts are suppressed by minimize clutter setting
+ * @returns {Promise<boolean>} True if toasts should be suppressed
+ */
+async function isToastSuppressed() {
+  try {
+    const result = await chrome.storage.local.get('featureNotificationsEnabled');
+    return result.featureNotificationsEnabled === false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Show toast notification
  * @param {string} message - Toast message
  * @param {number} duration - Duration in milliseconds
+ * @param {Object} [options] - Additional options
+ * @param {boolean} [options.force=false] - Force show even if minimize clutter is on
  */
-function showToast(message, duration = 3000) {
+async function showToast(message, duration = 3000, options = {}) {
+  // Check if toasts are suppressed (unless forced)
+  if (!options.force) {
+    const suppressed = await isToastSuppressed();
+    if (suppressed) {
+      console.log('[Annotations] Toast suppressed (minimize clutter enabled):', message);
+      return;
+    }
+  }
+
   // Check if a custom toast function exists globally
   if (window.showToast && typeof window.showToast === 'function') {
     window.showToast(message);

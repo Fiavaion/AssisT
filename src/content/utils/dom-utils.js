@@ -22,11 +22,37 @@ export function hexToRgba(hex, opacity) {
 }
 
 /**
+ * Check if toasts are suppressed by minimize clutter setting
+ * @returns {Promise<boolean>} True if toasts should be suppressed
+ */
+async function isToastSuppressed() {
+  try {
+    const result = await chrome.storage.local.get('featureNotificationsEnabled');
+    // featureNotificationsEnabled is false when minimize_clutter is on
+    return result.featureNotificationsEnabled === false;
+  } catch {
+    // If storage access fails, show toast (fail open)
+    return false;
+  }
+}
+
+/**
  * Show a toast notification
  * @param {string} message - Message to display
  * @param {number} duration - Duration in ms (default: 2000)
+ * @param {Object} [options] - Additional options
+ * @param {boolean} [options.force=false] - Force show even if minimize clutter is on
  */
-export function showToast(message, duration = 2000) {
+export async function showToast(message, duration = 2000, options = {}) {
+  // Check if toasts are suppressed (unless forced)
+  if (!options.force) {
+    const suppressed = await isToastSuppressed();
+    if (suppressed) {
+      console.log('[Toast] Suppressed (minimize clutter enabled):', message);
+      return;
+    }
+  }
+
   const existing = document.getElementById('assist-toast');
   if (existing) {
     existing.remove();

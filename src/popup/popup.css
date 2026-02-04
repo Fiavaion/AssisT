@@ -2530,6 +2530,29 @@ body {
   animation: pulse-organize 1.5s ease-in-out infinite;
 }
 
+/* Minimize Clutter Button States */
+#btn-minimize-clutter {
+  opacity: 0.5;
+  filter: grayscale(100%);
+  transition: all 0.2s ease;
+}
+
+#btn-minimize-clutter.active {
+  opacity: 1;
+  filter: grayscale(0%);
+  background: rgba(76, 175, 80, 0.3);
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+#btn-minimize-clutter.active:hover {
+  background: rgba(76, 175, 80, 0.4);
+}
+
+#btn-minimize-clutter:not(.active):hover {
+  opacity: 0.7;
+  filter: grayscale(50%);
+}
+
 @keyframes pulse-organize {
   0%,
   100% {
