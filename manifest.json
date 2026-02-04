@@ -15,7 +15,12 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "*://*.instructure.com/*",
+        "*://*.canvas.com/*",
+        "*://*.moodle.org/*",
+        "*://*.moodlecloud.com/*",
+        "*://classroom.google.com/*",
+        "*://docs.google.com/*"
       ],
       "js": [
         "src/content/content-simple.js"
@@ -53,6 +58,25 @@
         "src/utils/*.js"
       ],
       "matches": [
+        "*://*.instructure.com/*",
+        "*://*.canvas.com/*",
+        "*://*.moodle.org/*",
+        "*://*.moodlecloud.com/*",
+        "*://classroom.google.com/*",
+        "*://docs.google.com/*"
+      ]
+    },
+    {
+      "resources": [
+        "src/content/content-simple.js",
+        "src/ui/components/*.js",
+        "src/ui/styles/*.css",
+        "public/assets/*",
+        "public/icons/*",
+        "assets/*.js",
+        "assets/*.js.map"
+      ],
+      "matches": [
         "<all_urls>"
       ]
     }
@@ -66,9 +90,18 @@
     "storage",
     "activeTab",
     "tabs",
-    "contextMenus"
+    "contextMenus",
+    "scripting"
   ],
   "host_permissions": [
+    "*://*.instructure.com/*",
+    "*://*.canvas.com/*",
+    "*://*.moodle.org/*",
+    "*://*.moodlecloud.com/*",
+    "*://classroom.google.com/*",
+    "*://docs.google.com/*"
+  ],
+  "optional_host_permissions": [
     "<all_urls>"
   ]
 }

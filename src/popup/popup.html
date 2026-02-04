@@ -18,6 +18,20 @@
 
         <p class="subtitle">Learning Support Tools</p>
 
+        <!-- Support Button -->
+        <a
+          href="https://www.fiavaion.com/support/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="support-btn"
+          id="btn-support"
+          title="Support AssisT development"
+          aria-label="Support AssisT - opens in new tab"
+        >
+          <span class="support-icon" aria-hidden="true">💜</span>
+          <span class="support-text">Support</span>
+        </a>
+
         <!-- Action Buttons Row -->
         <div class="header-actions">
           <button
@@ -70,6 +84,30 @@
           <span class="discovery-text">Discover Your Tools</span>
         </button>
       </header>
+
+      <!-- Enable All Sites Permission Banner (hidden when permission granted) -->
+      <div id="permission-banner" class="permission-banner hidden">
+        <div class="permission-banner-content">
+          <span class="permission-icon" aria-hidden="true">🌐</span>
+          <div class="permission-text">
+            <strong>Works on LMS sites only</strong>
+            <span class="permission-desc"
+              >Enable on all websites for full accessibility support</span
+            >
+            <span class="permission-note"
+              >Note: You'll need to reload open pages after granting permission</span
+            >
+          </div>
+        </div>
+        <button
+          id="btn-enable-all-sites"
+          class="permission-btn"
+          title="Grant permission to run on all websites - reload pages after"
+          aria-label="Enable AssisT on all websites"
+        >
+          Enable Everywhere
+        </button>
+      </div>
 
       <!-- Organize Mode Banner (hidden by default, shown in organize mode) -->
       <div id="organize-banner" class="organize-banner hidden">

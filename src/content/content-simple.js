@@ -194,6 +194,32 @@ function validateSettings(settingsObj) {
 const synth = window.speechSynthesis;
 
 /**
+ * Chrome TTS Bug Workaround
+ * Chrome sometimes "eats" the first utterance without playing it.
+ * We warm up the speech synthesis by speaking an empty/silent utterance.
+ */
+let synthWarmedUp = false;
+function warmUpSpeechSynthesis() {
+  if (synthWarmedUp) {
+    return;
+  }
+
+  // Speak a space character at zero volume to "prime" the engine
+  const warmupUtterance = new SpeechSynthesisUtterance(' ');
+  warmupUtterance.volume = 0;
+  warmupUtterance.rate = 10; // Fastest rate to complete quickly
+  warmupUtterance.onend = () => {
+    synthWarmedUp = true;
+    console.log('[AssisT] Speech synthesis warmed up');
+  };
+  warmupUtterance.onerror = () => {
+    synthWarmedUp = true; // Mark as warmed up even on error
+    console.log('[AssisT] Speech synthesis warmup complete (with error)');
+  };
+  synth.speak(warmupUtterance);
+}
+
+/**
  * Load available voices and set default preferred voice
  * Preference order: Google UK Female > UK Female > Any English Female
  */
@@ -211,6 +237,11 @@ function loadVoices() {
   if (preferredVoice && !settings.voice) {
     settings.voice = preferredVoice;
     console.log('[AssisT] Default voice:', preferredVoice.name);
+  }
+
+  // Warm up speech synthesis after voices are loaded
+  if (voices.length > 0 && !synthWarmedUp) {
+    warmUpSpeechSynthesis();
   }
 }
 
@@ -402,49 +433,84 @@ chrome.storage.onChanged.addListener(changes => {
  * readTextFunction(assignmentText, assignmentElement);
  */
 function readText(text, element) {
+  console.log('[AssisT][readText] ========== READ TEXT CALLED ==========');
+  console.log('[AssisT][readText] Text length:', text?.length);
+  console.log('[AssisT][readText] Element:', element?.tagName);
+  console.log('[AssisT][readText] synth available:', !!synth);
+  console.log('[AssisT][readText] synth.speaking:', synth?.speaking);
+  console.log('[AssisT][readText] Available voices:', synth?.getVoices()?.length);
+
   // Defensive checks
   if (!text || typeof text !== 'string' || text.trim() === '') {
-    console.warn('[AssisT] readText called with invalid text:', text);
+    console.error('[AssisT][readText] ❌ INVALID TEXT:', text);
     return;
   }
 
   if (!element || !(element instanceof HTMLElement)) {
-    console.warn('[AssisT] readText called with invalid element:', element);
+    console.error('[AssisT][readText] ❌ INVALID ELEMENT:', element);
     return;
   }
 
   if (!settings || typeof settings !== 'object') {
-    console.error('[AssisT] Settings object is invalid');
+    console.error('[AssisT][readText] ❌ INVALID SETTINGS');
     return;
   }
 
+  console.log('[AssisT][readText] Settings state:', {
+    enabled: settings.enabled,
+    voice: settings.voice?.name,
+    rate: settings.rate,
+    pitch: settings.pitch,
+    volume: settings.volume,
+    highlightEnabled: settings.highlightEnabled,
+  });
+
   // Cancel previous speech if any
-  if (synth.speaking) {
+  if (synth.speaking || synth.paused) {
+    console.log(
+      '[AssisT][readText] Cancelling previous speech (speaking:',
+      synth.speaking,
+      'paused:',
+      synth.paused,
+      ')'
+    );
     synth.cancel();
   }
 
-  // Wait a tiny bit for cancel to complete
+  // Also resume if paused (some browsers need this)
+  if (synth.paused) {
+    console.log('[AssisT][readText] Resuming paused synth');
+    synth.resume();
+  }
+
+  // Wait for cancel to complete - Chrome needs a bit more time
+  console.log('[AssisT][readText] Setting 100ms timeout before speaking...');
   setTimeout(() => {
+    console.log('[AssisT][readText] Inside timeout - preparing to speak');
     currentElement = element;
     currentText = text;
     isPaused = false; // Reset pause state
 
-    console.log('[AssisT] Reading:', text.substring(0, 50) + '...');
+    console.log('[AssisT][readText] Reading:', text.substring(0, 50) + '...');
 
     // Add outline
     element.style.outline = '2px solid #2196F3';
     element.style.outlineOffset = '2px';
+    console.log('[AssisT][readText] Applied outline to element');
 
     // Highlight based on settings
     if (settings.wordByWordEnabled && settings.highlightEnabled) {
       // Use word-by-word highlighting
+      console.log('[AssisT][readText] Using word-by-word highlighting');
       highlightWordByWord(element, text, settings.rate, settings);
     } else {
       // Use whole-element highlighting
+      console.log('[AssisT][readText] Using whole-element highlighting');
       highlightElement(element, settings);
     }
 
     // Create utterance
+    console.log('[AssisT][readText] Creating SpeechSynthesisUtterance...');
     currentUtterance = new SpeechSynthesisUtterance(text);
     currentUtterance.rate = settings.rate;
     currentUtterance.pitch = settings.pitch;
@@ -452,10 +518,22 @@ function readText(text, element) {
 
     if (settings.voice) {
       currentUtterance.voice = settings.voice;
+      console.log('[AssisT][readText] Set voice to:', settings.voice.name);
+    } else {
+      console.log('[AssisT][readText] No voice set, using default');
     }
+
+    console.log('[AssisT][readText] Utterance created:', {
+      text: currentUtterance.text?.substring(0, 30),
+      rate: currentUtterance.rate,
+      pitch: currentUtterance.pitch,
+      volume: currentUtterance.volume,
+      voice: currentUtterance.voice?.name,
+    });
 
     // Clean up on end
     currentUtterance.onend = () => {
+      console.log('[AssisT][readText] >>> UTTERANCE ONEND <<<');
       cleanupWordByWord(currentElement);
       removeHighlight();
       removeElementHighlight(currentElement);
@@ -467,12 +545,14 @@ function readText(text, element) {
       currentElement = null;
       currentText = '';
       isPaused = false;
-      console.log('[AssisT] Reading complete');
+      console.log('[AssisT][readText] Reading complete and cleaned up');
     };
 
     // Handle errors
     currentUtterance.onerror = event => {
-      console.error('[AssisT] Speech error:', event.error);
+      console.error('[AssisT][readText] >>> UTTERANCE ONERROR <<<');
+      console.error('[AssisT][readText] Error type:', event.error);
+      console.error('[AssisT][readText] Full event:', event);
       cleanupWordByWord(currentElement);
       removeHighlight();
       removeElementHighlight(currentElement);
@@ -485,9 +565,28 @@ function readText(text, element) {
       isPaused = false;
     };
 
+    // Also log onstart
+    currentUtterance.onstart = () => {
+      console.log('[AssisT][readText] >>> UTTERANCE ONSTART - Speech actually started! <<<');
+    };
+
     // Speak!
+    console.log('[AssisT][readText] ========== CALLING synth.speak() ==========');
+    console.log(
+      '[AssisT][readText] Pre-speak state: synth.speaking=',
+      synth.speaking,
+      'synth.paused=',
+      synth.paused
+    );
     synth.speak(currentUtterance);
-  }, 50); // Small delay to avoid race condition
+    console.log(
+      '[AssisT][readText] Post-speak state: synth.speaking=',
+      synth.speaking,
+      'synth.pending=',
+      synth.pending
+    );
+    console.log('[AssisT][readText] ========== synth.speak() CALLED ==========');
+  }, 100); // 100ms delay for Chrome to settle after cancel
 }
 
 // ============================================================
@@ -521,13 +620,20 @@ initializeCanvasModule(readText, settings);
 document.addEventListener(
   'click',
   e => {
+    console.log('[AssisT][Click] ========== CLICK EVENT ==========');
+    console.log('[AssisT][Click] Target:', e.target.tagName, e.target.className);
+    console.log('[AssisT][Click] settings.enabled:', settings.enabled);
+    console.log('[AssisT][Click] settings.voice:', settings.voice?.name);
+
     // Don't intercept links/buttons first
     if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
+      console.log('[AssisT][Click] Ignored - interactive element');
       return;
     }
 
     // Don't read if TTS is disabled
     if (!settings.enabled) {
+      console.log('[AssisT][Click] TTS is DISABLED');
       // Check if they clicked on readable content to show helpful message
       let target = e.target;
       while (target && target !== document.body) {
@@ -552,7 +658,7 @@ document.addEventListener(
           const text = target.textContent?.trim();
           if (text && text.length > 10) {
             showToast('⚠️ TTS is disabled. Enable it in the popup to read text.');
-            console.log('[AssisT] Click ignored - TTS is disabled');
+            console.log('[AssisT][Click] Showing disabled toast');
             break;
           }
         }
@@ -560,6 +666,8 @@ document.addEventListener(
       }
       return;
     }
+
+    console.log('[AssisT][Click] TTS is ENABLED - looking for text element');
 
     // Find text container
     let target = e.target;
@@ -589,6 +697,7 @@ document.addEventListener(
 
         if (text && text.length > 10) {
           textElement = target;
+          console.log('[AssisT][Click] Found text element:', tag, 'text length:', text.length);
           break;
         }
       }
@@ -601,7 +710,10 @@ document.addEventListener(
       e.stopPropagation();
 
       const text = textElement.textContent.trim();
+      console.log('[AssisT][Click] Calling readText() with', text.length, 'chars');
       readText(text, textElement);
+    } else {
+      console.log('[AssisT][Click] No readable text element found');
     }
   },
   true
@@ -887,6 +999,130 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[AssisT] Received message:', message.type);
 
   switch (message.type) {
+    case 'PING':
+      // Respond to ping to confirm content script is loaded
+      sendResponse({ success: true, loaded: true });
+      break;
+
+    case 'SHOW_TOAST':
+      // Show a toast message from popup
+      if (message.message) {
+        showToast(message.message);
+      }
+      sendResponse({ success: true });
+      break;
+
+    case 'TTS_COMMAND':
+      // Handle TTS commands from popup for direct settings control
+      const ttsData = message.data || {};
+      const ttsCommand = ttsData.command;
+      console.log('[AssisT] TTS Command received:', ttsCommand, ttsData);
+
+      switch (ttsCommand) {
+        case 'enable':
+          settings.enabled = true;
+          console.log('[AssisT] TTS enabled via direct command');
+          showToast('✓ TTS enabled - click any text to hear it');
+          break;
+
+        case 'disable':
+          settings.enabled = false;
+          if (synth.speaking) {
+            synth.cancel();
+            cleanupWordByWord(currentElement);
+            removeHighlight();
+            removeElementHighlight(currentElement);
+          }
+          console.log('[AssisT] TTS disabled via direct command');
+          break;
+
+        case 'setVoice':
+          if (ttsData.voice) {
+            const voices = synth.getVoices();
+            const voice = voices.find(v => v.name === ttsData.voice);
+            if (voice) {
+              settings.voice = voice;
+            }
+          }
+          break;
+
+        case 'setRate':
+          if (ttsData.rate !== undefined) {
+            settings.rate = ttsData.rate;
+          }
+          break;
+
+        case 'setPitch':
+          if (ttsData.pitch !== undefined) {
+            settings.pitch = ttsData.pitch;
+          }
+          break;
+
+        case 'setVolume':
+          if (ttsData.volume !== undefined) {
+            settings.volume = ttsData.volume;
+          }
+          break;
+
+        case 'setHighlighting':
+          if (ttsData.enabled !== undefined) {
+            settings.highlightEnabled = ttsData.enabled;
+          }
+          break;
+
+        case 'setHighlightColor':
+          if (ttsData.color) {
+            settings.highlightColor = ttsData.color;
+          }
+          break;
+
+        case 'setHighlightOpacity':
+          if (ttsData.opacity !== undefined) {
+            settings.highlightOpacity = ttsData.opacity;
+          }
+          break;
+
+        case 'setWordByWord':
+          if (ttsData.enabled !== undefined) {
+            settings.wordByWordEnabled = ttsData.enabled;
+          }
+          break;
+
+        case 'readPage':
+          if (settings.enabled) {
+            const mainContent = document.querySelector(
+              'main, article, [role="main"], .content, #content, body'
+            );
+            if (mainContent) {
+              const text = mainContent.innerText;
+              if (text) {
+                speak(text, mainContent);
+              }
+            }
+          }
+          break;
+
+        case 'stop':
+          synth.cancel();
+          cleanupWordByWord(currentElement);
+          removeHighlight();
+          break;
+
+        case 'pause':
+          synth.pause();
+          break;
+
+        case 'resume':
+          synth.resume();
+          break;
+
+        default:
+          console.log('[AssisT] Unknown TTS command:', ttsCommand);
+      }
+
+      sendResponse({ success: true, command: ttsCommand });
+      break;
+
     case 'READING_MODE_TOGGLE':
       // Toggle reading mode using the exported function from readingMode module
       if (window.assistFeatures && window.assistFeatures.readingMode) {

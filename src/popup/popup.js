@@ -827,6 +827,9 @@ class PopupController {
       this.isInitialized = true;
       this.updateStatus('Ready');
       console.log('[Popup] ✓✓✓ INITIALIZATION COMPLETE ✓✓✓');
+
+      // Setup permission banner AFTER initialization (non-blocking)
+      setTimeout(() => this.setupPermissionBanner(), 100);
     } catch (error) {
       console.error('[Popup] ❌ INITIALIZATION FAILED:', error);
       console.error('[Popup] Error stack:', error.stack);
@@ -851,6 +854,239 @@ class PopupController {
       'Organize Mode Done',
       () => this.organizeMode.exit()
     );
+  }
+
+  /**
+   * Setup permission banner for optional all-sites permission
+   * Completely fail-safe - errors here never affect main popup functionality
+   */
+  async setupPermissionBanner() {
+    console.log('[Popup][PermBanner] ========== PERMISSION BANNER SETUP START ==========');
+    try {
+      const permissionBanner = document.getElementById('permission-banner');
+      const enableBtn = document.getElementById('btn-enable-all-sites');
+
+      console.log('[Popup][PermBanner] Elements found:', {
+        permissionBanner: !!permissionBanner,
+        enableBtn: !!enableBtn,
+      });
+
+      if (!permissionBanner || !enableBtn) {
+        console.error('[Popup][PermBanner] ❌ CRITICAL: Elements not found!');
+        return;
+      }
+
+      console.log('[Popup][PermBanner] Button element:', enableBtn);
+      console.log('[Popup][PermBanner] Button outerHTML:', enableBtn.outerHTML);
+
+      // Check if user already has all-sites permission
+      console.log('[Popup][PermBanner] Checking current permissions...');
+      let hasAllUrls = false;
+      try {
+        hasAllUrls = await chrome.permissions.contains({
+          origins: ['<all_urls>'],
+        });
+        console.log('[Popup][PermBanner] Has <all_urls> permission:', hasAllUrls);
+      } catch (err) {
+        console.error('[Popup][PermBanner] ❌ Permission check failed:', err);
+        return;
+      }
+
+      if (hasAllUrls) {
+        // Check if permission was just granted (within last 60 seconds)
+        const storage = await chrome.storage.local.get('permissionJustGranted');
+        const justGranted = storage.permissionJustGranted;
+        const isRecent = justGranted && Date.now() - justGranted < 60000;
+
+        if (isRecent) {
+          // Show success message
+          permissionBanner.classList.remove('hidden');
+          this.showPermissionSuccess(permissionBanner);
+          // Clear the flag
+          await chrome.storage.local.remove(['permissionJustGranted', 'permissionRequestedAt']);
+          console.log('[Popup][PermBanner] ✓ Showing success message (just granted)');
+        } else {
+          permissionBanner.classList.add('hidden');
+          console.log('[Popup][PermBanner] ✓ Already has permission, hiding banner');
+        }
+      } else {
+        permissionBanner.classList.remove('hidden');
+        console.log('[Popup][PermBanner] ✓ No permission yet, showing banner');
+      }
+
+      // Setup button click handler with maximum debugging
+      console.log('[Popup][PermBanner] Setting up button click handlers...');
+
+      // Clear any existing handlers
+      const newBtn = enableBtn.cloneNode(true);
+      enableBtn.parentNode.replaceChild(newBtn, enableBtn);
+      console.log('[Popup][PermBanner] Replaced button to clear old handlers');
+
+      // Get fresh reference
+      const freshBtn = document.getElementById('btn-enable-all-sites');
+      console.log('[Popup][PermBanner] Fresh button reference:', !!freshBtn);
+
+      // Add mousedown listener
+      freshBtn.addEventListener('mousedown', _e => {
+        console.log('[Popup][PermBanner] >>> MOUSEDOWN EVENT <<<');
+      });
+
+      // Add click listener
+      freshBtn.addEventListener('click', async e => {
+        console.log('[Popup][PermBanner] >>> CLICK EVENT <<<');
+        console.log('[Popup][PermBanner] Event:', e.type, 'Target:', e.target.id);
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Visual feedback
+        freshBtn.textContent = 'Requesting...';
+        freshBtn.disabled = true;
+
+        // Store timestamp before requesting - popup might close during Chrome's dialog
+        await chrome.storage.local.set({ permissionRequestedAt: Date.now() });
+
+        try {
+          console.log('[Popup][PermBanner] Calling chrome.permissions.request...');
+          const granted = await chrome.permissions.request({
+            origins: ['<all_urls>'],
+          });
+          console.log('[Popup][PermBanner] Permission granted:', granted);
+
+          if (granted) {
+            // Store that permission was just granted
+            await chrome.storage.local.set({ permissionJustGranted: Date.now() });
+            this.showPermissionSuccess(permissionBanner);
+          } else {
+            console.log('[Popup][PermBanner] Permission denied by user');
+            freshBtn.textContent = 'Enable Everywhere';
+            freshBtn.disabled = false;
+            await chrome.storage.local.remove('permissionRequestedAt');
+          }
+        } catch (err) {
+          console.error('[Popup][PermBanner] ❌ Permission error:', err);
+          freshBtn.textContent = 'Error - Try Again';
+          freshBtn.disabled = false;
+          await chrome.storage.local.remove('permissionRequestedAt');
+        }
+      });
+
+      // Add inline onclick as backup (for debugging)
+      freshBtn.setAttribute('onclick', "console.log('[Popup][PermBanner] INLINE ONCLICK FIRED')");
+
+      console.log('[Popup][PermBanner] Button style check:', {
+        display: window.getComputedStyle(freshBtn).display,
+        visibility: window.getComputedStyle(freshBtn).visibility,
+        pointerEvents: window.getComputedStyle(freshBtn).pointerEvents,
+        opacity: window.getComputedStyle(freshBtn).opacity,
+      });
+
+      console.log('[Popup][PermBanner] ========== SETUP COMPLETE ==========');
+
+      // Try to inject content script if needed
+      this.ensureContentScriptLoaded();
+    } catch (error) {
+      console.error('[Popup][PermBanner] ❌ FATAL ERROR:', error);
+      console.error('[Popup][PermBanner] Stack:', error.stack);
+    }
+  }
+
+  /**
+   * Show the permission success message in the banner
+   */
+  showPermissionSuccess(permissionBanner) {
+    permissionBanner.innerHTML = `
+      <div class="permission-banner-content">
+        <span class="permission-icon" aria-hidden="true">✅</span>
+        <div class="permission-text">
+          <strong>Permission granted!</strong>
+          <span class="permission-desc" style="font-weight: 600; color: #065f46;">⟳ Reload this page to activate AssisT</span>
+          <span class="permission-note" style="font-style: normal; color: #047857;">Press F5 or click the browser refresh button</span>
+        </div>
+      </div>
+    `;
+    permissionBanner.style.background = 'linear-gradient(135deg, #d1fae5, #a7f3d0)';
+    permissionBanner.style.borderColor = '#10b981';
+    console.log('[Popup][PermBanner] ✓ UI updated for success');
+  }
+
+  /**
+   * Ensure content script is loaded in the current tab
+   * For non-LMS sites, we inject on-demand if user has <all_urls> permission
+   */
+  async ensureContentScriptLoaded() {
+    if (!this.currentTab?.id) {
+      console.log('[Popup] No current tab, skipping content script check');
+      return;
+    }
+
+    // Check if this is an LMS site (content script already loaded via manifest)
+    const url = this.currentTab.url || '';
+    const isLmsSite =
+      url.includes('instructure.com') ||
+      url.includes('canvas.com') ||
+      url.includes('moodle.org') ||
+      url.includes('moodlecloud.com') ||
+      url.includes('classroom.google.com') ||
+      url.includes('docs.google.com');
+
+    if (isLmsSite) {
+      console.log('[Popup] LMS site detected, content script should be loaded via manifest');
+      return;
+    }
+
+    // Check if content script is already loaded by pinging it
+    try {
+      const response = await chrome.tabs.sendMessage(this.currentTab.id, { type: 'PING' });
+      if (response?.loaded || response?.success) {
+        console.log('[Popup] Content script already loaded');
+        return;
+      }
+    } catch {
+      // Content script not loaded, continue to check permissions
+      console.log('[Popup] Content script not responding, will try to inject');
+    }
+
+    // Check if user has <all_urls> permission
+    let hasAllUrls = false;
+    try {
+      hasAllUrls = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+    } catch (e) {
+      console.log('[Popup] Could not check permissions:', e.message);
+      return;
+    }
+
+    if (!hasAllUrls) {
+      console.log('[Popup] No <all_urls> permission, cannot inject content script');
+      return;
+    }
+
+    // Inject the content script via service worker
+    console.log('[Popup] Injecting content script into tab:', this.currentTab.id);
+    try {
+      const result = await chrome.runtime.sendMessage({
+        action: 'INJECT_CONTENT_SCRIPT',
+        tabId: this.currentTab.id,
+      });
+      if (result.success) {
+        console.log('[Popup] ✓ Content script injected successfully');
+        // Show a toast on the page
+        setTimeout(async () => {
+          try {
+            await chrome.tabs.sendMessage(this.currentTab.id, {
+              type: 'SHOW_TOAST',
+              message: '✓ AssisT loaded on this page',
+            });
+          } catch {
+            // Toast failed, not critical
+          }
+        }, 500);
+      } else {
+        console.log('[Popup] Content script injection failed:', result.error);
+      }
+    } catch (error) {
+      console.error('[Popup] Error injecting content script:', error.message);
+    }
   }
 
   async loadSettings() {
