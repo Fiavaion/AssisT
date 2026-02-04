@@ -1572,6 +1572,119 @@ chrome.tabs.onActivated.addListener(async activeInfo => {
   }
 });
 
+// ========================================
+// AUTOMATIC CONTENT SCRIPT INJECTION
+// ========================================
+
+// LMS domains where content script is auto-injected via manifest
+const LMS_DOMAINS = [
+  'instructure.com',
+  'canvas.com',
+  'moodle.org',
+  'moodlecloud.com',
+  'classroom.google.com',
+  'docs.google.com',
+];
+
+/**
+ * Check if a URL is an LMS site (where content script auto-loads via manifest)
+ */
+function isLmsSite(url) {
+  if (!url) {
+    return false;
+  }
+  return LMS_DOMAINS.some(domain => url.includes(domain));
+}
+
+/**
+ * Check if a URL is a browser system page that can't have scripts injected
+ */
+function isSystemPage(url) {
+  if (!url) {
+    return true;
+  }
+  return (
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('edge://') ||
+    url.startsWith('about:') ||
+    url.startsWith('file://') ||
+    url.startsWith('devtools://')
+  );
+}
+
+/**
+ * Inject content script into a tab if user has <all_urls> permission
+ * and the tab is not an LMS site (which auto-loads via manifest)
+ */
+async function maybeInjectContentScript(tabId, url) {
+  // Skip system pages
+  if (isSystemPage(url)) {
+    return;
+  }
+
+  // Skip LMS sites - they auto-load via manifest
+  if (isLmsSite(url)) {
+    return;
+  }
+
+  // Check if user has <all_urls> permission
+  let hasAllUrls = false;
+  try {
+    hasAllUrls = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+  } catch {
+    return;
+  }
+
+  if (!hasAllUrls) {
+    return;
+  }
+
+  // Check if content script is already loaded
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+    if (response?.loaded || response?.success) {
+      console.log('[AssisT] Content script already loaded in tab:', tabId);
+      return;
+    }
+  } catch {
+    // Content script not loaded, proceed with injection
+  }
+
+  // Get content script path from manifest
+  const manifest = chrome.runtime.getManifest();
+  const contentScriptPath = manifest.content_scripts?.[0]?.js?.[0];
+  if (!contentScriptPath) {
+    console.error('[AssisT] Could not find content script path in manifest');
+    return;
+  }
+
+  // Inject the content script
+  try {
+    console.log('[AssisT] Auto-injecting content script into tab:', tabId, 'URL:', url);
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [contentScriptPath],
+    });
+    console.log('[AssisT] ✓ Content script auto-injected successfully');
+  } catch (error) {
+    console.log('[AssisT] Content script injection failed:', error.message);
+  }
+}
+
+/**
+ * Tab update listener - automatically inject content script on non-LMS sites
+ * when user has <all_urls> permission
+ */
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only inject when page has finished loading
+  if (changeInfo.status !== 'complete') {
+    return;
+  }
+
+  await maybeInjectContentScript(tabId, tab.url);
+});
+
 // Handle extension icon click (if popup is disabled)
 chrome.action.onClicked.addListener(async tab => {
   console.log('[AssisT] Extension icon clicked on tab:', tab.id);
@@ -1593,22 +1706,48 @@ chrome.action.onClicked.addListener(async tab => {
  * Content script injection happens on-demand from popup via INJECT_CONTENT_SCRIPT message.
  */
 
-// Listen for permission changes, show toast, then auto-reload
+// Listen for permission changes, inject content scripts, show toast
 chrome.permissions.onAdded.addListener(async permissions => {
   console.log('[AssisT] Permissions added:', permissions);
   if (permissions.origins?.includes('<all_urls>')) {
-    console.log('[AssisT] ✓ All-sites permission granted - showing toast and auto-reloading');
+    console.log('[AssisT] ✓ All-sites permission granted - injecting content scripts');
 
-    // Show toast then auto-reload
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tabs[0]?.id) {
-        const tabId = tabs[0].id;
+      // Get all open tabs and inject content script into non-LMS sites
+      const allTabs = await chrome.tabs.query({});
+      const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 
-        // Show toast with countdown
+      // Inject into all eligible tabs
+      for (const tab of allTabs) {
+        if (tab.id && tab.url && !isSystemPage(tab.url) && !isLmsSite(tab.url)) {
+          try {
+            // Get content script path from manifest
+            const manifest = chrome.runtime.getManifest();
+            const contentScriptPath = manifest.content_scripts?.[0]?.js?.[0];
+            if (contentScriptPath) {
+              await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: [contentScriptPath],
+              });
+              console.log('[AssisT] ✓ Content script injected into tab:', tab.id);
+            }
+          } catch (e) {
+            console.log('[AssisT] Could not inject into tab', tab.id, ':', e.message);
+          }
+        }
+      }
+
+      // Show success toast on active tab
+      if (activeTab?.id) {
         await chrome.scripting.executeScript({
-          target: { tabId },
+          target: { tabId: activeTab.id },
           func: () => {
+            // Remove any existing toast
+            const existing = document.getElementById('assist-permission-toast');
+            if (existing) {
+              existing.remove();
+            }
+
             const toast = document.createElement('div');
             toast.id = 'assist-permission-toast';
             toast.innerHTML = `
@@ -1629,16 +1768,7 @@ chrome.permissions.onAdded.addListener(async permissions => {
               ">
                 <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
                 <div style="font-size: 24px; font-weight: bold; margin-bottom: 12px;">Permission Granted!</div>
-                <div style="font-size: 18px; margin-bottom: 20px; opacity: 0.95;">AssisT can now work on all websites</div>
-                <div style="
-                  background: rgba(255,255,255,0.2);
-                  padding: 16px 24px;
-                  border-radius: 8px;
-                  font-size: 20px;
-                  font-weight: 600;
-                ">
-                  ⟳ Reloading page in <span id="assist-countdown">3</span>...
-                </div>
+                <div style="font-size: 18px; opacity: 0.95;">AssisT is now ready on all websites</div>
               </div>
               <div style="
                 position: fixed;
@@ -1648,7 +1778,7 @@ chrome.permissions.onAdded.addListener(async permissions => {
                 bottom: 0;
                 background: rgba(0, 0, 0, 0.5);
                 z-index: 2147483646;
-              "></div>
+              " onclick="this.parentElement.remove()"></div>
               <style>
                 @keyframes assistToastIn {
                   from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
@@ -1658,30 +1788,19 @@ chrome.permissions.onAdded.addListener(async permissions => {
             `;
             document.body.appendChild(toast);
 
-            // Countdown animation
-            let count = 3;
-            const countdownEl = document.getElementById('assist-countdown');
-            const interval = setInterval(() => {
-              count--;
-              if (countdownEl) {
-                countdownEl.textContent = count;
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+              const t = document.getElementById('assist-permission-toast');
+              if (t) {
+                t.remove();
               }
-              if (count <= 0) {
-                clearInterval(interval);
-              }
-            }, 1000);
+            }, 3000);
           },
         });
         console.log('[AssisT] ✓ Permission toast shown');
-
-        // Auto-reload after 3 seconds
-        setTimeout(() => {
-          chrome.tabs.reload(tabId);
-          console.log('[AssisT] ✓ Page auto-reloaded');
-        }, 3000);
       }
     } catch (error) {
-      console.log('[AssisT] Could not show toast:', error.message);
+      console.log('[AssisT] Permission handler error:', error.message);
     }
   }
 });
