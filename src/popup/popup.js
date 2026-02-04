@@ -2334,6 +2334,9 @@ class PopupController {
         }
       );
 
+      // Minimize UI Clutter toggle button
+      this.setupMinimizeClutterButton();
+
       console.log('[Popup][setupEventListeners] ✓ Event listener setup complete');
     } catch (error) {
       console.error('[Popup][setupEventListeners] ❌ FATAL ERROR during setup:', error);
@@ -2476,6 +2479,94 @@ class PopupController {
     }
 
     console.log('[Popup] Quick Start section initialized');
+  }
+
+  /**
+   * Setup Minimize UI Clutter toggle button in header
+   * Provides quick access to hide on-page overlays and notifications
+   */
+  setupMinimizeClutterButton() {
+    const btn = document.getElementById('btn-minimize-clutter');
+    if (!btn) {
+      console.log('[Popup] Minimize clutter button not found');
+      return;
+    }
+
+    // Initialize button state based on settings
+    const isActive = this.settings?.ui_overlay?.minimize_clutter === true;
+    this.updateMinimizeClutterButtonState(btn, isActive);
+
+    // Toggle handler
+    this.attachInteractiveHandler(btn, 'Minimize Clutter Toggle', () => {
+      const currentState = btn.classList.contains('active');
+      const newState = !currentState;
+
+      // Update button state
+      this.updateMinimizeClutterButtonState(btn, newState);
+
+      // Update settings
+      if (!this.settings.ui_overlay) {
+        this.settings.ui_overlay = {};
+      }
+      this.settings.ui_overlay.minimize_clutter = newState;
+
+      // Sync with modal checkbox if it exists
+      const modalCheckbox = document.getElementById('minimize-ui-clutter');
+      if (modalCheckbox) {
+        modalCheckbox.checked = newState;
+        // Also update the overlay controls in the modal
+        const overlayControls = document.getElementById('ui-overlay-controls');
+        if (overlayControls) {
+          overlayControls.style.opacity = newState ? '0.5' : '1';
+          overlayControls.style.pointerEvents = newState ? 'none' : 'auto';
+        }
+      }
+
+      // Save to storage
+      this.saveSettings();
+
+      // Update chrome.storage.local for content scripts
+      chrome.storage.local.set({
+        textStatsBadgeVisible: newState
+          ? false
+          : this.settings.ui_overlay.show_text_stats_badge !== false,
+        textStatsNotificationsEnabled: newState
+          ? false
+          : this.settings.ui_overlay.show_text_stats_notifications !== false,
+        featureNotificationsEnabled: newState
+          ? false
+          : this.settings.ui_overlay.show_feature_notifications !== false,
+        tokenCounterVisible: newState
+          ? false
+          : this.settings.ui_overlay.show_token_counter !== false,
+        readingProgressBadgeVisible: newState
+          ? false
+          : this.settings.ui_overlay.show_reading_progress_badge !== false,
+      });
+
+      // Show feedback
+      this.updateStatus(newState ? 'UI clutter minimized' : 'UI overlays restored');
+      console.log(`[Popup] Minimize UI Clutter: ${newState ? 'enabled' : 'disabled'}`);
+    });
+
+    console.log('[Popup] Minimize clutter button initialized');
+  }
+
+  /**
+   * Update the visual state of the minimize clutter button
+   * @param {HTMLElement} btn - The button element
+   * @param {boolean} isActive - Whether the button should be active
+   */
+  updateMinimizeClutterButtonState(btn, isActive) {
+    if (isActive) {
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
+      btn.title = 'Minimize UI Clutter (ON) - Click to show overlays';
+    } else {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'Minimize UI Clutter (OFF) - Click to hide overlays';
+    }
   }
 
   showAdvancedOptions() {
@@ -4654,6 +4745,12 @@ class PopupController {
         if (overlayControls) {
           overlayControls.style.opacity = e.target.checked ? '0.5' : '1';
           overlayControls.style.pointerEvents = e.target.checked ? 'none' : 'auto';
+        }
+
+        // Sync header button state
+        const headerBtn = document.getElementById('btn-minimize-clutter');
+        if (headerBtn) {
+          this.updateMinimizeClutterButtonState(headerBtn, e.target.checked);
         }
       });
     }
