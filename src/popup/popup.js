@@ -2337,6 +2337,9 @@ class PopupController {
       // Minimize UI Clutter toggle button
       this.setupMinimizeClutterButton();
 
+      // Popup Dark Mode toggle button
+      this.setupPopupDarkModeButton();
+
       console.log('[Popup][setupEventListeners] ✓ Event listener setup complete');
     } catch (error) {
       console.error('[Popup][setupEventListeners] ❌ FATAL ERROR during setup:', error);
@@ -2566,6 +2569,69 @@ class PopupController {
       btn.classList.remove('active');
       btn.setAttribute('aria-pressed', 'false');
       btn.title = 'Minimize UI Clutter (OFF) - Click to hide overlays';
+    }
+  }
+
+  /**
+   * Setup Popup Dark Mode toggle button in header
+   * Toggles dark mode theme for the extension popup UI
+   */
+  setupPopupDarkModeButton() {
+    const btn = document.getElementById('btn-popup-darkmode');
+    if (!btn) {
+      console.log('[Popup] Dark mode button not found');
+      return;
+    }
+
+    // Load saved dark mode state from storage (defaults to enabled)
+    chrome.storage.local.get(['popup_dark_mode'], result => {
+      // Default to dark mode if not explicitly set to false
+      const isDarkMode = result.popup_dark_mode !== false;
+      this.updatePopupDarkModeState(btn, isDarkMode);
+    });
+
+    // Toggle handler
+    this.attachInteractiveHandler(btn, 'Popup Dark Mode Toggle', () => {
+      const container = document.querySelector('.popup-container');
+      const currentState = container.classList.contains('dark-mode');
+      const newState = !currentState;
+
+      // Update UI state
+      this.updatePopupDarkModeState(btn, newState);
+
+      // Save to storage
+      chrome.storage.local.set({ popup_dark_mode: newState });
+
+      // Show feedback
+      this.updateStatus(newState ? 'Dark mode enabled' : 'Light mode enabled');
+      console.log(`[Popup] Popup Dark Mode: ${newState ? 'enabled' : 'disabled'}`);
+    });
+
+    console.log('[Popup] Dark mode button initialized');
+  }
+
+  /**
+   * Update the visual state of the popup dark mode button and apply theme
+   * @param {HTMLElement} btn - The button element
+   * @param {boolean} isDarkMode - Whether dark mode should be active
+   */
+  updatePopupDarkModeState(btn, isDarkMode) {
+    const container = document.querySelector('.popup-container');
+
+    if (isDarkMode) {
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
+      btn.title = 'Dark mode (ON) - Click for light mode';
+      btn.querySelector('.header-btn-icon').textContent = '☀️';
+      container.classList.add('dark-mode');
+      document.body.classList.add('dark-mode');
+    } else {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'Dark mode (OFF) - Click for dark mode';
+      btn.querySelector('.header-btn-icon').textContent = '🌙';
+      container.classList.remove('dark-mode');
+      document.body.classList.remove('dark-mode');
     }
   }
 

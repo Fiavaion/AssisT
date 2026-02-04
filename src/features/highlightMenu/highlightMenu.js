@@ -48,6 +48,9 @@ const highlightMenu_settings = {
   showMultiDocCompare: true, // Multi-document comparison
   showStudyPath: true, // Study path generator
   autoHideDelay: 5000, // milliseconds
+  // AI mode states - loaded from storage on init
+  llmEnabled: false, // Local AI (Ollama) enabled
+  cloudModeEnabled: false, // Cloud AI enabled
 };
 
 // ============================================================================
