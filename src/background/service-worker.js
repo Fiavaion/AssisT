@@ -169,6 +169,7 @@ chrome.runtime.onInstalled.addListener(async details => {
     console.log('[AssisT] Extension updated from', details.previousVersion);
 
     // SECURITY: Migrate legacy plain-text API keys and auto-rotate if needed
+    // Note: This is a best-effort operation - may not work in all service worker contexts
     try {
       const { migrateLegacyKeys, autoRotateIfNeeded } = await import(
         '../core/storage/secure-key-storage.js'
@@ -186,7 +187,13 @@ chrome.runtime.onInstalled.addListener(async details => {
         console.log(`[AssisT] Auto-rotated ${rotationResult.keysRotated} credentials`);
       }
     } catch (err) {
-      console.error('[AssisT] Security initialization failed:', err.message);
+      // This can fail in service worker context if the module uses browser-only APIs
+      // It's not critical - security features will work when accessed from popup/content scripts
+      if (err.message?.includes('window') || err.message?.includes('document')) {
+        console.log('[AssisT] Security module uses browser APIs - will initialize in page context');
+      } else {
+        console.warn('[AssisT] Security initialization skipped:', err.message);
+      }
     }
   }
 

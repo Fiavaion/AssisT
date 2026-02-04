@@ -3241,6 +3241,36 @@ body {
   color: white;
 }
 
+/* Shortcut Card Actions Container */
+.shortcut-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Clear/Delete Shortcut Button */
+.shortcut-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.shortcut-clear-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
 /* Shortcuts Actions */
 .shortcuts-actions {
   display: flex;
@@ -3395,4 +3425,898 @@ body {
   display: flex;
   gap: 10px;
   justify-content: center;
+}
+
+/* ============================================ */
+/* EXTENSION POPUP DARK MODE                    */
+/* Uses header color #223b56 as base            */
+/* ============================================ */
+
+/* Dark Mode Button States */
+#btn-popup-darkmode {
+  transition: all 0.2s ease;
+}
+
+#btn-popup-darkmode.active {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+#btn-popup-darkmode.active .header-btn-icon {
+  filter: brightness(1.2);
+}
+
+/* Dark Mode Theme Variables */
+.popup-container.dark-mode {
+  --dm-bg-primary: #223b56;
+  --dm-bg-secondary: #1a2d42;
+  --dm-bg-tertiary: #2d4a66;
+  --dm-bg-surface: #1e3449;
+  --dm-text-primary: #e8ecf1;
+  --dm-text-secondary: #a8b8c8;
+  --dm-border: #3d5a7a;
+  --dm-border-light: #2d4a66;
+  --dm-accent: #5b9bd5;
+  --dm-accent-light: rgba(91, 155, 213, 0.2);
+}
+
+/* Dark Mode Body & Container */
+.popup-container.dark-mode {
+  background: var(--dm-bg-primary);
+}
+
+.popup-container.dark-mode body,
+body.dark-mode {
+  background: var(--dm-bg-primary);
+  color: var(--dm-text-primary);
+}
+
+/* Dark Mode Header - matches existing header color */
+.popup-container.dark-mode .popup-header {
+  background: var(--dm-bg-secondary);
+  border-bottom: 1px solid var(--dm-border-light);
+}
+
+/* Dark Mode Main Content */
+.popup-container.dark-mode .popup-main {
+  background: var(--dm-bg-primary);
+}
+
+/* Dark Mode Footer */
+.popup-container.dark-mode .popup-footer {
+  background: var(--dm-bg-secondary);
+  border-top: 1px solid var(--dm-border);
+}
+
+.popup-container.dark-mode .footer-link {
+  color: var(--dm-text-secondary);
+}
+
+.popup-container.dark-mode .footer-link:hover {
+  color: var(--dm-accent);
+}
+
+/* Dark Mode Accordion Sections */
+.popup-container.dark-mode .accordion-section {
+  background: var(--dm-bg-surface);
+  border-color: var(--dm-border);
+}
+
+.popup-container.dark-mode .accordion-header {
+  background: linear-gradient(135deg, var(--dm-bg-tertiary) 0%, var(--dm-bg-surface) 100%);
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .accordion-header:hover {
+  background: linear-gradient(135deg, var(--dm-bg-tertiary) 0%, rgba(91, 155, 213, 0.15) 100%);
+}
+
+.popup-container.dark-mode .accordion-header[aria-expanded='true'] {
+  background: linear-gradient(135deg, var(--dm-accent-light) 0%, var(--dm-bg-surface) 100%);
+  border-bottom-color: var(--dm-border);
+}
+
+.popup-container.dark-mode .accordion-content {
+  background: var(--dm-bg-surface);
+}
+
+.popup-container.dark-mode .accordion-icon {
+  color: var(--dm-text-secondary);
+}
+
+.popup-container.dark-mode .accordion-header[aria-expanded='true'] .accordion-icon {
+  color: var(--dm-accent);
+}
+
+/* Dark Mode Control Sections */
+.popup-container.dark-mode .control-section {
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .section-title {
+  color: var(--dm-text-secondary);
+}
+
+.popup-container.dark-mode .control-value {
+  color: var(--dm-accent);
+}
+
+/* Dark Mode Toggle Controls */
+.popup-container.dark-mode .toggle-control {
+  background: var(--dm-bg-tertiary);
+}
+
+.popup-container.dark-mode .label-text {
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .toggle-slider {
+  background-color: var(--dm-border);
+  border-color: var(--dm-border-light);
+}
+
+.popup-container.dark-mode .toggle-switch input:checked + .toggle-slider {
+  background-color: var(--dm-accent);
+}
+
+/* Dark Mode Buttons */
+.popup-container.dark-mode .control-btn {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .control-btn:hover:not(:disabled) {
+  border-color: var(--dm-accent);
+  background: var(--dm-accent-light);
+}
+
+.popup-container.dark-mode .control-btn.primary {
+  background: var(--dm-accent);
+  border-color: var(--dm-accent);
+  color: white;
+}
+
+/* Dark Mode Selects & Inputs */
+.popup-container.dark-mode .voice-select,
+.popup-container.dark-mode select {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .voice-select:hover,
+.popup-container.dark-mode select:hover {
+  border-color: var(--dm-accent);
+}
+
+/* Dark Mode Sliders */
+.popup-container.dark-mode .slider {
+  background: var(--dm-border);
+  border-color: var(--dm-border-light);
+}
+
+.popup-container.dark-mode .slider::-webkit-slider-thumb {
+  background: var(--dm-accent);
+}
+
+.popup-container.dark-mode .slider::-moz-range-thumb {
+  background: var(--dm-accent);
+}
+
+.popup-container.dark-mode .slider-labels {
+  color: var(--dm-text-secondary);
+}
+
+/* Dark Mode Feature Description */
+.popup-container.dark-mode .feature-description {
+  color: var(--dm-text-secondary);
+}
+
+/* Dark Mode Subsections */
+.popup-container.dark-mode .control-subsection {
+  background: rgba(91, 155, 213, 0.05);
+  border-left-color: var(--dm-accent);
+}
+
+.popup-container.dark-mode .subsection-title {
+  color: var(--dm-text-secondary);
+}
+
+/* Dark Mode Status Indicator */
+.popup-container.dark-mode .status-indicator {
+  background: var(--dm-accent);
+}
+
+/* Dark Mode Preset Buttons */
+.popup-container.dark-mode .preset-btn {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .preset-btn:hover {
+  border-color: var(--dm-accent);
+  background: var(--dm-accent-light);
+}
+
+.popup-container.dark-mode .preset-btn.active {
+  background: var(--dm-accent);
+  border-color: var(--dm-accent);
+  color: white;
+}
+
+/* Dark Mode Quick Start Section */
+.popup-container.dark-mode .quick-start-section {
+  background: linear-gradient(135deg, var(--dm-bg-secondary) 0%, var(--dm-bg-tertiary) 100%);
+  border-bottom-color: var(--dm-border);
+}
+
+.popup-container.dark-mode .quick-start-title {
+  color: var(--dm-accent);
+}
+
+.popup-container.dark-mode .quick-start-subtitle {
+  color: var(--dm-text-secondary);
+}
+
+.popup-container.dark-mode .quick-start-btn {
+  background: var(--dm-bg-surface);
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.popup-container.dark-mode .quick-start-btn:hover {
+  border-color: var(--dm-accent);
+  box-shadow: 0 4px 12px rgba(91, 155, 213, 0.3);
+}
+
+.popup-container.dark-mode .quick-start-label {
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .quick-start-hint {
+  color: var(--dm-text-secondary);
+}
+
+.popup-container.dark-mode .quick-start-hint a {
+  color: var(--dm-accent);
+}
+
+/* Dark Mode Profile Section */
+.popup-container.dark-mode .profile-section {
+  background: var(--dm-bg-secondary);
+  border-bottom-color: var(--dm-border);
+}
+
+.popup-container.dark-mode .profile-label {
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .profile-select {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .profile-action-btn {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+.popup-container.dark-mode .profile-action-btn:hover {
+  border-color: var(--dm-accent);
+  background: var(--dm-accent-light);
+}
+
+/* Dark Mode Permission Banner */
+.popup-container.dark-mode .permission-banner {
+  background: linear-gradient(135deg, #2d4a3a, #3a5a4a);
+  border-bottom-color: #4a7a5a;
+}
+
+.popup-container.dark-mode .permission-text strong {
+  color: #e8f5e9;
+}
+
+.popup-container.dark-mode .permission-desc {
+  color: #c8e6c9;
+}
+
+.popup-container.dark-mode .permission-note {
+  color: #a5d6a7;
+}
+
+.popup-container.dark-mode .permission-icon {
+  color: #81c784;
+}
+
+/* Dark Mode Scrollbar */
+.popup-container.dark-mode .popup-main::-webkit-scrollbar-track {
+  background: var(--dm-bg-secondary);
+}
+
+.popup-container.dark-mode .popup-main::-webkit-scrollbar-thumb {
+  background: var(--dm-border);
+}
+
+.popup-container.dark-mode .popup-main::-webkit-scrollbar-thumb:hover {
+  background: var(--dm-text-secondary);
+}
+
+/* ============================================ */
+/* DARK MODE: ADVANCED OPTIONS MODAL           */
+/* Modal is appended to body, so use body.dark-mode */
+/* ============================================ */
+
+/* Dark mode variables for body-level elements */
+body.dark-mode {
+  --dm-bg-primary: #223b56;
+  --dm-bg-secondary: #1a2d42;
+  --dm-bg-tertiary: #2d4a66;
+  --dm-bg-surface: #1e3449;
+  --dm-text-primary: #e8ecf1;
+  --dm-text-secondary: #a8b8c8;
+  --dm-border: #3d5a7a;
+  --dm-border-light: #2d4a66;
+  --dm-accent: #5b9bd5;
+  --dm-accent-light: rgba(91, 155, 213, 0.2);
+}
+
+/* Modal Overlay */
+body.dark-mode .modal-overlay {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+/* Modal Content */
+body.dark-mode .modal-content {
+  background: var(--dm-bg-surface);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Modal Header */
+body.dark-mode .modal-header {
+  background: linear-gradient(135deg, var(--dm-bg-secondary) 0%, var(--dm-bg-tertiary) 100%);
+  border-bottom-color: var(--dm-border);
+}
+
+body.dark-mode .modal-header h2 {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .modal-close-btn {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--dm-text-primary);
+}
+
+/* Modal Tabs */
+body.dark-mode .modal-tabs {
+  background: var(--dm-bg-secondary);
+  border-bottom-color: var(--dm-border);
+}
+
+body.dark-mode .modal-tab {
+  color: var(--dm-text-secondary);
+  border-bottom-color: transparent;
+}
+
+body.dark-mode .modal-tab:hover {
+  background: rgba(91, 155, 213, 0.1);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .modal-tab.active {
+  color: var(--dm-accent);
+  border-bottom-color: var(--dm-accent);
+  background: var(--dm-bg-surface);
+}
+
+/* Modal Body */
+body.dark-mode .modal-body {
+  background: var(--dm-bg-surface);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .modal-body h3 {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .tab-description {
+  color: var(--dm-text-secondary);
+}
+
+/* Feature List */
+body.dark-mode .feature-list {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .feature-item {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .feature-item:hover:not(.disabled) {
+  background: var(--dm-accent-light);
+}
+
+body.dark-mode .feature-label span:nth-child(2) {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .feature-section-header {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .feature-note {
+  background: rgba(91, 155, 213, 0.1);
+  border-left-color: var(--dm-accent);
+}
+
+body.dark-mode .feature-note p {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .feature-note strong {
+  color: var(--dm-text-primary);
+}
+
+/* Shortcut List */
+body.dark-mode .shortcut-item {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .shortcut-key {
+  background: var(--dm-bg-secondary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .shortcut-desc {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .shortcut-section {
+  border-top-color: var(--dm-border);
+  color: var(--dm-text-secondary);
+}
+
+/* Appearance Options */
+body.dark-mode .option-group > label {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .option-control {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .option-desc {
+  color: var(--dm-text-secondary);
+}
+
+/* Modal Footer */
+body.dark-mode .modal-footer {
+  background: var(--dm-bg-secondary);
+  border-top-color: var(--dm-border);
+}
+
+body.dark-mode .modal-btn-secondary {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .modal-btn-secondary:hover {
+  border-color: var(--dm-text-secondary);
+  background: var(--dm-bg-primary);
+}
+
+body.dark-mode .modal-btn-primary {
+  background: var(--dm-accent);
+}
+
+body.dark-mode .modal-btn-primary:hover {
+  background: #4a8ac4;
+}
+
+/* Modal Body Scrollbar */
+body.dark-mode .modal-body::-webkit-scrollbar-track {
+  background: var(--dm-bg-secondary);
+}
+
+body.dark-mode .modal-body::-webkit-scrollbar-thumb {
+  background: var(--dm-border);
+}
+
+body.dark-mode .modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--dm-text-secondary);
+}
+
+/* Modal Inputs & Selects */
+body.dark-mode .modal-input,
+body.dark-mode .modal-overlay input[type='text'],
+body.dark-mode .modal-overlay input[type='password'],
+body.dark-mode .modal-overlay select {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .modal-input:hover,
+body.dark-mode .modal-overlay input[type='text']:hover,
+body.dark-mode .modal-overlay select:hover {
+  border-color: var(--dm-accent);
+}
+
+body.dark-mode .modal-input:focus,
+body.dark-mode .modal-overlay input[type='text']:focus,
+body.dark-mode .modal-overlay select:focus {
+  border-color: var(--dm-accent);
+  outline-color: var(--dm-accent);
+}
+
+body.dark-mode .modal-label {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .modal-description {
+  color: var(--dm-text-secondary);
+}
+
+/* Shortcut Cards (Keyboard Tab) */
+body.dark-mode .shortcuts-grid {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .shortcut-card {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .shortcut-card:hover {
+  border-color: var(--dm-accent);
+  background: var(--dm-accent-light);
+}
+
+body.dark-mode .shortcut-name {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .shortcut-category {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .shortcut-edit-btn {
+  background: var(--dm-bg-secondary);
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .shortcut-edit-btn:hover {
+  background: var(--dm-accent);
+  color: white;
+}
+
+body.dark-mode .shortcut-clear-btn {
+  color: var(--dm-text-tertiary);
+}
+
+body.dark-mode .shortcut-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+body.dark-mode .shortcuts-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-left-color: #f59e0b;
+}
+
+body.dark-mode .warning-text {
+  color: #fbbf24;
+}
+
+body.dark-mode .shortcuts-preset-label {
+  color: var(--dm-text-primary);
+}
+
+/* Recording Overlay */
+body.dark-mode .recording-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+body.dark-mode .recording-box {
+  background: var(--dm-bg-surface);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .recording-title {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .recording-subtitle {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .modifier-key {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .modifier-key.active {
+  background: var(--dm-accent);
+  border-color: var(--dm-accent);
+  color: white;
+}
+
+body.dark-mode .recording-label {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .shortcut-display {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .recording-new .shortcut-display {
+  border-color: var(--dm-accent);
+  background: var(--dm-accent-light);
+}
+
+body.dark-mode .recording-error {
+  color: #f87171;
+}
+
+/* Profiles Tab */
+body.dark-mode .profile-select-modal {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .profile-description-modal {
+  background: var(--dm-bg-tertiary);
+  border-left-color: var(--dm-accent);
+}
+
+body.dark-mode .profile-description-modal p {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .profile-btn-secondary {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .profile-btn-secondary:hover {
+  background: var(--dm-accent-light);
+  border-color: var(--dm-accent);
+}
+
+body.dark-mode .profile-io-modal,
+body.dark-mode .profile-presets-modal {
+  border-top-color: var(--dm-border);
+}
+
+body.dark-mode .profile-io-modal h4,
+body.dark-mode .profile-presets-modal h4 {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .preset-item {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .preset-item:hover {
+  background: var(--dm-accent-light);
+}
+
+body.dark-mode .preset-info strong {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .preset-info span {
+  color: var(--dm-text-secondary);
+}
+
+/* AI Tab - LLM Styles */
+body.dark-mode .ai-mode-selector {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .ai-mode-label {
+  background: transparent;
+  border-color: var(--dm-border);
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .ai-mode-option:hover .ai-mode-label {
+  background: var(--dm-accent-light);
+  border-color: var(--dm-accent);
+}
+
+body.dark-mode .ai-mode-option input[type='radio']:checked + .ai-mode-label {
+  background: var(--dm-accent);
+  border-color: var(--dm-accent);
+  color: white;
+}
+
+body.dark-mode .llm-status-panel {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .llm-status-label {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .llm-status-value {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .llm-vram-section {
+  background: linear-gradient(135deg, var(--dm-bg-tertiary) 0%, var(--dm-bg-secondary) 100%);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .vram-tier-dropdown {
+  background: var(--dm-bg-surface);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .vram-tier-description {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .vram-quality {
+  color: var(--dm-accent);
+}
+
+body.dark-mode .vram-models {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .llm-model-item {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .llm-model-name {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .llm-model-size {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .llm-privacy-box {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border-color: #10b981;
+}
+
+body.dark-mode .llm-privacy-text {
+  color: #6ee7b7;
+}
+
+body.dark-mode .llm-progress {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .llm-progress-label {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .llm-progress-bar {
+  background: var(--dm-border);
+}
+
+/* Preferences Tab - Layout Mode Preview & UI Overlay Sections */
+/* These have inline styles that need !important to override */
+body.dark-mode .layout-mode-preview {
+  background: var(--dm-bg-tertiary) !important;
+  border-color: var(--dm-border) !important;
+}
+
+body.dark-mode .layout-mode-preview strong {
+  color: var(--dm-text-primary) !important;
+}
+
+body.dark-mode #layout-sections-preview {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode #layout-sections-preview span {
+  background: var(--dm-bg-secondary) !important;
+  color: var(--dm-text-primary) !important;
+  border-color: var(--dm-border) !important;
+}
+
+body.dark-mode .layout-mode-description {
+  color: var(--dm-text-secondary) !important;
+}
+
+body.dark-mode .preferences-section {
+  border-top-color: var(--dm-border) !important;
+}
+
+body.dark-mode .preferences-section h4 {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .preferences-section > p {
+  color: var(--dm-text-secondary) !important;
+}
+
+/* UI Overlay Visibility - Global Toggle Box */
+body.dark-mode .preferences-section .option-group {
+  background: var(--dm-bg-tertiary) !important;
+}
+
+body.dark-mode .preferences-section .option-group > label {
+  color: var(--dm-text-primary) !important;
+}
+
+body.dark-mode .preferences-section .option-control label {
+  color: var(--dm-text-secondary);
+}
+
+/* UI Overlay individual checkboxes */
+body.dark-mode #ui-overlay-controls {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode #ui-overlay-controls .option-group {
+  background: transparent !important;
+}
+
+body.dark-mode #ui-overlay-controls label {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode #ui-overlay-controls .option-desc {
+  color: var(--dm-text-secondary);
+}
+
+/* AI Tab - Model Preferences Section */
+body.dark-mode .option-group-label {
+  color: var(--dm-text-primary) !important;
+}
+
+body.dark-mode #model-preferences-group .feature-description {
+  color: var(--dm-text-secondary) !important;
+}
+
+body.dark-mode .model-preference-row {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .model-pref-label {
+  color: var(--dm-text-primary) !important;
+}
+
+body.dark-mode .model-pref-select {
+  background: var(--dm-bg-tertiary) !important;
+  border-color: var(--dm-border) !important;
+  color: var(--dm-text-primary) !important;
+}
+
+body.dark-mode .model-pref-select:hover {
+  border-color: var(--dm-accent) !important;
+}
+
+/* AI Tab - general styling for option groups */
+body.dark-mode #tab-ai .option-group {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode #tab-ai .option-group label {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode #tab-ai p {
+  color: var(--dm-text-secondary);
 }

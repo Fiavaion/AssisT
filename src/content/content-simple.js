@@ -550,9 +550,16 @@ function readText(text, element) {
 
     // Handle errors
     currentUtterance.onerror = event => {
-      console.error('[AssisT][readText] >>> UTTERANCE ONERROR <<<');
-      console.error('[AssisT][readText] Error type:', event.error);
-      console.error('[AssisT][readText] Full event:', event);
+      // "interrupted" and "canceled" are normal events (user stopped TTS or started new speech)
+      const benignErrors = ['interrupted', 'canceled'];
+      const isBenign = benignErrors.includes(event.error);
+
+      if (isBenign) {
+        console.log('[AssisT][readText] Speech stopped:', event.error);
+      } else {
+        console.warn('[AssisT][readText] Speech error:', event.error);
+      }
+
       cleanupWordByWord(currentElement);
       removeHighlight();
       removeElementHighlight(currentElement);
@@ -1397,9 +1404,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'UPDATE_SETTINGS':
+      // Handle settings broadcast from message-router (background script)
+      // This is sent when popup updates settings and background broadcasts to content scripts
+      console.log('[AssisT] Settings update received from background');
+      if (message.settings) {
+        // Settings are handled by chrome.storage.onChanged listener
+        // This message is just a notification that settings were updated
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: true, note: 'No settings in message' });
+      }
+      break;
+
     default:
-      console.warn('[AssisT] Unknown message type:', message.type);
-      sendResponse({ success: false, error: 'Unknown message type' });
+      // Handle undefined or unknown message types gracefully
+      if (message.type === undefined) {
+        // Silently ignore messages without a type (e.g., from other extensions or browser)
+        console.log('[AssisT] Ignoring message without type property');
+        sendResponse({ success: true, ignored: true });
+      } else {
+        console.warn('[AssisT] Unknown message type:', message.type);
+        sendResponse({ success: false, error: 'Unknown message type' });
+      }
   }
 
   return true; // Keep message channel open for async response
