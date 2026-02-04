@@ -262,6 +262,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // Handle on-demand content script injection for non-LMS sites
+  if (message.action === 'INJECT_CONTENT_SCRIPT') {
+    const tabId = message.tabId;
+    console.log('[AssisT] INJECT_CONTENT_SCRIPT requested for tab:', tabId);
+
+    // Get the content script loader path from manifest
+    const manifest = chrome.runtime.getManifest();
+    let contentScriptPath = null;
+    if (manifest.content_scripts && manifest.content_scripts[0]?.js?.[0]) {
+      contentScriptPath = manifest.content_scripts[0].js[0];
+    }
+
+    if (!contentScriptPath) {
+      console.error('[AssisT] Could not find content script path in manifest');
+      sendResponse({ success: false, error: 'Content script path not found' });
+      return false;
+    }
+
+    console.log('[AssisT] Injecting content script:', contentScriptPath);
+
+    chrome.scripting
+      .executeScript({
+        target: { tabId: tabId },
+        files: [contentScriptPath],
+      })
+      .then(() => {
+        console.log('[AssisT] ✓ Content script injected successfully');
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error('[AssisT] Content script injection failed:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
+
+    return true; // Keep channel open for async response
+  }
+
   // Handle generic tab opening (with custom URL)
   if (message.action === 'openTab' && message.url) {
     // SECURITY: Validate URL to prevent open redirect attacks
@@ -543,6 +580,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(status => sendResponse({ success: true, ...status }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
+  }
+
+  // Handle LLM mode change notifications (informational only, storage already updated by popup)
+  if (message.action === 'LOCAL_LLM_MODE_CHANGED') {
+    console.log('[AssisT] Local LLM mode changed:', message.enabled ? 'enabled' : 'disabled');
+    sendResponse({ success: true });
+    return false;
+  }
+
+  if (message.action === 'CLOUD_MODE_CHANGED') {
+    console.log('[AssisT] Cloud mode changed:', message.enabled ? 'enabled' : 'disabled');
+    sendResponse({ success: true });
+    return false;
   }
 
   // Set VRAM tier (Demo Mode)
@@ -1493,20 +1543,26 @@ async function getOllamaModels() {
 
 // Tab activation listener for context-aware features
 chrome.tabs.onActivated.addListener(async activeInfo => {
-  const tab = await chrome.tabs.get(activeInfo.tabId);
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
 
-  // Skip browser system pages
-  if (
-    tab.url &&
-    (tab.url.startsWith('chrome://') ||
-      tab.url.startsWith('chrome-extension://') ||
-      tab.url.startsWith('edge://') ||
-      tab.url.startsWith('about:'))
-  ) {
-    return;
+    // Skip browser system pages
+    if (
+      tab.url &&
+      (tab.url.startsWith('chrome://') ||
+        tab.url.startsWith('chrome-extension://') ||
+        tab.url.startsWith('edge://') ||
+        tab.url.startsWith('about:'))
+    ) {
+      return;
+    }
+
+    console.log('[AssisT] Tab activated:', tab.id);
+    // Content script injection is now handled by dynamic registration
+    // via chrome.scripting.registerContentScripts()
+  } catch (error) {
+    console.log('[AssisT] Tab activation error:', error.message);
   }
-
-  console.log('[AssisT] Tab activated:', tab.id);
 });
 
 // Handle extension icon click (if popup is disabled)
@@ -1517,6 +1573,114 @@ chrome.action.onClicked.addListener(async tab => {
   chrome.tabs.sendMessage(tab.id, {
     type: 'TOGGLE_ASSIST_PANEL',
   });
+});
+
+// ========================================
+// PERMISSION HANDLING
+// ========================================
+
+/**
+ * Permission Change Handlers
+ *
+ * Simple approach: Permission grant just logs success.
+ * Content script injection happens on-demand from popup via INJECT_CONTENT_SCRIPT message.
+ */
+
+// Listen for permission changes, show toast, then auto-reload
+chrome.permissions.onAdded.addListener(async permissions => {
+  console.log('[AssisT] Permissions added:', permissions);
+  if (permissions.origins?.includes('<all_urls>')) {
+    console.log('[AssisT] ✓ All-sites permission granted - showing toast and auto-reloading');
+
+    // Show toast then auto-reload
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]?.id) {
+        const tabId = tabs[0].id;
+
+        // Show toast with countdown
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          func: () => {
+            const toast = document.createElement('div');
+            toast.id = 'assist-permission-toast';
+            toast.innerHTML = `
+              <div style="
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white;
+                padding: 32px 48px;
+                border-radius: 16px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                z-index: 2147483647;
+                text-align: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                animation: assistToastIn 0.3s ease-out;
+              ">
+                <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+                <div style="font-size: 24px; font-weight: bold; margin-bottom: 12px;">Permission Granted!</div>
+                <div style="font-size: 18px; margin-bottom: 20px; opacity: 0.95;">AssisT can now work on all websites</div>
+                <div style="
+                  background: rgba(255,255,255,0.2);
+                  padding: 16px 24px;
+                  border-radius: 8px;
+                  font-size: 20px;
+                  font-weight: 600;
+                ">
+                  ⟳ Reloading page in <span id="assist-countdown">3</span>...
+                </div>
+              </div>
+              <div style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2147483646;
+              "></div>
+              <style>
+                @keyframes assistToastIn {
+                  from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+                  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                }
+              </style>
+            `;
+            document.body.appendChild(toast);
+
+            // Countdown animation
+            let count = 3;
+            const countdownEl = document.getElementById('assist-countdown');
+            const interval = setInterval(() => {
+              count--;
+              if (countdownEl) {
+                countdownEl.textContent = count;
+              }
+              if (count <= 0) {
+                clearInterval(interval);
+              }
+            }, 1000);
+          },
+        });
+        console.log('[AssisT] ✓ Permission toast shown');
+
+        // Auto-reload after 3 seconds
+        setTimeout(() => {
+          chrome.tabs.reload(tabId);
+          console.log('[AssisT] ✓ Page auto-reloaded');
+        }, 3000);
+      }
+    } catch (error) {
+      console.log('[AssisT] Could not show toast:', error.message);
+    }
+  }
+});
+
+chrome.permissions.onRemoved.addListener(permissions => {
+  console.log('[AssisT] Permissions removed:', permissions);
 });
 
 console.log('[AssisT] Background service worker initialized');
