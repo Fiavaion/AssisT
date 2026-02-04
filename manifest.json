@@ -68,13 +68,13 @@
     },
     {
       "resources": [
-        "src/content/content-simple.js",
-        "src/ui/components/*.js",
         "src/ui/styles/*.css",
-        "public/assets/*",
         "public/icons/*",
+        "src/engines/stt/stt-controller.js",
+        "src/ui/components/microphone-button.js",
+        "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
         "assets/*.js",
-        "assets/*.js.map"
+        "assets/*.css"
       ],
       "matches": [
         "<all_urls>"

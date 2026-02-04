@@ -3916,10 +3916,16 @@
     <!-- ============================================================ -->
 
     <!-- Save Profile Modal -->
-    <div id="save-profile-modal" class="modal hidden">
+    <div
+      id="save-profile-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="save-profile-title"
+    >
       <div class="modal-overlay"></div>
       <div class="modal-content">
-        <h2 class="modal-title">Save Current Settings as Profile</h2>
+        <h2 id="save-profile-title" class="modal-title">Save Current Settings as Profile</h2>
         <div class="modal-body">
           <label for="profile-name-input" class="modal-label">Profile Name:</label>
           <input
@@ -3961,10 +3967,16 @@
     </div>
 
     <!-- Delete Profile Modal -->
-    <div id="delete-profile-modal" class="modal hidden">
+    <div
+      id="delete-profile-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-profile-title"
+    >
       <div class="modal-overlay"></div>
       <div class="modal-content">
-        <h2 class="modal-title">Delete Profile?</h2>
+        <h2 id="delete-profile-title" class="modal-title">Delete Profile?</h2>
         <div class="modal-body">
           <p class="modal-description">
             Are you sure you want to delete "<span id="delete-profile-name"></span>"?
@@ -4000,10 +4012,16 @@
     />
 
     <!-- Migration Modal -->
-    <div id="migration-modal" class="modal hidden">
+    <div
+      id="migration-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="migration-title"
+    >
       <div class="modal-overlay"></div>
       <div class="modal-content">
-        <h2 class="modal-title">Migrating Annotations</h2>
+        <h2 id="migration-title" class="modal-title">Migrating Annotations</h2>
         <div class="modal-body">
           <p id="migration-message" class="modal-description">Preparing migration...</p>
           <div class="migration-progress-container" style="margin: 16px 0">

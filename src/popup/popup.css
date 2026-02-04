@@ -408,14 +408,14 @@ body {
 
 .toggle-switch {
   position: relative;
-  width: 42px;
-  height: 22px;
+  width: 48px; /* WCAG 2.2 SC 2.5.8: Increased from 42px for comfortable touch targeting */
+  height: 26px; /* WCAG 2.2 SC 2.5.8: Increased from 22px for comfortable touch targeting */
 }
 
 .toggle-switch input {
   opacity: 0;
-  width: 42px;
-  height: 22px;
+  width: 48px;
+  height: 26px;
   position: absolute;
   top: 0;
   left: 0;
@@ -434,16 +434,16 @@ body {
   background-color: #9e9e9e; /* WCAG 2.2 SC 1.4.11: 3.0:1 contrast for inactive state */
   border: 1px solid var(--border);
   transition: var(--transition);
-  border-radius: 24px;
+  border-radius: 26px; /* Updated to match new height */
 }
 
 .toggle-slider:before {
   position: absolute;
   content: '';
-  height: 16px;
-  width: 16px;
-  left: 3px;
-  bottom: 3px;
+  height: 18px; /* Scaled proportionally with switch height */
+  width: 18px; /* Scaled proportionally with switch width */
+  left: 4px;
+  bottom: 4px;
   background-color: white;
   transition: var(--transition);
   border-radius: 50%;
@@ -454,7 +454,7 @@ body {
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(20px);
+  transform: translateX(24px); /* Updated for new switch width */
 }
 
 .toggle-switch input:focus + .toggle-slider {
@@ -572,8 +572,8 @@ body {
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 20px; /* WCAG 2.2 SC 2.5.8: Increased from 16px for better touch targeting */
+  height: 20px; /* WCAG 2.2 SC 2.5.8: Increased from 16px for better touch targeting */
   border-radius: 50%;
   background: var(--primary-color);
   cursor: pointer;
@@ -583,8 +583,8 @@ body {
 }
 
 .slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 20px; /* WCAG 2.2 SC 2.5.8: Increased from 16px for better touch targeting */
+  height: 20px; /* WCAG 2.2 SC 2.5.8: Increased from 16px for better touch targeting */
   border-radius: 50%;
   background: var(--primary-color);
   cursor: pointer;
