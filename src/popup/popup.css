@@ -2043,6 +2043,28 @@ body {
   transform: scale(0.98);
 }
 
+/* Dev Badge for Gemini Nano */
+.dev-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--warning-color);
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid var(--warning-color);
+  border-radius: 4px;
+  vertical-align: middle;
+  text-transform: uppercase;
+}
+
+.ai-mode-option input[type='radio']:checked + .ai-mode-label .dev-badge {
+  color: white;
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 /* AI Mode Container (Content Visibility) */
 .ai-mode-container {
   max-height: 2000px;
@@ -4143,6 +4165,18 @@ body.dark-mode .ai-mode-option input[type='radio']:checked + .ai-mode-label {
   background: var(--dm-accent);
   border-color: var(--dm-accent);
   color: white;
+}
+
+body.dark-mode .dev-badge {
+  color: var(--warning-color);
+  background: rgba(251, 191, 36, 0.2);
+  border-color: var(--warning-color);
+}
+
+body.dark-mode .ai-mode-option input[type='radio']:checked + .ai-mode-label .dev-badge {
+  color: white;
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 body.dark-mode .llm-status-panel {
