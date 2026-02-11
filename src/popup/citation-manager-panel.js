@@ -930,6 +930,17 @@ export class CitationManagerPanel {
         .join('')
     );
 
+    // Handle favicon load errors (CSP-compliant - no inline handlers)
+    list.querySelectorAll('.citation-favicon').forEach(img => {
+      img.addEventListener('error', () => {
+        img.src =
+          'data:image/svg+xml,' +
+          encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📄</text></svg>'
+          );
+      });
+    });
+
     // Attach delegated handlers to cards
     attachDelegatedHandler(list, '.citation-card', 'Citation Card', (e, card) => {
       const index = Array.from(list.querySelectorAll('.citation-card')).indexOf(card);
@@ -967,7 +978,6 @@ export class CitationManagerPanel {
         <img class="citation-favicon"
              src="${faviconUrl}"
              alt=""
-             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>'"
         />
         <div class="citation-info">
           <div class="citation-title">${this.escapeHtml(citation.title || 'Untitled')}</div>

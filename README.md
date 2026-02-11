@@ -1,6 +1,6 @@
 # 🎓 AssisT - Adaptive EdTech Chrome Extension
 
-**Version:** Phase 2.7 Complete (STT Enhancement)
+**Version:** 0.1.1
 **Status:** Production Ready ✅
 **License:** MIT
 **Repository:** https://github.com/MarJone/AssisT
@@ -339,9 +339,9 @@ MIT License - see LICENSE file for details.
 
 ## 📈 Current Status
 
-**Version:** Phase 2.7 Complete (STT Enhancement)
+**Version:** 0.1.1
 **Status:** Production Ready ✅
-**Last Updated:** 2025-11-28
+**Last Updated:** 2026-02-11
 **Production Ready:** Beta testing ready
 
 ### Recent Changes (Phase 2.7)

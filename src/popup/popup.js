@@ -2603,7 +2603,7 @@ class PopupController {
       chrome.storage.local.set({ popup_dark_mode: newState });
 
       // Show feedback
-      this.updateStatus(newState ? 'Dark mode enabled' : 'Light mode enabled');
+      this.updateStatus(newState ? 'Popup dark theme enabled' : 'Popup light theme enabled');
       console.log(`[Popup] Popup Dark Mode: ${newState ? 'enabled' : 'disabled'}`);
     });
 
@@ -9473,6 +9473,11 @@ class PopupController {
     // UNIFIED AI ASSIST SETUP
     // ========================================
     this.setupAIAssist();
+
+    // ========================================
+    // DARK MODE SETUP
+    // ========================================
+    this.setupDarkMode();
   }
 
   /**
@@ -9798,12 +9803,14 @@ class PopupController {
   updateAIMode(mode) {
     const localAIContainer = document.getElementById('local-ai-container');
     const cloudAIContainer = document.getElementById('cloud-ai-container');
+    const geminiAIContainer = document.getElementById('gemini-ai-container');
     const llmStatusBadge = document.getElementById('llm-status-badge');
     const cloudUsageStats = document.getElementById('cloud-usage-stats');
 
     // Hide all containers first
     localAIContainer?.classList.add('hidden');
     cloudAIContainer?.classList.add('hidden');
+    geminiAIContainer?.classList.add('hidden');
 
     // Show appropriate container and update badge
     switch (mode) {
@@ -9825,7 +9832,11 @@ class PopupController {
           })
           .catch(() => {});
 
-        chrome.storage.local.set({ llmEnabled: true, cloudModeEnabled: false });
+        chrome.storage.local.set({
+          llmEnabled: true,
+          cloudModeEnabled: false,
+          geminiEnabled: false,
+        });
 
         this.updateStatus('Local AI enabled', 'success');
         break;
@@ -9847,9 +9858,40 @@ class PopupController {
           })
           .catch(() => {});
 
-        chrome.storage.local.set({ llmEnabled: false, cloudModeEnabled: true });
+        chrome.storage.local.set({
+          llmEnabled: false,
+          cloudModeEnabled: true,
+          geminiEnabled: false,
+        });
 
         this.updateStatus('Cloud AI enabled', 'success');
+        break;
+
+      case 'gemini':
+        geminiAIContainer?.classList.remove('hidden');
+        llmStatusBadge.textContent = 'Gemini';
+        llmStatusBadge.className = 'llm-badge';
+        this.checkGeminiStatus();
+
+        // Update legacy settings for compatibility
+        this.settings.localLLM.enabled = false;
+        this.saveSettings();
+
+        // Notify content scripts
+        chrome.runtime
+          .sendMessage({
+            action: 'GEMINI_MODE_CHANGED',
+            enabled: true,
+          })
+          .catch(() => {});
+
+        chrome.storage.local.set({
+          llmEnabled: false,
+          cloudModeEnabled: false,
+          geminiEnabled: true,
+        });
+
+        this.updateStatus('Gemini Nano enabled', 'success');
         break;
 
       case 'off':
@@ -9881,7 +9923,11 @@ class PopupController {
           })
           .catch(() => {});
 
-        chrome.storage.local.set({ llmEnabled: false, cloudModeEnabled: false });
+        chrome.storage.local.set({
+          llmEnabled: false,
+          cloudModeEnabled: false,
+          geminiEnabled: false,
+        });
 
         this.updateStatus('AI Assist disabled', 'success');
         break;
@@ -9964,6 +10010,37 @@ class PopupController {
     }
   }
 
+  /**
+   * Check Gemini Nano availability status
+   */
+  async checkGeminiStatus() {
+    const badge = document.getElementById('gemini-status-badge');
+    const instructions = document.getElementById('gemini-setup-instructions');
+
+    if (!badge) {
+      console.warn('[Popup] Gemini status badge not found');
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'GEMINI_LLM_CHECK' });
+
+      if (response?.available) {
+        badge.textContent = 'Ready';
+        badge.className = 'llm-badge online';
+        instructions?.classList.add('hidden');
+      } else {
+        badge.textContent = 'Not Available';
+        badge.className = 'llm-badge offline';
+        instructions?.classList.remove('hidden');
+      }
+    } catch (error) {
+      console.error('[Popup] Gemini check failed:', error);
+      badge.textContent = 'Error';
+      badge.className = 'llm-badge error';
+    }
+  }
+
   updateModelList() {
     // Update install buttons based on installed models
     document.querySelectorAll('.llm-install-btn').forEach(btn => {
@@ -9985,6 +10062,118 @@ class PopupController {
         llmInstalledModels.textContent += ` +${this.installedModels.length - 3} more`;
       }
     }
+  }
+
+  /**
+   * Set up Dark Mode controls
+   */
+  setupDarkMode() {
+    const darkModeToggle = document.getElementById('dark-mode-enabled');
+    const darkModePreset = document.getElementById('dark-mode-preset');
+    const darkModeOptions = document.getElementById('dark-mode-options');
+    const darkModeSystem = document.getElementById('dark-mode-system');
+
+    if (!darkModeToggle || !darkModePreset) {
+      console.log('[Popup] Dark mode UI elements not found');
+      return;
+    }
+
+    // Initialize darkMode settings if they don't exist
+    if (!this.settings.darkMode) {
+      this.settings.darkMode = {
+        enabled: false,
+        preset: 'dark-gray',
+        respectSystemPreference: true,
+      };
+    }
+
+    // Populate preset dropdown
+    const presets = [
+      { value: 'dark-gray', label: 'Dark Gray' },
+      { value: 'amoled-black', label: 'AMOLED Black' },
+      { value: 'navy-blue', label: 'Navy Blue' },
+      { value: 'sepia-dark', label: 'Sepia Dark' },
+    ];
+
+    darkModePreset.innerHTML = presets
+      .map(p => `<option value="${p.value}">${p.label}</option>`)
+      .join('');
+
+    // Set current values
+    darkModeToggle.checked = this.settings.darkMode.enabled || false;
+    darkModePreset.value = this.settings.darkMode.preset || 'dark-gray';
+
+    // Set system preference toggle
+    if (darkModeSystem) {
+      darkModeSystem.checked = this.settings.darkMode.respectSystemPreference !== false;
+    }
+
+    // Show/hide preset options based on toggle state
+    if (darkModeToggle.checked) {
+      darkModeOptions?.classList.remove('hidden');
+    } else {
+      darkModeOptions?.classList.add('hidden');
+    }
+
+    // Set initial status message to reflect actual state
+    const isSystemFollowing = this.settings.darkMode.respectSystemPreference !== false;
+    if (this.settings.darkMode.enabled) {
+      // Explicitly enabled by user
+      this.updateStatus('Web page dark mode: ON', 'success');
+    } else if (isSystemFollowing) {
+      // Following system preference
+      const systemDark =
+        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (systemDark) {
+        this.updateStatus('Web page dark mode: following OS (currently dark)', 'success');
+      } else {
+        this.updateStatus('Web page dark mode: following OS (currently light)', 'success');
+      }
+    } else {
+      // Manually disabled
+      this.updateStatus('Web page dark mode: OFF', 'success');
+    }
+
+    // Toggle change handler
+    this.attachInteractiveHandler(darkModeToggle, 'Dark Mode Toggle', e => {
+      this.settings.darkMode.enabled = e.target.checked;
+      this.saveSettings();
+
+      // Show/hide preset options
+      if (e.target.checked) {
+        darkModeOptions?.classList.remove('hidden');
+        this.updateStatus('Web page dark mode enabled', 'success');
+      } else {
+        darkModeOptions?.classList.add('hidden');
+        this.updateStatus('Web page dark mode disabled', 'success');
+      }
+    });
+
+    // Preset change handler
+    this.attachInteractiveHandler(darkModePreset, 'Dark Mode Preset', e => {
+      this.settings.darkMode.preset = e.target.value;
+      this.saveSettings();
+
+      // Get preset name for display
+      const presetName = presets.find(p => p.value === e.target.value)?.label || e.target.value;
+      this.updateStatus(`Dark mode preset: ${presetName}`, 'success');
+    });
+
+    // System preference toggle handler
+    if (darkModeSystem) {
+      this.attachInteractiveHandler(darkModeSystem, 'Dark Mode System Toggle', e => {
+        this.settings.darkMode.respectSystemPreference = e.target.checked;
+        this.saveSettings();
+
+        if (e.target.checked) {
+          this.updateStatus('Web page dark mode: following OS setting', 'success');
+        } else {
+          this.updateStatus('Web page dark mode: manual control', 'success');
+        }
+      });
+    }
+
+    console.log('[Popup] Dark mode setup complete', this.settings.darkMode);
   }
 }
 

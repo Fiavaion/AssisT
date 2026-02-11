@@ -71,18 +71,23 @@ export class TextStatsUI {
     this.badge.setAttribute('role', 'status');
     this.badge.setAttribute('aria-live', 'polite');
     this.badge.setAttribute('aria-label', 'Text statistics');
+    // Detect dark mode from document
+    const isDarkMode =
+      document.body.classList.contains('dark-mode') ||
+      document.documentElement.classList.contains('dark-mode');
+
     this.badge.style.cssText = `
       position: fixed;
       bottom: 20px;
       right: 20px;
-      background: rgba(255, 255, 255, 0.95);
-      border: 2px solid #4a90e2;
+      background: ${isDarkMode ? '#1e2330' : 'rgba(255, 255, 255, 0.95)'};
+      border: 2px solid ${isDarkMode ? '#3a4353' : '#4a90e2'};
       border-radius: 8px;
       padding: 12px 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       font-size: 14px;
-      color: #333;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      color: ${isDarkMode ? '#e4e6eb' : '#333'};
+      box-shadow: 0 4px 12px rgba(0, 0, 0, ${isDarkMode ? '0.5' : '0.15'});
       cursor: pointer;
       z-index: 999998;
       transition: all 0.3s ease;
@@ -90,23 +95,27 @@ export class TextStatsUI {
       display: ${this.badgeVisible ? 'block' : 'none'};
     `;
 
+    const titleColor = isDarkMode ? '#6b8dd6' : '#4a90e2';
+    const secondaryColor = isDarkMode ? '#9ba3af' : '#666';
+    const borderColor = isDarkMode ? '#3a4353' : '#e0e0e0';
+
     this.badge.innerHTML = sanitizeHTML(`
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <strong style="font-size: 13px; color: #4a90e2;">Text Stats</strong>
+        <strong style="font-size: 13px; color: ${titleColor};">Text Stats</strong>
         <button
           id="assist-textstats-close"
           aria-label="Close statistics badge"
-          style="background: none; border: none; cursor: pointer; font-size: 18px; color: #666; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;"
+          style="background: none; border: none; cursor: pointer; font-size: 18px; color: ${secondaryColor}; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;"
         >×</button>
       </div>
       <div id="assist-textstats-content" style="line-height: 1.6;">
         <div style="margin-bottom: 4px;">
-          <span style="color: #666;">Words:</span> <strong id="assist-textstats-words">0</strong>
+          <span style="color: ${secondaryColor};">Words:</span> <strong id="assist-textstats-words">0</strong>
         </div>
         <div style="margin-bottom: 4px;">
-          <span style="color: #666;">Reading:</span> <strong id="assist-textstats-time">0 min</strong>
+          <span style="color: ${secondaryColor};">Reading:</span> <strong id="assist-textstats-time">0 min</strong>
         </div>
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 6px;">
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid ${borderColor}; display: flex; flex-direction: column; gap: 6px;">
           <button
             id="assist-textstats-speed-read-badge"
             aria-label="Speed read this text"
@@ -115,7 +124,7 @@ export class TextStatsUI {
           <button
             id="assist-textstats-details"
             aria-label="View detailed statistics"
-            style="background: #4a90e2; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%;"
+            style="background: ${titleColor}; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%;"
           >View Details</button>
         </div>
       </div>

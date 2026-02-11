@@ -92,6 +92,7 @@ prototypes/
 # Test/demo HTML files (standalone, not part of extension)
 demo-all-ai-features.html
 test-ai-features.html
+test-page.html
 start-ollama-cors.bat
 
 # === Project Documentation (internal/session notes) ===

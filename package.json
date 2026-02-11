@@ -1,6 +1,6 @@
 {
   "name": "assist-adaptive-edtech",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Neuro-Adaptive Layer for Canvas VLE - TTS/STT personalization for neurodivergent students",
   "type": "module",
   "scripts": {

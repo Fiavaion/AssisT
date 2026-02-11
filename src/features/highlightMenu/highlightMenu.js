@@ -340,8 +340,11 @@ function highlightMenu_createToolbar() {
     });
   }
 
-  // Row 2: AI tools part 1 (5 buttons) - Show if Local AI OR Cloud AI is enabled
-  const aiEnabled = highlightMenu_settings.llmEnabled || highlightMenu_settings.cloudModeEnabled;
+  // Row 2: AI tools part 1 (5 buttons) - Show if Local AI, Cloud AI, OR Gemini Nano is enabled
+  const aiEnabled =
+    highlightMenu_settings.llmEnabled ||
+    highlightMenu_settings.cloudModeEnabled ||
+    highlightMenu_settings.geminiEnabled;
   if (aiEnabled && highlightMenu_settings.showSummarize) {
     allButtons.push({
       icon: '✨',
@@ -1004,16 +1007,40 @@ function highlightMenu_init() {
   });
 
   // Load settings from chrome.storage
-  chrome.storage.local.get(['highlightMenuSettings', 'llmEnabled', 'cloudModeEnabled'], result => {
-    if (result.highlightMenuSettings) {
-      Object.assign(highlightMenu_settings, result.highlightMenuSettings);
-      console.log('[HighlightMenu] Settings loaded:', highlightMenu_settings);
+  chrome.storage.local.get(
+    ['highlightMenuSettings', 'aiMode', 'llmEnabled', 'cloudModeEnabled', 'geminiEnabled'],
+    result => {
+      if (result.highlightMenuSettings) {
+        Object.assign(highlightMenu_settings, result.highlightMenuSettings);
+        console.log('[HighlightMenu] Settings loaded:', highlightMenu_settings);
+      }
+
+      // Derive AI enabled states from unified aiMode OR legacy flags
+      // This ensures compatibility with both old and new storage patterns
+      const aiMode = result.aiMode || 'off';
+
+      // If aiMode is set, use it to determine legacy flags (new unified approach)
+      // Otherwise fall back to explicit legacy flags (backwards compatibility)
+      highlightMenu_settings.llmEnabled =
+        aiMode === 'local' || (result.llmEnabled !== undefined ? result.llmEnabled : false);
+      highlightMenu_settings.cloudModeEnabled =
+        aiMode === 'cloud' ||
+        (result.cloudModeEnabled !== undefined ? result.cloudModeEnabled : false);
+      highlightMenu_settings.geminiEnabled =
+        aiMode === 'gemini' || (result.geminiEnabled !== undefined ? result.geminiEnabled : false);
+
+      console.log(
+        '[HighlightMenu] AI mode:',
+        aiMode,
+        'local:',
+        highlightMenu_settings.llmEnabled,
+        'cloud:',
+        highlightMenu_settings.cloudModeEnabled,
+        'gemini:',
+        highlightMenu_settings.geminiEnabled
+      );
     }
-    // Store AI enabled states to filter AI buttons (show if EITHER Local OR Cloud is enabled)
-    highlightMenu_settings.llmEnabled = result.llmEnabled !== undefined ? result.llmEnabled : false;
-    highlightMenu_settings.cloudModeEnabled =
-      result.cloudModeEnabled !== undefined ? result.cloudModeEnabled : false;
-  });
+  );
 
   // Listen for settings updates
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -1042,6 +1069,36 @@ function highlightMenu_init() {
         );
 
         // Hide current toolbar so it gets recreated with new AI button visibility on next text selection
+        if (highlightMenu_toolbar) {
+          highlightMenu_hide();
+        }
+      }
+
+      // Listen for unified aiMode changes (new storage pattern)
+      if (changes.aiMode) {
+        const newMode = changes.aiMode.newValue;
+        console.log('[HighlightMenu] AI mode changed to:', newMode);
+
+        // Update legacy flags based on new unified mode
+        highlightMenu_settings.llmEnabled = newMode === 'local';
+        highlightMenu_settings.cloudModeEnabled = newMode === 'cloud';
+        highlightMenu_settings.geminiEnabled = newMode === 'gemini';
+
+        // Hide current toolbar so it gets recreated with new AI button visibility on next text selection
+        if (highlightMenu_toolbar) {
+          highlightMenu_hide();
+        }
+      }
+
+      // Listen for individual geminiEnabled flag changes (legacy compatibility)
+      if (changes.geminiEnabled) {
+        highlightMenu_settings.geminiEnabled = changes.geminiEnabled.newValue;
+        console.log(
+          '[HighlightMenu] Gemini enabled state updated:',
+          highlightMenu_settings.geminiEnabled
+        );
+
+        // Hide current toolbar so it gets recreated with new AI button visibility
         if (highlightMenu_toolbar) {
           highlightMenu_hide();
         }
