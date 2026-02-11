@@ -421,6 +421,14 @@ function darkMode_generateCSS(presetKey) {
  * @returns {void}
  */
 function darkMode_apply(presetKey = darkMode_currentPreset) {
+  // Wait for DOM head to be available
+  // Prevents errors during early page load when document.head is null
+  if (!document.head) {
+    console.warn('[DarkMode] document.head not ready, deferring apply...');
+    setTimeout(() => darkMode_apply(presetKey), 100);
+    return;
+  }
+
   // Remove existing style if present
   if (darkMode_styleElement) {
     darkMode_styleElement.remove();
@@ -571,16 +579,19 @@ function applySettings(settings, isInit = false) {
   }
 
   // Determine if dark mode should be enabled
-  // CRITICAL: Only enable if user has explicitly enabled the feature.
-  // respectSystemPreference controls whether to follow system dark/light AFTER
-  // the user has enabled dark mode, not whether to auto-enable based on system.
+  // CRITICAL: Respect user's explicit choice over system preference
+  //
+  // Logic:
+  // - If user explicitly enabled (settings.enabled = true): ALWAYS enable, regardless of system
+  // - If user disabled AND respectSystemPreference = true: Follow system (auto mode)
+  // - If user disabled AND respectSystemPreference = false: Stay disabled
   let shouldEnable = settings.enabled || false;
 
-  // If enabled AND respectSystemPreference is true, follow system preference
-  // This means: user enabled dark mode, but wants it to follow system light/dark
-  if (settings.enabled && settings.respectSystemPreference) {
+  // Only auto-follow system preference when user hasn't explicitly enabled dark mode
+  // This allows "auto mode" (follow system) without overriding user's explicit choice
+  if (!settings.enabled && settings.respectSystemPreference) {
     shouldEnable = darkMode_systemPreference();
-    console.log('[DarkMode] Following system preference:', darkMode_systemPreference());
+    console.log('[DarkMode] Auto-following system preference:', shouldEnable);
   }
 
   console.log('[DarkMode] Decision:', {

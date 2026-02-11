@@ -6,6 +6,10 @@
 
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
+import {
+  checkGeminiAvailability,
+  generateText as geminiGenerateText,
+} from '../ai/gemini-client.js';
 
 // ========================================
 // SECURITY UTILITIES
@@ -791,6 +795,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
+  }
+
+  // Handle Gemini Nano availability check
+  if (message.action === 'GEMINI_LLM_CHECK') {
+    checkGeminiAvailability()
+      .then(availability => {
+        sendResponse({ success: true, ...availability });
+      })
+      .catch(error => {
+        sendResponse({
+          success: false,
+          available: false,
+          status: 'error',
+          error: error.message,
+        });
+      });
+    return true; // Keep channel open for async response
+  }
+
+  // Handle Gemini Nano text generation request
+  if (message.action === 'GEMINI_LLM_REQUEST') {
+    const { prompt, options } = message;
+
+    if (!prompt) {
+      sendResponse({ success: false, error: 'Prompt is required' });
+      return false;
+    }
+
+    console.log('[Gemini] Generation request received, prompt length:', prompt.length);
+
+    geminiGenerateText(prompt, options || {})
+      .then(text => {
+        console.log('[Gemini] Generation complete, response length:', text.length);
+        sendResponse({ success: true, text });
+      })
+      .catch(error => {
+        console.error('[Gemini] Generation error:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+
+    return true; // Keep channel open for async response
   }
 
   // Route other messages through MessageRouter
@@ -1675,14 +1720,46 @@ async function maybeInjectContentScript(tabId, url) {
 /**
  * Tab update listener - automatically inject content script on non-LMS sites
  * when user has <all_urls> permission
+ *
+ * Uses debouncing to prevent rapid-fire injections during bulk tab operations
+ * (e.g., session restore with 20+ tabs)
  */
+const injectionQueue = new Set();
+const injectionTimers = new Map();
+const DEBOUNCE_MS = 100;
+
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Only inject when page has finished loading
   if (changeInfo.status !== 'complete') {
     return;
   }
 
-  await maybeInjectContentScript(tabId, tab.url);
+  // Prevent duplicate injections for the same tab
+  if (injectionQueue.has(tabId)) {
+    console.log('[AssisT] Tab', tabId, 'already queued for injection, skipping');
+    return;
+  }
+
+  // Mark tab as queued
+  injectionQueue.add(tabId);
+
+  // Clear any existing timer for this tab
+  if (injectionTimers.has(tabId)) {
+    clearTimeout(injectionTimers.get(tabId));
+  }
+
+  // Debounce: Wait 100ms before injecting (in case of rapid page changes)
+  const timer = setTimeout(async () => {
+    try {
+      await maybeInjectContentScript(tabId, tab.url);
+    } finally {
+      // Clean up tracking
+      injectionQueue.delete(tabId);
+      injectionTimers.delete(tabId);
+    }
+  }, DEBOUNCE_MS);
+
+  injectionTimers.set(tabId, timer);
 });
 
 // Handle extension icon click (if popup is disabled)
@@ -1717,25 +1794,54 @@ chrome.permissions.onAdded.addListener(async permissions => {
       const allTabs = await chrome.tabs.query({});
       const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 
-      // Inject into all eligible tabs
-      for (const tab of allTabs) {
-        if (tab.id && tab.url && !isSystemPage(tab.url) && !isLmsSite(tab.url)) {
-          try {
-            // Get content script path from manifest
-            const manifest = chrome.runtime.getManifest();
-            const contentScriptPath = manifest.content_scripts?.[0]?.js?.[0];
-            if (contentScriptPath) {
-              await chrome.scripting.executeScript({
+      // Get content script path from manifest (do once, not per tab)
+      const manifest = chrome.runtime.getManifest();
+      const contentScriptPath = manifest.content_scripts?.[0]?.js?.[0];
+
+      if (!contentScriptPath) {
+        console.error('[AssisT] Content script path not found in manifest');
+        return;
+      }
+
+      // Filter eligible tabs upfront
+      const eligibleTabs = allTabs.filter(
+        tab => tab.id && tab.url && !isSystemPage(tab.url) && !isLmsSite(tab.url)
+      );
+
+      console.log(
+        `[AssisT] Injecting content script into ${eligibleTabs.length} eligible tabs (${allTabs.length} total)`
+      );
+
+      // Inject into all eligible tabs using chunked parallelization
+      // Process 10 tabs at a time to avoid overwhelming Chrome
+      const CHUNK_SIZE = 10;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < eligibleTabs.length; i += CHUNK_SIZE) {
+        const chunk = eligibleTabs.slice(i, i + CHUNK_SIZE);
+
+        // Process this chunk in parallel
+        await Promise.all(
+          chunk.map(tab =>
+            chrome.scripting
+              .executeScript({
                 target: { tabId: tab.id },
                 files: [contentScriptPath],
-              });
-              console.log('[AssisT] ✓ Content script injected into tab:', tab.id);
-            }
-          } catch (e) {
-            console.log('[AssisT] Could not inject into tab', tab.id, ':', e.message);
-          }
-        }
+              })
+              .then(() => {
+                successCount++;
+                console.log('[AssisT] ✓ Content script injected into tab:', tab.id);
+              })
+              .catch(err => {
+                failCount++;
+                console.log('[AssisT] Could not inject into tab', tab.id, ':', err.message);
+              })
+          )
+        );
       }
+
+      console.log(`[AssisT] Injection complete: ${successCount} success, ${failCount} failed`);
 
       // Show success toast on active tab
       if (activeTab?.id) {
@@ -1770,7 +1876,7 @@ chrome.permissions.onAdded.addListener(async permissions => {
                 <div style="font-size: 24px; font-weight: bold; margin-bottom: 12px;">Permission Granted!</div>
                 <div style="font-size: 18px; opacity: 0.95;">AssisT is now ready on all websites</div>
               </div>
-              <div style="
+              <div id="assist-permission-toast-backdrop" style="
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -1778,7 +1884,8 @@ chrome.permissions.onAdded.addListener(async permissions => {
                 bottom: 0;
                 background: rgba(0, 0, 0, 0.5);
                 z-index: 2147483646;
-              " onclick="this.parentElement.remove()"></div>
+                cursor: pointer;
+              "></div>
               <style>
                 @keyframes assistToastIn {
                   from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
@@ -1787,6 +1894,17 @@ chrome.permissions.onAdded.addListener(async permissions => {
               </style>
             `;
             document.body.appendChild(toast);
+
+            // Add click handler to backdrop (CSP-compliant - no inline handlers)
+            const backdrop = document.getElementById('assist-permission-toast-backdrop');
+            if (backdrop) {
+              backdrop.addEventListener('click', () => {
+                const t = document.getElementById('assist-permission-toast');
+                if (t) {
+                  t.remove();
+                }
+              });
+            }
 
             // Auto-dismiss after 3 seconds
             setTimeout(() => {

@@ -80,6 +80,30 @@ function screenOverlay_create() {
   const bgB = blendWithWhite(b, intensity);
   const bgColor = `rgb(${bgR}, ${bgG}, ${bgB})`;
 
+  // Calculate luminance to determine appropriate text color for contrast
+  // Uses relative luminance formula from WCAG 2.0
+  function getLuminance(r, g, b) {
+    const [rs, gs, bs] = [r, g, b].map(c => {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  }
+
+  const luminance = getLuminance(bgR, bgG, bgB);
+  // Use dark text on light backgrounds, light text on dark backgrounds
+  // Threshold of 0.5 provides good balance
+  const textColor = luminance > 0.5 ? '#000000' : '#FFFFFF';
+
+  console.log(
+    '[ScreenOverlay] Background:',
+    bgColor,
+    'Luminance:',
+    luminance.toFixed(2),
+    'Text color:',
+    textColor
+  );
+
   // Create style that overrides backgrounds
   const styleEl = document.createElement('style');
   styleEl.id = 'assist-screen-overlay';
@@ -107,6 +131,20 @@ function screenOverlay_create() {
     *[style*="background: #fff"],
     *[style*="background: #FFF"] {
       background-color: ${bgColor} !important;
+    }
+
+    /* Ensure text contrast based on background luminance */
+    /* Force appropriate text color to maintain readability */
+    html, body, p, h1, h2, h3, h4, h5, h6, span, div, li, td, th,
+    article, section, main, aside, blockquote, figcaption, legend,
+    dt, dd, address, label, caption {
+      color: ${textColor} !important;
+    }
+
+    /* Preserve link distinctiveness with underline */
+    a {
+      color: ${textColor} !important;
+      text-decoration: underline !important;
     }
 
     /* Don't affect images, videos, or canvases */

@@ -86,6 +86,8 @@ async function summarization_getCurrentModel() {
     } else if (aiMode === 'cloud') {
       // Return the global cloud model setting from Advanced Options
       return result.cloudModel || SUMMARIZATION_DEFAULT_CLOUD_MODEL;
+    } else if (aiMode === 'gemini') {
+      return 'gemini';
     } else {
       // AI is off - default to local
       return 'local';
@@ -156,12 +158,27 @@ ${text}
 Summary:`;
 
   const maxTokens = level === 'detailed' ? 500 : level === 'moderate' ? 300 : 150;
-  const isCloud = modelKey !== 'local';
+  const isCloud = modelKey !== 'local' && modelKey !== 'gemini';
+  const isGemini = modelKey === 'gemini';
 
   try {
     let response;
 
-    if (isCloud) {
+    if (isGemini) {
+      // Use Gemini Nano (Chrome Prompt API)
+      response = await chrome.runtime.sendMessage({
+        action: 'GEMINI_LLM_REQUEST',
+        prompt,
+        options: {
+          temperature: 0.7,
+          topK: 40,
+        },
+      });
+
+      if (response && response.success) {
+        return { summary: response.text, isCloud: false, isGemini: true };
+      }
+    } else if (isCloud) {
       // Use cloud model (Claude API)
       response = await chrome.runtime.sendMessage({
         action: 'CLOUD_LLM_GENERATE',
@@ -173,6 +190,10 @@ Summary:`;
           feature: 'summarization',
         },
       });
+
+      if (response && response.success) {
+        return { summary: response.data, isCloud: true };
+      }
     } else {
       // Use local model (Ollama)
       response = await chrome.runtime.sendMessage({
@@ -184,10 +205,10 @@ Summary:`;
           temperature: 0.5,
         },
       });
-    }
 
-    if (response && response.success) {
-      return { summary: response.data, isCloud };
+      if (response && response.success) {
+        return { summary: response.data, isCloud: false };
+      }
     }
 
     throw new Error(response?.error || 'Generation failed');

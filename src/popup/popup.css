@@ -1977,22 +1977,22 @@ body {
 
 /* AI Mode Selector (Radio Toggles) */
 .ai-mode-selector {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 8px;
   background: var(--surface);
   border-radius: var(--border-radius);
-  align-items: stretch;
 }
 
 .ai-mode-option {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   cursor: pointer;
   user-select: none;
+  min-height: 40px;
 }
 
 .ai-mode-option input[type='radio'] {
@@ -3448,16 +3448,16 @@ body {
 
 /* Dark Mode Theme Variables */
 .popup-container.dark-mode {
-  --dm-bg-primary: #223b56;
-  --dm-bg-secondary: #1a2d42;
-  --dm-bg-tertiary: #2d4a66;
-  --dm-bg-surface: #1e3449;
-  --dm-text-primary: #e8ecf1;
-  --dm-text-secondary: #a8b8c8;
-  --dm-border: #3d5a7a;
-  --dm-border-light: #2d4a66;
-  --dm-accent: #5b9bd5;
-  --dm-accent-light: rgba(91, 155, 213, 0.2);
+  --dm-bg-primary: #1a1f2e;
+  --dm-bg-secondary: #0f1419;
+  --dm-bg-tertiary: #242938;
+  --dm-bg-surface: #1e2330;
+  --dm-text-primary: #e4e6eb;
+  --dm-text-secondary: #9ba3af;
+  --dm-border: #3a4353;
+  --dm-border-light: #2a3242;
+  --dm-accent: #6b8dd6;
+  --dm-accent-light: rgba(107, 141, 214, 0.15);
 }
 
 /* Dark Mode Body & Container */
@@ -3752,16 +3752,16 @@ body.dark-mode {
 
 /* Dark mode variables for body-level elements */
 body.dark-mode {
-  --dm-bg-primary: #223b56;
-  --dm-bg-secondary: #1a2d42;
-  --dm-bg-tertiary: #2d4a66;
-  --dm-bg-surface: #1e3449;
-  --dm-text-primary: #e8ecf1;
-  --dm-text-secondary: #a8b8c8;
-  --dm-border: #3d5a7a;
-  --dm-border-light: #2d4a66;
-  --dm-accent: #5b9bd5;
-  --dm-accent-light: rgba(91, 155, 213, 0.2);
+  --dm-bg-primary: #1a1f2e;
+  --dm-bg-secondary: #0f1419;
+  --dm-bg-tertiary: #242938;
+  --dm-bg-surface: #1e2330;
+  --dm-text-primary: #e4e6eb;
+  --dm-text-secondary: #9ba3af;
+  --dm-border: #3a4353;
+  --dm-border-light: #2a3242;
+  --dm-accent: #6b8dd6;
+  --dm-accent-light: rgba(107, 141, 214, 0.15);
 }
 
 /* Modal Overlay */
@@ -4235,8 +4235,13 @@ body.dark-mode #layout-sections-preview span {
   border-color: var(--dm-border) !important;
 }
 
-body.dark-mode .layout-mode-description {
+body.dark-mode .layout-mode-description,
+body.dark-mode #layout-mode-description {
   color: var(--dm-text-secondary) !important;
+}
+
+body.dark-mode #layout-mode-description strong {
+  color: var(--dm-text-primary) !important;
 }
 
 body.dark-mode .preferences-section {
@@ -4319,4 +4324,37 @@ body.dark-mode #tab-ai .option-group label {
 
 body.dark-mode #tab-ai p {
   color: var(--dm-text-secondary);
+}
+
+/* Translation Settings dark mode overrides (inline styles need !important) */
+body.dark-mode .feature-item label[style*='color: #666'],
+body.dark-mode .feature-item label[style*='color: #555'],
+body.dark-mode .feature-item span[style*='color: #666'],
+body.dark-mode .feature-item span[style*='color: #555'] {
+  color: var(--dm-text-primary) !important;
+}
+
+body.dark-mode .feature-item p[style*='color: #888'] {
+  color: var(--dm-text-secondary) !important;
+}
+
+body.dark-mode .feature-item div[style*='border-top: 1px solid #eee'] {
+  border-top-color: var(--dm-border) !important;
+}
+
+body.dark-mode .feature-item input[type='text'],
+body.dark-mode .feature-item input[type='password'],
+body.dark-mode .feature-item select,
+body.dark-mode .feature-item button[style*='background: white'] {
+  background: var(--dm-bg-tertiary) !important;
+  border-color: var(--dm-border) !important;
+  color: var(--dm-text-primary) !important;
+}
+
+body.dark-mode .feature-item input[type='range'] {
+  background: var(--dm-bg-tertiary) !important;
+}
+
+body.dark-mode .feature-item a {
+  color: var(--dm-accent) !important;
 }
