@@ -1459,6 +1459,12 @@ async function ollamaGenerate(prompt, options = {}) {
     }
   }
 
+  // Validate response is not empty
+  if (!data.response || data.response.trim().length === 0) {
+    console.warn('[LLM Bridge] Ollama returned empty response');
+    throw new Error('Model produced no output - prompt may be unclear or model may be overloaded');
+  }
+
   return data.response;
 }
 

@@ -120,157 +120,6 @@ async function simplification_checkLLM() {
   }
 }
 
-// ============================================================================
-// TEXT COMPLEXITY DETECTION (for two-stage processing)
-// ============================================================================
-
-/**
- * Academic/complex words that indicate difficult text
- */
-const COMPLEXITY_INDICATORS = [
-  'phenomenological',
-  'ontological',
-  'epistemological',
-  'hermeneutic',
-  'dialectical',
-  'intersubjective',
-  'reconceptualisation',
-  'reconceptualization',
-  'praxis',
-  'chiasmic',
-  'instantiates',
-  'constitutes',
-  'necessitates',
-  'undergirded',
-  'antecedes',
-  'problematise',
-  'problematize',
-  'historicised',
-  'historicized',
-  'canonised',
-  'commodified',
-  'decontextualised',
-  'decontextualized',
-  'indeterminacy',
-  'reversibility',
-  'intertwining',
-  'stratum',
-  'qua',
-  'wherein',
-  'whereby',
-];
-
-/**
- * Detect text complexity score (0-1)
- * @param {string} text - Text to analyze
- * @returns {number} Complexity score between 0 and 1
- */
-function detectComplexity(text) {
-  const words = text.toLowerCase().split(/\s+/);
-  const wordCount = words.length;
-
-  if (wordCount < 10) {
-    return 0;
-  }
-
-  // Factor 1: Average word length (academic texts have longer words)
-  const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / wordCount;
-  const lengthScore = Math.min(1, (avgWordLength - 4) / 4); // Normalize: 4-8 chars -> 0-1
-
-  // Factor 2: Presence of complexity indicators
-  const complexWords = words.filter(w =>
-    COMPLEXITY_INDICATORS.some(indicator => w.includes(indicator))
-  ).length;
-  const indicatorScore = Math.min(1, complexWords / 3); // 3+ complex words = 1.0
-
-  // Factor 3: Sentence length (complex texts have longer sentences)
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  const avgSentenceLength = wordCount / Math.max(1, sentences.length);
-  const sentenceScore = Math.min(1, (avgSentenceLength - 15) / 20); // 15-35 words -> 0-1
-
-  // Factor 4: Punctuation density (academic texts use more semicolons, colons, dashes)
-  const complexPunctuation = (text.match(/[;:—–]/g) || []).length;
-  const punctScore = Math.min(1, complexPunctuation / 3);
-
-  // Weighted average
-  const complexity =
-    lengthScore * 0.25 + indicatorScore * 0.4 + sentenceScore * 0.25 + punctScore * 0.1;
-
-  return Math.max(0, Math.min(1, complexity));
-}
-
-/**
- * Two-stage simplification for complex texts (local models only)
- * Stage 1: Extract difficult terms
- * Stage 2: Simplify with term awareness
- * @param {string} text - Text to simplify
- * @param {string} _level - Simplification level (unused, kept for API consistency)
- * @returns {Promise<string>} Simplified text
- */
-async function twoStageSimplification(text, _level) {
-  console.log('[TextSimplification] Using two-stage processing for complex text');
-
-  // Stage 1: Identify difficult terms (quick, focused task)
-  const stage1Prompt = `List the 5 most difficult academic terms in this text. Just list the terms, one per line, nothing else.
-
-TEXT: ${text.substring(0, 500)}
-
-DIFFICULT TERMS:`;
-
-  try {
-    const termsResponse = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GENERATE',
-      prompt: stage1Prompt,
-      taskType: 'textSimplification',
-      options: { maxTokens: 100, temperature: 0.1 },
-    });
-
-    const extractedTerms =
-      termsResponse?.success && termsResponse.data
-        ? termsResponse.data
-            .split('\n')
-            .filter(t => t.trim().length > 2)
-            .slice(0, 5)
-        : [];
-
-    console.log('[TextSimplification] Stage 1 - Extracted terms:', extractedTerms);
-
-    // Stage 2: Simplify with term list
-    const termsList =
-      extractedTerms.length > 0 ? `\nKEY TERMS TO DEFINE: ${extractedTerms.join(', ')}\n` : '';
-
-    const stage2Prompt = `Simplify this academic text. Keep the academic terms but add brief definitions in parentheses.
-${termsList}
-EXAMPLE:
-Input: "The phenomenological approach emphasizes lived experience."
-Output: "The phenomenological approach (studying direct personal experience) focuses on what people actually experience."
-
-TEXT TO SIMPLIFY:
-${text}
-
-SIMPLIFIED VERSION:`;
-
-    const simplifiedResponse = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GENERATE',
-      prompt: stage2Prompt,
-      taskType: 'textSimplification',
-      options: { maxTokens: 600, temperature: 0.3 },
-    });
-
-    if (simplifiedResponse?.success && simplifiedResponse.data) {
-      return simplifiedResponse.data;
-    }
-  } catch (error) {
-    console.warn(
-      '[TextSimplification] Two-stage processing failed, falling back to standard:',
-      error
-    );
-  }
-
-  // Fallback to null (will use standard processing)
-  return null;
-}
-
 /**
  * Generate simplified text using local LLM
  * @param {string} text - Text to simplify
@@ -283,37 +132,40 @@ async function simplification_generate(text, level = 'moderate', modelKey = 'loc
   // Optimized prompts: CoT for cloud (50B+ benefits), direct for local (faster, similar quality)
   // Research: https://www.promptingguide.ai/techniques/cot - "CoT benefits large models (50B+)"
 
-  // LOCAL MODEL PROMPTS (streamlined, no CoT)
+  // LOCAL MODEL PROMPTS (with examples for in-context learning)
   const localPrompts = {
-    basic: `Simplify this text for people with reading difficulties. Use very simple words and short sentences.
+    basic: `Simplify this text using very simple words and short sentences.
 
 EXAMPLE:
 Input: "Cognitive dissonance occurs when beliefs contradict actions."
 Output: "We feel bad when what we think and what we do don't match."
 
-TEXT: ${text}
+TEXT:
+${text}
 
 SIMPLIFIED:`,
 
-    moderate: `Simplify this academic text. Keep important terms but add definitions in parentheses.
+    moderate: `Rewrite this text to be clearer. Keep academic terms but add brief definitions in parentheses.
 
 EXAMPLE:
 Input: "The phenomenological approach emphasizes lived experience."
-Output: "The phenomenological approach (studying direct personal experience) focuses on what people actually experience."
+Output: "The phenomenological approach (studying direct experience) emphasizes what people actually experience."
 
-TEXT: ${text}
+TEXT:
+${text}
 
-SIMPLIFIED:`,
+CLEAR VERSION:`,
 
-    academic: `Improve readability while keeping academic vocabulary. Add brief definitions in parentheses for difficult terms.
+    academic: `Rewrite this text to be clearer while keeping all academic vocabulary. Add brief definitions in parentheses for difficult terms.
 
 EXAMPLE:
-Input: "The chiasmic intertwining constitutes a pre-reflective stratum."
-Output: "The chiasmic intertwining (reciprocal entanglement) creates a pre-reflective layer. This foundational layer exists before conscious thought."
+Input: "Ontological reframing proves particularly generative."
+Output: "Ontological reframing (reconceptualising what something fundamentally is) proves particularly productive."
 
-TEXT: ${text}
+TEXT:
+${text}
 
-IMPROVED:`,
+IMPROVED VERSION:`,
   };
 
   // CLOUD MODEL PROMPTS (with CoT for better reasoning)
@@ -395,8 +247,16 @@ IMPROVED VERSION:`,
   const prompt = promptSet[level] || promptSet.moderate;
   const maxTokens = level === 'basic' ? 400 : level === 'academic' ? 800 : 600;
 
-  // For local models with complex/long text, use two-stage processing
-  const isComplexText = !isCloud && text.length > 300 && detectComplexity(text) > 0.6;
+  console.log('[TextSimplification] Generating with:', {
+    level,
+    model: isCloud ? modelKey : 'local',
+    textLength: text.length,
+    maxTokens,
+    promptPreview: prompt.substring(0, 150) + '...',
+  });
+
+  // TEMPORARILY DISABLED: For local models with complex/long text, use two-stage processing
+  // const isComplexText = !isCloud && text.length > 300 && detectComplexity(text) > 0.6;
 
   try {
     let response;
@@ -413,24 +273,15 @@ IMPROVED VERSION:`,
           feature: 'textSimplification',
         },
       });
-    } else if (isComplexText && level !== 'basic') {
-      // Try two-stage processing for complex academic text
-      const twoStageResult = await twoStageSimplification(text, level);
-      if (twoStageResult) {
-        return { simplified: twoStageResult, isCloud: false, twoStage: true };
-      }
-      // Fall through to standard processing if two-stage fails
-      response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_GENERATE',
-        prompt,
-        taskType: 'textSimplification',
-        options: {
-          maxTokens,
-          temperature: 0.3,
-        },
-      });
     } else {
       // Use local model (Ollama) - standard processing
+      console.log('[TextSimplification] Sending to Ollama:', {
+        action: 'LOCAL_LLM_GENERATE',
+        taskType: 'textSimplification',
+        maxTokens,
+        temperature: 0.3,
+      });
+
       response = await chrome.runtime.sendMessage({
         action: 'LOCAL_LLM_GENERATE',
         prompt,
@@ -440,12 +291,41 @@ IMPROVED VERSION:`,
           temperature: 0.3, // Lower temperature for more consistent output
         },
       });
+
+      console.log('[TextSimplification] Raw response from Ollama:', {
+        hasResponse: !!response,
+        success: response?.success,
+        hasData: !!response?.data,
+        dataType: typeof response?.data,
+        error: response?.error,
+        fullResponse: response,
+      });
     }
 
     if (response && response.success) {
-      return { simplified: response.data, isCloud };
+      const simplified = response.data;
+      console.log('[TextSimplification] AI Response:', {
+        level,
+        model: isCloud ? modelKey : 'local',
+        responseLength: simplified?.length || 0,
+        isEmpty: !simplified || simplified.trim().length === 0,
+        preview: simplified?.substring(0, 100),
+      });
+
+      // If response is empty or whitespace-only, treat as error
+      if (!simplified || simplified.trim().length === 0) {
+        console.warn('[TextSimplification] AI returned empty response for level:', level);
+        throw new Error(`AI returned empty response for ${level} mode`);
+      }
+
+      return { simplified, isCloud };
     }
 
+    console.error('[TextSimplification] Response validation failed:', {
+      hasResponse: !!response,
+      success: response?.success,
+      error: response?.error,
+    });
     throw new Error(response?.error || 'Simplification failed');
   } catch (error) {
     console.error('[TextSimplification] Generation failed:', error);
