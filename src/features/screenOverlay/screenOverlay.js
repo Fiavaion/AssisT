@@ -36,8 +36,158 @@ const screenOverlay_settings = {
 // ============================================================
 
 /**
+ * Detects if the page uses a dark theme by analyzing background colors.
+ * Checks html, body, and common content containers for dark backgrounds.
+ *
+ * @function screenOverlay_detectDarkTheme
+ * @returns {boolean} True if dark theme detected, false otherwise
+ */
+function screenOverlay_detectDarkTheme() {
+  // Get computed background color of html and body
+  const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
+  const bodyBg = window.getComputedStyle(document.body).backgroundColor;
+
+  /**
+   * Converts RGB/RGBA color string to luminance value (0-255 scale)
+   * @param {string} rgbString - RGB or RGBA color string
+   * @returns {number} Luminance value (0-255), or 255 if parsing fails
+   */
+  function getBgLuminance(rgbString) {
+    // Handle transparent backgrounds (treat as white)
+    if (!rgbString || rgbString === 'transparent' || rgbString === 'rgba(0, 0, 0, 0)') {
+      return 255;
+    }
+
+    // Parse RGB/RGBA values
+    const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!match) {
+      return 255;
+    } // Default to white if can't parse
+
+    const r = parseInt(match[1]);
+    const g = parseInt(match[2]);
+    const b = parseInt(match[3]);
+
+    // Calculate simple luminance (0-255)
+    // Using perceived brightness formula
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+
+  const htmlLuminance = getBgLuminance(htmlBg);
+  const bodyLuminance = getBgLuminance(bodyBg);
+
+  // Check main content containers as well (some sites only set bg on containers)
+  const mainElement = document.querySelector('main, [role="main"], .main-content, #main-content');
+  let mainLuminance = 255;
+  if (mainElement) {
+    const mainBg = window.getComputedStyle(mainElement).backgroundColor;
+    mainLuminance = getBgLuminance(mainBg);
+  }
+
+  // Use the darkest (lowest luminance) of the checked elements
+  const pageLuminance = Math.min(htmlLuminance, bodyLuminance, mainLuminance);
+
+  // Dark theme threshold: luminance below 128 (mid-point)
+  // This catches most dark themes (black, dark gray, dark blue, etc.)
+  const isDark = pageLuminance < 128;
+
+  console.log(
+    '[ScreenOverlay] Theme detection:',
+    isDark ? 'DARK' : 'LIGHT',
+    `(luminance: ${pageLuminance.toFixed(0)})`,
+    {
+      htmlBg,
+      bodyBg,
+      htmlLuminance: htmlLuminance.toFixed(0),
+      bodyLuminance: bodyLuminance.toFixed(0),
+    }
+  );
+
+  return isDark;
+}
+
+/**
+ * Creates a dark mode friendly overlay using CSS filters.
+ * Reduces eye strain on dark pages by:
+ * - Warming colors (reducing blue light from white text)
+ * - Slightly reducing brightness of very bright elements
+ * - Preserving the dark theme and contrast
+ *
+ * @function screenOverlay_createDarkMode
+ * @returns {void}
+ */
+function screenOverlay_createDarkMode() {
+  try {
+    console.log('[ScreenOverlay] createDarkMode called');
+
+    // Remove existing elements
+    if (screenOverlay_styleElement) {
+      screenOverlay_styleElement.remove();
+      screenOverlay_styleElement = null;
+    }
+
+    const color = screenOverlay_settings.color;
+    const intensity = screenOverlay_settings.opacity; // 0-1 range
+
+    console.log('[ScreenOverlay] Dark mode settings:', { color, intensity });
+
+    // Convert hex color to hue for color shift
+    // Warm sepia colors have hue around 30-40 degrees
+    // We'll apply a subtle sepia filter + brightness reduction
+
+    // Calculate filter intensity based on user's opacity setting
+    // Dark mode needs stronger effect to be visible
+    const sepiaAmount = intensity * 0.5; // Max 50% sepia at 100% intensity
+    const brightnessAmount = 1 - intensity * 0.15; // Max 15% brightness reduction at 100%
+
+    const styleEl = document.createElement('style');
+    styleEl.id = 'assist-screen-overlay';
+    styleEl.textContent = `
+      /* Apply subtle warm filter to entire page */
+      html {
+        filter: sepia(${sepiaAmount.toFixed(2)}) brightness(${brightnessAmount.toFixed(2)}) !important;
+        transition: filter 0.3s ease !important;
+      }
+
+      /* Don't affect extension UI */
+      .assist-toast,
+      [id^="assist-"] {
+        filter: none !important;
+      }
+
+      /* Reduce brightness of very bright whites (helps with eye strain) */
+      * {
+        --assist-text-brightness: ${brightnessAmount.toFixed(2)};
+      }
+
+      /* Apply slight brightness reduction to white/near-white text */
+      *[style*="color: white"],
+      *[style*="color: #fff"],
+      *[style*="color: #FFF"],
+      *[style*="color: rgb(255, 255, 255)"] {
+        filter: brightness(var(--assist-text-brightness)) !important;
+      }
+    `;
+
+    document.head.appendChild(styleEl);
+    screenOverlay_styleElement = styleEl;
+
+    console.log(
+      '[ScreenOverlay] Applied dark mode overlay:',
+      `sepia(${sepiaAmount.toFixed(2)})`,
+      `brightness(${brightnessAmount.toFixed(2)})`
+    );
+  } catch (error) {
+    console.error('[ScreenOverlay] Error in createDarkMode:', error);
+  }
+}
+
+/**
  * Creates the screen overlay by directly tinting background colors.
  * This approach:
+ * - Detects if page uses dark theme (auto-detection)
+ * - Applies dark mode overlay for dark pages (subtle filter)
+ * - Applies light mode overlay for light pages (background tinting)
  * - Sets the html/body background to the tint color
  * - Overrides white/light backgrounds on common elements
  * - Text color remains unchanged, preserving contrast
@@ -46,6 +196,15 @@ const screenOverlay_settings = {
  * @returns {void}
  */
 function screenOverlay_create() {
+  // SMART AUTO-DETECTION: Check if page uses dark theme
+  const isDarkTheme = screenOverlay_detectDarkTheme();
+
+  if (isDarkTheme) {
+    console.log('[ScreenOverlay] Dark theme detected - applying dark mode overlay');
+    screenOverlay_createDarkMode();
+    return;
+  }
+
   // Remove existing elements
   if (screenOverlay_styleElement) {
     screenOverlay_styleElement.remove();
@@ -253,6 +412,12 @@ const DEFAULT_SETTINGS = {
  * @param {boolean} isInit - Whether this is initial load (true) or change (false)
  */
 function applySettings(settings, isInit = false) {
+  console.log('[ScreenOverlay] applySettings called:', {
+    settings,
+    isInit,
+    wasEnabled: screenOverlay_enabled,
+  });
+
   const wasEnabled = screenOverlay_enabled;
   const newEnabled = settings.enabled || false;
 
@@ -260,12 +425,17 @@ function applySettings(settings, isInit = false) {
   screenOverlay_settings.color = settings.color || DEFAULT_SETTINGS.color;
   screenOverlay_settings.opacity = settings.opacity || DEFAULT_SETTINGS.opacity;
 
+  console.log('[ScreenOverlay] State transition:', { wasEnabled, newEnabled, isInit });
+
   // Handle enable/disable
   if (newEnabled && !wasEnabled) {
+    console.log('[ScreenOverlay] Calling screenOverlay_enable()');
     screenOverlay_enable();
   } else if (!newEnabled && wasEnabled) {
+    console.log('[ScreenOverlay] Calling screenOverlay_disable()');
     screenOverlay_disable();
   } else if (newEnabled && !isInit) {
+    console.log('[ScreenOverlay] Calling screenOverlay_update()');
     // Update style if already enabled (but not on init, as enable() handles it)
     screenOverlay_update();
   }
@@ -281,12 +451,14 @@ function applySettings(settings, isInit = false) {
  * Initialize screen overlay using centralized storage utility.
  * Uses initFeatureSettings for consistent storage access pattern.
  */
+console.log('[ScreenOverlay] Module loading, initializing...');
 initFeatureSettings(
   'screenOverlay',
   DEFAULT_SETTINGS,
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
+console.log('[ScreenOverlay] Module initialization complete');
 
 // ============================================================
 // EXPORTS
