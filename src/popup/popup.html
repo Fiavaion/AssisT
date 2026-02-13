@@ -29,7 +29,7 @@
           aria-label="Support AssisT - opens in new tab"
         >
           <span class="support-icon" aria-hidden="true">💜</span>
-          <span class="support-text">Support</span>
+          <span class="support-text">Support Us</span>
         </a>
 
         <!-- Action Buttons Row -->
@@ -734,6 +734,7 @@
                       data-testid="stt-toggle"
                       role="switch"
                       aria-label="Enable Speech-to-Text"
+                      checked
                     />
                     <span class="toggle-slider"></span>
                   </div>
@@ -2499,66 +2500,7 @@
               </p>
             </section>
 
-            <!-- Dark Mode -->
-            <section class="control-section" id="dark-mode-section">
-              <div class="toggle-control">
-                <label for="dark-mode-enabled" class="toggle-label">
-                  <span class="label-text">🌙 Dark Mode</span>
-                  <div class="toggle-switch">
-                    <input
-                      type="checkbox"
-                      id="dark-mode-enabled"
-                      data-testid="dark-mode-toggle"
-                      role="switch"
-                      aria-label="Enable dark mode"
-                    />
-                    <span class="toggle-slider"></span>
-                  </div>
-                </label>
-              </div>
-              <p class="feature-description hidden" id="dark-mode-description">
-                Apply dark theme to pages
-              </p>
-              <div id="dark-mode-options" class="dark-mode-options hidden">
-                <div class="control-subsection">
-                  <h3 class="subsection-title">
-                    <label for="dark-mode-preset">Theme Preset</label>
-                  </h3>
-                  <select
-                    id="dark-mode-preset"
-                    data-testid="dark-mode-preset-select"
-                    class="voice-select"
-                    aria-label="Select dark mode preset"
-                  >
-                    <option value="dark-gray">Dark Gray (Default)</option>
-                    <option value="amoled-black">AMOLED Black</option>
-                    <option value="navy-blue">Navy Blue</option>
-                    <option value="sepia-dark">Sepia Dark</option>
-                  </select>
-                </div>
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="dark-mode-system" class="toggle-label">
-                      <span class="label-text">Follow System Setting</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="dark-mode-system"
-                          data-testid="dark-mode-system-toggle"
-                          role="switch"
-                          aria-label="Follow system dark mode setting"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                  <p class="feature-description" style="margin-top: 4px; font-size: 11px">
-                    Auto-enable when OS uses dark mode
-                  </p>
-                </div>
-              </div>
-            </section>
+            <!-- Dark Mode: REMOVED - Extension UI dark mode button remains in header -->
           </div>
         </div>
 

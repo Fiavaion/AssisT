@@ -3132,18 +3132,6 @@ class PopupController {
                 Control which on-page overlays and notifications are displayed. These settings help reduce visual clutter.
               </p>
 
-              <!-- Global Toggle -->
-              <div class="option-group" style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-                <label style="font-weight: 600;">Minimize UI Clutter</label>
-                <div class="option-control">
-                  <label class="toggle-switch-small">
-                    <input type="checkbox" id="minimize-ui-clutter">
-                    <span class="toggle-slider-small"></span>
-                  </label>
-                  <span class="option-desc">Hide all UI overlays below (text stats, notifications, tokens)</span>
-                </div>
-              </div>
-
               <!-- Individual Overlay Controls -->
               <div id="ui-overlay-controls" style="margin-left: 16px;">
                 <div class="option-group">
@@ -4794,33 +4782,6 @@ class PopupController {
     // Load UI overlay visibility settings
     const uiOverlay = this.settings.ui_overlay || {};
 
-    const minimizeClutter = document.getElementById('minimize-ui-clutter');
-    if (minimizeClutter) {
-      minimizeClutter.checked = uiOverlay.minimize_clutter === true;
-
-      // Toggle individual controls based on global toggle
-      const overlayControls = document.getElementById('ui-overlay-controls');
-      if (overlayControls) {
-        overlayControls.style.opacity = minimizeClutter.checked ? '0.5' : '1';
-        overlayControls.style.pointerEvents = minimizeClutter.checked ? 'none' : 'auto';
-      }
-
-      // Add event listener for global toggle
-      minimizeClutter.addEventListener('change', e => {
-        const overlayControls = document.getElementById('ui-overlay-controls');
-        if (overlayControls) {
-          overlayControls.style.opacity = e.target.checked ? '0.5' : '1';
-          overlayControls.style.pointerEvents = e.target.checked ? 'none' : 'auto';
-        }
-
-        // Sync header button state
-        const headerBtn = document.getElementById('btn-minimize-clutter');
-        if (headerBtn) {
-          this.updateMinimizeClutterButtonState(headerBtn, e.target.checked);
-        }
-      });
-    }
-
     const showTextStatsBadge = document.getElementById('show-text-stats-badge');
     if (showTextStatsBadge) {
       showTextStatsBadge.checked = uiOverlay.show_text_stats_badge !== false;
@@ -5266,11 +5227,6 @@ class PopupController {
     // Save UI overlay visibility settings
     if (!this.settings.ui_overlay) {
       this.settings.ui_overlay = {};
-    }
-
-    const minimizeClutter = document.getElementById('minimize-ui-clutter');
-    if (minimizeClutter) {
-      this.settings.ui_overlay.minimize_clutter = minimizeClutter.checked;
     }
 
     const showTextStatsBadge = document.getElementById('show-text-stats-badge');
@@ -6110,58 +6066,8 @@ class PopupController {
   // ============================================================
   // NEURODIVERGENT PROFILE FEATURE: DARK MODE
   // ============================================================
-  setupDarkMode() {
-    if (!this.settings.darkMode) {
-      this.settings.darkMode = {
-        enabled: false,
-        preset: 'dark-gray',
-        respectSystemPreference: true,
-      };
-    }
-
-    const darkModeEnabled = document.getElementById('dark-mode-enabled');
-    const darkModeDescription = document.getElementById('dark-mode-description');
-    const darkModeOptions = document.getElementById('dark-mode-options');
-
-    darkModeEnabled.checked = this.settings.darkMode.enabled || false;
-
-    if (darkModeEnabled.checked) {
-      darkModeDescription.classList.remove('hidden');
-      darkModeOptions.classList.remove('hidden');
-    } else {
-      darkModeDescription.classList.add('hidden');
-      darkModeOptions.classList.add('hidden');
-    }
-
-    darkModeEnabled.addEventListener('change', e => {
-      this.settings.darkMode.enabled = e.target.checked;
-      this.saveSettings();
-
-      if (e.target.checked) {
-        darkModeDescription.classList.remove('hidden');
-        darkModeOptions.classList.remove('hidden');
-      } else {
-        darkModeDescription.classList.add('hidden');
-        darkModeOptions.classList.add('hidden');
-      }
-    });
-
-    const presetSelect = document.getElementById('dark-mode-preset');
-    presetSelect.value = this.settings.darkMode.preset || 'dark-gray';
-    presetSelect.addEventListener('change', e => {
-      this.settings.darkMode.preset = e.target.value;
-      this.saveSettings();
-    });
-
-    const systemToggle = document.getElementById('dark-mode-system');
-    systemToggle.checked = this.settings.darkMode.respectSystemPreference !== false;
-    systemToggle.addEventListener('change', e => {
-      this.settings.darkMode.respectSystemPreference = e.target.checked;
-      this.saveSettings();
-    });
-
-    console.log('[Popup] Dark Mode initialized');
-  }
+  // REMOVED - Web page dark mode feature removed
+  // Extension UI dark mode button (in header) remains functional
 
   // ============================================================
   // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
@@ -10066,114 +9972,12 @@ class PopupController {
 
   /**
    * Set up Dark Mode controls
+   * REMOVED - Web page dark mode feature removed
+   * Extension UI dark mode button (in header) remains functional
    */
   setupDarkMode() {
-    const darkModeToggle = document.getElementById('dark-mode-enabled');
-    const darkModePreset = document.getElementById('dark-mode-preset');
-    const darkModeOptions = document.getElementById('dark-mode-options');
-    const darkModeSystem = document.getElementById('dark-mode-system');
-
-    if (!darkModeToggle || !darkModePreset) {
-      console.log('[Popup] Dark mode UI elements not found');
-      return;
-    }
-
-    // Initialize darkMode settings if they don't exist
-    if (!this.settings.darkMode) {
-      this.settings.darkMode = {
-        enabled: false,
-        preset: 'dark-gray',
-        respectSystemPreference: true,
-      };
-    }
-
-    // Populate preset dropdown
-    const presets = [
-      { value: 'dark-gray', label: 'Dark Gray' },
-      { value: 'amoled-black', label: 'AMOLED Black' },
-      { value: 'navy-blue', label: 'Navy Blue' },
-      { value: 'sepia-dark', label: 'Sepia Dark' },
-    ];
-
-    darkModePreset.innerHTML = presets
-      .map(p => `<option value="${p.value}">${p.label}</option>`)
-      .join('');
-
-    // Set current values
-    darkModeToggle.checked = this.settings.darkMode.enabled || false;
-    darkModePreset.value = this.settings.darkMode.preset || 'dark-gray';
-
-    // Set system preference toggle
-    if (darkModeSystem) {
-      darkModeSystem.checked = this.settings.darkMode.respectSystemPreference !== false;
-    }
-
-    // Show/hide preset options based on toggle state
-    if (darkModeToggle.checked) {
-      darkModeOptions?.classList.remove('hidden');
-    } else {
-      darkModeOptions?.classList.add('hidden');
-    }
-
-    // Set initial status message to reflect actual state
-    const isSystemFollowing = this.settings.darkMode.respectSystemPreference !== false;
-    if (this.settings.darkMode.enabled) {
-      // Explicitly enabled by user
-      this.updateStatus('Web page dark mode: ON', 'success');
-    } else if (isSystemFollowing) {
-      // Following system preference
-      const systemDark =
-        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (systemDark) {
-        this.updateStatus('Web page dark mode: following OS (currently dark)', 'success');
-      } else {
-        this.updateStatus('Web page dark mode: following OS (currently light)', 'success');
-      }
-    } else {
-      // Manually disabled
-      this.updateStatus('Web page dark mode: OFF', 'success');
-    }
-
-    // Toggle change handler
-    this.attachInteractiveHandler(darkModeToggle, 'Dark Mode Toggle', e => {
-      this.settings.darkMode.enabled = e.target.checked;
-      this.saveSettings();
-
-      // Show/hide preset options
-      if (e.target.checked) {
-        darkModeOptions?.classList.remove('hidden');
-        this.updateStatus('Web page dark mode enabled', 'success');
-      } else {
-        darkModeOptions?.classList.add('hidden');
-        this.updateStatus('Web page dark mode disabled', 'success');
-      }
-    });
-
-    // Preset change handler
-    this.attachInteractiveHandler(darkModePreset, 'Dark Mode Preset', e => {
-      this.settings.darkMode.preset = e.target.value;
-      this.saveSettings();
-
-      // Get preset name for display
-      const presetName = presets.find(p => p.value === e.target.value)?.label || e.target.value;
-      this.updateStatus(`Dark mode preset: ${presetName}`, 'success');
-    });
-
-    // System preference toggle handler
-    if (darkModeSystem) {
-      this.attachInteractiveHandler(darkModeSystem, 'Dark Mode System Toggle', e => {
-        this.settings.darkMode.respectSystemPreference = e.target.checked;
-        this.saveSettings();
-
-        if (e.target.checked) {
-          this.updateStatus('Web page dark mode: following OS setting', 'success');
-        } else {
-          this.updateStatus('Web page dark mode: manual control', 'success');
-        }
-      });
-    }
-
-    console.log('[Popup] Dark mode setup complete', this.settings.darkMode);
+    // No-op: Dark mode feature removed
+    console.log('[Popup] Dark mode feature removed - skipping setup');
   }
 }
 
