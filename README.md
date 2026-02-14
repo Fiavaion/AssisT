@@ -11,17 +11,32 @@
 
 ---
 
+## 🚀 Beyond Accessibility: Augmentative Technology
+
+**AssisT isn't just an accessibility tool - it's augmentative technology that superpowers learning for everyone.**
+
+Traditional accessibility tools help you cope with barriers. **AssisT helps you excel.**
+
+- **Not a crutch, but a superpower** — Features like AI summarization, text-to-speech, and OCR don't just make content "accessible," they enhance how everyone learns
+- **Leveling the playing field** — Everyone has different learning strengths. AssisT lets you leverage YOUR strengths instead of struggling with your weaknesses
+- **For ALL learners** — Yes, AssisT was designed with neurodivergent students in mind, but neurotypical students benefit just as much. Speed readers use TTS. Honor students use AI summarization. Visual learners use highlighting. **Everyone learns differently.**
+
+Think of AssisT as **augmented learning** — just as augmented reality enhances what you see, AssisT enhances how you learn, comprehend, and retain information.
+
+---
+
 ## 📖 Overview
 
-**AssisT** is an adaptive educational technology Chrome extension designed to make web content more accessible for neurodivergent students, particularly those using Canvas LMS. It provides comprehensive text-to-speech, reading assistance, and innovative dyslexia-optimized features.
+**AssisT** is an adaptive augmentative technology Chrome extension that superpowers learning for all students. Whether you're neurodivergent, neurotypical, a visual learner, or an auditory learner, AssisT provides tools to enhance your learning abilities. It offers comprehensive text-to-speech, AI-powered assistance, reading optimization, and innovative features designed to help every learner excel.
 
 ### 🎯 Target Users
 
+- **ALL learners** seeking to enhance their learning capabilities
 - Students with dyslexia, ADHD, or other learning differences
+- Neurotypical students looking to optimize their study efficiency
 - Students using Canvas LMS, Moodle, or Google Classroom
-- Anyone who benefits from audio reinforcement while reading
-- Users requiring text customization for readability
-- Students taking online quizzes who need accessibility support
+- Visual learners, auditory learners, and kinesthetic learners
+- Anyone who wants to supercharge their education
 
 ### ✨ Key Features
 

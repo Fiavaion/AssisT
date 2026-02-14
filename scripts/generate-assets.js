@@ -161,7 +161,7 @@ async function generateMarqueePromoTile() {
         fill="${CYAN}"
         text-anchor="start"
         letter-spacing="2">
-        Adaptive Accessibility Tool
+        Adaptive Augmentative Tool
       </text>
 
       <!-- Feature bullets with gradient accents -->
@@ -397,7 +397,7 @@ async function generateDocumentationImages() {
         font-weight="400"
         fill="${CYAN}"
         letter-spacing="2">
-        Adaptive Accessibility Tool
+        Adaptive Augmentative Tool
       </text>
 
       <!-- Tagline -->

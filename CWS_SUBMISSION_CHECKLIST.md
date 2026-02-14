@@ -127,7 +127,7 @@
   - [ ] `script-src 'self'`
   - [ ] `object-src 'self'`
 
-- [ ] **Name:** "AssisT: Adaptive Accessibility Tool"
+- [ ] **Name:** "AssisT: Adaptive Augmentative Tool"
 
 - [ ] **Description:** Accurate and under 132 characters
 
@@ -229,7 +229,7 @@
 
 ### Store Listing Details
 
-- [ ] **Name:** AssisT: Adaptive Accessibility Tool
+- [ ] **Name:** AssisT: Adaptive Augmentative Tool
 - [ ] **Summary:** (132 char max) Clear description of what it does
 - [ ] **Description:** Comprehensive feature list
 - [ ] **Category:** Productivity or Accessibility
@@ -461,8 +461,8 @@
 - [ ] All documentation is consistent and accurate
 - [ ] I am ready to submit to Chrome Web Store
 
-**Date:** ******\_\_\_******
-**Signed:** ******\_\_\_******
+**Date:** **\*\***\_\_\_**\*\***
+**Signed:** **\*\***\_\_\_**\*\***
 
 ---
 

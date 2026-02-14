@@ -1,6 +1,6 @@
 # WCAG 2.2 Level AA Compliance Audit
 
-**Extension:** AssisT: Adaptive Accessibility Tool
+**Extension:** AssisT: Adaptive Augmentative Tool
 **Audit Date:** 2025-10-13
 **WCAG Version:** 2.2
 **Target Level:** AA
@@ -151,7 +151,7 @@ This document tracks compliance with Web Content Accessibility Guidelines (WCAG)
 - **2.4.1 Bypass Blocks (Level A)** ⚪ **N/A** (Single-page popup, no blocks to bypass)
 
 - **2.4.2 Page Titled (Level A)** ✅ **PASS**
-  - Popup has descriptive title: "AssisT: Adaptive Accessibility Tool"
+  - Popup has descriptive title: "AssisT: Adaptive Augmentative Tool"
 
 - **2.4.3 Focus Order (Level A)** ✅ **PASS**
   - Focus order is logical and intuitive

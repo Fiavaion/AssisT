@@ -37,7 +37,7 @@
       "48": "public/icons/icon48.png",
       "128": "public/icons/icon128.png"
     },
-    "default_title": "AssisT - Adaptive Accessibility"
+    "default_title": "AssisT - Augmentative Learning"
   },
   "web_accessible_resources": [
     {
@@ -80,8 +80,8 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
-  "name": "AssisT: Adaptive Accessibility Tool",
-  "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
+  "name": "AssisT: Adaptive Augmentative Tool",
+  "description": "Augmentative learning technology that levels the playing field with Text-to-Speech, AI assistance, and powerful adaptive features for all learners",
   "permissions": [
     "storage",
     "activeTab",
