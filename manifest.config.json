@@ -1,9 +1,9 @@
 {
   "variants": {
     "assist": {
-      "name": "AssisT: Adaptive Accessibility Tool",
-      "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
-      "default_title": "AssisT - Adaptive Accessibility",
+      "name": "AssisT: Adaptive Augmentative Tool",
+      "description": "Augmentative learning technology that levels the playing field with Text-to-Speech, AI assistance, and powerful adaptive features for all learners",
+      "default_title": "AssisT - Augmentative Learning",
       "permissions": [
         "storage",
         "activeTab",
@@ -15,9 +15,9 @@
       ]
     },
     "llm": {
-      "name": "AssisT: Adaptive Accessibility Tool",
-      "description": "Universal accessibility extension with Text-to-Speech, customizable highlighting, and adaptive features for all websites",
-      "default_title": "AssisT - Adaptive Accessibility",
+      "name": "AssisT: Adaptive Augmentative Tool",
+      "description": "Augmentative learning technology that levels the playing field with Text-to-Speech, AI assistance, and powerful adaptive features for all learners",
+      "default_title": "AssisT - Augmentative Learning",
       "permissions": [
         "storage",
         "activeTab",

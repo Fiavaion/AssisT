@@ -13,7 +13,7 @@ echo.
 echo STEP 2: Open Chrome and follow these steps:
 echo ----------------------------------------------------------------
 echo 1. Type in address bar: chrome://extensions
-echo 2. Find "AssisT: Adaptive Accessibility Tool"
+echo 2. Find "AssisT: Adaptive Augmentative Tool"
 echo 3. Click the REMOVE button (trash icon)
 echo 4. Click "Load unpacked" button (top left)
 echo 5. Navigate to: %CD%
