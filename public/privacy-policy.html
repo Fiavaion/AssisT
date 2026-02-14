@@ -348,9 +348,9 @@
         </div>
 
         <div class="meta">
-            <strong>Last Updated:</strong> February 4, 2026<br>
-            <strong>Effective Date:</strong> February 4, 2026<br>
-            <strong>Version:</strong> 0.1.0
+            <strong>Last Updated:</strong> February 13, 2026<br>
+            <strong>Effective Date:</strong> February 13, 2026<br>
+            <strong>Version:</strong> 0.1.1
         </div>
 
         <div class="tldr-box">
@@ -359,7 +359,7 @@
                 <li><strong>No data collection:</strong> We don't track you or collect personal information</li>
                 <li><strong>Local-only storage:</strong> Your settings, notes, and citations stay on your device</li>
                 <li><strong>No external servers:</strong> AssisT has no backend—all processing happens locally</li>
-                <li><strong>AI runs locally:</strong> Optional AI features use Ollama on your computer, not cloud services</li>
+                <li><strong>AI privacy options:</strong> Choose between local AI (Ollama), on-device (Gemini Nano), cloud AI (Anthropic Claude 4.5/4.6 with your own key), or no AI at all</li>
                 <li><strong>You control third-party services:</strong> Translation providers are optional and you choose which to use</li>
                 <li><strong>FERPA/COPPA/GDPR compliant:</strong> Designed for educational use with student privacy as the priority</li>
                 <li><strong>Open source:</strong> Our code is transparent and auditable on GitHub</li>
@@ -428,11 +428,12 @@
         </ul>
 
         <h3>3.4 Optional API Keys</h3>
-        <p>If you choose to use premium translation services (DeepL or Azure Translator), you may provide API keys. These are:</p>
+        <p>If you choose to use cloud AI features (Anthropic Claude API), you may provide API keys. These are:</p>
         <ul>
-            <li>Stored locally on your device only</li>
+            <li>Stored locally on your device only using AES-256 encryption</li>
             <li>Never transmitted to Fiavaion</li>
             <li>Sent only to the service provider you configured, when you use that feature</li>
+            <li>Encrypted at rest using Chrome's secure storage with AES-256-GCM</li>
             <li>Deletable at any time through the extension settings</li>
         </ul>
 
@@ -525,17 +526,56 @@
             <li><strong>Website:</strong> <a href="https://dictionaryapi.dev/" target="_blank" rel="noopener noreferrer">dictionaryapi.dev</a></li>
         </ul>
 
-        <h3>5.3 AI Features (Local Only)</h3>
-        <p>AssisT's AI features (summarization, simplification, etc.) use <strong>Ollama</strong>, which runs entirely on your local computer:</p>
-        <ul>
-            <li><strong>No cloud processing:</strong> All AI inference happens on your device</li>
-            <li><strong>No data transmission:</strong> Your text is never sent to any server</li>
-            <li><strong>No API keys needed:</strong> Ollama is free and open-source</li>
-            <li><strong>Completely optional:</strong> AssisT works fully without AI features</li>
-        </ul>
+        <h3>5.3 AI Features</h3>
+        <p>AssisT offers <strong>four distinct AI modes</strong>, giving you full control over privacy vs. capability trade-offs:</p>
+
+        <div class="service-card">
+            <h4>Mode 1: Off</h4>
+            <ul>
+                <li><strong>Privacy:</strong> No AI processing occurs</li>
+                <li><strong>Data Sent:</strong> None</li>
+                <li><strong>Best For:</strong> Users who don't need AI features or want to minimize resource usage</li>
+                <li>All other 35+ accessibility features still work perfectly</li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Mode 2: Local AI (Ollama)</h4>
+            <ul>
+                <li><strong>Privacy:</strong> 100% Private - No cloud processing</li>
+                <li><strong>Data Sent:</strong> None - Runs entirely on your computer</li>
+                <li><strong>Requirements:</strong> Ollama installation (free)</li>
+                <li><strong>Best For:</strong> Maximum privacy, offline access, FERPA/HIPAA compliance</li>
+                <li>Models: phi3:mini (2GB), llama3.2 (5GB), llava (4.7GB for image understanding)</li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Mode 3: Gemini Nano (Chrome Built-In AI)</h4>
+            <ul>
+                <li><strong>Privacy:</strong> 100% Private - On-device AI in Chrome</li>
+                <li><strong>Data Sent:</strong> None - Processed locally in your browser</li>
+                <li><strong>Requirements:</strong> Chrome 128+ with feature flag enabled</li>
+                <li><strong>Best For:</strong> Zero-setup AI, Chrome users, private on-device processing</li>
+                <li>Chrome downloads the model automatically (no manual installation)</li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Mode 4: Cloud AI (Your API Key)</h4>
+            <ul>
+                <li><strong>Privacy:</strong> Data sent to Anthropic (not Fiavaion)</li>
+                <li><strong>Data Sent:</strong> Selected text sent to Anthropic Claude API</li>
+                <li><strong>Requirements:</strong> Your own API key from Anthropic</li>
+                <li><strong>Models:</strong> Claude Haiku 4.5 (fast), Sonnet 4.5 (balanced), Opus 4.6 (most capable)</li>
+                <li>You pay per use directly to Anthropic (typical: $0.002-0.004 per summary)</li>
+                <li>API keys stored locally using AES-256-GCM encryption, never sent to Fiavaion</li>
+                <li>Subject to Anthropic's privacy policy: <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer">anthropic.com/privacy</a></li>
+            </ul>
+        </div>
 
         <div class="important-box">
-            <strong>Important:</strong> Fiavaion does not receive, store, or have access to any data processed by third-party services or local AI. When you use translation services, data goes directly from your browser to the service provider—we are not an intermediary.
+            <strong>Important:</strong> Fiavaion does not receive, store, or have access to any data processed by third-party services or local AI. When you use Cloud AI mode, data goes directly from your browser to Anthropic—we are not an intermediary. Modes 1, 2, and 3 keep all processing on your device.
         </div>
 
         <hr>
