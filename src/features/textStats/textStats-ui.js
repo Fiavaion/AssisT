@@ -713,6 +713,18 @@ export const textStatsUI = new TextStatsUI();
         }
       }
     });
+
+    // Direct message listener - handles case where storage value hasn't changed
+    // so chrome.storage.onChanged doesn't fire (e.g. minimize clutter pressed twice)
+    chrome.runtime.onMessage.addListener(message => {
+      if (message.type === 'MINIMIZE_CLUTTER_UPDATE') {
+        if (message.state) {
+          textStatsUI?.hideBadge();
+        } else {
+          textStatsUI?.showBadge();
+        }
+      }
+    });
   } catch (error) {
     console.error('[TextStats] Initialization error:', error);
   }

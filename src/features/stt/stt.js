@@ -14,6 +14,8 @@
 import { isTextInput } from './validation.js';
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
+import { STTController } from '../../engines/stt/stt-controller.js';
+import { MicrophoneButton } from '../../ui/components/microphone-button.js';
 
 // ============================================================
 // STT STATE MANAGEMENT
@@ -67,57 +69,10 @@ const stt_settings = {
 };
 
 // ============================================================
-// DYNAMIC MODULE LOADING
+// MODULE INITIALIZATION
 // ============================================================
-
-/**
- * Dynamically loads STT controller and microphone button modules
- *
- * Uses dynamic imports to load modules only when STT is enabled.
- * This reduces initial bundle size and improves performance.
- *
- * @async
- * @returns {Promise<Object|null>} Module exports or null on error
- * @returns {Function} return.STTController - STT controller class
- * @returns {Function} return.MicrophoneButton - Microphone button class
- *
- * @example
- * const modules = await stt_loadModules();
- * if (modules) {
- *   const controller = new modules.STTController(options);
- * }
- */
-async function stt_loadModules() {
-  try {
-    console.log('[STT] Loading modules...');
-    console.log(
-      '[STT] Controller URL:',
-      chrome.runtime.getURL('src/engines/stt/stt-controller.js')
-    );
-    console.log(
-      '[STT] MicButton URL:',
-      chrome.runtime.getURL('src/ui/components/microphone-button.js')
-    );
-
-    const [STTModule, MicButtonModule] = await Promise.all([
-      import(chrome.runtime.getURL('src/engines/stt/stt-controller.js')),
-      import(chrome.runtime.getURL('src/ui/components/microphone-button.js')),
-    ]);
-
-    console.log('[STT] Modules loaded successfully!');
-    console.log('[STT] STTController:', typeof STTModule.STTController);
-    console.log('[STT] MicrophoneButton:', typeof MicButtonModule.MicrophoneButton);
-
-    return {
-      STTController: STTModule.STTController,
-      MicrophoneButton: MicButtonModule.MicrophoneButton,
-    };
-  } catch (error) {
-    console.error('[STT] Failed to load modules:', error);
-    console.error('[STT] Error details:', error.message, error.stack);
-    return null;
-  }
-}
+// STTController and MicrophoneButton are now statically imported
+// at the top of this file, so they're automatically bundled by Vite
 
 // ============================================================
 // INITIALIZATION AND CLEANUP
@@ -150,19 +105,10 @@ async function stt_initialize() {
     return;
   }
 
-  console.log('[STT] STT is enabled, loading modules...');
-
-  const modules = await stt_loadModules();
-  if (!modules) {
-    console.error('[STT] Modules failed to load!');
-    showToast('⚠️ STT failed to load');
-    return;
-  }
-
-  console.log('[STT] Creating STT controller and microphone button...');
+  console.log('[STT] STT is enabled, creating controller and button...');
 
   // Create STT controller with callbacks
-  stt_controller = new modules.STTController({
+  stt_controller = new STTController({
     continuous: stt_settings.continuous,
     interimResults: stt_settings.interimResults,
     language: stt_settings.language,
@@ -205,7 +151,7 @@ async function stt_initialize() {
   console.log('[STT] floatingButton setting:', stt_settings.floatingButton);
   if (stt_settings.floatingButton) {
     console.log('[STT] Creating microphone button...');
-    stt_micButton = new modules.MicrophoneButton({
+    stt_micButton = new MicrophoneButton({
       onStart: targetField => {
         if (stt_controller) {
           stt_activeField = targetField;
@@ -474,7 +420,6 @@ if (typeof window !== 'undefined') {
     // Methods for external control
     initialize: stt_initialize,
     cleanup: stt_cleanup,
-    loadModules: stt_loadModules,
   };
   console.log('[STT] Exposed to window.assistFeatures');
 }
@@ -490,4 +435,4 @@ if (typeof window !== 'undefined') {
  * and doesn't require external calls. These exports are provided for
  * potential future use cases or testing.
  */
-export { stt_loadModules, stt_initialize, stt_setupFieldListeners, stt_cleanup };
+export { stt_initialize, stt_setupFieldListeners, stt_cleanup };

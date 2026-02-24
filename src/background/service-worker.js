@@ -1659,7 +1659,7 @@ function isSystemPage(url) {
     url.startsWith('chrome-extension://') ||
     url.startsWith('edge://') ||
     url.startsWith('about:') ||
-    url.startsWith('file://') ||
+    // file:// URLs are allowed if user enables "Allow access to file URLs" in chrome://extensions
     url.startsWith('devtools://')
   );
 }

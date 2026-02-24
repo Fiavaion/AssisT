@@ -85,7 +85,7 @@ import '../features/annotations/inline-annotations.js'; // Self-initializing inl
 import '../features/annotations/annotation-sidebar.js'; // Self-initializing annotation sidebar panel with real-time sync
 import '../features/reducedMotion/reducedMotion.js'; // Self-initializing reduced motion for sensory-sensitive users
 import '../features/mediaControl/mediaControl.js'; // Self-initializing auto-play blocking for sensory comfort
-import '../features/darkMode/darkMode.js'; // Self-initializing dark mode with multiple presets
+// Dark mode feature removed - extension UI dark mode remains in popup header
 import '../features/simplify/simplify.js'; // Self-initializing simplified interface mode for reducing visual clutter
 import '../features/readingProgress/readingProgress.js'; // Self-initializing reading progress bar for document navigation
 import '../features/pomodoro/pomodoro.js'; // Self-initializing Pomodoro timer for structured work/break intervals

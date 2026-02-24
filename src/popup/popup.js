@@ -1178,7 +1178,7 @@ class PopupController {
     toggleSection('dyslexia-mode-section', 'show_dyslexia_mode');
     toggleSection('citation-section', 'show_citations', false); // Citation Manager toggle - EXPERIMENTAL default off
     toggleSection('citation-options-container', 'show_citations', false); // Citation Manager buttons
-    toggleSection('dark-mode-section', 'show_dark_mode'); // Dark Mode
+    // Dark Mode feature removed - extension UI dark mode remains in popup header
     toggleSection('simplify-section', 'show_simplify'); // Simplified Interface
     toggleSection('reading-progress-section', 'show_reading_progress'); // Reading Progress Tracker
     toggleSection('pomodoro-section', 'show_pomodoro'); // Pomodoro Timer
@@ -1220,7 +1220,7 @@ class PopupController {
           { key: 'show_focus_mode', default: true },
           { key: 'show_dyslexia_mode', default: true },
           { key: 'show_screen_overlay', default: true },
-          { key: 'show_dark_mode', default: true },
+          // show_dark_mode removed - feature removed, extension UI dark mode remains
           { key: 'show_simplify', default: true },
           { key: 'show_reading_progress', default: true },
           { key: 'show_pomodoro', default: true },
@@ -2231,9 +2231,9 @@ class PopupController {
       this.setupMediaControl();
 
       // ============================================================
-      // NEURODIVERGENT PROFILE FEATURE: DARK MODE
+      // DARK MODE FEATURE REMOVED
+      // Extension UI dark mode button (in header) remains functional
       // ============================================================
-      this.setupDarkMode();
 
       // ============================================================
       // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
@@ -2547,6 +2547,17 @@ class PopupController {
           : this.settings.ui_overlay.show_reading_progress_badge !== false,
       });
 
+      // Direct message to active tab - handles case where storage value is already
+      // set to the same value (chrome.storage.onChanged won't fire in that case)
+      if (this.currentTab?.id) {
+        chrome.tabs
+          .sendMessage(this.currentTab.id, {
+            type: 'MINIMIZE_CLUTTER_UPDATE',
+            state: newState,
+          })
+          .catch(() => {}); // Ignore if content script not loaded
+      }
+
       // Show feedback
       this.updateStatus(newState ? 'UI clutter minimized' : 'UI overlays restored');
       console.log(`[Popup] Minimize UI Clutter: ${newState ? 'enabled' : 'disabled'}`);
@@ -2583,10 +2594,10 @@ class PopupController {
       return;
     }
 
-    // Load saved dark mode state from storage (defaults to enabled)
+    // Load saved dark mode state from storage (defaults to light mode/OFF)
     chrome.storage.local.get(['popup_dark_mode'], result => {
-      // Default to dark mode if not explicitly set to false
-      const isDarkMode = result.popup_dark_mode !== false;
+      // Default to light mode (OFF) - only enable dark mode if explicitly set to true
+      const isDarkMode = result.popup_dark_mode === true;
       this.updatePopupDarkModeState(btn, isDarkMode);
     });
 
@@ -2757,12 +2768,7 @@ class PopupController {
                 </label>
               </div>
 
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-dark-mode" checked>
-                  <span>Dark Mode</span>
-                </label>
-              </div>
+              <!-- Dark Mode feature removed - extension UI dark mode remains in popup header -->
 
               <div class="feature-item">
                 <label class="feature-label">
@@ -3780,7 +3786,7 @@ class PopupController {
           'Sensory Sensitive':
             'Minimal sensory input with no animations, muted colors, and auto-playing media blocked.',
           'Night Study':
-            'Reduced eye strain with dark mode, warm colors, and Pomodoro timer for study sessions.',
+            'Reduced eye strain with screen overlay, warm colors, and Pomodoro timer for study sessions.',
           'Anxiety Calm':
             'Gentle, non-overwhelming interface with calm colors and predictable interactions.',
         };
@@ -4461,7 +4467,7 @@ class PopupController {
     loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     loadCheckbox('show-annotations', 'show_annotations'); // Annotations
     loadCheckbox('show-citations', 'show_citations'); // Citations
-    loadCheckbox('show-dark-mode', 'show_dark_mode'); // Dark Mode
+    // Dark Mode feature removed - extension UI dark mode remains in popup header
     loadCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
     loadCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
     loadCheckbox('show-pomodoro', 'show_pomodoro'); // Pomodoro Timer
@@ -5150,7 +5156,7 @@ class PopupController {
     saveCheckbox('show-annotations', 'show_annotations'); // Annotations
     saveCheckbox('show-citations', 'show_citations'); // Citations
     saveCheckbox('show-translation', 'show_translation'); // Translation
-    saveCheckbox('show-dark-mode', 'show_dark_mode'); // Dark Mode
+    // Dark Mode feature removed - extension UI dark mode remains in popup header
     saveCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
     saveCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
     saveCheckbox('show-pomodoro', 'show_pomodoro'); // Pomodoro Timer
@@ -8337,7 +8343,7 @@ class PopupController {
           },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: true },
-          darkMode: { enabled: false },
+          // darkMode feature removed - extension UI dark mode remains
           // S.7.1: ADHD STT Profile - fast response, minimal distractions
           stt: {
             enabled: true,
@@ -8382,7 +8388,7 @@ class PopupController {
           },
           reducedMotion: { enabled: true, respectSystemPreference: true },
           mediaControl: { enabled: true },
-          darkMode: { enabled: false, respectSystemPreference: true },
+          // darkMode feature removed - extension UI dark mode remains
           // S.7.6: Autism STT Profile - predictable, literal commands
           stt: {
             enabled: true,
@@ -8423,7 +8429,7 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: false },
-          darkMode: { enabled: false },
+          // darkMode feature removed - extension UI dark mode remains
           // S.7.2: Dyslexia STT Profile - extra pause time, simple commands
           stt: {
             enabled: true,
@@ -8457,7 +8463,7 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: true, respectSystemPreference: false }, // Always reduce motion
           mediaControl: { enabled: true },
-          darkMode: { enabled: false, respectSystemPreference: true },
+          // darkMode feature removed - extension UI dark mode remains
           // S.7.3: Anxiety/Sensory STT Profile - calm colors, no alarming sounds
           stt: {
             enabled: true,
@@ -8472,7 +8478,7 @@ class PopupController {
       },
       'Night Study': {
         name: 'Night Study',
-        description: 'Dark mode with reduced eye strain for late-night studying',
+        description: 'Reduced eye strain with screen overlay for late-night studying',
         isDefault: true,
         createdAt: timestamp,
         settings: {
@@ -8498,7 +8504,7 @@ class PopupController {
           },
           reducedMotion: { enabled: true },
           mediaControl: { enabled: true },
-          darkMode: { enabled: true, preset: 'dark-gray', respectSystemPreference: false },
+          // darkMode feature removed - extension UI dark mode remains
         },
       },
       'Anxiety Calm': {
@@ -8534,7 +8540,7 @@ class PopupController {
           },
           reducedMotion: { enabled: true },
           mediaControl: { enabled: true },
-          darkMode: { enabled: false, respectSystemPreference: true },
+          // darkMode feature removed - extension UI dark mode remains
           // S.7.3: Anxiety STT Profile - calm, forgiving, no pressure
           stt: {
             enabled: true,
@@ -8566,7 +8572,7 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: false },
-          darkMode: { enabled: false },
+          // darkMode feature removed - extension UI dark mode remains
           stt: {
             enabled: true,
             profile: 'motor-impairment',
@@ -8613,7 +8619,7 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: false },
-          darkMode: { enabled: false },
+          // darkMode feature removed - extension UI dark mode remains
           stt: {
             enabled: true,
             profile: 'low-vision',
@@ -9381,9 +9387,9 @@ class PopupController {
     this.setupAIAssist();
 
     // ========================================
-    // DARK MODE SETUP
+    // DARK MODE FEATURE REMOVED
+    // Extension UI dark mode button (in header) remains functional
     // ========================================
-    this.setupDarkMode();
   }
 
   /**
