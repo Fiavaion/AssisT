@@ -263,6 +263,11 @@ function screenOverlay_create() {
     textColor
   );
 
+  // Exclusion selector: skip all extension UI elements and their descendants
+  // Uses :not() with :is() to cleanly exclude assist-* elements from overlay rules
+  const EX =
+    ':not([id^="assist-"]):not(:is([id^="assist-"] *)):not(.assist-toast):not(:is(.assist-toast *))';
+
   // Create style that overrides backgrounds
   const styleEl = document.createElement('style');
   styleEl.id = 'assist-screen-overlay';
@@ -273,35 +278,24 @@ function screenOverlay_create() {
     }
 
     /* Override white/near-white backgrounds on common elements */
-    /* This uses a broad selector to catch most content containers */
-    main, article, section, div, aside, nav, header, footer,
-    .content, .container, .wrapper, .page, .post, .entry,
-    [class*="content"], [class*="article"], [class*="main"],
-    [class*="body"], [class*="wrapper"], [class*="container"] {
+    :is(main, article, section, div, aside, nav, header, footer)${EX} {
       background-color: ${bgColor} !important;
     }
-
-    /* Specifically target elements with white or near-white backgrounds */
-    *[style*="background-color: white"],
-    *[style*="background-color: #fff"],
-    *[style*="background-color: #FFF"],
-    *[style*="background-color: rgb(255"],
-    *[style*="background: white"],
-    *[style*="background: #fff"],
-    *[style*="background: #FFF"] {
+    :is(.content, .container, .wrapper, .page, .post, .entry,
+    [class*="content"], [class*="article"], [class*="main"],
+    [class*="body"], [class*="wrapper"], [class*="container"])${EX} {
       background-color: ${bgColor} !important;
     }
 
     /* Ensure text contrast based on background luminance */
-    /* Force appropriate text color to maintain readability */
-    html, body, p, h1, h2, h3, h4, h5, h6, span, div, li, td, th,
+    :is(p, h1, h2, h3, h4, h5, h6, span, div, li, td, th,
     article, section, main, aside, blockquote, figcaption, legend,
-    dt, dd, address, label, caption {
+    dt, dd, address, label, caption)${EX} {
       color: ${textColor} !important;
     }
 
     /* Preserve link distinctiveness with underline */
-    a {
+    a${EX} {
       color: ${textColor} !important;
       text-decoration: underline !important;
     }
@@ -311,14 +305,8 @@ function screenOverlay_create() {
       background-color: transparent !important;
     }
 
-    /* Don't affect inputs and form elements (keep them white for usability) */
-    input, textarea, select, button {
-      background-color: revert !important;
-    }
-
-    /* Don't affect extension UI */
-    .assist-toast,
-    [id^="assist-"] {
+    /* Don't affect inputs and form elements (keep them usable) */
+    :is(input, textarea, select, button)${EX} {
       background-color: revert !important;
     }
   `;

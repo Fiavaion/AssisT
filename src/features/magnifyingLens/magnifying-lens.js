@@ -17,6 +17,8 @@ let contentContainer = null;
 let bodyClone = null;
 let mouseMoveHandler = null;
 let scrollHandler = null;
+let dragStartHandler = null;
+let lensStyle = null;
 let animationFrame = null;
 let currentX = 0;
 let currentY = 0;
@@ -90,31 +92,69 @@ function initMagnifyingLens() {
     position: absolute;
     top: 0;
     left: 0;
+    width: ${size}px;
+    height: ${size}px;
     transform-origin: 0 0;
     will-change: transform;
     pointer-events: none;
+    overflow: visible;
+    z-index: 1;
   `;
   lensContainer.appendChild(contentContainer);
+
+  // Identify fixed-position direct children of body BEFORE cloning (requires live DOM for getComputedStyle).
+  // Browser extensions typically inject overlays as direct body children with position:fixed.
+  // Inside a CSS-transformed container, position:fixed becomes relative to the transform parent,
+  // causing the overlay to appear incorrectly inside the lens.
+  const fixedChildIndices = [];
+  Array.from(document.body.children).forEach((child, idx) => {
+    try {
+      if (window.getComputedStyle(child).position === 'fixed') {
+        fixedChildIndices.push(idx);
+      }
+    } catch {
+      /* skip inaccessible elements */
+    }
+  });
 
   // Clone the body for magnification
   bodyClone = document.body.cloneNode(true);
 
-  // Remove the lens itself from the clone to avoid recursion
-  const lensInClone = bodyClone.querySelector('#assist-magnifying-lens');
-  if (lensInClone) {
-    lensInClone.remove();
-  }
+  // Remove the lens itself and other assist UI from the clone to avoid recursion
+  const assistElements = bodyClone.querySelectorAll(
+    '#assist-magnifying-lens, #assist-magnifying-lens-style, [id^="assist-textstats"], .assist-toast'
+  );
+  assistElements.forEach(el => el.remove());
 
-  // Style the cloned body
+  // Remove fixed-position direct children (extension overlays) from the clone
+  [...fixedChildIndices].reverse().forEach(idx => {
+    if (bodyClone.children[idx]) {
+      bodyClone.children[idx].remove();
+    }
+  });
+  // Also catch any inline position:fixed elements deeper in the clone
+  bodyClone
+    .querySelectorAll('[style*="position: fixed"], [style*="position:fixed"]')
+    .forEach(el => el.remove());
+
+  // Style the cloned body - use absolute positioning (NOT fixed)
+  // position:fixed inside a transformed parent acts unpredictably
   bodyClone.style.cssText = `
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     margin: 0;
     pointer-events: none;
     width: ${document.body.scrollWidth}px;
     min-height: ${document.body.scrollHeight}px;
+    overflow: visible;
   `;
+
+  // Ensure all images in clone have pointer-events: none
+  const clonedImages = bodyClone.querySelectorAll('img, picture, video, canvas, svg, iframe');
+  clonedImages.forEach(img => {
+    img.style.pointerEvents = 'none';
+  });
 
   contentContainer.appendChild(bodyClone);
   document.body.appendChild(lensContainer);
@@ -144,6 +184,25 @@ function initMagnifyingLens() {
   scrollHandler = () => {
     updateLens(currentX, currentY);
   };
+
+  // Prevent native image drag from interfering with cursor tracking
+  dragStartHandler = e => {
+    e.preventDefault();
+  };
+  document.addEventListener('dragstart', dragStartHandler);
+
+  // Add style to prevent image drag/select interference across the page
+  lensStyle = document.createElement('style');
+  lensStyle.id = 'assist-magnifying-lens-style';
+  lensStyle.textContent = `
+    /* Prevent native image drag from blocking mousemove when lens is active */
+    img, picture, video, canvas, svg {
+      -webkit-user-drag: none !important;
+      user-select: none !important;
+      pointer-events: auto !important;
+    }
+  `;
+  document.head.appendChild(lensStyle);
 
   document.addEventListener('mousemove', mouseMoveHandler, { passive: true });
   window.addEventListener('scroll', scrollHandler, { passive: true });
@@ -291,6 +350,16 @@ function removeMagnifyingLens() {
   if (scrollHandler) {
     window.removeEventListener('scroll', scrollHandler);
     scrollHandler = null;
+  }
+
+  if (dragStartHandler) {
+    document.removeEventListener('dragstart', dragStartHandler);
+    dragStartHandler = null;
+  }
+
+  if (lensStyle) {
+    lensStyle.remove();
+    lensStyle = null;
   }
 
   // Remove lens element
