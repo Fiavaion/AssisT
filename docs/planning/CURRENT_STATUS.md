@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - UI/UX Polish & Maintenance
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 077 (UI Bug Fixes - Overlay, Lens, Cursor, TextStats)
+**Session**: Phase 2 Session 078 (UI Bug Fixes - Lens Overlays & Minimize Clutter Button)
 
 ---
 
@@ -47,6 +47,22 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 078 (2026-02-24)
+
+**UI Bug Fixes - Magnifying Lens Overlays & Minimize Clutter Button**
+
+**Key Accomplishments**:
+
+1. **Magnifying Lens Fixed**: Extension overlay panels (e.g. "Annotations (0)") no longer appear inside the lens circle. Root cause: `cloneNode(true)` captures `position:fixed` overlays; inside CSS transform, fixed positioning is relative to the transform parent, not the viewport. Fix: detect and remove fixed-position direct body children before/after cloning.
+2. **Minimize Clutter Button Fixed**: Button now reliably hides/shows Text Stats badge on every click. Root cause: `chrome.storage.onChanged` only fires when value changes — if already `false`, no event fires. Fix: pair storage write with direct `chrome.tabs.sendMessage({type: 'MINIMIZE_CLUTTER_UPDATE'})` to active tab.
+3. **Dark Mode Content Script Removed**: `darkMode.js` deleted, import commented out in content-simple.js. Popup-level dark mode toggle preserved.
+4. **Additional cleanup**: STT static imports, screenOverlay :not() exclusions, file:// URL handling.
+
+**Files Modified**: magnifying-lens.js, textStats-ui.js, popup.js, service-worker.js, content-simple.js, darkMode.js (deleted), screenOverlay.js, stt.js
+**Commit**: 68a2381
+
+---
 
 ### Phase 2 Session 077 (2026-02-24)
 
