@@ -42,8 +42,12 @@ function applyCursorStyle(cursor, cursorSettings) {
   cursor.style.width = `${size}px`;
   cursor.style.height = `${size}px`;
 
-  // Clear any existing content
+  // Clear any existing content and reset styles from previous cursor type
   cursor.innerHTML = '';
+  cursor.style.borderRadius = '';
+  cursor.style.border = '';
+  cursor.style.boxShadow = '';
+  cursor.style.boxSizing = '';
 
   switch (style) {
     case 'crosshair': {
@@ -169,10 +173,21 @@ function initCustomCursor() {
     }
 
     const size = settings.size || 32;
-    const halfSize = size / 2;
+    const style = settings.style || 'crosshair';
 
-    cursorOverlay.style.left = `${e.clientX - halfSize}px`;
-    cursorOverlay.style.top = `${e.clientY - halfSize}px`;
+    // Arrow tip is at top-left (~4/32 of size), other styles are centered
+    let offsetX, offsetY;
+    if (style === 'arrow') {
+      const tipOffset = size * (4 / 32);
+      offsetX = tipOffset;
+      offsetY = tipOffset;
+    } else {
+      offsetX = size / 2;
+      offsetY = size / 2;
+    }
+
+    cursorOverlay.style.left = `${e.clientX - offsetX}px`;
+    cursorOverlay.style.top = `${e.clientY - offsetY}px`;
     cursorOverlay.style.opacity = '1';
   };
 
@@ -181,9 +196,18 @@ function initCustomCursor() {
   // Initialize position at center
   const centerX = window.innerWidth / 2;
   const centerY = window.innerHeight / 2;
-  const halfSize = (settings.size || 32) / 2;
-  cursor.style.left = `${centerX - halfSize}px`;
-  cursor.style.top = `${centerY - halfSize}px`;
+  const initSize = settings.size || 32;
+  const initStyle = settings.style || 'crosshair';
+  let initOffX, initOffY;
+  if (initStyle === 'arrow') {
+    initOffX = initSize * (4 / 32);
+    initOffY = initSize * (4 / 32);
+  } else {
+    initOffX = initSize / 2;
+    initOffY = initSize / 2;
+  }
+  cursor.style.left = `${centerX - initOffX}px`;
+  cursor.style.top = `${centerY - initOffY}px`;
 
   // Show cursor after a moment
   setTimeout(() => {
@@ -227,10 +251,19 @@ function updateCustomCursor() {
     }
 
     const size = settings.size || 32;
-    const halfSize = size / 2;
+    const style = settings.style || 'crosshair';
+    let offsetX, offsetY;
+    if (style === 'arrow') {
+      const tipOffset = size * (4 / 32);
+      offsetX = tipOffset;
+      offsetY = tipOffset;
+    } else {
+      offsetX = size / 2;
+      offsetY = size / 2;
+    }
 
-    cursorOverlay.style.left = `${e.clientX - halfSize}px`;
-    cursorOverlay.style.top = `${e.clientY - halfSize}px`;
+    cursorOverlay.style.left = `${e.clientX - offsetX}px`;
+    cursorOverlay.style.top = `${e.clientY - offsetY}px`;
   };
 
   document.addEventListener('mousemove', mouseMoveHandler, { passive: true });

@@ -454,7 +454,7 @@ body {
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(24px); /* Updated for new switch width */
+  transform: translateX(22px); /* 48px width - 4px left - 4px right - 18px circle = 22px */
 }
 
 .toggle-switch input:focus + .toggle-slider {

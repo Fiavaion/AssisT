@@ -179,10 +179,6 @@ async function stt_initialize() {
     });
   }
 
-  // Listen for focus on text input fields
-  console.log('[STT] Setting up field listeners...');
-  stt_setupFieldListeners();
-
   console.log('[STT] Initialized successfully! stt_micButton:', !!stt_micButton);
 }
 
@@ -232,19 +228,28 @@ function stt_cleanup() {
  * stt_setupFieldListeners();
  */
 function stt_setupFieldListeners() {
+  console.log('[STT] setupFieldListeners() - registering always-on listeners');
   console.log(
-    '[STT] setupFieldListeners() called, stt_enabled:',
+    '[STT] Current state: stt_enabled:',
     stt_enabled,
     'floatingButton:',
     stt_settings.floatingButton
   );
 
-  if (!stt_enabled || !stt_settings.floatingButton) {
-    console.log('[STT] Skipping field listener setup (STT disabled or floatingButton disabled)');
-    return;
+  /**
+   * Show mic button for a detected text field
+   * @param {HTMLElement} field - The text input element
+   */
+  function showMicForField(field) {
+    stt_activeField = field;
+    console.log('[STT] Text field detected, stt_micButton exists:', !!stt_micButton);
+    if (stt_micButton) {
+      console.log('[STT] Showing microphone button...');
+      stt_micButton.show(field);
+    } else {
+      console.error('[STT] stt_micButton is null! Cannot show button.');
+    }
   }
-
-  console.log('[STT] Adding focusin event listener...');
 
   // Listen for focus on text fields
   document.addEventListener(
@@ -252,15 +257,7 @@ function stt_setupFieldListeners() {
     e => {
       console.log('[STT] focusin event:', e.target.tagName, 'isTextInput:', isTextInput(e.target));
       if (stt_enabled && isTextInput(e.target)) {
-        stt_activeField = e.target;
-        console.log('[STT] Text field focused, stt_micButton exists:', !!stt_micButton);
-        if (stt_micButton) {
-          console.log('[STT] Showing microphone button...');
-          stt_micButton.show(e.target);
-        } else {
-          console.error('[STT] stt_micButton is null! Cannot show button.');
-        }
-        console.log('[STT] Field focused:', e.target.tagName);
+        showMicForField(e.target);
       }
     },
     true
@@ -271,17 +268,13 @@ function stt_setupFieldListeners() {
     'focusout',
     e => {
       if (stt_activeField === e.target && stt_micButton) {
-        // Keep button visible - only hide when:
-        // 1. Recording stops naturally
-        // 2. User explicitly clicks away from both field and button
-        // Do NOT auto-hide on blur
         console.log('[STT] Field lost focus, but keeping button visible');
       }
     },
     true
   );
 
-  // Hide button when clicking outside both field and button
+  // Unified click handler: show mic for rich editors, hide when clicking outside
   document.addEventListener(
     'click',
     e => {
@@ -289,13 +282,37 @@ function stt_setupFieldListeners() {
         return;
       }
 
-      const clickedOnField =
-        stt_activeField && (e.target === stt_activeField || stt_activeField.contains(e.target));
+      // Check if click is on the mic button itself
       const clickedOnButton =
         stt_micButton.button &&
         (e.target === stt_micButton.button || stt_micButton.button.contains(e.target));
+      if (clickedOnButton) {
+        return;
+      }
 
-      if (!clickedOnField && !clickedOnButton && stt_activeField && !stt_controller.isRecording) {
+      // Detect rich editor clicks (Google Docs, etc.) that don't fire focusin
+      const richEditor =
+        e.target.closest('.kix-appview-editor') ||
+        e.target.closest('.kix-page') ||
+        e.target.closest('.kix-paginateddocumentplugin') ||
+        e.target.closest('[role="document"][contenteditable]') ||
+        e.target.closest('.docs-texteventtarget-iframe');
+      if (richEditor) {
+        const editorArea =
+          document.querySelector('.kix-appview-editor') ||
+          document.querySelector('[role="document"][contenteditable]') ||
+          richEditor;
+        console.log('[STT] Rich editor click detected');
+        showMicForField(editorArea);
+        return;
+      }
+
+      // Check if click is on the active field or inside it
+      const clickedOnField =
+        stt_activeField && (e.target === stt_activeField || stt_activeField.contains(e.target));
+
+      // Hide button when clicking outside both field and button
+      if (!clickedOnField && stt_activeField && !stt_controller?.isRecording) {
         stt_micButton.hide();
         stt_activeField = null;
         console.log('[STT] Clicked outside - hiding button');
@@ -393,6 +410,11 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
+
+// Register field listeners unconditionally at module load.
+// Listeners check stt_enabled/stt_micButton at runtime, so they're
+// no-ops when STT is off but immediately active once toggled on.
+stt_setupFieldListeners();
 
 // ============================================================
 // EXPOSE STT FOR CONTENT SCRIPT INTEGRATION (S.7)
