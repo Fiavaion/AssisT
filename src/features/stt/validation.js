@@ -63,5 +63,16 @@ export function isTextInput(element) {
     return true;
   }
 
+  // Check for Google Docs editor elements
+  // Google Docs uses custom divs (kix-*) and iframes for text input
+  if (
+    element.closest('.kix-page, .kix-paginateddocumentplugin, [contenteditable="true"]') ||
+    element.classList?.contains('docs-texteventtarget-iframe') ||
+    element.closest('[role="document"]') ||
+    element.closest('.kix-appview-editor')
+  ) {
+    return true;
+  }
+
   return false;
 }
