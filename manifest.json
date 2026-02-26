@@ -81,7 +81,7 @@
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "name": "AssisT: Adaptive Augmentative Tool",
-  "description": "Augmentative learning technology that levels the playing field with Text-to-Speech, AI assistance, and powerful adaptive features for all learners",
+  "description": "Adaptive learning tools with Text-to-Speech, AI assistance, and accessibility features for all learners",
   "permissions": [
     "storage",
     "activeTab",

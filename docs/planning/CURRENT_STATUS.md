@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-02-24
+**Last Updated**: 2026-02-26
 **Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
-**Current Phase**: Phase 2 Extension - UI/UX Polish & Maintenance
+**Current Phase**: Phase 2 Extension - Release & Tooling
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 078 (UI Bug Fixes - Lens Overlays & Minimize Clutter Button)
+**Session**: Phase 2 Session 079 (Website v0.1.1 Update, CWS Submission & BugHive Tool)
 
 ---
 
@@ -47,6 +47,20 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 079 (2026-02-26)
+
+**Website v0.1.1 Update, CWS Submission & BugHive Tool**
+
+**Key Accomplishments**:
+
+1. **Fiavaion Website Updated for v0.1.1**: Updated 6 pages — product page (version bump, "What's New" section), getting-started (storage sync, Google Docs), writing-help (Google Docs STT), pointer-zoom (cursor styles), browser-compatibility (Google Docs STT supported), privacy policy (chrome.storage.sync details).
+2. **CWS Submission Package Built**: Extension built to `AssisT_0_1_1/` folder, manifest description shortened to 112 chars (CWS limit 132), CWS support form text drafted.
+3. **BugHive Bug Tracker Created**: Full standalone local bug tracker at `C:\Users\jones\AIprojects\BugHive\` — Node.js + Express + SQLite, clipboard image paste, STT on all text fields, Claude Code prompt generation with real file paths.
+
+**Files Modified**: manifest.json (description), 6 Fiavaion website files, ~20 new BugHive files (~1800 LOC)
+
+---
 
 ### Phase 2 Session 078 (2026-02-24)
 
