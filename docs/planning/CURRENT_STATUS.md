@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-02-26
+**Last Updated**: 2026-02-27
 **Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
-**Current Phase**: Phase 2 Extension - Release & Tooling
+**Current Phase**: Phase 2 Extension - Bug Fixes & Testing
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 079 (Website v0.1.1 Update, CWS Submission & BugHive Tool)
+**Session**: Phase 2 Session 080 (Bug Fixes, BugHive Enhancements & AI Test Page)
 
 ---
 
@@ -47,6 +47,22 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 080 (2026-02-27)
+
+**Bug Fixes, BugHive Enhancements & AI Feature Testing Page**
+
+**Key Accomplishments**:
+
+1. **BugHive: Open/Closed Status Toggle**: Added per-bug status toggle buttons in bug list view. "Copy Open Bugs Prompt" now filters to open/in-progress bugs only. Consistent labeling across all views.
+2. **Bug #2 Fixed - Close Button Centering**: Added flexbox centering to circular close buttons across 5 AI popup features (Knowledge Graph, Study Path, Multi-Doc Compare, Cognitive Profile, Struggle Detection).
+3. **Bug #5 Fixed - Socratic Tutor Hints**: Added `hintFallbackByType()` with type-specific fallbacks. Post-parse validation fills missing hints from LLM responses.
+4. **Bug #4 Fixed - file:// Page Guidance**: Added amber file-access-banner in popup for CWS users on file:// URLs, with "Open Settings" button linking to chrome://extensions.
+5. **AI Feature Testing Page**: Created `src/pages/testing/ai-feature-testing.html` with dedicated sections for all 13 AI features, real academic content, and trigger instructions.
+
+**Files Modified**: 8 AssisT source files (+86 lines), 1 new HTML test page (~550 lines), 5 BugHive files (~40 lines)
+
+---
 
 ### Phase 2 Session 079 (2026-02-26)
 
