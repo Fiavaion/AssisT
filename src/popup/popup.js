@@ -1036,15 +1036,36 @@ class PopupController {
     }
 
     // Check if content script is already loaded by pinging it
+    let contentScriptLoaded = false;
     try {
       const response = await chrome.tabs.sendMessage(this.currentTab.id, { type: 'PING' });
       if (response?.loaded || response?.success) {
         console.log('[Popup] Content script already loaded');
-        return;
+        contentScriptLoaded = true;
       }
     } catch {
       // Content script not loaded, continue to check permissions
       console.log('[Popup] Content script not responding, will try to inject');
+    }
+
+    // Show file:// access guidance if on a local file without content script
+    if (url.startsWith('file://') && !contentScriptLoaded) {
+      const fileAccessBanner = document.getElementById('file-access-banner');
+      if (fileAccessBanner) {
+        fileAccessBanner.classList.remove('hidden');
+        const openSettingsBtn = document.getElementById('btn-open-extension-settings');
+        if (openSettingsBtn) {
+          openSettingsBtn.onclick = () => {
+            chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+          };
+        }
+      }
+      console.log('[Popup] file:// URL detected without content script — showing access guidance');
+      return;
+    }
+
+    if (contentScriptLoaded) {
+      return;
     }
 
     // Check if user has <all_urls> permission

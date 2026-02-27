@@ -1,0 +1,1186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AssisT - AI Feature Testing</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f0f2f5;
+        min-height: 100vh;
+        color: #333;
+        line-height: 1.6;
+      }
+
+      .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px 40px;
+        text-align: center;
+      }
+
+      .page-header h1 {
+        font-size: 2em;
+        margin-bottom: 6px;
+      }
+      .page-header p {
+        font-size: 1.05em;
+        opacity: 0.9;
+      }
+
+      .version-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.25);
+        padding: 3px 12px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 600;
+        margin-left: 8px;
+      }
+
+      /* Nav bar */
+      .nav-bar {
+        background: white;
+        border-bottom: 2px solid #e9ecef;
+        padding: 10px 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+
+      .nav-bar a {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.82em;
+        text-decoration: none;
+        color: #555;
+        background: #f0f2f5;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+
+      .nav-bar a:hover {
+        background: #667eea;
+        color: white;
+      }
+
+      /* Content */
+      .content {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 30px 20px 60px;
+      }
+
+      .test-section {
+        background: white;
+        border-radius: 12px;
+        padding: 28px 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+        border-left: 5px solid #667eea;
+      }
+
+      .test-section h2 {
+        font-size: 1.4em;
+        margin-bottom: 12px;
+        color: #333;
+      }
+
+      .instruction-box {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
+        font-size: 0.92em;
+      }
+
+      .instruction-box strong {
+        color: #e65100;
+      }
+
+      .instruction-box ul {
+        margin: 8px 0 0 20px;
+        list-style-type: disc;
+      }
+
+      .instruction-box li {
+        margin-bottom: 4px;
+      }
+
+      .sample-text {
+        background: #fafbfc;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 18px 22px;
+        margin-bottom: 16px;
+        font-size: 1em;
+        line-height: 1.7;
+      }
+
+      .sample-text p {
+        margin-bottom: 12px;
+      }
+      .sample-text p:last-child {
+        margin-bottom: 0;
+      }
+
+      h3 {
+        font-size: 1.1em;
+        color: #555;
+        margin: 18px 0 8px;
+      }
+
+      .doc-label {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 2px 10px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .doc-label.b {
+        background: #10b981;
+      }
+      .doc-label.c {
+        background: #f59e0b;
+      }
+
+      .image-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .image-grid figure {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+        text-align: center;
+      }
+
+      .image-grid figcaption {
+        padding: 8px;
+        font-size: 0.85em;
+        color: #666;
+        background: #fafbfc;
+      }
+
+      .expected-output {
+        background: #e8f5e9;
+        border: 1px solid #a5d6a7;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 0.88em;
+        margin-top: 12px;
+      }
+
+      .expected-output strong {
+        color: #2e7d32;
+      }
+
+      footer {
+        text-align: center;
+        padding: 30px;
+        color: #999;
+        font-size: 0.85em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <h1>AssisT - AI Feature Testing <span class="version-badge">v1.0</span></h1>
+      <p>
+        Dedicated test content for all 13 AI-enabled features. Select text, trigger features, and
+        verify output.
+      </p>
+    </div>
+
+    <nav class="nav-bar">
+      <a href="#summarization">Summarization</a>
+      <a href="#simplification">Simplification</a>
+      <a href="#socratic">Socratic Tutor</a>
+      <a href="#assignment">Assignment Breakdown</a>
+      <a href="#knowledge-graph">Knowledge Graph</a>
+      <a href="#study-path">Study Path</a>
+      <a href="#multi-doc">Multi-Doc Compare</a>
+      <a href="#image-understanding">Image Understanding</a>
+      <a href="#cognitive-monitor">Cognitive Monitor</a>
+      <a href="#cognitive-profile">Cognitive Profile</a>
+      <a href="#struggle">Struggle Detection</a>
+      <a href="#citation">Citation Analyzer</a>
+      <a href="#emotional-tts">Emotional TTS</a>
+    </nav>
+
+    <div class="content">
+      <!-- ================================================================ -->
+      <!-- 1. SUMMARIZATION -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="summarization">
+        <h2>1. Summarization</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select the text below, then use the highlight menu and
+          choose "Summarize".
+          <ul>
+            <li>Verify the summary modal appears with 3 levels (Brief / Moderate / Detailed)</li>
+            <li>Test switching between summary levels</li>
+            <li>Test with both Local AI and Cloud AI modes</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p>
+            Neuroplasticity, also known as brain plasticity or neural plasticity, is the ability of
+            neural networks in the brain to change through growth and reorganization. These changes
+            range from individual neuron pathways making new connections to systematic adjustments
+            like cortical remapping. During development, the immature brain is especially plastic
+            and is significantly influenced by experience and environmental factors. The concept has
+            fundamentally altered our understanding of the brain as a static organ, revealing it
+            instead as a dynamic system capable of profound adaptation throughout life.
+          </p>
+
+          <p>
+            Research from institutions such as the National Institutes of Health and Harvard Medical
+            School has demonstrated that neuroplastic changes can be observed in response to
+            learning new skills, recovering from brain injuries, adapting to sensory loss, and even
+            in response to changes in thought patterns through cognitive-behavioral therapy.
+            Functional MRI studies have shown measurable increases in grey matter density in regions
+            associated with practiced skills, such as the hippocampi of London taxi drivers who must
+            navigate complex spatial routes, or the motor cortices of professional musicians who
+            have trained for thousands of hours.
+          </p>
+
+          <p>
+            The implications of neuroplasticity extend far beyond rehabilitation. In education,
+            understanding how the brain rewires itself in response to learning has led to
+            evidence-based teaching strategies that leverage spaced repetition, interleaving of
+            subjects, and active recall to strengthen synaptic connections. For students with
+            learning differences such as dyslexia or ADHD, targeted interventions that harness
+            neuroplastic mechanisms have shown measurable improvements in reading fluency, attention
+            regulation, and working memory capacity. Assistive technologies that adapt to individual
+            cognitive profiles represent the next frontier in applying neuroplasticity research to
+            practical educational outcomes.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> A summary panel showing a concise version of the
+          neuroplasticity passage. Brief mode should be 2-3 sentences, Detailed should preserve key
+          facts about MRI studies and educational implications.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 2. TEXT SIMPLIFICATION -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="simplification">
+        <h2>2. Text Simplification</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select the text below, then use the highlight menu and
+          choose "Simplify", or right-click and select "Simplify Selected Text".
+          <ul>
+            <li>
+              Verify the simplification modal appears with level selector (Basic / Moderate /
+              Academic)
+            </li>
+            <li>Check that technical terms are explained inline</li>
+            <li>Test switching between simplification levels</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p>
+            Quantum computing leverages the principles of quantum mechanics, specifically
+            superposition and entanglement, to perform computations that are fundamentally
+            intractable for classical Turing machines. Unlike classical bits, which exist in a
+            definite binary state of either zero or one, quantum bits (qubits) can exist in a
+            coherent superposition of both states simultaneously, enabling massively parallel
+            computation through quantum parallelism. When multiple qubits are entangled, measuring
+            the state of one instantaneously determines the state of its partners, regardless of
+            spatial separation, a phenomenon Einstein famously described as "spooky action at a
+            distance."
+          </p>
+
+          <p>
+            The decoherence problem remains the principal obstacle to scalable quantum computation.
+            Qubits are extraordinarily sensitive to environmental perturbations including thermal
+            fluctuations, electromagnetic interference, and cosmic radiation, which cause the
+            fragile quantum states to collapse into classical states through a process called
+            decoherence. Contemporary quantum processors, such as those developed by IBM and Google,
+            mitigate decoherence by operating at temperatures approaching absolute zero
+            (approximately 15 millikelvin) inside dilution refrigerators, and by implementing
+            quantum error correction codes that distribute logical qubits across multiple physical
+            qubits to detect and correct errors without measuring the quantum state directly.
+          </p>
+
+          <p>
+            The most celebrated theoretical advantage of quantum computing is Shor's algorithm,
+            which can factor large integers exponentially faster than the best-known classical
+            algorithms, thereby threatening the RSA cryptographic system that underpins much of
+            modern internet security. Grover's algorithm offers a more modest but broadly applicable
+            quadratic speedup for unstructured search problems. However, quantum supremacy claims
+            remain contested, as classical simulation techniques continue to improve, and the
+            threshold at which quantum computers deliver practical, economically meaningful
+            advantages over classical supercomputers for real-world applications has not yet been
+            definitively established.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> At "Basic" level, technical terms like "superposition",
+          "decoherence", and "Shor's algorithm" should be replaced with plain-language explanations.
+          At "Academic" level, the core meaning should be preserved with only the densest jargon
+          clarified.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 3. SOCRATIC TUTOR -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="socratic">
+        <h2>3. Socratic Tutor</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select the text below, then use the highlight menu and
+          choose "Socratic Tutor".
+          <ul>
+            <li>
+              Verify 3-4 questions appear at different Bloom's levels (Comprehension, Analysis,
+              Synthesis, Evaluation)
+            </li>
+            <li>Check that each hint is specific to its question (not all identical)</li>
+            <li>Test "Show Hint" and "Go deeper" (follow-up) for each question</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p>
+            Photosynthesis is the biological process by which plants, algae, and certain bacteria
+            convert light energy into chemical energy stored in glucose. The process occurs
+            primarily in the chloroplasts of plant cells, specifically within structures called
+            thylakoids that contain the pigment chlorophyll. Photosynthesis proceeds in two main
+            stages: the light-dependent reactions and the Calvin cycle (light-independent
+            reactions).
+          </p>
+
+          <p>
+            During the light-dependent reactions, chlorophyll absorbs photons of light and uses
+            their energy to split water molecules (photolysis), releasing oxygen as a byproduct and
+            generating ATP and NADPH as energy carriers. These reactions occur across the thylakoid
+            membrane through a series of protein complexes known as Photosystem II and Photosystem
+            I, connected by an electron transport chain.
+          </p>
+
+          <p>
+            In the Calvin cycle, which takes place in the stroma of the chloroplast, the enzyme
+            RuBisCO fixes atmospheric carbon dioxide into organic molecules through a process called
+            carbon fixation. The ATP and NADPH produced during the light reactions provide the
+            energy needed to reduce the fixed carbon into glyceraldehyde-3-phosphate (G3P), which
+            the plant then uses to synthesize glucose, cellulose, starch, and other carbohydrates
+            essential for growth and energy storage.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> A Socratic Tutor modal with 3-4 questions. Example
+          comprehension question: "What are the two main stages of photosynthesis?" Each hint should
+          relate to its specific question, not be generic.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 4. ASSIGNMENT BREAKDOWN -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="assignment">
+        <h2>4. Assignment Breakdown</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select the assignment text below, then use the highlight
+          menu and choose "Break Down Assignment".
+          <ul>
+            <li>Verify a task checklist appears with individual steps</li>
+            <li>Check that time estimates are included</li>
+            <li>Test the checkbox functionality for tracking progress</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p><strong>PSY 301 - Research Methods in Psychology</strong></p>
+          <p><strong>Final Research Paper Assignment</strong></p>
+          <p>
+            Write a 2,500-3,000 word research paper investigating the relationship between social
+            media usage and adolescent mental health. Your paper must include:
+          </p>
+          <ul style="margin: 10px 0 10px 24px">
+            <li>An introduction establishing the scope of the problem with current statistics</li>
+            <li>
+              A literature review covering at least 8 peer-reviewed sources published after 2018
+            </li>
+            <li>
+              Discussion of both positive effects (social connection, identity exploration, peer
+              support) and negative effects (anxiety, depression, sleep disruption, cyberbullying)
+            </li>
+            <li>
+              Analysis of at least two theoretical frameworks (e.g., Social Comparison Theory, Uses
+              and Gratifications Theory)
+            </li>
+            <li>A proposed intervention or policy recommendation supported by your evidence</li>
+            <li>Proper APA 7th edition formatting throughout</li>
+          </ul>
+          <p>
+            <strong>Due date:</strong> Three weeks from today. Draft is due in 10 days for peer
+            review.
+          </p>
+          <p>
+            <strong>Grading:</strong> 30% literature review quality, 25% argumentation, 20% evidence
+            integration, 15% writing quality, 10% APA formatting.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> A structured breakdown with 6-10 actionable tasks (e.g.,
+          "Search databases for peer-reviewed sources", "Write introduction with statistics"), each
+          with estimated time and suggested order.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 5. KNOWLEDGE GRAPH -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="knowledge-graph">
+        <h2>5. Knowledge Graph</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select the text below (50+ characters), then use the
+          highlight menu and choose "Knowledge Graph".
+          <ul>
+            <li>
+              Verify an interactive force-directed graph appears with concept nodes and relationship
+              edges
+            </li>
+            <li>Test zoom, pan, and click interactions on nodes</li>
+            <li>Test the "Export as PNG" button</li>
+            <li>Check that the "Reset View" button works</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p>
+            The European Union traces its origins to the European Coal and Steel Community (ECSC),
+            established in 1951 by the Treaty of Paris. Six founding nations, France, West Germany,
+            Italy, Belgium, the Netherlands, and Luxembourg, pooled their coal and steel production
+            under a common authority led by Jean Monnet, who is often called the "Father of Europe."
+            The ECSC's success in preventing resource-based conflicts between France and Germany
+            inspired the creation of the European Economic Community (EEC) through the Treaty of
+            Rome in 1957.
+          </p>
+
+          <p>
+            The Maastricht Treaty of 1992 formally established the European Union, introducing three
+            pillars: the European Communities (economic integration), Common Foreign and Security
+            Policy (CFSP), and Justice and Home Affairs. The treaty also laid the groundwork for the
+            euro, which was introduced as an accounting currency in 1999 and as physical banknotes
+            and coins in 2002. The European Central Bank (ECB), headquartered in Frankfurt, manages
+            monetary policy for the eurozone countries.
+          </p>
+
+          <p>
+            Subsequent treaties, including the Treaty of Amsterdam (1997), the Treaty of Nice
+            (2001), and the Treaty of Lisbon (2007), reformed EU institutions and expanded the
+            powers of the European Parliament. The Lisbon Treaty created the positions of President
+            of the European Council and High Representative for Foreign Affairs. Key EU institutions
+            include the European Commission (executive), the Council of the European Union
+            (legislative, representing member states), the European Parliament (legislative,
+            directly elected), and the Court of Justice of the European Union (judicial). The EU has
+            grown from 6 to 27 member states following Brexit in 2020, when the United Kingdom
+            formally withdrew after a 2016 referendum.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> A graph with nodes for entities (EU, ECSC, EEC, France,
+          Germany, Jean Monnet, ECB, Maastricht Treaty, Treaty of Rome, European Parliament, etc.)
+          connected by labeled edges showing relationships like "founded by", "led to", "created",
+          "headquartered in".
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 6. STUDY PATH GENERATOR -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="study-path">
+        <h2>6. Study Path Generator</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select the text below (100+ characters), then use the
+          highlight menu and choose "Study Path".
+          <ul>
+            <li>Verify a study path modal appears with ordered topics</li>
+            <li>
+              Check that prerequisites, objectives, key terms, and practice questions are listed
+            </li>
+            <li>Test the progress checkboxes for each topic</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p><strong>CS 440 - Introduction to Machine Learning: Course Overview</strong></p>
+
+          <p>
+            This course provides a comprehensive introduction to machine learning, covering the
+            fundamental algorithms, theoretical foundations, and practical applications that form
+            the backbone of modern artificial intelligence. Students will progress from basic
+            concepts of supervised learning through advanced topics in deep learning and
+            reinforcement learning.
+          </p>
+
+          <p>
+            The course begins with a review of linear algebra, probability, and statistics essential
+            for understanding machine learning algorithms. Students then explore supervised learning
+            techniques including linear regression, logistic regression, decision trees, random
+            forests, support vector machines (SVMs), and k-nearest neighbors (k-NN). Each algorithm
+            is studied in terms of its mathematical formulation, training procedure, hyperparameter
+            tuning, and bias-variance tradeoff.
+          </p>
+
+          <p>
+            The second module covers unsupervised learning methods: k-means clustering, hierarchical
+            clustering, principal component analysis (PCA), and autoencoders. Students will learn
+            dimensionality reduction techniques and their applications in data visualization and
+            feature extraction.
+          </p>
+
+          <p>
+            The final module introduces neural networks and deep learning, beginning with multilayer
+            perceptrons, backpropagation, and gradient descent optimization. Students will implement
+            convolutional neural networks (CNNs) for image classification, recurrent neural networks
+            (RNNs) and LSTMs for sequence modeling, and explore transformer architectures. The
+            course concludes with an introduction to reinforcement learning, covering Markov
+            decision processes, Q-learning, and policy gradient methods.
+          </p>
+
+          <p>
+            Prerequisites: Calculus II, Linear Algebra, Introduction to Programming (Python),
+            Probability and Statistics.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> An ordered study path starting with prerequisites (linear
+          algebra, probability), progressing through supervised learning algorithms, then
+          unsupervised methods, and finally deep learning and reinforcement learning. Each topic
+          should have learning objectives and key terms.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 7. MULTI-DOCUMENT COMPARISON -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="multi-doc">
+        <h2>7. Multi-Document Comparison</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select Document A below and add it via the highlight menu
+          "Compare" option. Then select Document B and add it. Finally select Document C and add it.
+          Then trigger the comparison.
+          <ul>
+            <li>Add documents one at a time (up to 5 supported)</li>
+            <li>
+              Verify the comparison modal shows: common themes, key differences, contradictions,
+              unique insights
+            </li>
+            <li>Test with just 2 documents first, then add the third</li>
+          </ul>
+        </div>
+
+        <h3><span class="doc-label">Document A</span> Scientific Perspective</h3>
+        <div class="sample-text">
+          <p>
+            According to the Intergovernmental Panel on Climate Change (IPCC) Sixth Assessment
+            Report, global surface temperature has increased by approximately 1.1 degrees Celsius
+            above pre-industrial levels as of 2023. The primary driver is anthropogenic greenhouse
+            gas emissions, particularly carbon dioxide from fossil fuel combustion, which has
+            reached atmospheric concentrations of 421 parts per million, a level unprecedented in at
+            least 800,000 years. Climate models project that without significant emissions
+            reductions, global temperatures could rise by 2.1 to 3.5 degrees Celsius by 2100 under
+            moderate scenarios, leading to irreversible tipping points including the collapse of the
+            West Antarctic Ice Sheet, disruption of the Atlantic Meridional Overturning Circulation,
+            and widespread coral reef die-off.
+          </p>
+        </div>
+
+        <h3><span class="doc-label b">Document B</span> Economic Perspective</h3>
+        <div class="sample-text">
+          <p>
+            The economic costs of climate change are projected to reach $23 trillion annually by
+            2050 according to Swiss Re Institute analysis, with developing nations bearing a
+            disproportionate burden. However, the transition to renewable energy also presents
+            significant economic opportunity: the global clean energy market is expected to be worth
+            $2.1 trillion by 2030, creating millions of jobs in solar, wind, battery storage, and
+            grid modernization. Critics argue that aggressive decarbonization timelines, such as
+            those mandated by the European Green Deal, impose unsustainable costs on
+            energy-intensive industries and risk energy poverty among vulnerable populations. A
+            carbon tax of $75-100 per tonne, gradually phased in, is widely regarded by economists
+            as the most efficient market-based mechanism for reducing emissions while maintaining
+            economic competitiveness.
+          </p>
+        </div>
+
+        <h3><span class="doc-label c">Document C</span> Policy and Social Perspective</h3>
+        <div class="sample-text">
+          <p>
+            Climate policy remains deeply contested along geopolitical and ideological lines. The
+            Paris Agreement of 2015 committed 196 nations to limiting warming to 1.5 degrees
+            Celsius, yet nationally determined contributions (NDCs) submitted as of 2024
+            collectively put the world on track for approximately 2.5 degrees of warming. Climate
+            justice advocates argue that wealthy industrialized nations, which are historically
+            responsible for the majority of cumulative emissions, have a moral obligation to fund
+            adaptation in developing countries through mechanisms like the Loss and Damage Fund
+            established at COP28. Meanwhile, climate skepticism persists in some political
+            movements, and the tension between immediate economic priorities and long-term
+            environmental sustainability continues to shape electoral outcomes in democracies
+            worldwide.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> A comparison showing common themes (temperature projections,
+          economic impact), differences (focus on science vs. economics vs. policy), and unique
+          contributions from each document (tipping points, carbon tax, Paris Agreement).
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 8. IMAGE UNDERSTANDING -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="image-understanding">
+        <h2>8. Image Understanding</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Right-click on any image below and select "Describe
+          Image" from the context menu, or use the popup button.
+          <ul>
+            <li>Requires a vision model (LLaVA via Ollama or Claude Cloud)</li>
+            <li>Verify the description modal appears with image preview</li>
+            <li>Test switching description levels (Brief / Detailed / Comprehensive)</li>
+            <li>Test the TTS readback of the description</li>
+          </ul>
+        </div>
+
+        <div class="image-grid">
+          <figure>
+            <svg
+              width="380"
+              height="250"
+              viewBox="0 0 380 250"
+              xmlns="http://www.w3.org/2000/svg"
+              style="background: #fff"
+            >
+              <text
+                x="190"
+                y="22"
+                text-anchor="middle"
+                font-size="14"
+                font-weight="bold"
+                fill="#333"
+              >
+                Cell Structure Diagram
+              </text>
+              <!-- Cell membrane -->
+              <ellipse
+                cx="190"
+                cy="140"
+                rx="165"
+                ry="95"
+                fill="#e8f5e9"
+                stroke="#4caf50"
+                stroke-width="2"
+              />
+              <!-- Nucleus -->
+              <ellipse
+                cx="190"
+                cy="135"
+                rx="55"
+                ry="40"
+                fill="#e3f2fd"
+                stroke="#1976d2"
+                stroke-width="2"
+              />
+              <text x="190" y="140" text-anchor="middle" font-size="11" fill="#1976d2">
+                Nucleus
+              </text>
+              <!-- Mitochondria -->
+              <ellipse
+                cx="95"
+                cy="110"
+                rx="30"
+                ry="15"
+                fill="#fce4ec"
+                stroke="#c62828"
+                stroke-width="1.5"
+                transform="rotate(-20,95,110)"
+              />
+              <text x="95" y="115" text-anchor="middle" font-size="9" fill="#c62828">
+                Mitochondria
+              </text>
+              <!-- ER -->
+              <path
+                d="M 260 100 Q 280 90 300 105 Q 320 120 300 130 Q 280 140 300 155"
+                fill="none"
+                stroke="#7b1fa2"
+                stroke-width="1.5"
+              />
+              <text x="300" y="95" text-anchor="middle" font-size="9" fill="#7b1fa2">ER</text>
+              <!-- Ribosomes -->
+              <circle cx="130" cy="170" r="4" fill="#ff9800" />
+              <circle cx="140" cy="175" r="4" fill="#ff9800" />
+              <circle cx="135" cy="163" r="4" fill="#ff9800" />
+              <text x="135" y="192" text-anchor="middle" font-size="9" fill="#e65100">
+                Ribosomes
+              </text>
+              <!-- Golgi -->
+              <path
+                d="M 240 170 Q 255 165 270 170 M 240 178 Q 255 173 270 178 M 240 186 Q 255 181 270 186"
+                fill="none"
+                stroke="#00695c"
+                stroke-width="2"
+              />
+              <text x="255" y="204" text-anchor="middle" font-size="9" fill="#00695c">
+                Golgi Body
+              </text>
+              <!-- Label -->
+              <text x="190" y="245" text-anchor="middle" font-size="10" fill="#666">
+                Plant Cell (simplified)
+              </text>
+            </svg>
+            <figcaption>Diagram: Simplified plant cell with labeled organelles</figcaption>
+          </figure>
+
+          <figure>
+            <svg
+              width="380"
+              height="250"
+              viewBox="0 0 380 250"
+              xmlns="http://www.w3.org/2000/svg"
+              style="background: #fff"
+            >
+              <text
+                x="190"
+                y="22"
+                text-anchor="middle"
+                font-size="13"
+                font-weight="bold"
+                fill="#333"
+              >
+                Global Temperature Anomaly (1980-2024)
+              </text>
+              <!-- Axes -->
+              <line x1="50" y1="210" x2="360" y2="210" stroke="#666" stroke-width="1.5" />
+              <line x1="50" y1="40" x2="50" y2="210" stroke="#666" stroke-width="1.5" />
+              <!-- Y labels -->
+              <text x="44" y="210" text-anchor="end" font-size="9" fill="#666">0.0</text>
+              <text x="44" y="168" text-anchor="end" font-size="9" fill="#666">0.3</text>
+              <text x="44" y="125" text-anchor="end" font-size="9" fill="#666">0.6</text>
+              <text x="44" y="82" text-anchor="end" font-size="9" fill="#666">0.9</text>
+              <text x="44" y="40" text-anchor="end" font-size="9" fill="#666">1.2</text>
+              <!-- Grid lines -->
+              <line x1="50" y1="168" x2="360" y2="168" stroke="#eee" stroke-width="0.5" />
+              <line x1="50" y1="125" x2="360" y2="125" stroke="#eee" stroke-width="0.5" />
+              <line x1="50" y1="82" x2="360" y2="82" stroke="#eee" stroke-width="0.5" />
+              <!-- X labels -->
+              <text x="50" y="225" text-anchor="middle" font-size="9" fill="#666">1980</text>
+              <text x="120" y="225" text-anchor="middle" font-size="9" fill="#666">1990</text>
+              <text x="190" y="225" text-anchor="middle" font-size="9" fill="#666">2000</text>
+              <text x="260" y="225" text-anchor="middle" font-size="9" fill="#666">2010</text>
+              <text x="330" y="225" text-anchor="middle" font-size="9" fill="#666">2020</text>
+              <!-- Data bars -->
+              <rect x="55" y="186" width="10" height="24" fill="#90caf9" rx="1" />
+              <rect x="72" y="180" width="10" height="30" fill="#90caf9" rx="1" />
+              <rect x="89" y="177" width="10" height="33" fill="#90caf9" rx="1" />
+              <rect x="106" y="174" width="10" height="36" fill="#64b5f6" rx="1" />
+              <rect x="123" y="168" width="10" height="42" fill="#64b5f6" rx="1" />
+              <rect x="140" y="160" width="10" height="50" fill="#64b5f6" rx="1" />
+              <rect x="157" y="152" width="10" height="58" fill="#42a5f5" rx="1" />
+              <rect x="174" y="143" width="10" height="67" fill="#42a5f5" rx="1" />
+              <rect x="191" y="134" width="10" height="76" fill="#2196f3" rx="1" />
+              <rect x="208" y="122" width="10" height="88" fill="#2196f3" rx="1" />
+              <rect x="225" y="112" width="10" height="98" fill="#1e88e5" rx="1" />
+              <rect x="242" y="101" width="10" height="109" fill="#1e88e5" rx="1" />
+              <rect x="259" y="89" width="10" height="121" fill="#e53935" rx="1" />
+              <rect x="276" y="78" width="10" height="132" fill="#e53935" rx="1" />
+              <rect x="293" y="68" width="10" height="142" fill="#c62828" rx="1" />
+              <rect x="310" y="58" width="10" height="152" fill="#c62828" rx="1" />
+              <rect x="327" y="48" width="10" height="162" fill="#b71c1c" rx="1" />
+              <!-- Y axis label -->
+              <text
+                x="14"
+                y="125"
+                text-anchor="middle"
+                font-size="10"
+                fill="#666"
+                transform="rotate(-90,14,125)"
+              >
+                Temperature Anomaly (°C)
+              </text>
+              <!-- Trend line -->
+              <line
+                x1="60"
+                y1="190"
+                x2="332"
+                y2="52"
+                stroke="#ff5722"
+                stroke-width="2"
+                stroke-dasharray="6,3"
+                opacity="0.7"
+              />
+            </svg>
+            <figcaption>Chart: Rising global temperature anomalies with trend line</figcaption>
+          </figure>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> For the cell diagram: identification of organelles (nucleus,
+          mitochondria, ER, ribosomes, Golgi body). For the chart: description of an upward trend in
+          temperature anomalies from ~0.15°C to ~1.15°C between 1980 and 2024.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 9. COGNITIVE STATE MONITOR -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="cognitive-monitor">
+        <h2>9. Cognitive State Monitor</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Enable the Cognitive State Monitor in the popup, then
+          read the passage below naturally. The monitor tracks your scroll patterns, pauses, and
+          selections.
+          <ul>
+            <li>A status panel should appear in the top-right corner after a few seconds</li>
+            <li>
+              Try different behaviors: read slowly (engaged), scroll quickly (distracted), re-read
+              paragraphs (confused)
+            </li>
+            <li>Check that the state updates every 5 seconds with contextual suggestions</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p>
+            The hard problem of consciousness, first articulated by philosopher David Chalmers in
+            1995, asks why and how physical processes in the brain give rise to subjective
+            experience. While neuroscience has made remarkable progress in mapping neural correlates
+            of consciousness, identifying which brain regions activate during specific mental
+            states, the explanatory gap between objective neural activity and subjective qualia
+            remains unresolved. When you see the color red, neurons in your visual cortex fire in
+            characteristic patterns, but this does not explain why there is something it is like to
+            experience redness.
+          </p>
+
+          <p>
+            The integrated information theory (IIT), proposed by neuroscientist Giulio Tononi,
+            attempts to bridge this gap by positing that consciousness is identical to integrated
+            information, quantified as phi. According to IIT, any system that integrates information
+            above a certain threshold possesses some degree of consciousness, a position that
+            implies consciousness exists on a spectrum rather than as a binary property. This leads
+            to counterintuitive predictions: that a sufficiently complex and integrated artificial
+            system could be conscious, while certain biological structures with low integration,
+            such as the cerebellum, might not be.
+          </p>
+
+          <p>
+            Competing theories offer radically different explanations. Global workspace theory,
+            developed by Bernard Baars, suggests that consciousness arises when information is
+            broadcast across a "global workspace" of interconnected cortical areas, making it
+            available to multiple cognitive processes simultaneously. Higher-order theories propose
+            that consciousness requires a mental state to be the object of another, higher-order
+            mental state, a form of self-monitoring. Meanwhile, predictive processing frameworks,
+            championed by Karl Friston and Andy Clark, reconceptualize consciousness as the brain's
+            ongoing attempt to minimize prediction error, with subjective experience emerging from
+            the gap between what the brain expects and what it encounters.
+          </p>
+
+          <p>
+            The philosophical implications are profound. If consciousness is purely computational,
+            it may be possible to create it artificially, raising urgent ethical questions about the
+            moral status of AI systems. If it requires specific biological substrates, as biological
+            naturalists like John Searle argue, then machine consciousness may be fundamentally
+            impossible regardless of computational complexity. The debate remains one of the deepest
+            open questions in both philosophy and science, with implications for artificial
+            intelligence, animal rights, clinical definitions of death, and our understanding of
+            what it means to be human.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> The CSM panel should detect your reading state. If you read
+          carefully and pause, it should show "Engaged" or "Focused." If you scroll rapidly past
+          content, it may show "Distracted." Re-reading a paragraph should trigger "Confused."
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 10. COGNITIVE PROFILE -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="cognitive-profile">
+        <h2>10. Cognitive Profile</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> The Cognitive Profile builds automatically from your
+          usage of other features. Open it from the popup.
+          <ul>
+            <li>
+              <strong>Before testing:</strong> Use at least 4-5 other features on this page first
+              (Summarization, Socratic Tutor, Knowledge Graph, etc.)
+            </li>
+            <li>Then open the Cognitive Profile from the popup</li>
+            <li>
+              Verify it shows: learning style, usage statistics, complexity preferences, streak
+              counter
+            </li>
+            <li>
+              Check that the detected learning style reflects your actual usage (e.g., heavy
+              Knowledge Graph use = "visual learner")
+            </li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p><strong>Testing checklist for Cognitive Profile:</strong></p>
+          <ul style="margin: 10px 0 0 24px">
+            <li>Use <a href="#summarization">Summarization</a> on a passage above</li>
+            <li>Use <a href="#socratic">Socratic Tutor</a> on the photosynthesis text</li>
+            <li>Use <a href="#knowledge-graph">Knowledge Graph</a> on the EU history passage</li>
+            <li>Use <a href="#study-path">Study Path</a> on the ML course overview</li>
+            <li>
+              Use <a href="#simplification">Text Simplification</a> on the quantum computing text
+            </li>
+            <li>
+              Then open Cognitive Profile from the popup and verify the learning style analysis
+            </li>
+          </ul>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> A profile modal showing your detected learning style (visual,
+          sequential, conceptual, or example-based), a usage breakdown by feature, and any detected
+          preferences for complexity level.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 11. STRUGGLE DETECTION -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="struggle">
+        <h2>11. Struggle Detection</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Enable Struggle Detection in the popup, then interact
+          with the deliberately difficult text below. Try these behaviors to trigger detection:
+          <ul>
+            <li>Scroll up and down repeatedly within this section (re-reading)</li>
+            <li>Pause for 10+ seconds on a paragraph (hesitation)</li>
+            <li>Select text, then deselect, then select again (uncertainty)</li>
+            <li>Use Simplification or Dictionary features on this text (tool-seeking behavior)</li>
+          </ul>
+        </div>
+
+        <div class="sample-text">
+          <p>
+            Pursuant to Section 14(b)(2)(A)(iii) of the Administrative Procedure Act, as amended by
+            the Regulatory Flexibility Act of 1980 and further modified by Executive Order 13563
+            (January 18, 2011), federal agencies are required to conduct a cost-benefit analysis of
+            proposed rulemaking that takes into account not only the direct compliance costs imposed
+            upon regulated entities (including small entities as defined under the Small Business
+            Regulatory Enforcement Fairness Act), but also the indirect macroeconomic effects,
+            distributional impacts across demographic groups, and opportunity costs associated with
+            alternative regulatory approaches that were considered but not adopted.
+          </p>
+
+          <p>
+            The standard of judicial review applicable to informal rulemaking under Section
+            706(2)(A) of the APA, commonly referred to as "arbitrary and capricious" review,
+            requires courts to examine whether the agency has examined the relevant data and
+            articulated a satisfactory explanation for its action, including a rational connection
+            between the facts found and the choice made (Motor Vehicle Manufacturers Association v.
+            State Farm Mutual, 463 U.S. 29, 43 (1983)). The reviewing court must consider whether
+            the agency has relied on factors which Congress has not intended it to consider,
+            entirely failed to consider an important aspect of the problem, offered an explanation
+            for its decision that runs counter to the evidence before the agency, or is so
+            implausible that it could not be ascribed to a difference in view or the product of
+            agency expertise.
+          </p>
+
+          <p>
+            In contradistinction to the Chevron two-step deference framework (Chevron U.S.A., Inc.
+            v. Natural Resources Defense Council, Inc., 467 U.S. 837 (1984)), which accords
+            significant deference to an agency's reasonable interpretation of ambiguous statutory
+            provisions it administers, the major questions doctrine, as articulated in West Virginia
+            v. EPA, 597 U.S. ___ (2022), holds that courts should not defer to agency
+            interpretations that claim expansive regulatory authority over matters of vast economic
+            and political significance absent clear congressional authorization, thereby
+            establishing a substantive constraint on the scope of administrative power.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> After exhibiting struggle behaviors (re-reading, long pauses,
+          tool usage), a toast or panel should appear offering contextual help such as "Having
+          trouble? Try simplifying this text" or "Want me to read this aloud?"
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 12. CITATION ANALYZER -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="citation">
+        <h2>12. Citation Analyzer</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Select the text below containing citations, then use the
+          highlight menu and choose "Analyze Citation".
+          <ul>
+            <li>
+              Verify the analysis modal shows: source type, credibility score, bias indicators, key
+              claims
+            </li>
+            <li>Test with both the academic source and the news excerpt below</li>
+          </ul>
+        </div>
+
+        <h3>Academic Source</h3>
+        <div class="sample-text">
+          <p>
+            A longitudinal study conducted by researchers at Stanford University's Department of
+            Psychology, published in the Journal of Experimental Psychology: General (Vol. 152, No.
+            4, pp. 1023-1041, April 2023), examined 2,847 undergraduate students over a four-year
+            period and found that students who used spaced repetition software for exam preparation
+            achieved scores 23% higher than control groups using traditional study methods (p &lt;
+            .001, Cohen's d = 0.74). The study controlled for prior academic performance,
+            socioeconomic background, and self-reported study hours. Lead author Dr. Maria Chen
+            noted that "the effect size was consistent across all academic disciplines tested,
+            suggesting that spaced repetition leverages domain-general memory consolidation
+            processes."
+          </p>
+        </div>
+
+        <h3>News Excerpt</h3>
+        <div class="sample-text">
+          <p>
+            A viral social media post shared over 50,000 times on X (formerly Twitter) claims that
+            "a new study from Harvard proves that screen time has zero negative effects on
+            children." However, the referenced study, published in JAMA Pediatrics in March 2024,
+            actually found that the relationship between screen time and child development outcomes
+            is "more nuanced than previously reported," with passive consumption showing negative
+            associations while interactive educational content showed neutral or positive effects.
+            The post's author, who has no stated academic credentials, appears to be affiliated with
+            a technology industry lobbying group according to their LinkedIn profile. Media
+            Bias/Fact Check rates the original sharing account as having a "mixed" factual accuracy
+            record.
+          </p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> For the academic source: high credibility score, peer-reviewed
+          classification, identification of specific claims with statistical evidence. For the news
+          excerpt: lower credibility, identification of misrepresentation, bias indicators (industry
+          affiliation), fact-check context.
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 13. EMOTIONAL TTS -->
+      <!-- ================================================================ -->
+      <div class="test-section" id="emotional-tts">
+        <h2>13. Emotional TTS</h2>
+
+        <div class="instruction-box">
+          <strong>How to trigger:</strong> Enable TTS in the popup, then enable Emotional TTS mode.
+          Select the text below and play it aloud.
+          <ul>
+            <li>
+              Verify that the TTS adapts its pace, pitch, and emphasis to the emotional tone of the
+              text
+            </li>
+            <li>
+              Compare the reading of the excited passage vs. the melancholic passage vs. the tense
+              dialogue
+            </li>
+            <li>Test with different voices if available</li>
+          </ul>
+        </div>
+
+        <h3>Excited / Joyful Tone</h3>
+        <div class="sample-text">
+          <p>
+            "I got in! I actually got in!" Maya burst through the front door, waving the letter
+            above her head like a victory flag. Her mother rushed from the kitchen, flour still
+            dusting her apron. "The scholarship covers everything: tuition, housing, even a stipend
+            for books! Four years at MIT, Mom. Can you believe it? I'm going to study computer
+            science at MIT!" She was laughing and crying at the same time, the letter crumpling
+            slightly in her trembling hands as she read it aloud for the third time.
+          </p>
+        </div>
+
+        <h3>Melancholic / Reflective Tone</h3>
+        <div class="sample-text">
+          <p>
+            The house was quieter now. Thomas sat in his father's armchair, the one that still
+            smelled faintly of pipe tobacco and old books, and watched the rain trace slow paths
+            down the window. The grandfather clock in the hallway marked the seconds with the same
+            patient rhythm it had kept for forty years, indifferent to the absence it measured. He
+            picked up the photograph from the side table: his parents on their wedding day, young
+            and luminous and utterly certain of the future. He set it down gently. Some silences, he
+            was learning, grew louder with time.
+          </p>
+        </div>
+
+        <h3>Tense / Suspenseful Dialogue</h3>
+        <div class="sample-text">
+          <p>
+            "Don't move." Detective Okafor's voice was barely above a whisper. The warehouse floor
+            creaked beneath them. Somewhere in the darkness ahead, metal scraped against concrete.
+          </p>
+          <p>
+            "There's someone here," Rivera said, her hand tightening on her flashlight. She didn't
+            turn it on.
+          </p>
+          <p>
+            "I know." Okafor raised his hand: wait. Three seconds passed. Five. The scraping sound
+            came again, closer now, and with it a new sound, something breathing in the dark,
+            something large and unhurried. "On my count," he whispered. "Three, two..."
+          </p>
+          <p>The lights exploded on.</p>
+        </div>
+
+        <div class="expected-output">
+          <strong>Expected:</strong> The excited passage should be read with faster pacing and
+          rising pitch. The melancholic passage should have slower, measured delivery with pauses.
+          The tense dialogue should have dramatic pauses, low volume on whispered lines, and a sharp
+          change in delivery on "The lights exploded on."
+        </div>
+      </div>
+    </div>
+
+    <footer>AssisT Adaptive EdTech Extension &mdash; AI Feature Testing Page v1.0</footer>
+  </body>
+</html>

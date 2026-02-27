@@ -140,6 +140,10 @@ const MDC_PANEL_CSS = `
     border-radius: 50%;
     cursor: pointer;
     font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
   }
 
   .mdc-close:hover {

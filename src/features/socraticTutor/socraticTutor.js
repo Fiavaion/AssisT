@@ -219,6 +219,12 @@ RULES:
         const parsed = JSON.parse(jsonStr);
 
         if (parsed && Array.isArray(parsed.questions)) {
+          // Ensure each question has a hint — use type-specific fallbacks if missing
+          parsed.questions.forEach(q => {
+            if (!q.hint) {
+              q.hint = hintFallbackByType(q.type);
+            }
+          });
           console.log('[SocraticTutor] JSON parsed successfully');
           return { questions: parsed, isCloud };
         }
@@ -237,6 +243,23 @@ RULES:
     console.error('[SocraticTutor] Generation failed:', error);
     throw error;
   }
+}
+
+// ============================================================================
+// HINT FALLBACKS BY QUESTION TYPE
+// ============================================================================
+
+/**
+ * Return a type-specific hint when the LLM omits one
+ */
+function hintFallbackByType(type) {
+  const hints = {
+    comprehension: 'Look for the central concept or argument being made.',
+    analysis: 'Try breaking down the information into smaller pieces.',
+    synthesis: 'Think about similar concepts or real-world examples.',
+    evaluation: 'Consider what information might be missing or unclear.',
+  };
+  return hints[type] || 'Re-read the relevant section carefully.';
 }
 
 // ============================================================================
@@ -638,7 +661,7 @@ function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
           <div class="assist-tutor-question-type">${typeLabels[q.type] || q.type}</div>
           <div class="assist-tutor-question-text">${escapeHtml(q.question)}</div>
           <div class="assist-tutor-hint" id="hint-${i}">
-            💡 <strong>Hint:</strong> ${escapeHtml(q.hint || 'Think about the key concepts mentioned.')}
+            💡 <strong>Hint:</strong> ${escapeHtml(q.hint || hintFallbackByType(q.type))}
           </div>
           <div class="assist-tutor-followup" id="followup-${i}">
             ➡️ <strong>Go deeper:</strong> ${escapeHtml(q.followUp || '')}
