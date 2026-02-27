@@ -129,6 +129,33 @@
         </button>
       </div>
 
+      <!-- File URL Access Banner (shown when on file:// pages without access) -->
+      <div
+        id="file-access-banner"
+        class="permission-banner hidden"
+        style="background: linear-gradient(135deg, #f59e0b22, #f59e0b11); border-color: #f59e0b44"
+      >
+        <div class="permission-banner-content">
+          <span class="permission-icon" aria-hidden="true">📂</span>
+          <div class="permission-text">
+            <strong>Local file detected</strong>
+            <span class="permission-desc"
+              >To use AssisT on local files, enable "Allow access to file URLs" in your extension
+              settings</span
+            >
+          </div>
+        </div>
+        <button
+          id="btn-open-extension-settings"
+          class="permission-btn"
+          title="Open Chrome extension settings to enable file URL access"
+          aria-label="Open extension settings"
+          style="background: #f59e0b; color: #000"
+        >
+          Open Settings
+        </button>
+      </div>
+
       <!-- Organize Mode Banner (hidden by default, shown in organize mode) -->
       <div id="organize-banner" class="organize-banner hidden">
         <span class="organize-banner-text"

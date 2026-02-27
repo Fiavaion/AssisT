@@ -443,6 +443,10 @@ function struggle_showAssistancePanel(message, action) {
         cursor: pointer;
         color: #333;
         font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
       }
 
       .struggle-content {
