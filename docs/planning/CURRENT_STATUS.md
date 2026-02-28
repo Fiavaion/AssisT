@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - Bug Fixes & Testing
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 082 (Multi-Provider Cloud AI & Dynamic Model Lists)
+**Session**: Phase 2 Session 083 (AI Model Bug Fixes #8–#13)
 
 ---
 
@@ -47,6 +47,24 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 083 (2026-02-28)
+
+**AI Model Bug Fixes #8–#13**
+
+**Key Accomplishments**:
+
+1. **Bug #8 Fixed - Model IDs**: Updated all Anthropic model IDs from deprecated 4.5 dates to canonical 4.6 IDs (`claude-sonnet-4-6`, `claude-opus-4-6`). Updated `claude-client.js`, `cloud-router.js`, `model-dropdown.js`, and all 9 feature files.
+2. **Bug #13 Fixed - Provider Awareness**: Created shared `src/utils/ai-badge.js` utility that reads both `cloudProvider` and `cloudModel` from storage. Badges now show provider-qualified labels (e.g., "☁️ OpenAI: gpt-4o") for all cloud providers.
+3. **Bug #10 Fixed - Knowledge Graph**: Changed `GRAPH_DEFAULT_CLOUD_MODEL = 'local'` → `'sonnet-4.6'`. Cloud mode now defaults to cloud AI instead of forcing local.
+4. **Bug #12 Fixed - Consistent Badges**: All 9 feature files now import `renderAIBadge()` and `injectAIBadgeStyles()` from shared utility. Unified CSS classes replace 9 different per-feature implementations.
+5. **Bug #9 Fixed - Token Limits**: Summarization 150–500 → 400–1500 tokens; textSimplification 400–800 → 800–1500; studyPath 2000 → 3000.
+6. **Bug #11 Fixed - Study Path**: Added AI indicator (☁️/💻) to study path header meta via `textContent`. Fixed tips CSS (solid `#f1f8e9` bg + `#2e7d32` green text, WCAG AA ~5.1:1 contrast). Increased maxTokens to prevent JSON truncation.
+
+**Files Created**: `src/utils/ai-badge.js` (~180 lines)
+**Files Modified**: 13 files — `claude-client.js`, `cloud-router.js`, `model-dropdown.js`, all 9 AI feature files (~200 lines changed)
+
+---
 
 ### Phase 2 Session 082 (2026-02-28)
 
