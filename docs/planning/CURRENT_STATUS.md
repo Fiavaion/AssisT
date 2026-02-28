@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - Bug Fixes & Testing
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 083 (AI Model Bug Fixes #8–#13)
+**Session**: Phase 2 Session 084 (KG + Study Path AI Fix, Model Cache Version)
 
 ---
 
