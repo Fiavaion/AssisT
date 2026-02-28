@@ -16,6 +16,7 @@
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -36,16 +37,16 @@ const tutor_settings = {
 // Cloud model configurations
 const TUTOR_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Opus 4.5 scored 8.8/10 (best for pedagogical dialogue)
+// Cloud: Opus 4.6 scored 8.8/10 (best for pedagogical dialogue)
 // Local: Gemma3:4b scored 8.8/10 (ties with Opus - remarkable for 4GB model!)
 // const _TUTOR_DEFAULT_LOCAL_MODEL = 'local'; // Reserved for future use
-const TUTOR_DEFAULT_CLOUD_MODEL = 'opus-4.5';
+const TUTOR_DEFAULT_CLOUD_MODEL = 'opus-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
@@ -143,8 +144,8 @@ async function tutor_generate(text, modelKey = 'local') {
   const modelTokenLimits = {
     local: 800,
     'haiku-4.5': 600,
-    'sonnet-4.5': 900,
-    'opus-4.5': 1100,
+    'sonnet-4.6': 900,
+    'opus-4.6': 1100,
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 800;
@@ -603,7 +604,7 @@ async function tutor_createPanel() {
  * @param {boolean} isCloud - Whether cloud model was used
  * @param {string} modelName - Name of the model used
  */
-function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
+async function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
   console.log('[SocraticTutor] tutor_renderResult called with:', {
     result,
     isAI,
@@ -630,14 +631,10 @@ function tutor_renderResult(result, isAI, isCloud = false, modelName = '') {
     document.body.contains(tutor_panel)
   );
 
-  let badge;
-  if (isCloud) {
-    badge = `<span class="assist-tutor-badge assist-tutor-cloud-badge">☁️ ${modelName}</span>`;
-  } else if (isAI) {
-    badge = '<span class="assist-tutor-badge assist-tutor-ai-badge">💻 Local AI</span>';
-  } else {
-    badge = '<span class="assist-tutor-badge assist-tutor-fallback-badge">Basic</span>';
-  }
+  const _tutorBadgeInfo = await getAIBadgeInfo();
+  const badge = isAI
+    ? renderAIBadge(_tutorBadgeInfo.mode, _tutorBadgeInfo.label)
+    : renderAIBadge('fallback', 'Basic');
 
   let html = `
     <div class="assist-tutor-topic">
@@ -1025,6 +1022,7 @@ async function tutor_start(text) {
 
 function tutor_init() {
   console.log('[SocraticTutor] Initializing...');
+  injectAIBadgeStyles();
 
   // Register to window for highlight menu integration
   if (!window.assistFeatures) {

@@ -24,6 +24,7 @@
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -44,15 +45,15 @@ const simplification_settings = {
 // Cloud model configurations
 const SIMPLIFICATION_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Sonnet 4.5 scored 9.6/10 (highest single score in benchmark)
+// Cloud: Sonnet 4.6 scored 9.6/10 (highest single score in benchmark)
 // Local: Mistral:7b scored 8.4/10 (best local for simplification)
-const SIMPLIFICATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.5';
+const SIMPLIFICATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
@@ -245,7 +246,7 @@ IMPROVED VERSION:`,
   // Select prompt based on model type
   const promptSet = isCloud ? cloudPrompts : localPrompts;
   const prompt = promptSet[level] || promptSet.moderate;
-  const maxTokens = level === 'basic' ? 400 : level === 'academic' ? 800 : 600;
+  const maxTokens = level === 'basic' ? 800 : level === 'academic' ? 1500 : 1200;
 
   console.log('[TextSimplification] Generating with:', {
     level,
@@ -1195,7 +1196,6 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
   try {
     let simplified;
     let isAI = false;
-    let usedCloud = false;
 
     if (isCloud) {
       // Check for API key before using cloud model
@@ -1212,7 +1212,6 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
       const result = await simplification_generate(text, level, modelKey);
       simplified = result.simplified;
       isAI = true;
-      usedCloud = true;
 
       if (statusBar) {
         statusBar.textContent = `☁️ Simplified with ${modelName}`;
@@ -1247,14 +1246,10 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
 
     // Update content
     if (contentArea) {
-      let badge;
-      if (usedCloud) {
-        badge = `<span class="assist-simplify-cloud-badge">☁️ ${modelName}</span>`;
-      } else if (isAI) {
-        badge = '<span class="assist-simplify-ai-badge">💻 Local AI</span>';
-      } else {
-        badge = '<span class="assist-simplify-fallback-badge">Basic</span>';
-      }
+      const _simBadgeInfo = await getAIBadgeInfo();
+      const badge = isAI
+        ? renderAIBadge(_simBadgeInfo.mode, _simBadgeInfo.label)
+        : renderAIBadge('fallback', 'Basic');
 
       contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-simplify-text">${escapeHtml(simplified)}</p>
@@ -1458,6 +1453,7 @@ async function simplification_start(text, selectionRect = null) {
  */
 function simplification_init() {
   console.log('[TextSimplification] Initializing...');
+  injectAIBadgeStyles();
 
   // Register feature
   if (!window.assistFeatures) {

@@ -69,7 +69,7 @@ export async function cloudGenerate(prompt, options = {}) {
     `[CloudRouter] Routing to ${providerConfig.name} (model: ${options.model || 'default'})`
   );
 
-  // For Anthropic, resolve internal keys (e.g., 'sonnet-4.5') to actual model IDs
+  // For Anthropic, resolve internal keys (e.g., 'sonnet-4.6') to actual model IDs
   if (provider === 'anthropic' && options.model) {
     const modelConfig = ANTHROPIC_MODELS[options.model];
     if (modelConfig && !modelConfig.isLocal) {
@@ -214,13 +214,13 @@ async function fetchAnthropicModels() {
       description: 'Fast and economical',
     },
     {
-      id: 'claude-sonnet-4-5-20250514',
-      name: 'Sonnet 4.5 (Recommended)',
+      id: 'claude-sonnet-4-6',
+      name: 'Sonnet 4.6 (Recommended)',
       description: 'Best for everyday tasks',
     },
     {
-      id: 'claude-opus-4-5-20250514',
-      name: 'Opus 4.5 (Most Capable)',
+      id: 'claude-opus-4-6',
+      name: 'Opus 4.6 (Most Capable)',
       description: 'Most capable for complex work',
     },
   ];
@@ -266,13 +266,13 @@ function getHardcodedFallback(provider) {
         description: 'Fast and economical',
       },
       {
-        id: 'claude-sonnet-4-5-20250514',
-        name: 'Sonnet 4.5 (Recommended)',
+        id: 'claude-sonnet-4-6',
+        name: 'Sonnet 4.6 (Recommended)',
         description: 'Best for everyday tasks',
       },
       {
-        id: 'claude-opus-4-5-20250514',
-        name: 'Opus 4.5 (Most Capable)',
+        id: 'claude-opus-4-6',
+        name: 'Opus 4.6 (Most Capable)',
         description: 'Most capable for complex work',
       },
     ],

@@ -19,6 +19,7 @@
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getAIBadgeInfo, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
@@ -45,18 +46,9 @@ const graph_settings = {
   linkStrength: 0.5,
 };
 
-// Cloud model configurations
-const GRAPH_MODELS = {
-  local: { id: 'local', name: 'Local (7B)', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
-};
-
-// Default to local 7B model for both modes
-// Local mistral:7b recommended for structured JSON output
-// Users can manually select cloud models if desired
-const GRAPH_DEFAULT_CLOUD_MODEL = 'local';
+// Default cloud model when none is explicitly set (Bug #10 fix: was 'local' which
+// caused Knowledge Graph to show "Local AI" even when cloud mode was enabled)
+const GRAPH_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 /**
  * Get the current model from global AI settings
@@ -160,8 +152,8 @@ JSON OUTPUT:`;
   const modelTokenLimits = {
     local: 1500,
     'haiku-4.5': 1200,
-    'sonnet-4.5': 1800,
-    'opus-4.5': 2000,
+    'sonnet-4.6': 1800,
+    'opus-4.6': 2000,
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 1500;
@@ -1177,7 +1169,6 @@ async function graph_build(text, modelKey = null) {
   }
 
   const isCloud = modelKey !== 'local';
-  const modelName = GRAPH_MODELS[modelKey]?.name || modelKey;
 
   // Check for API key if cloud mode
   if (isCloud) {
@@ -1194,9 +1185,11 @@ async function graph_build(text, modelKey = null) {
 
   if (loading) {
     loading.style.display = 'block';
+    const _kgBadgeInfo = await getAIBadgeInfo();
+    const _kgLabel = isCloud ? `☁️ ${_kgBadgeInfo.label}` : '💻 Local AI';
     loading.innerHTML = sanitizeHTML(`
       <div class="kg-spinner"></div>
-      <div>Analyzing text${isCloud ? ` with ${modelName}` : ' with Local AI'}...</div>
+      <div>Analyzing text with ${_kgLabel}...</div>
     `);
   }
   if (empty) {
@@ -1334,6 +1327,7 @@ function graph_start(text) {
 
 function graph_init() {
   console.log('[KnowledgeGraph] Initializing with D3.js...');
+  injectAIBadgeStyles();
 
   // Register to window
   if (!window.assistFeatures) {

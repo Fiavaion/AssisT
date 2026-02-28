@@ -16,6 +16,7 @@
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getAIBadgeInfo, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 
 // ============================================================================
 // CSS STYLES (injected separately to avoid innerHTML overwriting)
@@ -282,7 +283,8 @@ const SPG_PANEL_CSS = `
   }
 
   .spg-tips {
-    background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%);
+    background: #f1f8e9;
+    border: 1px solid #c8e6c9;
     border-radius: 12px;
     padding: 16px;
     margin-top: 20px;
@@ -291,13 +293,15 @@ const SPG_PANEL_CSS = `
   .spg-tips h4 {
     margin: 0 0 10px 0;
     font-size: 14px;
-    color: #333;
+    font-weight: 600;
+    color: #1b5e20;
   }
 
   .spg-tip-item {
     font-size: 13px;
-    color: #555;
+    color: #2e7d32;
     padding: 4px 0;
+    line-height: 1.5;
   }
 
   .spg-empty {
@@ -360,13 +364,13 @@ const spg_settings = {
 // Cloud model configurations
 const SPG_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
 };
 
 // Default cloud model for this feature (Sonnet for balanced quality/speed)
-const SPG_DEFAULT_CLOUD_MODEL = 'sonnet-4.5';
+const SPG_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // AI MODE DETECTION
@@ -508,7 +512,7 @@ Rules:
         prompt,
         options: {
           model: modelKey,
-          maxTokens: 2000,
+          maxTokens: 3000,
           temperature: 0.4,
           feature: 'studyPathGenerator',
         },
@@ -533,7 +537,12 @@ Rules:
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         spg_currentPath = spg_enhancePath(parsed);
-        spg_currentPath._generatedBy = isCloud ? `Cloud (${modelName})` : 'Local AI';
+        if (isCloud) {
+          const _spgBadgeInfo = await getAIBadgeInfo();
+          spg_currentPath._generatedBy = `Cloud (${_spgBadgeInfo.label})`;
+        } else {
+          spg_currentPath._generatedBy = 'Local AI';
+        }
         spg_displayPath(spg_currentPath);
         return spg_currentPath;
       }
@@ -908,9 +917,18 @@ function spg_displayPath(path) {
     contentEl.style.display = 'block';
   }
 
-  // Update header
+  // Update header — show study stats and AI source
   if (headerMeta) {
-    headerMeta.textContent = `${path.estimatedHours} hours • ${path.topics.length} topics • ${path.difficulty}`;
+    const generatedByLabel = path._generatedBy || '';
+    const aiIndicator = generatedByLabel.startsWith('Cloud')
+      ? `☁️ ${generatedByLabel}`
+      : generatedByLabel === 'Local AI'
+        ? '💻 Local AI'
+        : generatedByLabel
+          ? `⚠️ ${generatedByLabel}`
+          : '';
+    const metaText = `${path.estimatedHours} hours • ${path.topics.length} topics • ${path.difficulty}${aiIndicator ? ' • ' + aiIndicator : ''}`;
+    headerMeta.textContent = metaText;
   }
 
   // Update time estimate
@@ -1149,6 +1167,7 @@ function spg_handleKeydown(e) {
  */
 function spg_init() {
   console.log('[StudyPathGenerator] Initializing...');
+  injectAIBadgeStyles();
 
   if (!window.assistFeatures) {
     window.assistFeatures = {};

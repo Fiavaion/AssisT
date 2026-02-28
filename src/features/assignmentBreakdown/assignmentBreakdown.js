@@ -24,6 +24,7 @@
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -45,9 +46,9 @@ const breakdown_settings = {
 // Cloud model configurations
 const BREAKDOWN_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
@@ -144,8 +145,8 @@ async function breakdown_generate(text, modelKey = 'local', retryCount = 0) {
   const modelTokenLimits = {
     local: 800,
     'haiku-4.5': 600, // Fast and concise
-    'sonnet-4.5': 1000, // Balanced
-    'opus-4.5': 1200, // Needs more for detailed analysis
+    'sonnet-4.6': 1000, // Balanced
+    'opus-4.6': 1200, // Needs more for detailed analysis
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 800;
@@ -1171,20 +1172,16 @@ function breakdown_makeDraggable(panel) {
  * @param {boolean} isCloud - Whether cloud model was used
  * @param {string} modelName - Name of the model used
  */
-function breakdown_renderResult(result, isAI, isCloud = false, modelName = '') {
+async function breakdown_renderResult(result, isAI, _isCloud = false, _modelName = '') {
   const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
   if (!contentArea) {
     return;
   }
 
-  let badge;
-  if (isCloud) {
-    badge = `<span class="assist-breakdown-cloud-badge">☁️ ${modelName}</span>`;
-  } else if (isAI) {
-    badge = '<span class="assist-breakdown-ai-badge">💻 Local AI</span>';
-  } else {
-    badge = '<span class="assist-breakdown-fallback-badge">Basic</span>';
-  }
+  const _bkBadgeInfo = await getAIBadgeInfo();
+  const badge = isAI
+    ? renderAIBadge(_bkBadgeInfo.mode, _bkBadgeInfo.label)
+    : renderAIBadge('fallback', 'Basic');
 
   let html = `
     <div class="assist-breakdown-summary">
@@ -1707,6 +1704,7 @@ async function breakdown_start(text, selectionRect = null) {
  */
 function breakdown_init() {
   console.log('[AssignmentBreakdown] Initializing...');
+  injectAIBadgeStyles();
 
   // Register feature
   if (!window.assistFeatures) {

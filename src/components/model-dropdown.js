@@ -24,15 +24,15 @@ const CLOUD_MODELS = {
     shortName: 'Haiku',
     description: 'Fast',
   },
-  'sonnet-4.5': {
-    id: 'claude-sonnet-4-5-20250514',
-    name: 'Sonnet 4.5',
+  'sonnet-4.6': {
+    id: 'claude-sonnet-4-6',
+    name: 'Sonnet 4.6',
     shortName: 'Sonnet',
     description: 'Balanced',
   },
-  'opus-4.5': {
-    id: 'claude-opus-4-5-20250514',
-    name: 'Opus 4.5',
+  'opus-4.6': {
+    id: 'claude-opus-4-6',
+    name: 'Opus 4.6',
     shortName: 'Opus',
     description: 'Best',
   },
@@ -41,13 +41,13 @@ const CLOUD_MODELS = {
 // Feature default models
 const FEATURE_DEFAULTS = {
   summarization: 'haiku-4.5',
-  textSimplification: 'sonnet-4.5',
-  assignmentBreakdown: 'sonnet-4.5',
-  citationAnalyzer: 'sonnet-4.5',
-  socraticTutor: 'opus-4.5',
-  imageUnderstanding: 'sonnet-4.5',
-  studyPathGenerator: 'sonnet-4.5',
-  multiDocCompare: 'opus-4.5',
+  textSimplification: 'sonnet-4.6',
+  assignmentBreakdown: 'sonnet-4.6',
+  citationAnalyzer: 'sonnet-4.6',
+  socraticTutor: 'opus-4.6',
+  imageUnderstanding: 'sonnet-4.6',
+  studyPathGenerator: 'sonnet-4.6',
+  multiDocCompare: 'opus-4.6',
 };
 
 /**
@@ -70,7 +70,7 @@ async function isCloudModeEnabled() {
  * @returns {string} Model key
  */
 function getDefaultModel(featureName) {
-  return FEATURE_DEFAULTS[featureName] || 'sonnet-4.5';
+  return FEATURE_DEFAULTS[featureName] || 'sonnet-4.6';
 }
 
 /**
@@ -99,8 +99,8 @@ function createModelDropdown(featureName, options = {}) {
       <select class="assist-model-select" aria-label="Select AI model for ${featureName}">
         <option value="local">Local</option>
         <option value="haiku-4.5">Haiku 4.5</option>
-        <option value="sonnet-4.5">Sonnet 4.5</option>
-        <option value="opus-4.5">Opus 4.5</option>
+        <option value="sonnet-4.6">Sonnet 4.6</option>
+        <option value="opus-4.6">Opus 4.6</option>
       </select>
     </label>
   `);
