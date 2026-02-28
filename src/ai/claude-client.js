@@ -2,7 +2,7 @@
  * Claude API Client for AssisT Cloud AI Mode
  *
  * Provides integration with Anthropic's Claude API for cloud-based
- * AI processing. Supports Claude 4.5 models (Opus, Sonnet, Haiku).
+ * AI processing. Supports Claude 4.5/4.6 models (Opus, Sonnet, Haiku).
  *
  * Features:
  * - Multi-model support with feature-specific defaults
@@ -28,7 +28,12 @@ const ANTHROPIC_VERSION = '2023-06-01';
 /**
  * Claude Model Configurations
  * Internal key → actual API model ID mapping
- * Used by features that reference models by short key (e.g., 'sonnet-4.5')
+ * Used by features that reference models by short key (e.g., 'sonnet-4.6')
+ *
+ * Canonical model IDs (per CLAUDE.md):
+ *   Haiku 4.5: claude-haiku-4-5-20251001
+ *   Sonnet 4.6: claude-sonnet-4-6
+ *   Opus 4.6:   claude-opus-4-6
  */
 export const CLOUD_MODELS = {
   local: {
@@ -44,16 +49,16 @@ export const CLOUD_MODELS = {
     avgCost: 0.001,
     outputCost: 0.005,
   },
-  'sonnet-4.5': {
-    id: 'claude-sonnet-4-5-20250514',
-    name: 'Sonnet 4.5 (Recommended)',
+  'sonnet-4.6': {
+    id: 'claude-sonnet-4-6',
+    name: 'Sonnet 4.6 (Recommended)',
     description: 'Best for everyday tasks',
     avgCost: 0.003,
     outputCost: 0.015,
   },
-  'opus-4.5': {
-    id: 'claude-opus-4-5-20250514',
-    name: 'Opus 4.5 (Most Capable)',
+  'opus-4.6': {
+    id: 'claude-opus-4-6',
+    name: 'Opus 4.6 (Most Capable)',
     description: 'Most capable for complex work',
     avgCost: 0.015,
     outputCost: 0.075,
@@ -65,13 +70,13 @@ export const CLOUD_MODELS = {
  */
 export const FEATURE_DEFAULT_MODELS = {
   summarization: 'haiku-4.5',
-  textSimplification: 'sonnet-4.5',
-  assignmentBreakdown: 'sonnet-4.5',
-  citationAnalyzer: 'sonnet-4.5',
-  socraticTutor: 'opus-4.5',
-  imageUnderstanding: 'sonnet-4.5',
-  studyPathGenerator: 'sonnet-4.5',
-  multiDocCompare: 'opus-4.5',
+  textSimplification: 'sonnet-4.6',
+  assignmentBreakdown: 'sonnet-4.6',
+  citationAnalyzer: 'sonnet-4.6',
+  socraticTutor: 'opus-4.6',
+  imageUnderstanding: 'sonnet-4.6',
+  studyPathGenerator: 'sonnet-4.6',
+  multiDocCompare: 'opus-4.6',
 };
 
 /**
@@ -172,8 +177,8 @@ export async function checkCloudAvailability() {
 export async function claudeGenerate(prompt, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  // Resolve model ID — accept both internal keys ('sonnet-4.5') and actual IDs ('claude-sonnet-4-5-20250514')
-  const modelKey = opts.model || 'sonnet-4.5';
+  // Resolve model ID — accept both internal keys ('sonnet-4.6') and actual IDs ('claude-sonnet-4-6')
+  const modelKey = opts.model || 'sonnet-4.6';
   const modelConfig = CLOUD_MODELS[modelKey];
   let modelId;
 
@@ -295,7 +300,7 @@ export async function claudeGenerate(prompt, options = {}) {
  * @returns {string} Model key
  */
 export function getDefaultModelForFeature(featureName) {
-  return FEATURE_DEFAULT_MODELS[featureName] || 'sonnet-4.5';
+  return FEATURE_DEFAULT_MODELS[featureName] || 'sonnet-4.6';
 }
 
 /**

@@ -23,6 +23,7 @@
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -43,15 +44,15 @@ const citation_settings = {
 // Cloud model configurations
 const CITATION_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Opus 4.5 scored 8.8/10 (best for nuanced credibility assessment)
+// Cloud: Opus 4.6 scored 8.8/10 (best for nuanced credibility assessment)
 // Local: Gemma3:4b scored 7.7/10 (acceptable but cloud recommended)
-const CITATION_DEFAULT_CLOUD_MODEL = 'opus-4.5';
+const CITATION_DEFAULT_CLOUD_MODEL = 'opus-4.6';
 
 /**
  * Get the current model from global AI settings
@@ -132,8 +133,8 @@ async function citation_analyze(text, context = {}, modelKey = 'local') {
   const modelTokenLimits = {
     local: 600,
     'haiku-4.5': 500,
-    'sonnet-4.5': 700,
-    'opus-4.5': 900,
+    'sonnet-4.6': 700,
+    'opus-4.6': 900,
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 600;
@@ -1115,7 +1116,7 @@ function citation_makeDraggable(panel) {
  * @param {boolean} isCloud - Whether cloud model was used
  * @param {string} modelName - Name of the model used
  */
-function citation_renderResults(analysis, isAI, isCloud = false, modelName = '') {
+async function citation_renderResults(analysis, isAI, _isCloud = false, _modelName = '') {
   const contentArea = citation_panel?.querySelector('.assist-citation-content');
   if (!contentArea) {
     return;
@@ -1139,14 +1140,10 @@ function citation_renderResults(analysis, isAI, isCloud = false, modelName = '')
       ? analysis.weaknesses.map(w => `<li>${escapeHtml(w)}</li>`).join('')
       : '<li>None identified</li>';
 
-  let badge;
-  if (isCloud) {
-    badge = `<span class="assist-citation-cloud-badge">☁️ ${modelName}</span>`;
-  } else if (isAI) {
-    badge = '<span class="assist-citation-ai-badge">💻 Local AI</span>';
-  } else {
-    badge = '<span class="assist-citation-fallback-badge">Basic</span>';
-  }
+  const _citBadgeInfo = await getAIBadgeInfo();
+  const badge = isAI
+    ? renderAIBadge(_citBadgeInfo.mode, _citBadgeInfo.label)
+    : renderAIBadge('fallback', 'Basic');
 
   contentArea.innerHTML = sanitizeHTML(`
     <div class="assist-citation-score">
@@ -1620,6 +1617,7 @@ async function citation_start(text, selectionRect = null) {
  */
 function citation_init() {
   console.log('[CitationAnalyzer] Initializing...');
+  injectAIBadgeStyles();
 
   if (!window.assistFeatures) {
     window.assistFeatures = {};

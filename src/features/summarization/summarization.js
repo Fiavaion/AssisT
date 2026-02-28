@@ -22,6 +22,7 @@
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -41,16 +42,16 @@ const summarization_settings = {
 // Cloud model configurations (local copy for bundling)
 const SUMMARIZATION_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
 };
 
 // Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Opus 4.5 scored 7.0/10 (only cloud model to pass ND-Ready threshold)
+// Cloud: Opus 4.6 scored 7.0/10 (only cloud model to pass ND-Ready threshold)
 // Local: Mistral:7b scored 7.4/10 (actually outperformed cloud models!)
 // const _SUMMARIZATION_DEFAULT_LOCAL_MODEL = 'local'; // Reserved for future use
-const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'opus-4.5';
+const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'opus-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
@@ -157,7 +158,7 @@ ${text}
 
 Summary:`;
 
-  const maxTokens = level === 'detailed' ? 500 : level === 'moderate' ? 300 : 150;
+  const maxTokens = level === 'detailed' ? 1500 : level === 'moderate' ? 800 : 400;
   const isCloud = modelKey !== 'local' && modelKey !== 'gemini';
   const isGemini = modelKey === 'gemini';
 
@@ -943,7 +944,6 @@ async function summarization_summarize(text, level = 'brief') {
   try {
     let summary;
     let isAI = false;
-    let usedCloud = false;
 
     if (isCloudModel) {
       // Check for API key before using cloud model
@@ -960,7 +960,6 @@ async function summarization_summarize(text, level = 'brief') {
       const result = await summarization_generate(text, level, selectedModel);
       summary = result.summary;
       isAI = true;
-      usedCloud = true;
 
       if (statusBar) {
         statusBar.textContent = `☁️ ${modelName} summary generated`;
@@ -995,14 +994,10 @@ async function summarization_summarize(text, level = 'brief') {
 
     // Update content
     if (contentArea) {
-      let badge;
-      if (usedCloud) {
-        badge = `<span class="assist-summary-cloud-badge">☁️ ${modelName}</span>`;
-      } else if (isAI) {
-        badge = '<span class="assist-summary-ai-badge">AI</span>';
-      } else {
-        badge = '<span class="assist-summary-fallback-badge">Basic</span>';
-      }
+      const badgeInfo = await getAIBadgeInfo();
+      const badge = isAI
+        ? renderAIBadge(badgeInfo.mode, badgeInfo.label)
+        : renderAIBadge('fallback', 'Basic');
 
       contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-summary-text">${escapeHtml(summary)}</p>
@@ -1203,6 +1198,7 @@ function summarization_start(text, selectionRect = null) {
  */
 function summarization_init() {
   console.log('[Summarization] Initializing...');
+  injectAIBadgeStyles();
 
   // Register feature
   if (!window.assistFeatures) {

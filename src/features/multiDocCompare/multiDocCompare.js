@@ -15,6 +15,7 @@
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -33,12 +34,12 @@ const mdc_settings = {
 // Cloud model configurations
 const MDC_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251101', name: 'Haiku 4.5' },
-  'sonnet-4.5': { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5' },
-  'opus-4.5': { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
 };
 
-const MDC_DEFAULT_CLOUD_MODEL = 'sonnet-4.5'; // Good for multi-doc analysis
+const MDC_DEFAULT_CLOUD_MODEL = 'sonnet-4.6'; // Good for multi-doc analysis
 
 /**
  * Get the current AI mode setting
@@ -1072,6 +1073,7 @@ function mdc_showEmptyState() {
  */
 function mdc_init() {
   console.log('[MultiDocCompare] Initializing...');
+  injectAIBadgeStyles();
 
   if (!window.assistFeatures) {
     window.assistFeatures = {};
