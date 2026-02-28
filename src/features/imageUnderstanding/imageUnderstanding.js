@@ -52,60 +52,75 @@ const imageUI_ttsSettings = {
  * @returns {Promise<string>} Base64 encoded image
  */
 async function imageUI_getBase64(img) {
-  return new Promise((resolve, reject) => {
-    try {
-      // Create canvas
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const maxSize = 1024;
 
-      // Handle cross-origin images
-      const tempImg = new Image();
-      tempImg.crossOrigin = 'anonymous';
+  function drawAndExport(source) {
+    let width = source.naturalWidth || source.width;
+    let height = source.naturalHeight || source.height;
 
-      tempImg.onload = () => {
-        // Limit size for API
-        const maxSize = 1024;
-        let width = tempImg.width;
-        let height = tempImg.height;
-
-        if (width > maxSize || height > maxSize) {
-          if (width > height) {
-            height = (height / width) * maxSize;
-            width = maxSize;
-          } else {
-            width = (width / height) * maxSize;
-            height = maxSize;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(tempImg, 0, 0, width, height);
-
-        // Get base64 without data URL prefix
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
-        resolve(base64);
-      };
-
-      tempImg.onerror = () => {
-        // Fallback: try direct canvas draw
-        try {
-          canvas.width = img.naturalWidth || img.width;
-          canvas.height = img.naturalHeight || img.height;
-          ctx.drawImage(img, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
-          resolve(base64);
-        } catch {
-          reject(new Error('Failed to process image'));
-        }
-      };
-
-      tempImg.src = img.src;
-    } catch (error) {
-      reject(error);
+    if (width > maxSize || height > maxSize) {
+      if (width > height) {
+        height = (height / width) * maxSize;
+        width = maxSize;
+      } else {
+        width = (width / height) * maxSize;
+        height = maxSize;
+      }
     }
+
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(source, 0, 0, width, height);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    return dataUrl.replace(/^data:image\/\w+;base64,/, '');
+  }
+
+  // Try 1: Draw the already-loaded DOM element directly (works for same-origin and file://)
+  try {
+    const base64 = drawAndExport(img);
+    console.log('[ImageUnderstanding] Got base64 from DOM element directly');
+    return base64;
+  } catch (e) {
+    console.log(
+      '[ImageUnderstanding] Direct draw failed (tainted canvas), trying CORS reload:',
+      e.message
+    );
+  }
+
+  // Try 2: Fetch via background script (handles file:// URLs and cross-origin)
+  try {
+    console.log('[ImageUnderstanding] Trying background script fetch for:', img.src);
+    const response = await chrome.runtime.sendMessage({
+      action: 'FETCH_IMAGE',
+      url: img.src,
+    });
+    if (response?.success && response?.base64) {
+      console.log('[ImageUnderstanding] Got base64 from background script');
+      return response.base64;
+    }
+    console.log('[ImageUnderstanding] Background fetch failed:', response?.error);
+  } catch (bgError) {
+    console.log('[ImageUnderstanding] Background script error:', bgError.message);
+  }
+
+  // Try 3: Re-fetch with crossOrigin='anonymous' (works for CORS-enabled remote images)
+  return new Promise((resolve, reject) => {
+    const tempImg = new Image();
+    tempImg.crossOrigin = 'anonymous';
+
+    tempImg.onload = () => {
+      try {
+        resolve(drawAndExport(tempImg));
+      } catch {
+        reject(new Error('Failed to process image'));
+      }
+    };
+
+    tempImg.onerror = () => reject(new Error('Failed to load image'));
+    tempImg.src = img.src;
   });
 }
 
@@ -731,18 +746,29 @@ function imageUI_setupContextMenu() {
     if (message.action === 'DESCRIBE_IMAGE' || message.type === 'DESCRIBE_IMAGE') {
       console.log('[ImageUnderstanding] Received DESCRIBE_IMAGE message', message.imageUrl);
 
-      // Prefer imageUrl from message, fallback to stored reference
-      if (message.imageUrl) {
+      // Try to find the actual <img> element on the page first (avoids fetch issues with file:// URLs)
+      let targetImg = window._assistLastRightClickedImage || null;
+      console.log('[ImageUnderstanding] Stored right-click image:', targetImg?.src || 'none');
+
+      if (message.imageUrl && !targetImg) {
+        // Search DOM for an <img> matching this URL (case-insensitive for Windows file:// paths)
+        const msgUrl = message.imageUrl.toLowerCase();
+        targetImg =
+          Array.from(document.querySelectorAll('img')).find(
+            img => img.src.toLowerCase() === msgUrl || img.currentSrc?.toLowerCase() === msgUrl
+          ) || null;
+        console.log('[ImageUnderstanding] DOM search found:', targetImg?.src || 'none');
+      }
+
+      if (targetImg) {
+        imageUI_describeImage(targetImg);
+        sendResponse({ success: true });
+      } else if (message.imageUrl) {
+        // No DOM element found - fall back to URL fetch (works for http/https)
         imageUI_analyze(message.imageUrl);
         sendResponse({ success: true });
       } else {
-        const img = window._assistLastRightClickedImage;
-        if (img) {
-          imageUI_describeImage(img);
-          sendResponse({ success: true });
-        } else {
-          sendResponse({ success: false, error: 'No image found' });
-        }
+        sendResponse({ success: false, error: 'No image found' });
       }
       return true; // Keep channel open for async
     }

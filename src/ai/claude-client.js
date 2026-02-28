@@ -26,7 +26,9 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 /**
- * Claude 4.5 Model Configurations
+ * Claude Model Configurations
+ * Internal key → actual API model ID mapping
+ * Used by features that reference models by short key (e.g., 'sonnet-4.5')
  */
 export const CLOUD_MODELS = {
   local: {
@@ -36,22 +38,22 @@ export const CLOUD_MODELS = {
     isLocal: true,
   },
   'haiku-4.5': {
-    id: 'claude-haiku-4-5',
-    name: 'Haiku 4.5',
-    description: 'Fastest for quick answers',
-    avgCost: 0.001, // per 1K tokens (input)
+    id: 'claude-haiku-4-5-20251001',
+    name: 'Haiku 4.5 (Fast)',
+    description: 'Fast and economical',
+    avgCost: 0.001,
     outputCost: 0.005,
   },
   'sonnet-4.5': {
-    id: 'claude-sonnet-4-5',
-    name: 'Sonnet 4.5',
+    id: 'claude-sonnet-4-5-20250514',
+    name: 'Sonnet 4.5 (Recommended)',
     description: 'Best for everyday tasks',
     avgCost: 0.003,
     outputCost: 0.015,
   },
   'opus-4.5': {
-    id: 'claude-opus-4-5',
-    name: 'Opus 4.5',
+    id: 'claude-opus-4-5-20250514',
+    name: 'Opus 4.5 (Most Capable)',
     description: 'Most capable for complex work',
     avgCost: 0.015,
     outputCost: 0.075,
@@ -170,19 +172,22 @@ export async function checkCloudAvailability() {
 export async function claudeGenerate(prompt, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  // Resolve model ID from key
+  // Resolve model ID — accept both internal keys ('sonnet-4.5') and actual IDs ('claude-sonnet-4-5-20250514')
   const modelKey = opts.model || 'sonnet-4.5';
   const modelConfig = CLOUD_MODELS[modelKey];
+  let modelId;
 
-  if (!modelConfig) {
+  if (modelConfig) {
+    if (modelConfig.isLocal) {
+      throw new Error('Local model requested - use Ollama client instead');
+    }
+    modelId = modelConfig.id;
+  } else if (modelKey.startsWith('claude-')) {
+    // Already an actual Claude model ID — use directly
+    modelId = modelKey;
+  } else {
     throw new Error(`Unknown model: ${modelKey}`);
   }
-
-  if (modelConfig.isLocal) {
-    throw new Error('Local model requested - use Ollama client instead');
-  }
-
-  const modelId = modelConfig.id;
 
   // Check cache first
   if (!opts.noCache) {

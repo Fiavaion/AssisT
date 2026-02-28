@@ -112,12 +112,9 @@ function validateURL(url, options = {}) {
 }
 
 // Cloud AI imports
-import {
-  claudeGenerate,
-  checkCloudAvailability,
-  CLOUD_MODELS,
-  FEATURE_DEFAULT_MODELS,
-} from '../ai/claude-client.js';
+import { claudeGenerate, CLOUD_MODELS, FEATURE_DEFAULT_MODELS } from '../ai/claude-client.js';
+
+import { cloudGenerate, cloudFetchModels, checkCloudAvailability } from '../ai/cloud-router.js';
 
 // ========================================
 // CONTEXT MENU SETUP (runs on every service worker start)
@@ -347,8 +344,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle image fetch requests (for cross-origin images)
   if (message.action === 'FETCH_IMAGE') {
-    // SECURITY: Validate URL to prevent SSRF attacks
-    const validation = validateURL(message.url, { allowFile: false, allowExtension: false });
+    // SECURITY: Allow file:// URLs only when the requesting tab is also a file:// page
+    // (user already has local file access, same logic as FETCH_PDF)
+    const isFileUrl = message.url?.startsWith('file://');
+    const senderIsFile = sender?.tab?.url?.startsWith('file://');
+    const allowFile = isFileUrl && senderIsFile;
+
+    const validation = validateURL(message.url, { allowFile, allowExtension: false });
     if (!validation.valid) {
       console.warn(
         '[AssisT Security] Blocked FETCH_IMAGE with invalid URL:',
@@ -361,10 +363,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     console.log('[AssisT] Fetching image:', message.url);
 
-    fetch(message.url, {
-      mode: 'cors',
-      credentials: 'omit',
-    })
+    const fetchOptions = isFileUrl ? {} : { mode: 'cors', credentials: 'omit' };
+    fetch(message.url, fetchOptions)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -750,7 +750,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // ========================================
-  // CLOUD LLM MESSAGE HANDLERS (Claude API)
+  // CLOUD LLM MESSAGE HANDLERS (Multi-Provider)
   // ========================================
 
   // Check if cloud mode is available
@@ -761,9 +761,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Generate text with Claude API
+  // Generate text with active cloud provider (routes via cloud-router)
   if (message.action === 'CLOUD_LLM_GENERATE') {
-    claudeGenerate(message.prompt, message.options || {})
+    cloudGenerate(message.prompt, message.options || {})
       .then(result =>
         sendResponse({
           success: true,
@@ -775,7 +775,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Get cloud models list
+  // Fetch available models for a provider (dynamic list)
+  if (message.action === 'CLOUD_FETCH_MODELS') {
+    cloudFetchModels(message.provider, message.apiKey)
+      .then(models => sendResponse({ success: true, models }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Get cloud models list (legacy — returns Anthropic internal keys)
   if (message.action === 'CLOUD_LLM_GET_MODELS') {
     sendResponse({
       success: true,

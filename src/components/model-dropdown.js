@@ -9,7 +9,7 @@
 
 import { sanitizeHTML } from '../utils/sanitize.js';
 
-// Cloud model configurations
+// Cloud model configurations (internal keys for feature defaults)
 const CLOUD_MODELS = {
   local: {
     id: 'local',
@@ -19,19 +19,19 @@ const CLOUD_MODELS = {
     isLocal: true,
   },
   'haiku-4.5': {
-    id: 'claude-haiku-4-5-20251101',
+    id: 'claude-haiku-4-5-20251001',
     name: 'Haiku 4.5',
     shortName: 'Haiku',
     description: 'Fast',
   },
   'sonnet-4.5': {
-    id: 'claude-sonnet-4-5-20250929',
+    id: 'claude-sonnet-4-5-20250514',
     name: 'Sonnet 4.5',
     shortName: 'Sonnet',
     description: 'Balanced',
   },
   'opus-4.5': {
-    id: 'claude-opus-4-5-20251101',
+    id: 'claude-opus-4-5-20250514',
     name: 'Opus 4.5',
     shortName: 'Opus',
     description: 'Best',

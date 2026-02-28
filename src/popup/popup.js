@@ -3371,14 +3371,11 @@ class PopupController {
 
               <!-- Model Selection - hidden when no API key -->
               <div id="cloud-model-section" class="option-group" style="display: none;">
-                <label for="cloud-model-select" class="option-group-label" id="model-selection-header">Claude Selection</label>
+                <label for="cloud-model-select" class="option-group-label" id="model-selection-header">Model Selection</label>
                 <select id="cloud-model-select" class="voice-select">
-                  <!-- Populated dynamically based on provider -->
-                  <option value="haiku-4.5">Claude Haiku 4.5 (Fast & Economical)</option>
-                  <option value="sonnet-4.5" selected>Claude Sonnet 4.5 (Balanced - Recommended)</option>
-                  <option value="opus-4.5">Claude Opus 4.5 (Most Capable)</option>
+                  <!-- Populated dynamically from provider API or cache -->
                 </select>
-                <p class="feature-description" id="model-description">Select the Claude for all AI features</p>
+                <p class="feature-description" id="model-description">Select the model for all AI features</p>
               </div>
             </section>
 
@@ -3991,7 +3988,6 @@ class PopupController {
    * @param {string} provider - The selected provider
    */
   updateCloudProviderUI(modal, provider) {
-    const modelSelect = modal.querySelector('#cloud-model-select');
     const apiKeyLink = modal.querySelector('#api-key-link');
     const modelHeader = modal.querySelector('#model-selection-header');
     const modelDescription = modal.querySelector('#model-description');
@@ -4007,38 +4003,13 @@ class PopupController {
       apiKeyLink.href = providerLinks[provider] || '#';
     }
 
-    // Update model options based on provider
-    if (modelSelect) {
-      const modelOptions = {
-        anthropic: `
-          <option value="haiku-4.5">Claude Haiku 4.5 (Fast & Economical)</option>
-          <option value="sonnet-4.5" selected>Claude Sonnet 4.5 (Balanced - Recommended)</option>
-          <option value="opus-4.5">Claude Opus 4.5 (Most Capable)</option>
-        `,
-        openai: `
-          <option value="gpt-4o-mini">GPT-4o Mini (Fast & Economical)</option>
-          <option value="gpt-4o" selected>GPT-4o (Balanced - Recommended)</option>
-          <option value="gpt-4-turbo">GPT-4 Turbo (Most Capable)</option>
-          <option value="o1-preview">o1 Preview (Advanced Reasoning)</option>
-        `,
-        google: `
-          <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast & Economical)</option>
-          <option value="gemini-1.5-pro" selected>Gemini 1.5 Pro (Balanced - Recommended)</option>
-          <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Experimental (Latest)</option>
-        `,
-        perplexity: `
-          <option value="llama-3.1-sonar-small">Llama 3.1 Sonar Small (Fast & Economical)</option>
-          <option value="llama-3.1-sonar-large" selected>Llama 3.1 Sonar Large (Balanced - Recommended)</option>
-          <option value="llama-3.1-sonar-huge">Llama 3.1 Sonar Huge (Most Capable)</option>
-        `,
-      };
-      modelSelect.innerHTML = modelOptions[provider] || modelOptions.anthropic;
-    }
+    // Load cached or fallback models into dropdown
+    this.populateCloudModelDropdown(modal, provider);
 
     // Update model header and description
     const providerNames = {
       anthropic: 'Claude',
-      openai: 'GPT',
+      openai: 'OpenAI',
       google: 'Gemini',
       perplexity: 'Perplexity',
     };
@@ -4047,6 +4018,118 @@ class PopupController {
     }
     if (modelDescription) {
       modelDescription.textContent = `Select the ${providerNames[provider] || 'model'} for all AI features`;
+    }
+  }
+
+  /**
+   * Populate cloud model dropdown from cached models or hardcoded fallback
+   * @param {HTMLElement} modal - The modal element
+   * @param {string} provider - The provider name
+   * @param {Array} [models] - Optional models array (skips cache lookup)
+   */
+  async populateCloudModelDropdown(modal, provider, models = null) {
+    const modelSelect = modal.querySelector('#cloud-model-select');
+    if (!modelSelect) {
+      return;
+    }
+
+    // Hardcoded fallbacks (used when no cached/fetched models available)
+    const fallbackModels = {
+      anthropic: [
+        { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5 (Fast)' },
+        { id: 'claude-sonnet-4-5-20250514', name: 'Sonnet 4.5 (Recommended)' },
+        { id: 'claude-opus-4-5-20250514', name: 'Opus 4.5 (Most Capable)' },
+      ],
+      openai: [
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
+        { id: 'gpt-4o', name: 'GPT-4o (Recommended)' },
+        { id: 'o3-mini', name: 'o3 Mini (Reasoning)' },
+      ],
+      google: [
+        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended)' },
+        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+        { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (Fast)' },
+      ],
+      perplexity: [
+        { id: 'sonar', name: 'Sonar (Recommended)' },
+        { id: 'sonar-pro', name: 'Sonar Pro (Most Capable)' },
+        { id: 'sonar-reasoning', name: 'Sonar Reasoning' },
+      ],
+    };
+
+    let modelList = models;
+
+    // Try to load from cache if no models provided
+    if (!modelList) {
+      try {
+        const cacheKey = `cloudModels_${provider}`;
+        const cached = await chrome.storage.local.get(cacheKey);
+        if (cached[cacheKey]?.models?.length > 0) {
+          modelList = cached[cacheKey].models;
+          console.log(`[Popup] Loaded ${modelList.length} cached models for ${provider}`);
+        }
+      } catch (e) {
+        console.warn('[Popup] Failed to load cached models:', e);
+      }
+    }
+
+    // Fallback to hardcoded
+    if (!modelList || modelList.length === 0) {
+      modelList = fallbackModels[provider] || fallbackModels.anthropic;
+    }
+
+    // Find recommended model (first one with "Recommended" in name, or first model)
+    const recommendedModel = modelList.find(m => m.name?.includes('Recommended'));
+    const savedModel = await new Promise(resolve => {
+      chrome.storage.local.get(['cloudModel'], result => resolve(result.cloudModel));
+    });
+
+    // Build options HTML
+    modelSelect.innerHTML = modelList
+      .map(m => {
+        const selected =
+          (savedModel && m.id === savedModel) ||
+          (!savedModel && recommendedModel && m.id === recommendedModel.id)
+            ? ' selected'
+            : '';
+        const desc = m.description ? ` — ${m.description}` : '';
+        return `<option value="${m.id}"${selected}>${m.name}${desc}</option>`;
+      })
+      .join('\n');
+
+    console.log(`[Popup] Model dropdown populated with ${modelList.length} models for ${provider}`);
+  }
+
+  /**
+   * Fetch models from provider API and update dropdown
+   * Called after successful API key verification
+   * @param {HTMLElement} modal - The modal element
+   * @param {string} provider - The provider name
+   * @param {string} apiKey - The verified API key
+   */
+  async fetchAndPopulateModels(modal, provider, apiKey) {
+    const modelSelect = modal.querySelector('#cloud-model-select');
+    if (!modelSelect) {
+      return;
+    }
+
+    try {
+      console.log(`[Popup] Fetching models for ${provider}...`);
+
+      const response = await chrome.runtime.sendMessage({
+        action: 'CLOUD_FETCH_MODELS',
+        provider,
+        apiKey,
+      });
+
+      if (response?.success && response?.models?.length > 0) {
+        console.log(`[Popup] Fetched ${response.models.length} models from ${provider}`);
+        this.populateCloudModelDropdown(modal, provider, response.models);
+      } else {
+        console.warn(`[Popup] Model fetch returned no models for ${provider}`);
+      }
+    } catch (error) {
+      console.warn(`[Popup] Failed to fetch models for ${provider}:`, error);
     }
   }
 
@@ -4070,6 +4153,8 @@ class PopupController {
         apiKeyInput.value = key;
         this.updateApiKeyStatus(modal, '✓ API key configured (encrypted)', 'success');
         this.toggleModelSelection(modal, true);
+        // Load cached models into dropdown (populated dynamically after key verification)
+        this.populateCloudModelDropdown(modal, provider);
       } else {
         apiKeyInput.value = '';
         this.updateApiKeyStatus(modal, 'No API key configured', 'warning');
@@ -4172,8 +4257,13 @@ class PopupController {
       const saved = await saveSecureAPIKey(provider, apiKey);
 
       if (saved) {
-        this.updateApiKeyStatus(modal, '✅ API key verified & encrypted', 'success');
+        this.updateApiKeyStatus(modal, '✅ Saved (encrypted)', 'success');
         this.toggleModelSelection(modal, true);
+
+        // Fetch available models from provider API and populate dropdown
+        this.updateApiKeyStatus(modal, '✅ Saved (encrypted) — Fetching models...', 'success');
+        await this.fetchAndPopulateModels(modal, provider, apiKey);
+        this.updateApiKeyStatus(modal, '✅ Saved (encrypted)', 'success');
       } else {
         this.updateApiKeyStatus(modal, '❌ Failed to save API key', 'error');
         this.toggleModelSelection(modal, false);
