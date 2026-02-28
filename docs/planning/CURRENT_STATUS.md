@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - Bug Fixes & Testing
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 081 (AI Test Page Art & Design Context Rewrite)
+**Session**: Phase 2 Session 082 (Multi-Provider Cloud AI & Dynamic Model Lists)
 
 ---
 
@@ -47,6 +47,23 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 082 (2026-02-28)
+
+**Multi-Provider Cloud AI & Dynamic Model Lists**
+
+**Key Accomplishments**:
+
+1. **Multi-Provider Cloud AI**: Built full end-to-end support for 4 cloud providers (Anthropic, OpenAI, Google Gemini, Perplexity). Created provider-specific API clients and a cloud router that auto-dispatches based on user's selected provider.
+2. **Dynamic Model Fetching**: After API key verification, models are now fetched from the provider's API (OpenAI `/v1/models`, Google `/v1beta/models`) and populated into the dropdown. Cached for 24h with hardcoded fallbacks.
+3. **Clean Model Names**: Simplified display names — "Sonnet 4.5 (Recommended)" instead of "Claude Sonnet 4.5 (Balanced - Recommended)". All providers use consistent naming.
+4. **Updated Model IDs**: Anthropic models updated to latest versioned IDs (claude-sonnet-4-5-20250514, etc.).
+5. **Zero Feature Changes**: All 8+ AI features work unchanged — routing handled entirely in service worker layer.
+
+**Files Created**: 4 new files (~665 lines) — `openai-client.js`, `google-client.js`, `perplexity-client.js`, `cloud-router.js`
+**Files Modified**: 5 files — `claude-client.js`, `service-worker.js`, `popup.js`, `model-dropdown.js`, `secure-key-storage.js`
+
+---
 
 ### Phase 2 Session 081 (2026-02-28)
 
