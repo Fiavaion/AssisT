@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-02-28
+**Last Updated**: 2026-03-01
 **Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
 **Current Phase**: Phase 2 Extension - Bug Fixes & Testing
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 084 (KG + Study Path AI Fix, Model Cache Version)
+**Session**: Phase 2 Session 085 (KG Prompt Engine & Image Understanding Fixes)
 
 ---
 
@@ -47,6 +47,22 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 085 (2026-03-01)
+
+**KG Prompt Engine & Image Understanding Fixes**
+
+**Key Accomplishments**:
+
+1. **KG Cloud Prompt Overhaul**: Added `GRAPH_CLOUD_SYSTEM_PROMPT` constant — constrains Claude to output-only JSON with no preamble. Restructured extraction prompt to be Claude-native (no `JSON OUTPUT:` fill-in-the-blank pattern). Cloud and local paths now diverge correctly.
+2. **Ollama JSON Mode**: `format: 'json'` now passed at the top level of the Ollama API body for KG calls — enforces valid JSON at inference (token sampling) level, not just post-hoc parsing.
+3. **Haiku Token Limit**: Bumped from 1200 → 2000 tokens to prevent truncation of 12-node graphs.
+4. **Image Media Type Auto-Detection**: `imageUI_detectMediaType()` reads base64 magic bytes to identify PNG/JPEG/GIF/WebP before sending to Claude API. Fixes `image/jpeg vs image/png` API rejection error.
+5. **Image Cache Collision Fix**: Claude cache key now includes `imageFingerprint` (first 32 chars of base64). Prevents different images with the same prompt from sharing a cache entry. Vision calls also set `noCache: true` as belt-and-suspenders.
+
+**Files Modified**: 4 — `claude-client.js`, `knowledgeGraph.js`, `service-worker.js`, `imageUnderstanding.js` (~66 lines)
+
+---
 
 ### Phase 2 Session 083 (2026-02-28)
 

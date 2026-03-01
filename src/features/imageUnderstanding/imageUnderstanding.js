@@ -172,51 +172,126 @@ async function imageUI_captureFromUrl(url) {
 // ============================================================================
 
 /**
- * Check if vision model is available
- * @returns {Promise<{available: boolean}>}
+ * Get the current AI mode from storage.
+ * Returns 'cloud', 'local', or 'off'.
+ * @returns {Promise<{mode: string, cloudModel: string}>}
  */
-async function imageUI_checkVision() {
+async function imageUI_getAIMode() {
   try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel', 'cloudProvider']);
     return {
-      available: response?.success && response?.visionAvailable,
-      models: response?.models || [],
+      mode: result.aiMode || 'off',
+      cloudModel: result.cloudModel || 'claude-sonnet-4-6',
+      cloudProvider: result.cloudProvider || 'anthropic',
     };
   } catch {
-    return { available: false, models: [] };
+    return { mode: 'off', cloudModel: 'claude-sonnet-4-6', cloudProvider: 'anthropic' };
   }
 }
 
 /**
- * Generate image description using vision model
+ * Check if cloud AI is available (API key configured).
+ * @returns {Promise<boolean>}
+ */
+async function imageUI_checkCloudAvailable() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'CLOUD_LLM_CHECK' });
+    return !!(response?.success && response?.available);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if local vision model (LLaVA) is available.
+ * @returns {Promise<boolean>}
+ */
+async function imageUI_checkLocalVision() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'LOCAL_LLM_CHECK' });
+    return !!(response?.success && response?.visionAvailable);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Detect actual image media type from base64 magic bytes.
+ * Prevents sending image/jpeg to the API when the image is actually PNG/GIF/WebP.
+ * @param {string} base64 - Base64 encoded image data (no data URL prefix)
+ * @returns {string} MIME type
+ */
+function imageUI_detectMediaType(base64) {
+  if (base64.startsWith('iVBORw0KGgo')) {
+    return 'image/png';
+  }
+  if (base64.startsWith('/9j/')) {
+    return 'image/jpeg';
+  }
+  if (base64.startsWith('R0lGOD')) {
+    return 'image/gif';
+  }
+  if (base64.startsWith('UklGR')) {
+    return 'image/webp';
+  }
+  return 'image/jpeg'; // safe default
+}
+
+/**
+ * Generate image description using the best available AI.
+ * Prefers cloud when aiMode === 'cloud', falls back to local vision.
  * @param {string} base64Image - Base64 encoded image
  * @param {string} prompt - Description prompt
- * @returns {Promise<string>} Generated description
+ * @returns {Promise<{description: string, modelLabel: string}>}
  */
 async function imageUI_describe(base64Image, prompt) {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_VISION',
-      image: base64Image,
-      prompt,
-      options: {
-        maxTokens: 500,
-        temperature: 0.5,
-      },
-    });
+  const { mode, cloudModel } = await imageUI_getAIMode();
 
-    if (response?.success) {
-      return response.data;
+  if (mode === 'cloud') {
+    const cloudAvailable = await imageUI_checkCloudAvailable();
+    if (cloudAvailable) {
+      const imageMediaType = imageUI_detectMediaType(base64Image);
+      console.log(`[ImageUnderstanding] Detected media type: ${imageMediaType}`);
+      const response = await chrome.runtime.sendMessage({
+        action: 'CLOUD_LLM_VISION',
+        image: base64Image,
+        imageMediaType,
+        prompt,
+        options: {
+          model: cloudModel,
+          maxTokens: 800,
+          temperature: 0.5,
+          feature: 'imageUnderstanding',
+          noCache: true, // Every image is unique — never serve a cached description
+        },
+      });
+      if (response?.success) {
+        return { description: response.data, modelLabel: 'Cloud AI' };
+      }
+      throw new Error(response?.error || 'Cloud vision request failed');
     }
-
-    throw new Error(response?.error || 'Vision request failed');
-  } catch (error) {
-    console.error('[ImageUnderstanding] Vision request failed:', error);
-    throw error;
+    throw new Error(
+      'Cloud AI is selected but no API key is configured. Please add your API key in Advanced Options → AI tab.'
+    );
   }
+
+  // Local mode: use Ollama/LLaVA
+  const localAvailable = await imageUI_checkLocalVision();
+  if (!localAvailable) {
+    throw new Error('Vision model (LLaVA) is not available. Run: ollama pull llava');
+  }
+
+  const response = await chrome.runtime.sendMessage({
+    action: 'LOCAL_LLM_VISION',
+    image: base64Image,
+    prompt,
+    options: { maxTokens: 500, temperature: 0.5 },
+  });
+
+  if (response?.success) {
+    return { description: response.data, modelLabel: 'Local AI' };
+  }
+  throw new Error(response?.error || 'Vision request failed');
 }
 
 // ============================================================================
@@ -559,15 +634,16 @@ function imageUI_createPanel() {
  * @param {string} imageUrl - Original image URL
  * @param {boolean} isAI - Whether AI-generated
  */
-function imageUI_renderResult(description, imageUrl, isAI = true) {
+function imageUI_renderResult(description, imageUrl, isAI = true, modelLabel = '') {
   const contentArea = imageUI_panel?.querySelector('.assist-image-content');
   if (!contentArea) {
     return;
   }
 
+  const badgeText = modelLabel || (isAI ? 'AI Vision' : 'Basic');
   const badge = isAI
-    ? '<span class="assist-image-badge">AI Vision</span>'
-    : '<span class="assist-image-badge" style="background:#ff9800">Basic</span>';
+    ? `<span class="assist-image-badge">☁️ ${badgeText}</span>`
+    : '<span class="assist-image-badge" style="background:#ff9800">⚠️ Basic</span>';
 
   const safeImageUrl = sanitizeURL(imageUrl);
   contentArea.innerHTML = `
@@ -605,18 +681,30 @@ function imageUI_renderError(message) {
     return;
   }
 
+  const isLocalError =
+    message.includes('LLaVA') || message.includes('ollama') || message.includes('vision model');
+  const hint = isLocalError
+    ? `<div class="assist-image-no-vision">
+        <div class="assist-image-no-vision-title">💡 Vision Model Required</div>
+        <div class="assist-image-no-vision-text">
+          To use local image understanding, install the LLaVA vision model:<br>
+          <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">ollama pull llava</code><br>
+          Or enable Cloud AI in Advanced Options → AI tab.
+        </div>
+      </div>`
+    : `<div class="assist-image-no-vision">
+        <div class="assist-image-no-vision-title">💡 Enable Cloud AI</div>
+        <div class="assist-image-no-vision-text">
+          Add your API key in <strong>Advanced Options → AI tab</strong> and set the mode to Cloud AI to analyze images.
+        </div>
+      </div>`;
+
   contentArea.innerHTML = `
     <div class="assist-image-error">
       <p><strong>Unable to analyze image</strong></p>
       <p>${escapeHtml(message)}</p>
     </div>
-    <div class="assist-image-no-vision">
-      <div class="assist-image-no-vision-title">💡 Vision Model Required</div>
-      <div class="assist-image-no-vision-text">
-        To use image understanding, install the LLaVA vision model:<br>
-        <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">ollama pull llava</code>
-      </div>
-    </div>
+    ${hint}
   `;
 }
 
@@ -668,12 +756,15 @@ async function imageUI_analyze(imageOrUrl, level = null) {
 
   const contentArea = imageUI_panel?.querySelector('.assist-image-content');
   if (contentArea) {
-    contentArea.innerHTML = `
-      <div class="assist-image-loading">
-        <div class="assist-image-spinner"></div>
-        <div>Analyzing image with AI vision...</div>
-      </div>
-    `;
+    imageUI_getAIMode().then(({ mode }) => {
+      const modeLabel = mode === 'cloud' ? 'Cloud AI' : 'AI vision';
+      contentArea.innerHTML = `
+        <div class="assist-image-loading">
+          <div class="assist-image-spinner"></div>
+          <div>Analyzing image with ${modeLabel}...</div>
+        </div>
+      `;
+    });
   }
 
   try {
@@ -692,21 +783,13 @@ async function imageUI_analyze(imageOrUrl, level = null) {
       throw new Error('Invalid image input');
     }
 
-    // Check vision availability
-    const visionStatus = await imageUI_checkVision();
-
-    if (!visionStatus.available) {
-      imageUI_renderError('Vision model (LLaVA) is not available');
-      return;
-    }
-
     // Get appropriate prompt
     const prompt = DESCRIPTION_PROMPTS[descLevel] || DESCRIPTION_PROMPTS.detailed;
 
-    // Generate description
-    const description = await imageUI_describe(base64Image, prompt);
+    // Generate description — prefers cloud AI, falls back to local
+    const { description, modelLabel } = await imageUI_describe(base64Image, prompt);
 
-    imageUI_renderResult(description, imageUrl, true);
+    imageUI_renderResult(description, imageUrl, true, modelLabel);
   } catch (error) {
     console.error('[ImageUnderstanding] Analysis failed:', error);
     imageUI_renderError(error.message);

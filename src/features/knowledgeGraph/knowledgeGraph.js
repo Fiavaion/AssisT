@@ -114,6 +114,9 @@ const RELATION_TYPES = {
 // LLM INTEGRATION
 // ============================================================================
 
+// System prompt for cloud models — constrains Claude to output-only JSON
+const GRAPH_CLOUD_SYSTEM_PROMPT = `You are a knowledge graph extractor for educational content. Your sole task is to return a raw JSON object. STRICT OUTPUT RULES: Start your response with { and end with }. Never write any preamble, explanation, label, or markdown. Never write phrases like "Here is the knowledge graph:" or wrap the JSON in code blocks.`;
+
 /**
  * Extract entities and relationships from text using LLM
  * @param {string} text - Text to analyze
@@ -121,43 +124,56 @@ const RELATION_TYPES = {
  * @returns {Promise<Object>} Graph data with nodes and edges
  */
 async function graph_extractFromText(text, modelKey = 'local') {
-  const prompt = `Analyze the following educational text and extract a knowledge graph.
+  const isCloud = modelKey !== 'local';
 
-Extract:
-1. Key concepts, terms, people, dates, places, events, and theories
-2. Relationships between them
+  // Core extraction instructions — shared for both local and cloud
+  const prompt = `Extract a knowledge graph from the educational text below.
 
-Return ONLY a valid JSON object with this exact structure:
+NODE TYPES (use exactly these string values):
+- "person"  → Any human: artists, scientists, historical figures, authors. Use for full names AND first-name-only references when context identifies them as a person ("Vincent", "Pierre", "Paul" in an art context).
+- "place"   → Locations: cities, countries, regions (Paris, France, Europe)
+- "date"    → Time periods or years (19th century, 1874, Renaissance period)
+- "event"   → Historical events or movements (First Impressionist Exhibition)
+- "theory"  → Theories, philosophies, ideologies, art/academic movements (Impressionism)
+- "term"    → Technical vocabulary or subject-specific defined terms
+- "concept" → Abstract ideas that don't fit any category above
+
+EDGE TYPES (use exactly these string values):
+related_to | causes | part_of | example_of | opposite_of | leads_to | defined_by
+
+RULES:
+- Extract 6–12 nodes maximum
+- Node ids must be unique, lowercase, underscores only, no spaces
+- Do NOT split multi-word proper names into separate nodes ("Pierre-Auguste Renoir" = one node)
+- A list of names (even first names only) → classify each as "person", never "concept"
+- Definitions must be real and informative — never write "A concept mentioned in the text"
+- Every edge source and target must match an existing node id exactly
+
+REQUIRED JSON STRUCTURE:
 {
   "nodes": [
-    {"id": "unique_id", "label": "Concept Name", "type": "concept|term|person|date|place|event|theory", "definition": "brief definition"}
+    {"id": "unique_id", "label": "Name or Term", "type": "person|place|date|event|theory|term|concept", "definition": "1-2 sentence definition or biographical note"}
   ],
   "edges": [
-    {"source": "node_id_1", "target": "node_id_2", "type": "related_to|causes|part_of|example_of|opposite_of|leads_to|defined_by", "label": "relationship description"}
+    {"source": "node_id_1", "target": "node_id_2", "type": "related_to|causes|part_of|example_of|opposite_of|leads_to|defined_by", "label": "short relationship label"}
   ]
 }
 
-Rules:
-- Extract 5-15 nodes maximum
-- Each node must have a unique lowercase id (use underscores)
-- Definitions should be 1-2 sentences
-- Focus on the main concepts and their relationships
-
 TEXT TO ANALYZE:
-${text.substring(0, 3000)}
+${text.substring(0, 3000)}${isCloud ? '' : '\n\nJSON OUTPUT:'}`;
 
-JSON OUTPUT:`;
-
-  // Model-specific token limits
+  // Model-specific token limits — Haiku bumped to 2000 to avoid truncating 12-node graphs
   const modelTokenLimits = {
     local: 1500,
-    'haiku-4.5': 1200,
-    'sonnet-4.6': 1800,
-    'opus-4.6': 2000,
+    'haiku-4.5': 2000,
+    'claude-haiku-4-5-20251001': 2000,
+    'sonnet-4.6': 2000,
+    'claude-sonnet-4-6': 2000,
+    'opus-4.6': 2500,
+    'claude-opus-4-6': 2500,
   };
 
   const maxTokens = modelTokenLimits[modelKey] || 1500;
-  const isCloud = modelKey !== 'local';
 
   try {
     console.log(
@@ -167,7 +183,7 @@ JSON OUTPUT:`;
     let response;
 
     if (isCloud) {
-      // Use cloud model (Claude API)
+      // Use cloud model — system prompt constrains Claude to JSON-only output
       response = await chrome.runtime.sendMessage({
         action: 'CLOUD_LLM_GENERATE',
         prompt,
@@ -176,10 +192,12 @@ JSON OUTPUT:`;
           maxTokens,
           temperature: 0.3,
           feature: 'knowledgeGraph',
+          noCache: true,
+          system: GRAPH_CLOUD_SYSTEM_PROMPT,
         },
       });
     } else {
-      // Use local model (Ollama)
+      // Use local model — format:'json' forces Ollama to emit JSON-only at inference level
       response = await chrome.runtime.sendMessage({
         action: 'LOCAL_LLM_GENERATE',
         prompt,
@@ -187,6 +205,7 @@ JSON OUTPUT:`;
         options: {
           maxTokens,
           temperature: 0.3,
+          format: 'json',
         },
       });
     }
@@ -987,6 +1006,8 @@ async function graph_createPanel() {
         <button class="kg-zoom-btn" id="kg-zoom-out">−</button>
       </div>
 
+      <div id="kg-model-badge" style="display:none; position:absolute; bottom:8px; left:8px; font-size:11px; background:rgba(0,0,0,0.55); color:#fff; padding:3px 8px; border-radius:10px; pointer-events:none;"></div>
+
       <div class="kg-loading" id="kg-loading" style="display: none;">
         <div class="kg-spinner"></div>
         <div>Analyzing text and building graph...</div>
@@ -1212,6 +1233,21 @@ async function graph_build(text, modelKey = null) {
 
     // Initialize force simulation
     graph_initSimulation();
+
+    // Show which model was used
+    const _kgModelBadge = graph_panel?.querySelector('#kg-model-badge');
+    if (_kgModelBadge) {
+      getAIBadgeInfo().then(info => {
+        if (info.mode === 'cloud') {
+          _kgModelBadge.textContent = `☁️ ${info.label}`;
+        } else if (info.mode === 'local') {
+          _kgModelBadge.textContent = '💻 Local AI';
+        } else {
+          _kgModelBadge.textContent = '💻 Local AI';
+        }
+        _kgModelBadge.style.display = 'block';
+      });
+    }
 
     // Track interaction
     window.assistFeatures?.cognitiveProfile?.track('knowledgeGraph', {
