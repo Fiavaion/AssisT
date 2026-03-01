@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - Bug Fixes & Testing
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 085 (KG Prompt Engine & Image Understanding Fixes)
+**Session**: Phase 2 Session 086 (Local AI UI Overhaul & Model Picker Bug Fixes)
 
 ---
 
@@ -47,6 +47,22 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 086 (2026-03-01)
+
+**Local AI UI Overhaul & Model Picker Bug Fixes**
+
+**Key Accomplishments**:
+
+1. **Bug #27a Fixed — AI Tab Overflow**: Modal tabs overflowed 306px popup width because `min-width: auto` (browser default) prevented flex items shrinking below content size. Fixed with `min-width: 0` + `padding: 10px 8px` + `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`.
+2. **Bug #27b Fixed — Active Model Indicator**: Added prominent `default-model-card` showing the current default model name below the Ollama status badge. Auto-resolves "auto" to the best available balanced model.
+3. **Bug #27c Added — Double-Click to Set Default**: Double-clicking any model in the Available Models list sets it as the default and cascades to all task types.
+4. **Bug #29 Fixed — Model Cascade**: Setting a default model now saves to `general`, `academic`, and `code` preferences in a single storage write and notifies the service worker. Vision intentionally excluded (always auto-routes to llava).
+5. **Visual Overhaul — Local AI Section**: Replaced native `<select multiple>` with custom div-based list (full hover/active/default states + keyboard nav). Removed confusing General and Vision dropdowns from Task Overrides. Added status card, default model card, vision static badge. Full dark mode support.
+
+**Files Modified**: 2 — `popup.css` (+265 lines), `popup.js` (+340/-200 lines)
+
+---
 
 ### Phase 2 Session 085 (2026-03-01)
 
