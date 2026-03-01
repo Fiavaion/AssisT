@@ -3381,55 +3381,69 @@ class PopupController {
 
             <!-- Local AI Configuration (shown when local mode selected) -->
             <section id="local-ai-section" class="ai-section">
-              <div class="option-group">
-                <label class="option-group-label">Ollama Status</label>
-                <div id="ollama-status" class="status-indicator">
-                  <span class="status-dot"></span>
-                  <span class="status-text">Checking...</span>
-                </div>
+
+              <!-- Connection status -->
+              <div class="ollama-status-card" id="ollama-status">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
               </div>
 
-              <div class="option-group">
-                <label for="local-model-select" class="option-group-label">Available Models</label>
-                <select id="local-model-select" class="voice-select" multiple size="4">
+              <!-- Active default model card (shown once connected) -->
+              <div class="default-model-card" id="active-model-info" style="display:none;">
+                <span class="default-model-label">Default Model</span>
+                <strong class="default-model-name" id="active-model-name">—</strong>
+              </div>
+
+              <!-- Model picker -->
+              <div class="option-group" style="margin-top:14px;">
+                <label class="option-group-label">
+                  Available Models
+                  <span class="label-hint">— double-click to set default</span>
+                </label>
+                <div id="local-model-list"
+                     class="local-model-list"
+                     role="listbox"
+                     tabindex="0"
+                     aria-label="Available local AI models">
                   <!-- Populated dynamically -->
-                </select>
-                <button id="install-model" class="modal-btn modal-btn-secondary" style="margin-top: 8px;">Install New Model</button>
+                </div>
+                <button id="install-model" class="modal-btn modal-btn-secondary" style="margin-top:8px;">
+                  + Install New Model
+                </button>
               </div>
 
-              <!-- Model Preferences by Task Type -->
-              <div class="option-group" id="model-preferences-group">
-                <label class="option-group-label">Model Preferences</label>
-                <p class="feature-description" style="margin-bottom: 12px;">Select which model to use for each task type</p>
-
-                <div class="model-preference-row">
-                  <label for="model-general" class="model-pref-label">General</label>
-                  <select id="model-general" class="voice-select model-pref-select">
-                    <option value="auto">Auto (Best Available)</option>
-                  </select>
-                </div>
+              <!-- Task overrides (optional) -->
+              <div class="option-group task-overrides-group" id="model-preferences-group">
+                <label class="option-group-label">
+                  Task Overrides
+                  <span class="label-hint">— optional</span>
+                </label>
+                <p class="task-overrides-hint">
+                  Leave on Auto to always use your default model. Override specific task types below.
+                </p>
 
                 <div class="model-preference-row">
                   <label for="model-academic" class="model-pref-label">Academic</label>
                   <select id="model-academic" class="voice-select model-pref-select">
-                    <option value="auto">Auto (Best Available)</option>
-                  </select>
-                </div>
-
-                <div class="model-preference-row">
-                  <label for="model-vision" class="model-pref-label">Vision</label>
-                  <select id="model-vision" class="voice-select model-pref-select">
-                    <option value="auto">Auto (Best Available)</option>
+                    <option value="auto">Auto (use default)</option>
                   </select>
                 </div>
 
                 <div class="model-preference-row">
                   <label for="model-code" class="model-pref-label">Code</label>
                   <select id="model-code" class="voice-select model-pref-select">
-                    <option value="auto">Auto (Best Available)</option>
+                    <option value="auto">Auto (use default)</option>
                   </select>
                 </div>
+
+                <div class="model-preference-row vision-override-row">
+                  <label class="model-pref-label">Vision</label>
+                  <div class="vision-auto-badge" role="status" aria-label="Vision always uses first available vision model">
+                    🔍 Always uses first available vision model (llava)
+                  </div>
+                </div>
               </div>
+
             </section>
 
             <!-- Usage Statistics (for cloud mode) - hidden when no API key -->
@@ -4036,9 +4050,21 @@ class PopupController {
     // Hardcoded fallbacks (used when no cached/fetched models available)
     const fallbackModels = {
       anthropic: [
-        { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5 (Fast)' },
-        { id: 'claude-sonnet-4-5-20250514', name: 'Sonnet 4.5 (Recommended)' },
-        { id: 'claude-opus-4-5-20250514', name: 'Opus 4.5 (Most Capable)' },
+        {
+          id: 'claude-haiku-4-5-20251001',
+          name: 'Haiku (Fast)',
+          description: 'Fast and economical',
+        },
+        {
+          id: 'claude-sonnet-4-6',
+          name: 'Sonnet (Recommended)',
+          description: 'Best for everyday tasks',
+        },
+        {
+          id: 'claude-opus-4-6',
+          name: 'Opus (Most Capable)',
+          description: 'Most capable for complex work',
+        },
       ],
       openai: [
         { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
@@ -4079,10 +4105,17 @@ class PopupController {
     }
 
     // Find recommended model (first one with "Recommended" in name, or first model)
-    const recommendedModel = modelList.find(m => m.name?.includes('Recommended'));
+    const recommendedModel = modelList.find(m => m.name?.includes('Recommended')) || modelList[0];
     const savedModel = await new Promise(resolve => {
       chrome.storage.local.get(['cloudModel'], result => resolve(result.cloudModel));
     });
+
+    // If no model has ever been saved, persist the recommended one now so features
+    // always have a valid default without falling back to their own hardcoded values.
+    if (!savedModel && recommendedModel) {
+      chrome.storage.local.set({ cloudModel: recommendedModel.id });
+      console.log(`[Popup] Auto-saved default cloudModel: ${recommendedModel.id}`);
+    }
 
     // Build options HTML
     modelSelect.innerHTML = modelList
@@ -4322,51 +4355,87 @@ class PopupController {
    * @param {Array} models - List of Ollama models
    */
   populateModelList(modal, models) {
-    const modelSelect = modal.querySelector('#local-model-select');
-    if (!modelSelect) {
+    const listEl = modal.querySelector('#local-model-list');
+    if (!listEl) {
       return;
     }
 
-    modelSelect.innerHTML = sanitizeHTML('');
+    listEl.innerHTML = '';
 
     if (models.length === 0) {
-      const option = document.createElement('option');
-      option.textContent = 'No models installed';
-      option.disabled = true;
-      modelSelect.appendChild(option);
+      const empty = document.createElement('div');
+      empty.className = 'local-model-list-empty';
+      empty.textContent = 'No models installed — click "+ Install New Model" below';
+      listEl.appendChild(empty);
     } else {
       models.forEach(model => {
-        const option = document.createElement('option');
-        option.value = model.name;
-        option.textContent = model.name;
-        modelSelect.appendChild(option);
+        const item = document.createElement('div');
+        item.className = 'local-model-item';
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', 'false');
+        item.dataset.model = model.name;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'local-model-item-name';
+        nameSpan.textContent = model.name;
+
+        const chip = document.createElement('span');
+        chip.className = 'local-model-default-chip';
+        chip.textContent = 'default';
+        chip.setAttribute('aria-hidden', 'true');
+
+        item.appendChild(nameSpan);
+        item.appendChild(chip);
+        listEl.appendChild(item);
+      });
+
+      // Single-click: visual focus highlight
+      listEl.addEventListener('click', e => {
+        const item = e.target.closest('.local-model-item');
+        if (!item) {
+          return;
+        }
+        listEl.querySelectorAll('.local-model-item').forEach(i => i.classList.remove('is-focused'));
+        item.classList.add('is-focused');
+      });
+
+      // Double-click: set as default (cascades to all task types)
+      listEl.addEventListener('dblclick', e => {
+        const item = e.target.closest('.local-model-item');
+        if (!item) {
+          return;
+        }
+        this.setDefaultModelCascade(modal, models, item.dataset.model);
+      });
+
+      // Keyboard: arrows to navigate, Enter to set default
+      listEl.addEventListener('keydown', e => {
+        const items = [...listEl.querySelectorAll('.local-model-item')];
+        if (!items.length) {
+          return;
+        }
+        const focused = listEl.querySelector('.local-model-item.is-focused');
+        let idx = focused ? items.indexOf(focused) : -1;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          idx = Math.min(idx + 1, items.length - 1);
+          items.forEach(i => i.classList.remove('is-focused'));
+          items[idx].classList.add('is-focused');
+          items[idx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          idx = Math.max(idx - 1, 0);
+          items.forEach(i => i.classList.remove('is-focused'));
+          items[idx].classList.add('is-focused');
+          items[idx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && focused) {
+          this.setDefaultModelCascade(modal, models, focused.dataset.model);
+        }
       });
     }
 
-    // Also populate feature-specific model preference dropdowns
-    const featureModelSelects = modal.querySelectorAll('.model-select[data-feature]');
-    featureModelSelects.forEach(select => {
-      // Clear existing options
-      select.innerHTML = sanitizeHTML('');
-
-      // Add "Auto (Recommended)" option as default
-      const autoOption = document.createElement('option');
-      autoOption.value = 'auto';
-      autoOption.textContent = 'Auto (Recommended)';
-      select.appendChild(autoOption);
-
-      // Add available Ollama models
-      if (models.length > 0) {
-        models.forEach(model => {
-          const option = document.createElement('option');
-          option.value = model.name;
-          option.textContent = model.name;
-          select.appendChild(option);
-        });
-      }
-    });
-
-    // Populate the new task-type model preference dropdowns
+    // Populate the task-override dropdowns
     this.populateModelPreferences(modal, models);
   }
 
@@ -4376,97 +4445,167 @@ class PopupController {
    * @param {Array} models - List of Ollama models
    */
   async populateModelPreferences(modal, models) {
-    const taskTypes = ['general', 'academic', 'vision', 'code'];
+    // Only Academic and Code are user-configurable overrides.
+    // General = the default model (set via double-click in the list).
+    // Vision = always auto (uses first available vision model).
+    const overrideTypes = ['academic', 'code'];
 
-    // Load saved preferences
     const savedPrefs = await new Promise(resolve => {
       chrome.storage.local.get('modelPreferences', result => {
         resolve(result.modelPreferences || {});
       });
     });
 
-    taskTypes.forEach(taskType => {
+    overrideTypes.forEach(taskType => {
       const select = modal.querySelector(`#model-${taskType}`);
       if (!select) {
         return;
       }
 
-      // Clear existing options except "Auto"
       select.innerHTML = '';
 
-      // Add "Auto (Best Available)" option
+      // Auto option
       const autoOption = document.createElement('option');
       autoOption.value = 'auto';
-      autoOption.textContent = 'Auto (Best Available)';
+      autoOption.textContent = 'Auto (use default)';
       select.appendChild(autoOption);
 
-      // Filter models for vision (only show llava/bakllava)
-      let filteredModels = models;
-      if (taskType === 'vision') {
-        filteredModels = models.filter(
-          m => m.name.includes('llava') || m.name.includes('bakllava') || m.name.includes('minicpm')
-        );
-        if (filteredModels.length === 0) {
-          const noVisionOption = document.createElement('option');
-          noVisionOption.value = 'none';
-          noVisionOption.textContent = 'No vision models installed';
-          noVisionOption.disabled = true;
-          select.appendChild(noVisionOption);
-        }
-      }
-
-      // Filter models for code (prioritize code models)
       if (taskType === 'code') {
+        // Code models first, then all others
         const codeModels = models.filter(
           m => m.name.includes('code') || m.name.includes('coder') || m.name.includes('deepseek')
         );
-        // Add code models first, then others
-        if (codeModels.length > 0) {
-          const codeGroup = document.createElement('optgroup');
-          codeGroup.label = 'Code Models';
-          codeModels.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.name;
-            option.textContent = model.name;
-            codeGroup.appendChild(option);
-          });
-          select.appendChild(codeGroup);
-        }
-        // Add other models
         const otherModels = models.filter(
           m => !m.name.includes('code') && !m.name.includes('coder') && !m.name.includes('deepseek')
         );
+        if (codeModels.length > 0) {
+          const codeGroup = document.createElement('optgroup');
+          codeGroup.label = 'Code Models';
+          codeModels.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = m.name;
+            codeGroup.appendChild(opt);
+          });
+          select.appendChild(codeGroup);
+        }
         if (otherModels.length > 0) {
           const otherGroup = document.createElement('optgroup');
           otherGroup.label = 'General Models';
-          otherModels.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.name;
-            option.textContent = model.name;
-            otherGroup.appendChild(option);
+          otherModels.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = m.name;
+            otherGroup.appendChild(opt);
           });
           select.appendChild(otherGroup);
         }
-      } else if (taskType !== 'vision' || filteredModels.length > 0) {
-        // Add all models for general/academic, or filtered for vision
-        filteredModels.forEach(model => {
-          const option = document.createElement('option');
-          option.value = model.name;
-          option.textContent = model.name;
-          select.appendChild(option);
+      } else {
+        models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.name;
+          opt.textContent = m.name;
+          select.appendChild(opt);
         });
       }
 
-      // Set saved value if exists
+      // Restore saved value
       if (savedPrefs[taskType] && select.querySelector(`option[value="${savedPrefs[taskType]}"]`)) {
         select.value = savedPrefs[taskType];
       }
 
-      // Add change handler to save preference
       select.addEventListener('change', () => {
         this.saveModelPreference(taskType, select.value);
       });
     });
+
+    // Show the active default model card
+    this.updateActiveModelDisplay(modal, models, savedPrefs.general);
+  }
+
+  /**
+   * Update the active/default model indicator in the local AI section
+   * @param {HTMLElement} modal - The modal element
+   * @param {Array} models - List of Ollama model objects
+   * @param {string} generalPref - Saved general preference ('auto' or model name)
+   */
+  updateActiveModelDisplay(modal, models, generalPref = 'auto') {
+    const cardEl = modal.querySelector('#active-model-info');
+    const nameEl = modal.querySelector('#active-model-name');
+    if (!cardEl || !nameEl) {
+      return;
+    }
+
+    // Resolve effective model: explicit pref → balanced auto-detect → first available
+    let effectiveModel;
+    if (generalPref && generalPref !== 'auto') {
+      effectiveModel = generalPref;
+    } else {
+      const balanced = ['llama3.2', 'llama3.2:latest', 'mistral', 'mistral:latest'];
+      effectiveModel = null;
+      for (const pref of balanced) {
+        const match = models.find(m => m.name === pref || m.name.startsWith(pref.split(':')[0]));
+        if (match) {
+          effectiveModel = match.name;
+          break;
+        }
+      }
+      if (!effectiveModel) {
+        effectiveModel = models[0]?.name || 'None available';
+      }
+    }
+
+    nameEl.textContent = effectiveModel;
+    cardEl.style.display = 'block';
+
+    // Highlight the default item in the custom list
+    const listEl = modal.querySelector('#local-model-list');
+    if (listEl) {
+      listEl.querySelectorAll('.local-model-item').forEach(item => {
+        const isDefault = item.dataset.model === effectiveModel;
+        item.classList.toggle('is-default', isDefault);
+        item.setAttribute('aria-selected', String(isDefault));
+        if (isDefault) {
+          item.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    }
+  }
+
+  /**
+   * Set a model as the default and cascade to all task types (general, academic, code).
+   * Vision is intentionally excluded — it always auto-routes to llava.
+   */
+  async setDefaultModelCascade(modal, models, modelName) {
+    // Single storage write for all cascade types
+    const result = await new Promise(resolve => {
+      chrome.storage.local.get('modelPreferences', r => resolve(r));
+    });
+    const prefs = result.modelPreferences || {};
+    ['general', 'academic', 'code'].forEach(t => {
+      prefs[t] = modelName;
+    });
+    await chrome.storage.local.set({ modelPreferences: prefs });
+
+    // Notify service worker
+    ['general', 'academic', 'code'].forEach(t => {
+      chrome.runtime
+        .sendMessage({ action: 'SET_MODEL_PREFERENCE', taskType: t, model: modelName })
+        .catch(() => {});
+    });
+
+    // Sync the Academic and Code dropdowns
+    ['academic', 'code'].forEach(taskType => {
+      const select = modal.querySelector(`#model-${taskType}`);
+      if (select && select.querySelector(`option[value="${modelName}"]`)) {
+        select.value = modelName;
+      }
+    });
+
+    // Update the default model card and list highlight
+    this.updateActiveModelDisplay(modal, models, modelName);
+
+    console.log(`[Settings] Default model cascaded → ${modelName} (general, academic, code)`);
   }
 
   /**

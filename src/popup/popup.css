@@ -938,7 +938,8 @@ body {
 
 .modal-tab {
   flex: 1;
-  padding: 12px 16px;
+  min-width: 0;
+  padding: 10px 8px;
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
@@ -947,6 +948,9 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
   transition: var(--transition);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .modal-tab:hover {
@@ -2078,6 +2082,184 @@ body {
 .ai-mode-container.hidden {
   max-height: 0;
   opacity: 0;
+}
+
+/* ── Local AI section redesign ───────────────────────────────── */
+
+/* Ollama status card */
+.ollama-status-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ollama-status-card .status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #94a3b8;
+  flex-shrink: 0;
+  transition:
+    background 0.3s,
+    box-shadow 0.3s;
+}
+
+.ollama-status-card .status-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Default model card */
+.default-model-card {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: rgba(33, 150, 243, 0.06);
+  border: 1px solid rgba(33, 150, 243, 0.22);
+  border-radius: 8px;
+}
+
+.default-model-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--primary-color);
+  margin-bottom: 3px;
+}
+
+.default-model-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Monaco', monospace;
+  word-break: break-all;
+}
+
+/* Label hint (inline sub-text) */
+.label-hint {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Custom model list */
+.local-model-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  max-height: 150px;
+  overflow-y: auto;
+  outline: none;
+}
+
+.local-model-list:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
+}
+
+.local-model-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.local-model-item:last-child {
+  border-bottom: none;
+}
+
+.local-model-item:hover {
+  background: rgba(33, 150, 243, 0.05);
+}
+
+.local-model-item:active {
+  background: rgba(33, 150, 243, 0.12);
+}
+
+.local-model-item.is-default {
+  background: rgba(33, 150, 243, 0.08);
+}
+
+.local-model-item-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Monaco', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.local-model-item.is-default .local-model-item-name {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.local-model-default-chip {
+  display: none;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: white;
+  background: var(--primary-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.local-model-item.is-default .local-model-default-chip {
+  display: inline-block;
+}
+
+.local-model-list-empty {
+  padding: 14px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-style: italic;
+}
+
+/* Task overrides section */
+.task-overrides-group {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.task-overrides-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+/* Vision row — always-auto, visually distinct */
+.vision-override-row {
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.vision-auto-badge {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-style: italic;
 }
 
 /* LLM Link */
@@ -4177,6 +4359,89 @@ body.dark-mode .ai-mode-option input[type='radio']:checked + .ai-mode-label .dev
   color: white;
   background: rgba(255, 255, 255, 0.25);
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Local AI section — dark mode */
+body.dark-mode .ollama-status-card {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .ollama-status-card .status-text {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .default-model-card {
+  background: rgba(107, 141, 214, 0.1);
+  border-color: rgba(107, 141, 214, 0.3);
+}
+
+body.dark-mode .default-model-label {
+  color: var(--dm-accent);
+}
+
+body.dark-mode .default-model-name {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .label-hint {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .local-model-list {
+  background: var(--dm-bg-secondary);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .local-model-list:focus {
+  border-color: var(--dm-accent);
+  box-shadow: 0 0 0 2px rgba(107, 141, 214, 0.2);
+}
+
+body.dark-mode .local-model-item {
+  border-bottom-color: var(--dm-border);
+}
+
+body.dark-mode .local-model-item:hover {
+  background: rgba(107, 141, 214, 0.08);
+}
+
+body.dark-mode .local-model-item:active {
+  background: rgba(107, 141, 214, 0.15);
+}
+
+body.dark-mode .local-model-item.is-default {
+  background: rgba(107, 141, 214, 0.12);
+}
+
+body.dark-mode .local-model-item-name {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .local-model-item.is-default .local-model-item-name {
+  color: var(--dm-accent);
+}
+
+body.dark-mode .local-model-default-chip {
+  background: var(--dm-accent);
+}
+
+body.dark-mode .local-model-list-empty {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .task-overrides-group {
+  border-top-color: var(--dm-border);
+}
+
+body.dark-mode .task-overrides-hint {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .vision-auto-badge {
+  background: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-secondary);
 }
 
 body.dark-mode .llm-status-panel {
