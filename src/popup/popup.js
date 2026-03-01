@@ -1187,7 +1187,7 @@ class PopupController {
     toggleSection('text-customization-section', 'show_text_customization');
     toggleSection('reading-guide-section', 'show_reading_guide');
     toggleSection('focus-mode-section', 'show_focus_mode');
-    toggleSection('stt-section', 'show_stt', false); // EXPERIMENTAL - hidden by default
+    toggleSection('stt-section', 'show_stt', true);
     toggleSection('screen-overlay-section', 'show_screen_overlay');
     toggleSection('canvas-integration-section', 'show_canvas_integration', false); // EXPERIMENTAL - hidden by default
     toggleSection('moodle-integration-section', 'show_moodle_integration', false); // EXPERIMENTAL - hidden by default
@@ -1231,7 +1231,7 @@ class PopupController {
     const accordionConfig = {
       reading: { alwaysVisible: true }, // TTS has no visibility toggle
       writing: {
-        features: [{ key: 'show_stt', default: false }],
+        features: [{ key: 'show_stt', default: true }],
       },
       lookup: { alwaysVisible: true }, // Translation has no visibility toggle
       display: {
@@ -4709,7 +4709,7 @@ class PopupController {
     loadCheckbox('show-text-customization', 'show_text_customization');
     loadCheckbox('show-reading-guide', 'show_reading_guide');
     loadCheckbox('show-focus-mode', 'show_focus_mode');
-    loadCheckbox('show-stt', 'show_stt', false); // EXPERIMENTAL - hidden by default
+    loadCheckbox('show-stt', 'show_stt', true);
     loadCheckbox('show-screen-overlay', 'show_screen_overlay');
     loadCheckbox('show-canvas-integration', 'show_canvas_integration', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-moodle-integration', 'show_moodle_integration', false); // EXPERIMENTAL - hidden by default

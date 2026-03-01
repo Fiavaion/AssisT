@@ -939,11 +939,11 @@ body {
 .modal-tab {
   flex: 1;
   min-width: 0;
-  padding: 10px 8px;
+  padding: 8px 4px;
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;

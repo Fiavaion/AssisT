@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - Bug Fixes & Testing
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 086 (Local AI UI Overhaul & Model Picker Bug Fixes)
+**Session**: Phase 2 Session 087 (Bug #30 Fix & STT Default Visibility)
 
 ---
 
@@ -47,6 +47,19 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 087 (2026-03-01)
+
+**Bug #30 Fix & STT Default Visibility**
+
+**Key Accomplishments**:
+
+1. **Bug #30 Fixed — Advanced Options Tab Truncation**: `.modal-tab` font-size reduced 13px → 12px and padding 10px 8px → 8px 4px. All four tab labels (Features, Keyboard, Preferences, AI) now render without truncation.
+2. **STT Visible by Default**: Changed `show_stt` default from `false` to `true` in 3 locations in popup.js. STT section now appears in the main popup for new users without requiring manual Advanced Options configuration. Actual STT toggle remains off by default.
+
+**Files Modified**: 2 — `popup.css` (~4 lines), `popup.js` (~6 lines)
+
+---
 
 ### Phase 2 Session 086 (2026-03-01)
 
