@@ -44,21 +44,21 @@ export const CLOUD_MODELS = {
   },
   'haiku-4.5': {
     id: 'claude-haiku-4-5-20251001',
-    name: 'Haiku 4.5 (Fast)',
+    name: 'Haiku (Fast)',
     description: 'Fast and economical',
     avgCost: 0.001,
     outputCost: 0.005,
   },
   'sonnet-4.6': {
     id: 'claude-sonnet-4-6',
-    name: 'Sonnet 4.6 (Recommended)',
+    name: 'Sonnet (Recommended)',
     description: 'Best for everyday tasks',
     avgCost: 0.003,
     outputCost: 0.015,
   },
   'opus-4.6': {
     id: 'claude-opus-4-6',
-    name: 'Opus 4.6 (Most Capable)',
+    name: 'Opus (Most Capable)',
     description: 'Most capable for complex work',
     avgCost: 0.015,
     outputCost: 0.075,
@@ -99,13 +99,14 @@ class ClaudeCache {
     this.ttl = ttl;
   }
 
-  generateKey(prompt, model) {
-    const normalized = JSON.stringify({ prompt: prompt.slice(0, 500), model });
+  generateKey(prompt, model, imageFingerprint = '') {
+    // imageFingerprint prevents cache collisions when the same prompt is used with different images
+    const normalized = JSON.stringify({ prompt: prompt.slice(0, 500), model, imageFingerprint });
     return btoa(unescape(encodeURIComponent(normalized))).slice(0, 64);
   }
 
-  get(prompt, model) {
-    const key = this.generateKey(prompt, model);
+  get(prompt, model, imageFingerprint = '') {
+    const key = this.generateKey(prompt, model, imageFingerprint);
     const cached = this.cache.get(key);
 
     if (cached && Date.now() - cached.timestamp < this.ttl) {
@@ -119,8 +120,8 @@ class ClaudeCache {
     return null;
   }
 
-  set(prompt, model, response) {
-    const key = this.generateKey(prompt, model);
+  set(prompt, model, response, imageFingerprint = '') {
+    const key = this.generateKey(prompt, model, imageFingerprint);
     this.cache.set(key, {
       response,
       timestamp: Date.now(),
@@ -194,9 +195,12 @@ export async function claudeGenerate(prompt, options = {}) {
     throw new Error(`Unknown model: ${modelKey}`);
   }
 
+  // Build image fingerprint for cache key (first 32 chars of base64 uniquely identify the image)
+  const imageFingerprint = opts.image ? opts.image.slice(0, 32) : '';
+
   // Check cache first
   if (!opts.noCache) {
-    const cached = cache.get(prompt, modelId);
+    const cached = cache.get(prompt, modelId, imageFingerprint);
     if (cached) {
       return cached;
     }
@@ -230,7 +234,25 @@ export async function claudeGenerate(prompt, options = {}) {
         model: modelId,
         max_tokens: opts.maxTokens,
         temperature: opts.temperature,
-        messages: [{ role: 'user', content: prompt }],
+        ...(opts.system ? { system: opts.system } : {}),
+        messages: [
+          {
+            role: 'user',
+            content: opts.image
+              ? [
+                  {
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: opts.imageMediaType || 'image/jpeg',
+                      data: opts.image,
+                    },
+                  },
+                  { type: 'text', text: prompt },
+                ]
+              : prompt,
+          },
+        ],
       }),
       signal: controller.signal,
       credentials: 'omit',
@@ -261,7 +283,7 @@ export async function claudeGenerate(prompt, options = {}) {
 
     // Cache the result
     if (!opts.noCache) {
-      cache.set(prompt, modelId, result);
+      cache.set(prompt, modelId, result, imageFingerprint);
     }
 
     console.log(

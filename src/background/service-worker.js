@@ -775,6 +775,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Cloud vision: send image + prompt to cloud provider (Anthropic supports base64 images)
+  if (message.action === 'CLOUD_LLM_VISION') {
+    cloudGenerate(message.prompt, {
+      ...(message.options || {}),
+      image: message.image,
+      imageMediaType: message.imageMediaType || 'image/jpeg',
+    })
+      .then(result =>
+        sendResponse({
+          success: true,
+          data: result.content,
+          usage: result.usage,
+        })
+      )
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   // Fetch available models for a provider (dynamic list)
   if (message.action === 'CLOUD_FETCH_MODELS') {
     cloudFetchModels(message.provider, message.apiKey)
@@ -1425,6 +1443,8 @@ async function ollamaGenerate(prompt, options = {}) {
         model,
         prompt,
         stream: false,
+        // format:'json' forces Ollama to emit JSON-only output at the inference level
+        ...(options.format ? { format: options.format } : {}),
         options: {
           // Core optimization: reduced context window for speed
           num_ctx: options.num_ctx ?? profile.num_ctx,
