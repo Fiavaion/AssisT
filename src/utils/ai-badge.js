@@ -29,13 +29,13 @@ const PROVIDER_NAMES = {
 // Map from full Anthropic model IDs and short keys → display names
 const ANTHROPIC_MODEL_NAMES = {
   // Short keys (used internally)
-  'haiku-4.5': 'Haiku 4.5',
-  'sonnet-4.6': 'Sonnet 4.6',
-  'opus-4.6': 'Opus 4.6',
+  'haiku-4.5': 'Haiku',
+  'sonnet-4.6': 'Sonnet',
+  'opus-4.6': 'Opus',
   // Full API IDs (stored by popup when user selects from fetched list)
-  'claude-haiku-4-5-20251001': 'Haiku 4.5',
-  'claude-sonnet-4-6': 'Sonnet 4.6',
-  'claude-opus-4-6': 'Opus 4.6',
+  'claude-haiku-4-5-20251001': 'Haiku',
+  'claude-sonnet-4-6': 'Sonnet',
+  'claude-opus-4-6': 'Opus',
 };
 
 /**

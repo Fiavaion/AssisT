@@ -42,16 +42,13 @@ const summarization_settings = {
 // Cloud model configurations (local copy for bundling)
 const SUMMARIZATION_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
 };
 
-// Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Opus 4.6 scored 7.0/10 (only cloud model to pass ND-Ready threshold)
-// Local: Mistral:7b scored 7.4/10 (actually outperformed cloud models!)
-// const _SUMMARIZATION_DEFAULT_LOCAL_MODEL = 'local'; // Reserved for future use
-const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'opus-4.6';
+// Default: use the user's global default (sonnet-4.6) — overridden by cloudModel in storage
+const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION

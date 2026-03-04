@@ -37,16 +37,13 @@ const tutor_settings = {
 // Cloud model configurations
 const TUTOR_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
 };
 
-// Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Opus 4.6 scored 8.8/10 (best for pedagogical dialogue)
-// Local: Gemma3:4b scored 8.8/10 (ties with Opus - remarkable for 4GB model!)
-// const _TUTOR_DEFAULT_LOCAL_MODEL = 'local'; // Reserved for future use
-const TUTOR_DEFAULT_CLOUD_MODEL = 'opus-4.6';
+// Default: use the user's global default (sonnet-4.6) — overridden by cloudModel in storage
+const TUTOR_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION

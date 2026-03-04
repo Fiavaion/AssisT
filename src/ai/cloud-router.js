@@ -17,6 +17,12 @@ import { perplexityGenerate, fetchPerplexityModels } from './perplexity-client.j
 import { getSecureAPIKey } from '../core/storage/secure-key-storage.js';
 
 // ============================================================================
+// CACHE VERSION — bump this when model IDs or names change to force refresh
+// ============================================================================
+
+const MODELS_CACHE_VERSION = 2;
+
+// ============================================================================
 // PROVIDER REGISTRY
 // ============================================================================
 
@@ -154,6 +160,10 @@ export async function getCachedModels(provider) {
     const cached = result[key];
 
     if (cached && cached.models && cached.timestamp) {
+      // Invalidate if cache version doesn't match
+      if (cached.version !== MODELS_CACHE_VERSION) {
+        return null;
+      }
       // Cache valid for 24 hours
       const age = Date.now() - cached.timestamp;
       if (age < 24 * 60 * 60 * 1000) {
@@ -195,6 +205,7 @@ async function cacheModels(provider, models) {
       [key]: {
         models,
         timestamp: Date.now(),
+        version: MODELS_CACHE_VERSION,
       },
     });
   } catch (error) {
@@ -210,17 +221,17 @@ async function fetchAnthropicModels() {
   return [
     {
       id: 'claude-haiku-4-5-20251001',
-      name: 'Haiku 4.5 (Fast)',
+      name: 'Haiku (Fast)',
       description: 'Fast and economical',
     },
     {
       id: 'claude-sonnet-4-6',
-      name: 'Sonnet 4.6 (Recommended)',
+      name: 'Sonnet (Recommended)',
       description: 'Best for everyday tasks',
     },
     {
       id: 'claude-opus-4-6',
-      name: 'Opus 4.6 (Most Capable)',
+      name: 'Opus (Most Capable)',
       description: 'Most capable for complex work',
     },
   ];
@@ -262,17 +273,17 @@ function getHardcodedFallback(provider) {
     anthropic: [
       {
         id: 'claude-haiku-4-5-20251001',
-        name: 'Haiku 4.5 (Fast)',
+        name: 'Haiku (Fast)',
         description: 'Fast and economical',
       },
       {
         id: 'claude-sonnet-4-6',
-        name: 'Sonnet 4.6 (Recommended)',
+        name: 'Sonnet (Recommended)',
         description: 'Best for everyday tasks',
       },
       {
         id: 'claude-opus-4-6',
-        name: 'Opus 4.6 (Most Capable)',
+        name: 'Opus (Most Capable)',
         description: 'Most capable for complex work',
       },
     ],
