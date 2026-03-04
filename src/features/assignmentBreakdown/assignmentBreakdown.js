@@ -1461,7 +1461,32 @@ async function breakdown_analyze(text, modelKey = null) {
     breakdown_renderResult(fallbackResult, false, false, '');
 
     if (statusBar) {
-      statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
+      // Check if it's a CORS error and provide helpful guidance
+      const isCorsError = error.message.includes('CORS') || error.message.includes('403');
+      if (isCorsError) {
+        statusBar.innerHTML = `
+          <div style="padding: 4px 8px;">
+            <strong>⚠️ Ollama CORS not configured</strong>
+            <details style="margin-top: 6px; font-size: 12px;">
+              <summary style="cursor: pointer; color: #ff6b35; font-weight: 600;">
+                Click for fix instructions
+              </summary>
+              <div style="margin-top: 6px; padding: 8px; background: #f9f9f9; border-radius: 4px; line-height: 1.5;">
+                <strong>Windows:</strong><br>
+                1. Close Ollama (system tray)<br>
+                2. Run <code style="background: #e0e0e0; padding: 2px 4px; border-radius: 2px;">start-ollama-cors.bat</code> in AssisT folder<br>
+                3. Keep terminal window open<br><br>
+                <strong>Mac/Linux:</strong><br>
+                1. Stop: <code style="background: #e0e0e0; padding: 2px 4px; border-radius: 2px;">pkill ollama</code><br>
+                2. Start: <code style="background: #e0e0e0; padding: 2px 4px; border-radius: 2px;">OLLAMA_ORIGINS=* ollama serve</code><br>
+                3. Keep terminal open
+              </div>
+            </details>
+          </div>
+        `;
+      } else {
+        statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
+      }
       statusBar.className = 'assist-breakdown-status visible error';
     }
   } finally {
