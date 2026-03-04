@@ -89,7 +89,8 @@ function validateURL(url, options = {}) {
 
     if (blockedHostnames.includes(hostname)) {
       // Allow localhost for local Ollama server
-      if (hostname === 'localhost' && parsed.port === '11434') {
+      // URL.port returns string, handle both string and number comparison
+      if (hostname === 'localhost' && (parsed.port === '11434' || parsed.port === 11434)) {
         return { valid: true }; // Ollama API
       }
       return { valid: false, error: 'Internal network URLs blocked' };
@@ -879,6 +880,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 const OLLAMA_BASE_URL = 'http://localhost:11434';
 
 /**
+ * Fetch wrapper for Ollama API with CORS handling and helpful error messages
+ * @param {string} endpoint - API endpoint (e.g., '/api/tags', '/api/generate')
+ * @param {object} options - Fetch options (method, body, signal, etc.)
+ * @returns {Promise<Response>} - Fetch response
+ * @throws {Error} - With user-friendly error messages for common issues
+ */
+async function ollamaFetch(endpoint, options = {}) {
+  const url = `${OLLAMA_BASE_URL}${endpoint}`;
+
+  // Service workers have special privileges - they can access localhost
+  // WITHOUT CORS restrictions. Don't set mode: 'cors' - let it use default.
+  // This allows the extension to work out-of-the-box without CORS setup.
+  const fetchOptions = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  };
+
+  try {
+    const response = await fetch(url, fetchOptions);
+
+    // Handle 403 errors (rare, but could indicate auth issues)
+    if (response.status === 403) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Ollama returned 403 Forbidden: ${errorText || 'Access denied'}`);
+    }
+
+    return response;
+  } catch (error) {
+    // Network errors (Ollama not running or unreachable)
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Cannot connect to Ollama. Is Ollama running? (localhost:11434)');
+    }
+    // Re-throw our custom errors or other errors
+    throw error;
+  }
+}
+
+/**
  * Check if Ollama is running and get available models
  */
 async function checkOllamaAvailability() {
@@ -886,7 +928,7 @@ async function checkOllamaAvailability() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+    const response = await ollamaFetch('/api/tags', {
       method: 'GET',
       signal: controller.signal,
     });
@@ -1436,9 +1478,9 @@ async function ollamaGenerate(prompt, options = {}) {
 
   let response;
   try {
-    response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+    response = await ollamaFetch('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      model: model, // Pass model for better error messages
       body: JSON.stringify({
         model,
         prompt,
@@ -1503,9 +1545,9 @@ async function ollamaVision(imageBase64, prompt, options = {}) {
   const requestedModel = options.model || 'llava';
   const model = await findInstalledModel(requestedModel);
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+  const response = await ollamaFetch('/api/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    model: model, // Pass model for better error messages
     body: JSON.stringify({
       model,
       prompt,
@@ -1517,9 +1559,6 @@ async function ollamaVision(imageBase64, prompt, options = {}) {
       },
     }),
     signal: AbortSignal.timeout(options.timeout || 60000),
-    mode: 'cors',
-    credentials: 'omit',
-    referrerPolicy: 'no-referrer',
   });
 
   if (!response.ok) {
@@ -1540,20 +1579,17 @@ async function ollamaInstallModel(modelName, onProgress = null) {
   let response;
   try {
     // Ollama pull API - just needs the model name
-    response = await fetch(`${OLLAMA_BASE_URL}/api/pull`, {
+    response = await ollamaFetch('/api/pull', {
       method: 'POST',
+      model: modelName, // Pass model for better error messages
       headers: {
-        'Content-Type': 'application/json',
         Accept: 'application/x-ndjson',
       },
       body: JSON.stringify({ name: modelName }),
-      mode: 'cors',
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
     });
   } catch (networkError) {
     console.error('[LLM Bridge] Network error connecting to Ollama:', networkError);
-    throw new Error('Cannot connect to Ollama. Make sure Ollama is running (ollama serve)');
+    throw networkError; // Re-throw ollamaFetch errors (already formatted)
   }
 
   console.log(`[LLM Bridge] Pull response status: ${response.status}`);
