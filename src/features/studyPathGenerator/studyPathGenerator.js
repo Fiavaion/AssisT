@@ -55,11 +55,13 @@ const SPG_PANEL_CSS = `
     margin: 0 0 4px 0;
     font-size: 20px;
     font-weight: 600;
+    color: #ffffff !important;
   }
 
   .spg-header-meta {
     font-size: 13px;
     opacity: 0.9;
+    color: #ffffff !important;
   }
 
   .spg-close {
@@ -364,9 +366,9 @@ const spg_settings = {
 // Cloud model configurations
 const SPG_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
 };
 
 // Default cloud model for this feature (Sonnet for balanced quality/speed)
@@ -458,49 +460,43 @@ ${text.substring(0, 4000)}
 
 Create a study path in this exact JSON format:
 {
-  "title": "Study path title based on content",
-  "estimatedHours": 5,
+  "title": "Study path title",
+  "estimatedHours": 3,
   "difficulty": "intermediate",
   "topics": [
     {
       "id": 1,
       "title": "Topic name",
-      "description": "Brief description",
-      "objectives": ["What learner will understand", "What learner will be able to do"],
+      "description": "One sentence description.",
+      "objectives": ["Objective 1", "Objective 2"],
       "prerequisites": [],
       "estimatedMinutes": 30,
       "difficulty": "easy",
-      "keyTerms": ["term1", "term2"],
-      "practiceQuestions": ["Question to test understanding"]
+      "keyTerms": ["term1", "term2"]
     },
     {
       "id": 2,
       "title": "Second topic",
-      "description": "Builds on topic 1",
+      "description": "One sentence description.",
       "objectives": ["Objective 1"],
       "prerequisites": [1],
       "estimatedMinutes": 45,
       "difficulty": "medium",
-      "keyTerms": ["term3"],
-      "practiceQuestions": ["Practice question"]
+      "keyTerms": ["term3"]
     }
   ],
   "suggestedOrder": [1, 2],
-  "reviewSchedule": {
-    "day1": [1],
-    "day3": [1, 2],
-    "day7": [1, 2]
-  },
-  "tips": ["Study tip 1", "Study tip 2"]
+  "tips": ["Tip 1", "Tip 2", "Tip 3"]
 }
 
 Rules:
-- Create 3-7 logical topics from the content
+- Create 4-6 logical topics from the content
 - Order topics from foundational to advanced
-- Prerequisites should reference topic IDs
+- Keep descriptions to ONE sentence each
+- Limit objectives to 2 per topic
+- Limit keyTerms to 3 per topic
 - Difficulty levels: easy, medium, hard
-- Practice questions should test understanding
-- Respond with ONLY valid JSON`;
+- Respond with ONLY valid JSON, no extra text`;
 
   try {
     let response;
@@ -512,9 +508,10 @@ Rules:
         prompt,
         options: {
           model: modelKey,
-          maxTokens: 3000,
+          maxTokens: 8192,
           temperature: 0.4,
           feature: 'studyPathGenerator',
+          noCache: true,
         },
       });
     } else {
@@ -532,19 +529,57 @@ Rules:
 
     if (response && response.success) {
       console.log(`[StudyPathGenerator] ${isCloud ? 'Cloud' : 'Local'} AI response received`);
+      console.log(
+        '[StudyPathGenerator] Raw response (first 500 chars):',
+        response.data?.substring(0, 500)
+      );
 
-      const jsonMatch = response.data.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        spg_currentPath = spg_enhancePath(parsed);
-        if (isCloud) {
-          const _spgBadgeInfo = await getAIBadgeInfo();
-          spg_currentPath._generatedBy = `Cloud (${_spgBadgeInfo.label})`;
-        } else {
-          spg_currentPath._generatedBy = 'Local AI';
+      let rawData = response.data || '';
+
+      // Step 1: Strip markdown code fences if present (```json ... ```)
+      const codeBlockMatch = rawData.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        rawData = codeBlockMatch[1].trim();
+        console.log('[StudyPathGenerator] Stripped code block');
+      }
+
+      // Step 2: Find start of JSON object
+      const startIdx = rawData.indexOf('{');
+      if (startIdx !== -1) {
+        rawData = rawData.slice(startIdx);
+
+        // Step 3: Try complete {..} match first (most reliable)
+        let parsed = null;
+        const completeMatch = rawData.match(/\{[\s\S]*\}/);
+        if (completeMatch) {
+          try {
+            parsed = JSON.parse(completeMatch[0]);
+          } catch (e) {
+            console.warn('[StudyPathGenerator] Complete match parse failed:', e.message);
+          }
         }
-        spg_displayPath(spg_currentPath);
-        return spg_currentPath;
+
+        // Step 4: If complete match failed, try raw from {
+        if (!parsed) {
+          try {
+            parsed = JSON.parse(rawData);
+          } catch (e) {
+            console.warn('[StudyPathGenerator] Raw parse failed:', e.message);
+            console.log('[StudyPathGenerator] Failed JSON (first 300):', rawData.substring(0, 300));
+          }
+        }
+
+        if (parsed) {
+          spg_currentPath = spg_enhancePath(parsed);
+          if (isCloud) {
+            const _spgBadgeInfo = await getAIBadgeInfo();
+            spg_currentPath._generatedBy = `Cloud (${_spgBadgeInfo.label})`;
+          } else {
+            spg_currentPath._generatedBy = 'Local AI';
+          }
+          spg_displayPath(spg_currentPath);
+          return spg_currentPath;
+        }
       }
     }
 
@@ -558,7 +593,7 @@ Rules:
   } catch (error) {
     console.error('[StudyPathGenerator] Generation failed:', error);
     const fallback = spg_heuristicGenerate(text);
-    fallback._generatedBy = `Heuristic (${error.message})`;
+    fallback._generatedBy = 'Heuristic (AI parse error — retry)';
     spg_currentPath = fallback;
     spg_displayPath(fallback);
     return fallback;
@@ -917,7 +952,7 @@ function spg_displayPath(path) {
     contentEl.style.display = 'block';
   }
 
-  // Update header — show study stats and AI source
+  // Update header — show study stats and AI source on separate lines
   if (headerMeta) {
     const generatedByLabel = path._generatedBy || '';
     const aiIndicator = generatedByLabel.startsWith('Cloud')
@@ -927,8 +962,8 @@ function spg_displayPath(path) {
         : generatedByLabel
           ? `⚠️ ${generatedByLabel}`
           : '';
-    const metaText = `${path.estimatedHours} hours • ${path.topics.length} topics • ${path.difficulty}${aiIndicator ? ' • ' + aiIndicator : ''}`;
-    headerMeta.textContent = metaText;
+    const statsLine = `${path.estimatedHours} hours • ${path.topics.length} topics • ${path.difficulty}`;
+    headerMeta.innerHTML = `<span>${statsLine}</span>${aiIndicator ? `<br><span style="font-size:11px;opacity:0.85">${aiIndicator}</span>` : ''}`;
   }
 
   // Update time estimate

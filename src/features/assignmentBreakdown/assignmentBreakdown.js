@@ -46,15 +46,13 @@ const breakdown_settings = {
 // Cloud model configurations
 const BREAKDOWN_MODELS = {
   local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
+  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
+  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
+  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
 };
 
-// Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Haiku 4.5 scored 8.8/10 (best cloud model - fast & structured)
-// Local: LLaMA 3.2:3b scored 7.9/10 (best local for task decomposition)
-const BREAKDOWN_DEFAULT_CLOUD_MODEL = 'haiku-4.5';
+// Default: use the user's global default (sonnet-4.6) — overridden by cloudModel in storage
+const BREAKDOWN_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
