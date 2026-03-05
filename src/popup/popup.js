@@ -9966,6 +9966,7 @@ class PopupController {
     const localAIContainer = document.getElementById('local-ai-container');
     const cloudAIContainer = document.getElementById('cloud-ai-container');
     const geminiAIContainer = document.getElementById('gemini-ai-container');
+    const webllmAIContainer = document.getElementById('webllm-ai-container');
     const llmStatusBadge = document.getElementById('llm-status-badge');
     const cloudUsageStats = document.getElementById('cloud-usage-stats');
 
@@ -9973,6 +9974,7 @@ class PopupController {
     localAIContainer?.classList.add('hidden');
     cloudAIContainer?.classList.add('hidden');
     geminiAIContainer?.classList.add('hidden');
+    webllmAIContainer?.classList.add('hidden');
 
     // Show appropriate container and update badge
     switch (mode) {
@@ -10054,6 +10056,35 @@ class PopupController {
         });
 
         this.updateStatus('Gemini Nano enabled', 'success');
+        break;
+
+      case 'webllm':
+        webllmAIContainer?.classList.remove('hidden');
+        llmStatusBadge.textContent = 'Browser AI';
+        llmStatusBadge.className = 'llm-badge';
+        this.checkWebLLMStatus();
+        this.loadWebLLMModels();
+
+        // Update legacy settings for compatibility
+        this.settings.localLLM.enabled = false;
+        this.saveSettings();
+
+        // Notify content scripts
+        chrome.runtime
+          .sendMessage({
+            action: 'WEBLLM_MODE_CHANGED',
+            enabled: true,
+          })
+          .catch(() => {});
+
+        chrome.storage.local.set({
+          llmEnabled: false,
+          cloudModeEnabled: false,
+          geminiEnabled: false,
+          webllmEnabled: true,
+        });
+
+        this.updateStatus('Browser AI enabled', 'success');
         break;
 
       case 'off':
@@ -10200,6 +10231,270 @@ class PopupController {
       console.error('[Popup] Gemini check failed:', error);
       badge.textContent = 'Error';
       badge.className = 'llm-badge error';
+    }
+  }
+
+  /**
+   * Check WebLLM/WebGPU availability and update UI
+   */
+  async checkWebLLMStatus() {
+    const statusCard = document.getElementById('webllm-status');
+    const statusText = statusCard?.querySelector('.status-text');
+    const hardwareInfo = document.getElementById('webllm-hardware-info');
+    const gpuName = document.getElementById('webllm-gpu-name');
+    const engineStatus = document.getElementById('webllm-engine-status');
+    const fallbackMessage = document.getElementById('webllm-fallback');
+    const fallbackText = document.getElementById('webllm-fallback-text');
+    const modelSelection = document.getElementById('webllm-model-selection');
+
+    if (!statusCard) {
+      return;
+    }
+
+    // Show checking state
+    statusCard.className = 'webllm-status-card status-loading';
+    if (statusText) {
+      statusText.textContent = 'Checking WebGPU...';
+    }
+
+    try {
+      // Check WebLLM availability via service worker
+      const response = await chrome.runtime.sendMessage({
+        action: 'WEBLLM_CHECK',
+      });
+
+      if (response.success && response.available) {
+        // WebGPU is available
+        statusCard.className = 'webllm-status-card status-ready';
+        if (statusText) {
+          statusText.textContent = 'WebGPU Available';
+        }
+
+        // Show hardware info
+        if (hardwareInfo) {
+          hardwareInfo.style.display = 'block';
+          if (gpuName && response.gpu) {
+            gpuName.textContent = response.gpu;
+          }
+        }
+
+        // Hide fallback, show model list
+        if (fallbackMessage) {
+          fallbackMessage.style.display = 'none';
+        }
+        if (modelSelection) {
+          modelSelection.style.display = 'block';
+        }
+
+        // Check if engine is initialized
+        const statusResponse = await chrome.runtime.sendMessage({
+          action: 'WEBLLM_STATUS',
+        });
+
+        if (statusResponse.success && statusResponse.status) {
+          const { ready, loading, model } = statusResponse.status;
+
+          if (engineStatus) {
+            if (ready) {
+              engineStatus.textContent = `Ready (${model})`;
+            } else if (loading) {
+              engineStatus.textContent = 'Loading model...';
+            } else {
+              engineStatus.textContent = 'Not initialized';
+            }
+          }
+        }
+      } else {
+        // WebGPU not available
+        statusCard.className = 'webllm-status-card status-error';
+        if (statusText) {
+          statusText.textContent = 'WebGPU Not Available';
+        }
+
+        // Hide hardware info and model list
+        if (hardwareInfo) {
+          hardwareInfo.style.display = 'none';
+        }
+        if (modelSelection) {
+          modelSelection.style.display = 'none';
+        }
+
+        // Show fallback message
+        if (fallbackMessage) {
+          fallbackMessage.style.display = 'block';
+          if (fallbackText && response.error) {
+            fallbackText.textContent = response.error;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[Popup] WebLLM status check failed:', error);
+      statusCard.className = 'webllm-status-card status-error';
+      if (statusText) {
+        statusText.textContent = 'Status Check Failed';
+      }
+    }
+  }
+
+  /**
+   * Load and render available WebLLM models
+   */
+  async loadWebLLMModels() {
+    const modelListContainer = document.getElementById('webllm-model-list');
+    if (!modelListContainer) {
+      return;
+    }
+
+    try {
+      // Get available models from service worker
+      const response = await chrome.runtime.sendMessage({
+        action: 'WEBLLM_GET_MODELS',
+      });
+
+      if (!response.success || !response.models) {
+        throw new Error('Failed to fetch models');
+      }
+
+      // Get currently selected model from storage
+      const { webllmModel } = await chrome.storage.local.get(['webllmModel']);
+      const selectedModel = webllmModel || 'llama-3.2-1b';
+
+      // Render model cards
+      modelListContainer.innerHTML = '';
+
+      response.models.forEach(model => {
+        const card = document.createElement('div');
+        card.className = 'webllm-model-card';
+        card.dataset.modelKey = model.key;
+
+        if (model.key === selectedModel) {
+          card.classList.add('selected');
+        }
+
+        card.innerHTML = `
+          <div class="model-card-header">
+            <span class="model-card-name">${model.name}</span>
+            <span class="model-card-size">${model.size}</span>
+          </div>
+          <div class="model-card-description">${model.description}</div>
+          <div class="model-card-tags">
+            ${model.bestFor
+              .slice(0, 3)
+              .map(tag => `<span class="model-tag">${tag}</span>`)
+              .join('')}
+          </div>
+        `;
+
+        // Click to select and initialize
+        this.attachInteractiveHandler(card, `WebLLM Model: ${model.name}`, () => {
+          this.selectWebLLMModel(model.key);
+        });
+
+        modelListContainer.appendChild(card);
+      });
+    } catch (error) {
+      console.error('[Popup] Failed to load WebLLM models:', error);
+      modelListContainer.innerHTML = `
+        <div class="error-message" style="padding: 16px; text-align: center; color: var(--error-color);">
+          Failed to load models. Please try again.
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * Select and initialize a WebLLM model
+   * @param {string} modelKey - Model key to initialize
+   */
+  async selectWebLLMModel(modelKey) {
+    console.log('[Popup] Selecting WebLLM model:', modelKey);
+
+    // Update selection UI
+    document.querySelectorAll('.webllm-model-card').forEach(card => {
+      if (card.dataset.modelKey === modelKey) {
+        card.classList.add('selected');
+      } else {
+        card.classList.remove('selected');
+      }
+    });
+
+    // Save to storage
+    await chrome.storage.local.set({ webllmModel: modelKey });
+
+    // Show download progress UI
+    const progressContainer = document.getElementById('webllm-download-progress');
+    const downloadModelName = document.getElementById('download-model-name');
+    const downloadPercent = document.getElementById('download-percent');
+    const downloadBarFill = document.getElementById('download-bar-fill');
+    const downloadStatusText = document.getElementById('download-status-text');
+
+    if (progressContainer) {
+      progressContainer.style.display = 'block';
+    }
+    if (downloadModelName) {
+      const modelCard = document.querySelector(`.webllm-model-card[data-model-key="${modelKey}"]`);
+      const modelName = modelCard?.querySelector('.model-card-name')?.textContent || modelKey;
+      downloadModelName.textContent = modelName;
+    }
+
+    // Set up progress listener
+    const progressListener = message => {
+      if (message.action === 'WEBLLM_PROGRESS' && message.modelKey === modelKey) {
+        const { progress } = message;
+
+        if (downloadPercent) {
+          downloadPercent.textContent = `${progress.percent}%`;
+        }
+        if (downloadBarFill) {
+          downloadBarFill.style.width = `${progress.percent}%`;
+        }
+        if (downloadStatusText) {
+          downloadStatusText.textContent = progress.status;
+        }
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(progressListener);
+
+    try {
+      // Initialize model via service worker
+      const response = await chrome.runtime.sendMessage({
+        action: 'WEBLLM_INITIALIZE',
+        modelKey,
+      });
+
+      // Remove progress listener
+      chrome.runtime.onMessage.removeListener(progressListener);
+
+      if (response.success) {
+        console.log('[Popup] Model initialized:', modelKey);
+
+        // Hide progress, update status
+        if (progressContainer) {
+          progressContainer.style.display = 'none';
+        }
+
+        // Update engine status
+        await this.checkWebLLMStatus();
+
+        // Show success
+        this.updateStatus(`${modelKey} ready to use!`, 'success');
+      } else {
+        throw new Error(response.error || 'Initialization failed');
+      }
+    } catch (error) {
+      console.error('[Popup] Model initialization failed:', error);
+
+      // Remove progress listener
+      chrome.runtime.onMessage.removeListener(progressListener);
+
+      // Hide progress
+      if (progressContainer) {
+        progressContainer.style.display = 'none';
+      }
+
+      // Show error
+      this.updateStatus(`Failed to load model: ${error.message}`, 'error');
     }
   }
 

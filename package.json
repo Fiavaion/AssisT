@@ -58,6 +58,7 @@
     "vite": "^7.1.12"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.81",
     "@mozilla/readability": "^0.6.0",
     "citeproc": "^2.4.63",
     "compromise": "^14.14.4",

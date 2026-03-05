@@ -76,7 +76,7 @@ async function _summarization_isCloudEnabled() {
  */
 async function summarization_getCurrentModel() {
   try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    const result = await chrome.storage.local.get(['aiMode', 'cloudModel', 'webllmModel']);
     const aiMode = result.aiMode || 'off';
 
     if (aiMode === 'local') {
@@ -86,6 +86,8 @@ async function summarization_getCurrentModel() {
       return result.cloudModel || SUMMARIZATION_DEFAULT_CLOUD_MODEL;
     } else if (aiMode === 'gemini') {
       return 'gemini';
+    } else if (aiMode === 'webllm') {
+      return result.webllmModel || 'llama-3.2-1b';
     } else {
       // AI is off - default to local
       return 'local';
@@ -156,8 +158,10 @@ ${text}
 Summary:`;
 
   const maxTokens = level === 'detailed' ? 1500 : level === 'moderate' ? 800 : 400;
-  const isCloud = modelKey !== 'local' && modelKey !== 'gemini';
+  const isWebLLM =
+    modelKey.startsWith('llama-') || modelKey.startsWith('phi-') || modelKey.startsWith('qwen');
   const isGemini = modelKey === 'gemini';
+  const isCloud = modelKey !== 'local' && modelKey !== 'gemini' && !isWebLLM;
 
   try {
     let response;
@@ -175,6 +179,22 @@ Summary:`;
 
       if (response && response.success) {
         return { summary: response.text, isCloud: false, isGemini: true };
+      }
+    } else if (isWebLLM) {
+      // Use WebLLM (Browser AI)
+      response = await chrome.runtime.sendMessage({
+        action: 'WEBLLM_GENERATE',
+        prompt,
+        options: {
+          maxTokens,
+          temperature: 0.5,
+        },
+      });
+
+      if (response && response.success) {
+        return { summary: response.data, isCloud: false, isWebLLM: true };
+      } else if (response && response.requiresInit) {
+        throw new Error('WebLLM model not initialized. Please select a model in AI settings.');
       }
     } else if (isCloud) {
       // Use cloud model (Claude API)

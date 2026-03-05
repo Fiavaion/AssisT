@@ -4657,3 +4657,334 @@ body.dark-mode .feature-item input[type='range'] {
 body.dark-mode .feature-item a {
   color: var(--dm-accent) !important;
 }
+
+/* ========================================
+   WEBLLM AI SECTION
+   ======================================== */
+
+.webllm-status-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+}
+
+.webllm-status-card .status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9e9e9e; /* Gray = checking */
+}
+
+.webllm-status-card.status-ready .status-dot {
+  background: #4caf50; /* Green = ready */
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+}
+
+.webllm-status-card.status-error .status-dot {
+  background: #f44336; /* Red = error */
+}
+
+.webllm-status-card.status-loading .status-dot {
+  background: #ff9800; /* Orange = loading */
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Hardware Info */
+.webllm-hardware-info {
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.hardware-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.hardware-row:last-child {
+  margin-bottom: 0;
+}
+
+.hardware-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.hardware-value {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 12px;
+}
+
+/* Model List */
+.webllm-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.webllm-model-card {
+  position: relative;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.webllm-model-card:hover {
+  border-color: var(--primary-color);
+  background: var(--bg-hover);
+}
+
+.webllm-model-card.selected {
+  border-color: var(--primary-color);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.webllm-model-card.downloaded {
+  border-color: #4caf50;
+}
+
+.webllm-model-card.downloaded::after {
+  content: '✓ Cached';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #4caf50;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.model-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.model-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.model-card-size {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.model-card-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.model-card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.model-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 3px;
+}
+
+/* Download Progress */
+.webllm-download-progress {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.download-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.download-model-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.download-percent {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.download-bar-container {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.download-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.download-status-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* Fallback Message */
+.webllm-fallback-message {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.fallback-icon {
+  font-size: 32px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.fallback-content strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #856404;
+}
+
+.fallback-content p {
+  font-size: 13px;
+  color: #856404;
+  margin-bottom: 12px;
+}
+
+.fallback-suggestions {
+  background: rgba(255, 255, 255, 0.6);
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.fallback-suggestions strong {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.fallback-suggestions ul {
+  margin: 6px 0 0 20px;
+  font-size: 12px;
+  color: #856404;
+}
+
+.fallback-suggestions li {
+  margin-bottom: 4px;
+}
+
+/* Dark mode support */
+body.dark-mode .webllm-status-card {
+  background: var(--dm-bg-secondary);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .webllm-hardware-info {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .hardware-label {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .hardware-value {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .webllm-model-card {
+  background: var(--dm-bg-secondary);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .webllm-model-card:hover {
+  background: var(--dm-bg-hover);
+}
+
+body.dark-mode .model-card-name {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .model-card-size,
+body.dark-mode .model-card-description,
+body.dark-mode .model-tag {
+  background: var(--dm-bg-tertiary);
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .webllm-download-progress {
+  background: var(--dm-bg-secondary);
+  border-color: var(--dm-border);
+}
+
+body.dark-mode .download-model-name {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .download-bar-container {
+  background: var(--dm-bg-tertiary);
+}
+
+body.dark-mode .download-status-text {
+  color: var(--dm-text-secondary);
+}
+
+body.dark-mode .webllm-fallback-message {
+  background: rgba(255, 193, 7, 0.1);
+  border-color: rgba(255, 193, 7, 0.3);
+}
+
+body.dark-mode .fallback-content strong,
+body.dark-mode .fallback-content p,
+body.dark-mode .fallback-suggestions,
+body.dark-mode .fallback-suggestions ul {
+  color: var(--dm-text-primary);
+}
+
+body.dark-mode .fallback-suggestions {
+  background: rgba(255, 255, 255, 0.05);
+}
