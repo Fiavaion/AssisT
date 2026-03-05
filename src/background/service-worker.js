@@ -117,6 +117,13 @@ import { claudeGenerate, CLOUD_MODELS, FEATURE_DEFAULT_MODELS } from '../ai/clau
 
 import { cloudGenerate, cloudFetchModels, checkCloudAvailability } from '../ai/cloud-router.js';
 
+// WebLLM imports (browser-native AI)
+import {
+  getWebLLMClient,
+  checkWebLLMAvailability,
+  getAvailableModels as getWebLLMModels,
+} from '../ai/webllm-client.js';
+
 // ========================================
 // CONTEXT MENU SETUP (runs on every service worker start)
 // ========================================
@@ -863,6 +870,163 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
 
     return true; // Keep channel open for async response
+  }
+
+  // ========================================
+  // WEBLLM MESSAGE HANDLERS
+  // ========================================
+
+  // Check WebLLM/WebGPU availability
+  if (message.action === 'WEBLLM_CHECK') {
+    checkWebLLMAvailability()
+      .then(status => {
+        console.log('[WebLLM] Availability check:', status);
+        sendResponse({ success: true, ...status });
+      })
+      .catch(error => {
+        console.error('[WebLLM] Availability check failed:', error);
+        sendResponse({
+          success: false,
+          available: false,
+          status: 'error',
+          error: error.message,
+        });
+      });
+    return true; // Async
+  }
+
+  // Get available WebLLM models
+  if (message.action === 'WEBLLM_GET_MODELS') {
+    try {
+      const models = getWebLLMModels();
+      sendResponse({ success: true, models });
+    } catch (error) {
+      sendResponse({ success: false, error: error.message });
+    }
+    return false;
+  }
+
+  // Initialize WebLLM with specific model
+  if (message.action === 'WEBLLM_INITIALIZE') {
+    const { modelKey } = message;
+
+    if (!modelKey) {
+      sendResponse({ success: false, error: 'Model key required' });
+      return false;
+    }
+
+    (async () => {
+      try {
+        const client = getWebLLMClient();
+
+        // Create progress relay to popup
+        const progressCallback = progress => {
+          // Send progress update back to popup via chrome.runtime
+          // Note: Can't use sendResponse for multiple messages
+          // Popup should listen via chrome.runtime.onMessage for WEBLLM_PROGRESS
+          chrome.runtime
+            .sendMessage({
+              action: 'WEBLLM_PROGRESS',
+              modelKey,
+              progress,
+            })
+            .catch(() => {
+              // Popup may not be open, that's OK
+            });
+        };
+
+        await client.initialize(modelKey, progressCallback);
+
+        sendResponse({
+          success: true,
+          model: modelKey,
+          status: client.getStatus(),
+        });
+      } catch (error) {
+        console.error('[WebLLM] Initialization failed:', error);
+        sendResponse({
+          success: false,
+          error: error.message,
+          details: error.stack,
+        });
+      }
+    })();
+
+    return true; // Async
+  }
+
+  // Generate text with WebLLM
+  if (message.action === 'WEBLLM_GENERATE') {
+    const { prompt, options } = message;
+
+    if (!prompt) {
+      sendResponse({ success: false, error: 'Prompt required' });
+      return false;
+    }
+
+    (async () => {
+      try {
+        const client = getWebLLMClient();
+
+        // Check if engine is ready
+        const status = client.getStatus();
+        if (!status.ready) {
+          // Try to auto-initialize with default model
+          const { webllmModel } = await chrome.storage.local.get(['webllmModel']);
+          const modelKey = webllmModel || 'llama-3.2-1b';
+
+          console.log('[WebLLM] Auto-initializing with', modelKey);
+          await client.initialize(modelKey);
+        }
+
+        const result = await client.generate(prompt, options || {});
+        sendResponse({ success: true, data: result });
+      } catch (error) {
+        console.error('[WebLLM] Generation failed:', error);
+        sendResponse({
+          success: false,
+          error: error.message,
+          requiresInit: error.message.includes('not initialized'),
+        });
+      }
+    })();
+
+    return true; // Async
+  }
+
+  // Get WebLLM engine status
+  if (message.action === 'WEBLLM_STATUS') {
+    try {
+      const client = getWebLLMClient();
+      const status = client.getStatus();
+      sendResponse({ success: true, status });
+    } catch (error) {
+      sendResponse({ success: false, error: error.message });
+    }
+    return false;
+  }
+
+  // Unload WebLLM model (free memory)
+  if (message.action === 'WEBLLM_UNLOAD') {
+    (async () => {
+      try {
+        const client = getWebLLMClient();
+        await client.unload();
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // Async
+  }
+
+  // WebLLM vision support (future enhancement)
+  if (message.action === 'WEBLLM_VISION') {
+    sendResponse({
+      success: false,
+      error: 'Vision models not yet supported in WebLLM mode',
+    });
+    return false;
   }
 
   // Route other messages through MessageRouter

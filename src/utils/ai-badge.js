@@ -76,6 +76,20 @@ function getModelDisplayName(provider, modelId) {
   return modelId || 'Default';
 }
 
+/**
+ * Get display name for WebLLM model
+ * @param {string} modelKey - Model key (e.g., 'llama-3.2-1b')
+ * @returns {string}
+ */
+function getWebLLMModelName(modelKey) {
+  const names = {
+    'llama-3.2-1b': 'Llama 3.2 1B',
+    'phi-3.5-mini': 'Phi-3.5 Mini',
+    'qwen2.5-3b': 'Qwen 2.5 3B',
+  };
+  return names[modelKey] || modelKey;
+}
+
 // ============================================================================
 // BADGE INFO
 // ============================================================================
@@ -87,7 +101,12 @@ function getModelDisplayName(provider, modelId) {
  */
 export async function getAIBadgeInfo() {
   try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudProvider', 'cloudModel']);
+    const result = await chrome.storage.local.get([
+      'aiMode',
+      'cloudProvider',
+      'cloudModel',
+      'webllmModel',
+    ]);
     const aiMode = result.aiMode || 'off';
 
     if (aiMode === 'local') {
@@ -100,6 +119,12 @@ export async function getAIBadgeInfo() {
       const modelName = getModelDisplayName(provider, result.cloudModel);
       const label = `${providerName}: ${modelName}`;
       return { mode: 'cloud', label, providerName, modelName };
+    }
+
+    if (aiMode === 'webllm') {
+      const modelKey = result.webllmModel || 'llama-3.2-1b';
+      const modelDisplayName = getWebLLMModelName(modelKey);
+      return { mode: 'webllm', label: `Browser: ${modelDisplayName}` };
     }
 
     // AI is off or unknown
@@ -117,8 +142,8 @@ export async function getAIBadgeInfo() {
 /**
  * Generate consistent badge HTML for the current AI mode.
  *
- * @param {'cloud'|'local'|'off'|'fallback'} mode - AI mode
- * @param {string} label - Display label (e.g. 'Anthropic: Sonnet 4.6', 'Local AI')
+ * @param {'cloud'|'local'|'webllm'|'off'|'fallback'} mode - AI mode
+ * @param {string} label - Display label (e.g. 'Anthropic: Sonnet 4.6', 'Local AI', 'Browser: Llama 3.2 1B')
  * @returns {string} HTML string (safe to inject via sanitizeHTML)
  */
 export function renderAIBadge(mode, label) {
@@ -127,6 +152,8 @@ export function renderAIBadge(mode, label) {
       return `<span class="assist-ai-badge assist-ai-badge--cloud" aria-label="Using cloud AI: ${label}">☁️ ${label}</span>`;
     case 'local':
       return `<span class="assist-ai-badge assist-ai-badge--local" aria-label="Using local AI">💻 ${label}</span>`;
+    case 'webllm':
+      return `<span class="assist-ai-badge assist-ai-badge--webllm" aria-label="Using browser AI: ${label}">🌐 ${label}</span>`;
     case 'fallback':
       return `<span class="assist-ai-badge assist-ai-badge--fallback" aria-label="Using basic analysis">⚠️ Basic</span>`;
     default:
@@ -181,6 +208,11 @@ export function injectAIBadgeStyles() {
 
     .assist-ai-badge--local {
       background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+      color: #fff;
+    }
+
+    .assist-ai-badge--webllm {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
       color: #fff;
     }
 
