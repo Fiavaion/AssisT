@@ -83,9 +83,17 @@ function getModelDisplayName(provider, modelId) {
  */
 function getWebLLMModelName(modelKey) {
   const names = {
+    // Lightweight
     'llama-3.2-1b': 'Llama 3.2 1B',
+    'gemma-2b': 'Gemma 2B',
+    // Balanced
+    'llama-3.2-3b': 'Llama 3.2 3B',
     'phi-3.5-mini': 'Phi-3.5 Mini',
     'qwen2.5-3b': 'Qwen 2.5 3B',
+    // High-quality
+    'mistral-7b': 'Mistral 7B',
+    'llama-3.1-8b': 'Llama 3.1 8B',
+    'gemma-7b': 'Gemma 7B',
   };
   return names[modelKey] || modelKey;
 }
