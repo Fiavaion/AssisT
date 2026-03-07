@@ -122,6 +122,7 @@ import {
   getWebLLMClient,
   checkWebLLMAvailability,
   getAvailableModels as getWebLLMModels,
+  getCachedModels as getWebLLMCachedModels,
 } from '../ai/webllm-client.js';
 
 // ========================================
@@ -904,6 +905,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     }
     return false;
+  }
+
+  // Get cached (already downloaded) WebLLM models
+  if (message.action === 'WEBLLM_GET_CACHED') {
+    (async () => {
+      try {
+        const cachedModelKeys = await getWebLLMCachedModels();
+        sendResponse({
+          success: true,
+          cachedModels: Array.from(cachedModelKeys),
+        });
+      } catch (error) {
+        console.error('[WebLLM] Error getting cached models:', error);
+        sendResponse({ success: true, cachedModels: [] });
+      }
+    })();
+    return true; // Async
   }
 
   // Initialize WebLLM with specific model

@@ -10355,42 +10355,85 @@ class PopupController {
         throw new Error('Failed to fetch models');
       }
 
+      // Get cached models
+      const cacheResponse = await chrome.runtime.sendMessage({
+        action: 'WEBLLM_GET_CACHED',
+      });
+      const cachedModelKeys = new Set(cacheResponse.success ? cacheResponse.cachedModels : []);
+
       // Get currently selected model from storage
       const { webllmModel } = await chrome.storage.local.get(['webllmModel']);
       const selectedModel = webllmModel || 'llama-3.2-1b';
 
-      // Render model cards
-      modelListContainer.innerHTML = '';
+      // Group models by category
+      const categories = {
+        lightweight: [],
+        balanced: [],
+        'high-quality': [],
+      };
 
       response.models.forEach(model => {
-        const card = document.createElement('div');
-        card.className = 'webllm-model-card';
-        card.dataset.modelKey = model.key;
+        const category = model.category || 'balanced';
+        if (categories[category]) {
+          categories[category].push(model);
+        }
+      });
 
-        if (model.key === selectedModel) {
-          card.classList.add('selected');
+      // Render model cards grouped by category
+      modelListContainer.innerHTML = '';
+
+      Object.entries(categories).forEach(([category, models]) => {
+        if (models.length === 0) {
+          return;
         }
 
-        card.innerHTML = `
-          <div class="model-card-header">
-            <span class="model-card-name">${model.name}</span>
-            <span class="model-card-size">${model.size}</span>
-          </div>
-          <div class="model-card-description">${model.description}</div>
-          <div class="model-card-tags">
-            ${model.bestFor
-              .slice(0, 3)
-              .map(tag => `<span class="model-tag">${tag}</span>`)
-              .join('')}
-          </div>
-        `;
+        // Category header
+        const categoryHeader = document.createElement('div');
+        categoryHeader.className = 'webllm-category-header';
+        categoryHeader.textContent =
+          category === 'lightweight'
+            ? 'Lightweight (< 1GB)'
+            : category === 'balanced'
+              ? 'Balanced (1-3GB)'
+              : 'High-Quality (4-6GB)';
+        modelListContainer.appendChild(categoryHeader);
 
-        // Click to select and initialize
-        this.attachInteractiveHandler(card, `WebLLM Model: ${model.name}`, () => {
-          this.selectWebLLMModel(model.key);
+        models.forEach(model => {
+          const card = document.createElement('div');
+          card.className = 'webllm-model-card';
+          card.dataset.modelKey = model.key;
+
+          if (model.key === selectedModel) {
+            card.classList.add('selected');
+          }
+
+          const isCached = cachedModelKeys.has(model.key);
+          const cacheBadge = isCached ? '<span class="model-cache-badge">✓ Downloaded</span>' : '';
+
+          card.innerHTML = `
+            <div class="model-card-header">
+              <span class="model-card-name">${model.name}</span>
+              <span class="model-card-size">${model.size}</span>
+            </div>
+            <div class="model-card-description">${model.description}</div>
+            <div class="model-card-footer">
+              <div class="model-card-tags">
+                ${model.bestFor
+                  .slice(0, 3)
+                  .map(tag => `<span class="model-tag">${tag}</span>`)
+                  .join('')}
+              </div>
+              ${cacheBadge}
+            </div>
+          `;
+
+          // Click to select and initialize
+          this.attachInteractiveHandler(card, `WebLLM Model: ${model.name}`, () => {
+            this.selectWebLLMModel(model.key);
+          });
+
+          modelListContainer.appendChild(card);
         });
-
-        modelListContainer.appendChild(card);
       });
     } catch (error) {
       console.error('[Popup] Failed to load WebLLM models:', error);

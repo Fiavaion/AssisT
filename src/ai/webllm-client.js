@@ -28,6 +28,7 @@ import { CreateMLCEngine } from '@mlc-ai/web-llm';
  *   - q0f16: Full precision weights, float16 (larger, faster)
  */
 export const MODEL_CONFIGS = {
+  // ===== LIGHTWEIGHT MODELS (< 1GB) =====
   'llama-3.2-1b': {
     id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
     name: 'Llama 3.2 1B',
@@ -37,16 +38,42 @@ export const MODEL_CONFIGS = {
     bestFor: ['summarization', 'quick-questions', 'text-simplification'],
     avgSpeed: 'Fast (15-25 tok/s)',
     quantization: 'q4f16_1',
+    category: 'lightweight',
+  },
+  'gemma-2b': {
+    id: 'gemma-2b-it-q4f16_1-MLC',
+    name: 'Gemma 2B',
+    size: '1.6GB',
+    vramRequired: '2GB',
+    description: "Google's efficient small model",
+    bestFor: ['quick-tasks', 'chat', 'simple-reasoning'],
+    avgSpeed: 'Fast (15-20 tok/s)',
+    quantization: 'q4f16_1',
+    category: 'lightweight',
+  },
+
+  // ===== BALANCED MODELS (1-3GB) =====
+  'llama-3.2-3b': {
+    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+    name: 'Llama 3.2 3B',
+    size: '1.9GB',
+    vramRequired: '2.5GB',
+    description: 'Better quality than 1B, still fast',
+    bestFor: ['general-purpose', 'writing', 'analysis'],
+    avgSpeed: 'Moderate (12-18 tok/s)',
+    quantization: 'q4f16_1',
+    category: 'balanced',
   },
   'phi-3.5-mini': {
     id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
     name: 'Phi-3.5 Mini',
     size: '2.3GB',
     vramRequired: '3GB',
-    description: 'Balanced performance for most tasks',
+    description: "Microsoft's efficient model, great for coding",
     bestFor: ['conversation', 'tutoring', 'analysis', 'coding'],
     avgSpeed: 'Moderate (10-18 tok/s)',
     quantization: 'q4f16_1',
+    category: 'balanced',
   },
   'qwen2.5-3b': {
     id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',
@@ -57,6 +84,42 @@ export const MODEL_CONFIGS = {
     bestFor: ['complex-analysis', 'detailed-explanations', 'code-generation'],
     avgSpeed: 'Moderate (12-20 tok/s)',
     quantization: 'q4f16_1',
+    category: 'balanced',
+  },
+
+  // ===== HIGH-QUALITY MODELS (4-6GB) =====
+  'mistral-7b': {
+    id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',
+    name: 'Mistral 7B',
+    size: '4.4GB',
+    vramRequired: '6GB',
+    description: 'Powerful general-purpose model',
+    bestFor: ['advanced-reasoning', 'creative-writing', 'complex-tasks'],
+    avgSpeed: 'Slower (6-12 tok/s)',
+    quantization: 'q4f16_1',
+    category: 'high-quality',
+  },
+  'llama-3.1-8b': {
+    id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',
+    name: 'Llama 3.1 8B',
+    size: '4.9GB',
+    vramRequired: '6.5GB',
+    description: "Meta's flagship model, excellent quality",
+    bestFor: ['advanced-analysis', 'research', 'complex-coding'],
+    avgSpeed: 'Slower (5-10 tok/s)',
+    quantization: 'q4f16_1',
+    category: 'high-quality',
+  },
+  'gemma-7b': {
+    id: 'gemma-7b-it-q4f16_1-MLC',
+    name: 'Gemma 7B',
+    size: '4.3GB',
+    vramRequired: '5.5GB',
+    description: "Google's larger model, high performance",
+    bestFor: ['detailed-analysis', 'tutoring', 'research'],
+    avgSpeed: 'Slower (6-11 tok/s)',
+    quantization: 'q4f16_1',
+    category: 'high-quality',
   },
 };
 
@@ -98,9 +161,15 @@ export async function checkWebGPUAvailability() {
       };
     }
 
-    // Get GPU info for user feedback
-    const info = await adapter.requestAdapterInfo();
-    const gpuName = info?.description || info?.device || 'Unknown GPU';
+    // Get GPU info for user feedback (optional - method may not be available)
+    let gpuName = 'WebGPU Adapter';
+    try {
+      const info = await adapter.requestAdapterInfo();
+      gpuName = info?.description || info?.device || 'WebGPU Adapter';
+    } catch {
+      // requestAdapterInfo() not supported - continue without GPU name
+      console.log('[WebLLM] requestAdapterInfo() not available, using generic name');
+    }
 
     // Request device to verify full support
     const device = await adapter.requestDevice();
@@ -378,7 +447,14 @@ export async function checkWebLLMAvailability() {
   }
 
   // Additional checks (e.g., IndexedDB for model caching)
-  if (!window.indexedDB) {
+  // Use self.indexedDB for service worker compatibility (window is not defined in service workers)
+  const idb =
+    typeof indexedDB !== 'undefined'
+      ? indexedDB
+      : typeof self !== 'undefined'
+        ? self.indexedDB
+        : null;
+  if (!idb) {
     return {
       available: false,
       status: 'no-indexeddb',
@@ -405,7 +481,85 @@ export function getAvailableModels() {
     description: config.description,
     vramRequired: config.vramRequired,
     bestFor: config.bestFor,
+    category: config.category,
   }));
+}
+
+/**
+ * Check which models are already cached in IndexedDB
+ * @returns {Promise<Set<string>>} Set of cached model IDs
+ */
+export async function getCachedModels() {
+  try {
+    // WebLLM stores models in IndexedDB under database "webllm"
+    const idb =
+      typeof indexedDB !== 'undefined'
+        ? indexedDB
+        : typeof self !== 'undefined'
+          ? self.indexedDB
+          : null;
+    if (!idb) {
+      console.warn('[WebLLM] IndexedDB not available for cache check');
+      return new Set();
+    }
+
+    return new Promise(resolve => {
+      // Open the webllm database (readonly to avoid creating it if it doesn't exist)
+      const request = idb.open('webllm');
+
+      request.onerror = () => {
+        console.log('[WebLLM] Cache database not found - no models cached yet');
+        resolve(new Set());
+      };
+
+      request.onsuccess = event => {
+        const db = event.target.result;
+        const cachedModelIds = new Set();
+
+        try {
+          // WebLLM stores models in an object store (usually called 'models' or similar)
+          if (!db.objectStoreNames.contains('models')) {
+            db.close();
+            resolve(new Set());
+            return;
+          }
+
+          const transaction = db.transaction(['models'], 'readonly');
+          const store = transaction.objectStore('models');
+          const getAllRequest = store.getAllKeys();
+
+          getAllRequest.onsuccess = () => {
+            const keys = getAllRequest.result || [];
+
+            // Match cached keys to our MODEL_CONFIGS
+            Object.entries(MODEL_CONFIGS).forEach(([modelKey, config]) => {
+              // Check if any cached key contains this model ID
+              const isCached = keys.some(key => typeof key === 'string' && key.includes(config.id));
+              if (isCached) {
+                cachedModelIds.add(modelKey);
+              }
+            });
+
+            console.log('[WebLLM] Cached models:', Array.from(cachedModelIds));
+            db.close();
+            resolve(cachedModelIds);
+          };
+
+          getAllRequest.onerror = () => {
+            db.close();
+            resolve(new Set());
+          };
+        } catch (error) {
+          console.warn('[WebLLM] Error checking cache:', error);
+          db.close();
+          resolve(new Set());
+        }
+      };
+    });
+  } catch (error) {
+    console.warn('[WebLLM] Cache check failed:', error);
+    return new Set();
+  }
 }
 
 // Export default object with all exports
@@ -416,5 +570,6 @@ export default {
   checkWebGPUAvailability,
   checkModelCompatibility,
   getAvailableModels,
+  getCachedModels,
   MODEL_CONFIGS,
 };
