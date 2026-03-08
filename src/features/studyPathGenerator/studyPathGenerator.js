@@ -17,6 +17,7 @@
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // CSS STYLES (injected separately to avoid innerHTML overwriting)
@@ -363,17 +364,6 @@ const spg_settings = {
   includeReview: true,
 };
 
-// Cloud model configurations
-const SPG_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
-};
-
-// Default cloud model for this feature (Sonnet for balanced quality/speed)
-const SPG_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
-
 // ============================================================================
 // AI MODE DETECTION
 // ============================================================================
@@ -390,7 +380,7 @@ async function spg_getCurrentModel() {
     if (aiMode === 'local') {
       return 'local';
     } else if (aiMode === 'cloud') {
-      return result.cloudModel || SPG_DEFAULT_CLOUD_MODEL;
+      return result.cloudModel || getFeatureDefault('anthropic', 'studyPathGenerator');
     } else {
       return 'local'; // Default to local if AI is off
     }
@@ -435,8 +425,7 @@ async function spg_generatePath(text) {
   // Get current AI mode setting
   const modelKey = await spg_getCurrentModel();
   const isCloud = modelKey !== 'local';
-  const modelConfig = SPG_MODELS[modelKey];
-  const modelName = modelConfig?.name || modelKey;
+  const modelName = getModelId('anthropic', modelKey);
 
   console.log(`[StudyPathGenerator] Using ${isCloud ? 'cloud' : 'local'} AI: ${modelName}`);
 

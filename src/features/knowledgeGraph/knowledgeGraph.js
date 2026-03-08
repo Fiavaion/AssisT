@@ -20,6 +20,7 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getFeatureDefault } from '../../ai/model-registry.js';
 import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
@@ -46,10 +47,6 @@ const graph_settings = {
   linkStrength: 0.5,
 };
 
-// Default cloud model when none is explicitly set (Bug #10 fix: was 'local' which
-// caused Knowledge Graph to show "Local AI" even when cloud mode was enabled)
-const GRAPH_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
-
 /**
  * Get the current model from global AI settings
  * @returns {Promise<string>} Model key ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
@@ -62,7 +59,7 @@ async function graph_getCurrentModel() {
     if (aiMode === 'local') {
       return 'local';
     } else if (aiMode === 'cloud') {
-      return result.cloudModel || GRAPH_DEFAULT_CLOUD_MODEL;
+      return result.cloudModel || getFeatureDefault('anthropic', 'knowledgeGraph');
     } else {
       return 'local';
     }

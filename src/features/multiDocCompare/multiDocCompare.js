@@ -16,6 +16,7 @@
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -31,16 +32,6 @@ const mdc_settings = {
   minTextLength: 50,
 };
 
-// Cloud model configurations
-const MDC_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
-};
-
-const MDC_DEFAULT_CLOUD_MODEL = 'sonnet-4.6'; // Good for multi-doc analysis
-
 /**
  * Get the current AI mode setting
  * @returns {Promise<{aiMode: string, modelKey: string}>}
@@ -53,7 +44,10 @@ async function mdc_getCurrentModel() {
     if (aiMode === 'local') {
       return { aiMode: 'local', modelKey: 'local' };
     } else if (aiMode === 'cloud') {
-      return { aiMode: 'cloud', modelKey: result.cloudModel || MDC_DEFAULT_CLOUD_MODEL };
+      return {
+        aiMode: 'cloud',
+        modelKey: result.cloudModel || getFeatureDefault('anthropic', 'multiDocCompare'),
+      };
     } else {
       return { aiMode: 'local', modelKey: 'local' };
     }
@@ -447,7 +441,7 @@ async function mdc_compareDocuments() {
   // Get current AI mode
   const { aiMode, modelKey } = await mdc_getCurrentModel();
   const isCloud = aiMode === 'cloud';
-  const modelName = MDC_MODELS[modelKey]?.name || modelKey;
+  const modelName = getModelId('anthropic', modelKey);
 
   // Check for API key if cloud mode
   if (isCloud) {

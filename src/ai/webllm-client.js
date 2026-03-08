@@ -13,115 +13,18 @@
  */
 
 import { CreateMLCEngine } from '@mlc-ai/web-llm';
+import { REGISTRY } from './model-registry.js';
 
 // ========================================
 // MODEL CONFIGURATIONS
 // ========================================
 
 /**
- * WebLLM prebuilt model configurations
- * Format: [model-id]-[quantization]-MLC
- *
- * Quantization types:
- *   - q4f16_1: 4-bit weights, float16 activations (best balance)
- *   - q4f32_1: 4-bit weights, float32 activations (better quality, slower)
- *   - q0f16: Full precision weights, float16 (larger, faster)
+ * WebLLM model configs — sourced from model-registry.js (single source of truth).
+ * Re-exported for backward compatibility with any code importing MODEL_CONFIGS directly.
+ * @deprecated Import from model-registry.js instead.
  */
-export const MODEL_CONFIGS = {
-  // ===== LIGHTWEIGHT MODELS (< 1GB) =====
-  'llama-3.2-1b': {
-    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 1B',
-    size: '650MB',
-    vramRequired: '1.2GB',
-    description: 'Fast responses, good for simple tasks',
-    bestFor: ['summarization', 'quick-questions', 'text-simplification'],
-    avgSpeed: 'Fast (15-25 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'lightweight',
-  },
-  'gemma-2b': {
-    id: 'gemma-2b-it-q4f16_1-MLC',
-    name: 'Gemma 2B',
-    size: '1.6GB',
-    vramRequired: '2GB',
-    description: "Google's efficient small model",
-    bestFor: ['quick-tasks', 'chat', 'simple-reasoning'],
-    avgSpeed: 'Fast (15-20 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'lightweight',
-  },
-
-  // ===== BALANCED MODELS (1-3GB) =====
-  'llama-3.2-3b': {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 3B',
-    size: '1.9GB',
-    vramRequired: '2.5GB',
-    description: 'Better quality than 1B, still fast',
-    bestFor: ['general-purpose', 'writing', 'analysis'],
-    avgSpeed: 'Moderate (12-18 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'balanced',
-  },
-  'phi-3.5-mini': {
-    id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
-    name: 'Phi-3.5 Mini',
-    size: '2.3GB',
-    vramRequired: '3GB',
-    description: "Microsoft's efficient model, great for coding",
-    bestFor: ['conversation', 'tutoring', 'analysis', 'coding'],
-    avgSpeed: 'Moderate (10-18 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'balanced',
-  },
-  'qwen2.5-3b': {
-    id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 3B',
-    size: '1.9GB',
-    vramRequired: '2.5GB',
-    description: 'High quality reasoning and coding',
-    bestFor: ['complex-analysis', 'detailed-explanations', 'code-generation'],
-    avgSpeed: 'Moderate (12-20 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'balanced',
-  },
-
-  // ===== HIGH-QUALITY MODELS (4-6GB) =====
-  'mistral-7b': {
-    id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',
-    name: 'Mistral 7B',
-    size: '4.4GB',
-    vramRequired: '6GB',
-    description: 'Powerful general-purpose model',
-    bestFor: ['advanced-reasoning', 'creative-writing', 'complex-tasks'],
-    avgSpeed: 'Slower (6-12 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'high-quality',
-  },
-  'llama-3.1-8b': {
-    id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.1 8B',
-    size: '4.9GB',
-    vramRequired: '6.5GB',
-    description: "Meta's flagship model, excellent quality",
-    bestFor: ['advanced-analysis', 'research', 'complex-coding'],
-    avgSpeed: 'Slower (5-10 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'high-quality',
-  },
-  'gemma-7b': {
-    id: 'gemma-7b-it-q4f16_1-MLC',
-    name: 'Gemma 7B',
-    size: '4.3GB',
-    vramRequired: '5.5GB',
-    description: "Google's larger model, high performance",
-    bestFor: ['detailed-analysis', 'tutoring', 'research'],
-    avgSpeed: 'Slower (6-11 tok/s)',
-    quantization: 'q4f16_1',
-    category: 'high-quality',
-  },
-};
+export const MODEL_CONFIGS = REGISTRY.webllm.models;
 
 const DEFAULT_CONFIG = {
   defaultModel: 'llama-3.2-1b',

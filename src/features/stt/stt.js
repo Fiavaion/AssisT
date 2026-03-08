@@ -14,7 +14,7 @@
 import { isTextInput } from './validation.js';
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
-import { STTController } from '../../engines/stt/stt-controller.js';
+import { STTController } from '../../engines/stt/stt-controller-facade.js';
 import { MicrophoneButton } from '../../ui/components/microphone-button.js';
 
 // ============================================================

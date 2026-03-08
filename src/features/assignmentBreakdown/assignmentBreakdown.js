@@ -25,6 +25,7 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -43,17 +44,6 @@ const breakdown_settings = {
   includeStudyTips: true,
 };
 
-// Cloud model configurations
-const BREAKDOWN_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
-};
-
-// Default: use the user's global default (sonnet-4.6) — overridden by cloudModel in storage
-const BREAKDOWN_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
-
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
@@ -70,7 +60,7 @@ async function breakdown_getCurrentModel() {
     if (aiMode === 'local') {
       return 'local';
     } else if (aiMode === 'cloud') {
-      return result.cloudModel || BREAKDOWN_DEFAULT_CLOUD_MODEL;
+      return result.cloudModel || getFeatureDefault('anthropic', 'assignmentBreakdown');
     } else {
       return 'local';
     }
@@ -1383,7 +1373,7 @@ async function breakdown_analyze(text, modelKey = null) {
   const actionBtns = breakdown_panel?.querySelectorAll('.assist-breakdown-btn');
 
   const isCloud = modelKey !== 'local';
-  const modelName = BREAKDOWN_MODELS[modelKey]?.name || modelKey;
+  const modelName = getModelId('anthropic', modelKey);
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`

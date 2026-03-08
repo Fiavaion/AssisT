@@ -3317,155 +3317,17 @@ class PopupController {
 
           <!-- AI Tab -->
           <div id="tab-ai" class="tab-content">
-            <h3>Select your preferred AI provider</h3>
-            <p class="tab-description"></p>
-
-            <!-- AI Mode Selection -->
-            <div class="ai-section">
-              <div class="option-group">
-                <label class="option-group-label">AI Mode</label>
-                <div class="ai-mode-selector">
-                  <label class="ai-mode-option">
-                    <input type="radio" name="ai-mode" value="local" checked>
-                    <span class="ai-mode-label">Local AI (Ollama)</span>
-                  </label>
-                  <label class="ai-mode-option">
-                    <input type="radio" name="ai-mode" value="cloud">
-                    <span class="ai-mode-label">Cloud AI</span>
-                  </label>
-                </div>
-              </div>
+            <div style="text-align:center; padding:32px 16px 16px;">
+              <p style="font-size:2rem; margin-bottom:12px;" aria-hidden="true">✨</p>
+              <h3 style="margin-bottom:8px;">AI Setup</h3>
+              <p class="tab-description" style="margin-bottom:20px;">
+                Configure your AI mode, API keys, model preferences,
+                and personalisation from the dedicated AI Setup page.
+              </p>
+              <button id="btn-open-ai-setup-from-modal" class="modal-btn modal-btn-primary">
+                Open AI Setup →
+              </button>
             </div>
-
-            <!-- Cloud AI Provider (shown when cloud mode selected) -->
-            <section id="cloud-provider-section" class="ai-section hidden">
-              <div class="option-group">
-                <label for="cloud-provider" class="option-group-label">Cloud Provider</label>
-                <select id="cloud-provider" class="voice-select">
-                  <option value="anthropic">Anthropic (Claude)</option>
-                  <option value="openai">OpenAI (ChatGPT)</option>
-                  <option value="google">Google (Gemini)</option>
-                  <option value="perplexity">Perplexity AI</option>
-                </select>
-              </div>
-
-              <div class="option-group">
-                <label for="cloud-api-key" class="option-group-label">API Key</label>
-                <div class="input-group">
-                  <input
-                    type="password"
-                    id="cloud-api-key"
-                    class="api-key-input"
-                    placeholder="Enter your API key"
-                    autocomplete="off"
-                    spellcheck="false"
-                  />
-                  <button id="test-api-key" class="test-key-btn">Test Connection</button>
-                </div>
-                <div class="api-key-help">
-                  <span id="api-key-status" class="api-key-status-text"></span>
-                  Get your API key from:
-                  <a href="#" id="api-key-link" class="api-link" target="_blank">Provider Website</a>
-                </div>
-              </div>
-
-              <!-- Model Selection - hidden when no API key -->
-              <div id="cloud-model-section" class="option-group" style="display: none;">
-                <label for="cloud-model-select" class="option-group-label" id="model-selection-header">Model Selection</label>
-                <select id="cloud-model-select" class="voice-select">
-                  <!-- Populated dynamically from provider API or cache -->
-                </select>
-                <p class="feature-description" id="model-description">Select the model for all AI features</p>
-              </div>
-            </section>
-
-            <!-- Local AI Configuration (shown when local mode selected) -->
-            <section id="local-ai-section" class="ai-section">
-
-              <!-- Connection status -->
-              <div class="ollama-status-card" id="ollama-status">
-                <span class="status-dot"></span>
-                <span class="status-text">Checking...</span>
-              </div>
-
-              <!-- Active default model card (shown once connected) -->
-              <div class="default-model-card" id="active-model-info" style="display:none;">
-                <span class="default-model-label">Default Model</span>
-                <strong class="default-model-name" id="active-model-name">—</strong>
-              </div>
-
-              <!-- Model picker -->
-              <div class="option-group" style="margin-top:14px;">
-                <label class="option-group-label">
-                  Available Models
-                  <span class="label-hint">— double-click to set default</span>
-                </label>
-                <div id="local-model-list"
-                     class="local-model-list"
-                     role="listbox"
-                     tabindex="0"
-                     aria-label="Available local AI models">
-                  <!-- Populated dynamically -->
-                </div>
-                <button id="install-model" class="modal-btn modal-btn-secondary" style="margin-top:8px;">
-                  + Install New Model
-                </button>
-              </div>
-
-              <!-- Task overrides (optional) -->
-              <div class="option-group task-overrides-group" id="model-preferences-group">
-                <label class="option-group-label">
-                  Task Overrides
-                  <span class="label-hint">— optional</span>
-                </label>
-                <p class="task-overrides-hint">
-                  Leave on Auto to always use your default model. Override specific task types below.
-                </p>
-
-                <div class="model-preference-row">
-                  <label for="model-academic" class="model-pref-label">Academic</label>
-                  <select id="model-academic" class="voice-select model-pref-select">
-                    <option value="auto">Auto (use default)</option>
-                  </select>
-                </div>
-
-                <div class="model-preference-row">
-                  <label for="model-code" class="model-pref-label">Code</label>
-                  <select id="model-code" class="voice-select model-pref-select">
-                    <option value="auto">Auto (use default)</option>
-                  </select>
-                </div>
-
-                <div class="model-preference-row vision-override-row">
-                  <label class="model-pref-label">Vision</label>
-                  <div class="vision-auto-badge" role="status" aria-label="Vision always uses first available vision model">
-                    🔍 Always uses first available vision model (llava)
-                  </div>
-                </div>
-              </div>
-
-            </section>
-
-            <!-- Usage Statistics (for cloud mode) - hidden when no API key -->
-            <section id="usage-stats-section" class="ai-section hidden">
-              <div class="option-group">
-                <label class="option-group-label">Usage Statistics</label>
-                <div class="stats-grid">
-                  <div class="stat-row">
-                    <span class="stat-label">Requests:</span>
-                    <span class="stat-value" id="stat-requests">0</span>
-                  </div>
-                  <div class="stat-row">
-                    <span class="stat-label">Total Tokens:</span>
-                    <span class="stat-value" id="stat-tokens">0</span>
-                  </div>
-                </div>
-                <div class="stats-actions">
-                  <button id="export-stats-json" class="modal-btn modal-btn-secondary">📤 Export JSON</button>
-                  <button id="export-stats-csv" class="modal-btn modal-btn-secondary">📊 Export CSV</button>
-                </div>
-              </div>
-            </section>
           </div>
         </div>
 
@@ -3833,116 +3695,16 @@ class PopupController {
    * @param {HTMLElement} modal - The modal element
    */
   setupAITab(modal) {
-    console.log('[Popup] setupAITab called with modal:', modal);
-    // AI mode radio buttons
-    const localRadio = modal.querySelector('[name="ai-mode"][value="local"]');
-    const cloudRadio = modal.querySelector('[name="ai-mode"][value="cloud"]');
-    console.log('[Popup] AI mode radios found:', { localRadio, cloudRadio });
-    // Reserved for future use:
-    // const _cloudSection = modal.querySelector('#cloud-provider-section');
-    // const _localSection = modal.querySelector('#local-ai-section');
-    // const _usageSection = modal.querySelector('#usage-stats-section');
-
-    // Load current AI mode from storage
-    chrome.storage.local.get(['cloudModeEnabled'], result => {
-      const isCloud = result.cloudModeEnabled || false;
-      if (isCloud) {
-        cloudRadio.checked = true;
-        this.switchToCloudMode(modal);
-      } else {
-        localRadio.checked = true;
-        this.switchToLocalMode(modal);
-      }
-    });
-
-    // AI mode change handlers
-    localRadio.addEventListener('change', () => this.switchToLocalMode(modal));
-    cloudRadio.addEventListener('change', () => this.switchToCloudMode(modal));
-
-    // Cloud provider dropdown
-    const providerSelect = modal.querySelector('#cloud-provider');
-    console.log('[Popup] Cloud provider dropdown found:', providerSelect);
-    if (providerSelect) {
-      // Load saved provider
-      chrome.storage.local.get(['cloudProvider'], result => {
-        if (result.cloudProvider) {
-          providerSelect.value = result.cloudProvider;
-          this.updateCloudProviderUI(modal, result.cloudProvider);
-        } else {
-          // Default to Anthropic
-          this.updateCloudProviderUI(modal, 'anthropic');
-        }
-      });
-
-      providerSelect.addEventListener('change', e => {
-        console.log('[Popup] Cloud provider changed to:', e.target.value);
-        this.updateCloudProvider(modal, e.target.value);
-      });
-      console.log('[Popup] Cloud provider change listener attached');
-    } else {
-      console.warn('[Popup] Cloud provider dropdown NOT found in modal');
-    }
-
-    // Cloud model selection dropdown
-    const cloudModelSelect = modal.querySelector('#cloud-model-select');
-    console.log('[Popup] Cloud model dropdown found:', cloudModelSelect);
-    if (cloudModelSelect) {
-      // Load saved cloud model preference
-      chrome.storage.local.get(['cloudModel'], result => {
-        if (result.cloudModel) {
-          cloudModelSelect.value = result.cloudModel;
-        }
-      });
-
-      // Save cloud model selection
-      cloudModelSelect.addEventListener('change', e => {
-        console.log('[Popup] Cloud model changed to:', e.target.value);
-        chrome.storage.local.set({ cloudModel: e.target.value });
-      });
-      console.log('[Popup] Cloud model change listener attached');
-    } else {
-      console.warn('[Popup] Cloud model dropdown NOT found in modal');
-    }
-
-    // API key input - load saved key
-    const apiKeyInput = modal.querySelector('#cloud-api-key');
-    if (apiKeyInput) {
-      const provider = providerSelect?.value || 'anthropic';
-      this.loadApiKey(modal, provider);
-
-      // Save API key on change (using secure encrypted storage)
-      apiKeyInput.addEventListener('change', async () => {
-        const provider = modal.querySelector('#cloud-provider').value;
-        const { saveSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
-        const success = await saveSecureAPIKey(provider, apiKeyInput.value);
-        this.updateApiKeyStatus(
-          modal,
-          success ? 'Saved (encrypted)' : 'Save failed',
-          success ? 'success' : 'error'
-        );
+    // AI configuration has moved to the dedicated AI Setup page.
+    // Wire the redirect button.
+    const btn = modal.querySelector('#btn-open-ai-setup-from-modal');
+    if (btn) {
+      this.attachInteractiveHandler(btn, 'Open AI Setup From Modal', () => {
+        chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
+        // Close the advanced options modal
+        modal.remove();
       });
     }
-
-    // API key test button
-    const testBtn = modal.querySelector('#test-api-key');
-    if (testBtn) {
-      this.attachInteractiveHandler(testBtn, 'API Key Test Button', async () => {
-        const apiKeyInput = modal.querySelector('#cloud-api-key');
-        const provider = modal.querySelector('#cloud-provider').value;
-        await this.testAPIKey(provider, apiKeyInput.value, modal);
-      });
-    }
-
-    // Install model button
-    const installModelBtn = modal.querySelector('#install-model');
-    if (installModelBtn) {
-      this.attachInteractiveHandler(installModelBtn, 'Install Model Button', () => {
-        this.showInstallModelDialog();
-      });
-    }
-
-    // Initialize Ollama status check
-    this.checkOllamaStatus(modal);
   }
 
   /**
@@ -9646,7 +9408,105 @@ class PopupController {
    * Set up unified AI Assist section with radio toggles
    */
   setupAIAssist() {
-    // Cache DOM elements
+    // AI configuration has moved to the dedicated AI Setup page.
+    // This method now only renders the read-only status widget and wires the
+    // "Configure AI" button.
+
+    const MODE_META = {
+      off: { icon: '✨', label: 'AI Off', detail: 'No AI configured', dot: '#888', badge: 'Off' },
+      cloud: {
+        icon: '☁️',
+        label: 'Cloud AI',
+        detail: 'Using cloud AI provider',
+        dot: '#60a5fa',
+        badge: 'Cloud',
+      },
+      local: {
+        icon: '🤖',
+        label: 'Local AI',
+        detail: 'Checking Ollama…',
+        dot: '#34d399',
+        badge: 'Local',
+      },
+      webllm: {
+        icon: '🌐',
+        label: 'Browser AI',
+        detail: 'On-device via WebGPU',
+        dot: '#a78bfa',
+        badge: 'Browser AI',
+      },
+      'gemini-nano': {
+        icon: '💎',
+        label: 'Gemini Nano',
+        detail: 'Chrome on-device AI',
+        dot: '#f472b6',
+        badge: 'Gemini',
+      },
+    };
+
+    const updateWidget = mode => {
+      const meta = MODE_META[mode] || MODE_META.off;
+      const iconEl = document.getElementById('ai-status-icon');
+      const modeEl = document.getElementById('ai-status-mode');
+      const detailEl = document.getElementById('ai-status-detail');
+      const dotEl = document.getElementById('ai-health-dot');
+      const badgeEl = document.getElementById('llm-status-badge');
+      if (iconEl) {
+        iconEl.textContent = meta.icon;
+      }
+      if (modeEl) {
+        modeEl.textContent = meta.label;
+      }
+      if (detailEl) {
+        detailEl.textContent = meta.detail;
+      }
+      if (dotEl) {
+        dotEl.style.background = meta.dot;
+      }
+      if (badgeEl) {
+        badgeEl.textContent = meta.badge;
+        badgeEl.className = `llm-badge${mode === 'off' ? ' offline' : ' online'}`;
+      }
+    };
+
+    // Read current mode and render widget
+    chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
+      let mode = result.aiMode || 'off';
+      // Legacy migration
+      if (!result.aiMode) {
+        if (result.cloudModeEnabled) {
+          mode = 'cloud';
+        } else if (result.llmEnabled) {
+          mode = 'local';
+        }
+        chrome.storage.local.set({ aiMode: mode });
+      }
+      updateWidget(mode);
+    });
+
+    // "Configure AI" button → open the AI Setup page
+    const configBtn = document.getElementById('btn-configure-ai');
+    if (configBtn) {
+      this.attachInteractiveHandler(configBtn, 'Configure AI Button', () => {
+        chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
+      });
+    }
+
+    // Listen for storage changes so the widget stays in sync
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.aiMode) {
+        updateWidget(changes.aiMode.newValue || 'off');
+      }
+    });
+
+    console.log('[Popup] AI Assist status widget ready');
+
+    // ──────────────────────────────────────────────────────
+    // Legacy references kept as dead variables to avoid
+    // breaking calls to updateAIMode() / checkLLMStatus()
+    // elsewhere in popup.js. Those methods now only update
+    // the badge and send legacy compatibility messages.
+    // ──────────────────────────────────────────────────────
     const aiModeRadios = document.querySelectorAll('input[name="ai-mode"]');
     const btnCheckLLM = document.getElementById('btn-check-llm');
     const llmInstallProgress = document.getElementById('llm-install-progress');
@@ -9657,306 +9517,14 @@ class PopupController {
     // Track installed models
     this.installedModels = [];
 
-    // Get current AI mode from storage (migrate from old settings)
-    chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
-      let currentMode = result.aiMode || 'off';
-
-      // Migration: Convert old settings to new unified mode
-      if (!result.aiMode) {
-        if (result.cloudModeEnabled) {
-          currentMode = 'cloud';
-        } else if (result.llmEnabled || this.settings.localLLM.enabled) {
-          currentMode = 'local';
-        }
-        // Save migrated mode
-        chrome.storage.local.set({ aiMode: currentMode });
-      }
-
-      // Set initial radio button state
-      aiModeRadios.forEach(radio => {
-        if (radio.value === currentMode) {
-          radio.checked = true;
-        }
-      });
-
-      // Apply initial visibility
-      this.updateAIMode(currentMode);
-    });
-
-    // Radio button change handlers
-    aiModeRadios.forEach(radio => {
-      radio.addEventListener('change', e => {
-        if (e.target.checked) {
-          const mode = e.target.value;
-          chrome.storage.local.set({ aiMode: mode });
-          this.updateAIMode(mode);
-        }
-      });
-    });
-
-    // Refresh status button (legacy - may not exist in new UI)
-    if (btnCheckLLM) {
-      this.attachInteractiveHandler(btnCheckLLM, 'Check LLM Status Button', () => {
-        this.checkLLMStatus();
-      });
-    }
-
-    // VRAM Tier selector
-    const vramTierSelect = document.getElementById('vram-tier-select');
-    const vramTierDescription = document.getElementById('vram-tier-description');
-
-    // VRAM tier configurations
-    const VRAM_TIERS = {
-      auto: {
-        quality: 'Auto-detect',
-        models: 'Based on installed models',
-        preferredModel: null, // Use auto-detection
-      },
-      '2gb': {
-        quality: '15-30%',
-        models: 'phi3:mini, llama3.2',
-        preferredModel: 'phi3:mini',
-      },
-      '4gb': {
-        quality: '30-45%',
-        models: 'gemma3:4b, llama3.2, phi3:mini',
-        preferredModel: 'gemma3:4b',
-      },
-      '8gb': {
-        quality: '55-70%',
-        models: 'mistral:7b, qwen2.5:7b',
-        preferredModel: 'mistral:7b-instruct',
-      },
-      '12gb': {
-        quality: '65-75%',
-        models: 'llama3.1:8b, mixtral:8x7b',
-        preferredModel: 'llama3.1:8b',
-      },
-      '16gb': {
-        quality: '75-85%',
-        models: 'llama3.1:70b-q4, qwen2.5:14b',
-        preferredModel: 'qwen2.5:14b',
-      },
-      '24gb': {
-        quality: '85-92%',
-        models: 'llama3.1:70b, mixtral:8x22b',
-        preferredModel: 'llama3.1:70b',
-      },
-    };
-
-    // Update VRAM tier description
-    const updateVramDescription = tier => {
-      const config = VRAM_TIERS[tier];
-      if (config && vramTierDescription) {
-        vramTierDescription.innerHTML = sanitizeHTML(`
-          <span class="vram-quality">Quality: ${config.quality}</span>
-          <span class="vram-models">Models: ${config.models}</span>
-        `);
-      }
-    };
-
-    // Initialize VRAM tier from settings
-    if (vramTierSelect) {
-      const savedTier = this.settings.localLLM.vramTier || '8gb';
-      vramTierSelect.value = savedTier;
-      updateVramDescription(savedTier);
-
-      vramTierSelect.addEventListener('change', async e => {
-        const selectedTier = e.target.value;
-        this.settings.localLLM.vramTier = selectedTier;
-
-        // Update preferred model based on tier
-        const tierConfig = VRAM_TIERS[selectedTier];
-        if (tierConfig && tierConfig.preferredModel) {
-          this.settings.localLLM.preferredModel = tierConfig.preferredModel;
-        }
-
-        this.saveSettings();
-        updateVramDescription(selectedTier);
-
-        // Notify service worker of tier change
-        try {
-          await chrome.runtime.sendMessage({
-            action: 'SET_VRAM_TIER',
-            tier: selectedTier,
-            preferredModel: tierConfig?.preferredModel,
-          });
-          console.log(`[Popup] VRAM tier set to ${selectedTier}`);
-        } catch (error) {
-          console.warn('[Popup] Failed to notify service worker of tier change:', error);
-        }
-      });
-    }
-
-    // Model install buttons
-    document.querySelectorAll('.llm-install-btn').forEach(btn => {
-      this.attachInteractiveHandler(btn, 'LLM Install Button', async () => {
-        const modelName = btn.dataset.model;
-        if (btn.classList.contains('installed') || btn.classList.contains('installing')) {
-          return;
-        }
-
-        btn.classList.add('installing');
-        btn.textContent = 'Installing...';
-
-        // Show progress (legacy UI elements - may not exist)
-        if (llmInstallProgress) {
-          llmInstallProgress.classList.remove('hidden');
-        }
-        if (llmProgressModel) {
-          llmProgressModel.textContent = `Installing ${modelName}...`;
-        }
-        if (llmProgressPercent) {
-          llmProgressPercent.textContent = '0%';
-        }
-        if (llmProgressFill) {
-          llmProgressFill.style.width = '0%';
-        }
-
-        try {
-          const response = await chrome.runtime.sendMessage({
-            action: 'LOCAL_LLM_INSTALL_MODEL',
-            modelName: modelName,
-          });
-
-          if (response.success) {
-            btn.classList.remove('installing');
-            btn.classList.add('installed');
-            btn.textContent = 'Installed';
-            this.installedModels.push(modelName);
-            this.updateModelList();
-          } else {
-            throw new Error(response.error || 'Installation failed');
-          }
-        } catch (error) {
-          console.error('[Popup] Model install failed:', error);
-          btn.classList.remove('installing');
-          btn.textContent = 'Install';
-          // Show the actual error message (e.g., "Cannot connect to Ollama...")
-          const errorMsg = error.message || 'Installation failed';
-          this.updateStatus(errorMsg, 'error');
-        } finally {
-          if (llmInstallProgress) {
-            llmInstallProgress.classList.add('hidden');
-          }
-        }
-      });
-    });
-
-    // Listen for install progress updates (legacy UI)
-    chrome.runtime.onMessage.addListener((message, sender) => {
-      // SECURITY: Validate sender is from this extension
-      if (sender.id !== chrome.runtime.id) {
-        return;
-      }
-
-      if (message.type === 'LLM_INSTALL_PROGRESS') {
-        if (llmProgressModel) {
-          llmProgressModel.textContent = `Installing ${message.modelName}...`;
-        }
-        if (llmProgressPercent) {
-          llmProgressPercent.textContent = `${message.progress.percent}%`;
-        }
-        if (llmProgressFill) {
-          llmProgressFill.style.width = `${message.progress.percent}%`;
-        }
-      }
-    });
-
-    // Feature toggles
-    const featureToggles = {
-      'llm-feature-summarize': 'smartSummarization',
-      'llm-feature-simplify': 'textSimplification',
-      'llm-feature-tutor': 'socraticTutor',
-      'llm-feature-assignment': 'assignmentAnalyzer',
-      'llm-feature-prosody': 'emotionalProsody',
-      'llm-feature-vision': 'visionAnalysis',
-    };
-
-    Object.entries(featureToggles).forEach(([elementId, settingKey]) => {
-      const toggle = document.getElementById(elementId);
-      if (toggle) {
-        toggle.checked = this.settings.localLLM.features[settingKey] !== false;
-        toggle.addEventListener('change', e => {
-          this.settings.localLLM.features[settingKey] = e.target.checked;
-          this.saveSettings();
-        });
-      }
-    });
-
-    // Cognitive profile toggle
-    const cognitiveToggle = document.getElementById('llm-cognitive-enabled');
-    if (cognitiveToggle) {
-      cognitiveToggle.checked = this.settings.localLLM.features.cognitiveProfile !== false;
-      cognitiveToggle.addEventListener('change', e => {
-        this.settings.localLLM.features.cognitiveProfile = e.target.checked;
-        this.saveSettings();
-      });
-    }
-
-    // Profile persistence select
-    const persistenceSelect = document.getElementById('llm-profile-persistence');
-    if (persistenceSelect) {
-      persistenceSelect.value = this.settings.localLLM.cognitiveProfile?.persistence || '6months';
-      persistenceSelect.addEventListener('change', e => {
-        if (!this.settings.localLLM.cognitiveProfile) {
-          this.settings.localLLM.cognitiveProfile = {};
-        }
-        this.settings.localLLM.cognitiveProfile.persistence = e.target.value;
-        this.saveSettings();
-      });
-    }
-
-    // Export profile button
-    const btnExportProfile = document.getElementById('btn-export-profile');
-    if (btnExportProfile) {
-      this.attachInteractiveHandler(btnExportProfile, 'Export Profile Button', async () => {
-        try {
-          const exportData = {
-            version: '1.0',
-            timestamp: new Date().toISOString(),
-            cognitiveProfile: this.settings.localLLM.cognitiveProfile,
-            features: this.settings.localLLM.features,
-          };
-          const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-            type: 'application/json',
-          });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `assist-cognitive-profile-${Date.now()}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-          this.updateStatus('Profile exported', 'success');
-        } catch (error) {
-          console.error('[Popup] Export failed:', error);
-          this.updateStatus('Export failed', 'error');
-        }
-      });
-    }
-
-    // Clear profile button
-    const btnClearProfile = document.getElementById('btn-clear-profile');
-    if (btnClearProfile) {
-      this.attachInteractiveHandler(btnClearProfile, 'Clear Profile Button', () => {
-        if (confirm('Clear all cognitive profile data? This cannot be undone.')) {
-          this.settings.localLLM.cognitiveProfile = {
-            persistence: this.settings.localLLM.cognitiveProfile?.persistence || '6months',
-            lastCleared: Date.now(),
-            exportEnabled: true,
-          };
-          this.saveSettings();
-          this.updateStatus('Profile cleared', 'success');
-        }
-      });
-    }
-
-    // ========================================
-    // CLOUD AI SETUP (Export/Clear buttons)
-    // ========================================
-    // Usage tracking removed for Chrome Web Store compliance
-
-    console.log('[Popup] AI Assist setup complete');
+    // (legacy variables declared above are intentionally unused — kept to avoid
+    //  reference errors if other popup.js code still calls updateAIMode())
+    void aiModeRadios;
+    void btnCheckLLM;
+    void llmInstallProgress;
+    void llmProgressModel;
+    void llmProgressPercent;
+    void llmProgressFill;
   }
 
   /**

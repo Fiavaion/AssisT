@@ -18,6 +18,7 @@ import {
   getSecureAPIKey as getApiKey,
   hasSecureAPIKey as hasApiKey,
 } from '../core/storage/secure-key-storage.js';
+import { REGISTRY } from './model-registry.js';
 
 // Anthropic API endpoint
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -26,58 +27,17 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 /**
- * Claude Model Configurations
- * Internal key → actual API model ID mapping
- * Used by features that reference models by short key (e.g., 'sonnet-4.6')
- *
- * Canonical model IDs (per CLAUDE.md):
- *   Haiku 4.5: claude-haiku-4-5-20251001
- *   Sonnet 4.6: claude-sonnet-4-6
- *   Opus 4.6:   claude-opus-4-6
+ * Claude model configs — sourced from model-registry.js (single source of truth).
+ * Re-exported for any existing code that still imports CLOUD_MODELS directly.
+ * @deprecated Import from model-registry.js instead.
  */
-export const CLOUD_MODELS = {
-  local: {
-    id: 'local',
-    name: 'Local (Ollama)',
-    description: 'Offline processing with local AI',
-    isLocal: true,
-  },
-  'haiku-4.5': {
-    id: 'claude-haiku-4-5-20251001',
-    name: 'Haiku (Fast)',
-    description: 'Fast and economical',
-    avgCost: 0.001,
-    outputCost: 0.005,
-  },
-  'sonnet-4.6': {
-    id: 'claude-sonnet-4-6',
-    name: 'Sonnet (Recommended)',
-    description: 'Best for everyday tasks',
-    avgCost: 0.003,
-    outputCost: 0.015,
-  },
-  'opus-4.6': {
-    id: 'claude-opus-4-6',
-    name: 'Opus (Most Capable)',
-    description: 'Most capable for complex work',
-    avgCost: 0.015,
-    outputCost: 0.075,
-  },
-};
+export const CLOUD_MODELS = REGISTRY.anthropic.models;
 
 /**
- * Feature-specific default model mappings
+ * Feature-specific default model mappings — sourced from model-registry.js.
+ * @deprecated Import getFeatureDefault() from model-registry.js instead.
  */
-export const FEATURE_DEFAULT_MODELS = {
-  summarization: 'haiku-4.5',
-  textSimplification: 'sonnet-4.6',
-  assignmentBreakdown: 'sonnet-4.6',
-  citationAnalyzer: 'sonnet-4.6',
-  socraticTutor: 'opus-4.6',
-  imageUnderstanding: 'sonnet-4.6',
-  studyPathGenerator: 'sonnet-4.6',
-  multiDocCompare: 'opus-4.6',
-};
+export const FEATURE_DEFAULT_MODELS = REGISTRY.anthropic.featureDefaults;
 
 /**
  * Default generation options

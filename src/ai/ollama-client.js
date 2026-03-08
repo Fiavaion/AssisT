@@ -11,38 +11,10 @@
  * @module ai/ollama-client
  */
 
-// Model configurations with recommended use cases
-const MODEL_CONFIGS = {
-  'phi3:mini': {
-    name: 'Phi-3 Mini',
-    size: '3.8B',
-    description: 'Fast responses for real-time tasks',
-    bestFor: ['state-detection', 'quick-responses', 'simple-queries'],
-    avgResponseTime: 500, // ms estimate
-  },
-  'llama3.2': {
-    name: 'Llama 3.2',
-    size: '8B',
-    description: 'Balanced performance for most tasks',
-    bestFor: ['conversation', 'summaries', 'analysis', 'tutoring'],
-    avgResponseTime: 1500,
-  },
-  mistral: {
-    name: 'Mistral 7B',
-    size: '7B',
-    description: 'Excellent instruction following',
-    bestFor: ['complex-analysis', 'writing-help', 'detailed-explanations'],
-    avgResponseTime: 1200,
-  },
-  llava: {
-    name: 'LLaVA',
-    size: '7B',
-    description: 'Vision + Language model',
-    bestFor: ['image-description', 'page-analysis', 'visual-understanding'],
-    avgResponseTime: 2000,
-    isVision: true,
-  },
-};
+// Model configurations — sourced from model-registry.js (single source of truth)
+import { REGISTRY } from './model-registry.js';
+
+const MODEL_CONFIGS = REGISTRY.ollama.models;
 
 // Default configuration
 const DEFAULT_CONFIG = {

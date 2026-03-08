@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-03-01
-**Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, LLM Edition Layer 2)
-**Current Phase**: Phase 2 Extension - Bug Fixes & Testing
+**Last Updated**: 2026-03-08
+**Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, AI Overhaul Edition)
+**Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
-**Current Branch**: ui-overhaul (UI Overhaul - Feature Cleanup)
-**Session**: Phase 2 Session 087 (Bug #30 Fix & STT Default Visibility)
+**Current Branch**: beta_CWS
+**Session**: Phase 2 Session 089 (AI Overhaul & Setup Wizard)
 
 ---
 
@@ -47,6 +47,37 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 089 (2026-03-08)
+
+**AI Overhaul & Setup Wizard**
+
+**Key Accomplishments**:
+
+1. **Model Registry** (`src/ai/model-registry.js`): Single source of truth replacing 12+ duplicated model config blocks across all feature files and AI clients.
+2. **nano-client.js**: Renamed `gemini-client.js` → `nano-client.js` to clarify Chrome on-device Nano vs Google REST API.
+3. **STT Controller Facade**: `src/engines/stt/stt-controller-facade.js` — thin re-export for safe future migration.
+4. **Service Worker**: Added `OPEN_AI_SETUP`, `SYSTEM_ASSESS_OLLAMA` actions; first-install now auto-opens AI Setup.
+5. **AI Setup Wizard** (`src/pages/ai-setup/`): 8-screen standalone page — auto-detects WebGPU/Ollama/Nano, recommends AI mode, guides setup, needs assessment, live AI test, feature recommendations.
+6. **Popup AI status widget**: Compact read-only widget (mode icon + label + health dot + "Configure AI" button) replacing ~190 lines of radio/container UI.
+7. **Advanced Options AI tab**: Replaced full cloud/local config form with a single "Open AI Setup →" redirect button.
+
+**Files**: 8 created, 18 modified, 1 deleted | Build: ✅ clean
+
+---
+
+### Phase 2 Session 088 (2026-03-08)
+
+**Project Transfer & WebLLM Bug Fixes**
+
+**Key Accomplishments**:
+
+1. **WebLLM CSP Fix**: Added `'wasm-unsafe-eval'` to `manifest.json` CSP. WebAssembly (required by WebLLM) was being blocked by the extension's Content Security Policy. Models now load correctly.
+2. **WebLLM Quick Actions Fix**: `highlightMenu.js` did not recognise `webllm` as a valid AI mode — the `aiEnabled` check and storage listeners only covered `local`, `cloud`, and `gemini`. Added `webllmEnabled` in 3 places. AI buttons now appear in the highlight popup when Browser AI mode is selected.
+3. **Lint Errors Cleared**: 2 errors fixed (optional catch binding, missing curly braces). Build and lint both pass clean.
+4. **Ollama CORS Confirmed**: `OLLAMA_ORIGINS=*` is a persistent Windows User env var — Ollama is always CORS-enabled without needing `start-ollama-cors.bat`.
+
+**Commits**: `02f0861`, `a9d291f`
 
 ### Phase 2 Session 087 (2026-03-01)
 

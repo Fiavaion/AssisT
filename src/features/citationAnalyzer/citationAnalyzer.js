@@ -24,6 +24,7 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -41,17 +42,6 @@ const citation_settings = {
   autoDetectLinks: true,
 };
 
-// Cloud model configurations
-const CITATION_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
-};
-
-// Default: use the user's global default (sonnet-4.6) — overridden by cloudModel in storage
-const CITATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
-
 /**
  * Get the current model from global AI settings
  * @returns {Promise<string>} Model key ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
@@ -64,7 +54,7 @@ async function citation_getCurrentModel() {
     if (aiMode === 'local') {
       return 'local';
     } else if (aiMode === 'cloud') {
-      return result.cloudModel || CITATION_DEFAULT_CLOUD_MODEL;
+      return result.cloudModel || getFeatureDefault('anthropic', 'citationAnalyzer');
     } else {
       return 'local';
     }
@@ -1322,7 +1312,7 @@ async function citation_runAnalysis(text, context = {}, modelKey = null) {
   const actionBtns = citation_panel?.querySelectorAll('.assist-citation-btn');
 
   const isCloud = modelKey !== 'local';
-  const modelName = CITATION_MODELS[modelKey]?.name || modelKey;
+  const modelName = getModelId('anthropic', modelKey);
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`

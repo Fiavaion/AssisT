@@ -22,6 +22,7 @@
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -36,16 +37,6 @@ const emotionalTTS_settings = {
   intensityLevel: 'moderate', // 'subtle' | 'moderate' | 'expressive'
 };
 
-// Cloud model configurations
-const EMOTIONALTTS_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
-};
-
-const EMOTIONALTTS_DEFAULT_CLOUD_MODEL = 'haiku-4.5'; // Fast model for quick emotion detection
-
 /**
  * Get the current AI mode setting
  * @returns {Promise<{aiMode: string, modelKey: string}>}
@@ -58,7 +49,10 @@ async function emotionalTTS_getCurrentModel() {
     if (aiMode === 'local') {
       return { aiMode: 'local', modelKey: 'local' };
     } else if (aiMode === 'cloud') {
-      return { aiMode: 'cloud', modelKey: result.cloudModel || EMOTIONALTTS_DEFAULT_CLOUD_MODEL };
+      return {
+        aiMode: 'cloud',
+        modelKey: result.cloudModel || getFeatureDefault('anthropic', 'emotionalTTS'),
+      };
     } else {
       return { aiMode: 'local', modelKey: 'local' };
     }
@@ -231,7 +225,7 @@ Text: "${text.substring(0, 500)}"
 Emotion:`;
 
   // Look up the actual model ID from the models constant
-  const modelId = EMOTIONALTTS_MODELS[modelKey]?.id || modelKey;
+  const modelId = getModelId('anthropic', modelKey);
 
   try {
     const response = await chrome.runtime.sendMessage({

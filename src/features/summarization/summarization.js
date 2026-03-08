@@ -23,6 +23,7 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -38,17 +39,6 @@ const summarization_settings = {
   defaultLevel: 'brief', // 'brief' | 'moderate' | 'detailed'
   showInHighlightMenu: true,
 };
-
-// Cloud model configurations (local copy for bundling)
-const SUMMARIZATION_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
-};
-
-// Default: use the user's global default (sonnet-4.6) — overridden by cloudModel in storage
-const SUMMARIZATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
@@ -83,7 +73,7 @@ async function summarization_getCurrentModel() {
       return 'local';
     } else if (aiMode === 'cloud') {
       // Return the global cloud model setting from Advanced Options
-      return result.cloudModel || SUMMARIZATION_DEFAULT_CLOUD_MODEL;
+      return result.cloudModel || getFeatureDefault('anthropic', 'summarization');
     } else if (aiMode === 'gemini') {
       return 'gemini';
     } else if (aiMode === 'webllm') {
@@ -940,9 +930,7 @@ async function summarization_summarize(text, level = 'brief') {
   const statusBar = summarization_panel?.querySelector('.assist-summary-status');
   const actionBtns = summarization_panel?.querySelectorAll('.assist-summary-btn');
 
-  const modelName = isCloudModel
-    ? SUMMARIZATION_MODELS[selectedModel]?.name || selectedModel
-    : 'Local AI';
+  const modelName = isCloudModel ? getModelId('anthropic', selectedModel) : 'Local AI';
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`
