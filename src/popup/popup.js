@@ -10204,6 +10204,7 @@ class PopupController {
    * @param {boolean} isModal
    */
   async _renderLocalPanel(container, _isModal) {
+    // Status row
     const card = document.createElement('div');
     card.className = 'ai-panel-row';
 
@@ -10223,15 +10224,55 @@ class PopupController {
     card.appendChild(checkBtn);
     container.appendChild(card);
 
+    // Model selector row
+    const modelRow = document.createElement('div');
+    modelRow.className = 'ai-panel-row';
+    const modelLabel = document.createElement('span');
+    modelLabel.className = 'ai-panel-label';
+    modelLabel.textContent = 'Model';
+    const modelSel = document.createElement('select');
+    modelSel.className = 'ai-panel-select';
+    modelSel.setAttribute('aria-label', 'Ollama model');
+    modelSel.style.flex = '1';
+    modelRow.appendChild(modelLabel);
+    modelRow.appendChild(modelSel);
+    container.appendChild(modelRow);
+
+    const { ollamaModel: savedModel = '' } = await chrome.storage.local.get('ollamaModel');
+
+    const populateModels = detectedModels => {
+      modelSel.innerHTML = '';
+      const models =
+        detectedModels && detectedModels.length > 0
+          ? detectedModels
+          : ['llama3.2', 'phi3:mini', 'mistral', 'llava'];
+      models.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        opt.selected = name === (savedModel || models[0]);
+        modelSel.appendChild(opt);
+      });
+      // Persist initial selection if nothing saved yet
+      if (!savedModel && models.length > 0) {
+        chrome.storage.local.set({ ollamaModel: models[0] });
+      }
+    };
+
+    modelSel.addEventListener('change', () => {
+      chrome.storage.local.set({ ollamaModel: modelSel.value });
+    });
+
     const checkOllama = async () => {
       statusText.textContent = 'Checking…';
       dot.className = 'ai-status-dot';
       try {
         const r = await chrome.runtime.sendMessage({ action: 'LOCAL_LLM_CHECK' });
         if (r?.success && r?.available) {
-          const model = (r.models && r.models[0]) || 'Ollama';
           dot.className = 'ai-status-dot online';
-          statusText.textContent = `Online — ${model}`;
+          const models = r.models || [];
+          statusText.textContent = `Online — ${models.length} model${models.length !== 1 ? 's' : ''} available`;
+          populateModels(models);
           // Update header badge
           const badge = document.getElementById('llm-status-badge');
           if (badge) {
@@ -10241,6 +10282,7 @@ class PopupController {
         } else {
           dot.className = 'ai-status-dot offline';
           statusText.textContent = 'Offline — start Ollama to use Local AI';
+          populateModels([]);
           const badge = document.getElementById('llm-status-badge');
           if (badge) {
             badge.textContent = 'Offline';
@@ -10250,6 +10292,7 @@ class PopupController {
       } catch {
         dot.className = 'ai-status-dot offline';
         statusText.textContent = 'Could not reach Ollama';
+        populateModels([]);
       }
     };
 

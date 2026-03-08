@@ -120,12 +120,6 @@ RULES:
         const parsed = JSON.parse(jsonStr);
 
         if (parsed && Array.isArray(parsed.questions)) {
-          // Ensure each question has a hint — use type-specific fallbacks if missing
-          parsed.questions.forEach(q => {
-            if (!q.hint) {
-              q.hint = hintFallbackByType(q.type);
-            }
-          });
           console.log('[SocraticTutor] JSON parsed successfully');
           return { questions: parsed };
         }
@@ -153,7 +147,7 @@ RULES:
 /**
  * Return a type-specific hint when the LLM omits one
  */
-function hintFallbackByType(type) {
+function _hintFallbackByType(type) {
   const hints = {
     comprehension: 'Look for the central concept or argument being made.',
     analysis: 'Try breaking down the information into smaller pieces.',
@@ -161,6 +155,29 @@ function hintFallbackByType(type) {
     evaluation: 'Consider what information might be missing or unclear.',
   };
   return hints[type] || 'Re-read the relevant section carefully.';
+}
+
+/** Set of all canned/fallback hint strings — hints matching these are not shown */
+const CANNED_HINTS = new Set([
+  'Look for the central concept or argument being made.',
+  'Try breaking down the information into smaller pieces.',
+  'Think about similar concepts or real-world examples.',
+  'Consider what information might be missing or unclear.',
+  'Re-read the relevant section carefully.',
+]);
+
+/**
+ * Returns true if the hint is a genuine AI-generated hint worth showing.
+ * Rejects canned fallbacks and hints that are too short or generic.
+ */
+function isUsefulHint(hint) {
+  if (!hint || hint.trim().length < 15) {
+    return false;
+  }
+  if (CANNED_HINTS.has(hint.trim())) {
+    return false;
+  }
+  return true;
 }
 
 // ============================================================================
@@ -579,19 +596,27 @@ async function tutor_renderResult(result, isAI, isCloud = false, modelName = '')
         evaluation: '⚖️ Evaluation',
       };
 
+      const hintText = q.hint || '';
+      const showHintButton = isUsefulHint(hintText);
+
       html += `
         <div class="assist-tutor-question" data-index="${i}">
           <div class="assist-tutor-question-type">${typeLabels[q.type] || q.type}</div>
           <div class="assist-tutor-question-text">${escapeHtml(q.question)}</div>
+          ${
+            showHintButton
+              ? `
           <div class="assist-tutor-hint" id="hint-${i}">
-            💡 <strong>Hint:</strong> ${escapeHtml(q.hint || hintFallbackByType(q.type))}
+            💡 <strong>Hint:</strong> ${escapeHtml(hintText)}
           </div>
           <div class="assist-tutor-followup" id="followup-${i}">
             ➡️ <strong>Go deeper:</strong> ${escapeHtml(q.followUp || '')}
           </div>
           <button class="assist-tutor-hint-btn" data-hint-index="${i}">
             Show Hint
-          </button>
+          </button>`
+              : ''
+          }
         </div>
       `;
     }

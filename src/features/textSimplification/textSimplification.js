@@ -256,7 +256,7 @@ IMPROVED VERSION:`,
     }
 
     if (response && response.success) {
-      const simplified = response.data;
+      let simplified = response.data;
       console.log('[TextSimplification] AI Response:', {
         level,
         model: isCloud ? modelKey : 'local',
@@ -270,6 +270,18 @@ IMPROVED VERSION:`,
         console.warn('[TextSimplification] AI returned empty response for level:', level);
         throw new Error(`AI returned empty response for ${level} mode`);
       }
+
+      // Strip conversational follow-up questions the model sometimes appends
+      // e.g. "Would you like me to simplify any specific part further?"
+      simplified = simplified
+        .replace(/\n+[\s\S]*\?[\s]*$/m, s => {
+          // Only strip if the last paragraph/sentence is a question
+          const lines = s.trim().split('\n');
+          const lastLine = lines[lines.length - 1].trim();
+          return lastLine.endsWith('?') ? '' : s;
+        })
+        .replace(/---\s*\n[\s\S]*$/, '') // strip "---" divider + anything after
+        .trim();
 
       return { simplified, isCloud };
     }

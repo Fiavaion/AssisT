@@ -697,6 +697,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
 
+        // Use user's preferred Ollama model if no model specified
+        if (!options.model) {
+          const stored = await chrome.storage.local.get('ollamaModel');
+          if (stored.ollamaModel) {
+            options = { ...options, model: stored.ollamaModel };
+          }
+        }
+
         const result = await ollamaGenerate(message.prompt, options);
         sendResponse({ success: true, data: result });
       } catch (error) {
@@ -1313,41 +1321,50 @@ const MODEL_OPTIMIZATION_PROFILES = {
 const TASK_OPTIMAL_MODELS = {
   // Speed-critical tasks → smaller, faster models
   summarization: {
-    priority: ['llama3.2', 'llama3.2:3b', 'phi3:mini', 'gemma3:4b'],
+    priority: ['llama3.2:3b', 'llama3.2', 'phi3:mini', 'gemma3:4b'],
     reason: 'Summarization benefits from fast inference; quality differences minimal',
   },
-  // Formatting tasks → Gemma excels at structured output
+  // Formatting tasks → structured output
   assignmentBreakdown: {
-    priority: ['gemma3:4b', 'gemma3', 'mistral:7b-instruct', 'qwen2.5:7b'],
-    reason: 'Gemma produces better structured, formatted output',
+    priority: ['qwen3:8b-q4_K_M', 'gemma3:4b', 'mistral:7b-instruct'],
+    reason: 'Qwen3 and Gemma produce reliable structured output',
   },
   textSimplification: {
     basic: {
-      priority: ['llama3.2', 'phi3:mini', 'gemma3:4b'],
+      priority: ['llama3.2:3b', 'phi3:mini', 'gemma3:4b'],
       reason: 'Basic simplification needs speed over complexity',
     },
     moderate: {
-      priority: ['gemma3:4b', 'mistral:7b-instruct', 'qwen2.5:7b'],
+      priority: ['gemma3:4b', 'qwen3:8b-q4_K_M', 'mistral:7b-instruct'],
       reason: 'Moderate simplification needs balanced capability',
     },
     academic: {
-      priority: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b'],
-      reason: 'Academic simplification needs reasoning + vocabulary',
+      priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
+      reason: 'Academic simplification needs strong reasoning + vocabulary',
     },
   },
-  // Reasoning-heavy tasks → Mistral excels
+  // Structured JSON extraction → Qwen3 has best JSON compliance at 8B
+  knowledgeGraph: {
+    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
+    reason: 'Knowledge graph needs strict JSON output and entity classification',
+  },
+  // Reasoning-heavy tasks → Qwen3 excels
   socraticTutor: {
-    priority: ['mistral:7b-instruct', 'mistral:7b', 'qwen2.5:7b', 'gemma3:4b'],
+    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
     reason: 'Socratic questioning requires strong reasoning/pedagogy',
   },
   citationAnalyzer: {
-    priority: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2'],
+    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
     reason: 'Citation analysis requires analytical reasoning',
+  },
+  studyPathGenerator: {
+    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
+    reason: 'Study path generation needs structured planning capability',
   },
   // Default fallback
   default: {
-    priority: ['gemma3:4b', 'mistral:7b-instruct', 'llama3.2', 'phi3:mini'],
-    reason: 'Balanced default for unknown tasks',
+    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b', 'llama3.2:3b'],
+    reason: 'Qwen3 as primary default for best instruction following',
   },
 };
 
@@ -1493,8 +1510,8 @@ chrome.storage.local.get('modelPreferences', result => {
 
 const VRAM_TIER_MODELS = {
   auto: {
-    default: 'mistral:7b-instruct',
-    fallback: ['mistral:7b-instruct', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b', 'phi3:mini'],
+    default: 'qwen3:8b-q4_K_M',
+    fallback: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b', 'llama3.2:3b', 'phi3:mini'],
   },
   '2gb': {
     default: 'phi3:mini',
@@ -1505,8 +1522,8 @@ const VRAM_TIER_MODELS = {
     fallback: ['gemma3:4b', 'qwen3:4b', 'llama3.2:3b', 'llama3.2', 'phi3:mini'],
   },
   '8gb': {
-    default: 'mistral:7b-instruct',
-    fallback: ['mistral:7b-instruct', 'mistral:7b', 'qwen2.5:7b', 'gemma3:4b', 'llama3.2:3b'],
+    default: 'qwen3:8b-q4_K_M',
+    fallback: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'mistral:7b', 'gemma3:4b', 'llama3.2:3b'],
   },
   '12gb': {
     default: 'llama3.1:8b',
