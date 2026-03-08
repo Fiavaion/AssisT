@@ -51,6 +51,7 @@ const highlightMenu_settings = {
   // AI mode states - loaded from storage on init
   llmEnabled: false, // Local AI (Ollama) enabled
   cloudModeEnabled: false, // Cloud AI enabled
+  webllmEnabled: false, // Browser AI (WebLLM) enabled
 };
 
 // ============================================================================
@@ -340,11 +341,12 @@ function highlightMenu_createToolbar() {
     });
   }
 
-  // Row 2: AI tools part 1 (5 buttons) - Show if Local AI, Cloud AI, OR Gemini Nano is enabled
+  // Row 2: AI tools part 1 (5 buttons) - Show if Local AI, Cloud AI, Gemini Nano, OR Browser AI is enabled
   const aiEnabled =
     highlightMenu_settings.llmEnabled ||
     highlightMenu_settings.cloudModeEnabled ||
-    highlightMenu_settings.geminiEnabled;
+    highlightMenu_settings.geminiEnabled ||
+    highlightMenu_settings.webllmEnabled;
   if (aiEnabled && highlightMenu_settings.showSummarize) {
     allButtons.push({
       icon: '✨',
@@ -1008,7 +1010,14 @@ function highlightMenu_init() {
 
   // Load settings from chrome.storage
   chrome.storage.local.get(
-    ['highlightMenuSettings', 'aiMode', 'llmEnabled', 'cloudModeEnabled', 'geminiEnabled'],
+    [
+      'highlightMenuSettings',
+      'aiMode',
+      'llmEnabled',
+      'cloudModeEnabled',
+      'geminiEnabled',
+      'webllmEnabled',
+    ],
     result => {
       if (result.highlightMenuSettings) {
         Object.assign(highlightMenu_settings, result.highlightMenuSettings);
@@ -1028,6 +1037,8 @@ function highlightMenu_init() {
         (result.cloudModeEnabled !== undefined ? result.cloudModeEnabled : false);
       highlightMenu_settings.geminiEnabled =
         aiMode === 'gemini' || (result.geminiEnabled !== undefined ? result.geminiEnabled : false);
+      highlightMenu_settings.webllmEnabled =
+        aiMode === 'webllm' || (result.webllmEnabled !== undefined ? result.webllmEnabled : false);
 
       console.log(
         '[HighlightMenu] AI mode:',
@@ -1083,6 +1094,7 @@ function highlightMenu_init() {
         highlightMenu_settings.llmEnabled = newMode === 'local';
         highlightMenu_settings.cloudModeEnabled = newMode === 'cloud';
         highlightMenu_settings.geminiEnabled = newMode === 'gemini';
+        highlightMenu_settings.webllmEnabled = newMode === 'webllm';
 
         // Hide current toolbar so it gets recreated with new AI button visibility on next text selection
         if (highlightMenu_toolbar) {
