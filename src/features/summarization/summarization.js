@@ -23,7 +23,13 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getSuccessStatusMessage,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -42,189 +48,8 @@ const summarization_settings = {
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
+// (Routing delegated to shared/ai-feature-client.js)
 // ============================================================================
-
-/**
- * Check if cloud mode is enabled
- * @returns {Promise<boolean>}
- * Reserved for future use
- */
-/*
-async function _summarization_isCloudEnabled() {
-  try {
-    const result = await chrome.storage.local.get(['cloudModeEnabled']);
-    return result.cloudModeEnabled === true;
-  } catch {
-    return false;
-  }
-}
-*/
-
-/**
- * Get the current model from global settings
- * @returns {Promise<string>} Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- */
-async function summarization_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel', 'webllmModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return 'local';
-    } else if (aiMode === 'cloud') {
-      // Return the global cloud model setting from Advanced Options
-      return result.cloudModel || getFeatureDefault('anthropic', 'summarization');
-    } else if (aiMode === 'gemini') {
-      return 'gemini';
-    } else if (aiMode === 'webllm') {
-      return result.webllmModel || 'llama-3.2-1b';
-    } else {
-      // AI is off - default to local
-      return 'local';
-    }
-  } catch (error) {
-    console.warn('[Summarization] Failed to get current model:', error);
-    return 'local';
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function summarization_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if local LLM is available
- * @returns {Promise<{available: boolean, models: string[]}>}
- */
-async function summarization_checkLLM() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-
-    if (response && response.success) {
-      return {
-        available: response.available || false,
-        models: response.models || [],
-      };
-    }
-    return { available: false, models: [] };
-  } catch (error) {
-    console.warn('[Summarization] LLM check failed:', error);
-    return { available: false, models: [] };
-  }
-}
-
-/**
- * Generate summary using local LLM or cloud model
- * @param {string} text - Text to summarize
- * @param {string} level - Summary level: 'brief' | 'moderate' | 'detailed'
- * @param {string} modelKey - Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5')
- * @returns {Promise<{summary: string, isCloud: boolean}>} The generated summary
- */
-async function summarization_generate(text, level = 'brief', modelKey = 'local') {
-  const levelPrompts = {
-    brief: 'Summarize in 1-2 sentences, capturing only the main point:',
-    moderate: 'Summarize the key points in a short paragraph (3-4 sentences):',
-    detailed:
-      'Provide a comprehensive summary with main points and supporting details (5-7 sentences):',
-  };
-
-  const prompt = `${levelPrompts[level] || levelPrompts.brief}
-
-${text}
-
-Summary:`;
-
-  const maxTokens = level === 'detailed' ? 1500 : level === 'moderate' ? 800 : 400;
-  const isWebLLM =
-    modelKey.startsWith('llama-') || modelKey.startsWith('phi-') || modelKey.startsWith('qwen');
-  const isGemini = modelKey === 'gemini';
-  const isCloud = modelKey !== 'local' && modelKey !== 'gemini' && !isWebLLM;
-
-  try {
-    let response;
-
-    if (isGemini) {
-      // Use Gemini Nano (Chrome Prompt API)
-      response = await chrome.runtime.sendMessage({
-        action: 'GEMINI_LLM_REQUEST',
-        prompt,
-        options: {
-          temperature: 0.7,
-          topK: 40,
-        },
-      });
-
-      if (response && response.success) {
-        return { summary: response.text, isCloud: false, isGemini: true };
-      }
-    } else if (isWebLLM) {
-      // Use WebLLM (Browser AI)
-      response = await chrome.runtime.sendMessage({
-        action: 'WEBLLM_GENERATE',
-        prompt,
-        options: {
-          maxTokens,
-          temperature: 0.5,
-        },
-      });
-
-      if (response && response.success) {
-        return { summary: response.data, isCloud: false, isWebLLM: true };
-      } else if (response && response.requiresInit) {
-        throw new Error('WebLLM model not initialized. Please select a model in AI settings.');
-      }
-    } else if (isCloud) {
-      // Use cloud model (Claude API)
-      response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_LLM_GENERATE',
-        prompt,
-        options: {
-          model: modelKey,
-          maxTokens,
-          temperature: 0.5,
-          feature: 'summarization',
-        },
-      });
-
-      if (response && response.success) {
-        return { summary: response.data, isCloud: true };
-      }
-    } else {
-      // Use local model (Ollama)
-      response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_GENERATE',
-        prompt,
-        taskType: 'summarization',
-        options: {
-          maxTokens,
-          temperature: 0.5,
-        },
-      });
-
-      if (response && response.success) {
-        return { summary: response.data, isCloud: false };
-      }
-    }
-
-    throw new Error(response?.error || 'Generation failed');
-  } catch (error) {
-    console.error('[Summarization] Generation failed:', error);
-    throw error;
-  }
-}
 
 // ============================================================================
 // FALLBACK SUMMARIZATION (No LLM)
@@ -564,6 +389,10 @@ function summarization_injectStyles() {
     .assist-summary-status.error {
       background: #fff3e0;
       color: #e65100;
+    }
+
+    .assist-summary-status[style*="pointer"]:hover {
+      text-decoration: underline;
     }
 
     .assist-summary-status.success {
@@ -909,6 +738,32 @@ function summarization_handleKeydown(e) {
 }
 
 /**
+ * Set the status bar for an unavailable AI mode.
+ * When the model just needs loading (needsWebLLMInit), makes the bar clickable
+ * so the user can jump straight to the AI setup wizard.
+ */
+function summarization_setStatusBar(statusBar, availability) {
+  statusBar.className = 'assist-summary-status visible';
+  if (availability.needsWebLLMInit) {
+    statusBar.style.cursor = 'pointer';
+    statusBar.title = 'Open AI settings';
+    statusBar.textContent = getUnavailableStatusMessage(availability);
+    const handler = () => {
+      chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
+    };
+    statusBar.removeEventListener('click', statusBar._aiClickHandler);
+    statusBar._aiClickHandler = handler;
+    statusBar.addEventListener('click', handler);
+  } else {
+    statusBar.style.cursor = '';
+    statusBar.title = '';
+    statusBar.textContent = getUnavailableStatusMessage(availability);
+    statusBar.removeEventListener('click', statusBar._aiClickHandler);
+    statusBar._aiClickHandler = null;
+  }
+}
+
+/**
  * Summarize text and update panel
  * @param {string} text - Text to summarize
  * @param {string} level - Summary level
@@ -921,27 +776,22 @@ async function summarization_summarize(text, level = 'brief') {
   summarization_currentText = text;
   summarization_isLoading = true;
 
-  // Get current model from global settings (set in Advanced Options → AI tab)
-  const selectedModel = await summarization_getCurrentModel();
-  const isCloudModel = selectedModel !== 'local';
-
-  // Show loading state
   const contentArea = summarization_panel?.querySelector('.assist-summary-content');
   const statusBar = summarization_panel?.querySelector('.assist-summary-status');
   const actionBtns = summarization_panel?.querySelectorAll('.assist-summary-btn');
 
-  const modelName = isCloudModel ? getModelId('anthropic', selectedModel) : 'Local AI';
+  // Resolve mode and build the level-aware prompt
+  const modeInfo = await getAIMode('summarization');
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-summary-loading">
         <div class="assist-summary-spinner"></div>
-        <span>Generating ${level} summary${isCloudModel ? ` with ${modelName}` : ''}...</span>
+        <span>Generating ${level} summary${modeInfo.isOff ? '' : ` with ${modeInfo.displayLabel}`}...</span>
       </div>
     `);
   }
 
-  // Disable action buttons
   actionBtns?.forEach(btn => {
     btn.disabled = true;
   });
@@ -950,69 +800,71 @@ async function summarization_summarize(text, level = 'brief') {
     let summary;
     let isAI = false;
 
-    if (isCloudModel) {
-      // Check for API key before using cloud model
-      const hasKey = await summarization_checkCloudApiKey();
-      if (!hasKey) {
-        summarization_isLoading = false;
-        actionBtns?.forEach(btn => {
-          btn.disabled = false;
-        });
+    // Check availability before generating
+    const availability = await checkAIAvailable(modeInfo);
+
+    if (!availability.available) {
+      summarization_isLoading = false;
+      actionBtns?.forEach(btn => {
+        btn.disabled = false;
+      });
+
+      if (availability.needsApiKey) {
         summarization_showApiKeyWarning();
         return;
       }
-      // Use cloud model (Claude API)
-      const result = await summarization_generate(text, level, selectedModel);
-      summary = result.summary;
-      isAI = true;
+
+      // Non-cloud unavailability — use extractive fallback
+      summary = summarization_fallback(text, level);
+      summarization_currentSummary = summary;
 
       if (statusBar) {
-        statusBar.textContent = `☁️ ${modelName} summary generated`;
-        statusBar.className = 'assist-summary-status visible success';
+        summarization_setStatusBar(statusBar, availability);
       }
-    } else {
-      // Check local LLM availability
-      const llmStatus = await summarization_checkLLM();
-
-      if (llmStatus.available) {
-        // Use local AI summarization
-        const result = await summarization_generate(text, level, 'local');
-        summary = result.summary;
-        isAI = true;
-
-        if (statusBar) {
-          statusBar.textContent = '✨ AI-powered summary generated (Local)';
-          statusBar.className = 'assist-summary-status visible success';
-        }
-      } else {
-        // Fall back to extractive summarization
-        summary = summarization_fallback(text, level);
-
-        if (statusBar) {
-          statusBar.textContent = '⚠️ Using basic summarization (Ollama not available)';
-          statusBar.className = 'assist-summary-status visible';
-        }
+      if (contentArea) {
+        contentArea.innerHTML = sanitizeHTML(`
+          <p class="assist-summary-text">${escapeHtml(summary)}</p>
+          ${renderAIBadge('fallback', 'Basic')}
+        `);
       }
+      return;
+    }
+
+    // Build level-aware prompt
+    const levelPrompts = {
+      brief: 'Summarize in 1-2 sentences, capturing only the main point:',
+      moderate: 'Summarize the key points in a short paragraph (3-4 sentences):',
+      detailed:
+        'Provide a comprehensive summary with main points and supporting details (5-7 sentences):',
+    };
+    const prompt = `${levelPrompts[level] || levelPrompts.brief}\n\n${text}\n\nSummary:`;
+    const maxTokens = level === 'detailed' ? 1500 : level === 'moderate' ? 800 : 400;
+
+    const result = await generateWithAI(prompt, modeInfo, {
+      maxTokens,
+      temperature: 0.5,
+      feature: 'summarization',
+    });
+    summary = result.text;
+    isAI = true;
+
+    if (statusBar) {
+      statusBar.textContent = getSuccessStatusMessage(modeInfo, 'summary generated');
+      statusBar.className = 'assist-summary-status visible success';
     }
 
     summarization_currentSummary = summary;
 
-    // Update content
     if (contentArea) {
       const badgeInfo = await getAIBadgeInfo();
-      const badge = isAI
-        ? renderAIBadge(badgeInfo.mode, badgeInfo.label)
-        : renderAIBadge('fallback', 'Basic');
-
       contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-summary-text">${escapeHtml(summary)}</p>
-        ${badge}
+        ${isAI ? renderAIBadge(badgeInfo.mode, badgeInfo.label) : renderAIBadge('fallback', 'Basic')}
       `);
     }
   } catch (error) {
     console.error('[Summarization] Error:', error);
 
-    // Fall back to extractive summarization
     const fallbackSummary = summarization_fallback(text, level);
     summarization_currentSummary = fallbackSummary;
 
@@ -1022,15 +874,12 @@ async function summarization_summarize(text, level = 'brief') {
         <span class="assist-summary-fallback-badge">Basic</span>
       `);
     }
-
     if (statusBar) {
       statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
       statusBar.className = 'assist-summary-status visible error';
     }
   } finally {
     summarization_isLoading = false;
-
-    // Re-enable action buttons
     actionBtns?.forEach(btn => {
       btn.disabled = false;
     });

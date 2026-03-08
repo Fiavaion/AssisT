@@ -25,7 +25,13 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getSuccessStatusMessage,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -49,66 +55,6 @@ const breakdown_settings = {
 // ============================================================================
 
 /**
- * Get the current model from global settings
- * @returns {Promise<string>} Model key
- */
-async function breakdown_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return 'local';
-    } else if (aiMode === 'cloud') {
-      return result.cloudModel || getFeatureDefault('anthropic', 'assignmentBreakdown');
-    } else {
-      return 'local';
-    }
-  } catch (error) {
-    console.warn('[AssignmentBreakdown] Failed to get current model:', error);
-    return 'local';
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function breakdown_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if local LLM is available
- * @returns {Promise<{available: boolean, models: string[]}>}
- */
-async function breakdown_checkLLM() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-
-    if (response && response.success) {
-      return {
-        available: response.available || false,
-        models: response.models || [],
-      };
-    }
-    return { available: false, models: [] };
-  } catch (error) {
-    console.warn('[AssignmentBreakdown] LLM check failed:', error);
-    return { available: false, models: [] };
-  }
-}
-
-/**
  * Sleep helper for retry delays
  * @param {number} ms - Milliseconds to sleep
  */
@@ -117,27 +63,20 @@ function breakdown_sleep(ms) {
 }
 
 /**
- * Generate assignment breakdown using LLM (local or cloud) with retry logic
+ * Generate assignment breakdown using AI with retry logic
  * @param {string} text - Assignment text to analyze
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ * @param {import('../shared/ai-feature-client.js').AIMode} modeInfo - AI mode from getAIMode()
  * @param {number} retryCount - Current retry attempt (internal use)
- * @returns {Promise<{breakdown: Object, isCloud: boolean}>} The breakdown result
+ * @returns {Promise<{breakdown: Object}>} The breakdown result
  */
-async function breakdown_generate(text, modelKey = 'local', retryCount = 0) {
+async function breakdown_generate(text, modeInfo, retryCount = 0) {
   const MAX_RETRIES = 2; // Max 2 retries (3 total attempts)
   const BASE_DELAY = 1000; // 1 second base delay
   // Truncate very long input text to avoid token overflow
   const truncatedText = text.length > 3000 ? text.substring(0, 3000) + '...' : text;
 
-  // Model-specific token limits (Opus is verbose, Haiku is concise)
-  const modelTokenLimits = {
-    local: 800,
-    'haiku-4.5': 600, // Fast and concise
-    'sonnet-4.6': 1000, // Balanced
-    'opus-4.6': 1200, // Needs more for detailed analysis
-  };
-
-  const maxTokens = modelTokenLimits[modelKey] || 800;
+  // Token limits per mode
+  const maxTokens = modeInfo.isLocal ? 800 : 1000;
 
   // Strict prompt with explicit length constraints to prevent truncation
   const prompt = `TASK: Break down assignment into actionable steps. Return ONLY valid JSON.
@@ -164,40 +103,17 @@ RULES:
 - No markdown code blocks
 - Start response with { end with }`;
 
-  const isCloud = modelKey !== 'local';
-
   try {
-    let response;
+    const aiResult = await generateWithAI(prompt, modeInfo, {
+      maxTokens,
+      temperature: 0.2,
+      feature: 'assignmentBreakdown',
+    });
 
-    if (isCloud) {
-      // Use cloud model (Claude API)
-      response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_LLM_GENERATE',
-        prompt,
-        options: {
-          model: modelKey,
-          maxTokens,
-          temperature: 0.2, // Lower temperature for more predictable JSON
-          feature: 'assignmentBreakdown',
-        },
-      });
-    } else {
-      // Use local model (Ollama)
-      response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_GENERATE',
-        prompt,
-        taskType: 'assignmentBreakdown',
-        options: {
-          maxTokens,
-          temperature: 0.2,
-        },
-      });
-    }
-
-    if (response && response.success) {
+    if (aiResult && aiResult.text) {
       // Try to parse JSON from response
       try {
-        let jsonStr = response.data.trim();
+        let jsonStr = aiResult.text.trim();
 
         // Remove markdown code blocks (various formats)
         jsonStr = jsonStr
@@ -228,17 +144,17 @@ RULES:
         // Validate the structure has required fields
         if (parsed && parsed.title && Array.isArray(parsed.tasks)) {
           console.log('[AssignmentBreakdown] JSON parsed successfully:', parsed.title);
-          return { breakdown: parsed, isCloud };
+          return { breakdown: parsed };
         } else {
           console.warn('[AssignmentBreakdown] JSON missing required fields');
           throw new Error('Invalid JSON structure');
         }
       } catch (parseError) {
         console.warn('[AssignmentBreakdown] JSON parse failed:', parseError.message);
-        console.log('[AssignmentBreakdown] Raw response:', response.data.substring(0, 500));
+        console.log('[AssignmentBreakdown] Raw response:', aiResult.text.substring(0, 500));
 
         // Try to extract meaningful content from the response for a better fallback
-        const rawText = response.data;
+        const rawText = aiResult.text;
 
         // Attempt to extract title from truncated JSON
         const titleMatch = rawText.match(/"title"\s*:\s*"([^"]+)"/);
@@ -265,12 +181,11 @@ RULES:
             keyRequirements: [],
             overallTips: 'The AI response could not be fully processed.',
           },
-          isCloud,
         };
       }
     }
 
-    throw new Error(response?.error || 'Breakdown generation failed');
+    throw new Error('Breakdown generation failed');
   } catch (error) {
     console.error(`[AssignmentBreakdown] Generation failed (attempt ${retryCount + 1}):`, error);
 
@@ -289,7 +204,7 @@ RULES:
         `[AssignmentBreakdown] Retrying in ${delay}ms... (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`
       );
       await breakdown_sleep(delay);
-      return breakdown_generate(text, modelKey, retryCount + 1);
+      return breakdown_generate(text, modeInfo, retryCount + 1);
     }
 
     // If not retryable or max retries exceeded, throw the error
@@ -592,8 +507,7 @@ async function breakdown_createPanel() {
   const regenerateBtn = panel.querySelector('.assist-breakdown-regenerate');
   attachInteractiveHandler(regenerateBtn, 'Assignment Breakdown Regenerate Button', async () => {
     if (breakdown_currentText) {
-      const modelKey = await breakdown_getCurrentModel();
-      breakdown_analyze(breakdown_currentText, modelKey);
+      breakdown_analyze(breakdown_currentText);
     }
   });
 
@@ -1352,16 +1266,10 @@ function breakdown_handleKeydown(e) {
 /**
  * Analyze text and update panel
  * @param {string} text - Assignment text to analyze
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
  */
-async function breakdown_analyze(text, modelKey = null) {
+async function breakdown_analyze(text) {
   if (breakdown_isLoading || !text || text.trim().length === 0) {
     return;
-  }
-
-  // Get model from global settings if not specified
-  if (!modelKey) {
-    modelKey = await breakdown_getCurrentModel();
   }
 
   breakdown_currentText = text;
@@ -1372,14 +1280,11 @@ async function breakdown_analyze(text, modelKey = null) {
   const statusBar = breakdown_panel?.querySelector('.assist-breakdown-status');
   const actionBtns = breakdown_panel?.querySelectorAll('.assist-breakdown-btn');
 
-  const isCloud = modelKey !== 'local';
-  const modelName = getModelId('anthropic', modelKey);
-
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-breakdown-loading">
         <div class="assist-breakdown-spinner"></div>
-        <span>Analyzing assignment${isCloud ? ` with ${modelName}` : ''}...</span>
+        <span>Analyzing assignment...</span>
       </div>
     `);
   }
@@ -1389,15 +1294,16 @@ async function breakdown_analyze(text, modelKey = null) {
     btn.disabled = true;
   });
 
+  // Get AI mode and check availability
+  const modeInfo = await getAIMode('assignmentBreakdown');
+  const availability = await checkAIAvailable(modeInfo);
+
   try {
     let result;
     let isAI = false;
-    let usedCloud = false;
 
-    if (isCloud) {
-      // Check for API key before using cloud model
-      const hasKey = await breakdown_checkCloudApiKey();
-      if (!hasKey) {
+    if (!availability.available) {
+      if (availability.needsApiKey) {
         breakdown_isLoading = false;
         actionBtns?.forEach(btn => {
           btn.disabled = false;
@@ -1405,50 +1311,34 @@ async function breakdown_analyze(text, modelKey = null) {
         breakdown_showApiKeyWarning();
         return;
       }
-      // Use cloud model (Claude API)
-      const response = await breakdown_generate(text, modelKey);
-      result = response.breakdown;
-      isAI = true;
-      usedCloud = true;
+      // Fall back to rule-based breakdown
+      result = breakdown_fallback(text);
 
       if (statusBar) {
-        statusBar.textContent = `☁️ Analyzed with ${modelName}`;
-        statusBar.className = 'assist-breakdown-status visible success';
+        statusBar.textContent = getUnavailableStatusMessage(availability);
+        statusBar.className = 'assist-breakdown-status visible';
       }
     } else {
-      // Check local LLM availability
-      const llmStatus = await breakdown_checkLLM();
+      // Use AI breakdown
+      const response = await breakdown_generate(text, modeInfo);
+      result = response.breakdown;
+      isAI = true;
 
-      if (llmStatus.available) {
-        // Use local AI breakdown
-        const response = await breakdown_generate(text, 'local');
-        result = response.breakdown;
-        isAI = true;
-
-        if (statusBar) {
-          statusBar.textContent = '💻 AI-powered breakdown complete (Local)';
-          statusBar.className = 'assist-breakdown-status visible success';
-        }
-      } else {
-        // Fall back to rule-based breakdown
-        result = breakdown_fallback(text);
-
-        if (statusBar) {
-          statusBar.textContent = '⚠️ Using basic analysis (Ollama not available)';
-          statusBar.className = 'assist-breakdown-status visible';
-        }
+      if (statusBar) {
+        statusBar.textContent = getSuccessStatusMessage(modeInfo, 'breakdown complete');
+        statusBar.className = 'assist-breakdown-status visible success';
       }
     }
 
     breakdown_currentResult = result;
-    breakdown_renderResult(result, isAI, usedCloud, modelName);
+    breakdown_renderResult(result, isAI);
   } catch (error) {
     console.error('[AssignmentBreakdown] Error:', error);
 
     // Fall back to rule-based breakdown
     const fallbackResult = breakdown_fallback(text);
     breakdown_currentResult = fallbackResult;
-    breakdown_renderResult(fallbackResult, false, false, '');
+    breakdown_renderResult(fallbackResult, false);
 
     if (statusBar) {
       // Check if it's a CORS error and provide helpful guidance
@@ -1701,11 +1591,8 @@ async function breakdown_start(text, selectionRect = null) {
   // Show the panel
   await breakdown_show(selectionRect);
 
-  // Get model from global settings
-  const modelKey = await breakdown_getCurrentModel();
-
-  // Start analysis with selected model
-  breakdown_analyze(text, modelKey);
+  // Start analysis
+  breakdown_analyze(text);
 }
 
 // ============================================================================

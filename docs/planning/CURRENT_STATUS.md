@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 091 (Inline AI Mode Switcher)
+**Session**: Phase 2 Session 092 (AI Popup UI Polish & WebLLM Model Browser)
 
 ---
 
@@ -48,11 +48,17 @@
 
 ## ✅ Recently Completed
 
+### Phase 2 Session 092 (2026-03-08)
+
+**AI Popup UI Polish & WebLLM Model Browser**
+
+Fixed race condition causing duplicate form fields (Provider/API Key/Model) in Cloud and WebLLM panels — root cause: `chrome.storage.set()` inside `get()` callback triggering `onChanged` listener concurrently. Added `renderPending` lock. Fixed Save button cut off by horizontal scroll (`min-width:0` on flex input). Removed Gemini Nano chip from popup and advanced modal. Added wizard-first CTA button above mode chips (`aiSetupDismissed` flag). Split `_renderWebLLMPanel` into `_renderWebLLMQuick` (compact dropdown for popup) and `_renderWebLLMBrowser` (card browser for modal) — card browser has category filter dropdown, per-card status badges (loaded/cached/not downloaded), colour-coded borders, and per-card action buttons. Made summarization "Browser AI not loaded" status bar clickable → opens AI setup wizard. Improved WebLLM unavailability message copy across all 9 features.
+
 ### Phase 2 Session 091 (2026-03-08)
 
 **Inline AI Mode Switcher**
 
-Replaced read-only AI status widget and redirect-only Advanced Options AI tab with fully inline mode chip switchers (Off / Cloud / Browser AI / Local AI / Gemini Nano) in both the popup AI Assist accordion and the Advanced Options modal. Users can now switch AI type, enter API keys, pick cloud models, and initiate WebLLM downloads without re-running the setup wizard. Shared panel renderers `_renderCloudPanel()`, `_renderWebLLMPanel()`, `_renderLocalPanel()`, `_renderGeminiPanel()` power both locations. WCAG 2.2 AA compliant (fieldset/legend, aria-live, 3px focus rings).
+Replaced read-only AI status widget and redirect-only Advanced Options AI tab with fully inline mode chip switchers (Off / Cloud / Browser AI / Local AI) in both the popup AI Assist accordion and the Advanced Options modal. Users can now switch AI type, enter API keys, pick cloud models, and initiate WebLLM downloads without re-running the setup wizard. Shared panel renderers `_renderCloudPanel()`, `_renderWebLLMPanel()`, `_renderLocalPanel()` power both locations. WCAG 2.2 AA compliant (fieldset/legend, aria-live, 3px focus rings).
 
 ### Phase 2 Session 090 (2026-03-08)
 

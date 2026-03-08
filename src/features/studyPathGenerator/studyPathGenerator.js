@@ -16,8 +16,14 @@
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
-import { getAIBadgeInfo, injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
+import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getSuccessStatusMessage,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // CSS STYLES (injected separately to avoid innerHTML overwriting)
@@ -365,47 +371,6 @@ const spg_settings = {
 };
 
 // ============================================================================
-// AI MODE DETECTION
-// ============================================================================
-
-/**
- * Get the current AI model from global settings
- * @returns {Promise<string>} Model key
- */
-async function spg_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return 'local';
-    } else if (aiMode === 'cloud') {
-      return result.cloudModel || getFeatureDefault('anthropic', 'studyPathGenerator');
-    } else {
-      return 'local'; // Default to local if AI is off
-    }
-  } catch (error) {
-    console.warn('[StudyPathGenerator] Failed to get current model:', error);
-    return 'local';
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function spg_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
-
-// ============================================================================
 // AI STUDY PATH GENERATION
 // ============================================================================
 
@@ -422,23 +387,27 @@ async function spg_generatePath(text) {
   spg_isLoading = true;
   spg_updateLoadingState(true);
 
-  // Get current AI mode setting
-  const modelKey = await spg_getCurrentModel();
-  const isCloud = modelKey !== 'local';
-  const modelName = getModelId('anthropic', modelKey);
+  // Get current AI mode
+  const modeInfo = await getAIMode('studyPathGenerator');
+  const availability = await checkAIAvailable(modeInfo);
 
-  console.log(`[StudyPathGenerator] Using ${isCloud ? 'cloud' : 'local'} AI: ${modelName}`);
-
-  // If cloud mode, check for API key
-  if (isCloud) {
-    const hasKey = await spg_checkCloudApiKey();
-    if (!hasKey) {
-      spg_isLoading = false;
-      spg_updateLoadingState(false);
+  if (!availability.available) {
+    spg_isLoading = false;
+    spg_updateLoadingState(false);
+    if (availability.needsApiKey) {
       spg_showApiKeyWarning();
       return null;
     }
+    // Show unavailable message and fall back to heuristic
+    console.log('[StudyPathGenerator] AI unavailable:', availability.reason);
+    const fallback = spg_heuristicGenerate(text);
+    fallback._generatedBy = `Heuristic (${getUnavailableStatusMessage(availability)})`;
+    spg_currentPath = fallback;
+    spg_displayPath(fallback);
+    return fallback;
   }
+
+  console.log(`[StudyPathGenerator] Using AI mode: ${modeInfo.displayLabel}`);
 
   const prompt = `You are an expert learning designer. Analyze this educational content and create a structured study path.
 
@@ -488,42 +457,21 @@ Rules:
 - Respond with ONLY valid JSON, no extra text`;
 
   try {
-    let response;
+    const aiResult = await generateWithAI(prompt, modeInfo, {
+      maxTokens: 8192,
+      temperature: 0.4,
+      feature: 'studyPathGenerator',
+      noCache: true,
+    });
 
-    if (isCloud) {
-      // Use cloud model (Claude API)
-      response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_LLM_GENERATE',
-        prompt,
-        options: {
-          model: modelKey,
-          maxTokens: 8192,
-          temperature: 0.4,
-          feature: 'studyPathGenerator',
-          noCache: true,
-        },
-      });
-    } else {
-      // Use local model (Ollama)
-      response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_GENERATE',
-        prompt,
-        taskType: 'assignmentBreakdown', // Uses academic category
-        options: {
-          maxTokens: 2000,
-          temperature: 0.4,
-        },
-      });
-    }
-
-    if (response && response.success) {
-      console.log(`[StudyPathGenerator] ${isCloud ? 'Cloud' : 'Local'} AI response received`);
+    if (aiResult && aiResult.text) {
+      console.log(`[StudyPathGenerator] AI response received (${modeInfo.displayLabel})`);
       console.log(
         '[StudyPathGenerator] Raw response (first 500 chars):',
-        response.data?.substring(0, 500)
+        aiResult.text?.substring(0, 500)
       );
 
-      let rawData = response.data || '';
+      let rawData = aiResult.text || '';
 
       // Step 1: Strip markdown code fences if present (```json ... ```)
       const codeBlockMatch = rawData.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -560,12 +508,7 @@ Rules:
 
         if (parsed) {
           spg_currentPath = spg_enhancePath(parsed);
-          if (isCloud) {
-            const _spgBadgeInfo = await getAIBadgeInfo();
-            spg_currentPath._generatedBy = `Cloud (${_spgBadgeInfo.label})`;
-          } else {
-            spg_currentPath._generatedBy = 'Local AI';
-          }
+          spg_currentPath._generatedBy = getSuccessStatusMessage(modeInfo, 'study path generated');
           spg_displayPath(spg_currentPath);
           return spg_currentPath;
         }

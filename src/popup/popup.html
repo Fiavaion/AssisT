@@ -3246,6 +3246,15 @@
           </div>
           <div id="ai-assist-content" class="accordion-content" role="region">
             <section class="control-section ai-quick-section">
+              <!-- Setup wizard CTA — hidden once wizard has been run -->
+              <button
+                id="btn-ai-setup-cta"
+                type="button"
+                class="ai-setup-cta"
+                style="display: none"
+              >
+                &#x2728; Set up AI &#x2192;
+              </button>
               <!-- Mode chip selector -->
               <fieldset class="ai-mode-chips" id="ai-mode-chips">
                 <legend class="sr-only">Select AI mode</legend>
@@ -3264,10 +3273,6 @@
                 <label class="ai-chip" data-mode="local">
                   <input type="radio" name="ai-quick-mode" value="local" />
                   <span>&#x1F916; Local</span>
-                </label>
-                <label class="ai-chip ai-chip-gemini" data-mode="gemini" style="display:none">
-                  <input type="radio" name="ai-quick-mode" value="gemini" />
-                  <span>&#x1F48E; Gemini</span>
                 </label>
               </fieldset>
 

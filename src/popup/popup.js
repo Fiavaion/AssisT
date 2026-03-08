@@ -3335,10 +3335,6 @@ class PopupController {
                 <input type="radio" name="modal-ai-quick-mode" value="local" />
                 <span>&#x1F916; Local</span>
               </label>
-              <label class="ai-chip ai-chip-gemini" data-mode="gemini" style="display:none">
-                <input type="radio" name="modal-ai-quick-mode" value="gemini" />
-                <span>&#x1F48E; Gemini</span>
-              </label>
             </fieldset>
             <div
               id="modal-ai-panel"
@@ -3727,12 +3723,6 @@ class PopupController {
       return;
     }
 
-    // Show/hide Gemini chip
-    if (typeof navigator !== 'undefined' && navigator.gpu) {
-      const geminiChip = chipsEl.querySelector('.ai-chip-gemini');
-      if (geminiChip) geminiChip.style.display = '';
-    }
-
     const selectChip = mode => {
       chipsEl.querySelectorAll('input[type="radio"]').forEach(r => {
         r.checked = r.value === mode;
@@ -3746,31 +3736,41 @@ class PopupController {
           '<p class="ai-panel-off-msg">AI features are disabled. Select a mode above to enable AI tools.</p>';
         return;
       }
-      if (mode === 'cloud')  { await this._renderCloudPanel(panelEl, true);  return; }
-      if (mode === 'webllm') { await this._renderWebLLMPanel(panelEl, true); return; }
-      if (mode === 'local')  { await this._renderLocalPanel(panelEl, true);  return; }
-      if (mode === 'gemini') { await this._renderGeminiPanel(panelEl);       return; }
+      if (mode === 'cloud') {
+        await this._renderCloudPanel(panelEl, true);
+        return;
+      }
+      if (mode === 'webllm') {
+        await this._renderWebLLMPanel(panelEl, true);
+        return;
+      }
+      if (mode === 'local') {
+        await this._renderLocalPanel(panelEl, true);
+        return;
+      }
     };
 
     // Wire chip change handlers
     chipsEl.querySelectorAll('input[type="radio"]').forEach(radio => {
       radio.addEventListener('change', async () => {
-        if (!radio.checked) return;
+        if (!radio.checked) {
+          return;
+        }
         const newMode = radio.value;
         chrome.storage.local.set({
           aiMode: newMode,
           llmEnabled: newMode === 'local',
           cloudModeEnabled: newMode === 'cloud',
-          geminiEnabled: newMode === 'gemini',
           webllmEnabled: newMode === 'webllm',
         });
         await renderPanel(newMode);
       });
     });
 
-    // Wizard link
+    // Wizard link — also resets the CTA dismiss flag so popup CTA reappears
     if (wizardBtn) {
       this.attachInteractiveHandler(wizardBtn, 'Open AI Setup Wizard', () => {
+        chrome.storage.local.remove('aiSetupDismissed');
         chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
         modal.remove();
       });
@@ -3780,8 +3780,11 @@ class PopupController {
     chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
       let mode = result.aiMode || 'off';
       if (!result.aiMode) {
-        if (result.cloudModeEnabled) mode = 'cloud';
-        else if (result.llmEnabled) mode = 'local';
+        if (result.cloudModeEnabled) {
+          mode = 'cloud';
+        } else if (result.llmEnabled) {
+          mode = 'local';
+        }
       }
       selectChip(mode);
       renderPanel(mode);
@@ -9496,31 +9499,44 @@ class PopupController {
     const panelEl = document.getElementById('ai-quick-panel');
     const advancedBtn = document.getElementById('btn-ai-advanced');
     const badgeEl = document.getElementById('llm-status-badge');
+    const ctaBtn = document.getElementById('btn-ai-setup-cta');
 
     if (!chipsEl || !panelEl) {
       console.warn('[Popup] AI Assist chip elements not found');
       return;
     }
 
-    // Show/hide Gemini chip based on WebGPU availability (Gemini Nano requires Chrome AI)
-    if (typeof navigator !== 'undefined' && navigator.gpu) {
-      const geminiChip = chipsEl.querySelector('.ai-chip-gemini');
-      if (geminiChip) {
-        geminiChip.style.display = '';
-      }
+    // ── Wizard CTA ────────────────────────────────────────────────
+    // Show "Set up AI →" button until the user has run the wizard once.
+    // Stored as aiSetupDismissed; clicking it opens wizard and hides CTA permanently.
+    if (ctaBtn) {
+      chrome.storage.local.get('aiSetupDismissed', result => {
+        if (!result.aiSetupDismissed) {
+          ctaBtn.style.display = '';
+        }
+      });
+      this.attachInteractiveHandler(ctaBtn, 'Set up AI', () => {
+        chrome.storage.local.set({ aiSetupDismissed: true });
+        ctaBtn.style.display = 'none';
+        chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
+      });
     }
+
+    // ── Render lock — prevents concurrent async renders ───────────
+    let renderPending = false;
 
     // ── Badge sync ────────────────────────────────────────────────
     const BADGE_META = {
-      off:    { text: 'Off',        cls: 'llm-badge offline' },
-      cloud:  { text: 'Cloud',      cls: 'llm-badge online'  },
-      local:  { text: 'Local',      cls: 'llm-badge online'  },
-      webllm: { text: 'Browser AI', cls: 'llm-badge online'  },
-      gemini: { text: 'Gemini',     cls: 'llm-badge online'  },
+      off: { text: 'Off', cls: 'llm-badge offline' },
+      cloud: { text: 'Cloud', cls: 'llm-badge online' },
+      local: { text: 'Local', cls: 'llm-badge online' },
+      webllm: { text: 'Browser AI', cls: 'llm-badge online' },
     };
 
     const syncBadge = mode => {
-      if (!badgeEl) return;
+      if (!badgeEl) {
+        return;
+      }
       const m = BADGE_META[mode] || BADGE_META.off;
       badgeEl.textContent = m.text;
       badgeEl.className = m.cls;
@@ -9535,49 +9551,48 @@ class PopupController {
 
     // ── Contextual panel rendering ────────────────────────────────
     const renderPanel = async mode => {
+      if (renderPending) {
+        return;
+      }
+      renderPending = true;
       panelEl.innerHTML = '';
 
-      if (mode === 'off') {
-        panelEl.innerHTML =
-          '<p class="ai-panel-off-msg">AI features are disabled. Select a mode above to enable AI tools.</p>';
-        return;
-      }
-
-      if (mode === 'cloud') {
-        await this._renderCloudPanel(panelEl, false);
-        return;
-      }
-
-      if (mode === 'webllm') {
-        await this._renderWebLLMPanel(panelEl, false);
-        return;
-      }
-
-      if (mode === 'local') {
-        await this._renderLocalPanel(panelEl, false);
-        return;
-      }
-
-      if (mode === 'gemini') {
-        await this._renderGeminiPanel(panelEl);
-        return;
+      try {
+        if (mode === 'off') {
+          panelEl.innerHTML =
+            '<p class="ai-panel-off-msg">AI features are disabled. Select a mode above to enable AI tools.</p>';
+          return;
+        }
+        if (mode === 'cloud') {
+          await this._renderCloudPanel(panelEl, false);
+          return;
+        }
+        if (mode === 'webllm') {
+          await this._renderWebLLMPanel(panelEl, false);
+          return;
+        }
+        if (mode === 'local') {
+          await this._renderLocalPanel(panelEl, false);
+          return;
+        }
+      } finally {
+        renderPending = false;
       }
     };
 
     // ── Wire chip change handlers (use change event; CLAUDE.md allows it for radios) ──
     chipsEl.querySelectorAll('input[type="radio"]').forEach(radio => {
       radio.addEventListener('change', async () => {
-        if (!radio.checked) return;
+        if (!radio.checked) {
+          return;
+        }
         const newMode = radio.value;
 
-        // Persist immediately
-        chrome.storage.local.set({ aiMode: newMode });
-
-        // Legacy compatibility flags
+        // Persist immediately — skip the legacy flags that triggered storage onChanged re-render
         chrome.storage.local.set({
+          aiMode: newMode,
           llmEnabled: newMode === 'local',
           cloudModeEnabled: newMode === 'cloud',
-          geminiEnabled: newMode === 'gemini',
           webllmEnabled: newMode === 'webllm',
         });
 
@@ -9589,7 +9604,7 @@ class PopupController {
     // ── Advanced settings link ────────────────────────────────────
     if (advancedBtn) {
       this.attachInteractiveHandler(advancedBtn, 'AI Advanced Settings', () => {
-        chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
+        this.showAdvancedOptions();
       });
     }
 
@@ -9597,12 +9612,17 @@ class PopupController {
     chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
       let mode = result.aiMode || 'off';
       if (!result.aiMode) {
-        if (result.cloudModeEnabled) mode = 'cloud';
-        else if (result.llmEnabled) mode = 'local';
+        // Migrate legacy flags without triggering onChanged — write once only
+        if (result.cloudModeEnabled) {
+          mode = 'cloud';
+        } else if (result.llmEnabled) {
+          mode = 'local';
+        }
         chrome.storage.local.set({ aiMode: mode });
       }
       selectChip(mode);
       syncBadge(mode);
+      // Use renderPending guard: if set already triggered onChanged it will be skipped
       renderPanel(mode);
     });
 
@@ -9626,11 +9646,11 @@ class PopupController {
    * @param {HTMLElement} container
    * @param {boolean} isModal - true = show extra details (model dropdown)
    */
-  async _renderCloudPanel(container, isModal) {
+  async _renderCloudPanel(container, _isModal) {
     const PROVIDERS = [
       { value: 'anthropic', label: 'Anthropic (Claude)' },
-      { value: 'openai',    label: 'OpenAI (GPT)' },
-      { value: 'google',    label: 'Google (Gemini)' },
+      { value: 'openai', label: 'OpenAI (GPT)' },
+      { value: 'google', label: 'Google (Gemini)' },
       { value: 'perplexity', label: 'Perplexity' },
     ];
 
@@ -9735,9 +9755,15 @@ class PopupController {
       try {
         const cacheKey = `cloudModels_${provider}`;
         const cached = await chrome.storage.local.get(cacheKey);
-        if (cached[cacheKey]?.models?.length > 0) models = cached[cacheKey].models;
-      } catch { /* use fallback */ }
-      if (!models) models = FALLBACK_MODELS[provider] || [];
+        if (cached[cacheKey]?.models?.length > 0) {
+          models = cached[cacheKey].models;
+        }
+      } catch {
+        /* use fallback */
+      }
+      if (!models) {
+        models = FALLBACK_MODELS[provider] || [];
+      }
       models.forEach(m => {
         const opt = document.createElement('option');
         opt.value = m.id;
@@ -9826,58 +9852,60 @@ class PopupController {
    * @param {boolean} isModal
    */
   async _renderWebLLMPanel(container, isModal) {
-    const WEBLLM_MODELS = [
-      { key: 'llama-3.2-1b', label: 'Llama 3.2 1B (650 MB) — fastest' },
-      { key: 'gemma-2b',     label: 'Gemma 2B (1.6 GB)' },
+    if (isModal) {
+      await this._renderWebLLMBrowser(container);
+    } else {
+      await this._renderWebLLMQuick(container);
+    }
+  }
+
+  // ── Compact dropdown panel (popup quick-switch) ────────────────────────────
+
+  async _renderWebLLMQuick(container) {
+    const MODELS = [
+      { key: 'llama-3.2-1b', label: 'Llama 3.2 1B (650 MB)' },
+      { key: 'gemma-2b', label: 'Gemma 2B (1.6 GB)' },
       { key: 'llama-3.2-3b', label: 'Llama 3.2 3B (1.9 GB)' },
-      { key: 'phi-3.5-mini', label: 'Phi 3.5 Mini (2.3 GB)' },
-      { key: 'qwen2.5-3b',   label: 'Qwen 2.5 3B (1.9 GB)' },
-      { key: 'mistral-7b',   label: 'Mistral 7B (4.4 GB) — best quality' },
+      { key: 'phi-3.5-mini', label: 'Phi-3.5 Mini (2.3 GB)' },
+      { key: 'qwen2.5-3b', label: 'Qwen 2.5 3B (1.9 GB)' },
+      { key: 'mistral-7b', label: 'Mistral 7B (4.4 GB)' },
       { key: 'llama-3.1-8b', label: 'Llama 3.1 8B (4.9 GB)' },
-      { key: 'gemma-7b',     label: 'Gemma 7B (4.3 GB)' },
+      { key: 'gemma-7b', label: 'Gemma 7B (4.3 GB)' },
     ];
 
     const s = await chrome.storage.local.get(['webllmModel', 'webllmCachedModels']);
     const currentModel = s.webllmModel || 'llama-3.2-1b';
     const cachedModels = s.webllmCachedModels || [];
 
-    // Model selector row
     const modelRow = document.createElement('div');
     modelRow.className = 'ai-panel-row';
     modelRow.innerHTML = `<span class="ai-panel-label">Model</span>`;
     const modelSel = document.createElement('select');
     modelSel.className = 'ai-panel-select';
     modelSel.setAttribute('aria-label', 'Browser AI model');
-    WEBLLM_MODELS.forEach(m => {
+    MODELS.forEach(m => {
       const opt = document.createElement('option');
       opt.value = m.key;
-      const isCached = cachedModels.includes(m.key);
-      opt.textContent = isCached ? `${m.label} ✓` : m.label;
+      opt.textContent = cachedModels.includes(m.key) ? `${m.label} ✓` : m.label;
       opt.selected = m.key === currentModel;
       modelSel.appendChild(opt);
     });
     modelRow.appendChild(modelSel);
     container.appendChild(modelRow);
 
-    // Status + action row
     const actionRow = document.createElement('div');
     actionRow.className = 'ai-panel-row';
     actionRow.style.marginTop = '6px';
     const dot = document.createElement('span');
     dot.className = 'ai-status-dot';
     const statusText = document.createElement('span');
-    statusText.style.flex = '1';
-    statusText.style.fontSize = '11px';
-    statusText.style.color = 'var(--text-secondary)';
+    statusText.style.cssText = 'flex:1;font-size:11px;color:var(--text-secondary)';
     const actionBtn = document.createElement('button');
     actionBtn.type = 'button';
     actionBtn.className = 'ai-panel-action-btn primary';
-    actionRow.appendChild(dot);
-    actionRow.appendChild(statusText);
-    actionRow.appendChild(actionBtn);
+    actionRow.append(dot, statusText, actionBtn);
     container.appendChild(actionRow);
 
-    // Download progress bar (hidden until download starts)
     const progressBar = document.createElement('div');
     progressBar.className = 'ai-download-bar';
     progressBar.style.display = 'none';
@@ -9886,17 +9914,20 @@ class PopupController {
     progressBar.appendChild(progressFill);
     container.appendChild(progressBar);
 
-    const refresh = async modelKey => {
-      const isCached = cachedModels.includes(modelKey);
+    const refresh = async key => {
+      const cached = cachedModels.includes(key);
       try {
         const r = await chrome.runtime.sendMessage({ action: 'WEBLLM_STATUS' });
-        const isLoaded = r?.loaded && r?.modelId && r.modelId.toLowerCase().includes(modelKey.split('-').slice(0, 2).join('-').toLowerCase());
-        if (isLoaded) {
+        const loaded =
+          r?.loaded &&
+          r?.modelId &&
+          r.modelId.toLowerCase().includes(key.split('-').slice(0, 2).join('-').toLowerCase());
+        if (loaded) {
           dot.className = 'ai-status-dot online';
           statusText.textContent = 'Ready';
           actionBtn.textContent = 'Change model';
           actionBtn.className = 'ai-panel-action-btn';
-        } else if (isCached) {
+        } else if (cached) {
           dot.className = 'ai-status-dot warning';
           statusText.textContent = 'Downloaded — not loaded';
           actionBtn.textContent = 'Load model';
@@ -9909,21 +9940,19 @@ class PopupController {
         }
       } catch {
         dot.className = 'ai-status-dot';
-        statusText.textContent = isCached ? 'Downloaded' : 'Not downloaded';
-        actionBtn.textContent = isCached ? 'Load model' : 'Download';
+        statusText.textContent = cached ? 'Downloaded' : 'Not downloaded';
+        actionBtn.textContent = cached ? 'Load model' : 'Download';
         actionBtn.className = 'ai-panel-action-btn primary';
       }
     };
 
     await refresh(currentModel);
 
-    // Model change
     modelSel.addEventListener('change', async () => {
       chrome.storage.local.set({ webllmModel: modelSel.value });
       await refresh(modelSel.value);
     });
 
-    // Download / load action
     this.attachInteractiveHandler(actionBtn, 'Download or Load WebLLM Model', async () => {
       progressBar.style.display = 'block';
       progressFill.style.width = '10%';
@@ -9931,12 +9960,11 @@ class PopupController {
       statusText.textContent = 'Initialising…';
       dot.className = 'ai-status-dot warning';
       try {
-        await chrome.runtime.sendMessage({
-          action: 'WEBLLM_INITIALIZE',
-          modelKey: modelSel.value,
-        });
+        await chrome.runtime.sendMessage({ action: 'WEBLLM_INITIALIZE', modelKey: modelSel.value });
         progressFill.style.width = '100%';
-        setTimeout(() => { progressBar.style.display = 'none'; }, 800);
+        setTimeout(() => {
+          progressBar.style.display = 'none';
+        }, 800);
         dot.className = 'ai-status-dot online';
         statusText.textContent = 'Ready';
         actionBtn.textContent = 'Change model';
@@ -9952,12 +9980,230 @@ class PopupController {
     });
   }
 
+  // ── Full model browser (modal AI tab) ─────────────────────────────────────
+
+  async _renderWebLLMBrowser(container) {
+    // Model data — sourced from REGISTRY but inlined to avoid async import in popup
+    const MODELS = [
+      {
+        key: 'llama-3.2-1b',
+        name: 'Llama 3.2 1B',
+        size: '650 MB',
+        speed: '15–25 tok/s',
+        quant: 'q4f16_1',
+        category: 'lightweight',
+      },
+      {
+        key: 'gemma-2b',
+        name: 'Gemma 2B',
+        size: '1.6 GB',
+        speed: '15–20 tok/s',
+        quant: 'q4f16_1',
+        category: 'lightweight',
+      },
+      {
+        key: 'llama-3.2-3b',
+        name: 'Llama 3.2 3B',
+        size: '1.9 GB',
+        speed: '12–18 tok/s',
+        quant: 'q4f16_1',
+        category: 'balanced',
+      },
+      {
+        key: 'phi-3.5-mini',
+        name: 'Phi-3.5 Mini',
+        size: '2.3 GB',
+        speed: '10–18 tok/s',
+        quant: 'q4f16_1',
+        category: 'balanced',
+      },
+      {
+        key: 'qwen2.5-3b',
+        name: 'Qwen 2.5 3B',
+        size: '1.9 GB',
+        speed: '12–20 tok/s',
+        quant: 'q4f16_1',
+        category: 'balanced',
+      },
+      {
+        key: 'mistral-7b',
+        name: 'Mistral 7B',
+        size: '4.4 GB',
+        speed: '6–12 tok/s',
+        quant: 'q4f16_1',
+        category: 'high-quality',
+      },
+      {
+        key: 'llama-3.1-8b',
+        name: 'Llama 3.1 8B',
+        size: '4.9 GB',
+        speed: '5–10 tok/s',
+        quant: 'q4f16_1',
+        category: 'high-quality',
+      },
+      {
+        key: 'gemma-7b',
+        name: 'Gemma 7B',
+        size: '4.3 GB',
+        speed: '6–11 tok/s',
+        quant: 'q4f16_1',
+        category: 'high-quality',
+      },
+    ];
+
+    const s = await chrome.storage.local.get(['webllmModel', 'webllmCachedModels']);
+    let activeKey = s.webllmModel || 'llama-3.2-1b';
+    const cachedModels = new Set(s.webllmCachedModels || []);
+
+    // Get loaded model from service worker
+    let loadedKey = null;
+    try {
+      const r = await chrome.runtime.sendMessage({ action: 'WEBLLM_STATUS' });
+      if (r?.loaded && r?.modelId) {
+        const found = MODELS.find(m =>
+          r.modelId.toLowerCase().includes(m.key.split('-').slice(0, 2).join('-').toLowerCase())
+        );
+        if (found) {
+          loadedKey = found.key;
+        }
+      }
+    } catch {
+      /* service worker not ready */
+    }
+
+    // ── Filter bar ────────────────────────────────────────────────
+    const filterRow = document.createElement('div');
+    filterRow.className = 'webllm-filter-row';
+
+    const filterSel = document.createElement('select');
+    filterSel.className = 'ai-panel-select webllm-filter-select';
+    filterSel.setAttribute('aria-label', 'Filter models by category');
+    [
+      { value: 'all', label: 'All models' },
+      { value: 'lightweight', label: 'Lightweight  (< 2 GB)' },
+      { value: 'balanced', label: 'Balanced  (2–3 GB)' },
+      { value: 'high-quality', label: 'High-quality  (4+ GB)' },
+    ].forEach(({ value, label }) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      filterSel.appendChild(opt);
+    });
+    filterRow.appendChild(filterSel);
+    container.appendChild(filterRow);
+
+    // ── Card list ─────────────────────────────────────────────────
+    const cardList = document.createElement('div');
+    cardList.className = 'webllm-card-list';
+    container.appendChild(cardList);
+
+    // Shared progress bar (one for the whole browser)
+    const progressBar = document.createElement('div');
+    progressBar.className = 'ai-download-bar webllm-browser-progress';
+    progressBar.style.display = 'none';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'ai-download-bar-fill';
+    progressBar.appendChild(progressFill);
+    container.appendChild(progressBar);
+
+    const renderCards = category => {
+      cardList.innerHTML = '';
+      const visible = category === 'all' ? MODELS : MODELS.filter(m => m.category === category);
+
+      visible.forEach(m => {
+        const isLoaded = m.key === loadedKey;
+        const isCached = cachedModels.has(m.key);
+        const isActive = m.key === activeKey;
+
+        const card = document.createElement('div');
+        card.className =
+          'webllm-model-card' + (isLoaded ? ' is-loaded' : isCached ? ' is-cached' : '');
+        card.setAttribute('data-key', m.key);
+
+        // Status dot
+        const dot = document.createElement('span');
+        dot.className = 'ai-status-dot ' + (isLoaded ? 'online' : isCached ? 'warning' : '');
+
+        // Info block
+        const info = document.createElement('div');
+        info.className = 'webllm-card-info';
+
+        const nameLine = document.createElement('div');
+        nameLine.className = 'webllm-card-name';
+        nameLine.textContent = m.name;
+        if (isActive) {
+          const badge = document.createElement('span');
+          badge.className = 'webllm-active-badge';
+          badge.textContent = 'Active';
+          nameLine.appendChild(badge);
+        }
+
+        const metaLine = document.createElement('div');
+        metaLine.className = 'webllm-card-meta';
+        metaLine.textContent = `${m.size} · ${m.quant} · ${m.speed}`;
+
+        info.append(nameLine, metaLine);
+
+        // Action button
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ai-panel-action-btn' + (isLoaded ? '' : ' primary');
+        if (isLoaded) {
+          btn.textContent = 'Unload';
+        } else if (isCached) {
+          btn.textContent = 'Load';
+        } else {
+          btn.textContent = '↓ Get';
+        }
+
+        card.append(dot, info, btn);
+        cardList.appendChild(card);
+
+        this.attachInteractiveHandler(btn, `${btn.textContent} ${m.name}`, async () => {
+          if (isLoaded) {
+            // Unload = switch active key away, don't unload from VRAM (WebLLM has no unload API)
+            // Just mark as no longer the selection
+            activeKey = '';
+            chrome.storage.local.set({ webllmModel: '' });
+            renderCards(filterSel.value);
+            return;
+          }
+          // Download or load
+          progressBar.style.display = 'block';
+          progressFill.style.width = '10%';
+          btn.disabled = true;
+          try {
+            await chrome.runtime.sendMessage({ action: 'WEBLLM_INITIALIZE', modelKey: m.key });
+            progressFill.style.width = '100%';
+            setTimeout(() => {
+              progressBar.style.display = 'none';
+            }, 800);
+            loadedKey = m.key;
+            activeKey = m.key;
+            cachedModels.add(m.key);
+            chrome.storage.local.set({ webllmModel: m.key });
+            renderCards(filterSel.value);
+          } catch (err) {
+            progressBar.style.display = 'none';
+            btn.disabled = false;
+            btn.textContent = 'Failed';
+            console.error('[Popup] WebLLM browser error:', err);
+          }
+        });
+      });
+    };
+
+    renderCards('all');
+
+    filterSel.addEventListener('change', () => renderCards(filterSel.value));
+  }
+
   /**
    * Render the Local AI (Ollama) panel into a container element.
    * @param {HTMLElement} container
    * @param {boolean} isModal
    */
-  async _renderLocalPanel(container, isModal) {
+  async _renderLocalPanel(container, _isModal) {
     const card = document.createElement('div');
     card.className = 'ai-panel-row';
 
@@ -9988,12 +10234,18 @@ class PopupController {
           statusText.textContent = `Online — ${model}`;
           // Update header badge
           const badge = document.getElementById('llm-status-badge');
-          if (badge) { badge.textContent = 'Online'; badge.className = 'llm-badge online'; }
+          if (badge) {
+            badge.textContent = 'Online';
+            badge.className = 'llm-badge online';
+          }
         } else {
           dot.className = 'ai-status-dot offline';
           statusText.textContent = 'Offline — start Ollama to use Local AI';
           const badge = document.getElementById('llm-status-badge');
-          if (badge) { badge.textContent = 'Offline'; badge.className = 'llm-badge offline'; }
+          if (badge) {
+            badge.textContent = 'Offline';
+            badge.className = 'llm-badge offline';
+          }
         }
       } catch {
         dot.className = 'ai-status-dot offline';

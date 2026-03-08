@@ -2153,6 +2153,33 @@ body {
   outline-offset: 2px;
 }
 
+/* ── AI Setup CTA ────────────────────────────────────────────── */
+
+.ai-setup-cta {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.ai-setup-cta:hover {
+  background: var(--primary-dark);
+}
+
+.ai-setup-cta:focus-visible {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 /* ── AI Contextual Panels ────────────────────────────────────── */
 
 .ai-quick-panel,
@@ -2164,6 +2191,7 @@ body {
   font-size: 12px;
   color: var(--text-primary);
   min-height: 36px;
+  overflow: hidden;
 }
 
 /* Off-mode message */
@@ -2220,6 +2248,7 @@ body {
 
 .ai-panel-key-input {
   flex: 1;
+  min-width: 0;
   padding: 4px 8px;
   border: 1px solid var(--border-light, #d0d0d0);
   border-radius: 6px;
@@ -2296,9 +2325,15 @@ body {
   transition: background 0.3s;
 }
 
-.ai-status-dot.online  { background: #4caf50; }
-.ai-status-dot.offline { background: #f44336; }
-.ai-status-dot.warning { background: #ff9800; }
+.ai-status-dot.online {
+  background: #4caf50;
+}
+.ai-status-dot.offline {
+  background: #f44336;
+}
+.ai-status-dot.warning {
+  background: #ff9800;
+}
 
 /* Download progress bar */
 .ai-download-bar {
@@ -2316,6 +2351,101 @@ body {
   transition: width 0.3s ease;
 }
 
+.webllm-browser-progress {
+  margin-top: 6px;
+}
+
+/* ── WebLLM Model Browser (modal) ────────────────────────────── */
+
+.webllm-filter-row {
+  margin-bottom: 8px;
+}
+
+.webllm-filter-select {
+  width: 100%;
+}
+
+.webllm-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.webllm-model-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light, #d0d0d0);
+  border-radius: 8px;
+  background: var(--background);
+  transition: border-color 0.15s;
+}
+
+.webllm-model-card.is-loaded {
+  border-color: var(--success, #4caf50);
+  background: rgba(76, 175, 80, 0.04);
+}
+
+.webllm-model-card.is-cached {
+  border-color: var(--warning, #ff9800);
+  background: rgba(255, 152, 0, 0.04);
+}
+
+.webllm-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.webllm-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.webllm-active-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--success, #4caf50);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.webllm-card-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dark mode */
+body.dark-mode .webllm-model-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.dark-mode .webllm-model-card.is-loaded {
+  border-color: #4caf50;
+  background: rgba(76, 175, 80, 0.08);
+}
+
+body.dark-mode .webllm-model-card.is-cached {
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.08);
+}
+
 /* Small action button inside panels */
 .ai-panel-action-btn {
   padding: 4px 10px;
@@ -2326,7 +2456,9 @@ body {
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .ai-panel-action-btn:hover {
@@ -2378,7 +2510,7 @@ body {
 }
 
 .ai-modal-panel {
-  max-height: 280px;
+  max-height: 340px;
   overflow-y: auto;
 }
 
