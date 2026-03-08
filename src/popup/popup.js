@@ -9469,6 +9469,50 @@ class PopupController {
       }
     };
 
+    // Async detail updater — runs after updateWidget() sets the static placeholder
+    const refreshDetail = async mode => {
+      const detailEl = document.getElementById('ai-status-detail');
+      const badgeEl = document.getElementById('llm-status-badge');
+      if (!detailEl) {
+        return;
+      }
+
+      if (mode === 'local') {
+        try {
+          const r = await chrome.runtime.sendMessage({ action: 'LOCAL_LLM_CHECK' });
+          if (r?.success && r?.available) {
+            const model = (r.models && r.models[0]) || 'Ollama';
+            detailEl.textContent = `Online — ${model}`;
+            if (badgeEl) {
+              badgeEl.textContent = 'Online';
+              badgeEl.className = 'llm-badge online';
+            }
+          } else {
+            detailEl.textContent = 'Offline — start Ollama';
+            if (badgeEl) {
+              badgeEl.textContent = 'Offline';
+              badgeEl.className = 'llm-badge offline';
+            }
+          }
+        } catch {
+          detailEl.textContent = 'Offline — start Ollama';
+          if (badgeEl) {
+            badgeEl.textContent = 'Offline';
+            badgeEl.className = 'llm-badge offline';
+          }
+        }
+      } else if (mode === 'cloud') {
+        const s = await chrome.storage.local.get(['cloudProvider', 'aiProvider']);
+        const provider = s.cloudProvider || s.aiProvider || 'Cloud';
+        detailEl.textContent = `via ${provider.charAt(0).toUpperCase() + provider.slice(1)}`;
+      } else if (mode === 'webllm') {
+        const s = await chrome.storage.local.get(['webllmModel']);
+        if (s.webllmModel) {
+          detailEl.textContent = s.webllmModel;
+        }
+      }
+    };
+
     // Read current mode and render widget
     chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
       let mode = result.aiMode || 'off';
@@ -9482,6 +9526,7 @@ class PopupController {
         chrome.storage.local.set({ aiMode: mode });
       }
       updateWidget(mode);
+      refreshDetail(mode);
     });
 
     // "Configure AI" button → open the AI Setup page
@@ -9495,7 +9540,9 @@ class PopupController {
     // Listen for storage changes so the widget stays in sync
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.aiMode) {
-        updateWidget(changes.aiMode.newValue || 'off');
+        const newMode = changes.aiMode.newValue || 'off';
+        updateWidget(newMode);
+        refreshDetail(newMode);
       }
     });
 

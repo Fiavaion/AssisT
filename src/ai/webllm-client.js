@@ -166,6 +166,28 @@ export class WebLLMClient {
       return;
     }
 
+    // Prevent concurrent initialization of the same model
+    if (this.isLoading && this.currentModel === modelKey) {
+      console.log('[WebLLM] Already loading', modelKey, '— waiting for completion');
+      // Poll until ready or failed (max 5 min)
+      await new Promise((resolve, reject) => {
+        const start = Date.now();
+        const check = setInterval(() => {
+          if (this.isReady) {
+            clearInterval(check);
+            resolve();
+          } else if (!this.isLoading) {
+            clearInterval(check);
+            reject(new Error('Initialization failed'));
+          } else if (Date.now() - start > 300_000) {
+            clearInterval(check);
+            reject(new Error('Initialization timed out'));
+          }
+        }, 500);
+      });
+      return;
+    }
+
     // Check hardware compatibility
     const compat = await checkModelCompatibility(modelKey);
     if (!compat.capable) {

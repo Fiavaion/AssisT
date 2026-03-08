@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 089 (AI Overhaul & Setup Wizard)
+**Session**: Phase 2 Session 090 (AI Setup Wizard Polish)
 
 ---
 
@@ -47,6 +47,23 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 090 (2026-03-08)
+
+**AI Setup Wizard Polish**
+
+**Key Accomplishments**:
+
+1. **Popup status widget**: `refreshDetail()` now resolves "Checking Ollama…" dynamically — shows "Online — llama3.2" or "Offline", cloud provider name, or WebLLM model name.
+2. **WebLLM Download button**: Actually triggers `WEBLLM_INITIALIZE` with real progress bar (was just queuing).
+3. **WebLLM AI Test (Step 5)**: Polls `WEBLLM_STATUS` until ready, then runs `WEBLLM_GENERATE` — no more static informational bypass.
+4. **WebLLM model dropdown**: `<optgroup>` sections — "✓ Already on this device" (green) and "Available to download".
+5. **Double-init race fix**: `webllm-client.js` now waits for in-progress load instead of launching concurrent `CreateMLCEngine`.
+6. **Reliable cache detection**: Replaced broken IndexedDB scan with `chrome.storage.local.webllmCachedModels` tracked by service worker.
+
+**Files**: 5 modified | Build: ✅ clean
+
+---
 
 ### Phase 2 Session 089 (2026-03-08)
 

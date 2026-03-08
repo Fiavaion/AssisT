@@ -261,15 +261,21 @@
             <div class="form-group">
               <label class="form-label" for="webllm-model-select">Model</label>
               <select class="form-select" id="webllm-model-select" aria-describedby="model-hint">
-                <option value="llama-3.2-1b">Llama 3.2 1B — Fast, 1.2GB download</option>
-                <option value="llama-3.2-3b">Llama 3.2 3B — Balanced, 2.1GB download</option>
-                <option value="phi-3.5-mini">Phi-3.5 Mini — Efficient, 2.3GB download</option>
-                <option value="gemma-2-2b">Gemma 2 2B — Quality, 2.8GB download</option>
+                <!-- Populated by renderWebLLMPanel() from model-registry -->
+                <option value="llama-3.2-1b">Llama 3.2 1B — 650MB</option>
               </select>
               <span class="helper-text" id="model-hint"
                 >Larger models give better responses but need more memory.</span
               >
+              <p
+                class="helper-text"
+                id="webllm-cache-summary"
+                aria-live="polite"
+                style="margin-top: var(--space-xs); font-size: 0.8rem"
+              ></p>
             </div>
+
+            <div id="webllm-model-status" aria-live="polite"></div>
 
             <div id="download-progress" class="download-progress" hidden>
               <p class="helper-text" id="download-status-text" aria-live="polite">
@@ -293,6 +299,15 @@
               Download model now
             </button>
             <span class="helper-text">Or skip — it will download automatically on first use.</span>
+
+            <details style="margin-top: var(--space-md)">
+              <summary class="helper-link" style="cursor: pointer">
+                Advanced: assign a different model per task
+              </summary>
+              <div id="task-models-list" style="margin-top: var(--space-sm)">
+                <!-- Populated by renderTaskModels() -->
+              </div>
+            </details>
           </div>
 
           <!-- OLLAMA PANEL (shown when mode=local) -->
@@ -311,6 +326,9 @@
               </div>
             </div>
 
+            <!-- Per-task model assignment (shown when models are installed) -->
+            <div id="ollama-task-models" hidden></div>
+
             <div id="ollama-install-steps" hidden>
               <div class="info-box" role="note">
                 <p><strong>Ollama is not running.</strong> To use local AI:</p>
@@ -322,7 +340,6 @@
                     >
                   </li>
                   <li>Install and launch it</li>
-                  <li>Run: <code>ollama pull llama3.2</code> in a terminal</li>
                   <li>Come back and click "Check again"</li>
                 </ol>
               </div>
@@ -330,6 +347,9 @@
                 Check again
               </button>
             </div>
+
+            <!-- Suggested models to pull (shown when Ollama running but no models) -->
+            <div id="ollama-suggested-models" hidden></div>
           </div>
 
           <!-- GEMINI NANO PANEL (shown when mode=gemini-nano) -->
