@@ -3316,18 +3316,39 @@ class PopupController {
           </div>
 
           <!-- AI Tab -->
-          <div id="tab-ai" class="tab-content">
-            <div style="text-align:center; padding:32px 16px 16px;">
-              <p style="font-size:2rem; margin-bottom:12px;" aria-hidden="true">✨</p>
-              <h3 style="margin-bottom:8px;">AI Setup</h3>
-              <p class="tab-description" style="margin-bottom:20px;">
-                Configure your AI mode, API keys, model preferences,
-                and personalisation from the dedicated AI Setup page.
-              </p>
-              <button id="btn-open-ai-setup-from-modal" class="modal-btn modal-btn-primary">
-                Open AI Setup →
-              </button>
-            </div>
+          <div id="tab-ai" class="tab-content ai-tab-full">
+            <fieldset class="ai-mode-chips" id="modal-ai-mode-chips">
+              <legend class="sr-only">Select AI mode</legend>
+              <label class="ai-chip" data-mode="off">
+                <input type="radio" name="modal-ai-quick-mode" value="off" />
+                <span>Off</span>
+              </label>
+              <label class="ai-chip" data-mode="cloud">
+                <input type="radio" name="modal-ai-quick-mode" value="cloud" />
+                <span>&#x2601;&#xFE0E; Cloud</span>
+              </label>
+              <label class="ai-chip" data-mode="webllm">
+                <input type="radio" name="modal-ai-quick-mode" value="webllm" />
+                <span>&#x26A1;&#xFE0E; Browser</span>
+              </label>
+              <label class="ai-chip" data-mode="local">
+                <input type="radio" name="modal-ai-quick-mode" value="local" />
+                <span>&#x1F916; Local</span>
+              </label>
+              <label class="ai-chip ai-chip-gemini" data-mode="gemini" style="display:none">
+                <input type="radio" name="modal-ai-quick-mode" value="gemini" />
+                <span>&#x1F48E; Gemini</span>
+              </label>
+            </fieldset>
+            <div
+              id="modal-ai-panel"
+              class="ai-modal-panel"
+              aria-live="polite"
+              aria-atomic="false"
+            ></div>
+            <button id="btn-open-ai-setup-from-modal" class="modal-btn modal-btn-secondary" style="margin-top:12px; width:100%; justify-content:center;">
+              Full setup wizard &#x2192;
+            </button>
           </div>
         </div>
 
@@ -3691,20 +3712,80 @@ class PopupController {
   }
 
   /**
-   * Setup the AI tab in the advanced settings modal
+   * Setup the AI tab in the advanced settings modal.
+   * Renders the same inline mode-chip switcher as the popup AI Assist section,
+   * plus a link to the full setup wizard.
    * @param {HTMLElement} modal - The modal element
    */
   setupAITab(modal) {
-    // AI configuration has moved to the dedicated AI Setup page.
-    // Wire the redirect button.
-    const btn = modal.querySelector('#btn-open-ai-setup-from-modal');
-    if (btn) {
-      this.attachInteractiveHandler(btn, 'Open AI Setup From Modal', () => {
+    const chipsEl = modal.querySelector('#modal-ai-mode-chips');
+    const panelEl = modal.querySelector('#modal-ai-panel');
+    const wizardBtn = modal.querySelector('#btn-open-ai-setup-from-modal');
+
+    if (!chipsEl || !panelEl) {
+      console.warn('[Popup] Modal AI tab elements not found');
+      return;
+    }
+
+    // Show/hide Gemini chip
+    if (typeof navigator !== 'undefined' && navigator.gpu) {
+      const geminiChip = chipsEl.querySelector('.ai-chip-gemini');
+      if (geminiChip) geminiChip.style.display = '';
+    }
+
+    const selectChip = mode => {
+      chipsEl.querySelectorAll('input[type="radio"]').forEach(r => {
+        r.checked = r.value === mode;
+      });
+    };
+
+    const renderPanel = async mode => {
+      panelEl.innerHTML = '';
+      if (mode === 'off') {
+        panelEl.innerHTML =
+          '<p class="ai-panel-off-msg">AI features are disabled. Select a mode above to enable AI tools.</p>';
+        return;
+      }
+      if (mode === 'cloud')  { await this._renderCloudPanel(panelEl, true);  return; }
+      if (mode === 'webllm') { await this._renderWebLLMPanel(panelEl, true); return; }
+      if (mode === 'local')  { await this._renderLocalPanel(panelEl, true);  return; }
+      if (mode === 'gemini') { await this._renderGeminiPanel(panelEl);       return; }
+    };
+
+    // Wire chip change handlers
+    chipsEl.querySelectorAll('input[type="radio"]').forEach(radio => {
+      radio.addEventListener('change', async () => {
+        if (!radio.checked) return;
+        const newMode = radio.value;
+        chrome.storage.local.set({
+          aiMode: newMode,
+          llmEnabled: newMode === 'local',
+          cloudModeEnabled: newMode === 'cloud',
+          geminiEnabled: newMode === 'gemini',
+          webllmEnabled: newMode === 'webllm',
+        });
+        await renderPanel(newMode);
+      });
+    });
+
+    // Wizard link
+    if (wizardBtn) {
+      this.attachInteractiveHandler(wizardBtn, 'Open AI Setup Wizard', () => {
         chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
-        // Close the advanced options modal
         modal.remove();
       });
     }
+
+    // Initial render
+    chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
+      let mode = result.aiMode || 'off';
+      if (!result.aiMode) {
+        if (result.cloudModeEnabled) mode = 'cloud';
+        else if (result.llmEnabled) mode = 'local';
+      }
+      selectChip(mode);
+      renderPanel(mode);
+    });
   }
 
   /**
@@ -9405,173 +9486,559 @@ class PopupController {
   }
 
   /**
-   * Set up unified AI Assist section with radio toggles
+   * Set up the AI Assist section — inline mode chips + contextual panel.
+   * Users can switch mode without opening the wizard.
    */
   setupAIAssist() {
-    // AI configuration has moved to the dedicated AI Setup page.
-    // This method now only renders the read-only status widget and wires the
-    // "Configure AI" button.
+    this.installedModels = [];
 
-    const MODE_META = {
-      off: { icon: '✨', label: 'AI Off', detail: 'No AI configured', dot: '#888', badge: 'Off' },
-      cloud: {
-        icon: '☁️',
-        label: 'Cloud AI',
-        detail: 'Using cloud AI provider',
-        dot: '#60a5fa',
-        badge: 'Cloud',
-      },
-      local: {
-        icon: '🤖',
-        label: 'Local AI',
-        detail: 'Checking Ollama…',
-        dot: '#34d399',
-        badge: 'Local',
-      },
-      webllm: {
-        icon: '🌐',
-        label: 'Browser AI',
-        detail: 'On-device via WebGPU',
-        dot: '#a78bfa',
-        badge: 'Browser AI',
-      },
-      'gemini-nano': {
-        icon: '💎',
-        label: 'Gemini Nano',
-        detail: 'Chrome on-device AI',
-        dot: '#f472b6',
-        badge: 'Gemini',
-      },
+    const chipsEl = document.getElementById('ai-mode-chips');
+    const panelEl = document.getElementById('ai-quick-panel');
+    const advancedBtn = document.getElementById('btn-ai-advanced');
+    const badgeEl = document.getElementById('llm-status-badge');
+
+    if (!chipsEl || !panelEl) {
+      console.warn('[Popup] AI Assist chip elements not found');
+      return;
+    }
+
+    // Show/hide Gemini chip based on WebGPU availability (Gemini Nano requires Chrome AI)
+    if (typeof navigator !== 'undefined' && navigator.gpu) {
+      const geminiChip = chipsEl.querySelector('.ai-chip-gemini');
+      if (geminiChip) {
+        geminiChip.style.display = '';
+      }
+    }
+
+    // ── Badge sync ────────────────────────────────────────────────
+    const BADGE_META = {
+      off:    { text: 'Off',        cls: 'llm-badge offline' },
+      cloud:  { text: 'Cloud',      cls: 'llm-badge online'  },
+      local:  { text: 'Local',      cls: 'llm-badge online'  },
+      webllm: { text: 'Browser AI', cls: 'llm-badge online'  },
+      gemini: { text: 'Gemini',     cls: 'llm-badge online'  },
     };
 
-    const updateWidget = mode => {
-      const meta = MODE_META[mode] || MODE_META.off;
-      const iconEl = document.getElementById('ai-status-icon');
-      const modeEl = document.getElementById('ai-status-mode');
-      const detailEl = document.getElementById('ai-status-detail');
-      const dotEl = document.getElementById('ai-health-dot');
-      const badgeEl = document.getElementById('llm-status-badge');
-      if (iconEl) {
-        iconEl.textContent = meta.icon;
-      }
-      if (modeEl) {
-        modeEl.textContent = meta.label;
-      }
-      if (detailEl) {
-        detailEl.textContent = meta.detail;
-      }
-      if (dotEl) {
-        dotEl.style.background = meta.dot;
-      }
-      if (badgeEl) {
-        badgeEl.textContent = meta.badge;
-        badgeEl.className = `llm-badge${mode === 'off' ? ' offline' : ' online'}`;
-      }
+    const syncBadge = mode => {
+      if (!badgeEl) return;
+      const m = BADGE_META[mode] || BADGE_META.off;
+      badgeEl.textContent = m.text;
+      badgeEl.className = m.cls;
     };
 
-    // Async detail updater — runs after updateWidget() sets the static placeholder
-    const refreshDetail = async mode => {
-      const detailEl = document.getElementById('ai-status-detail');
-      const badgeEl = document.getElementById('llm-status-badge');
-      if (!detailEl) {
+    // ── Chip selection ────────────────────────────────────────────
+    const selectChip = mode => {
+      chipsEl.querySelectorAll('input[type="radio"]').forEach(r => {
+        r.checked = r.value === mode;
+      });
+    };
+
+    // ── Contextual panel rendering ────────────────────────────────
+    const renderPanel = async mode => {
+      panelEl.innerHTML = '';
+
+      if (mode === 'off') {
+        panelEl.innerHTML =
+          '<p class="ai-panel-off-msg">AI features are disabled. Select a mode above to enable AI tools.</p>';
+        return;
+      }
+
+      if (mode === 'cloud') {
+        await this._renderCloudPanel(panelEl, false);
+        return;
+      }
+
+      if (mode === 'webllm') {
+        await this._renderWebLLMPanel(panelEl, false);
         return;
       }
 
       if (mode === 'local') {
-        try {
-          const r = await chrome.runtime.sendMessage({ action: 'LOCAL_LLM_CHECK' });
-          if (r?.success && r?.available) {
-            const model = (r.models && r.models[0]) || 'Ollama';
-            detailEl.textContent = `Online — ${model}`;
-            if (badgeEl) {
-              badgeEl.textContent = 'Online';
-              badgeEl.className = 'llm-badge online';
-            }
-          } else {
-            detailEl.textContent = 'Offline — start Ollama';
-            if (badgeEl) {
-              badgeEl.textContent = 'Offline';
-              badgeEl.className = 'llm-badge offline';
-            }
-          }
-        } catch {
-          detailEl.textContent = 'Offline — start Ollama';
-          if (badgeEl) {
-            badgeEl.textContent = 'Offline';
-            badgeEl.className = 'llm-badge offline';
-          }
-        }
-      } else if (mode === 'cloud') {
-        const s = await chrome.storage.local.get(['cloudProvider', 'aiProvider']);
-        const provider = s.cloudProvider || s.aiProvider || 'Cloud';
-        detailEl.textContent = `via ${provider.charAt(0).toUpperCase() + provider.slice(1)}`;
-      } else if (mode === 'webllm') {
-        const s = await chrome.storage.local.get(['webllmModel']);
-        if (s.webllmModel) {
-          detailEl.textContent = s.webllmModel;
-        }
+        await this._renderLocalPanel(panelEl, false);
+        return;
+      }
+
+      if (mode === 'gemini') {
+        await this._renderGeminiPanel(panelEl);
+        return;
       }
     };
 
-    // Read current mode and render widget
-    chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
-      let mode = result.aiMode || 'off';
-      // Legacy migration
-      if (!result.aiMode) {
-        if (result.cloudModeEnabled) {
-          mode = 'cloud';
-        } else if (result.llmEnabled) {
-          mode = 'local';
-        }
-        chrome.storage.local.set({ aiMode: mode });
-      }
-      updateWidget(mode);
-      refreshDetail(mode);
+    // ── Wire chip change handlers (use change event; CLAUDE.md allows it for radios) ──
+    chipsEl.querySelectorAll('input[type="radio"]').forEach(radio => {
+      radio.addEventListener('change', async () => {
+        if (!radio.checked) return;
+        const newMode = radio.value;
+
+        // Persist immediately
+        chrome.storage.local.set({ aiMode: newMode });
+
+        // Legacy compatibility flags
+        chrome.storage.local.set({
+          llmEnabled: newMode === 'local',
+          cloudModeEnabled: newMode === 'cloud',
+          geminiEnabled: newMode === 'gemini',
+          webllmEnabled: newMode === 'webllm',
+        });
+
+        syncBadge(newMode);
+        await renderPanel(newMode);
+      });
     });
 
-    // "Configure AI" button → open the AI Setup page
-    const configBtn = document.getElementById('btn-configure-ai');
-    if (configBtn) {
-      this.attachInteractiveHandler(configBtn, 'Configure AI Button', () => {
+    // ── Advanced settings link ────────────────────────────────────
+    if (advancedBtn) {
+      this.attachInteractiveHandler(advancedBtn, 'AI Advanced Settings', () => {
         chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
       });
     }
 
-    // Listen for storage changes so the widget stays in sync
+    // ── Initial render ────────────────────────────────────────────
+    chrome.storage.local.get(['aiMode', 'llmEnabled', 'cloudModeEnabled'], result => {
+      let mode = result.aiMode || 'off';
+      if (!result.aiMode) {
+        if (result.cloudModeEnabled) mode = 'cloud';
+        else if (result.llmEnabled) mode = 'local';
+        chrome.storage.local.set({ aiMode: mode });
+      }
+      selectChip(mode);
+      syncBadge(mode);
+      renderPanel(mode);
+    });
+
+    // ── Storage listener — keep chips in sync if another page changes mode ──
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.aiMode) {
         const newMode = changes.aiMode.newValue || 'off';
-        updateWidget(newMode);
-        refreshDetail(newMode);
+        selectChip(newMode);
+        syncBadge(newMode);
+        renderPanel(newMode);
       }
     });
 
-    console.log('[Popup] AI Assist status widget ready');
+    console.log('[Popup] AI Assist quick switcher ready');
+  }
 
-    // ──────────────────────────────────────────────────────
-    // Legacy references kept as dead variables to avoid
-    // breaking calls to updateAIMode() / checkLLMStatus()
-    // elsewhere in popup.js. Those methods now only update
-    // the badge and send legacy compatibility messages.
-    // ──────────────────────────────────────────────────────
-    const aiModeRadios = document.querySelectorAll('input[name="ai-mode"]');
-    const btnCheckLLM = document.getElementById('btn-check-llm');
-    const llmInstallProgress = document.getElementById('llm-install-progress');
-    const llmProgressModel = document.getElementById('llm-progress-model');
-    const llmProgressPercent = document.getElementById('llm-progress-percent');
-    const llmProgressFill = document.getElementById('llm-progress-fill');
+  // ── Shared panel renderers ────────────────────────────────────────────────
 
-    // Track installed models
-    this.installedModels = [];
+  /**
+   * Render the Cloud AI panel into a container element.
+   * @param {HTMLElement} container
+   * @param {boolean} isModal - true = show extra details (model dropdown)
+   */
+  async _renderCloudPanel(container, isModal) {
+    const PROVIDERS = [
+      { value: 'anthropic', label: 'Anthropic (Claude)' },
+      { value: 'openai',    label: 'OpenAI (GPT)' },
+      { value: 'google',    label: 'Google (Gemini)' },
+      { value: 'perplexity', label: 'Perplexity' },
+    ];
 
-    // (legacy variables declared above are intentionally unused — kept to avoid
-    //  reference errors if other popup.js code still calls updateAIMode())
-    void aiModeRadios;
-    void btnCheckLLM;
-    void llmInstallProgress;
-    void llmProgressModel;
-    void llmProgressPercent;
-    void llmProgressFill;
+    const s = await chrome.storage.local.get(['cloudProvider', 'cloudModel']);
+    const currentProvider = s.cloudProvider || 'anthropic';
+    const currentModel = s.cloudModel || '';
+
+    // Provider row
+    const provRow = document.createElement('div');
+    provRow.className = 'ai-panel-row';
+    provRow.innerHTML = `<span class="ai-panel-label">Provider</span>`;
+    const provSel = document.createElement('select');
+    provSel.className = 'ai-panel-select';
+    provSel.setAttribute('aria-label', 'Cloud AI provider');
+    PROVIDERS.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.value;
+      opt.textContent = p.label;
+      opt.selected = p.value === currentProvider;
+      provSel.appendChild(opt);
+    });
+    provRow.appendChild(provSel);
+    container.appendChild(provRow);
+
+    // API key row
+    const keyRow = document.createElement('div');
+    keyRow.className = 'ai-panel-row';
+    keyRow.innerHTML = `<span class="ai-panel-label">API Key</span>`;
+    const keyWrap = document.createElement('div');
+    keyWrap.className = 'ai-panel-key-wrap';
+    const keyInput = document.createElement('input');
+    keyInput.type = 'password';
+    keyInput.className = 'ai-panel-key-input';
+    keyInput.placeholder = 'Paste API key…';
+    keyInput.setAttribute('aria-label', 'API key');
+    keyInput.setAttribute('autocomplete', 'off');
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'ai-panel-key-toggle';
+    toggleBtn.setAttribute('aria-label', 'Show or hide API key');
+    toggleBtn.textContent = '👁';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'ai-panel-save-btn';
+    saveBtn.textContent = 'Save';
+    keyWrap.appendChild(keyInput);
+    keyWrap.appendChild(toggleBtn);
+    keyWrap.appendChild(saveBtn);
+    keyRow.appendChild(keyWrap);
+    container.appendChild(keyRow);
+
+    // Status line
+    const statusLine = document.createElement('div');
+    statusLine.className = 'ai-panel-status';
+    const dot = document.createElement('span');
+    dot.className = 'ai-status-dot';
+    const statusText = document.createElement('span');
+    statusText.id = 'ai-cloud-status-text';
+    statusText.textContent = 'Checking…';
+    statusLine.appendChild(dot);
+    statusLine.appendChild(statusText);
+    container.appendChild(statusLine);
+
+    // Model row (always visible in popup too — users need quick model switching)
+    const modelRow = document.createElement('div');
+    modelRow.className = 'ai-panel-row';
+    modelRow.style.marginTop = '6px';
+    modelRow.innerHTML = `<span class="ai-panel-label">Model</span>`;
+    const modelSel = document.createElement('select');
+    modelSel.className = 'ai-panel-select';
+    modelSel.setAttribute('aria-label', 'Cloud AI model');
+    modelRow.appendChild(modelSel);
+    container.appendChild(modelRow);
+
+    // ── Populate model dropdown ───────────────────────────────────
+    const FALLBACK_MODELS = {
+      anthropic: [
+        { id: 'claude-haiku-4-5-20251001', name: 'Haiku (Fast)' },
+        { id: 'claude-sonnet-4-6', name: 'Sonnet (Recommended)' },
+        { id: 'claude-opus-4-6', name: 'Opus (Most Capable)' },
+      ],
+      openai: [
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
+        { id: 'gpt-4o', name: 'GPT-4o (Recommended)' },
+        { id: 'o3-mini', name: 'o3 Mini (Reasoning)' },
+      ],
+      google: [
+        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended)' },
+        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+        { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (Fast)' },
+      ],
+      perplexity: [
+        { id: 'sonar', name: 'Sonar (Recommended)' },
+        { id: 'sonar-pro', name: 'Sonar Pro (Most Capable)' },
+        { id: 'sonar-reasoning', name: 'Sonar Reasoning' },
+      ],
+    };
+
+    const populateModels = async provider => {
+      modelSel.innerHTML = '';
+      let models = null;
+      try {
+        const cacheKey = `cloudModels_${provider}`;
+        const cached = await chrome.storage.local.get(cacheKey);
+        if (cached[cacheKey]?.models?.length > 0) models = cached[cacheKey].models;
+      } catch { /* use fallback */ }
+      if (!models) models = FALLBACK_MODELS[provider] || [];
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name || m.id;
+        opt.selected = m.id === currentModel;
+        modelSel.appendChild(opt);
+      });
+    };
+
+    await populateModels(currentProvider);
+
+    // ── Load current API key ──────────────────────────────────────
+    const loadKey = async provider => {
+      try {
+        const { getSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
+        const key = await getSecureAPIKey(provider);
+        if (key) {
+          keyInput.value = key;
+          dot.className = 'ai-status-dot online';
+          statusText.textContent = 'API key configured';
+        } else {
+          keyInput.value = '';
+          dot.className = 'ai-status-dot warning';
+          statusText.textContent = 'API key required';
+        }
+      } catch {
+        dot.className = 'ai-status-dot offline';
+        statusText.textContent = 'Could not load key';
+      }
+    };
+
+    await loadKey(currentProvider);
+
+    // ── Event handlers ────────────────────────────────────────────
+    // Show/hide toggle
+    toggleBtn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+      toggleBtn.setAttribute('aria-pressed', String(keyInput.type === 'text'));
+    });
+
+    // Provider change
+    provSel.addEventListener('change', async () => {
+      const p = provSel.value;
+      chrome.storage.local.set({ cloudProvider: p });
+      await loadKey(p);
+      await populateModels(p);
+    });
+
+    // Model change
+    modelSel.addEventListener('change', () => {
+      chrome.storage.local.set({ cloudModel: modelSel.value });
+    });
+
+    // Save key on button click
+    this.attachInteractiveHandler(saveBtn, 'Save API Key', async () => {
+      const key = keyInput.value.trim();
+      if (!key) {
+        dot.className = 'ai-status-dot warning';
+        statusText.textContent = 'Enter a key first';
+        return;
+      }
+      try {
+        const { saveSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
+        await saveSecureAPIKey(provSel.value, key);
+        dot.className = 'ai-status-dot online';
+        statusText.textContent = 'Key saved ✓';
+        // Populate models after saving key
+        await populateModels(provSel.value);
+      } catch (err) {
+        dot.className = 'ai-status-dot offline';
+        statusText.textContent = 'Save failed — try wizard';
+        console.error('[Popup] Key save error:', err);
+      }
+    });
+
+    // Save model selection on blur too (immediate feedback)
+    keyInput.addEventListener('blur', () => {
+      // Just trim whitespace; save is explicit via button
+    });
+  }
+
+  /**
+   * Render the Browser AI (WebLLM) panel into a container element.
+   * @param {HTMLElement} container
+   * @param {boolean} isModal
+   */
+  async _renderWebLLMPanel(container, isModal) {
+    const WEBLLM_MODELS = [
+      { key: 'llama-3.2-1b', label: 'Llama 3.2 1B (650 MB) — fastest' },
+      { key: 'gemma-2b',     label: 'Gemma 2B (1.6 GB)' },
+      { key: 'llama-3.2-3b', label: 'Llama 3.2 3B (1.9 GB)' },
+      { key: 'phi-3.5-mini', label: 'Phi 3.5 Mini (2.3 GB)' },
+      { key: 'qwen2.5-3b',   label: 'Qwen 2.5 3B (1.9 GB)' },
+      { key: 'mistral-7b',   label: 'Mistral 7B (4.4 GB) — best quality' },
+      { key: 'llama-3.1-8b', label: 'Llama 3.1 8B (4.9 GB)' },
+      { key: 'gemma-7b',     label: 'Gemma 7B (4.3 GB)' },
+    ];
+
+    const s = await chrome.storage.local.get(['webllmModel', 'webllmCachedModels']);
+    const currentModel = s.webllmModel || 'llama-3.2-1b';
+    const cachedModels = s.webllmCachedModels || [];
+
+    // Model selector row
+    const modelRow = document.createElement('div');
+    modelRow.className = 'ai-panel-row';
+    modelRow.innerHTML = `<span class="ai-panel-label">Model</span>`;
+    const modelSel = document.createElement('select');
+    modelSel.className = 'ai-panel-select';
+    modelSel.setAttribute('aria-label', 'Browser AI model');
+    WEBLLM_MODELS.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.key;
+      const isCached = cachedModels.includes(m.key);
+      opt.textContent = isCached ? `${m.label} ✓` : m.label;
+      opt.selected = m.key === currentModel;
+      modelSel.appendChild(opt);
+    });
+    modelRow.appendChild(modelSel);
+    container.appendChild(modelRow);
+
+    // Status + action row
+    const actionRow = document.createElement('div');
+    actionRow.className = 'ai-panel-row';
+    actionRow.style.marginTop = '6px';
+    const dot = document.createElement('span');
+    dot.className = 'ai-status-dot';
+    const statusText = document.createElement('span');
+    statusText.style.flex = '1';
+    statusText.style.fontSize = '11px';
+    statusText.style.color = 'var(--text-secondary)';
+    const actionBtn = document.createElement('button');
+    actionBtn.type = 'button';
+    actionBtn.className = 'ai-panel-action-btn primary';
+    actionRow.appendChild(dot);
+    actionRow.appendChild(statusText);
+    actionRow.appendChild(actionBtn);
+    container.appendChild(actionRow);
+
+    // Download progress bar (hidden until download starts)
+    const progressBar = document.createElement('div');
+    progressBar.className = 'ai-download-bar';
+    progressBar.style.display = 'none';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'ai-download-bar-fill';
+    progressBar.appendChild(progressFill);
+    container.appendChild(progressBar);
+
+    const refresh = async modelKey => {
+      const isCached = cachedModels.includes(modelKey);
+      try {
+        const r = await chrome.runtime.sendMessage({ action: 'WEBLLM_STATUS' });
+        const isLoaded = r?.loaded && r?.modelId && r.modelId.toLowerCase().includes(modelKey.split('-').slice(0, 2).join('-').toLowerCase());
+        if (isLoaded) {
+          dot.className = 'ai-status-dot online';
+          statusText.textContent = 'Ready';
+          actionBtn.textContent = 'Change model';
+          actionBtn.className = 'ai-panel-action-btn';
+        } else if (isCached) {
+          dot.className = 'ai-status-dot warning';
+          statusText.textContent = 'Downloaded — not loaded';
+          actionBtn.textContent = 'Load model';
+          actionBtn.className = 'ai-panel-action-btn primary';
+        } else {
+          dot.className = 'ai-status-dot';
+          statusText.textContent = 'Not downloaded';
+          actionBtn.textContent = 'Download';
+          actionBtn.className = 'ai-panel-action-btn primary';
+        }
+      } catch {
+        dot.className = 'ai-status-dot';
+        statusText.textContent = isCached ? 'Downloaded' : 'Not downloaded';
+        actionBtn.textContent = isCached ? 'Load model' : 'Download';
+        actionBtn.className = 'ai-panel-action-btn primary';
+      }
+    };
+
+    await refresh(currentModel);
+
+    // Model change
+    modelSel.addEventListener('change', async () => {
+      chrome.storage.local.set({ webllmModel: modelSel.value });
+      await refresh(modelSel.value);
+    });
+
+    // Download / load action
+    this.attachInteractiveHandler(actionBtn, 'Download or Load WebLLM Model', async () => {
+      progressBar.style.display = 'block';
+      progressFill.style.width = '10%';
+      actionBtn.disabled = true;
+      statusText.textContent = 'Initialising…';
+      dot.className = 'ai-status-dot warning';
+      try {
+        await chrome.runtime.sendMessage({
+          action: 'WEBLLM_INITIALIZE',
+          modelKey: modelSel.value,
+        });
+        progressFill.style.width = '100%';
+        setTimeout(() => { progressBar.style.display = 'none'; }, 800);
+        dot.className = 'ai-status-dot online';
+        statusText.textContent = 'Ready';
+        actionBtn.textContent = 'Change model';
+        actionBtn.className = 'ai-panel-action-btn';
+        actionBtn.disabled = false;
+      } catch (err) {
+        progressBar.style.display = 'none';
+        dot.className = 'ai-status-dot offline';
+        statusText.textContent = 'Failed — try wizard';
+        actionBtn.disabled = false;
+        console.error('[Popup] WebLLM init error:', err);
+      }
+    });
+  }
+
+  /**
+   * Render the Local AI (Ollama) panel into a container element.
+   * @param {HTMLElement} container
+   * @param {boolean} isModal
+   */
+  async _renderLocalPanel(container, isModal) {
+    const card = document.createElement('div');
+    card.className = 'ai-panel-row';
+
+    const dot = document.createElement('span');
+    dot.className = 'ai-status-dot';
+    const statusText = document.createElement('span');
+    statusText.style.flex = '1';
+    statusText.style.fontSize = '12px';
+    statusText.textContent = 'Checking Ollama…';
+    const checkBtn = document.createElement('button');
+    checkBtn.type = 'button';
+    checkBtn.className = 'ai-panel-action-btn';
+    checkBtn.textContent = 'Check again';
+
+    card.appendChild(dot);
+    card.appendChild(statusText);
+    card.appendChild(checkBtn);
+    container.appendChild(card);
+
+    const checkOllama = async () => {
+      statusText.textContent = 'Checking…';
+      dot.className = 'ai-status-dot';
+      try {
+        const r = await chrome.runtime.sendMessage({ action: 'LOCAL_LLM_CHECK' });
+        if (r?.success && r?.available) {
+          const model = (r.models && r.models[0]) || 'Ollama';
+          dot.className = 'ai-status-dot online';
+          statusText.textContent = `Online — ${model}`;
+          // Update header badge
+          const badge = document.getElementById('llm-status-badge');
+          if (badge) { badge.textContent = 'Online'; badge.className = 'llm-badge online'; }
+        } else {
+          dot.className = 'ai-status-dot offline';
+          statusText.textContent = 'Offline — start Ollama to use Local AI';
+          const badge = document.getElementById('llm-status-badge');
+          if (badge) { badge.textContent = 'Offline'; badge.className = 'llm-badge offline'; }
+        }
+      } catch {
+        dot.className = 'ai-status-dot offline';
+        statusText.textContent = 'Could not reach Ollama';
+      }
+    };
+
+    await checkOllama();
+
+    this.attachInteractiveHandler(checkBtn, 'Check Ollama Status', checkOllama);
+  }
+
+  /**
+   * Render the Gemini Nano panel into a container element.
+   * @param {HTMLElement} container
+   */
+  async _renderGeminiPanel(container) {
+    const row = document.createElement('div');
+    row.className = 'ai-panel-row';
+    const dot = document.createElement('span');
+    dot.className = 'ai-status-dot';
+    const statusText = document.createElement('span');
+    statusText.style.fontSize = '12px';
+    statusText.textContent = 'Checking device support…';
+    row.appendChild(dot);
+    row.appendChild(statusText);
+    container.appendChild(row);
+
+    try {
+      const r = await chrome.runtime.sendMessage({ action: 'GEMINI_LLM_CHECK' });
+      if (r?.available) {
+        dot.className = 'ai-status-dot online';
+        statusText.textContent = 'Ready — Gemini Nano on this device';
+      } else {
+        dot.className = 'ai-status-dot offline';
+        statusText.textContent = 'Not available on this device';
+        const note = document.createElement('p');
+        note.style.cssText = 'font-size:11px; color:var(--text-secondary); margin-top:6px;';
+        note.textContent = 'Gemini Nano requires Chrome with AI features enabled.';
+        container.appendChild(note);
+      }
+    } catch {
+      dot.className = 'ai-status-dot offline';
+      statusText.textContent = 'Check failed';
+    }
   }
 
   /**
