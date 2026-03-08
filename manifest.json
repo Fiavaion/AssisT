@@ -78,7 +78,7 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "name": "AssisT: Adaptive Augmentative Tool",
   "description": "Adaptive learning tools with Text-to-Speech, AI assistance, and accessibility features for all learners",
