@@ -2084,6 +2084,327 @@ body {
   opacity: 0;
 }
 
+/* ── AI Quick Mode Chips ─────────────────────────────────────── */
+
+.ai-quick-section {
+  padding-bottom: 4px;
+}
+
+/* Fieldset reset — use flex row of pill chips */
+.ai-mode-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 2px;
+  border: none;
+  margin: 0;
+}
+
+.ai-chip {
+  cursor: pointer;
+  position: relative;
+}
+
+/* Hide the native radio visually but keep it accessible */
+.ai-chip input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.ai-chip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 2px solid var(--border-light, #d0d0d0);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ai-chip:hover span {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* Selected state */
+.ai-chip input[type='radio']:checked + span {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(33, 150, 243, 0.35);
+}
+
+/* Keyboard focus ring — WCAG 2.2 SC 2.4.11 */
+.ai-chip input[type='radio']:focus-visible + span {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* ── AI Contextual Panels ────────────────────────────────────── */
+
+.ai-quick-panel,
+.ai-modal-panel {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  min-height: 36px;
+}
+
+/* Off-mode message */
+.ai-panel-off-msg {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Row layout used inside panels */
+.ai-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ai-panel-row:last-child {
+  margin-bottom: 0;
+}
+
+.ai-panel-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 11px;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.ai-panel-select {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-light, #d0d0d0);
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--background);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.ai-panel-select:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+}
+
+/* API key row */
+.ai-panel-key-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-panel-key-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-light, #d0d0d0);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: monospace;
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+.ai-panel-key-input:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+}
+
+.ai-panel-key-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.ai-panel-key-toggle:hover {
+  color: var(--primary-color);
+}
+
+.ai-panel-key-toggle:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.ai-panel-save-btn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.ai-panel-save-btn:hover {
+  background: var(--primary-dark);
+}
+
+.ai-panel-save-btn:focus-visible {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Status line inside panel */
+.ai-panel-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.ai-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary, #888);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.ai-status-dot.online  { background: #4caf50; }
+.ai-status-dot.offline { background: #f44336; }
+.ai-status-dot.warning { background: #ff9800; }
+
+/* Download progress bar */
+.ai-download-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-light, #d0d0d0);
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.ai-download-bar-fill {
+  height: 100%;
+  background: var(--primary-color);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+/* Small action button inside panels */
+.ai-panel-action-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-light, #d0d0d0);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.ai-panel-action-btn:hover {
+  border-color: var(--primary-color);
+  background: rgba(33, 150, 243, 0.06);
+}
+
+.ai-panel-action-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.ai-panel-action-btn.primary {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+
+.ai-panel-action-btn.primary:hover {
+  background: var(--primary-dark);
+}
+
+/* Advanced settings link */
+.ai-advanced-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 6px;
+  text-decoration: underline;
+  display: block;
+}
+
+.ai-advanced-link:hover {
+  color: var(--primary-dark);
+}
+
+.ai-advanced-link:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Modal AI tab layout */
+.ai-tab-full {
+  padding: 12px 0 4px;
+}
+
+.ai-modal-panel {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Dark mode overrides */
+body.dark-mode .ai-chip span {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+body.dark-mode .ai-chip:hover span {
+  border-color: var(--primary-color);
+  color: #90caf9;
+}
+
+body.dark-mode .ai-quick-panel,
+body.dark-mode .ai-modal-panel {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode .ai-panel-select,
+body.dark-mode .ai-panel-key-input {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e0e0e0;
+}
+
 /* ── Local AI section redesign ───────────────────────────────── */
 
 /* Ollama status card */

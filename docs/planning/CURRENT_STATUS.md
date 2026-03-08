@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 090 (AI Setup Wizard Polish)
+**Session**: Phase 2 Session 091 (Inline AI Mode Switcher)
 
 ---
 
@@ -47,6 +47,12 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 091 (2026-03-08)
+
+**Inline AI Mode Switcher**
+
+Replaced read-only AI status widget and redirect-only Advanced Options AI tab with fully inline mode chip switchers (Off / Cloud / Browser AI / Local AI / Gemini Nano) in both the popup AI Assist accordion and the Advanced Options modal. Users can now switch AI type, enter API keys, pick cloud models, and initiate WebLLM downloads without re-running the setup wizard. Shared panel renderers `_renderCloudPanel()`, `_renderWebLLMPanel()`, `_renderLocalPanel()`, `_renderGeminiPanel()` power both locations. WCAG 2.2 AA compliant (fieldset/legend, aria-live, 3px focus rings).
 
 ### Phase 2 Session 090 (2026-03-08)
 
