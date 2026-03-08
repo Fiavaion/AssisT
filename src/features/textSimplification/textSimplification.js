@@ -25,6 +25,7 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -41,19 +42,6 @@ const simplification_settings = {
   showInHighlightMenu: true,
   showTermDefinitions: true,
 };
-
-// Cloud model configurations
-const SIMPLIFICATION_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus 4.6' },
-};
-
-// Benchmark-optimized defaults (Academic Benchmark Report Dec 2025)
-// Cloud: Sonnet 4.6 scored 9.6/10 (highest single score in benchmark)
-// Local: Mistral:7b scored 8.4/10 (best local for simplification)
-const SIMPLIFICATION_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
@@ -72,7 +60,7 @@ async function simplification_getCurrentModel() {
       return 'local';
     } else if (aiMode === 'cloud') {
       // Return the global cloud model setting from Advanced Options
-      return result.cloudModel || SIMPLIFICATION_DEFAULT_CLOUD_MODEL;
+      return result.cloudModel || getFeatureDefault('anthropic', 'textSimplification');
     } else {
       // AI is off - default to local
       return 'local';
@@ -1177,7 +1165,7 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
   };
 
   const isCloud = modelKey !== 'local';
-  const modelName = SIMPLIFICATION_MODELS[modelKey]?.name || modelKey;
+  const modelName = getModelId('anthropic', modelKey);
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`

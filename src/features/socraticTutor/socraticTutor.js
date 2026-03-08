@@ -17,6 +17,7 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -33,17 +34,6 @@ const tutor_settings = {
   questionCount: 4,
   includeHints: true,
 };
-
-// Cloud model configurations
-const TUTOR_MODELS = {
-  local: { id: 'local', name: 'Local', isLocal: true },
-  'haiku-4.5': { id: 'claude-haiku-4-5-20251001', name: 'Haiku' },
-  'sonnet-4.6': { id: 'claude-sonnet-4-6', name: 'Sonnet' },
-  'opus-4.6': { id: 'claude-opus-4-6', name: 'Opus' },
-};
-
-// Default: use the user's global default (sonnet-4.6) — overridden by cloudModel in storage
-const TUTOR_DEFAULT_CLOUD_MODEL = 'sonnet-4.6';
 
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
@@ -78,7 +68,7 @@ async function tutor_getCurrentModel() {
       return 'local';
     } else if (aiMode === 'cloud') {
       // Return the global cloud model setting from Advanced Options
-      return result.cloudModel || TUTOR_DEFAULT_CLOUD_MODEL;
+      return result.cloudModel || getFeatureDefault('anthropic', 'socraticTutor');
     } else {
       // AI is off - default to local
       return 'local';
@@ -870,7 +860,7 @@ async function tutor_analyze(text, modelKey = null) {
 
   const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
   const isCloud = modelKey !== 'local';
-  const modelName = TUTOR_MODELS[modelKey]?.name || modelKey;
+  const modelName = getModelId('anthropic', modelKey);
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`

@@ -10,11 +10,12 @@
  * @module ai/cloud-router
  */
 
-import { claudeGenerate, CLOUD_MODELS as ANTHROPIC_MODELS } from './claude-client.js';
+import { claudeGenerate } from './claude-client.js';
 import { openaiGenerate, fetchOpenAIModels } from './openai-client.js';
 import { geminiGenerate, fetchGeminiModels } from './google-client.js';
 import { perplexityGenerate, fetchPerplexityModels } from './perplexity-client.js';
 import { getSecureAPIKey } from '../core/storage/secure-key-storage.js';
+import { resolveModel, getHardcodedFallbackModels } from './model-registry.js';
 
 // ============================================================================
 // CACHE VERSION — bump this when model IDs or names change to force refresh
@@ -75,12 +76,9 @@ export async function cloudGenerate(prompt, options = {}) {
     `[CloudRouter] Routing to ${providerConfig.name} (model: ${options.model || 'default'})`
   );
 
-  // For Anthropic, resolve internal keys (e.g., 'sonnet-4.6') to actual model IDs
-  if (provider === 'anthropic' && options.model) {
-    const modelConfig = ANTHROPIC_MODELS[options.model];
-    if (modelConfig && !modelConfig.isLocal) {
-      options.model = modelConfig.id;
-    }
+  // Resolve model keys (e.g., 'sonnet-4.6') to actual API model IDs via registry
+  if (options.model) {
+    options.model = resolveModel(provider, options.model);
   }
 
   return providerConfig.generate(prompt, options);
@@ -214,27 +212,12 @@ async function cacheModels(provider, models) {
 }
 
 /**
- * Fetch Anthropic models (hardcoded — no listing API)
+ * Fetch Anthropic models (hardcoded — no listing API).
+ * Uses model-registry as the single source of truth.
  * @returns {Promise<Array<{id: string, name: string, description: string}>>}
  */
 async function fetchAnthropicModels() {
-  return [
-    {
-      id: 'claude-haiku-4-5-20251001',
-      name: 'Haiku (Fast)',
-      description: 'Fast and economical',
-    },
-    {
-      id: 'claude-sonnet-4-6',
-      name: 'Sonnet (Recommended)',
-      description: 'Best for everyday tasks',
-    },
-    {
-      id: 'claude-opus-4-6',
-      name: 'Opus (Most Capable)',
-      description: 'Most capable for complex work',
-    },
-  ];
+  return getHardcodedFallbackModels('anthropic');
 }
 
 /**
@@ -264,59 +247,14 @@ async function fetchPerplexityModelsWrapper() {
 }
 
 /**
- * Hardcoded fallback models when API fetch fails
+ * Hardcoded fallback models when API fetch fails.
+ * Delegates to model-registry — the single source of truth.
  * @param {string} provider
  * @returns {Array<{id: string, name: string, description: string}>}
  */
 function getHardcodedFallback(provider) {
-  const fallbacks = {
-    anthropic: [
-      {
-        id: 'claude-haiku-4-5-20251001',
-        name: 'Haiku (Fast)',
-        description: 'Fast and economical',
-      },
-      {
-        id: 'claude-sonnet-4-6',
-        name: 'Sonnet (Recommended)',
-        description: 'Best for everyday tasks',
-      },
-      {
-        id: 'claude-opus-4-6',
-        name: 'Opus (Most Capable)',
-        description: 'Most capable for complex work',
-      },
-    ],
-    openai: [
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)', description: 'Fast and economical' },
-      { id: 'gpt-4o', name: 'GPT-4o (Recommended)', description: 'Best for everyday tasks' },
-      { id: 'o3-mini', name: 'o3 Mini (Reasoning)', description: 'Advanced reasoning' },
-    ],
-    google: [
-      {
-        id: 'gemini-2.0-flash',
-        name: 'Gemini 2.0 Flash (Recommended)',
-        description: 'Best for everyday tasks',
-      },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'High capability' },
-      {
-        id: 'gemini-2.0-flash-lite',
-        name: 'Gemini 2.0 Flash Lite (Fast)',
-        description: 'Fastest, most economical',
-      },
-    ],
-    perplexity: [
-      { id: 'sonar', name: 'Sonar (Recommended)', description: 'Best for everyday tasks' },
-      {
-        id: 'sonar-pro',
-        name: 'Sonar Pro (Most Capable)',
-        description: 'Most capable with citations',
-      },
-      { id: 'sonar-reasoning', name: 'Sonar Reasoning', description: 'Advanced reasoning' },
-    ],
-  };
-
-  return fallbacks[provider] || fallbacks.anthropic;
+  const models = getHardcodedFallbackModels(provider);
+  return models.length > 0 ? models : getHardcodedFallbackModels('anthropic');
 }
 
 // ============================================================================

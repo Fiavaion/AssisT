@@ -3245,212 +3245,60 @@
             <span class="accordion-icon">▼</span>
           </div>
           <div id="ai-assist-content" class="accordion-content" role="region">
-            <!-- AI Mode Selector (Radio Toggles) -->
+            <!-- AI Status Widget — full config lives in the AI Setup page -->
             <section class="control-section">
-              <div class="ai-mode-selector" role="radiogroup" aria-label="AI Mode Selection">
-                <label class="ai-mode-option">
-                  <input
-                    type="radio"
-                    name="ai-mode"
-                    value="off"
-                    id="ai-mode-off"
-                    checked
-                    aria-label="AI Off"
-                  />
-                  <span class="ai-mode-label">Off</span>
-                </label>
-                <label class="ai-mode-option">
-                  <input
-                    type="radio"
-                    name="ai-mode"
-                    value="local"
-                    id="ai-mode-local"
-                    aria-label="Local AI"
-                  />
-                  <span class="ai-mode-label">🤖 Local AI</span>
-                </label>
-                <label class="ai-mode-option">
-                  <input
-                    type="radio"
-                    name="ai-mode"
-                    value="cloud"
-                    id="ai-mode-cloud"
-                    aria-label="Cloud AI"
-                  />
-                  <span class="ai-mode-label">☁️ Cloud AI</span>
-                </label>
-                <label class="ai-mode-option">
-                  <input
-                    type="radio"
-                    name="ai-mode"
-                    value="gemini"
-                    id="ai-mode-gemini"
-                    aria-label="Gemini Nano"
-                  />
-                  <span class="ai-mode-label">
-                    💎 Gemini Nano
-                    <span class="dev-badge">DEV ONLY</span>
-                  </span>
-                </label>
-                <label class="ai-mode-option">
-                  <input
-                    type="radio"
-                    name="ai-mode"
-                    value="webllm"
-                    id="ai-mode-webllm"
-                    aria-label="Browser AI (WebLLM)"
-                  />
-                  <span class="ai-mode-label">🌐 Browser AI</span>
-                </label>
+              <div
+                class="ai-status-widget"
+                id="ai-status-widget"
+                style="display: flex; align-items: center; gap: 10px; padding: 10px 0 4px"
+              >
+                <span
+                  class="ai-status-icon"
+                  id="ai-status-icon"
+                  aria-hidden="true"
+                  style="font-size: 1.6rem; flex-shrink: 0"
+                  >✨</span
+                >
+                <div class="ai-status-info" style="flex: 1; min-width: 0">
+                  <div
+                    class="ai-status-mode"
+                    id="ai-status-mode"
+                    style="font-weight: 600; font-size: 13px; color: var(--text-primary)"
+                  >
+                    Off
+                  </div>
+                  <div
+                    class="ai-status-detail"
+                    id="ai-status-detail"
+                    style="font-size: 11px; color: var(--text-secondary); margin-top: 1px"
+                  >
+                    No AI configured
+                  </div>
+                </div>
+                <span
+                  class="ai-health-dot"
+                  id="ai-health-dot"
+                  title="AI status"
+                  aria-label="AI status indicator"
+                  style="
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: var(--text-tertiary, #888);
+                    flex-shrink: 0;
+                  "
+                >
+                </span>
               </div>
+              <button
+                id="btn-configure-ai"
+                type="button"
+                class="modal-btn modal-btn-primary"
+                style="width: 100%; margin-top: 10px; justify-content: center"
+              >
+                Configure AI →
+              </button>
             </section>
-
-            <!-- LOCAL AI CONTENT -->
-            <div id="local-ai-container" class="ai-mode-container hidden">
-              <section class="control-section">
-                <p
-                  class="feature-description"
-                  style="margin-top: 4px; text-align: center; color: var(--text-secondary)"
-                >
-                  🤖 Using <strong>Local AI</strong> for all AI-powered features<br />
-                  <span style="font-size: 11px"
-                    >Configure models and options in
-                    <a href="#" id="link-ai-settings" class="llm-link" style="font-weight: 600"
-                      >Advanced Options → AI</a
-                    ></span
-                  >
-                </p>
-              </section>
-            </div>
-
-            <!-- CLOUD AI CONTENT -->
-            <div id="cloud-ai-container" class="ai-mode-container hidden">
-              <section class="control-section">
-                <p
-                  class="feature-description"
-                  style="margin-top: 4px; text-align: center; color: var(--text-secondary)"
-                >
-                  ☁️ Using <strong>Cloud AI</strong> for all AI-powered features<br />
-                  <span style="font-size: 11px"
-                    >Configure model and view usage in
-                    <a href="#" id="link-cloud-settings" class="llm-link" style="font-weight: 600"
-                      >Advanced Options → AI</a
-                    ></span
-                  >
-                </p>
-              </section>
-            </div>
-
-            <!-- GEMINI NANO CONTENT -->
-            <div id="gemini-ai-container" class="ai-mode-container hidden">
-              <section class="control-section">
-                <p
-                  class="feature-description"
-                  style="margin-top: 4px; text-align: center; color: var(--text-secondary)"
-                >
-                  <span style="font-size: 11px; color: var(--warning-color)">
-                    ⚠️ Requires Chrome Dev or Canary (128+)<br />
-                    Not available in Chrome Stable yet. </span
-                  ><br />
-                  💎 Using <strong>Gemini Nano</strong> for all AI-powered features<br />
-                  <span style="font-size: 11px">Built-in browser AI - private and fast</span>
-                </p>
-                <div style="text-align: center; margin-top: 12px">
-                  <span class="llm-badge" id="gemini-status-badge">Checking...</span>
-                </div>
-                <div
-                  id="gemini-setup-instructions"
-                  class="info-box hidden"
-                  style="margin-top: 12px"
-                >
-                  <p style="margin: 0; font-size: 12px">
-                    <strong>Setup Required:</strong>
-                  </p>
-                  <ol style="margin: 8px 0 0; padding-left: 20px; font-size: 11px">
-                    <li>Update to Chrome 128+ (Canary/Dev/Beta)</li>
-                    <li>
-                      Go to
-                      <code style="font-size: 10px"
-                        >chrome://flags/#optimization-guide-on-device-model</code
-                      >
-                    </li>
-                    <li>Set to "Enabled"</li>
-                    <li>Restart Chrome</li>
-                  </ol>
-                </div>
-              </section>
-            </div>
-
-            <!-- WEBLLM BROWSER AI CONTENT -->
-            <div id="webllm-ai-container" class="ai-mode-container hidden">
-              <section class="control-section">
-                <!-- WebGPU Status Card -->
-                <div class="webllm-status-card" id="webllm-status">
-                  <span class="status-dot"></span>
-                  <span class="status-text">Checking WebGPU...</span>
-                </div>
-
-                <!-- Hardware Info (shown when WebGPU available) -->
-                <div class="webllm-hardware-info" id="webllm-hardware-info" style="display: none">
-                  <div class="hardware-row">
-                    <span class="hardware-label">GPU:</span>
-                    <span class="hardware-value" id="webllm-gpu-name">—</span>
-                  </div>
-                  <div class="hardware-row">
-                    <span class="hardware-label">Status:</span>
-                    <span class="hardware-value" id="webllm-engine-status">Not initialized</span>
-                  </div>
-                </div>
-
-                <!-- Model Selection -->
-                <div class="option-group" id="webllm-model-selection" style="display: none">
-                  <label class="option-group-label">
-                    Select Model
-                    <span class="label-hint" style="font-size: 10px; color: var(--text-tertiary)"
-                      >Download once, cached locally</span
-                    >
-                  </label>
-                  <div id="webllm-model-list" class="webllm-model-list">
-                    <!-- Populated dynamically with model cards -->
-                  </div>
-                </div>
-
-                <!-- Download Progress (shown during model download) -->
-                <div
-                  class="webllm-download-progress"
-                  id="webllm-download-progress"
-                  style="display: none"
-                >
-                  <div class="download-header">
-                    <span class="download-model-name" id="download-model-name">Downloading...</span>
-                    <span class="download-percent" id="download-percent">0%</span>
-                  </div>
-                  <div class="download-bar-container">
-                    <div class="download-bar-fill" id="download-bar-fill" style="width: 0%"></div>
-                  </div>
-                  <div class="download-status-text" id="download-status-text">Initializing...</div>
-                </div>
-
-                <!-- Fallback/Error Message (shown when WebGPU not available) -->
-                <div class="webllm-fallback-message" id="webllm-fallback" style="display: none">
-                  <div class="fallback-icon">⚠️</div>
-                  <div class="fallback-content">
-                    <strong>WebGPU Not Available</strong>
-                    <p id="webllm-fallback-text" style="margin: 4px 0; font-size: 12px">
-                      Your browser or hardware doesn't support WebGPU.
-                    </p>
-                    <div class="fallback-suggestions" style="margin-top: 8px">
-                      <strong style="font-size: 11px">Try instead:</strong>
-                      <ul style="margin: 4px 0 0 20px; font-size: 11px; line-height: 1.4">
-                        <li>Update Chrome to version 113+</li>
-                        <li>Use Cloud AI mode (requires API key)</li>
-                        <li>Use Local AI mode (requires Ollama)</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
           </div>
         </div>
       </main>

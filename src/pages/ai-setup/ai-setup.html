@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Setup - AssisT</title>
+    <link rel="stylesheet" href="ai-setup.css" />
+  </head>
+  <body>
+    <div class="setup-container">
+      <!-- Progress Bar -->
+      <div
+        class="progress-bar"
+        role="progressbar"
+        aria-valuenow="0"
+        aria-valuemin="0"
+        aria-valuemax="7"
+        aria-label="Setup progress"
+        id="setup-progress-bar"
+      >
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <!-- Step Indicator -->
+      <div class="step-indicator" aria-live="polite" aria-atomic="true">
+        <span class="step-label" id="step-label">Step 1 of 7</span>
+        <span class="step-label" id="step-name">Welcome</span>
+      </div>
+
+      <!-- ============================================================
+           STEP 0: Welcome
+           ============================================================ -->
+      <section
+        id="screen-welcome"
+        class="screen active"
+        role="main"
+        aria-labelledby="welcome-heading"
+      >
+        <div class="screen-content">
+          <div class="logo-container">
+            <span class="logo" aria-hidden="true">✨</span>
+            <h1 id="welcome-heading">AI Setup</h1>
+          </div>
+          <p class="tagline">Let's find the right AI for your device</p>
+          <p>
+            This wizard will scan your system, recommend the best AI mode, and guide you through
+            setup. Everything stays private — no data leaves your browser.
+          </p>
+
+          <div class="info-box" role="note">
+            <p>
+              <strong>Takes about 2 minutes.</strong> You can skip any step and come back later from
+              the popup.
+            </p>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-welcome-skip" class="btn btn-ghost skip-link" type="button">
+            Skip setup
+          </button>
+          <button id="btn-welcome-start" class="btn btn-primary" type="button">
+            Start scan
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           STEP 1: System Scan
+           ============================================================ -->
+      <section id="screen-scan" class="screen" role="main" aria-labelledby="scan-heading">
+        <div class="screen-content">
+          <h2 id="scan-heading">Scanning Your System</h2>
+          <p>Checking what AI options are available on your device...</p>
+
+          <div
+            class="scan-results"
+            id="scan-results"
+            aria-live="polite"
+            aria-label="System scan results"
+          >
+            <!-- WebGPU -->
+            <div class="scan-item" id="scan-webgpu">
+              <span class="scan-item-icon" aria-hidden="true">🎮</span>
+              <div class="scan-item-text">
+                <div class="scan-item-label">Graphics (WebGPU)</div>
+                <div class="scan-item-value" id="scan-webgpu-value">Checking...</div>
+              </div>
+              <span class="scan-item-status" id="scan-webgpu-status">
+                <span class="scanning-pulse" aria-hidden="true"></span>
+              </span>
+            </div>
+
+            <!-- Memory -->
+            <div class="scan-item" id="scan-memory">
+              <span class="scan-item-icon" aria-hidden="true">💾</span>
+              <div class="scan-item-text">
+                <div class="scan-item-label">Device Memory</div>
+                <div class="scan-item-value" id="scan-memory-value">Checking...</div>
+              </div>
+              <span class="scan-item-status" id="scan-memory-status">
+                <span class="scanning-pulse" aria-hidden="true"></span>
+              </span>
+            </div>
+
+            <!-- Ollama -->
+            <div class="scan-item" id="scan-ollama">
+              <span class="scan-item-icon" aria-hidden="true">🤖</span>
+              <div class="scan-item-text">
+                <div class="scan-item-label">Local AI (Ollama)</div>
+                <div class="scan-item-value" id="scan-ollama-value">Checking...</div>
+              </div>
+              <span class="scan-item-status" id="scan-ollama-status">
+                <span class="scanning-pulse" aria-hidden="true"></span>
+              </span>
+            </div>
+
+            <!-- Gemini Nano -->
+            <div class="scan-item" id="scan-nano">
+              <span class="scan-item-icon" aria-hidden="true">💎</span>
+              <div class="scan-item-text">
+                <div class="scan-item-label">On-Device AI (Gemini Nano)</div>
+                <div class="scan-item-value" id="scan-nano-value">Checking...</div>
+              </div>
+              <span class="scan-item-status" id="scan-nano-status">
+                <span class="scanning-pulse" aria-hidden="true"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-scan-skip" class="btn btn-ghost skip-link" type="button">Skip</button>
+          <button id="btn-scan-next" class="btn btn-primary" type="button" disabled>
+            Continue
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           STEP 2: AI Recommendation
+           ============================================================ -->
+      <section id="screen-recommend" class="screen" role="main" aria-labelledby="recommend-heading">
+        <div class="screen-content">
+          <h2 id="recommend-heading">Our Recommendation</h2>
+          <p id="recommend-intro">Based on your system, here's the best AI mode for you:</p>
+
+          <div
+            class="mode-options"
+            id="mode-options"
+            role="radiogroup"
+            aria-labelledby="recommend-heading"
+          >
+            <!-- Dynamically populated by ai-setup.js -->
+            <!-- Example structure for JS reference:
+            <button class="mode-option recommended selected" data-mode="webllm" type="button"
+                    role="radio" aria-checked="true">
+              <span class="mode-icon" aria-hidden="true">🌐</span>
+              <div class="mode-info">
+                <div class="mode-title">Browser AI</div>
+                <div class="mode-subtitle">Runs on your GPU, no cloud, no cost</div>
+                <div class="mode-reasoning">Your system has WebGPU and enough memory</div>
+                <ul class="mode-pros">
+                  <li>Completely private</li>
+                  <li>Works offline</li>
+                  <li>No API key needed</li>
+                </ul>
+              </div>
+            </button>
+            -->
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-recommend-back" class="btn btn-secondary" type="button">
+            <span aria-hidden="true">←</span> Back
+          </button>
+          <button id="btn-recommend-skip" class="btn btn-ghost skip-link" type="button">
+            Skip
+          </button>
+          <button id="btn-recommend-next" class="btn btn-primary" type="button">
+            Use this mode
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           STEP 3: Guided Setup (conditional panels)
+           ============================================================ -->
+      <section id="screen-setup" class="screen" role="main" aria-labelledby="setup-heading">
+        <div class="screen-content">
+          <h2 id="setup-heading">Configure Your AI</h2>
+          <p id="setup-intro">Let's get your chosen AI mode ready to use.</p>
+
+          <!-- CLOUD PANEL (shown when mode=cloud) -->
+          <div class="setup-panel" id="panel-cloud" hidden>
+            <h3>Cloud AI — API Key</h3>
+            <p>
+              Enter your API key for your chosen provider. Keys are stored securely in your browser.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label" for="cloud-provider-select">Provider</label>
+              <select
+                class="form-select"
+                id="cloud-provider-select"
+                aria-describedby="provider-hint"
+              >
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="openai">OpenAI (GPT)</option>
+                <option value="google">Google (Gemini)</option>
+                <option value="perplexity">Perplexity</option>
+              </select>
+              <span class="helper-text" id="provider-hint">Choose your preferred AI provider</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="api-key-input">API Key</label>
+              <div class="form-input-row">
+                <input
+                  class="form-input"
+                  type="password"
+                  id="api-key-input"
+                  placeholder="sk-..."
+                  autocomplete="off"
+                  aria-describedby="api-key-hint api-key-status"
+                />
+                <button
+                  class="api-key-toggle"
+                  id="btn-toggle-key"
+                  type="button"
+                  aria-label="Show API key"
+                >
+                  Show
+                </button>
+              </div>
+              <span class="helper-text" id="api-key-hint">
+                Get a key from your provider's website.
+                <a class="helper-link" id="api-key-link" href="#" target="_blank" rel="noopener">
+                  Open provider site
+                </a>
+              </span>
+              <div id="api-key-status" aria-live="polite" aria-atomic="true"></div>
+            </div>
+
+            <button id="btn-verify-key" class="btn btn-secondary btn-small" type="button">
+              Verify key
+            </button>
+          </div>
+
+          <!-- WEBLLM PANEL (shown when mode=webllm) -->
+          <div class="setup-panel" id="panel-webllm" hidden>
+            <h3>Browser AI — Model Selection</h3>
+            <p>
+              Models run entirely on your device using your GPU. They download once and are cached.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label" for="webllm-model-select">Model</label>
+              <select class="form-select" id="webllm-model-select" aria-describedby="model-hint">
+                <option value="llama-3.2-1b">Llama 3.2 1B — Fast, 1.2GB download</option>
+                <option value="llama-3.2-3b">Llama 3.2 3B — Balanced, 2.1GB download</option>
+                <option value="phi-3.5-mini">Phi-3.5 Mini — Efficient, 2.3GB download</option>
+                <option value="gemma-2-2b">Gemma 2 2B — Quality, 2.8GB download</option>
+              </select>
+              <span class="helper-text" id="model-hint"
+                >Larger models give better responses but need more memory.</span
+              >
+            </div>
+
+            <div id="download-progress" class="download-progress" hidden>
+              <p class="helper-text" id="download-status-text" aria-live="polite">
+                Ready to download
+              </p>
+              <div class="progress-track">
+                <div
+                  class="progress-bar-fill"
+                  id="download-bar"
+                  role="progressbar"
+                  aria-valuenow="0"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-label="Download progress"
+                ></div>
+              </div>
+              <p class="progress-text" id="download-percent">0%</p>
+            </div>
+
+            <button id="btn-download-model" class="btn btn-secondary btn-small" type="button">
+              Download model now
+            </button>
+            <span class="helper-text">Or skip — it will download automatically on first use.</span>
+          </div>
+
+          <!-- OLLAMA PANEL (shown when mode=local) -->
+          <div class="setup-panel" id="panel-ollama" hidden>
+            <h3>Local AI — Ollama</h3>
+            <div id="ollama-status-display" aria-live="polite">
+              <!-- Populated by JS: success state or install instructions -->
+            </div>
+
+            <div id="ollama-models-section" hidden>
+              <div class="form-group">
+                <label class="form-label" for="ollama-model-select">Active Model</label>
+                <select class="form-select" id="ollama-model-select">
+                  <!-- Populated from Ollama /api/tags response -->
+                </select>
+              </div>
+            </div>
+
+            <div id="ollama-install-steps" hidden>
+              <div class="info-box" role="note">
+                <p><strong>Ollama is not running.</strong> To use local AI:</p>
+                <ol class="install-steps">
+                  <li>
+                    Download Ollama from
+                    <a class="helper-link" href="https://ollama.com" target="_blank" rel="noopener"
+                      >ollama.com</a
+                    >
+                  </li>
+                  <li>Install and launch it</li>
+                  <li>Run: <code>ollama pull llama3.2</code> in a terminal</li>
+                  <li>Come back and click "Check again"</li>
+                </ol>
+              </div>
+              <button id="btn-recheck-ollama" class="btn btn-secondary btn-small" type="button">
+                Check again
+              </button>
+            </div>
+          </div>
+
+          <!-- GEMINI NANO PANEL (shown when mode=gemini-nano) -->
+          <div class="setup-panel" id="panel-nano" hidden>
+            <h3>On-Device AI — Gemini Nano</h3>
+            <div id="nano-status-display" aria-live="polite">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- SKIP / OFF PANEL -->
+          <div class="setup-panel" id="panel-off" hidden>
+            <h3>AI Disabled</h3>
+            <p>You can enable AI features later from the popup or by revisiting this page.</p>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-setup-back" class="btn btn-secondary" type="button">
+            <span aria-hidden="true">←</span> Back
+          </button>
+          <button id="btn-setup-skip" class="btn btn-ghost skip-link" type="button">Skip</button>
+          <button id="btn-setup-next" class="btn btn-primary" type="button">
+            Continue
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           STEP 4: Needs Assessment
+           ============================================================ -->
+      <section id="screen-needs" class="screen" role="main" aria-labelledby="needs-heading">
+        <div class="screen-content">
+          <h2 id="needs-heading">How You Prefer AI</h2>
+          <p>
+            These preferences help AI give you the right kind of answers. You can change them any
+            time.
+          </p>
+
+          <!-- Q1: Verbosity -->
+          <div class="question-group" role="group" aria-labelledby="q-verbosity-label">
+            <p class="question-text" id="q-verbosity-label">
+              How much detail do you want in AI responses?
+            </p>
+            <div class="answer-options" role="radiogroup" aria-labelledby="q-verbosity-label">
+              <button
+                class="answer-option"
+                data-group="verbosity"
+                data-value="brief"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">⚡</span>
+                <div>
+                  <div class="answer-option-label">Brief</div>
+                  <div class="answer-option-desc">Short, to the point</div>
+                </div>
+              </button>
+              <button
+                class="answer-option"
+                data-group="verbosity"
+                data-value="moderate"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">📝</span>
+                <div>
+                  <div class="answer-option-label">Moderate</div>
+                  <div class="answer-option-desc">Some explanation</div>
+                </div>
+              </button>
+              <button
+                class="answer-option"
+                data-group="verbosity"
+                data-value="detailed"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">📚</span>
+                <div>
+                  <div class="answer-option-label">Detailed</div>
+                  <div class="answer-option-desc">Full explanation</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Q2: Reading level -->
+          <div class="question-group" role="group" aria-labelledby="q-reading-label">
+            <p class="question-text" id="q-reading-label">What reading level should AI aim for?</p>
+            <div class="answer-options" role="radiogroup" aria-labelledby="q-reading-label">
+              <button
+                class="answer-option"
+                data-group="readingLevel"
+                data-value="simple"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">🌱</span>
+                <div>
+                  <div class="answer-option-label">Simple</div>
+                  <div class="answer-option-desc">Plain language, no jargon</div>
+                </div>
+              </button>
+              <button
+                class="answer-option"
+                data-group="readingLevel"
+                data-value="standard"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">📖</span>
+                <div>
+                  <div class="answer-option-label">Standard</div>
+                  <div class="answer-option-desc">Normal academic level</div>
+                </div>
+              </button>
+              <button
+                class="answer-option"
+                data-group="readingLevel"
+                data-value="advanced"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">🎓</span>
+                <div>
+                  <div class="answer-option-label">Advanced</div>
+                  <div class="answer-option-desc">Technical, in-depth</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Q3: Modality preference -->
+          <div class="question-group" role="group" aria-labelledby="q-modality-label">
+            <p class="question-text" id="q-modality-label">
+              How do you prefer to take in information?
+            </p>
+            <div class="answer-options" role="radiogroup" aria-labelledby="q-modality-label">
+              <button
+                class="answer-option"
+                data-group="modality"
+                data-value="visual"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">👁️</span>
+                <div>
+                  <div class="answer-option-label">Visual</div>
+                  <div class="answer-option-desc">Text, lists, structure</div>
+                </div>
+              </button>
+              <button
+                class="answer-option"
+                data-group="modality"
+                data-value="auditory"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">🔊</span>
+                <div>
+                  <div class="answer-option-label">Auditory</div>
+                  <div class="answer-option-desc">I prefer listening</div>
+                </div>
+              </button>
+              <button
+                class="answer-option"
+                data-group="modality"
+                data-value="both"
+                type="button"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="answer-option-icon" aria-hidden="true">🎯</span>
+                <div>
+                  <div class="answer-option-label">Both</div>
+                  <div class="answer-option-desc">Mix of reading and audio</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-needs-back" class="btn btn-secondary" type="button">
+            <span aria-hidden="true">←</span> Back
+          </button>
+          <button id="btn-needs-skip" class="btn btn-ghost skip-link" type="button">Skip</button>
+          <button id="btn-needs-next" class="btn btn-primary" type="button">
+            Continue
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           STEP 5: Live AI Test
+           ============================================================ -->
+      <section id="screen-test" class="screen" role="main" aria-labelledby="test-heading">
+        <div class="screen-content">
+          <h2 id="test-heading">Test Your AI</h2>
+          <p>Let's send a quick question to make sure everything is working.</p>
+
+          <div class="test-prompt-box" role="note" aria-label="Test question">
+            "Explain what a bibliography is, simply."
+          </div>
+
+          <div id="test-response-area" aria-live="polite" aria-atomic="false">
+            <!-- Populated by JS: loading state, then response -->
+          </div>
+
+          <div id="test-actions" hidden>
+            <div class="btn-row" style="padding-top: var(--space-md); justify-content: flex-start">
+              <button id="btn-rerun-test" class="btn btn-secondary btn-small" type="button">
+                Run test again
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-test-back" class="btn btn-secondary" type="button">
+            <span aria-hidden="true">←</span> Back
+          </button>
+          <button id="btn-test-skip" class="btn btn-ghost skip-link" type="button">Skip</button>
+          <button id="btn-test-next" class="btn btn-primary" type="button" disabled>
+            Looks good
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           STEP 6: Feature Recommendations
+           ============================================================ -->
+      <section id="screen-features" class="screen" role="main" aria-labelledby="features-heading">
+        <div class="screen-content">
+          <h2 id="features-heading">Suggested Features</h2>
+          <p>
+            Based on your preferences, here are features that might help you. Enable the ones you
+            want.
+          </p>
+
+          <div class="feature-recs" id="feature-recs" aria-label="Suggested features">
+            <!-- Dynamically populated by ai-setup.js -->
+            <!-- Example structure:
+            <div class="feature-rec-item">
+              <div class="feature-rec-info">
+                <div class="feature-rec-name">AI Summarization</div>
+                <div class="feature-rec-desc">Summarize long texts into key points</div>
+              </div>
+              <label class="toggle" aria-label="Enable AI Summarization">
+                <input type="checkbox" checked />
+                <span class="toggle-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            -->
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-features-back" class="btn btn-secondary" type="button">
+            <span aria-hidden="true">←</span> Back
+          </button>
+          <button id="btn-features-skip" class="btn btn-ghost skip-link" type="button">Skip</button>
+          <button id="btn-features-apply" class="btn btn-primary" type="button">
+            Apply &amp; finish
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           STEP 7: Done
+           ============================================================ -->
+      <section id="screen-done" class="screen" role="main" aria-labelledby="done-heading">
+        <div class="screen-content" style="text-align: center">
+          <div class="done-icon" aria-hidden="true">🎉</div>
+          <h2 id="done-heading">You're all set!</h2>
+          <p>AssisT AI is configured and ready to help you.</p>
+
+          <div class="done-mode-badge" id="done-mode-badge" aria-label="Configured AI mode">
+            <!-- e.g. "🌐 Browser AI" — populated by JS -->
+          </div>
+
+          <p>
+            You can change these settings any time by clicking
+            <strong>Configure AI</strong> in the AssisT popup.
+          </p>
+        </div>
+
+        <div class="btn-row" style="justify-content: center">
+          <button id="btn-done-open" class="btn btn-primary" type="button">Open AssisT</button>
+        </div>
+      </section>
+    </div>
+    <!-- /.setup-container -->
+
+    <script type="module" src="ai-setup.js"></script>
+  </body>
+</html>

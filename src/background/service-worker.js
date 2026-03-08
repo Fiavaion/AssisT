@@ -6,10 +6,7 @@
 
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
-import {
-  checkGeminiAvailability,
-  generateText as geminiGenerateText,
-} from '../ai/gemini-client.js';
+import { checkGeminiAvailability, generateText as geminiGenerateText } from '../ai/nano-client.js';
 
 // ========================================
 // SECURITY UTILITIES
@@ -113,7 +110,8 @@ function validateURL(url, options = {}) {
 }
 
 // Cloud AI imports
-import { claudeGenerate, CLOUD_MODELS, FEATURE_DEFAULT_MODELS } from '../ai/claude-client.js';
+import { claudeGenerate } from '../ai/claude-client.js';
+import { REGISTRY } from '../ai/model-registry.js';
 
 import { cloudGenerate, cloudFetchModels, checkCloudAvailability } from '../ai/cloud-router.js';
 
@@ -167,12 +165,16 @@ chrome.runtime.onInstalled.addListener(async details => {
     // Initialize default settings on first install
     await StorageManager.initializeDefaults();
 
-    console.log('[AssisT] Installation complete! Click the extension icon to get started.');
+    console.log('[AssisT] Installation complete! Opening AI setup wizard...');
 
-    // Open welcome page (disabled for now - welcome.html not created yet)
-    // chrome.tabs.create({
-    //   url: chrome.runtime.getURL('src/popup/welcome.html')
-    // });
+    // Open AI setup wizard on first install
+    // Guard: only open if onboarding hasn't been completed (safety net for re-installs)
+    const storage = await chrome.storage.local.get('onboardingComplete');
+    if (!storage.onboardingComplete) {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('src/pages/ai-setup/ai-setup.html'),
+      });
+    }
   }
 
   if (details.reason === 'update') {
@@ -277,6 +279,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     sendResponse({ success: true });
     return false;
+  }
+
+  // Handle opening AI setup page (dedicated setup wizard)
+  if (message.action === 'OPEN_AI_SETUP') {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('src/pages/ai-setup/ai-setup.html'),
+    });
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // System assessment: ping Ollama from service worker (pages can't access localhost)
+  if (message.action === 'SYSTEM_ASSESS_OLLAMA') {
+    checkOllamaAvailability()
+      .then(status => sendResponse({ success: true, ...status }))
+      .catch(error =>
+        sendResponse({ success: false, available: false, models: [], error: error.message })
+      );
+    return true;
   }
 
   // Handle on-demand content script injection for non-LMS sites
@@ -810,12 +831,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Get cloud models list (legacy — returns Anthropic internal keys)
+  // Get cloud models list — returns models from model-registry
   if (message.action === 'CLOUD_LLM_GET_MODELS') {
     sendResponse({
       success: true,
-      models: CLOUD_MODELS,
-      featureDefaults: FEATURE_DEFAULT_MODELS,
+      models: REGISTRY.anthropic.models,
+      featureDefaults: REGISTRY.anthropic.featureDefaults,
     });
     return false;
   }
