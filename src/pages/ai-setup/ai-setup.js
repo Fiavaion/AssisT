@@ -13,6 +13,101 @@ import { assess } from './system-detector.js';
 import { recommend, getModeInfo, buildSystemPromptFromProfile } from './recommendation-engine.js';
 import { attachAccessibleHandler, attachDelegatedHandler } from '../../utils/event-handlers.js';
 
+// ─── WebLLM Model Data ────────────────────────────────────────────────────────
+// Inlined here: ai-setup is a web_accessible_resource (files copied verbatim,
+// not bundled), so imports outside src/pages/ai-setup/ and src/utils/ fail.
+const WEBLLM_REGISTRY = {
+  defaultModel: 'llama-3.2-1b',
+  models: {
+    'llama-3.2-1b': {
+      id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+      name: 'Llama 3.2 1B',
+      size: '650MB',
+      vramRequired: '1.2GB',
+      description: 'Fast responses, good for simple tasks',
+      avgSpeed: 'Fast (15–25 tok/s)',
+      category: 'lightweight',
+    },
+    'gemma-2b': {
+      id: 'gemma-2b-it-q4f16_1-MLC',
+      name: 'Gemma 2B',
+      size: '1.6GB',
+      vramRequired: '2GB',
+      description: "Google's efficient small model",
+      avgSpeed: 'Fast (15–20 tok/s)',
+      category: 'lightweight',
+    },
+    'llama-3.2-3b': {
+      id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+      name: 'Llama 3.2 3B',
+      size: '1.9GB',
+      vramRequired: '2.5GB',
+      description: 'Better quality than 1B, still fast',
+      avgSpeed: 'Moderate (12–18 tok/s)',
+      category: 'balanced',
+    },
+    'phi-3.5-mini': {
+      id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
+      name: 'Phi-3.5 Mini',
+      size: '2.3GB',
+      vramRequired: '3GB',
+      description: "Microsoft's efficient model",
+      avgSpeed: 'Moderate (10–18 tok/s)',
+      category: 'balanced',
+    },
+    'qwen2.5-3b': {
+      id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',
+      name: 'Qwen 2.5 3B',
+      size: '1.9GB',
+      vramRequired: '2.5GB',
+      description: 'High quality reasoning',
+      avgSpeed: 'Moderate (12–20 tok/s)',
+      category: 'balanced',
+    },
+    'mistral-7b': {
+      id: 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',
+      name: 'Mistral 7B',
+      size: '4.4GB',
+      vramRequired: '6GB',
+      description: 'Powerful general-purpose model',
+      avgSpeed: 'Slower (6–12 tok/s)',
+      category: 'high-quality',
+    },
+    'llama-3.1-8b': {
+      id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',
+      name: 'Llama 3.1 8B',
+      size: '4.9GB',
+      vramRequired: '6.5GB',
+      description: "Meta's flagship model",
+      avgSpeed: 'Slower (5–10 tok/s)',
+      category: 'high-quality',
+    },
+    'gemma-7b': {
+      id: 'gemma-7b-it-q4f16_1-MLC',
+      name: 'Gemma 7B',
+      size: '4.3GB',
+      vramRequired: '5.5GB',
+      description: "Google's larger model, high performance",
+      avgSpeed: 'Slower (6–11 tok/s)',
+      category: 'high-quality',
+    },
+  },
+};
+
+/**
+ * Return the set of WebLLM model keys that have been successfully downloaded.
+ * Tracked in chrome.storage.local by the service worker after each successful
+ * WEBLLM_INITIALIZE call — reliable regardless of how web-llm internally caches files.
+ * @returns {Promise<Set<string>>}
+ */
+async function getCachedWebLLMModels() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(['webllmCachedModels'], result => {
+      resolve(new Set(result.webllmCachedModels || []));
+    });
+  });
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 const state = {
   step: 0,
@@ -22,6 +117,7 @@ const state = {
   profile: { verbosity: 'moderate', readingLevel: 'standard', modality: 'both' },
   features: {},
   testPassed: false,
+  taskModels: {}, // per-task WebLLM model overrides
 };
 
 // ─── Wizard Steps ─────────────────────────────────────────────────────────────
@@ -320,6 +416,9 @@ function initSetup() {
   if (state.selectedMode === 'cloud') {
     prefillCloudPanel();
   }
+  if (state.selectedMode === 'webllm') {
+    renderWebLLMPanel();
+  }
 }
 
 function prefillCloudPanel() {
@@ -344,6 +443,39 @@ function updateApiKeyLink(provider) {
   }
 }
 
+// Suggested Ollama models to pull if none installed
+const OLLAMA_SUGGESTED = [
+  {
+    name: 'llama3.2',
+    label: 'Llama 3.2 (3B) — recommended, balanced',
+    pull: 'ollama pull llama3.2',
+  },
+  {
+    name: 'phi3:mini',
+    label: 'Phi-3 Mini (3.8B) — fastest, low memory',
+    pull: 'ollama pull phi3:mini',
+  },
+  {
+    name: 'mistral',
+    label: 'Mistral 7B — best quality, needs ~5GB RAM',
+    pull: 'ollama pull mistral',
+  },
+  {
+    name: 'gemma3:4b',
+    label: 'Gemma 3 4B — Google, good reasoning',
+    pull: 'ollama pull gemma3:4b',
+  },
+];
+
+const OLLAMA_TASKS = [
+  { key: 'summarization', label: 'Summarise text' },
+  { key: 'textSimplification', label: 'Simplify text' },
+  { key: 'assignmentBreakdown', label: 'Assignment helper' },
+  { key: 'socraticTutor', label: 'Socratic tutor' },
+  { key: 'studyPathGenerator', label: 'Study path' },
+  { key: 'citationAnalyzer', label: 'Citation analysis' },
+];
+
 function renderOllamaPanel() {
   const statusEl = document.getElementById('ollama-status-display');
   const modelsSection = document.getElementById('ollama-models-section');
@@ -352,7 +484,7 @@ function renderOllamaPanel() {
 
   if (ollama?.available && ollama.models.length > 0) {
     if (statusEl) {
-      statusEl.innerHTML = '<span class="status-badge success">✅ Ollama is running</span>';
+      statusEl.innerHTML = `<span class="status-badge success">✅ Ollama is running — ${ollama.models.length} model${ollama.models.length > 1 ? 's' : ''} installed</span>`;
     }
     if (modelsSection) {
       modelsSection.hidden = false;
@@ -366,6 +498,7 @@ function renderOllamaPanel() {
     if (installSteps) {
       installSteps.hidden = true;
     }
+    renderOllamaTaskModels(ollama.models);
   } else {
     if (statusEl) {
       statusEl.innerHTML = '<span class="status-badge error">❌ Ollama not detected</span>';
@@ -376,7 +509,74 @@ function renderOllamaPanel() {
     if (installSteps) {
       installSteps.hidden = false;
     }
+    renderOllamaSuggestedModels();
   }
+}
+
+function renderOllamaSuggestedModels() {
+  const container = document.getElementById('ollama-suggested-models');
+  if (!container) {
+    return;
+  }
+  container.hidden = false;
+  container.innerHTML = `
+    <p class="helper-text" style="margin-bottom:var(--space-xs);">Once Ollama is running, pull a model to get started:</p>
+    <div class="ollama-model-list">
+      ${OLLAMA_SUGGESTED.map(
+        m => `
+        <div class="ollama-model-item">
+          <div style="flex:1;">
+            <span class="model-name">${escapeHtml(m.label)}</span>
+          </div>
+          <code class="code-snippet" style="font-size:0.75rem;user-select:all;">${escapeHtml(m.pull)}</code>
+        </div>`
+      ).join('')}
+    </div>`;
+}
+
+function renderOllamaTaskModels(installedModels) {
+  const container = document.getElementById('ollama-task-models');
+  if (!container) {
+    return;
+  }
+  container.hidden = false;
+
+  const defaultModel = installedModels[0] || '';
+  const opts = installedModels
+    .map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`)
+    .join('');
+
+  container.innerHTML = `
+    <details style="margin-top:var(--space-md);">
+      <summary class="helper-link" style="cursor:pointer;">Advanced: assign a different model per task</summary>
+      <div style="margin-top:var(--space-sm);">
+        ${OLLAMA_TASKS.map(
+          task => `
+          <div style="display:flex;align-items:center;gap:var(--space-sm);margin-bottom:var(--space-xs);">
+            <label style="flex:1;font-size:0.875rem;">${escapeHtml(task.label)}</label>
+            <select class="form-select" style="flex:1;font-size:0.8125rem;"
+              aria-label="Model for ${escapeHtml(task.label)}"
+              data-task="${escapeHtml(task.key)}">
+              <option value="">Default (${escapeHtml(defaultModel)})</option>
+              ${opts}
+            </select>
+          </div>`
+        ).join('')}
+      </div>
+    </details>`;
+
+  // Wire per-task selects — send SET_MODEL_PREFERENCE to service worker on change
+  container.querySelectorAll('select[data-task]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (sel.value) {
+        chrome.runtime.sendMessage({
+          action: 'SET_MODEL_PREFERENCE',
+          taskType: sel.dataset.task,
+          model: sel.value,
+        });
+      }
+    });
+  });
 }
 
 function renderNanoPanel() {
@@ -403,6 +603,137 @@ function renderNanoPanel() {
   }
 }
 
+// ─── Step 3: WebLLM Panel ─────────────────────────────────────────────────────
+
+const WEBLLM_TASKS = [
+  { key: 'summarization', label: 'Summarise text' },
+  { key: 'textSimplification', label: 'Simplify text' },
+  { key: 'assignmentBreakdown', label: 'Assignment helper' },
+  { key: 'socraticTutor', label: 'Socratic tutor' },
+  { key: 'studyPathGenerator', label: 'Study path' },
+  { key: 'citationAnalyzer', label: 'Citation analysis' },
+];
+
+async function renderWebLLMPanel() {
+  const select = document.getElementById('webllm-model-select');
+  if (!select) {
+    return;
+  }
+
+  // Load previously saved model and task overrides
+  const stored = await new Promise(resolve =>
+    chrome.storage.local.get(['webllmModel', 'webllmTaskModels'], r => resolve(r))
+  );
+  const savedModel = stored.webllmModel || WEBLLM_REGISTRY.defaultModel;
+  if (stored.webllmTaskModels) {
+    Object.assign(state.taskModels, stored.webllmTaskModels);
+  }
+
+  // Detect cached models (best-effort, no WebLLM engine needed)
+  const cachedKeys = await getCachedWebLLMModels();
+
+  // Populate model select — cached models first in their own optgroup
+  const webllmModels = Object.entries(WEBLLM_REGISTRY.models);
+  const cached = webllmModels.filter(([k]) => cachedKeys.has(k));
+  const notCached = webllmModels.filter(([k]) => !cachedKeys.has(k));
+
+  const makeOption = ([key, config], downloaded) => {
+    const label = downloaded
+      ? `✓ ${config.name} — ${config.size} (ready)`
+      : `${config.name} — ${config.size}`;
+    const colorStyle = downloaded ? ' style="color:#34d399;"' : '';
+    return `<option value="${escapeHtml(key)}"${key === savedModel ? ' selected' : ''}${colorStyle}>${escapeHtml(label)}</option>`;
+  };
+
+  let html = '';
+  if (cached.length > 0) {
+    html += `<optgroup label="✓ Already on this device">${cached.map(e => makeOption(e, true)).join('')}</optgroup>`;
+  }
+  if (notCached.length > 0) {
+    html += `<optgroup label="Available to download">${notCached.map(e => makeOption(e, false)).join('')}</optgroup>`;
+  }
+  select.innerHTML = html;
+
+  // Summary line below select
+  const summaryEl = document.getElementById('webllm-cache-summary');
+  if (summaryEl) {
+    summaryEl.textContent =
+      cached.length > 0
+        ? `${cached.length} model${cached.length > 1 ? 's' : ''} already downloaded on this device`
+        : 'No models downloaded yet — select one and click Download';
+    summaryEl.style.color = cached.length > 0 ? '#34d399' : '';
+  }
+
+  updateWebLLMStatus(savedModel, cachedKeys);
+  select.addEventListener('change', () => updateWebLLMStatus(select.value, cachedKeys));
+
+  renderTaskModels(webllmModels, cachedKeys, savedModel);
+}
+
+function updateWebLLMStatus(modelKey, cachedKeys) {
+  const statusEl = document.getElementById('webllm-model-status');
+  const downloadBtn = document.getElementById('btn-download-model');
+  if (!statusEl) {
+    return;
+  }
+
+  const config = WEBLLM_REGISTRY.models[modelKey];
+  if (!config) {
+    return;
+  }
+
+  if (cachedKeys.has(modelKey)) {
+    statusEl.innerHTML = `<span class="status-badge success" style="display:inline-block;margin:var(--space-xs) 0;">✓ ${escapeHtml(config.name)} is already downloaded</span>`;
+    if (downloadBtn) {
+      downloadBtn.textContent = 'Re-download model';
+    }
+  } else {
+    statusEl.innerHTML = `<span class="helper-text" style="display:block;margin:var(--space-xs) 0;">Needs ${escapeHtml(config.vramRequired)} GPU memory · ${escapeHtml(config.size)} download</span>`;
+    if (downloadBtn) {
+      downloadBtn.textContent = 'Download model now';
+    }
+  }
+}
+
+function renderTaskModels(webllmModels, cachedKeys, defaultModel) {
+  const container = document.getElementById('task-models-list');
+  if (!container) {
+    return;
+  }
+
+  const defaultName = WEBLLM_REGISTRY.models[defaultModel]?.name || defaultModel;
+
+  container.innerHTML = WEBLLM_TASKS.map(task => {
+    const override = state.taskModels[task.key] || '';
+    const opts = webllmModels
+      .map(([key, config]) => {
+        const label = cachedKeys.has(key) ? `${config.name} ✓` : config.name;
+        return `<option value="${escapeHtml(key)}" ${key === override ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      })
+      .join('');
+    return `
+      <div style="display:flex;align-items:center;gap:var(--space-sm);margin-bottom:var(--space-xs);">
+        <label style="flex:1;font-size:0.875rem;">${escapeHtml(task.label)}</label>
+        <select class="form-select" style="flex:1;font-size:0.8125rem;"
+          aria-label="Model for ${escapeHtml(task.label)}"
+          data-task="${escapeHtml(task.key)}">
+          <option value="">Default (${escapeHtml(defaultName)})</option>
+          ${opts}
+        </select>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('select[data-task]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (sel.value) {
+        state.taskModels[sel.dataset.task] = sel.value;
+      } else {
+        delete state.taskModels[sel.dataset.task];
+      }
+    });
+  });
+}
+
 // ─── Step 5: AI Test ──────────────────────────────────────────────────────────
 const TEST_PROMPT = 'Explain what a bibliography is, simply. One or two sentences.';
 
@@ -421,13 +752,29 @@ async function initTest() {
     actionsEl.hidden = true;
   }
 
-  responseArea.innerHTML = `
-    <div class="test-response-box">
-      <div class="test-loading">
-        <span class="scanning-pulse" aria-hidden="true"></span>
-        <span>Sending test message…</span>
-      </div>
-    </div>`;
+  const loadingTextEl = document.createElement('span');
+  loadingTextEl.textContent = 'Sending test message…';
+  responseArea.innerHTML = '';
+  const loadingBox = document.createElement('div');
+  loadingBox.className = 'test-response-box';
+  loadingBox.innerHTML =
+    '<div class="test-loading"><span class="scanning-pulse" aria-hidden="true"></span></div>';
+  loadingBox.querySelector('.test-loading').appendChild(loadingTextEl);
+  responseArea.appendChild(loadingBox);
+
+  // For WebLLM: relay download progress into the loading text
+  const webllmProgressListener = msg => {
+    if (msg.action !== 'WEBLLM_PROGRESS') {
+      return;
+    }
+    const p = msg.progress || {};
+    const pct = Math.round(p.percent || 0);
+    loadingTextEl.textContent = p.status ? `${p.status} (${pct}%)` : `Initialising model… ${pct}%`;
+  };
+  if (state.selectedMode === 'webllm') {
+    chrome.runtime.onMessage.addListener(webllmProgressListener);
+    loadingTextEl.textContent = 'Checking model status…';
+  }
 
   // Persist current settings so the service worker uses the right provider
   await saveSettings();
@@ -437,6 +784,10 @@ async function initTest() {
     result = await runAITest();
   } catch (err) {
     result = { success: false, error: err.message };
+  }
+
+  if (state.selectedMode === 'webllm') {
+    chrome.runtime.onMessage.removeListener(webllmProgressListener);
   }
 
   if (result.success && result.text) {
@@ -470,11 +821,56 @@ async function initTest() {
 function runAITest() {
   const mode = state.selectedMode;
 
-  // WebLLM: model not loaded yet, show informational message
+  // WebLLM — poll until model is ready, then generate
   if (mode === 'webllm') {
-    return Promise.resolve({
-      success: true,
-      text: 'Browser AI (WebLLM) is configured. Your model will download automatically the first time you use an AI feature.',
+    return new Promise(resolve => {
+      const deadline = Date.now() + 300_000; // 5 min max
+
+      const pollUntilReady = () => {
+        chrome.runtime.sendMessage({ action: 'WEBLLM_STATUS' }, statusResp => {
+          if (chrome.runtime.lastError) {
+            resolve({ success: false, error: chrome.runtime.lastError.message });
+            return;
+          }
+          if (statusResp?.status?.ready) {
+            // Model ready — run generate with short token limit for fast response
+            const timer = setTimeout(() => {
+              resolve({
+                success: false,
+                error: 'Generation timed out. The model is loaded — try running the test again.',
+              });
+            }, 120_000);
+            chrome.runtime.sendMessage(
+              { action: 'WEBLLM_GENERATE', prompt: TEST_PROMPT, options: { maxTokens: 60 } },
+              response => {
+                clearTimeout(timer);
+                if (chrome.runtime.lastError) {
+                  resolve({ success: false, error: chrome.runtime.lastError.message });
+                  return;
+                }
+                if (response?.success) {
+                  resolve({
+                    success: true,
+                    text: response.data || response.text || response.content,
+                  });
+                } else {
+                  resolve({ success: false, error: response?.error || 'WebLLM generation failed' });
+                }
+              }
+            );
+          } else if (Date.now() < deadline) {
+            // Still initialising — poll again in 3 seconds
+            setTimeout(pollUntilReady, 3000);
+          } else {
+            resolve({
+              success: false,
+              error: 'Timed out waiting for model to load. Try running the test again.',
+            });
+          }
+        });
+      };
+
+      pollUntilReady();
     });
   }
 
@@ -486,19 +882,33 @@ function runAITest() {
     });
   }
 
-  // Gemini Nano — direct API
-  if (mode === 'gemini-nano' && window.ai?.languageModel) {
-    return window.ai.languageModel
-      .create()
-      .then(session => session.prompt(TEST_PROMPT))
-      .then(text => ({ success: true, text }))
-      .catch(err => ({ success: false, error: err.message }));
+  // Gemini Nano — direct API (graceful fallback if not yet available)
+  if (mode === 'gemini-nano') {
+    if (window.ai?.languageModel) {
+      return window.ai.languageModel
+        .create()
+        .then(session => session.prompt(TEST_PROMPT))
+        .then(text => ({ success: true, text }))
+        .catch(err => ({ success: false, error: err.message }));
+    }
+    return Promise.resolve({
+      success: true,
+      text: 'Gemini Nano is configured. Chrome will download the on-device model in the background when first used (requires Chrome Dev/Canary with the Prompt API flag enabled).',
+    });
   }
 
   // Cloud or Local — route through service worker
   return new Promise(resolve => {
-    const actionMap = { cloud: 'CLOUD_LLM_GENERATE', local: 'OLLAMA_GENERATE' };
-    const action = actionMap[mode] || 'CLOUD_LLM_GENERATE';
+    const actionMap = { cloud: 'CLOUD_LLM_GENERATE', local: 'LOCAL_LLM_GENERATE' };
+    const action = actionMap[mode];
+
+    if (!action) {
+      resolve({
+        success: false,
+        error: `Unknown AI mode: ${mode}. Please go back and select a mode.`,
+      });
+      return;
+    }
 
     const timer = setTimeout(() => {
       resolve({ success: false, error: 'Timed out after 30 seconds' });
@@ -510,8 +920,8 @@ function runAITest() {
         clearTimeout(timer);
         if (chrome.runtime.lastError) {
           resolve({ success: false, error: chrome.runtime.lastError.message });
-        } else if (response?.text || response?.content) {
-          resolve({ success: true, text: response.text || response.content });
+        } else if (response?.text || response?.content || response?.data) {
+          resolve({ success: true, text: response.text || response.content || response.data });
         } else {
           resolve({ success: false, error: response?.error || 'Empty response from AI' });
         }
@@ -606,6 +1016,7 @@ async function saveSettings() {
     const keyEl = document.getElementById('api-key-input');
     if (providerEl) {
       settings.aiProvider = providerEl.value;
+      settings.cloudProvider = providerEl.value; // cloud-router.js reads this key
     }
     if (keyEl?.value?.trim()) {
       const existing = (await getStored('apiKeys')) || {};
@@ -614,11 +1025,14 @@ async function saveSettings() {
     }
   }
 
-  // WebLLM: persist selected model
+  // WebLLM: persist selected model and per-task overrides
   if (state.selectedMode === 'webllm') {
     const modelEl = document.getElementById('webllm-model-select');
     if (modelEl) {
       settings.webllmModel = modelEl.value;
+    }
+    if (Object.keys(state.taskModels).length > 0) {
+      settings.webllmTaskModels = { ...state.taskModels };
     }
   }
 
@@ -698,25 +1112,83 @@ function initiateModelDownload() {
   const modelEl = document.getElementById('webllm-model-select');
   const progressEl = document.getElementById('download-progress');
   const textEl = document.getElementById('download-status-text');
+  const barEl = document.getElementById('download-bar');
+  const percentEl = document.getElementById('download-percent');
+  const downloadBtn = document.getElementById('btn-download-model');
   const modelKey = modelEl?.value || 'llama-3.2-1b';
 
+  // Save selected model
+  saveSettings();
+
+  // Show progress UI
   if (progressEl) {
     progressEl.hidden = false;
   }
   if (textEl) {
-    textEl.textContent = 'Download will start automatically on first use.';
+    textEl.textContent = 'Starting download…';
+  }
+  if (barEl) {
+    barEl.style.width = '0%';
+    barEl.setAttribute('aria-valuenow', 0);
+  }
+  if (percentEl) {
+    percentEl.textContent = '0%';
+  }
+  if (downloadBtn) {
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = 'Downloading…';
   }
 
-  // Save selected model now
-  saveSettings();
-
-  // Notify the service worker so it can warm up if possible
-  chrome.runtime.sendMessage({ action: 'WEBLLM_PRELOAD_MODEL', modelKey }, () => {
-    if (chrome.runtime.lastError) {
+  // Listen for progress messages from service worker
+  const progressListener = msg => {
+    if (msg.action !== 'WEBLLM_PROGRESS' || msg.modelKey !== modelKey) {
       return;
-    } // silent — service worker may not handle this yet
+    }
+    const p = msg.progress || {};
+    const pct = Math.min(Math.round(p.percent || 0), 100);
+    if (barEl) {
+      barEl.style.width = `${pct}%`;
+      barEl.setAttribute('aria-valuenow', pct);
+    }
+    if (percentEl) {
+      percentEl.textContent = `${pct}%`;
+    }
     if (textEl) {
-      textEl.textContent = 'Model queued — it will download on first use.';
+      textEl.textContent = p.status || 'Downloading…';
+    }
+  };
+  chrome.runtime.onMessage.addListener(progressListener);
+
+  // Trigger actual download via service worker
+  chrome.runtime.sendMessage({ action: 'WEBLLM_INITIALIZE', modelKey }, response => {
+    chrome.runtime.onMessage.removeListener(progressListener);
+
+    if (response?.success) {
+      if (barEl) {
+        barEl.style.width = '100%';
+        barEl.setAttribute('aria-valuenow', 100);
+      }
+      if (percentEl) {
+        percentEl.textContent = '100%';
+      }
+      if (textEl) {
+        textEl.textContent = '✓ Model downloaded and ready';
+      }
+      if (downloadBtn) {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Re-download model';
+      }
+      // Refresh the status badge (model is now cached)
+      renderWebLLMPanel();
+    } else {
+      const errMsg = response?.error || 'Download failed';
+      if (textEl) {
+        textEl.textContent = `Error: ${errMsg}`;
+      }
+      if (downloadBtn) {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Retry download';
+      }
     }
   });
 }

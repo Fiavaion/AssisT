@@ -976,6 +976,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         await client.initialize(modelKey, progressCallback);
 
+        // Persist as downloaded so the wizard can detect it without IndexedDB guessing
+        const stored = await chrome.storage.local.get(['webllmCachedModels']);
+        const cachedSet = new Set(stored.webllmCachedModels || []);
+        cachedSet.add(modelKey);
+        await chrome.storage.local.set({ webllmCachedModels: Array.from(cachedSet) });
+
         sendResponse({
           success: true,
           model: modelKey,
