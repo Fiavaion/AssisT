@@ -477,3 +477,46 @@ export function getSuccessStatusMessage(modeInfo, actionVerb) {
 export function getUnavailableStatusMessage(availability) {
   return `⚠️ ${availability.reason}`;
 }
+
+// ============================================================================
+// STATUS BAR UTILITY
+// ============================================================================
+
+/**
+ * Set a status bar element to reflect AI unavailability.
+ *
+ * When `needsWebLLMInit` is true the bar becomes clickable — clicking it sends
+ * OPEN_AI_SETUP so the user lands directly in the AI setup wizard. The bar
+ * also gets a hover underline (via `data-assist-clickable` attribute) to
+ * signal interactivity. The caller is responsible for adding the
+ * `data-assist-clickable` CSS rule to their panel styles:
+ *
+ *   [data-assist-clickable]:hover { text-decoration: underline; }
+ *
+ * @param {HTMLElement}    statusBar    - The status-bar element to update
+ * @param {AIAvailability} availability - Result of checkAIAvailable()
+ * @param {string}         baseClass    - The element's base CSS class (e.g. 'assist-summary-status')
+ */
+export function setAIStatusBar(statusBar, availability, baseClass) {
+  statusBar.className = `${baseClass} visible`;
+  statusBar.textContent = getUnavailableStatusMessage(availability);
+
+  // Clean up any previous click handler
+  if (statusBar._aiClickHandler) {
+    statusBar.removeEventListener('click', statusBar._aiClickHandler);
+    statusBar._aiClickHandler = null;
+  }
+
+  if (availability.needsWebLLMInit) {
+    statusBar.style.cursor = 'pointer';
+    statusBar.title = 'Open AI settings';
+    statusBar.setAttribute('data-assist-clickable', '');
+    const handler = () => chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
+    statusBar._aiClickHandler = handler;
+    statusBar.addEventListener('click', handler);
+  } else {
+    statusBar.style.cursor = '';
+    statusBar.title = '';
+    statusBar.removeAttribute('data-assist-clickable');
+  }
+}

@@ -21,7 +21,8 @@ import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
-  getUnavailableStatusMessage,
+  getSuccessStatusMessage,
+  setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
 // ============================================================================
@@ -405,6 +406,32 @@ const TUTOR_PANEL_CSS = `
   .assist-tutor-btn-secondary:hover {
     background: #e0e0e0;
   }
+  [data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+  .assist-tutor-status {
+    padding: 8px 20px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 12px;
+    color: #666;
+    display: none;
+    flex-shrink: 0;
+  }
+  .assist-tutor-status.visible {
+    display: block;
+  }
+  .assist-tutor-status.error {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  .assist-tutor-status[data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+  .assist-tutor-status.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
 `;
 
 /**
@@ -442,6 +469,7 @@ async function tutor_createPanel() {
       </div>
       <button class="assist-tutor-close" aria-label="Close">&times;</button>
     </div>
+    <div class="assist-tutor-status" id="assist-tutor-status"></div>
 
     <div class="assist-tutor-content">
       <div class="assist-tutor-loading">
@@ -787,8 +815,11 @@ async function tutor_analyze(text) {
         tutor_showApiKeyWarning();
         return;
       }
-      // Fall back to template-based questions
-      console.log('[SocraticTutor] AI unavailable:', getUnavailableStatusMessage(availability));
+      // Show status bar and fall back to template-based questions
+      const statusBar = tutor_panel?.querySelector('#assist-tutor-status');
+      if (statusBar) {
+        setAIStatusBar(statusBar, availability, 'assist-tutor-status');
+      }
       result = tutor_fallback(text);
     } else {
       const response = await tutor_generate(text, modeInfo);
@@ -798,6 +829,13 @@ async function tutor_analyze(text) {
 
     tutor_currentQuestions = result;
     tutor_renderResult(result, isAI);
+    if (isAI) {
+      const statusBar = tutor_panel?.querySelector('#assist-tutor-status');
+      if (statusBar) {
+        statusBar.className = 'assist-tutor-status visible success';
+        statusBar.textContent = getSuccessStatusMessage(modeInfo, 'generated');
+      }
+    }
   } catch (error) {
     console.error('[SocraticTutor] Error:', error);
     const fallback = tutor_fallback(text);

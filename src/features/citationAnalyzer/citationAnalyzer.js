@@ -29,7 +29,7 @@ import {
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
-  getUnavailableStatusMessage,
+  setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
 // ============================================================================
@@ -600,6 +600,10 @@ function citation_injectStyles() {
     .assist-citation-status.success {
       background: #e8f5e9;
       color: #2e7d32;
+    }
+
+    .assist-citation-status[data-assist-clickable]:hover {
+      text-decoration: underline;
     }
 
     .assist-citation-content {
@@ -1253,8 +1257,7 @@ async function citation_runAnalysis(text, context = {}) {
       analysis = citation_fallback(text, context);
 
       if (statusBar) {
-        statusBar.textContent = getUnavailableStatusMessage(availability);
-        statusBar.className = 'assist-citation-status visible';
+        setAIStatusBar(statusBar, availability, 'assist-citation-status');
       }
     } else {
       // Use AI analysis

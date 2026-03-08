@@ -20,7 +20,14 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getAIMode, checkAIAvailable, generateWithAI } from '../shared/ai-feature-client.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getUnavailableStatusMessage,
+  getSuccessStatusMessage,
+  setAIStatusBar,
+} from '../shared/ai-feature-client.js';
 import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
@@ -863,6 +870,32 @@ const GRAPH_PANEL_CSS = `
     opacity: 0.8;
     margin-bottom: 6px;
   }
+  [data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+  .kg-status {
+    padding: 8px 20px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 12px;
+    color: #666;
+    display: none;
+    flex-shrink: 0;
+  }
+  .kg-status.visible {
+    display: block;
+  }
+  .kg-status.error {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  .kg-status[data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+  .kg-status.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
 `;
 
 /**
@@ -904,6 +937,7 @@ async function graph_createPanel() {
         <button class="kg-close" aria-label="Close">&times;</button>
       </div>
     </div>
+    <div class="kg-status" id="kg-status"></div>
 
     <div class="kg-svg-container">
       <svg class="kg-svg" id="kg-svg">
@@ -1119,7 +1153,12 @@ async function graph_build(text) {
     if (availability.needsApiKey) {
       graph_showApiKeyWarning();
     } else {
-      showToast?.(`AI unavailable: ${availability.reason}`);
+      const statusBar = graph_panel?.querySelector('#kg-status');
+      if (statusBar) {
+        setAIStatusBar(statusBar, availability, 'kg-status');
+      } else {
+        showToast?.(`AI unavailable: ${getUnavailableStatusMessage(availability)}`);
+      }
     }
     return;
   }
@@ -1163,6 +1202,13 @@ async function graph_build(text) {
         ? `☁️ ${modeInfo.displayLabel}`
         : `💻 ${modeInfo.displayLabel}`;
       _kgModelBadge.style.display = 'block';
+    }
+
+    // Update status bar with success
+    const statusBar = graph_panel?.querySelector('#kg-status');
+    if (statusBar) {
+      statusBar.className = 'kg-status visible success';
+      statusBar.textContent = getSuccessStatusMessage(modeInfo, 'built');
     }
 
     // Track interaction
