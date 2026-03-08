@@ -30,7 +30,7 @@ import {
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
-  getUnavailableStatusMessage,
+  setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
 // ============================================================================
@@ -608,6 +608,10 @@ function breakdown_injectStyles() {
     .assist-breakdown-status.success {
       background: #e8f5e9;
       color: #2e7d32;
+    }
+
+    .assist-breakdown-status[data-assist-clickable]:hover {
+      text-decoration: underline;
     }
 
     .assist-breakdown-content {
@@ -1315,8 +1319,7 @@ async function breakdown_analyze(text) {
       result = breakdown_fallback(text);
 
       if (statusBar) {
-        statusBar.textContent = getUnavailableStatusMessage(availability);
-        statusBar.className = 'assist-breakdown-status visible';
+        setAIStatusBar(statusBar, availability, 'assist-breakdown-status');
       }
     } else {
       // Use AI breakdown

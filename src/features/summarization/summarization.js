@@ -28,7 +28,7 @@ import {
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
-  getUnavailableStatusMessage,
+  setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
 // ============================================================================
@@ -391,7 +391,7 @@ function summarization_injectStyles() {
       color: #e65100;
     }
 
-    .assist-summary-status[style*="pointer"]:hover {
+    .assist-summary-status[data-assist-clickable]:hover {
       text-decoration: underline;
     }
 
@@ -738,32 +738,6 @@ function summarization_handleKeydown(e) {
 }
 
 /**
- * Set the status bar for an unavailable AI mode.
- * When the model just needs loading (needsWebLLMInit), makes the bar clickable
- * so the user can jump straight to the AI setup wizard.
- */
-function summarization_setStatusBar(statusBar, availability) {
-  statusBar.className = 'assist-summary-status visible';
-  if (availability.needsWebLLMInit) {
-    statusBar.style.cursor = 'pointer';
-    statusBar.title = 'Open AI settings';
-    statusBar.textContent = getUnavailableStatusMessage(availability);
-    const handler = () => {
-      chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
-    };
-    statusBar.removeEventListener('click', statusBar._aiClickHandler);
-    statusBar._aiClickHandler = handler;
-    statusBar.addEventListener('click', handler);
-  } else {
-    statusBar.style.cursor = '';
-    statusBar.title = '';
-    statusBar.textContent = getUnavailableStatusMessage(availability);
-    statusBar.removeEventListener('click', statusBar._aiClickHandler);
-    statusBar._aiClickHandler = null;
-  }
-}
-
-/**
  * Summarize text and update panel
  * @param {string} text - Text to summarize
  * @param {string} level - Summary level
@@ -819,7 +793,7 @@ async function summarization_summarize(text, level = 'brief') {
       summarization_currentSummary = summary;
 
       if (statusBar) {
-        summarization_setStatusBar(statusBar, availability);
+        setAIStatusBar(statusBar, availability, 'assist-summary-status');
       }
       if (contentArea) {
         contentArea.innerHTML = sanitizeHTML(`

@@ -20,7 +20,8 @@ import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
-  getUnavailableStatusMessage,
+  getSuccessStatusMessage,
+  setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
 // ============================================================================
@@ -296,6 +297,34 @@ const MDC_PANEL_CSS = `
     color: #f57f17;
     margin-top: 16px;
   }
+
+  .mdc-status {
+    padding: 8px 20px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 12px;
+    color: #666;
+    display: none;
+    flex-shrink: 0;
+  }
+
+  .mdc-status.visible {
+    display: block;
+  }
+
+  .mdc-status.error {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  .mdc-status[data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+
+  .mdc-status.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
 `;
 
 /**
@@ -397,8 +426,11 @@ async function mdc_compareDocuments() {
       mdc_showApiKeyWarning();
       return null;
     }
-    // AI unavailable — fall back to heuristic
-    console.log('[MultiDocCompare] AI unavailable:', getUnavailableStatusMessage(availability));
+    // AI unavailable — show status bar and fall back to heuristic
+    const statusBar = mdc_panel?.querySelector('#mdc-status');
+    if (statusBar) {
+      setAIStatusBar(statusBar, availability, 'mdc-status');
+    }
     const fallback = mdc_heuristicCompare();
     mdc_comparisonResult = fallback;
     mdc_displayResults(fallback);
@@ -453,6 +485,11 @@ Rules:
         const parsed = JSON.parse(jsonMatch[0]);
         mdc_comparisonResult = parsed;
         mdc_displayResults(parsed);
+        const statusBar = mdc_panel?.querySelector('#mdc-status');
+        if (statusBar) {
+          statusBar.className = 'mdc-status visible success';
+          statusBar.textContent = getSuccessStatusMessage(modeInfo, 'compared');
+        }
         return parsed;
       }
     }
@@ -567,6 +604,7 @@ function mdc_createPanel() {
       <h3>📊 Compare Documents</h3>
       <button class="mdc-close" aria-label="Close">&times;</button>
     </div>
+    <div class="mdc-status" id="mdc-status"></div>
     <div class="mdc-content">
       <div class="mdc-doc-list" id="mdc-doc-list">
         <div class="mdc-empty" id="mdc-empty">

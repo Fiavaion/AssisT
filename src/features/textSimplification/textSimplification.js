@@ -29,7 +29,7 @@ import {
   getAIMode,
   checkAIAvailable,
   getSuccessStatusMessage,
-  getUnavailableStatusMessage,
+  setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
 // ============================================================================
@@ -749,6 +749,10 @@ function simplification_injectStyles() {
       color: #2e7d32;
     }
 
+    .assist-simplify-status[data-assist-clickable]:hover {
+      text-decoration: underline;
+    }
+
     .assist-simplify-content {
       flex: 1;
       padding: 16px;
@@ -1147,8 +1151,7 @@ async function simplification_simplify(text, level = 'moderate') {
       simplified = simplification_fallback(text, level);
       simplification_currentResult = simplified;
       if (statusBar) {
-        statusBar.textContent = getUnavailableStatusMessage(availability);
-        statusBar.className = 'assist-simplify-status visible';
+        setAIStatusBar(statusBar, availability, 'assist-simplify-status');
       }
       if (contentArea) {
         contentArea.innerHTML = sanitizeHTML(`

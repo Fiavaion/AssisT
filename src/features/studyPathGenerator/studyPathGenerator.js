@@ -23,6 +23,7 @@ import {
   generateWithAI,
   getSuccessStatusMessage,
   getUnavailableStatusMessage,
+  setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
 // ============================================================================
@@ -340,6 +341,34 @@ const SPG_PANEL_CSS = `
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(95, 44, 130, 0.3);
   }
+
+  .spg-status {
+    padding: 8px 20px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 12px;
+    color: #666;
+    display: none;
+    flex-shrink: 0;
+  }
+
+  .spg-status.visible {
+    display: block;
+  }
+
+  .spg-status.error {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  .spg-status[data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+
+  .spg-status.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
 `;
 
 /**
@@ -398,8 +427,11 @@ async function spg_generatePath(text) {
       spg_showApiKeyWarning();
       return null;
     }
-    // Show unavailable message and fall back to heuristic
-    console.log('[StudyPathGenerator] AI unavailable:', availability.reason);
+    // Show status bar and fall back to heuristic
+    const statusBar = spg_panel?.querySelector('#spg-status');
+    if (statusBar) {
+      setAIStatusBar(statusBar, availability, 'spg-status');
+    }
     const fallback = spg_heuristicGenerate(text);
     fallback._generatedBy = `Heuristic (${getUnavailableStatusMessage(availability)})`;
     spg_currentPath = fallback;
@@ -510,6 +542,11 @@ Rules:
           spg_currentPath = spg_enhancePath(parsed);
           spg_currentPath._generatedBy = getSuccessStatusMessage(modeInfo, 'study path generated');
           spg_displayPath(spg_currentPath);
+          const statusBar = spg_panel?.querySelector('#spg-status');
+          if (statusBar) {
+            statusBar.className = 'spg-status visible success';
+            statusBar.textContent = spg_currentPath._generatedBy;
+          }
           return spg_currentPath;
         }
       }
@@ -832,6 +869,7 @@ function spg_createPanel() {
       </div>
       <button class="spg-close" aria-label="Close">&times;</button>
     </div>
+    <div class="spg-status" id="spg-status"></div>
     <div class="spg-content">
       <div class="spg-loading" id="spg-loading" style="display: none;">
         <div class="spg-spinner"></div>
