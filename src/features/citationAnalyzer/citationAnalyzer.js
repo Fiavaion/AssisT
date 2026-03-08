@@ -24,7 +24,13 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getSuccessStatusMessage,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -42,90 +48,22 @@ const citation_settings = {
   autoDetectLinks: true,
 };
 
-/**
- * Get the current model from global AI settings
- * @returns {Promise<string>} Model key ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- */
-async function citation_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return 'local';
-    } else if (aiMode === 'cloud') {
-      return result.cloudModel || getFeatureDefault('anthropic', 'citationAnalyzer');
-    } else {
-      return 'local';
-    }
-  } catch (error) {
-    console.warn('[CitationAnalyzer] Failed to get current model:', error);
-    return 'local';
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function citation_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
-
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
 
 /**
- * Check if local LLM is available
- * @returns {Promise<{available: boolean, models: string[]}>}
- */
-async function citation_checkLLM() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-
-    if (response && response.success) {
-      return {
-        available: response.available || false,
-        models: response.models || [],
-      };
-    }
-    return { available: false, models: [] };
-  } catch (error) {
-    console.warn('[CitationAnalyzer] LLM check failed:', error);
-    return { available: false, models: [] };
-  }
-}
-
-/**
- * Analyze citation/source using LLM (local or cloud)
+ * Analyze citation/source using AI
  * @param {string} text - Text or URL to analyze
  * @param {Object} context - Additional context (url, title, etc.)
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- * @returns {Promise<{analysis: Object, isCloud: boolean}>} Analysis results
+ * @param {import('../shared/ai-feature-client.js').AIMode} modeInfo - AI mode from getAIMode()
+ * @returns {Promise<{analysis: Object}>} Analysis results
  */
-async function citation_analyze(text, context = {}, modelKey = 'local') {
+async function citation_analyze(text, context = {}, modeInfo) {
   // Truncate input to avoid token overflow
   const truncatedText = text.length > 2000 ? text.substring(0, 2000) + '...' : text;
 
-  // Model-specific token limits
-  const modelTokenLimits = {
-    local: 600,
-    'haiku-4.5': 500,
-    'sonnet-4.6': 700,
-    'opus-4.6': 900,
-  };
-
-  const maxTokens = modelTokenLimits[modelKey] || 600;
+  const maxTokens = modeInfo.isLocal ? 600 : 700;
 
   // Strict, concise prompt
   const prompt = `TASK: Evaluate source credibility. Return ONLY valid JSON.
@@ -139,43 +77,20 @@ OUTPUT FORMAT (no markdown, no explanation):
 SCORING: blogs 20-50, news 40-70, academic 60-90. Be critical.
 Start with { end with }`;
 
-  const isCloud = modelKey !== 'local';
-
   try {
-    let response;
+    const aiResult = await generateWithAI(prompt, modeInfo, {
+      maxTokens,
+      temperature: 0.2,
+      feature: 'citationAnalyzer',
+    });
 
-    if (isCloud) {
-      // Use cloud model (Claude API)
-      response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_LLM_GENERATE',
-        prompt,
-        options: {
-          model: modelKey,
-          maxTokens,
-          temperature: 0.2,
-          feature: 'citationAnalyzer',
-        },
-      });
-    } else {
-      // Use local model (Ollama)
-      response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_GENERATE',
-        prompt,
-        taskType: 'citationAnalyzer',
-        options: {
-          maxTokens,
-          temperature: 0.2,
-        },
-      });
-    }
-
-    if (response && response.success) {
-      console.log('[CitationAnalyzer] Raw LLM response:', response.data);
+    if (aiResult && aiResult.text) {
+      console.log('[CitationAnalyzer] Raw LLM response:', aiResult.text);
 
       // Parse JSON response
       try {
         // Clean response: remove markdown code blocks
-        const cleanedResponse = response.data
+        const cleanedResponse = aiResult.text
           .replace(/```json\s*/gi, '')
           .replace(/```JSON\s*/g, '')
           .replace(/```\s*/g, '')
@@ -230,23 +145,23 @@ Start with { end with }`;
               parsed.credibilityRating = 'Low';
             }
 
-            return { analysis: parsed, isCloud };
+            return { analysis: parsed };
           }
         }
       } catch (parseError) {
         console.warn('[CitationAnalyzer] JSON parse error:', parseError.message);
-        console.log('[CitationAnalyzer] Failed to parse:', response.data);
+        console.log('[CitationAnalyzer] Failed to parse:', aiResult.text);
       }
 
       // If JSON parsing failed, use the heuristic fallback with the original text
       console.log('[CitationAnalyzer] Using heuristic fallback due to parse failure');
       const fallbackResult = citation_fallback(text, context);
       fallbackResult.aiAttempted = true;
-      fallbackResult.rawResponse = response.data;
-      return { analysis: fallbackResult, isCloud };
+      fallbackResult.rawResponse = aiResult.text;
+      return { analysis: fallbackResult };
     }
 
-    throw new Error(response?.error || 'Analysis failed');
+    throw new Error('Analysis failed');
   } catch (error) {
     console.error('[CitationAnalyzer] Analysis failed:', error);
     throw error;
@@ -576,8 +491,7 @@ async function citation_createPanel() {
     'Citation Analyzer Reanalyze Button',
     async () => {
       if (citation_currentText) {
-        const modelKey = await citation_getCurrentModel();
-        citation_runAnalysis(citation_currentText, {}, modelKey);
+        citation_runAnalysis(citation_currentText, {});
       }
     }
   );
@@ -1292,16 +1206,10 @@ function citation_handleKeydown(e) {
  * Run analysis on text
  * @param {string} text - Text to analyze
  * @param {Object} context - Additional context
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
  */
-async function citation_runAnalysis(text, context = {}, modelKey = null) {
+async function citation_runAnalysis(text, context = {}) {
   if (citation_isLoading || !text || text.trim().length === 0) {
     return;
-  }
-
-  // Get model from global settings if not specified
-  if (!modelKey) {
-    modelKey = await citation_getCurrentModel();
   }
 
   citation_currentText = text;
@@ -1311,14 +1219,11 @@ async function citation_runAnalysis(text, context = {}, modelKey = null) {
   const statusBar = citation_panel?.querySelector('.assist-citation-status');
   const actionBtns = citation_panel?.querySelectorAll('.assist-citation-btn');
 
-  const isCloud = modelKey !== 'local';
-  const modelName = getModelId('anthropic', modelKey);
-
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-citation-loading">
         <div class="assist-citation-spinner"></div>
-        <span>Analyzing source${isCloud ? ` with ${modelName}` : ''}...</span>
+        <span>Analyzing source...</span>
       </div>
     `);
   }
@@ -1327,15 +1232,16 @@ async function citation_runAnalysis(text, context = {}, modelKey = null) {
     btn.disabled = true;
   });
 
+  // Get AI mode and check availability
+  const modeInfo = await getAIMode('citationAnalyzer');
+  const availability = await checkAIAvailable(modeInfo);
+
   try {
     let analysis;
     let isAI = false;
-    let usedCloud = false;
 
-    if (isCloud) {
-      // Check for API key before using cloud model
-      const hasKey = await citation_checkCloudApiKey();
-      if (!hasKey) {
+    if (!availability.available) {
+      if (availability.needsApiKey) {
         citation_isLoading = false;
         actionBtns?.forEach(btn => {
           btn.disabled = false;
@@ -1343,47 +1249,33 @@ async function citation_runAnalysis(text, context = {}, modelKey = null) {
         citation_showApiKeyWarning();
         return;
       }
-      // Use cloud model (Claude API)
-      const response = await citation_analyze(text, context, modelKey);
-      analysis = response.analysis;
-      isAI = !analysis.isFallback;
-      usedCloud = true;
+      // Fall back to heuristic analysis
+      analysis = citation_fallback(text, context);
 
       if (statusBar) {
-        statusBar.textContent = `☁️ Analyzed with ${modelName}`;
-        statusBar.className = 'assist-citation-status visible success';
+        statusBar.textContent = getUnavailableStatusMessage(availability);
+        statusBar.className = 'assist-citation-status visible';
       }
     } else {
-      // Check local LLM availability
-      const llmStatus = await citation_checkLLM();
+      // Use AI analysis
+      const response = await citation_analyze(text, context, modeInfo);
+      analysis = response.analysis;
+      isAI = !analysis.isFallback;
 
-      if (llmStatus.available) {
-        const response = await citation_analyze(text, context, 'local');
-        analysis = response.analysis;
-        isAI = !analysis.isFallback;
-
-        if (statusBar) {
-          statusBar.textContent = '💻 AI-powered analysis complete (Local)';
-          statusBar.className = 'assist-citation-status visible success';
-        }
-      } else {
-        analysis = citation_fallback(text, context);
-
-        if (statusBar) {
-          statusBar.textContent = '⚠️ Using basic analysis (Ollama not available)';
-          statusBar.className = 'assist-citation-status visible';
-        }
+      if (statusBar) {
+        statusBar.textContent = getSuccessStatusMessage(modeInfo, 'analysis complete');
+        statusBar.className = 'assist-citation-status visible success';
       }
     }
 
     citation_currentAnalysis = analysis;
-    citation_renderResults(analysis, isAI, usedCloud, modelName);
+    citation_renderResults(analysis, isAI);
   } catch (error) {
     console.error('[CitationAnalyzer] Error:', error);
 
     const fallbackAnalysis = citation_fallback(text, context);
     citation_currentAnalysis = fallbackAnalysis;
-    citation_renderResults(fallbackAnalysis, false, false, '');
+    citation_renderResults(fallbackAnalysis, false);
 
     if (statusBar) {
       statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
@@ -1590,10 +1482,7 @@ async function citation_start(text, selectionRect = null) {
 
   await citation_show(selectionRect);
 
-  // Get model from global settings
-  const modelKey = await citation_getCurrentModel();
-
-  citation_runAnalysis(text, context, modelKey);
+  citation_runAnalysis(text, context);
 }
 
 // ============================================================================

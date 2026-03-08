@@ -19,8 +19,8 @@
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
-import { getAIBadgeInfo, injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getFeatureDefault } from '../../ai/model-registry.js';
+import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
+import { getAIMode, checkAIAvailable, generateWithAI } from '../shared/ai-feature-client.js';
 import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
@@ -46,43 +46,6 @@ const graph_settings = {
   nodeSize: 30,
   linkStrength: 0.5,
 };
-
-/**
- * Get the current model from global AI settings
- * @returns {Promise<string>} Model key ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- */
-async function graph_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return 'local';
-    } else if (aiMode === 'cloud') {
-      return result.cloudModel || getFeatureDefault('anthropic', 'knowledgeGraph');
-    } else {
-      return 'local';
-    }
-  } catch (error) {
-    console.warn('[KnowledgeGraph] Failed to get current model:', error);
-    return 'local';
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function graph_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
 
 // Node types with colors
 const NODE_TYPES = {
@@ -115,14 +78,12 @@ const RELATION_TYPES = {
 const GRAPH_CLOUD_SYSTEM_PROMPT = `You are a knowledge graph extractor for educational content. Your sole task is to return a raw JSON object. STRICT OUTPUT RULES: Start your response with { and end with }. Never write any preamble, explanation, label, or markdown. Never write phrases like "Here is the knowledge graph:" or wrap the JSON in code blocks.`;
 
 /**
- * Extract entities and relationships from text using LLM
+ * Extract entities and relationships from text using AI
  * @param {string} text - Text to analyze
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
+ * @param {import('../shared/ai-feature-client.js').AIMode} modeInfo - AI mode from getAIMode()
  * @returns {Promise<Object>} Graph data with nodes and edges
  */
-async function graph_extractFromText(text, modelKey = 'local') {
-  const isCloud = modelKey !== 'local';
-
+async function graph_extractFromText(text, modeInfo) {
   // Core extraction instructions — shared for both local and cloud
   const prompt = `Extract a knowledge graph from the educational text below.
 
@@ -157,61 +118,33 @@ REQUIRED JSON STRUCTURE:
 }
 
 TEXT TO ANALYZE:
-${text.substring(0, 3000)}${isCloud ? '' : '\n\nJSON OUTPUT:'}`;
+${text.substring(0, 3000)}${modeInfo.isCloud ? '' : '\n\nJSON OUTPUT:'}`;
 
-  // Model-specific token limits — Haiku bumped to 2000 to avoid truncating 12-node graphs
-  const modelTokenLimits = {
-    local: 1500,
-    'haiku-4.5': 2000,
-    'claude-haiku-4-5-20251001': 2000,
-    'sonnet-4.6': 2000,
-    'claude-sonnet-4-6': 2000,
-    'opus-4.6': 2500,
-    'claude-opus-4-6': 2500,
-  };
-
-  const maxTokens = modelTokenLimits[modelKey] || 1500;
+  const maxTokens = modeInfo.isLocal ? 1500 : 2000;
 
   try {
-    console.log(
-      `[KnowledgeGraph] Calling ${isCloud ? 'cloud' : 'local'} LLM for extraction (${modelKey})...`
+    console.log(`[KnowledgeGraph] Calling AI for extraction (${modeInfo.displayLabel})...`);
+
+    // Pass system prompt for cloud, format:'json' for local
+    const aiResult = await generateWithAI(
+      prompt,
+      modeInfo,
+      modeInfo.isCloud
+        ? {
+            system: GRAPH_CLOUD_SYSTEM_PROMPT,
+            maxTokens,
+            temperature: 0.3,
+            feature: 'knowledgeGraph',
+            noCache: true,
+          }
+        : { format: 'json', maxTokens, temperature: 0.3, feature: 'knowledgeGraph' }
     );
 
-    let response;
+    console.log('[KnowledgeGraph] AI response received');
 
-    if (isCloud) {
-      // Use cloud model — system prompt constrains Claude to JSON-only output
-      response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_LLM_GENERATE',
-        prompt,
-        options: {
-          model: modelKey,
-          maxTokens,
-          temperature: 0.3,
-          feature: 'knowledgeGraph',
-          noCache: true,
-          system: GRAPH_CLOUD_SYSTEM_PROMPT,
-        },
-      });
-    } else {
-      // Use local model — format:'json' forces Ollama to emit JSON-only at inference level
-      response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_GENERATE',
-        prompt,
-        taskType: 'knowledgeGraph',
-        options: {
-          maxTokens,
-          temperature: 0.3,
-          format: 'json',
-        },
-      });
-    }
-
-    console.log('[KnowledgeGraph] LLM response:', response);
-
-    if (response && response.success) {
-      let jsonStr = response.data;
-      console.log('[KnowledgeGraph] Raw LLM data:', jsonStr);
+    if (aiResult && aiResult.text) {
+      let jsonStr = aiResult.text;
+      console.log('[KnowledgeGraph] Raw AI data:', jsonStr);
 
       // Try to extract JSON from markdown code blocks
       const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -237,13 +170,11 @@ ${text.substring(0, 3000)}${isCloud ? '' : '\n\nJSON OUTPUT:'}`;
       } else {
         console.warn('[KnowledgeGraph] No JSON object found in response');
       }
-    } else {
-      console.error('[KnowledgeGraph] LLM request failed:', response?.error || 'Unknown error');
     }
 
     throw new Error('Failed to extract knowledge graph');
   } catch (error) {
-    console.error('[KnowledgeGraph] LLM extraction failed:', error);
+    console.error('[KnowledgeGraph] AI extraction failed:', error);
     console.log('[KnowledgeGraph] Falling back to simple extraction');
     return graph_simpleExtract(text);
   }
@@ -1173,7 +1104,7 @@ function graph_hide() {
  * @param {string} text - Text to analyze
  * @param {string} modelKey - Model key to use (optional, uses dropdown or default)
  */
-async function graph_build(text, modelKey = null) {
+async function graph_build(text) {
   if (!text || text.trim().length < 50) {
     showToast?.('Please select more text to build a knowledge graph');
     return;
@@ -1181,20 +1112,16 @@ async function graph_build(text, modelKey = null) {
 
   await graph_show();
 
-  // Get model from global settings if not specified
-  if (!modelKey) {
-    modelKey = await graph_getCurrentModel();
-  }
+  const modeInfo = await getAIMode('knowledgeGraph');
+  const availability = await checkAIAvailable(modeInfo);
 
-  const isCloud = modelKey !== 'local';
-
-  // Check for API key if cloud mode
-  if (isCloud) {
-    const hasKey = await graph_checkCloudApiKey();
-    if (!hasKey) {
+  if (!availability.available) {
+    if (availability.needsApiKey) {
       graph_showApiKeyWarning();
-      return;
+    } else {
+      showToast?.(`AI unavailable: ${availability.reason}`);
     }
+    return;
   }
 
   // Show loading
@@ -1203,11 +1130,9 @@ async function graph_build(text, modelKey = null) {
 
   if (loading) {
     loading.style.display = 'block';
-    const _kgBadgeInfo = await getAIBadgeInfo();
-    const _kgLabel = isCloud ? `☁️ ${_kgBadgeInfo.label}` : '💻 Local AI';
     loading.innerHTML = sanitizeHTML(`
       <div class="kg-spinner"></div>
-      <div>Analyzing text with ${_kgLabel}...</div>
+      <div>Analyzing text with ${modeInfo.displayLabel}...</div>
     `);
   }
   if (empty) {
@@ -1215,7 +1140,7 @@ async function graph_build(text, modelKey = null) {
   }
 
   try {
-    graph_data = await graph_extractFromText(text, modelKey);
+    graph_data = await graph_extractFromText(text, modeInfo);
 
     if (!graph_data.nodes.length) {
       if (empty) {
@@ -1234,16 +1159,10 @@ async function graph_build(text, modelKey = null) {
     // Show which model was used
     const _kgModelBadge = graph_panel?.querySelector('#kg-model-badge');
     if (_kgModelBadge) {
-      getAIBadgeInfo().then(info => {
-        if (info.mode === 'cloud') {
-          _kgModelBadge.textContent = `☁️ ${info.label}`;
-        } else if (info.mode === 'local') {
-          _kgModelBadge.textContent = '💻 Local AI';
-        } else {
-          _kgModelBadge.textContent = '💻 Local AI';
-        }
-        _kgModelBadge.style.display = 'block';
-      });
+      _kgModelBadge.textContent = modeInfo.isCloud
+        ? `☁️ ${modeInfo.displayLabel}`
+        : `💻 ${modeInfo.displayLabel}`;
+      _kgModelBadge.style.display = 'block';
     }
 
     // Track interaction

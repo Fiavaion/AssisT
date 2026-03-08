@@ -16,7 +16,12 @@
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -31,61 +36,6 @@ const mdc_settings = {
   maxDocuments: 5,
   minTextLength: 50,
 };
-
-/**
- * Get the current AI mode setting
- * @returns {Promise<{aiMode: string, modelKey: string}>}
- */
-async function mdc_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return { aiMode: 'local', modelKey: 'local' };
-    } else if (aiMode === 'cloud') {
-      return {
-        aiMode: 'cloud',
-        modelKey: result.cloudModel || getFeatureDefault('anthropic', 'multiDocCompare'),
-      };
-    } else {
-      return { aiMode: 'local', modelKey: 'local' };
-    }
-  } catch (error) {
-    console.warn('[MultiDocCompare] Failed to get current model:', error);
-    return { aiMode: 'local', modelKey: 'local' };
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function mdc_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if local LLM is available
- * @returns {Promise<boolean>}
- */
-async function mdc_checkLocalLLM() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
 
 // ============================================================================
 // CSS STYLES (Injected to document.head to avoid innerHTML stripping)
@@ -439,21 +389,24 @@ async function mdc_compareDocuments() {
   }
 
   // Get current AI mode
-  const { aiMode, modelKey } = await mdc_getCurrentModel();
-  const isCloud = aiMode === 'cloud';
-  const modelName = getModelId('anthropic', modelKey);
+  const modeInfo = await getAIMode('multiDocCompare');
+  const availability = await checkAIAvailable(modeInfo);
 
-  // Check for API key if cloud mode
-  if (isCloud) {
-    const hasKey = await mdc_checkCloudApiKey();
-    if (!hasKey) {
+  if (!availability.available) {
+    if (availability.needsApiKey) {
       mdc_showApiKeyWarning();
       return null;
     }
+    // AI unavailable — fall back to heuristic
+    console.log('[MultiDocCompare] AI unavailable:', getUnavailableStatusMessage(availability));
+    const fallback = mdc_heuristicCompare();
+    mdc_comparisonResult = fallback;
+    mdc_displayResults(fallback);
+    return fallback;
   }
 
   mdc_isLoading = true;
-  mdc_updateLoadingState(true, isCloud ? `Comparing with ${modelName}...` : null);
+  mdc_updateLoadingState(true);
 
   // Prepare documents for comparison
   const docSummaries = mdc_documents
@@ -485,53 +438,21 @@ Rules:
 - Respond with ONLY valid JSON`;
 
   try {
-    let response;
+    const aiResult = await generateWithAI(prompt, modeInfo, {
+      maxTokens: 1200,
+      temperature: 0.3,
+      feature: 'multiDocCompare',
+    });
 
-    if (isCloud) {
-      // Use cloud model (Claude API)
-      response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_LLM_GENERATE',
-        prompt,
-        options: {
-          model: modelKey,
-          maxTokens: 1200,
-          temperature: 0.3,
-          feature: 'multiDocCompare',
-        },
-      });
-      console.log(`[MultiDocCompare] Cloud response (${modelName}):`, response?.data);
-    } else {
-      // Check local LLM availability
-      const localAvailable = await mdc_checkLocalLLM();
+    console.log(`[MultiDocCompare] AI response (${modeInfo.displayLabel}):`, aiResult?.text);
 
-      if (localAvailable) {
-        response = await chrome.runtime.sendMessage({
-          action: 'LOCAL_LLM_GENERATE',
-          prompt,
-          taskType: 'summarization', // Uses general category
-          options: {
-            maxTokens: 1200,
-            temperature: 0.3,
-          },
-        });
-        console.log('[MultiDocCompare] Local AI response:', response?.data);
-      } else {
-        // Fallback to heuristic
-        console.log('[MultiDocCompare] Local LLM unavailable, using heuristic');
-        const fallback = mdc_heuristicCompare();
-        mdc_comparisonResult = fallback;
-        mdc_displayResults(fallback);
-        return fallback;
-      }
-    }
-
-    if (response && response.success) {
+    if (aiResult && aiResult.text) {
       // Parse JSON response
-      const jsonMatch = response.data.match(/\{[\s\S]*\}/);
+      const jsonMatch = aiResult.text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         mdc_comparisonResult = parsed;
-        mdc_displayResults(parsed, isCloud, modelName);
+        mdc_displayResults(parsed);
         return parsed;
       }
     }

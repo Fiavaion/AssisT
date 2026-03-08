@@ -17,7 +17,12 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -56,86 +61,16 @@ async function tutor_isCloudEnabled() {
 */
 
 /**
- * Get the current model from global settings
- * @returns {Promise<string>} Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- */
-async function tutor_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return 'local';
-    } else if (aiMode === 'cloud') {
-      // Return the global cloud model setting from Advanced Options
-      return result.cloudModel || getFeatureDefault('anthropic', 'socraticTutor');
-    } else {
-      // AI is off - default to local
-      return 'local';
-    }
-  } catch (error) {
-    console.warn('[SocraticTutor] Failed to get current model:', error);
-    return 'local';
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function tutor_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if local LLM is available
- * @returns {Promise<{available: boolean, models: string[]}>}
- */
-async function tutor_checkLLM() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-
-    if (response && response.success) {
-      return {
-        available: response.available || false,
-        models: response.models || [],
-      };
-    }
-    return { available: false, models: [] };
-  } catch (error) {
-    console.warn('[SocraticTutor] LLM check failed:', error);
-    return { available: false, models: [] };
-  }
-}
-
-/**
- * Generate Socratic questions using LLM (local or cloud)
+ * Generate Socratic questions using AI
  * @param {string} text - Text to generate questions about
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- * @returns {Promise<{questions: Object, isCloud: boolean}>} Generated questions object
+ * @param {import('../shared/ai-feature-client.js').AIMode} modeInfo - AI mode from getAIMode()
+ * @returns {Promise<{questions: Object}>} Generated questions object
  */
-async function tutor_generate(text, modelKey = 'local') {
+async function tutor_generate(text, modeInfo) {
   // Truncate input to avoid token overflow
   const truncatedText = text.length > 2500 ? text.substring(0, 2500) + '...' : text;
 
-  // Model-specific token limits
-  const modelTokenLimits = {
-    local: 800,
-    'haiku-4.5': 600,
-    'sonnet-4.6': 900,
-    'opus-4.6': 1100,
-  };
-
-  const maxTokens = modelTokenLimits[modelKey] || 800;
+  const maxTokens = modeInfo.isLocal ? 800 : 900;
   const questionCount = Math.min(tutor_settings.questionCount, 4); // Cap at 4 questions
 
   // Strict, concise prompt
@@ -152,41 +87,18 @@ RULES:
 - Simple student-friendly language
 - Start with { end with }`;
 
-  const isCloud = modelKey !== 'local';
-
   try {
-    let response;
+    const aiResult = await generateWithAI(prompt, modeInfo, {
+      maxTokens,
+      temperature: 0.5,
+      feature: 'socraticTutor',
+    });
 
-    if (isCloud) {
-      // Use cloud model (Claude API)
-      response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_LLM_GENERATE',
-        prompt,
-        options: {
-          model: modelKey,
-          maxTokens,
-          temperature: 0.5, // Lower for more reliable JSON
-          feature: 'socraticTutor',
-        },
-      });
-    } else {
-      // Use local model (Ollama)
-      response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_GENERATE',
-        prompt,
-        taskType: 'socraticTutor',
-        options: {
-          maxTokens,
-          temperature: 0.5,
-        },
-      });
-    }
-
-    if (response && response.success) {
+    if (aiResult && aiResult.text) {
       // Parse JSON from response
       try {
         // Clean response: remove markdown code blocks (various formats)
-        let jsonStr = response.data
+        let jsonStr = aiResult.text
           .replace(/```json\s*/gi, '')
           .replace(/```JSON\s*/g, '')
           .replace(/```\s*/g, '')
@@ -214,19 +126,19 @@ RULES:
             }
           });
           console.log('[SocraticTutor] JSON parsed successfully');
-          return { questions: parsed, isCloud };
+          return { questions: parsed };
         }
 
         throw new Error('Invalid JSON structure');
       } catch (parseError) {
         console.warn('[SocraticTutor] JSON parse failed:', parseError.message);
-        console.log('[SocraticTutor] Raw response:', response.data.substring(0, 300));
+        console.log('[SocraticTutor] Raw response:', aiResult.text.substring(0, 300));
         // Return fallback structure
-        return { questions: tutor_fallback(text), isCloud };
+        return { questions: tutor_fallback(text) };
       }
     }
 
-    throw new Error(response?.error || 'Generation failed');
+    throw new Error('Generation failed');
   } catch (error) {
     console.error('[SocraticTutor] Generation failed:', error);
     throw error;
@@ -568,8 +480,7 @@ async function tutor_createPanel() {
     'Socratic Tutor New Questions Button',
     async () => {
       if (tutor_currentText) {
-        const modelKey = await tutor_getCurrentModel();
-        tutor_analyze(tutor_currentText, modelKey);
+        tutor_analyze(tutor_currentText);
       }
     }
   );
@@ -837,18 +748,12 @@ function tutor_hide() {
 /**
  * Analyze text and show Socratic questions
  * @param {string} text - Text to analyze
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
  */
-async function tutor_analyze(text, modelKey = null) {
+async function tutor_analyze(text) {
   if (!text || text.trim().length < 20) {
     showToast?.('Please select more text for Socratic questions') ||
       alert('Please select more text');
     return;
-  }
-
-  // Get model from global settings if not specified
-  if (!modelKey) {
-    modelKey = await tutor_getCurrentModel();
   }
 
   tutor_currentText = text;
@@ -859,55 +764,45 @@ async function tutor_analyze(text, modelKey = null) {
   }
 
   const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
-  const isCloud = modelKey !== 'local';
-  const modelName = getModelId('anthropic', modelKey);
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-tutor-loading">
         <div class="assist-tutor-spinner"></div>
-        <div>Generating thought-provoking questions${isCloud ? ` with ${modelName}` : ''}...</div>
+        <div>Generating thought-provoking questions...</div>
       </div>
     `);
   }
 
+  // Get AI mode and check availability
+  const modeInfo = await getAIMode('socraticTutor');
+  const availability = await checkAIAvailable(modeInfo);
+
   try {
     let result;
     let isAI = false;
-    let usedCloud = false;
 
-    if (isCloud) {
-      // Check for API key before using cloud model
-      const hasKey = await tutor_checkCloudApiKey();
-      if (!hasKey) {
+    if (!availability.available) {
+      if (availability.needsApiKey) {
         tutor_showApiKeyWarning();
         return;
       }
-      // Use cloud model (Claude API)
-      const response = await tutor_generate(text, modelKey);
+      // Fall back to template-based questions
+      console.log('[SocraticTutor] AI unavailable:', getUnavailableStatusMessage(availability));
+      result = tutor_fallback(text);
+    } else {
+      const response = await tutor_generate(text, modeInfo);
       result = response.questions;
       isAI = true;
-      usedCloud = true;
-    } else {
-      // Check local LLM availability
-      const llmStatus = await tutor_checkLLM();
-
-      if (llmStatus.available) {
-        const response = await tutor_generate(text, 'local');
-        result = response.questions;
-        isAI = true;
-      } else {
-        result = tutor_fallback(text);
-      }
     }
 
     tutor_currentQuestions = result;
-    tutor_renderResult(result, isAI, usedCloud, modelName);
+    tutor_renderResult(result, isAI);
   } catch (error) {
     console.error('[SocraticTutor] Error:', error);
     const fallback = tutor_fallback(text);
     tutor_currentQuestions = fallback;
-    tutor_renderResult(fallback, false, false, '');
+    tutor_renderResult(fallback, false);
   }
 }
 
@@ -998,9 +893,7 @@ function tutor_showEmptyState() {
  * @param {string} text - Text to analyze
  */
 async function tutor_start(text) {
-  // Get model from global settings (set in Advanced Options → AI tab)
-  const modelKey = await tutor_getCurrentModel();
-  await tutor_analyze(text, modelKey);
+  await tutor_analyze(text);
 }
 
 // ============================================================================

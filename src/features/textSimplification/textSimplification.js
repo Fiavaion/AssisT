@@ -25,7 +25,12 @@ import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
-import { getModelId, getFeatureDefault } from '../../ai/model-registry.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  getSuccessStatusMessage,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -47,67 +52,7 @@ const simplification_settings = {
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
 
-/**
- * Get the current model from global settings
- * @returns {Promise<string>} Model key (e.g., 'local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- */
-async function simplification_getCurrentModel() {
-  try {
-    const result = await chrome.storage.local.get(['aiMode', 'cloudModel']);
-    const aiMode = result.aiMode || 'off';
-
-    if (aiMode === 'local') {
-      return 'local';
-    } else if (aiMode === 'cloud') {
-      // Return the global cloud model setting from Advanced Options
-      return result.cloudModel || getFeatureDefault('anthropic', 'textSimplification');
-    } else {
-      // AI is off - default to local
-      return 'local';
-    }
-  } catch (error) {
-    console.warn('[TextSimplification] Failed to get current model:', error);
-    return 'local';
-  }
-}
-
-/**
- * Check if cloud API key is configured
- * @returns {Promise<boolean>}
- */
-async function simplification_checkCloudApiKey() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'CLOUD_LLM_CHECK',
-    });
-    return response?.success && response?.available;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if local LLM is available
- * @returns {Promise<{available: boolean, models: string[]}>}
- */
-async function simplification_checkLLM() {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK',
-    });
-
-    if (response && response.success) {
-      return {
-        available: response.available || false,
-        models: response.models || [],
-      };
-    }
-    return { available: false, models: [] };
-  } catch (error) {
-    console.warn('[TextSimplification] LLM check failed:', error);
-    return { available: false, models: [] };
-  }
-}
+// Mode detection and availability checking delegated to shared/ai-feature-client.js
 
 /**
  * Generate simplified text using local LLM
@@ -116,7 +61,14 @@ async function simplification_checkLLM() {
  * @returns {Promise<string>} The simplified text
  */
 async function simplification_generate(text, level = 'moderate', modelKey = 'local') {
-  const isCloud = modelKey !== 'local';
+  const isWebLLM =
+    modelKey.startsWith('llama-') ||
+    modelKey.startsWith('phi-') ||
+    modelKey.startsWith('qwen') ||
+    modelKey.startsWith('gemma-') ||
+    modelKey.startsWith('mistral-');
+  const isGemini = modelKey === 'gemini';
+  const isCloud = modelKey !== 'local' && !isWebLLM && !isGemini;
 
   // Optimized prompts: CoT for cloud (50B+ benefits), direct for local (faster, similar quality)
   // Research: https://www.promptingguide.ai/techniques/cot - "CoT benefits large models (50B+)"
@@ -250,7 +202,19 @@ IMPROVED VERSION:`,
   try {
     let response;
 
-    if (isCloud) {
+    if (isGemini) {
+      response = await chrome.runtime.sendMessage({
+        action: 'GEMINI_LLM_REQUEST',
+        prompt,
+        options: { temperature: 0.3, topK: 40 },
+      });
+    } else if (isWebLLM) {
+      response = await chrome.runtime.sendMessage({
+        action: 'WEBLLM_GENERATE',
+        prompt,
+        options: { maxTokens, temperature: 0.3 },
+      });
+    } else if (isCloud) {
       // Use cloud model (Claude API)
       response = await chrome.runtime.sendMessage({
         action: 'CLOUD_LLM_GENERATE',
@@ -277,7 +241,7 @@ IMPROVED VERSION:`,
         taskType: 'textSimplification',
         options: {
           maxTokens,
-          temperature: 0.3, // Lower temperature for more consistent output
+          temperature: 0.3,
         },
       });
 
@@ -654,8 +618,7 @@ async function simplification_createPanel() {
   levelSelect.addEventListener('change', async e => {
     simplification_settings.defaultLevel = e.target.value;
     if (simplification_currentText) {
-      const modelKey = await simplification_getCurrentModel();
-      simplification_simplify(simplification_currentText, e.target.value, modelKey);
+      simplification_simplify(simplification_currentText, e.target.value);
     }
   });
 
@@ -668,12 +631,7 @@ async function simplification_createPanel() {
   const regenerateBtn = panel.querySelector('.assist-simplify-regenerate');
   attachInteractiveHandler(regenerateBtn, 'Text Simplification Regenerate Button', async () => {
     if (simplification_currentText) {
-      const modelKey = await simplification_getCurrentModel();
-      simplification_simplify(
-        simplification_currentText,
-        simplification_settings.defaultLevel,
-        modelKey
-      );
+      simplification_simplify(simplification_currentText, simplification_settings.defaultLevel);
     }
   });
 
@@ -1140,43 +1098,31 @@ function simplification_handleKeydown(e) {
  * @param {string} level - Simplification level
  * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
  */
-async function simplification_simplify(text, level = 'moderate', modelKey = null) {
+async function simplification_simplify(text, level = 'moderate') {
   if (simplification_isLoading || !text || text.trim().length === 0) {
     return;
-  }
-
-  // Get model from global settings if not specified
-  if (!modelKey) {
-    modelKey = await simplification_getCurrentModel();
   }
 
   simplification_currentText = text;
   simplification_isLoading = true;
 
-  // Show loading state
   const contentArea = simplification_panel?.querySelector('.assist-simplify-content');
   const statusBar = simplification_panel?.querySelector('.assist-simplify-status');
   const actionBtns = simplification_panel?.querySelectorAll('.assist-simplify-btn');
 
-  const levelLabels = {
-    basic: 'very simple',
-    moderate: 'clear',
-    academic: 'clearer academic',
-  };
+  const levelLabels = { basic: 'very simple', moderate: 'clear', academic: 'clearer academic' };
 
-  const isCloud = modelKey !== 'local';
-  const modelName = getModelId('anthropic', modelKey);
+  const modeInfo = await getAIMode('textSimplification');
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`
       <div class="assist-simplify-loading">
         <div class="assist-simplify-spinner"></div>
-        <span>Creating ${levelLabels[level] || 'simplified'} version${isCloud ? ` with ${modelName}` : ''}...</span>
+        <span>Creating ${levelLabels[level] || 'simplified'} version${modeInfo.isOff ? '' : ` with ${modeInfo.displayLabel}`}...</span>
       </div>
     `);
   }
 
-  // Disable action buttons
   actionBtns?.forEach(btn => {
     btn.disabled = true;
   });
@@ -1185,60 +1131,52 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
     let simplified;
     let isAI = false;
 
-    if (isCloud) {
-      // Check for API key before using cloud model
-      const hasKey = await simplification_checkCloudApiKey();
-      if (!hasKey) {
-        simplification_isLoading = false;
-        actionBtns?.forEach(btn => {
-          btn.disabled = false;
-        });
+    const availability = await checkAIAvailable(modeInfo);
+
+    if (!availability.available) {
+      simplification_isLoading = false;
+      actionBtns?.forEach(btn => {
+        btn.disabled = false;
+      });
+
+      if (availability.needsApiKey) {
         simplification_showApiKeyWarning();
         return;
       }
-      // Use cloud model (Claude API)
-      const result = await simplification_generate(text, level, modelKey);
-      simplified = result.simplified;
-      isAI = true;
 
+      simplified = simplification_fallback(text, level);
+      simplification_currentResult = simplified;
       if (statusBar) {
-        statusBar.textContent = `☁️ Simplified with ${modelName}`;
-        statusBar.className = 'assist-simplify-status visible success';
+        statusBar.textContent = getUnavailableStatusMessage(availability);
+        statusBar.className = 'assist-simplify-status visible';
       }
-    } else {
-      // Check local LLM availability
-      const llmStatus = await simplification_checkLLM();
-
-      if (llmStatus.available) {
-        // Use local AI simplification
-        const result = await simplification_generate(text, level, 'local');
-        simplified = result.simplified;
-        isAI = true;
-
-        if (statusBar) {
-          statusBar.textContent = '💻 AI-powered simplification complete (Local)';
-          statusBar.className = 'assist-simplify-status visible success';
-        }
-      } else {
-        // Fall back to rule-based simplification
-        simplified = simplification_fallback(text, level);
-
-        if (statusBar) {
-          statusBar.textContent = '⚠️ Using basic simplification (Ollama not available)';
-          statusBar.className = 'assist-simplify-status visible';
-        }
+      if (contentArea) {
+        contentArea.innerHTML = sanitizeHTML(`
+          <p class="assist-simplify-text">${escapeHtml(simplified)}</p>
+          ${renderAIBadge('fallback', 'Basic')}
+        `);
       }
+      return;
+    }
+
+    // Delegate to existing simplification_generate() which has carefully crafted
+    // local vs cloud prompt sets — pass the resolved modelKey from modeInfo
+    const result = await simplification_generate(text, level, modeInfo.modelKey);
+    simplified = result.simplified;
+    isAI = true;
+
+    if (statusBar) {
+      statusBar.textContent = getSuccessStatusMessage(modeInfo, 'simplification complete');
+      statusBar.className = 'assist-simplify-status visible success';
     }
 
     simplification_currentResult = simplified;
 
-    // Update content
     if (contentArea) {
       const _simBadgeInfo = await getAIBadgeInfo();
       const badge = isAI
         ? renderAIBadge(_simBadgeInfo.mode, _simBadgeInfo.label)
         : renderAIBadge('fallback', 'Basic');
-
       contentArea.innerHTML = sanitizeHTML(`
         <p class="assist-simplify-text">${escapeHtml(simplified)}</p>
         ${badge}
@@ -1247,7 +1185,6 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
   } catch (error) {
     console.error('[TextSimplification] Error:', error);
 
-    // Fall back to rule-based simplification
     const fallbackResult = simplification_fallback(text, level);
     simplification_currentResult = fallbackResult;
 
@@ -1257,15 +1194,12 @@ async function simplification_simplify(text, level = 'moderate', modelKey = null
         <span class="assist-simplify-fallback-badge">Basic</span>
       `);
     }
-
     if (statusBar) {
       statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
       statusBar.className = 'assist-simplify-status visible error';
     }
   } finally {
     simplification_isLoading = false;
-
-    // Re-enable action buttons
     actionBtns?.forEach(btn => {
       btn.disabled = false;
     });
@@ -1425,11 +1359,7 @@ async function simplification_start(text, selectionRect = null) {
   // Show the panel
   await simplification_show(selectionRect);
 
-  // Get model from global settings (set in Advanced Options → AI tab)
-  const modelKey = await simplification_getCurrentModel();
-
-  // Start simplification with selected model
-  simplification_simplify(text, simplification_settings.defaultLevel, modelKey);
+  simplification_simplify(text, simplification_settings.defaultLevel);
 }
 
 // ============================================================================
