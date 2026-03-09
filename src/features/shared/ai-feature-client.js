@@ -347,6 +347,8 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
     system,
     noCache,
     format,
+    timeout,
+    num_ctx,
   } = options;
 
   let response;
@@ -424,6 +426,8 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
         maxTokens,
         temperature,
         ...(format ? { format } : {}),
+        ...(timeout ? { timeout } : {}),
+        ...(num_ctx ? { num_ctx } : {}),
       },
     });
     if (response?.success) {
