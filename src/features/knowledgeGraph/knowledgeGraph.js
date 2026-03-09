@@ -107,17 +107,18 @@ EDGE TYPES (use exactly these string values):
 related_to | causes | part_of | example_of | opposite_of | leads_to | defined_by
 
 RULES:
-- Extract 6–12 nodes maximum
+- Extract ${modeInfo.isLocal ? '6–8' : '6–12'} nodes maximum
 - Node ids must be unique, lowercase, underscores only, no spaces
 - Do NOT split multi-word proper names into separate nodes ("Pierre-Auguste Renoir" = one node)
 - A list of names (even first names only) → classify each as "person", never "concept"
 - Definitions must be real and informative — never write "A concept mentioned in the text"
 - Every edge source and target must match an existing node id exactly
+- Keep definitions short: 1 sentence only
 
 REQUIRED JSON STRUCTURE:
 {
   "nodes": [
-    {"id": "unique_id", "label": "Name or Term", "type": "person|place|date|event|theory|term|concept", "definition": "1-2 sentence definition or biographical note"}
+    {"id": "unique_id", "label": "Name or Term", "type": "person|place|date|event|theory|term|concept", "definition": "1 sentence definition"}
   ],
   "edges": [
     {"source": "node_id_1", "target": "node_id_2", "type": "related_to|causes|part_of|example_of|opposite_of|leads_to|defined_by", "label": "short relationship label"}
@@ -125,9 +126,9 @@ REQUIRED JSON STRUCTURE:
 }
 
 TEXT TO ANALYZE:
-${text.substring(0, modeInfo.isLocal ? 1500 : 3000)}${modeInfo.isCloud ? '' : '\n\nJSON OUTPUT:'}`;
+${text.substring(0, modeInfo.isLocal ? 1000 : 3000)}${modeInfo.isCloud ? '' : '\n\nJSON OUTPUT:'}`;
 
-  const maxTokens = modeInfo.isLocal ? 800 : 2000;
+  const maxTokens = modeInfo.isLocal ? 900 : 2000;
 
   try {
     console.log(`[KnowledgeGraph] Calling AI for extraction (${modeInfo.displayLabel})...`);
@@ -144,38 +145,68 @@ ${text.substring(0, modeInfo.isLocal ? 1500 : 3000)}${modeInfo.isCloud ? '' : '\
             feature: 'knowledgeGraph',
             noCache: true,
           }
-        : { format: 'json', maxTokens, temperature: 0.3, feature: 'knowledgeGraph' }
+        : { maxTokens, temperature: 0.3, feature: 'knowledgeGraph', timeout: 55000, num_ctx: 2048 }
     );
 
     console.log('[KnowledgeGraph] AI response received');
 
     if (aiResult && aiResult.text) {
+      // Service-worker pre-parses JSON when format:'json' is used — handle object directly
+      if (typeof aiResult.text === 'object' && aiResult.text !== null) {
+        if (aiResult.text.parseError) {
+          console.error(
+            '[KnowledgeGraph] Service-worker JSON parse failed, raw:',
+            aiResult.text.raw?.substring(0, 200)
+          );
+          throw new Error('Service-worker could not parse AI JSON response');
+        }
+        console.log('[KnowledgeGraph] Received pre-parsed JSON object from service-worker');
+        return graph_validateAndEnhance(aiResult.text);
+      }
+
       let jsonStr = aiResult.text;
       console.log('[KnowledgeGraph] Raw AI data:', jsonStr);
 
-      // Try to extract JSON from markdown code blocks
-      const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1];
-        console.log('[KnowledgeGraph] Extracted from code block:', jsonStr);
+      // Extract from code block — accept unclosed blocks (truncated responses)
+      const closedBlock = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const openBlock = jsonStr.match(/```(?:json)?\s*([\s\S]*)/);
+      if (closedBlock) {
+        jsonStr = closedBlock[1];
+      } else if (openBlock) {
+        jsonStr = openBlock[1]; // truncated before closing ```
+        console.log('[KnowledgeGraph] Extracted from unclosed code block (truncated)');
       }
 
-      // Clean up and parse
       jsonStr = jsonStr.trim();
 
-      // Find JSON object - it might not start at beginning
-      const jsonObjMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (jsonObjMatch) {
+      // Find the opening brace — everything from there is our JSON candidate
+      const braceStart = jsonStr.indexOf('{');
+      if (braceStart === -1) {
+        console.warn('[KnowledgeGraph] No JSON object found in response');
+      } else {
+        const candidate = jsonStr.substring(braceStart);
         try {
-          const data = JSON.parse(jsonObjMatch[0]);
+          const data = JSON.parse(candidate);
           console.log('[KnowledgeGraph] Parsed JSON successfully:', data);
           return graph_validateAndEnhance(data);
         } catch (parseErr) {
+          console.warn('[KnowledgeGraph] JSON truncated, attempting repair...');
+          // Find last complete node/edge entry (ends with `},` or `}` then newline/end)
+          const lastComplete = Math.max(candidate.lastIndexOf('},'), candidate.lastIndexOf('}\n'));
+          if (lastComplete > 0) {
+            const inEdges = candidate.lastIndexOf('"edges"') > candidate.lastIndexOf('"nodes"');
+            const repaired =
+              candidate.substring(0, lastComplete + 1) + (inEdges ? ']}' : '],"edges":[]}');
+            try {
+              const data = JSON.parse(repaired);
+              console.log('[KnowledgeGraph] Repaired truncated JSON, nodes:', data.nodes?.length);
+              return graph_validateAndEnhance(data);
+            } catch {
+              // repair also failed — fall through to simpleExtract
+            }
+          }
           console.error('[KnowledgeGraph] JSON parse error:', parseErr.message);
-          console.log('[KnowledgeGraph] Failed JSON string:', jsonObjMatch[0].substring(0, 500));
         }
-      } else {
-        console.warn('[KnowledgeGraph] No JSON object found in response');
       }
     }
 

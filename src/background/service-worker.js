@@ -682,6 +682,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Generate text with local LLM
   if (message.action === 'LOCAL_LLM_GENERATE') {
+    // Keepalive: write to storage every 10s to prevent MV3 service worker suspension during long Ollama calls
+    const keepAlive = setInterval(
+      () => chrome.storage.local.set({ _sw_keepalive: Date.now() }),
+      10000
+    );
     (async () => {
       try {
         let options = message.options || {};
@@ -709,6 +714,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, data: result });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
+      } finally {
+        clearInterval(keepAlive);
       }
     })();
     return true;
@@ -1345,8 +1352,8 @@ const TASK_OPTIMAL_MODELS = {
   },
   // Structured JSON extraction → Qwen3 has best JSON compliance at 8B
   knowledgeGraph: {
-    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
-    reason: 'Knowledge graph needs strict JSON output and entity classification',
+    priority: ['gemma3:4b', 'llama3.2:3b', 'mistral:7b-instruct', 'qwen3:8b-q4_K_M'],
+    reason: 'Mistral 7B: fast structured JSON without thinking overhead; gemma3:4b fallback',
   },
   // Reasoning-heavy tasks → Qwen3 excels
   socraticTutor: {
@@ -1726,7 +1733,7 @@ async function ollamaGenerate(prompt, options = {}) {
           repeat_penalty: profile.repeat_penalty,
         },
       }),
-      signal: AbortSignal.timeout(options.timeout || 30000),
+      signal: AbortSignal.timeout(options.timeout || 60000),
     });
   } catch (fetchError) {
     console.error(`[LLM Bridge] Fetch error:`, fetchError.message);
@@ -1747,9 +1754,13 @@ async function ollamaGenerate(prompt, options = {}) {
   // Parse JSON if requested
   if (options.format === 'json') {
     try {
-      const jsonMatch = data.response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : data.response;
-      return JSON.parse(jsonStr.trim());
+      // Strip <think>...</think> blocks emitted by reasoning models (e.g. qwen3)
+      const raw = data.response.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : raw;
+      // Find JSON object in case there's any leading text remaining
+      const jsonObjMatch = jsonStr.match(/\{[\s\S]*\}/);
+      return JSON.parse(jsonObjMatch ? jsonObjMatch[0] : jsonStr.trim());
     } catch {
       return { raw: data.response, parseError: true };
     }

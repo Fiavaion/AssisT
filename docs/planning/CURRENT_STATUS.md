@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-03-08
+**Last Updated**: 2026-03-09
 **Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, AI Overhaul Edition)
 **Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 093 (AI Status Bar Consistency — 4 panel features)
+**Session**: Phase 2 Session 095 (Knowledge Graph Local AI fix — pipeline, keepalive, routing)
 
 ---
 
@@ -47,6 +47,16 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 095 (2026-03-09)
+
+**Knowledge Graph Local AI — Full Pipeline Fix**
+
+Fixed 8 cascading bugs preventing Local AI (Ollama) from producing real knowledge graph output. Root causes: JSON object returned by service-worker pre-parser was being treated as string (TypeError → silent fallback); qwen3 thinking tokens breaking JSON parse; Chrome MV3 service worker killed after 30s (added storage keepalive); AbortSignal timeout too short (60s); token truncation killing edges (capped nodes, 1-sentence defs, truncation repair). Routing changed to gemma3:4b as sole viable model on 8GB. Result: real AI descriptions, correct node types (person/theory/place), edge relationships (preceded/includes/occurred_in) on first cold run. Build: ✅ clean.
+
+### Phase 2 Session 094 (2026-03-08)
+
+**Ollama Model Selector, AI Quality Fixes, qwen3 Default**
 
 ### Phase 2 Session 093 (2026-03-08)
 
