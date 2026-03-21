@@ -1568,7 +1568,7 @@ function injectStyles() {
       border: 2px solid #fbbf24;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 999999;
+      z-index: 100200; /* Z.FLOATING — see src/utils/z-index.js */
       display: flex;
       flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

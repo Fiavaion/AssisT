@@ -161,7 +161,7 @@ export class WAIAdaptManager {
         border-radius: 4px;
         font-size: 14px;
         font-weight: 500;
-        z-index: 999999;
+        z-index: 100600; /* Z.FOCUS — see src/utils/z-index.js */
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
       }
     `;

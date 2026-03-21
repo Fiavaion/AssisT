@@ -926,19 +926,8 @@ class PopupController {
       const freshBtn = document.getElementById('btn-enable-all-sites');
       console.log('[Popup][PermBanner] Fresh button reference:', !!freshBtn);
 
-      // Add mousedown listener
-      freshBtn.addEventListener('mousedown', _e => {
-        console.log('[Popup][PermBanner] >>> MOUSEDOWN EVENT <<<');
-      });
-
-      // Add click listener
-      freshBtn.addEventListener('click', async e => {
-        console.log('[Popup][PermBanner] >>> CLICK EVENT <<<');
-        console.log('[Popup][PermBanner] Event:', e.type, 'Target:', e.target.id);
-
-        e.preventDefault();
-        e.stopPropagation();
-
+      // BUG-7 fix: use attachInteractiveHandler (mousedown + preventDefault/stopPropagation)
+      this.attachInteractiveHandler(freshBtn, 'Enable Everywhere Button', async () => {
         // Visual feedback
         freshBtn.textContent = 'Requesting...';
         freshBtn.disabled = true;
@@ -969,16 +958,6 @@ class PopupController {
           freshBtn.disabled = false;
           await chrome.storage.local.remove('permissionRequestedAt');
         }
-      });
-
-      // Add inline onclick as backup (for debugging)
-      freshBtn.setAttribute('onclick', "console.log('[Popup][PermBanner] INLINE ONCLICK FIRED')");
-
-      console.log('[Popup][PermBanner] Button style check:', {
-        display: window.getComputedStyle(freshBtn).display,
-        visibility: window.getComputedStyle(freshBtn).visibility,
-        pointerEvents: window.getComputedStyle(freshBtn).pointerEvents,
-        opacity: window.getComputedStyle(freshBtn).opacity,
       });
 
       console.log('[Popup][PermBanner] ========== SETUP COMPLETE ==========');
@@ -1055,9 +1034,9 @@ class PopupController {
         fileAccessBanner.classList.remove('hidden');
         const openSettingsBtn = document.getElementById('btn-open-extension-settings');
         if (openSettingsBtn) {
-          openSettingsBtn.onclick = () => {
+          this.attachInteractiveHandler(openSettingsBtn, 'Open Extension Settings', () => {
             chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
-          };
+          });
         }
       }
       console.log('[Popup] file:// URL detected without content script — showing access guidance');

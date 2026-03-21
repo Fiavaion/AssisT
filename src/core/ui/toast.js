@@ -68,7 +68,7 @@ export async function showToast(message, duration = 2000, options = {}) {
     border-radius: 8px;
     font-size: 14px;
     font-weight: 500;
-    z-index: 999999;
+    z-index: 100500; /* Z.TOAST — see src/utils/z-index.js */
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     font-family: -apple-system, system-ui, sans-serif;
   `;

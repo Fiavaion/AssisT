@@ -69,27 +69,37 @@ export function attachInteractiveHandler(element, label, handler, options = {}) 
     }
   };
 
-  element.onmousedown = mousedownHandler;
+  // BUG-6 fix: use addEventListener instead of direct .onmousedown assignment
+  // so we don't clobber existing handlers set by Canvas/Moodle on the same element.
+  element.addEventListener('mousedown', mousedownHandler);
 
   // Visual feedback for accessibility
+  let mouseenterHandler = null;
+  let mouseleaveHandler = null;
   if (config.enableVisualFeedback) {
     const originalTransform = element.style.transform || '';
 
-    element.onmouseenter = () => {
+    mouseenterHandler = () => {
       element.style.transform = `scale(${config.feedbackScale})`;
       element.style.cursor = 'pointer';
     };
-
-    element.onmouseleave = () => {
+    mouseleaveHandler = () => {
       element.style.transform = originalTransform;
     };
+
+    element.addEventListener('mouseenter', mouseenterHandler);
+    element.addEventListener('mouseleave', mouseleaveHandler);
   }
 
   // Return cleanup function
   return () => {
-    element.onmousedown = null;
-    element.onmouseenter = null;
-    element.onmouseleave = null;
+    element.removeEventListener('mousedown', mousedownHandler);
+    if (mouseenterHandler) {
+      element.removeEventListener('mouseenter', mouseenterHandler);
+    }
+    if (mouseleaveHandler) {
+      element.removeEventListener('mouseleave', mouseleaveHandler);
+    }
   };
 }
 

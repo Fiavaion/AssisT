@@ -958,7 +958,7 @@ export class STTProfileManager {
         border-radius: 8px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 14px;
-        z-index: 999999;
+        z-index: 100500; /* Z.TOAST — see src/utils/z-index.js */
         opacity: 0;
         transition: opacity 0.3s ease;
         pointer-events: none;
