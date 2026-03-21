@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-21
 **Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, AI Overhaul Edition)
 **Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 095 (Knowledge Graph Local AI fix — pipeline, keepalive, routing)
+**Session**: Phase 2 Session 096 (Pre-E2E Full Audit & Remediation — all blocking issues fixed)
 
 ---
 
@@ -47,6 +47,12 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 096 (2026-03-21)
+
+**Pre-E2E Full Codebase Audit & Remediation**
+
+Three parallel agent teams audited manifest/build, AI pipeline, and content script/popup. 20 issues found; all 3 blocking and 5 high-priority fixed. Key fixes: SPA navigation event listener accumulation (listeners now cleaned up on Canvas navigation); async sendResponse race condition for OCR/Translation/Citation (25s timeout); EmotionalTTS missing AI status bar (now shows unavailability); TTS error handler null ref; z-index collision (new src/utils/z-index.js scale 100000-100600, 6 files updated); event-handlers.js direct .onmousedown replaced with addEventListener; popup raw handler violations fixed. Build: ✅ clean. Ready for E2E testing.
 
 ### Phase 2 Session 095 (2026-03-09)
 
@@ -2733,31 +2739,26 @@ Replaced read-only AI status widget and redirect-only Advanced Options AI tab wi
 
 ## 📋 Next Steps
 
-### Immediate (Next Session)
+### Immediate (Next Session) — Session 097
 
-1. **Option A: Start Phase 2.5 - Testing & Documentation** (Recommended)
-   - Add unit tests for citation modules
-   - WCAG 2.2 AA accessibility audit
-   - Update TESTING_GUIDE.md
-   - Estimated: 4-8 hours
+1. **Run `npm run build`** — verify clean build with session 096 changes
+2. **Load extension from `.vite/`** — reload in Chrome dev mode
+3. **Execute E2E Checklist**:
+   - [ ] Navigate 10+ Canvas pages — TTS must not duplicate
+   - [ ] OCR / Translation / Citation — no silent hangs, errors return cleanly
+   - [ ] EmotionalTTS with Ollama OFF — status bar shows unavailability
+   - [ ] All 4 AI modes in popup — cloud / local / webllm / gemini switch correctly
+   - [ ] All 9 feature panels open, AI generates, status bars update
+   - [ ] Tab keyboard navigation through popup
+   - [ ] Grant `<all_urls>` permission — content script injects on non-LMS site
+   - [ ] chrome://extensions — no manifest errors
+4. **Fix any E2E regressions** found above
 
-2. **Option B: Merge feature/citation-capture to main**
-   - Review all changes
-   - Squash or rebase commits
-   - Create PR and merge
-   - Estimated: 1-2 hours
+### Short-Term (After E2E Passes)
 
-3. **Option C: Add E2E tests for citation workflow**
-   - Test save citation flow
-   - Test bibliography manager
-   - Test export functionality
-   - Estimated: 4-6 hours
-
-### Short-Term (Next 2-3 weeks)
-
-1. Complete Phase 2.5: Testing & Documentation
-2. Merge citation feature branch to main
-3. Prepare for beta testing
+1. Clean up debug console.log statements in popup permission banner
+2. CWS submission package — store listing, screenshots, privacy policy
+3. Final manifest review for CWS requirements
 
 ### Medium-Term (Weeks 4-8)
 

@@ -22,13 +22,19 @@
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
-import { getAIMode, checkAIAvailable, generateWithAI } from '../shared/ai-feature-client.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  setAIStatusBar,
+} from '../shared/ai-feature-client.js';
 
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
 let emotionalTTS_indicator = null;
+let emotionalTTS_statusBar = null;
 let emotionalTTS_isPlaying = false;
 
 const emotionalTTS_settings = {
@@ -362,13 +368,14 @@ function emotionalTTS_createIndicator() {
     display: none;
     align-items: center;
     gap: 8px;
-    z-index: 999999;
+    z-index: 100200; /* Z.FLOATING — see src/utils/z-index.js */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 14px;
     transition: all 0.3s ease;
   `;
 
   indicator.innerHTML = sanitizeHTML(`
+    <div class="assist-emotional-tts-status" style="display:none;font-size:11px;padding:2px 6px;background:#fff3e0;border-radius:4px;margin-bottom:4px;"></div>
     <span class="emotion-icon" style="font-size: 24px;">🗣️</span>
     <span class="emotion-label">Speaking...</span>
     <button class="emotion-stop" style="
@@ -390,6 +397,9 @@ function emotionalTTS_createIndicator() {
       emotionalTTS_stop();
     }
   );
+
+  // Store status bar reference at module level for availability feedback
+  emotionalTTS_statusBar = indicator.querySelector('.assist-emotional-tts-status');
 
   return indicator;
 }
@@ -449,10 +459,27 @@ async function emotionalTTS_speak(text, overrideEmotion = null) {
     const modeInfo = await getAIMode('emotionalTTS');
     const availability = await checkAIAvailable(modeInfo);
 
+    // Ensure indicator exists so status bar is reachable
+    if (!emotionalTTS_indicator) {
+      emotionalTTS_indicator = emotionalTTS_createIndicator();
+      document.body.appendChild(emotionalTTS_indicator);
+    }
+
     if (availability.available) {
+      // Clear any previous unavailability message
+      if (emotionalTTS_statusBar) {
+        emotionalTTS_statusBar.style.display = 'none';
+        emotionalTTS_statusBar.textContent = '';
+        emotionalTTS_statusBar.className = 'assist-emotional-tts-status';
+      }
       emotion = await emotionalTTS_detectWithAI(text, modeInfo);
       console.log(`[EmotionalTTS] AI detected emotion (${modeInfo.displayLabel}):`, emotion);
     } else {
+      // Show unavailability via shared status bar utility
+      if (emotionalTTS_statusBar) {
+        setAIStatusBar(emotionalTTS_statusBar, availability, 'assist-emotional-tts-status');
+        emotionalTTS_statusBar.style.display = 'block';
+      }
       emotion = emotionalTTS_detectWithKeywords(text);
       console.log('[EmotionalTTS] Keyword detected emotion (AI unavailable):', emotion);
     }

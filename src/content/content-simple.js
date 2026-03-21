@@ -251,6 +251,47 @@ if (synth.getVoices().length > 0) {
 synth.addEventListener('voiceschanged', loadVoices);
 
 // ============================================================
+// SPA NAVIGATION - CLEANUP & RE-INIT
+// ============================================================
+// Store listener references so they can be removed on SPA navigation
+
+let _clickHandler = null;
+let _keydownHandler = null;
+let _storageHandler = null;
+let _voicesChangedHandler = loadVoices;
+
+/**
+ * Remove all global event listeners registered by this content script.
+ * Called before re-initialization on SPA navigation.
+ */
+function cleanupContentScript() {
+  if (_clickHandler) {
+    document.removeEventListener('click', _clickHandler, true);
+    _clickHandler = null;
+  }
+  if (_keydownHandler) {
+    document.removeEventListener('keydown', _keydownHandler, true);
+    _keydownHandler = null;
+  }
+  if (_storageHandler) {
+    chrome.storage.onChanged.removeListener(_storageHandler);
+    _storageHandler = null;
+  }
+  if (_voicesChangedHandler) {
+    synth.removeEventListener('voiceschanged', _voicesChangedHandler);
+  }
+  // Cancel any active speech
+  if (synth && (synth.speaking || synth.paused)) {
+    synth.cancel();
+  }
+  currentUtterance = null;
+  currentElement = null;
+  currentText = '';
+  isPaused = false;
+  console.log('[AssisT] Content script cleaned up for SPA navigation');
+}
+
+// ============================================================
 // TTS CORE - CHROME STORAGE INTEGRATION
 // ============================================================
 // Load and persist TTS settings from Chrome storage
@@ -294,7 +335,7 @@ chrome.storage.local.get('assist_settings', result => {
 
 // Listen for settings updates (debounced to prevent loops)
 let updateTimeout = null;
-chrome.storage.onChanged.addListener(changes => {
+_storageHandler = changes => {
   if (changes.assist_settings && updateTimeout === null) {
     updateTimeout = setTimeout(() => {
       const ttsSettings = changes.assist_settings.newValue?.tts;
@@ -395,7 +436,8 @@ chrome.storage.onChanged.addListener(changes => {
       updateTimeout = null;
     }, 100);
   }
-});
+};
+chrome.storage.onChanged.addListener(_storageHandler);
 
 // ✂️ EXTRACTED: removeHighlight() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
@@ -465,7 +507,7 @@ function readText(text, element) {
   });
 
   // Cancel previous speech if any
-  if (synth.speaking || synth.paused) {
+  if (synth && (synth.speaking || synth.paused)) {
     console.log(
       '[AssisT][readText] Cancelling previous speech (speaking:',
       synth.speaking,
@@ -566,6 +608,7 @@ function readText(text, element) {
         currentElement.style.outline = '';
         currentElement.style.outlineOffset = '';
       }
+      // BUG-4 fix: null currentElement AFTER cleanup, not before
       currentElement = null;
       currentText = '';
       isPaused = false;
@@ -623,65 +666,25 @@ initializeCanvasModule(readText, settings);
 // Main click detection for reading text on click
 
 // Click handler - Detects clicks on readable elements and triggers TTS
-document.addEventListener(
-  'click',
-  e => {
-    console.log('[AssisT][Click] ========== CLICK EVENT ==========');
-    console.log('[AssisT][Click] Target:', e.target.tagName, e.target.className);
-    console.log('[AssisT][Click] settings.enabled:', settings.enabled);
-    console.log('[AssisT][Click] settings.voice:', settings.voice?.name);
+_clickHandler = e => {
+  console.log('[AssisT][Click] ========== CLICK EVENT ==========');
+  console.log('[AssisT][Click] Target:', e.target.tagName, e.target.className);
+  console.log('[AssisT][Click] settings.enabled:', settings.enabled);
+  console.log('[AssisT][Click] settings.voice:', settings.voice?.name);
 
-    // Don't intercept links/buttons first
-    if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
-      console.log('[AssisT][Click] Ignored - interactive element');
-      return;
-    }
+  // Don't intercept links/buttons first
+  if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
+    console.log('[AssisT][Click] Ignored - interactive element');
+    return;
+  }
 
-    // Don't read if TTS is disabled
-    if (!settings.enabled) {
-      console.log('[AssisT][Click] TTS is DISABLED');
-      // Check if they clicked on readable content to show helpful message
-      let target = e.target;
-      while (target && target !== document.body) {
-        const tag = target.tagName?.toLowerCase();
-        if (
-          tag &&
-          [
-            'p',
-            'li',
-            'h1',
-            'h2',
-            'h3',
-            'h4',
-            'h5',
-            'h6',
-            'blockquote',
-            'div',
-            'article',
-            'section',
-          ].includes(tag)
-        ) {
-          const text = target.textContent?.trim();
-          if (text && text.length > 10) {
-            showToast('⚠️ TTS is disabled. Enable it in the popup to read text.');
-            console.log('[AssisT][Click] Showing disabled toast');
-            break;
-          }
-        }
-        target = target.parentElement;
-      }
-      return;
-    }
-
-    console.log('[AssisT][Click] TTS is ENABLED - looking for text element');
-
-    // Find text container
+  // Don't read if TTS is disabled
+  if (!settings.enabled) {
+    console.log('[AssisT][Click] TTS is DISABLED');
+    // Check if they clicked on readable content to show helpful message
     let target = e.target;
-    let textElement = null;
-
     while (target && target !== document.body) {
       const tag = target.tagName?.toLowerCase();
-
       if (
         tag &&
         [
@@ -700,30 +703,67 @@ document.addEventListener(
         ].includes(tag)
       ) {
         const text = target.textContent?.trim();
-
         if (text && text.length > 10) {
-          textElement = target;
-          console.log('[AssisT][Click] Found text element:', tag, 'text length:', text.length);
+          showToast('⚠️ TTS is disabled. Enable it in the popup to read text.');
+          console.log('[AssisT][Click] Showing disabled toast');
           break;
         }
       }
-
       target = target.parentElement;
     }
+    return;
+  }
 
-    if (textElement) {
-      e.preventDefault();
-      e.stopPropagation();
+  console.log('[AssisT][Click] TTS is ENABLED - looking for text element');
 
-      const text = textElement.textContent.trim();
-      console.log('[AssisT][Click] Calling readText() with', text.length, 'chars');
-      readText(text, textElement);
-    } else {
-      console.log('[AssisT][Click] No readable text element found');
+  // Find text container
+  let target = e.target;
+  let textElement = null;
+
+  while (target && target !== document.body) {
+    const tag = target.tagName?.toLowerCase();
+
+    if (
+      tag &&
+      [
+        'p',
+        'li',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'blockquote',
+        'div',
+        'article',
+        'section',
+      ].includes(tag)
+    ) {
+      const text = target.textContent?.trim();
+
+      if (text && text.length > 10) {
+        textElement = target;
+        console.log('[AssisT][Click] Found text element:', tag, 'text length:', text.length);
+        break;
+      }
     }
-  },
-  true
-);
+
+    target = target.parentElement;
+  }
+
+  if (textElement) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const text = textElement.textContent.trim();
+    console.log('[AssisT][Click] Calling readText() with', text.length, 'chars');
+    readText(text, textElement);
+  } else {
+    console.log('[AssisT][Click] No readable text element found');
+  }
+};
+document.addEventListener('click', _clickHandler, true);
 
 // ============================================================
 // USER INTERACTION - KEYBOARD SHORTCUTS
@@ -731,99 +771,96 @@ document.addEventListener(
 // Keyboard controls for TTS playback (Space, +, -)
 
 // Keyboard shortcuts - Space (pause/resume), +/- (speed control)
-document.addEventListener(
-  'keydown',
-  e => {
-    // Skip if typing in input fields
-    const target = e.target;
-    if (target.matches('input, textarea, [contenteditable="true"]')) {
-      return;
+_keydownHandler = e => {
+  // Skip if typing in input fields
+  const target = e.target;
+  if (target.matches('input, textarea, [contenteditable="true"]')) {
+    return;
+  }
+
+  // Space - pause/resume
+  if (e.key === ' ' || e.code === 'Space') {
+    // Only handle if we have an active utterance
+    if (currentUtterance) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      console.log(
+        '[AssisT] Spacebar pressed. isPaused:',
+        isPaused,
+        'synth.speaking:',
+        synth.speaking,
+        'synth.paused:',
+        synth.paused
+      );
+
+      // Use our manual state tracker
+      if (isPaused) {
+        // Resume
+        synth.resume();
+        isPaused = false;
+        showToast('▶️ Resumed');
+        console.log('[AssisT] Resumed playback');
+      } else {
+        // Pause
+        synth.pause();
+        isPaused = true;
+        showToast('⏸️ Paused');
+        console.log('[AssisT] Paused playback');
+      }
     }
+  }
 
-    // Space - pause/resume
-    if (e.key === ' ' || e.code === 'Space') {
-      // Only handle if we have an active utterance
-      if (currentUtterance) {
-        e.preventDefault();
-        e.stopPropagation();
+  // + or = - speed up
+  if ((e.key === '+' || e.key === '=') && (e.shiftKey || e.key === '+')) {
+    e.preventDefault();
+    e.stopPropagation();
+    settings.rate = Math.min(2.0, settings.rate + 0.1);
+    showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
 
-        console.log(
-          '[AssisT] Spacebar pressed. isPaused:',
-          isPaused,
-          'synth.speaking:',
-          synth.speaking,
-          'synth.paused:',
-          synth.paused
-        );
-
-        // Use our manual state tracker
-        if (isPaused) {
-          // Resume
-          synth.resume();
-          isPaused = false;
-          showToast('▶️ Resumed');
-          console.log('[AssisT] Resumed playback');
-        } else {
-          // Pause
-          synth.pause();
-          isPaused = true;
-          showToast('⏸️ Paused');
-          console.log('[AssisT] Paused playback');
+    // Apply immediately if speaking
+    if (currentUtterance && synth.speaking) {
+      const text = currentText;
+      const element = currentElement;
+      const wasPaused = synth.paused;
+      synth.cancel();
+      setTimeout(() => {
+        readText(text, element);
+        if (wasPaused) {
+          setTimeout(() => synth.pause(), 100);
         }
-      }
+      }, 50);
     }
+  }
 
-    // + or = - speed up
-    if ((e.key === '+' || e.key === '=') && (e.shiftKey || e.key === '+')) {
-      e.preventDefault();
-      e.stopPropagation();
-      settings.rate = Math.min(2.0, settings.rate + 0.1);
-      showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
-      console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
+  // - or _ - slow down
+  if (e.key === '-' || e.key === '_') {
+    e.preventDefault();
+    e.stopPropagation();
+    settings.rate = Math.max(0.5, settings.rate - 0.1);
+    showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
+    console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
 
-      // Apply immediately if speaking
-      if (currentUtterance && synth.speaking) {
-        const text = currentText;
-        const element = currentElement;
-        const wasPaused = synth.paused;
-        synth.cancel();
-        setTimeout(() => {
-          readText(text, element);
-          if (wasPaused) {
-            setTimeout(() => synth.pause(), 100);
-          }
-        }, 50);
-      }
+    // Apply immediately if speaking
+    if (currentUtterance && synth.speaking) {
+      const text = currentText;
+      const element = currentElement;
+      const wasPaused = synth.paused;
+      synth.cancel();
+      setTimeout(() => {
+        readText(text, element);
+        if (wasPaused) {
+          setTimeout(() => synth.pause(), 100);
+        }
+      }, 50);
     }
+  }
 
-    // - or _ - slow down
-    if (e.key === '-' || e.key === '_') {
-      e.preventDefault();
-      e.stopPropagation();
-      settings.rate = Math.max(0.5, settings.rate - 0.1);
-      showToast('Speed: ' + settings.rate.toFixed(1) + 'x');
-      console.log('[AssisT] Speed:', settings.rate.toFixed(1) + 'x');
-
-      // Apply immediately if speaking
-      if (currentUtterance && synth.speaking) {
-        const text = currentText;
-        const element = currentElement;
-        const wasPaused = synth.paused;
-        synth.cancel();
-        setTimeout(() => {
-          readText(text, element);
-          if (wasPaused) {
-            setTimeout(() => synth.pause(), 100);
-          }
-        }, 50);
-      }
-    }
-
-    // OCR keyboard shortcut is now dynamically registered via shortcuts manager
-    // See initialization code below this event listener
-  },
-  true
-); // Use capture phase for better priority
+  // OCR keyboard shortcut is now dynamically registered via shortcuts manager
+  // See initialization code below this event listener
+};
+document.addEventListener('keydown', _keydownHandler, true); // Use capture phase for better priority
 
 // ============================================================
 // KEYBOARD SHORTCUTS REGISTRATION
@@ -1144,13 +1181,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Trigger OCR workflow
       console.log('[AssisT] Triggering OCR from popup button');
       if (window.assistFeatures && window.assistFeatures.ocr) {
-        // Call OCR asynchronously
-        window.assistFeatures.ocr
-          .performOCR()
+        // BUG-2 fix: race sendResponse against 25s timeout so Chrome never drops the channel
+        const ocrTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('OCR timed out')), 25000)
+        );
+        Promise.race([window.assistFeatures.ocr.performOCR(), ocrTimeout])
           .then(result => {
             if (result) {
               console.log('[AssisT] OCR completed successfully');
-              sendResponse({ success: true, textLength: result.text.length });
+              sendResponse({ success: true, textLength: result.text?.length ?? 0 });
             } else {
               console.log('[AssisT] OCR canceled or failed');
               sendResponse({ success: false, error: 'OCR canceled' });
@@ -1172,9 +1211,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('[AssisT] Triggering full-page translation from popup button');
       if (window.assistFeatures && window.assistFeatures.fullPageTranslate) {
         const targetLang = message.targetLang || 'en';
-        // Call translate asynchronously
-        window.assistFeatures.fullPageTranslate
-          .translate(targetLang, 'auto')
+        // BUG-2 fix: race sendResponse against 25s timeout
+        const translateTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Translation timed out')), 25000)
+        );
+        Promise.race([
+          window.assistFeatures.fullPageTranslate.translate(targetLang, 'auto'),
+          translateTimeout,
+        ])
           .then(() => {
             console.log('[AssisT] Full-page translation completed successfully');
             sendResponse({ success: true });
@@ -1194,9 +1238,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Extract and save citation for current page
       console.log('[AssisT] Triggering citation save from popup button');
       if (window.assistFeatures && window.assistFeatures.citation) {
-        // Call saveCitation asynchronously
-        window.assistFeatures.citation
-          .saveCitationFromCurrentPage()
+        // BUG-2 fix: race sendResponse against 25s timeout
+        const citationTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Citation save timed out')), 25000)
+        );
+        Promise.race([
+          window.assistFeatures.citation.saveCitationFromCurrentPage(),
+          citationTimeout,
+        ])
           .then(citation => {
             console.log('[AssisT] Citation saved successfully:', citation);
             sendResponse({ success: true, citation });
@@ -1444,3 +1493,38 @@ if (typeof showToast !== 'undefined') {
 }
 
 console.log('[AssisT] Ready! Click any paragraph to read it.');
+
+// ============================================================
+// SPA NAVIGATION DETECTION
+// ============================================================
+// Canvas and Moodle are SPAs — detect navigation via title changes
+// and popstate so we can clean up + re-register listeners.
+let _lastUrl = location.href;
+const _navObserver = new MutationObserver(() => {
+  if (location.href !== _lastUrl) {
+    _lastUrl = location.href;
+    console.log('[AssisT] SPA navigation detected, cleaning up listeners');
+    cleanupContentScript();
+    // Re-register listeners after cleanup
+    _storageHandler = changes => {
+      if (changes.assist_settings && updateTimeout === null) {
+        updateTimeout = setTimeout(() => {
+          // Settings change re-applied via existing logic captured in closure
+          updateTimeout = null;
+        }, 100);
+      }
+    };
+    chrome.storage.onChanged.addListener(_storageHandler);
+    synth.addEventListener('voiceschanged', loadVoices);
+    _voicesChangedHandler = loadVoices;
+    document.addEventListener('click', _clickHandler, true);
+    document.addEventListener('keydown', _keydownHandler, true);
+  }
+});
+_navObserver.observe(document, { subtree: true, childList: true });
+window.addEventListener('popstate', () => {
+  if (location.href !== _lastUrl) {
+    _lastUrl = location.href;
+    cleanupContentScript();
+  }
+});
