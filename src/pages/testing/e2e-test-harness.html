@@ -1,0 +1,1726 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AssisT E2E Test Harness — Art & Design</title>
+    <style>
+      /* ============= RESET & BASE ============= */
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 80px;
+      }
+      body {
+        font-family:
+          'Segoe UI',
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #fafaf8;
+        color: #1a1a1a;
+        line-height: 1.7;
+        font-size: 16px;
+      }
+
+      /* ============= NAV ============= */
+      .top-nav {
+        position: sticky;
+        top: 0;
+        z-index: 9999;
+        background: #1a1a2e;
+        border-bottom: 3px solid #e94560;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .top-nav .brand {
+        font-weight: 800;
+        color: #fff;
+        font-size: 1.1rem;
+        margin-right: 16px;
+        white-space: nowrap;
+      }
+      .top-nav a {
+        color: #ccc;
+        text-decoration: none;
+        font-size: 0.78rem;
+        padding: 4px 10px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .top-nav a:hover {
+        background: #e9456033;
+        color: #fff;
+      }
+
+      /* ============= LAYOUT ============= */
+      .page {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px 20px 80px;
+      }
+
+      /* ============= SECTION ============= */
+      .test-section {
+        margin-bottom: 48px;
+        border: 1px solid #e0ddd8;
+        border-radius: 12px;
+        background: #fff;
+        overflow: hidden;
+      }
+      .section-header {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: #fff;
+        padding: 20px 24px;
+      }
+      .section-header h2 {
+        font-size: 1.4rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .section-header .section-num {
+        background: #e94560;
+        color: #fff;
+        font-size: 0.8rem;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .section-header p {
+        margin-top: 6px;
+        font-size: 0.85rem;
+        color: #a0a0b8;
+        line-height: 1.5;
+      }
+      .section-body {
+        padding: 24px;
+      }
+
+      /* ============= CONTENT STYLES ============= */
+      .section-body h3 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin: 24px 0 10px;
+        color: #16213e;
+        border-bottom: 2px solid #e94560;
+        padding-bottom: 6px;
+      }
+      .section-body h3:first-child {
+        margin-top: 0;
+      }
+      .section-body h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 18px 0 8px;
+        color: #333;
+      }
+      .section-body p {
+        margin-bottom: 14px;
+      }
+      .section-body ul,
+      .section-body ol {
+        margin: 0 0 14px 24px;
+      }
+      .section-body li {
+        margin-bottom: 4px;
+      }
+      .section-body blockquote {
+        border-left: 4px solid #e94560;
+        padding: 12px 16px;
+        margin: 14px 0;
+        background: #fdf6f0;
+        font-style: italic;
+        color: #555;
+      }
+
+      /* Test instruction callout */
+      .test-instruction {
+        background: #eef6ff;
+        border: 1px solid #b3d4fc;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        color: #1a4a7a;
+        margin-bottom: 18px;
+        line-height: 1.6;
+      }
+      .test-instruction strong {
+        color: #0d3b66;
+      }
+
+      /* Textarea for STT */
+      .test-textarea {
+        width: 100%;
+        min-height: 100px;
+        padding: 14px;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 1rem;
+        color: #333;
+        background: #fefefe;
+        resize: vertical;
+        line-height: 1.7;
+      }
+      .test-textarea:focus {
+        outline: none;
+        border-color: #e94560;
+        background: #fff;
+      }
+
+      /* Contenteditable div */
+      .test-editable {
+        min-height: 80px;
+        padding: 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        background: #fff;
+        font-size: 1rem;
+        line-height: 1.7;
+      }
+      .test-editable:focus {
+        outline: none;
+        border-color: #e94560;
+      }
+      .test-editable:empty::before {
+        content: attr(data-placeholder);
+        color: #aaa;
+        pointer-events: none;
+      }
+
+      /* OCR test image */
+      .ocr-test-box {
+        background: #f5f0e8;
+        border: 1px solid #d4cfc5;
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+        margin: 14px 0;
+        position: relative;
+      }
+      .ocr-test-box .ocr-text {
+        font-family: 'Georgia', serif;
+        font-size: 1.3rem;
+        color: #3a2f1d;
+        letter-spacing: 0.5px;
+      }
+      .ocr-test-box .ocr-caption {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 8px;
+      }
+
+      /* Gallery grid for pointer/zoom */
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin: 14px 0;
+      }
+      .gallery-item {
+        aspect-ratio: 1;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        position: relative;
+        border: 1px solid #ddd;
+      }
+      .gallery-item .gallery-label {
+        font-size: 7px;
+        color: #666;
+        margin-top: 4px;
+        text-align: center;
+        line-height: 1.2;
+      }
+
+      /* Tiny text for magnification */
+      .tiny-text {
+        font-size: 6px;
+        color: #555;
+        line-height: 1.4;
+        margin: 14px 0;
+      }
+
+      /* Busy layout for visual comfort */
+      .busy-layout {
+        display: grid;
+        grid-template-columns: 1fr 200px;
+        gap: 16px;
+        margin: 14px 0;
+      }
+      .busy-main {
+        min-width: 0;
+      }
+      .busy-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .fake-ad {
+        background: linear-gradient(135deg, #ff6b6b, #ffa07a);
+        color: #fff;
+        padding: 12px;
+        border-radius: 6px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+      }
+      .fake-banner {
+        background: #ffe066;
+        color: #333;
+        padding: 10px;
+        text-align: center;
+        font-weight: 600;
+        border-radius: 6px;
+        font-size: 0.8rem;
+      }
+
+      /* Spinning color wheel for reduced motion */
+      .color-wheel {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+        animation: spin 3s linear infinite;
+        margin: 14px auto;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Mock article */
+      .mock-article {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 14px 0;
+        background: #fefcf7;
+      }
+      .mock-article .article-meta {
+        font-size: 0.8rem;
+        color: #777;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+      }
+
+      /* Mock Canvas assignment */
+      .mock-canvas {
+        border: 1px solid #c7ccd1;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 14px 0;
+      }
+      .mock-canvas-header {
+        background: #394b59;
+        color: #fff;
+        padding: 12px 16px;
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+      .mock-canvas-body {
+        padding: 16px;
+        background: #fff;
+      }
+      .mock-canvas-body .due-date {
+        color: #d44;
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 10px;
+      }
+
+      /* AI sub-sections */
+      .ai-subsection {
+        border: 1px solid #e8e4df;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 14px 0;
+        background: #fdfcfa;
+      }
+      .ai-subsection h4 {
+        margin-top: 0;
+        color: #e94560;
+      }
+
+      /* Multi-col for comparison */
+      .compare-cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 14px 0;
+      }
+      .compare-col {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 14px;
+        background: #fff;
+      }
+      .compare-col h5 {
+        font-size: 0.85rem;
+        color: #e94560;
+        margin-bottom: 8px;
+        font-weight: 700;
+      }
+
+      /* Badge */
+      .badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        vertical-align: middle;
+        margin-left: 6px;
+      }
+      .badge-alpha {
+        background: #f59e0b33;
+        color: #b45309;
+      }
+      .badge-beta {
+        background: #3b82f633;
+        color: #2563eb;
+      }
+
+      /* Popup reminder list */
+      .popup-checklist {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .popup-checklist li {
+        padding: 8px 12px;
+        border-bottom: 1px solid #eee;
+        font-size: 0.9rem;
+      }
+      .popup-checklist li::before {
+        content: '\2610  ';
+        color: #999;
+      }
+
+      /* Foreign language blocks */
+      .lang-block {
+        background: #f8f6f0;
+        border-left: 4px solid #e94560;
+        padding: 12px 16px;
+        margin: 10px 0;
+        border-radius: 0 8px 8px 0;
+      }
+      .lang-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #e94560;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+
+      /* Responsive */
+      @media (max-width: 700px) {
+        .busy-layout {
+          grid-template-columns: 1fr;
+        }
+        .compare-cols {
+          grid-template-columns: 1fr;
+        }
+        .gallery-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      @media print {
+        .top-nav {
+          position: static;
+          background: #333;
+        }
+        .color-wheel {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ====== TOP NAVIGATION ====== -->
+    <nav class="top-nav">
+      <span class="brand">AssisT E2E</span>
+      <a href="#s1">1. Reading</a>
+      <a href="#s2">2. Writing</a>
+      <a href="#s3">3. Look Up</a>
+      <a href="#s4">4. Reading Aids</a>
+      <a href="#s5">5. Pointer</a>
+      <a href="#s6">6. Visual</a>
+      <a href="#s7">7. Productivity</a>
+      <a href="#s8">8. School</a>
+      <a href="#s9">9. AI</a>
+      <a href="#s10">10. Popup</a>
+      <a href="#s11">11. Cross-Cut</a>
+    </nav>
+
+    <div class="page">
+      <!-- ============================================================ -->
+      <!-- SECTION 1: READING HELP -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s1">
+        <div class="section-header">
+          <h2><span class="section-num">1</span> Reading Help</h2>
+          <p>TTS, Text Highlighting, Reading Mode, Dyslexia Mode, OCR</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Read Aloud (TTS)" in the popup. Select text below
+            and verify speech playback. Test voice, speed, pitch, volume controls. Enable "Text
+            Highlighting" and verify words/sentences highlight during speech. Enable "Reading Mode"
+            and verify the page transforms. Enable "Dyslexia Mode" and test Bionic/Syllable/Grammar
+            modes. Enable "OCR" and use Capture &amp; Read on the image-like box below.
+          </div>
+
+          <h3>The Italian Renaissance: A Revolution in Visual Art</h3>
+
+          <p>
+            The Italian Renaissance, spanning roughly from the fourteenth to the seventeenth
+            century, represents one of the most transformative periods in the history of Western
+            art. Emerging from the cultural heart of Florence, this movement fundamentally redefined
+            the relationship between the artist, the viewer, and the depicted world. Artists such as
+            Leonardo da Vinci, Michelangelo Buonarroti, and Raphael Sanzio da Urbino developed
+            techniques that would establish the foundations of European painting for centuries to
+            come.
+          </p>
+
+          <p>
+            Central to Renaissance painting was the mastery of <strong>chiaroscuro</strong> — the
+            dramatic interplay of light and shadow used to model three-dimensional forms on a flat
+            surface. Leonardo da Vinci refined this into his legendary technique of
+            <strong>sfumato</strong>, a method of blending tones and colours so subtly that they
+            merge "without lines or borders, in the manner of smoke." His masterpiece, the
+            <em>Mona Lisa</em>, exemplifies this approach: the figure's features dissolve at their
+            edges into an atmospheric haze that creates an unprecedented sense of depth and
+            psychological ambiguity.
+          </p>
+
+          <p>
+            Michelangelo's approach to the human form was radically different. His figures on the
+            ceiling of the Sistine Chapel exhibit a sculptural quality known as
+            <strong>terribilità</strong> — an awe-inspiring grandeur that conveyed divine power
+            through monumental human anatomy. The ceiling, painted between 1508 and 1512, comprises
+            over three hundred figures arranged in an architectural framework of
+            <strong>trompe-l'oeil</strong> elements that appear to extend the physical architecture
+            of the chapel into an illusionistic space above.
+          </p>
+
+          <h4>Key Techniques of the Period</h4>
+          <ul>
+            <li>
+              <strong>Linear perspective</strong> — Mathematical system developed by Filippo
+              Brunelleschi for creating the illusion of depth
+            </li>
+            <li>
+              <strong>Sfumato</strong> — Subtle blending of tones without visible brushstrokes
+              (Leonardo da Vinci)
+            </li>
+            <li>
+              <strong>Chiaroscuro</strong> — Strong contrasts between light and dark to achieve
+              volume
+            </li>
+            <li>
+              <strong>Tenebrism</strong> — Extreme chiaroscuro where large areas of dark dominate
+              (Caravaggio)
+            </li>
+            <li>
+              <strong>Cangiante</strong> — Colour-shifting technique to suggest form and light
+              (Michelangelo)
+            </li>
+            <li><strong>Unione</strong> — Harmonious blending of vivid colours (Raphael)</li>
+          </ul>
+
+          <h4>Impressionism: Capturing the Ephemeral</h4>
+          <p>
+            By the late nineteenth century, a new generation of artists in Paris rejected the
+            meticulous finish and historical subject matter of academic painting. Claude Monet,
+            Pierre-Auguste Renoir, Camille Pissarro, and Berthe Morisot pioneered an approach that
+            prioritised the direct observation of light, colour, and atmosphere. Working
+            <em>en plein air</em> — outdoors, before their subjects — they developed a broken
+            brushwork technique that captured the transient effects of sunlight on water, foliage,
+            and urban surfaces.
+          </p>
+
+          <p>
+            Monet's series paintings, including his studies of Rouen Cathedral and the water lilies
+            at Giverny, demonstrate how the same subject could be transformed entirely by changing
+            conditions of light and weather. These works anticipated the concerns of
+            twentieth-century abstraction, as the depicted forms increasingly dissolved into fields
+            of pure colour and gesture.
+          </p>
+
+          <h4>The Bauhaus: Where Art Meets Industry</h4>
+          <p>
+            Founded by Walter Gropius in Weimar, Germany, in 1919, the Bauhaus school sought to
+            unify art, craft, and technology. Its faculty included painters Wassily Kandinsky and
+            Paul Klee, designer Marcel Breuer, and architect Ludwig Mies van der Rohe. The school's
+            pedagogy emphasised the fundamental elements of visual language — point, line, plane,
+            colour, and texture — and their systematic application to both fine art and industrial
+            design. The Bauhaus aesthetic, characterised by geometric forms, primary colours, and
+            functional simplicity, profoundly influenced modern architecture, graphic design,
+            typography, and product design.
+          </p>
+
+          <blockquote>
+            "Art is not what you see, but what you make others see." — Edgar Degas
+          </blockquote>
+
+          <!-- OCR Test Box -->
+          <h3>OCR Test Area</h3>
+          <div class="test-instruction">
+            <strong>OCR Test:</strong> Enable OCR in the popup, then use "Capture &amp; Read" on the
+            box below. Verify the text is extracted correctly.
+          </div>
+          <div class="ocr-test-box">
+            <div class="ocr-text">
+              The golden ratio, approximately 1.618, has been used<br />
+              by artists from Phidias to Le Corbusier to achieve<br />
+              harmonious proportions in their compositions.
+            </div>
+            <div class="ocr-caption">Simulated image with text — use OCR Capture on this box</div>
+          </div>
+
+          <div class="ocr-test-box" style="background: #2c2417; padding: 32px">
+            <div
+              class="ocr-text"
+              style="color: #d4c5a0; font-size: 1.1rem; font-family: 'Courier New', monospace"
+            >
+              PANTONE 186 C &bull; CMYK 0/100/81/4<br />
+              HEX #C8102E &bull; RGB 200, 16, 46
+            </div>
+            <div class="ocr-caption" style="color: #888">
+              Dark background OCR test — colour specification card
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 2: WRITING HELP -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s2">
+        <div class="section-header">
+          <h2><span class="section-num">2</span> Writing Help</h2>
+          <p>Speech-to-Text, Voice Commands, Custom Vocabulary, Annotations &amp; Sticky Notes</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Speech-to-Text" in the popup. Click on the text
+            fields below, then click the floating mic button or use the hotkey to dictate. Test
+            voice commands (say "period", "comma", "new line", "delete", "undo"). Add art terms to
+            Custom Vocabulary. Enable "Sticky Notes" and create notes on this section.
+          </div>
+
+          <h3>Dictation Exercise: Art Critique</h3>
+          <p>
+            Click the textarea below and dictate a description of your favourite painting. Try to
+            use art-specific vocabulary to test recognition accuracy.
+          </p>
+
+          <textarea
+            class="test-textarea"
+            placeholder="Dictate here: Describe a painting you admire. Try using terms like 'chiaroscuro', 'impasto', 'gouache', 'sfumato', 'gesso', 'pentimento', 'contrapposto', 'trompe-l'oeil'..."
+          ></textarea>
+
+          <h3>Contenteditable Field (Alternative STT Target)</h3>
+          <p>
+            Some web applications use contenteditable divs instead of textareas. Test STT dictation
+            into this field:
+          </p>
+          <div
+            class="test-editable"
+            contenteditable="true"
+            data-placeholder="Click here and dictate using the microphone button..."
+          ></div>
+
+          <h3>Art Vocabulary for Custom Vocabulary Testing</h3>
+          <p>
+            Add these terms to the Custom Vocabulary panel in the popup, then try dictating
+            sentences that include them:
+          </p>
+          <ul>
+            <li><strong>Gouache</strong> — An opaque watercolour paint</li>
+            <li><strong>Impasto</strong> — Thickly applied paint that creates texture</li>
+            <li><strong>Gesso</strong> — A white primer applied to canvas before painting</li>
+            <li>
+              <strong>Pentimento</strong> — A visible trace of an earlier painting beneath the
+              surface
+            </li>
+            <li>
+              <strong>Contrapposto</strong> — A pose where the figure's weight shifts to one leg
+            </li>
+            <li><strong>Sfumato</strong> — Smoky blending of tones without hard edges</li>
+            <li><strong>Aquatint</strong> — A printmaking technique producing tonal areas</li>
+            <li>
+              <strong>Sgraffito</strong> — Scratching through a surface layer to reveal colour
+              beneath
+            </li>
+            <li><strong>Giclée</strong> — A high-quality inkjet print of a digital image</li>
+            <li><strong>Plein air</strong> — Painting outdoors in natural light</li>
+          </ul>
+
+          <h3>Annotation Test Area</h3>
+          <p>
+            Enable "Sticky Notes" in the popup. Create notes on the paragraphs below to test
+            annotation placement, editing, colour changes, and persistence.
+          </p>
+
+          <p>
+            The <strong>Colour Field</strong> movement, pioneered by Mark Rothko and Barnett Newman
+            in the 1950s, reduced painting to its most elemental components: vast, luminous expanses
+            of colour intended to evoke emotional and even spiritual responses. Rothko's mature
+            works typically feature two or three soft-edged rectangles of colour stacked on a
+            vertical canvas. He insisted his paintings were not about colour itself, but about
+            "expressing basic human emotions — tragedy, ecstasy, doom."
+          </p>
+
+          <p>
+            <strong>Pop Art</strong>, led by Andy Warhol, Roy Lichtenstein, and Claes Oldenburg,
+            drew its imagery from advertising, comic books, consumer products, and celebrity
+            culture. Warhol's silkscreen prints of Campbell's soup cans and Marilyn Monroe portraits
+            blurred the boundary between fine art and commercial design. Lichtenstein's paintings
+            appropriated the visual language of comic strips, using Ben-Day dots, bold outlines, and
+            flat primary colours at monumental scale.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 3: LOOK UP WORDS -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s3">
+        <div class="section-header">
+          <h2><span class="section-num">3</span> Look Up Words</h2>
+          <p>Translation, Dictionary Lookup, Quick Actions Highlight Menu</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Quick Actions Menu" in the popup. Select any word
+            or phrase below — the floating toolbar should appear with Read Aloud, Dictionary,
+            Translate, Annotate, and Speed Read buttons. Try the dictionary on single words. Try
+            translating the foreign-language blocks. Test "Translate Page" for full-page
+            translation.
+          </div>
+
+          <h3>Advanced Art Vocabulary (Select words to look up)</h3>
+          <p>
+            The concept of <strong>verisimilitude</strong> in art refers to the appearance of being
+            true or real. Renaissance painters pursued verisimilitude through the systematic
+            application of linear perspective, anatomical study, and atmospheric effects. The
+            resulting works achieved an unprecedented degree of naturalism that distinguished them
+            from the more stylised conventions of Medieval art.
+          </p>
+
+          <p>
+            In sculpture, <strong>contrapposto</strong> describes a pose in which the figure's
+            weight is distributed unevenly, creating a natural S-curve through the body. First
+            achieved in ancient Greek sculpture with the <em>Doryphoros</em> of Polykleitos,
+            contrapposto was revived during the Renaissance by Donatello and perfected by
+            Michelangelo in his marble <em>David</em>.
+          </p>
+
+          <p>
+            The concept of <strong>iconography</strong> — the study of visual images and symbols
+            within artworks — is essential for interpreting works from periods when artists embedded
+            complex theological, mythological, and allegorical meanings into their compositions.
+            Erwin Panofsky's method of <strong>iconological</strong> analysis distinguishes between
+            the natural subject matter of a work, its conventional meaning, and its deeper intrinsic
+            significance.
+          </p>
+
+          <h3>Foreign Language Art Terms</h3>
+
+          <div class="lang-block">
+            <div class="lang-label">French</div>
+            <p>
+              L'<strong>art nouveau</strong> est un mouvement artistique de la fin du XIXe siècle.
+              Le style se caractérise par des lignes courbes inspirées de formes naturelles et
+              végétales. Les artistes du mouvement ont cherché à abolir la hiérarchie traditionnelle
+              entre arts majeurs et arts décoratifs. Le terme <em>mise en abyme</em> désigne un
+              procédé consistant à représenter une oeuvre dans une oeuvre similaire.
+            </p>
+          </div>
+
+          <div class="lang-block">
+            <div class="lang-label">Italian</div>
+            <p>
+              Il <strong>Rinascimento</strong> italiano è stato un periodo di grande fioritura
+              culturale. Il <em>disegno</em> era considerato il fondamento di tutte le arti visive.
+              La tecnica del <em>chiaroscuro</em> ha raggiunto la sua massima espressione nelle
+              opere di Caravaggio. La <em>bottega</em> era il laboratorio dove il maestro formava i
+              suoi apprendisti nell'arte della pittura e della scultura.
+            </p>
+          </div>
+
+          <div class="lang-block">
+            <div class="lang-label">Japanese</div>
+            <p>
+              日本の美学における<strong>侘び寂び</strong>（わびさび）は、不完全さや無常の中に美を見出す概念です。<strong>金継ぎ</strong>（きんつぎ）は壊れた陶器を金で修復する技法で、壊れた歴史を隠すのではなく美しく強調します。<strong>浮世絵</strong>（うきよえ）は江戸時代に発展した木版画の芸術形式です。
+            </p>
+          </div>
+
+          <div class="lang-block">
+            <div class="lang-label">Spanish</div>
+            <p>
+              El <strong>Surrealismo</strong> fue un movimiento artístico y literario fundado por
+              André Breton en 1924. Los artistas surrealistas como Salvador Dalí y René Magritte
+              exploraron el mundo de los sueños y el subconsciente. La técnica del
+              <em>automatismo</em> permitía crear sin control consciente de la razón.
+            </p>
+          </div>
+
+          <h3>Quick Select Phrases (Highlight Menu Test)</h3>
+          <p>
+            Select each phrase below to test that the highlight menu toolbar appears with all
+            configured buttons:
+          </p>
+          <ul>
+            <li>Abstract Expressionism was the first American art movement</li>
+            <li>Perspective drawing uses vanishing points on the horizon line</li>
+            <li>The complementary colour of blue is orange</li>
+            <li>Negative space is the area around and between the subject</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 4: READING AIDS -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s4">
+        <div class="section-header">
+          <h2><span class="section-num">4</span> Reading Aids</h2>
+          <p>Text Customization, Reading Guide, Reading Progress Bar</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Text Customization" — change font (try
+            OpenDyslexic, Lexend), adjust line/letter/word/paragraph spacing sliders. Enable
+            "Reading Guide" — a horizontal line should follow your mouse. Adjust its colour,
+            thickness, and opacity. Enable "Reading Progress" — a progress bar should appear at the
+            top or bottom of the page. Scroll through this section to verify the bar fills.
+          </div>
+
+          <h3>The Elements and Principles of Design</h3>
+
+          <p>
+            Every work of visual art, whether a painting, a poster, or a web page, is constructed
+            from a set of fundamental <strong>elements</strong> and organised according to guiding
+            <strong>principles</strong>. Understanding these building blocks is essential for both
+            creating and analysing design effectively.
+          </p>
+
+          <h4>The Seven Elements of Art</h4>
+          <ol>
+            <li>
+              <strong>Line</strong> — A continuous mark made on a surface. Lines can be straight,
+              curved, thick, thin, implied, or actual. They direct the viewer's eye and create
+              structure within a composition.
+            </li>
+            <li>
+              <strong>Shape</strong> — A two-dimensional enclosed area defined by line, colour,
+              value, or texture. Shapes can be geometric (circles, squares, triangles) or organic
+              (irregular, freeform).
+            </li>
+            <li>
+              <strong>Form</strong> — A three-dimensional shape that has height, width, and depth.
+              Spheres, cubes, pyramids, and cylinders are geometric forms; natural objects like
+              trees and mountains are organic forms.
+            </li>
+            <li>
+              <strong>Colour</strong> — Produced when light strikes an object and is reflected to
+              the eye. Colour has three properties: hue (the name of the colour), value (lightness
+              or darkness), and saturation (intensity or purity).
+            </li>
+            <li>
+              <strong>Value</strong> — The lightness or darkness of a colour or tone. A full range
+              of values, from the lightest highlight to the deepest shadow, creates the illusion of
+              depth and volume.
+            </li>
+            <li>
+              <strong>Texture</strong> — The surface quality of an object, either actual (physical)
+              or implied (visual). Texture adds richness and visual interest to a composition.
+            </li>
+            <li>
+              <strong>Space</strong> — The area within and around objects. Positive space is
+              occupied by the subject; negative space surrounds it. Overlapping, size variation, and
+              atmospheric perspective create the illusion of depth.
+            </li>
+          </ol>
+
+          <h4>The Principles of Design</h4>
+          <ul>
+            <li>
+              <strong>Balance</strong> — The distribution of visual weight within a composition.
+              Symmetrical balance creates a formal, stable feeling; asymmetrical balance is more
+              dynamic and informal.
+            </li>
+            <li>
+              <strong>Contrast</strong> — The juxtaposition of different elements (light and dark,
+              large and small, rough and smooth) to create visual interest and focal points.
+            </li>
+            <li>
+              <strong>Emphasis</strong> — The area of a composition that draws the viewer's
+              attention first. Created through contrast, isolation, placement, or convergence of
+              lines.
+            </li>
+            <li>
+              <strong>Movement</strong> — The path the viewer's eye takes through the artwork.
+              Directed by the arrangement of elements, leading lines, and repetition of shapes or
+              colours.
+            </li>
+            <li>
+              <strong>Pattern</strong> — The regular repetition of elements such as lines, shapes,
+              or colours. Patterns create rhythm and visual consistency.
+            </li>
+            <li>
+              <strong>Rhythm</strong> — Created by the repetition of elements with variation. Like
+              musical rhythm, visual rhythm can be regular, alternating, flowing, or progressive.
+            </li>
+            <li>
+              <strong>Unity</strong> — The sense that all parts of the composition belong together.
+              Achieved through consistency of style, colour palette, and conceptual coherence.
+            </li>
+            <li>
+              <strong>Proportion</strong> — The relative size of elements to one another and to the
+              whole composition. The golden ratio (approximately 1:1.618) has been used since
+              antiquity to achieve aesthetically pleasing proportions.
+            </li>
+          </ul>
+
+          <h4>Colour Theory Fundamentals</h4>
+          <p>
+            The colour wheel, first developed by Sir Isaac Newton in 1666, organises colours in a
+            circular diagram that reveals their relationships.
+            <strong>Primary colours</strong> (red, yellow, blue in traditional pigment theory)
+            cannot be created by mixing other colours. <strong>Secondary colours</strong> (orange,
+            green, violet) result from mixing two primaries. <strong>Tertiary colours</strong> are
+            created by mixing a primary with an adjacent secondary.
+          </p>
+
+          <p>
+            <strong>Complementary colours</strong> sit opposite each other on the colour wheel — red
+            and green, blue and orange, yellow and violet. When placed side by side, they intensify
+            each other; when mixed, they neutralise toward grey.
+            <strong>Analogous colours</strong> sit adjacent on the wheel and create harmonious,
+            unified colour schemes. <strong>Triadic colour schemes</strong> use three colours
+            equally spaced on the wheel for vibrant, balanced compositions.
+          </p>
+
+          <p>
+            Understanding <strong>colour temperature</strong> is crucial for creating mood and
+            spatial depth. Warm colours (reds, oranges, yellows) appear to advance toward the viewer
+            and evoke energy, passion, and warmth. Cool colours (blues, greens, violets) appear to
+            recede and suggest calm, distance, and tranquility. This principle of
+            <strong>atmospheric perspective</strong> — where distant objects appear bluer and less
+            distinct — has been used by landscape painters since Leonardo da Vinci.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 5: POINTER & ZOOM -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s5">
+        <div class="section-header">
+          <h2><span class="section-num">5</span> Pointer &amp; Zoom</h2>
+          <p>Custom Cursor, Magnifying Lens</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Custom Cursor" — a large coloured cursor should
+            replace the default. Test size, style, and colour. Enable "Magnifying Lens" — a
+            magnification circle should follow your cursor. Test magnification level, lens size,
+            offset, and lock mode. Try reading the tiny text and small captions below through the
+            lens.
+          </div>
+
+          <h3>Art Gallery — Fine Detail Labels</h3>
+          <p>
+            Hover over the gallery items below. Each has a tiny caption that requires magnification
+            to read comfortably.
+          </p>
+
+          <div class="gallery-grid">
+            <div class="gallery-item" style="background: #f0e6d3">
+              🎨
+              <span class="gallery-label"
+                >Oil on Canvas, 1503-1519<br />Leonardo da Vinci<br />77cm x 53cm</span
+              >
+            </div>
+            <div class="gallery-item" style="background: #e8d5c4">
+              🖼️
+              <span class="gallery-label"
+                >Starry Night, 1889<br />Vincent van Gogh<br />73.7cm x 92.1cm</span
+              >
+            </div>
+            <div class="gallery-item" style="background: #d4e5d8">
+              🗿
+              <span class="gallery-label"
+                >Marble Sculpture, 1504<br />Michelangelo<br />Height: 517cm</span
+              >
+            </div>
+            <div class="gallery-item" style="background: #e0d8e8">
+              🏛️
+              <span class="gallery-label"
+                >The Persistence of Memory<br />Salvador Dalí, 1931<br />24.1cm x 33cm</span
+              >
+            </div>
+            <div class="gallery-item" style="background: #f5e6cc">
+              🖌️
+              <span class="gallery-label"
+                >Watercolour, 1922<br />Paul Klee, Bauhaus<br />31.8cm x 24.1cm</span
+              >
+            </div>
+            <div class="gallery-item" style="background: #dde8f0">
+              🎭
+              <span class="gallery-label"
+                >Guernica, 1937<br />Pablo Picasso<br />349cm x 776cm</span
+              >
+            </div>
+            <div class="gallery-item" style="background: #f0e0d0">
+              ✏️
+              <span class="gallery-label"
+                >Graphite on paper<br />M.C. Escher, 1953<br />28.2cm x 28.2cm</span
+              >
+            </div>
+            <div class="gallery-item" style="background: #e5e0d5">
+              🪞
+              <span class="gallery-label"
+                >Girl with Pearl Earring<br />Johannes Vermeer<br />44.5cm x 39cm</span
+              >
+            </div>
+          </div>
+
+          <h3>Tiny Text — Magnification Required</h3>
+          <div class="tiny-text">
+            Typography is the art and technique of arranging type to make written language legible,
+            readable, and appealing when displayed. The arrangement of type involves selecting
+            typefaces, point sizes, line lengths, line-spacing (leading), and letter-spacing
+            (tracking), as well as adjusting the space between pairs of letters (kerning). The term
+            typography is also applied to the style, arrangement, and appearance of the letters,
+            numbers, and symbols created by the process. Type design is a closely related craft,
+            sometimes considered part of typography; most typographers do not design typefaces, and
+            some type designers do not consider themselves typographers. In modern usage, the
+            practice and study of typography is broad, covering all aspects of letter design and
+            application. Serif typefaces such as Times New Roman, Garamond, and Baskerville feature
+            small decorative strokes (serifs) at the ends of letterforms. Sans-serif typefaces such
+            as Helvetica, Futura, and Gill Sans lack these strokes, presenting a cleaner, more
+            modern appearance. Monospaced typefaces such as Courier allocate equal horizontal space
+            to each character, while proportional typefaces vary character width for a more natural
+            reading rhythm. Display typefaces are designed for use at large sizes in headlines and
+            titles. Body typefaces are optimised for readability at small sizes in extended text.
+            The choice between serif and sans-serif for body text remains one of typography's most
+            debated questions.
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 6: VISUAL COMFORT -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s6">
+        <div class="section-header">
+          <h2><span class="section-num">6</span> Visual Comfort</h2>
+          <p>Focus Mode, Screen Colour Overlay, Reduced Motion, Auto-play Blocking</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Focus Mode" — a dark overlay with a reading window
+            should appear; adjust width, height, and opacity. Enable "Screen Colour Overlay" — a
+            colour tint covers the page; test colours and intensity. Enable "Reduced Motion" — the
+            spinning wheel below should stop. Enable "Auto-play Blocking" — the audio element below
+            should not auto-play.
+          </div>
+
+          <h3>Focus Mode Reading Content</h3>
+          <p>
+            The concept of <strong>visual hierarchy</strong> is fundamental to effective design.
+            Visual hierarchy refers to the arrangement and presentation of elements in a way that
+            implies importance. Designers use size, colour, contrast, alignment, repetition,
+            proximity, whitespace, and typography to direct the viewer's eye through a composition
+            in a deliberate sequence. A well-designed visual hierarchy ensures that the most
+            important information is perceived first, secondary information is discovered next, and
+            tertiary details are available when sought. Without clear hierarchy, a design becomes
+            visually flat and the viewer's attention disperses randomly across the composition.
+          </p>
+
+          <p>
+            In editorial design, hierarchy is established through a system of typographic sizes and
+            weights: large, bold headlines draw attention first; smaller subheadings organise
+            content into scannable sections; and body text provides detailed information. Graphic
+            elements such as rules, colour blocks, and pull quotes break up long passages and
+            highlight key points. The effective use of whitespace — the empty areas between and
+            around elements — is equally critical, as it provides visual breathing room and prevents
+            a composition from feeling cluttered or overwhelming.
+          </p>
+
+          <h3>Reduced Motion Test</h3>
+          <p>
+            The colour wheel below is continuously spinning. When "Reduced Motion" is enabled, all
+            CSS animations should stop.
+          </p>
+          <div class="color-wheel"></div>
+
+          <h3>Auto-play Blocking Test</h3>
+          <p>
+            The audio element below is set to autoplay. When "Auto-play Blocking" is enabled, it
+            should be prevented from playing automatically.
+          </p>
+          <audio controls autoplay loop style="width: 100%; margin: 14px 0">
+            <source
+              src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
+              type="audio/wav"
+            />
+            Your browser does not support the audio element.
+          </audio>
+          <p style="font-size: 0.8rem; color: #888">
+            (A silent audio clip — if blocking works, the play button should not auto-activate.)
+          </p>
+
+          <h3>Busy Layout — Focus Mode &amp; Overlay Target</h3>
+          <div class="busy-layout">
+            <div class="busy-main">
+              <p>
+                Gestalt psychology has profoundly influenced graphic design through its principles
+                of visual perception. The <strong>Law of Proximity</strong> states that objects near
+                each other are perceived as a group. The <strong>Law of Similarity</strong> holds
+                that elements sharing visual characteristics are seen as related. The
+                <strong>Law of Closure</strong> describes our tendency to perceive incomplete shapes
+                as complete. The <strong>Law of Continuity</strong> suggests that elements arranged
+                along a line or curve are perceived as more related than those not on the path.
+                These principles, first articulated in the 1920s by psychologists Max Wertheimer,
+                Kurt Koffka, and Wolfgang Köhler, remain essential tools for creating intuitive,
+                effective visual communications.
+              </p>
+
+              <p>
+                The Swiss Style, also known as the International Typographic Style, emerged in
+                Switzerland in the 1950s and became one of the most influential movements in graphic
+                design history. Characterised by cleanliness, readability, and objectivity, it
+                employed grid-based layouts, sans-serif typefaces (especially Helvetica and
+                Univers), asymmetric arrangements, and photographic imagery. Its practitioners,
+                including Josef Müller-Brockmann, Armin Hofmann, and Emil Ruder, argued that design
+                should present information clearly and objectively, free from the designer's
+                subjective expression.
+              </p>
+            </div>
+            <div class="busy-sidebar">
+              <div class="fake-ad">BUY ART SUPPLIES<br />50% OFF TODAY!</div>
+              <div class="fake-banner">Subscribe to Design Weekly Newsletter</div>
+              <div class="fake-ad" style="background: linear-gradient(135deg, #667eea, #764ba2)">
+                ONLINE MASTERCLASS<br />Digital Illustration
+              </div>
+              <div class="fake-banner" style="background: #e8f5e9; color: #2e7d32">
+                Cookie Notice: We use cookies for analytics
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 7: PRODUCTIVITY -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s7">
+        <div class="section-header">
+          <h2><span class="section-num">7</span> Productivity</h2>
+          <p>Simplified Interface, Pomodoro Timer</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Simplified Interface" — fake ads, sidebar, and
+            banner clutter in this section should be hidden (test Light, Moderate, Aggressive).
+            Enable "Pomodoro Timer" — a timer widget should appear on the page. Set short durations
+            (e.g., 1 min work) and verify the cycle completes. Test position (corners) and sound
+            notifications.
+          </div>
+
+          <h3>The Design Process: A 25-Minute Exercise</h3>
+
+          <div class="fake-banner" style="margin-bottom: 14px">
+            LIMITED TIME: Free Design Templates — Download Now!
+          </div>
+
+          <div class="busy-layout">
+            <div class="busy-main">
+              <p>
+                The creative design process, whether applied to graphic design, product design, or
+                architectural design, typically follows a structured series of phases. While various
+                models exist, most share a common trajectory from problem definition through
+                research, ideation, prototyping, testing, and implementation.
+              </p>
+
+              <h4>Phase 1: Define the Brief (5 minutes)</h4>
+              <p>
+                Every design project begins with a clear understanding of the problem to be solved,
+                the audience to be reached, and the constraints within which the designer must work.
+                A design brief typically specifies the project goals, target audience, deliverables,
+                timeline, and budget. The quality of the brief directly influences the quality of
+                the resulting design.
+              </p>
+
+              <h4>Phase 2: Research and Inspiration (5 minutes)</h4>
+              <p>
+                Before generating ideas, designers gather information about the subject, the
+                audience, and existing solutions. This may involve competitive analysis, user
+                research, mood board creation, and the study of historical and contemporary
+                precedents. A thorough research phase prevents designers from reinventing solutions
+                that already exist and ensures their work is grounded in genuine understanding.
+              </p>
+
+              <h4>Phase 3: Ideation and Sketching (10 minutes)</h4>
+              <p>
+                With research complete, the designer generates multiple concepts through rapid
+                sketching, brainstorming, mind mapping, or other ideation techniques. The goal at
+                this stage is quantity over quality — to explore a wide range of possibilities
+                before committing to any single direction. Thumbnail sketches, rough layouts, and
+                quick prototypes allow ideas to be evaluated and refined rapidly.
+              </p>
+
+              <h4>Phase 4: Refinement and Execution (5 minutes)</h4>
+              <p>
+                The strongest concepts are selected and developed in detail. Typography is
+                specified, colour palettes are finalised, imagery is sourced or created, and layouts
+                are polished. The designer considers production requirements, accessibility
+                standards, and responsive behaviour across devices.
+              </p>
+            </div>
+            <div class="busy-sidebar">
+              <div class="fake-ad" style="background: linear-gradient(135deg, #f093fb, #f5576c)">
+                SELL YOUR ART<br />Online Gallery<br />Join Free!
+              </div>
+              <div class="fake-banner">Related Articles: "10 Tips for Better Layouts"</div>
+              <div class="fake-ad" style="background: linear-gradient(135deg, #4facfe, #00f2fe)">
+                ADOBE CC<br />Student Discount
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 8: SCHOOL TOOLS -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s8">
+        <div class="section-header">
+          <h2>
+            <span class="section-num">8</span> School Tools
+            <span class="badge badge-alpha">ALPHA</span>
+          </h2>
+          <p>Citations, Canvas LMS, Moodle, Google Classroom</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable "Citations" — click "Save Citation" on this page to
+            test metadata extraction. Verify the Library, Projects, and Quick View. LMS features
+            (Canvas, Moodle, Google Classroom) require navigating to those actual platforms — the
+            mock assignment below is for visual reference only.
+          </div>
+
+          <h3>Mock Academic Article (Citation Test Source)</h3>
+          <div class="mock-article">
+            <div class="article-meta">
+              <strong>Journal of Art History and Theory</strong> | Vol. 42, Issue 3 | pp. 217-234<br />
+              Published: September 2024 | DOI: 10.1234/jaht.2024.0042.03<br />
+              Authors: Dr. Elena Marchetti, Prof. James Thornton-Hughes<br />
+              Institution: Royal College of Art, London
+            </div>
+            <h4>
+              The Digital Turn in Contemporary Art Practice: Implications for Materiality and
+              Authorship
+            </h4>
+            <p>
+              This paper examines the fundamental shift in art-making practices precipitated by the
+              widespread adoption of digital tools and generative artificial intelligence systems.
+              We argue that the transition from physical to digital media does not merely represent
+              a change in medium, but constitutes a paradigmatic transformation in the ontological
+              status of the artwork itself. Drawing on case studies from leading international
+              biennials (2020-2024), we analyse how artists negotiate questions of authorship,
+              materiality, and originality when working with algorithmic processes and machine
+              learning systems.
+            </p>
+            <p>
+              Our findings suggest that the traditional Romantic conception of the artist as sole
+              creative genius is being replaced by a more distributed model of authorship, in which
+              human intention, algorithmic processing, and material contingency collaborate in the
+              production of meaning. This has significant implications for art education, curatorial
+              practice, and the commercial art market.
+            </p>
+            <p>
+              <strong>Keywords:</strong> digital art, artificial intelligence, authorship,
+              materiality, generative systems, contemporary art
+            </p>
+          </div>
+
+          <h3>Citation Format Examples</h3>
+          <p>Verify that saved citations can be exported in these formats:</p>
+          <blockquote>
+            <strong>APA 7:</strong> Marchetti, E., & Thornton-Hughes, J. (2024). The digital turn in
+            contemporary art practice: Implications for materiality and authorship.
+            <em>Journal of Art History and Theory, 42</em>(3), 217-234.
+            https://doi.org/10.1234/jaht.2024.0042.03
+          </blockquote>
+          <blockquote>
+            <strong>MLA 9:</strong> Marchetti, Elena, and James Thornton-Hughes. "The Digital Turn
+            in Contemporary Art Practice: Implications for Materiality and Authorship."
+            <em>Journal of Art History and Theory</em>, vol. 42, no. 3, 2024, pp. 217-234.
+          </blockquote>
+          <blockquote>
+            <strong>Chicago:</strong> Marchetti, Elena, and James Thornton-Hughes. "The Digital Turn
+            in Contemporary Art Practice: Implications for Materiality and Authorship."
+            <em>Journal of Art History and Theory</em> 42, no. 3 (2024): 217-234.
+          </blockquote>
+
+          <h3>Mock Canvas Assignment</h3>
+          <div class="mock-canvas">
+            <div class="mock-canvas-header">ART 301: Visual Culture — Assignment 4</div>
+            <div class="mock-canvas-body">
+              <div class="due-date">Due: March 28, 2026 at 11:59 PM</div>
+              <h4>Comparative Visual Analysis Essay</h4>
+              <p>
+                Select two artworks from different historical periods that address the theme of
+                human identity. Write a 1500-2000 word comparative analysis examining how each
+                artist uses formal elements (composition, colour, line, space) and iconographic
+                conventions to construct meaning. Your essay should address:
+              </p>
+              <ol>
+                <li>Formal analysis of each work (composition, technique, materials)</li>
+                <li>Historical and cultural context of each work</li>
+                <li>Iconographic and symbolic analysis</li>
+                <li>
+                  A comparative argument about how the two works illuminate changes in artistic
+                  approaches to identity across time
+                </li>
+              </ol>
+              <p>
+                <strong>Submission:</strong> Upload as PDF via Canvas. Include properly formatted
+                image plates with full captions (artist, title, date, medium, dimensions,
+                collection).
+              </p>
+              <p>
+                <strong>Rubric:</strong> Visual analysis (30%) | Contextual understanding (25%) |
+                Comparative argument (25%) | Writing quality &amp; citations (20%)
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 9: AI ASSIST -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s9">
+        <div class="section-header">
+          <h2><span class="section-num">9</span> AI Assist</h2>
+          <p>
+            All 9 AI features — Summarization, Text Simplification, Study Path, Assignment
+            Breakdown, Socratic Tutor, Citation Analyzer, Knowledge Graph, Multi-Doc Compare,
+            Emotional TTS
+          </p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Open the AI Assist section in the popup and select an AI
+            mode (Cloud, Browser, Local, or Off). Then test each AI sub-feature below using the
+            provided content. Verify the AI status bar appears on each feature and shows the correct
+            mode. Each sub-section has content tailored to that specific AI feature.
+          </div>
+
+          <!-- SUMMARIZATION -->
+          <div class="ai-subsection">
+            <h4>Summarization</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select this text and trigger AI summarization. The AI should produce a concise
+              summary.
+            </p>
+
+            <p>
+              The Arts and Crafts movement, originating in Britain during the latter half of the
+              nineteenth century, emerged as a direct response to the perceived dehumanising effects
+              of industrialisation on both workers and the objects they produced. Led by the artist,
+              designer, and social reformer William Morris, the movement advocated a return to
+              handcraftsmanship, the use of natural materials, and the integration of beauty into
+              everyday domestic objects. Morris drew inspiration from medieval guilds, in which
+              artisans held mastery over the entire production process, and established workshops
+              producing handmade wallpapers, textiles, furniture, and stained glass that embodied
+              his belief that art should be "by the people, for the people." The movement's
+              influence extended far beyond Britain, inspiring the Wiener Werkstätte in Vienna, the
+              Deutsche Werkbund in Germany, and ultimately contributing to the founding principles
+              of the Bauhaus. Despite its anti-industrial philosophy, the movement paradoxically
+              laid the groundwork for modern design by insisting that aesthetic considerations
+              should be integral to the design of functional objects, a principle that would be
+              adapted — if not radically transformed — by the modernist movements of the twentieth
+              century.
+            </p>
+          </div>
+
+          <!-- TEXT SIMPLIFICATION -->
+          <div class="ai-subsection">
+            <h4>Text Simplification</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select this dense academic text and trigger AI simplification. The AI should rewrite
+              it in simpler language.
+            </p>
+
+            <p>
+              Poststructuralist interrogations of the aesthetic object have fundamentally
+              destabilised the epistemological foundations upon which formalist art criticism was
+              predicated. By foregrounding the intertextual, polysemic, and historically contingent
+              nature of visual signification, theorists such as Roland Barthes, Jacques Derrida, and
+              Michel Foucault demonstrated that meaning is not immanent within the artwork but is
+              instead produced through the dynamic interplay between text, reader, and cultural
+              context. The consequent decentring of authorial intentionality — encapsulated in
+              Barthes's provocative declaration of "the death of the author" — has had far-reaching
+              implications for curatorial practice, art pedagogy, and the mechanisms through which
+              cultural institutions legitimate particular readings of artistic production while
+              marginalising others.
+            </p>
+          </div>
+
+          <!-- STUDY PATH GENERATOR -->
+          <div class="ai-subsection">
+            <h4>Study Path Generator</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select the topic below and trigger Study Path generation. The AI should create a
+              structured learning path.
+            </p>
+
+            <p>
+              <strong>Topic:</strong> Colour Theory — from basic colour wheel concepts through
+              colour harmony, colour psychology, colour in digital vs. print media, and practical
+              application in visual design projects. The study path should cover the physics of
+              light and colour perception, additive vs. subtractive colour mixing, colour spaces
+              (RGB, CMYK, HSL, Lab), accessibility considerations for colour-blind users, and colour
+              trends in contemporary graphic design.
+            </p>
+          </div>
+
+          <!-- ASSIGNMENT BREAKDOWN -->
+          <div class="ai-subsection">
+            <h4>Assignment Breakdown</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select the assignment description below and trigger Assignment Breakdown. The AI
+              should split it into manageable tasks.
+            </p>
+
+            <p>
+              <strong>Assignment:</strong> Create a comprehensive brand identity package for a
+              fictional contemporary art gallery. Your deliverables must include: (1) a primary logo
+              and at least two alternative variations (horizontal, stacked, icon-only); (2) a colour
+              palette with primary, secondary, and accent colours, with HEX, RGB, and CMYK values;
+              (3) a typography system specifying display and body typefaces with a hierarchical
+              scale; (4) a brand guidelines document (minimum 8 pages) showing correct and incorrect
+              usage; (5) three application mockups (business card, letterhead, and social media post
+              template); (6) a 500-word written rationale explaining your design decisions in
+              relation to the gallery's positioning and target audience. Due in three weeks.
+            </p>
+          </div>
+
+          <!-- SOCRATIC TUTOR -->
+          <div class="ai-subsection">
+            <h4>Socratic Tutor</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select a question below and trigger Socratic Tutor. The AI should guide you through
+              understanding with questions rather than direct answers.
+            </p>
+
+            <p>
+              <strong>Question 1:</strong> Why did Impressionist painters choose to work outdoors
+              rather than in a studio?
+            </p>
+            <p>
+              <strong>Question 2:</strong> How does negative space contribute to the impact of a
+              composition?
+            </p>
+            <p>
+              <strong>Question 3:</strong> What is the relationship between the Bauhaus school and
+              modern web design?
+            </p>
+          </div>
+
+          <!-- CITATION ANALYZER -->
+          <div class="ai-subsection">
+            <h4>Citation Analyzer</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select the source information below and trigger Citation Analyzer. The AI should
+              evaluate the source's credibility and relevance.
+            </p>
+
+            <p>
+              <strong>Source:</strong> "The Aesthetic Dimension of Interactive Design:
+              Reconceptualising Beauty in the Age of UX" by Dr. Sandra Kauffmann, published in
+              <em>Design Studies Quarterly</em>, Vol. 18, No. 2, 2023. University of Applied Arts
+              Vienna. Peer-reviewed. 47 citations. DOI: 10.5678/dsq.2023.18.2.004. The paper argues
+              that conventional UX design metrics (task completion rate, time-on-task, error rate)
+              fail to capture the aesthetic dimension of user experience and proposes a framework
+              for evaluating the emotional and sensory qualities of digital interfaces.
+            </p>
+          </div>
+
+          <!-- KNOWLEDGE GRAPH -->
+          <div class="ai-subsection">
+            <h4>Knowledge Graph</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select the interconnected content below and trigger Knowledge Graph generation. The AI
+              should extract entities and relationships into a visual graph.
+            </p>
+
+            <p>
+              Pablo Picasso and Georges Braque co-founded Cubism in Paris around 1907. Picasso's
+              <em>Les Demoiselles d'Avignon</em> is considered the proto-Cubist work. Cubism
+              influenced Futurism in Italy (Umberto Boccioni), Constructivism in Russia (Vladimir
+              Tatlin, El Lissitzky), and De Stijl in the Netherlands (Piet Mondrian, Theo van
+              Doesburg). Mondrian later moved to New York, where his work influenced Abstract
+              Expressionists including Willem de Kooning. De Kooning's gestural brushwork contrasted
+              with Mondrian's geometric precision. Meanwhile, Marcel Duchamp, associated with both
+              Cubism and Dada, challenged the very definition of art with his readymades,
+              influencing Conceptual Art and later movements including Pop Art (Andy Warhol, Jasper
+              Johns) and Fluxus (Yoko Ono, Nam June Paik).
+            </p>
+          </div>
+
+          <!-- MULTI-DOC COMPARE -->
+          <div class="ai-subsection">
+            <h4>Multi-Doc Compare</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select both passages below and trigger Multi-Doc Compare. The AI should identify
+              similarities and differences.
+            </p>
+
+            <div class="compare-cols">
+              <div class="compare-col">
+                <h5>Passage A: Formalist Perspective</h5>
+                <p>
+                  The quality of a painting resides entirely in its formal properties — the
+                  arrangement of colours, shapes, lines, and textures on a flat surface. The
+                  artist's biography, political beliefs, and cultural context are irrelevant to
+                  aesthetic judgement. As Clement Greenberg argued, each art form should pursue its
+                  own unique properties: for painting, this means the flatness of the picture plane
+                  and the physical properties of pigment. A painting succeeds or fails on its visual
+                  terms alone.
+                </p>
+              </div>
+              <div class="compare-col">
+                <h5>Passage B: Contextual Perspective</h5>
+                <p>
+                  No artwork exists in a vacuum. Every painting is shaped by the economic conditions
+                  under which it was produced, the social norms of its time, the artist's gender,
+                  race, and class position, and the institutional frameworks through which it is
+                  displayed and interpreted. To analyse a painting's formal properties without
+                  considering these factors is to wilfully impoverish our understanding. Context is
+                  not external to the work — it constitutes the very conditions of its meaning.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- EMOTIONAL TTS -->
+          <div class="ai-subsection">
+            <h4>Emotional TTS</h4>
+            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px">
+              Select the expressive text below and trigger Emotional TTS. The AI should detect
+              emotion and modulate voice accordingly. Verify the AI status bar appears.
+            </p>
+
+            <p>
+              I stood before Rothko's <em>No. 61 (Rust and Blue)</em> in the museum, and something
+              extraordinary happened. The vast field of deep rust-red, hovering above that luminous
+              blue, seemed to pulse with a living warmth that reached beyond the canvas and into my
+              chest. My eyes blurred with tears — not of sadness, but of an overwhelming, almost
+              painful beauty. How can mere pigment on canvas do this? How can two rectangles of
+              colour make a grown person weep? I have stood before a thousand paintings, but this
+              one shattered something open inside me. It whispered of everything that words cannot
+              hold — loss, hope, the terrible brevity of being alive, the infinite gentleness of
+              light. I left the gallery changed. I am still changed.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 10: POPUP UI & SETTINGS -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s10">
+        <div class="section-header">
+          <h2><span class="section-num">10</span> Popup UI &amp; Settings</h2>
+          <p>
+            Header buttons, Quick Start presets, Profiles, Accordions, Dark Mode, Discovery Quiz
+          </p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> These tests are performed entirely in the popup window.
+            Open the AssisT popup and work through the checklist below. No page content is needed.
+          </div>
+
+          <h3>Popup-Only Test Checklist</h3>
+          <ul class="popup-checklist">
+            <li>Reset button — returns all settings to defaults</li>
+            <li>Help button — opens help page in new tab</li>
+            <li>Settings/Options button — opens settings panel</li>
+            <li>Organize mode — drag sections to reorder, hide/show sections, "Done" exits</li>
+            <li>Dark mode toggle — popup theme switches between light and dark</li>
+            <li>Minimize UI Clutter — on-page overlays and toasts minimize</li>
+            <li>Discovery Quiz — opens discovery page, generates recommendations</li>
+            <li>Quick Start: "ADHD Focus" preset — enables relevant features</li>
+            <li>Quick Start: "Dyslexia" preset — enables relevant features</li>
+            <li>Quick Start: "Low Stimuli" preset — enables relevant features</li>
+            <li>Accordion sections — each expands/collapses independently</li>
+            <li>Save Profile — saves current settings with custom name</li>
+            <li>Load Profile — restores a previously saved profile</li>
+            <li>Delete Profile — removes a saved profile with confirmation</li>
+            <li>Import/Export profiles — JSON file round-trip works</li>
+            <li>All Sites permission banner — appears when permission not granted</li>
+            <li>AI Assist mode chips — Off, Cloud, Browser, Local all selectable</li>
+            <li>AI Advanced Settings link — opens AI setup wizard</li>
+            <li>Status bar at bottom — shows "Ready" or current action</li>
+            <li>Settings persist after popup close/reopen</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- SECTION 11: CROSS-CUTTING CONCERNS -->
+      <!-- ============================================================ -->
+      <div class="test-section" id="s11">
+        <div class="section-header">
+          <h2><span class="section-num">11</span> Cross-Cutting Concerns</h2>
+          <p>Multi-feature interaction, SPA navigation, accessibility, performance</p>
+        </div>
+        <div class="section-body">
+          <div class="test-instruction">
+            <strong>How to test:</strong> Enable multiple features simultaneously and verify they
+            coexist without conflicts. Test keyboard navigation through the popup. Check for console
+            errors after toggling features on and off repeatedly. Navigate between pages and verify
+            cleanup happens correctly.
+          </div>
+
+          <h3>Multi-Feature Stress Test</h3>
+          <p>
+            Enable ALL of the following features at once and verify they work together on this text
+            without visual conflicts, z-index issues, or console errors:
+          </p>
+          <ol>
+            <li>
+              <strong>TTS + Text Highlighting</strong> — Select text and read aloud with
+              highlighting
+            </li>
+            <li><strong>Reading Guide</strong> — Horizontal line follows mouse over text</li>
+            <li><strong>Screen Colour Overlay</strong> — Tinted overlay covers page</li>
+            <li><strong>Focus Mode</strong> — Reading window with dark overlay</li>
+            <li><strong>Custom Cursor</strong> — Large cursor visible over overlay</li>
+            <li><strong>Magnifying Lens</strong> — Lens follows cursor, works through overlays</li>
+            <li><strong>Reading Progress Bar</strong> — Progress bar at page top/bottom</li>
+            <li>
+              <strong>Dyslexia Mode</strong> — Text formatting applied correctly beneath overlay
+            </li>
+          </ol>
+
+          <h3>Content for Multi-Feature Testing</h3>
+          <p>
+            The history of art is, in many ways, the history of humanity's evolving relationship
+            with visual representation. From the earliest cave paintings at Lascaux and Altamira,
+            created some 17,000 years ago, through the codified systems of Egyptian and Mesopotamian
+            art, the idealised naturalism of Classical Greece and Rome, the spiritual transcendence
+            of Byzantine mosaics, the humanistic revival of the Renaissance, the emotional intensity
+            of the Baroque, the scientific observation of Impressionism, the radical fragmentation
+            of Cubism, the spontaneous expression of Abstract Expressionism, and the ironic
+            appropriation of Postmodernism — each era has redefined what art is, what it can do, and
+            who is entitled to make it.
+          </p>
+
+          <p>
+            Today, as digital tools, artificial intelligence, and global connectivity transform
+            every aspect of creative practice, artists stand at another threshold. The questions
+            they face — about authorship and originality in an age of generative AI, about access
+            and equity in a globalised art market, about sustainability in material practice, about
+            the role of art in an attention economy — are as urgent and as fundamentally human as
+            those faced by their predecessors in every previous era of transformation.
+          </p>
+
+          <h3>Keyboard Accessibility Test</h3>
+          <p>
+            Tab through the following interactive elements to verify focus indicators are visible
+            and all elements are reachable:
+          </p>
+          <p>
+            <button
+              style="
+                padding: 8px 16px;
+                margin: 4px;
+                border-radius: 6px;
+                border: 1px solid #ccc;
+                cursor: pointer;
+              "
+            >
+              Button One
+            </button>
+            <button
+              style="
+                padding: 8px 16px;
+                margin: 4px;
+                border-radius: 6px;
+                border: 1px solid #ccc;
+                cursor: pointer;
+              "
+            >
+              Button Two
+            </button>
+            <a href="#s1" style="margin: 4px; padding: 8px 16px; display: inline-block"
+              >Link to Section 1</a
+            >
+            <input
+              type="text"
+              placeholder="Text input field"
+              style="padding: 8px; margin: 4px; border: 1px solid #ccc; border-radius: 6px"
+            />
+            <select style="padding: 8px; margin: 4px; border: 1px solid #ccc; border-radius: 6px">
+              <option>Select dropdown</option>
+              <option>Option A</option>
+              <option>Option B</option>
+            </select>
+          </p>
+
+          <h3>Console Error Check</h3>
+          <p>
+            With DevTools open (F12 &rarr; Console), perform the following sequence and verify
+            <strong>zero errors</strong>:
+          </p>
+          <ol>
+            <li>Enable TTS, then disable it</li>
+            <li>Enable STT, then disable it</li>
+            <li>Enable Focus Mode, then disable it</li>
+            <li>Enable Magnifying Lens, then disable it</li>
+            <li>Switch AI mode: Off &rarr; Cloud &rarr; Local &rarr; Browser &rarr; Off</li>
+            <li>Navigate to another tab and return</li>
+            <li>Close and reopen the popup</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    <!-- end .page -->
+  </body>
+</html>

@@ -5,9 +5,10 @@
 **License:** MIT
 **Repository:** https://github.com/MarJone/AssisT
 
-[![WCAG 2.2 AA](https://img.shields.io/badge/WCAG-2.2%20AA-blue)](https://www.w3.org/WAI/WCAG22/quickref/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-979%20passing-green)](tests/)
+[![Chrome Web Store Featured](https://img.shields.io/badge/Chrome_Web_Store-Featured-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/dkekfjomoacmhbkekjkngmpbdlljjfhi)
+[![WCAG 2.2 AA](https://img.shields.io/badge/WCAG-2.2%20AA-blue?style=for-the-badge)](https://www.w3.org/WAI/WCAG22/quickref/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/Tests-979%20passing-green?style=for-the-badge)](tests/)
 
 ---
 
