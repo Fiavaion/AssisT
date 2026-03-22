@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 098 (E2E Test Harness Visual Redesign)
+**Session**: Phase 2 Session 099 (STT Microphone Button Fix)
 
 ---
 
@@ -47,6 +47,12 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 099 (2026-03-22)
+
+**STT Microphone Button Fix**
+
+Fixed Speech-to-Text microphone button not appearing when focusing text fields. Root cause: `MicrophoneButton.positionButton()` in `src/ui/components/microphone-button.js` added `window.scrollX`/`window.scrollY` to viewport-relative coordinates from `getBoundingClientRect()`, but the button uses `position: fixed` (viewport-relative). Adding scroll offsets pushed the button off-screen. Fix: removed scroll offsets, added viewport boundary clamping. Also wrapped `stt_initialize()` in try/catch for future error visibility. Build: ✅ clean.
 
 ### Phase 2 Session 098 (2026-03-22)
 

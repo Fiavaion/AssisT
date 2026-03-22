@@ -367,12 +367,27 @@ export class MicrophoneButton {
    */
   positionButton(field) {
     const rect = field.getBoundingClientRect();
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
 
-    // Position to the right and slightly below the field
-    const left = rect.right + scrollX - 70; // 70px from right edge
-    const top = rect.bottom + scrollY + 10; // 10px below field
+    // Button uses position:fixed, so coordinates are relative to the viewport
+    // No scroll offset needed — getBoundingClientRect() already returns viewport coords
+    let left = rect.right - 70; // 70px from right edge of field
+    let top = rect.bottom + 10; // 10px below field
+
+    // Keep button within viewport bounds
+    const buttonSize = 56;
+    if (left + buttonSize > window.innerWidth) {
+      left = window.innerWidth - buttonSize - 8;
+    }
+    if (left < 8) {
+      left = 8;
+    }
+    if (top + buttonSize > window.innerHeight) {
+      // Place above the field instead
+      top = rect.top - buttonSize - 10;
+    }
+    if (top < 8) {
+      top = 8;
+    }
 
     this.button.style.left = `${left}px`;
     this.button.style.top = `${top}px`;
