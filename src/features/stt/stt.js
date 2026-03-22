@@ -107,79 +107,84 @@ async function stt_initialize() {
 
   console.log('[STT] STT is enabled, creating controller and button...');
 
-  // Create STT controller with callbacks
-  stt_controller = new STTController({
-    continuous: stt_settings.continuous,
-    interimResults: stt_settings.interimResults,
-    language: stt_settings.language,
-    autoCapitalize: stt_settings.autoCapitalize,
-    punctuationCommands: stt_settings.punctuationCommands,
-    voiceCommands: stt_settings.voiceCommands,
-    autoPunctuation: stt_settings.autoPunctuation,
-    onStart: () => {
-      console.log('[STT] Recording started');
-      if (stt_micButton) {
-        stt_micButton.updateState({ isRecording: true });
-      }
-    },
-    onEnd: () => {
-      console.log('[STT] Recording ended');
-      if (stt_micButton) {
-        stt_micButton.updateState({ isRecording: false });
-      }
-    },
-    onResult: (text, _fullTranscript) => {
-      console.log('[STT] Result:', text);
-      // Text already inserted by controller
-    },
-    onInterimResult: text => {
-      // Show interim results in mic button
-      if (stt_micButton && stt_settings.interimResults) {
-        stt_micButton.showInterimResult(text);
-      }
-    },
-    onError: (error, _errorType) => {
-      console.error('[STT] Error:', error.message);
-      showToast('⚠️ ' + error.message);
-      if (stt_micButton) {
-        stt_micButton.showError(error.message);
-      }
-    },
-  });
-
-  // Create microphone button if enabled
-  console.log('[STT] floatingButton setting:', stt_settings.floatingButton);
-  if (stt_settings.floatingButton) {
-    console.log('[STT] Creating microphone button...');
-    stt_micButton = new MicrophoneButton({
-      onStart: targetField => {
-        if (stt_controller) {
-          stt_activeField = targetField;
-          stt_controller.startListening(targetField);
+  try {
+    // Create STT controller with callbacks
+    stt_controller = new STTController({
+      continuous: stt_settings.continuous,
+      interimResults: stt_settings.interimResults,
+      language: stt_settings.language,
+      autoCapitalize: stt_settings.autoCapitalize,
+      punctuationCommands: stt_settings.punctuationCommands,
+      voiceCommands: stt_settings.voiceCommands,
+      autoPunctuation: stt_settings.autoPunctuation,
+      onStart: () => {
+        console.log('[STT] Recording started');
+        if (stt_micButton) {
+          stt_micButton.updateState({ isRecording: true });
         }
       },
-      onStop: () => {
-        if (stt_controller) {
-          stt_controller.stopListening();
+      onEnd: () => {
+        console.log('[STT] Recording ended');
+        if (stt_micButton) {
+          stt_micButton.updateState({ isRecording: false });
         }
       },
-      onPause: () => {
-        if (stt_controller) {
-          stt_controller.pauseListening();
+      onResult: (text, _fullTranscript) => {
+        console.log('[STT] Result:', text);
+        // Text already inserted by controller
+      },
+      onInterimResult: text => {
+        // Show interim results in mic button
+        if (stt_micButton && stt_settings.interimResults) {
+          stt_micButton.showInterimResult(text);
         }
       },
-      onResume: () => {
-        if (stt_controller) {
-          stt_controller.resumeListening();
+      onError: (error, _errorType) => {
+        console.error('[STT] Error:', error.message);
+        showToast('⚠️ ' + error.message);
+        if (stt_micButton) {
+          stt_micButton.showError(error.message);
         }
-      },
-      onError: message => {
-        showToast('⚠️ ' + message);
       },
     });
-  }
 
-  console.log('[STT] Initialized successfully! stt_micButton:', !!stt_micButton);
+    // Create microphone button if enabled
+    console.log('[STT] floatingButton setting:', stt_settings.floatingButton);
+    if (stt_settings.floatingButton) {
+      console.log('[STT] Creating microphone button...');
+      stt_micButton = new MicrophoneButton({
+        onStart: targetField => {
+          if (stt_controller) {
+            stt_activeField = targetField;
+            stt_controller.startListening(targetField);
+          }
+        },
+        onStop: () => {
+          if (stt_controller) {
+            stt_controller.stopListening();
+          }
+        },
+        onPause: () => {
+          if (stt_controller) {
+            stt_controller.pauseListening();
+          }
+        },
+        onResume: () => {
+          if (stt_controller) {
+            stt_controller.resumeListening();
+          }
+        },
+        onError: message => {
+          showToast('⚠️ ' + message);
+        },
+      });
+    }
+
+    console.log('[STT] Initialized successfully! stt_micButton:', !!stt_micButton);
+  } catch (error) {
+    console.error('[STT] INITIALIZATION FAILED:', error);
+    showToast('⚠️ STT initialization failed: ' + error.message);
+  }
 }
 
 /**
