@@ -14,7 +14,7 @@
  */
 export async function getSettings() {
   return new Promise(resolve => {
-    chrome.storage.sync.get('assist_settings', result => {
+    chrome.storage.local.get('assist_settings', result => {
       resolve(result.assist_settings || {});
     });
   });
@@ -40,7 +40,7 @@ export async function saveSetting(key, value) {
   const settings = await getSettings();
   settings[key] = value;
   return new Promise(resolve => {
-    chrome.storage.sync.set({ assist_settings: settings }, resolve);
+    chrome.storage.local.set({ assist_settings: settings }, resolve);
   });
 }
 
@@ -51,7 +51,7 @@ export async function saveSetting(key, value) {
  */
 export async function saveSettings(settings) {
   return new Promise(resolve => {
-    chrome.storage.sync.set({ assist_settings: settings }, resolve);
+    chrome.storage.local.set({ assist_settings: settings }, resolve);
   });
 }
 
