@@ -29,6 +29,9 @@ export class MicrophoneButton {
     this.isPaused = false;
     this.tooltip = null;
 
+    this._scrollHandler = null;
+    this._resizeHandler = null;
+
     this.createButton();
     this.injectStyles();
   }
@@ -334,6 +337,9 @@ export class MicrophoneButton {
       document.body.appendChild(this.button);
     }
 
+    // Attach scroll/resize listeners so button tracks the field
+    this._attachScrollListeners();
+
     // Show with animation
     requestAnimationFrame(() => {
       this.button.classList.add('visible');
@@ -349,6 +355,9 @@ export class MicrophoneButton {
     this.button.classList.remove('visible');
     this.hideTooltip();
     this.hideInterimDisplay();
+
+    // Remove scroll/resize listeners
+    this._detachScrollListeners();
 
     // Remove from DOM after animation
     setTimeout(() => {
@@ -391,6 +400,43 @@ export class MicrophoneButton {
 
     this.button.style.left = `${left}px`;
     this.button.style.top = `${top}px`;
+  }
+
+  /**
+   * Attach scroll and resize listeners to reposition button when page scrolls
+   */
+  _attachScrollListeners() {
+    // Detach any existing listeners first to avoid duplicates
+    this._detachScrollListeners();
+
+    this._scrollHandler = () => {
+      if (this.targetField) {
+        this.positionButton(this.targetField);
+      }
+    };
+
+    this._resizeHandler = () => {
+      if (this.targetField) {
+        this.positionButton(this.targetField);
+      }
+    };
+
+    window.addEventListener('scroll', this._scrollHandler, { passive: true, capture: true });
+    window.addEventListener('resize', this._resizeHandler, { passive: true });
+  }
+
+  /**
+   * Detach scroll and resize listeners
+   */
+  _detachScrollListeners() {
+    if (this._scrollHandler) {
+      window.removeEventListener('scroll', this._scrollHandler, { capture: true });
+      this._scrollHandler = null;
+    }
+    if (this._resizeHandler) {
+      window.removeEventListener('resize', this._resizeHandler);
+      this._resizeHandler = null;
+    }
   }
 
   /**
@@ -709,6 +755,7 @@ export class MicrophoneButton {
       this.stopRecording();
     }
 
+    this._detachScrollListeners();
     this.hideTooltip();
     this.hideInterimDisplay();
     this.hideRecordingIndicator();

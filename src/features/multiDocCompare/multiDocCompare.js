@@ -30,6 +30,7 @@ import {
 
 let mdc_panel = null;
 let mdc_documents = [];
+let mdc_dragCleanup = null; // Cleanup fn for drag listeners when panel is closed
 // let _mdc_isLoading = false; // Reserved for future use
 // let _mdc_comparisonResult = null; // Reserved for future use
 
@@ -69,6 +70,8 @@ const MDC_PANEL_CSS = `
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+    cursor: move;
+    user-select: none;
   }
 
   .mdc-header h3 {
@@ -903,6 +906,66 @@ function mdc_show(initialText = null) {
     attachInteractiveHandler(compareBtn, 'Multi-Doc Compare Button', mdc_compareDocuments);
   }
 
+  // Drag-to-move on header
+  const header = mdc_panel.querySelector('.mdc-header');
+  if (header) {
+    let mdc_isDragging = false;
+    let mdc_dragOffsetX = 0;
+    let mdc_dragOffsetY = 0;
+
+    header.addEventListener('mousedown', e => {
+      // Only drag on left button; ignore clicks on the close button
+      if (e.button !== 0 || e.target.classList.contains('mdc-close')) {
+        return;
+      }
+      mdc_isDragging = true;
+
+      // Switch from centering transform to explicit top/left
+      const rect = mdc_panel.getBoundingClientRect();
+      mdc_panel.style.transform = 'none';
+      mdc_panel.style.left = `${rect.left}px`;
+      mdc_panel.style.top = `${rect.top}px`;
+
+      mdc_dragOffsetX = e.clientX - rect.left;
+      mdc_dragOffsetY = e.clientY - rect.top;
+
+      mdc_panel.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    const mdc_onMouseMove = e => {
+      if (!mdc_isDragging) {
+        return;
+      }
+      const panelW = mdc_panel.offsetWidth;
+      const panelH = mdc_panel.offsetHeight;
+      let newLeft = e.clientX - mdc_dragOffsetX;
+      let newTop = e.clientY - mdc_dragOffsetY;
+      // Clamp to viewport
+      newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - panelW));
+      newTop = Math.max(0, Math.min(newTop, window.innerHeight - panelH));
+      mdc_panel.style.left = `${newLeft}px`;
+      mdc_panel.style.top = `${newTop}px`;
+    };
+
+    const mdc_onMouseUp = () => {
+      if (mdc_isDragging) {
+        mdc_isDragging = false;
+        mdc_panel.style.userSelect = '';
+      }
+    };
+
+    document.addEventListener('mousemove', mdc_onMouseMove);
+    document.addEventListener('mouseup', mdc_onMouseUp);
+
+    // Store cleanup so mdc_hide can remove drag listeners
+    mdc_dragCleanup = () => {
+      document.removeEventListener('mousemove', mdc_onMouseMove);
+      document.removeEventListener('mouseup', mdc_onMouseUp);
+      mdc_dragCleanup = null;
+    };
+  }
+
   // Escape to close
   document.addEventListener('keydown', mdc_handleKeydown);
 
@@ -913,6 +976,9 @@ function mdc_show(initialText = null) {
  * Hide the panel
  */
 function mdc_hide() {
+  if (mdc_dragCleanup) {
+    mdc_dragCleanup();
+  }
   if (mdc_panel) {
     mdc_panel.remove();
     mdc_panel = null;
