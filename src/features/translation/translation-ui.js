@@ -158,6 +158,7 @@ function translationUI_createModal(originalText, translatedText = '') {
   const modalContent = document.createElement('div');
   modalContent.style.cssText = `
     background: white;
+    color: #333;
     width: 600px;
     max-width: 90vw;
     height: 400px;
@@ -487,6 +488,7 @@ function translationUI_createLanguageSelector(id, selectedLang, includeAutoDetec
     border-radius: 6px;
     font-size: 14px;
     background: white;
+    color: #333;
     cursor: pointer;
     transition: border 0.2s;
   `;
