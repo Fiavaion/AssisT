@@ -1486,6 +1486,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'LOCAL_TEXT_CUSTOMIZATION':
+      // Apply text customization only to THIS tab, without touching shared storage.
+      // Used when the popup's "Apply to all windows" toggle is OFF.
+      console.log('[AssisT] Applying local-only text customization');
+      if (window.assistFeatures && window.assistFeatures.textCustomization) {
+        window.assistFeatures.textCustomization.applySettings(message.settings);
+        sendResponse({ success: true });
+      } else {
+        console.warn('[AssisT] textCustomization feature not available for local apply');
+        sendResponse({ success: false, error: 'textCustomization not initialized' });
+      }
+      break;
+
     default:
       // Handle undefined or unknown message types gracefully
       if (message.type === undefined) {
