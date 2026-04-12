@@ -31,6 +31,7 @@ export class MicrophoneButton {
 
     this._scrollHandler = null;
     this._resizeHandler = null;
+    this._scrollParents = null;
 
     this.createButton();
     this.injectStyles();
@@ -403,11 +404,37 @@ export class MicrophoneButton {
   }
 
   /**
-   * Attach scroll and resize listeners to reposition button when page scrolls
+   * Walk up the DOM from element and collect all scrollable ancestors + window.
+   * Scroll events on non-window elements do NOT bubble to window, so we must
+   * listen on each scrollable container individually.
+   * @param {HTMLElement} element
+   * @returns {Array<HTMLElement|Window>}
+   */
+  _getScrollParents(element) {
+    const parents = [];
+    let el = element.parentElement;
+    while (el) {
+      const overflow = getComputedStyle(el).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') {
+        parents.push(el);
+      }
+      el = el.parentElement;
+    }
+    parents.push(window);
+    return parents;
+  }
+
+  /**
+   * Attach scroll and resize listeners to reposition button when page scrolls.
+   * Listens on all scrollable ancestors so Canvas's inner scroll containers
+   * are covered (window-only listeners miss non-bubbling scroll events).
    */
   _attachScrollListeners() {
-    // Detach any existing listeners first to avoid duplicates
     this._detachScrollListeners();
+
+    if (!this.targetField) {
+      return;
+    }
 
     this._scrollHandler = () => {
       if (this.targetField) {
@@ -421,7 +448,10 @@ export class MicrophoneButton {
       }
     };
 
-    window.addEventListener('scroll', this._scrollHandler, { passive: true, capture: true });
+    this._scrollParents = this._getScrollParents(this.targetField);
+    this._scrollParents.forEach(parent => {
+      parent.addEventListener('scroll', this._scrollHandler, { passive: true });
+    });
     window.addEventListener('resize', this._resizeHandler, { passive: true });
   }
 
@@ -429,10 +459,13 @@ export class MicrophoneButton {
    * Detach scroll and resize listeners
    */
   _detachScrollListeners() {
-    if (this._scrollHandler) {
-      window.removeEventListener('scroll', this._scrollHandler, { capture: true });
-      this._scrollHandler = null;
+    if (this._scrollHandler && this._scrollParents) {
+      this._scrollParents.forEach(parent => {
+        parent.removeEventListener('scroll', this._scrollHandler);
+      });
     }
+    this._scrollParents = null;
+    this._scrollHandler = null;
     if (this._resizeHandler) {
       window.removeEventListener('resize', this._resizeHandler);
       this._resizeHandler = null;

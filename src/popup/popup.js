@@ -5581,15 +5581,15 @@ class PopupController {
       // Default to true (sync on) if not yet stored
       syncToggle.checked = result.textCustomSync !== false;
     });
-    this.attachInteractiveHandler(syncToggle, 'Text Customization Sync Toggle', () => {
+    // Use change event (not attachInteractiveHandler) — mousedown+preventDefault
+    // would block the checkbox from toggling its checked state.
+    syncToggle.addEventListener('change', () => {
       const syncEnabled = syncToggle.checked;
       chrome.storage.local
         .set({ textCustomSync: syncEnabled })
         .catch(err => console.error('[Popup] Failed to save textCustomSync:', err));
-      // When switching back to "all windows", push current settings globally
-      if (syncEnabled) {
-        this._saveTextCustomizationSettings();
-      }
+      // Always re-save when toggling so current settings go to the right store
+      this._saveTextCustomizationSettings();
     });
 
     // Font Family selector

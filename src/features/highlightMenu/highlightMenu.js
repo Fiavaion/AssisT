@@ -722,7 +722,8 @@ function highlightMenu_handleTranslate() {
 
   // Check if translation UI is available
   if (window.assistFeatures?.translationUI) {
-    window.assistFeatures.translationUI.openModal(highlightMenu_selectedText, 'auto', 'en');
+    // Pass no explicit language args so translationUI uses last-used pair from storage
+    window.assistFeatures.translationUI.openModal(highlightMenu_selectedText);
   } else {
     console.warn('[HighlightMenu] Translation UI not loaded');
     alert('Translation feature not available. Please reload the page.');
