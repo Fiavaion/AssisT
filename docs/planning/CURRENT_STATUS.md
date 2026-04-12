@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-03-22
+**Last Updated**: 2026-04-12
 **Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, AI Overhaul Edition)
-**Current Phase**: Phase 2 Extension - AI Systems Overhaul & CWS Preparation
+**Current Phase**: Phase 2 Extension - Bug Fixes & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 099 (STT Microphone Button Fix)
+**Session**: Phase 2 Session 100 (Bug Fixes: AI Setup Key, Minimize Clutter, TTS Disable)
 
 ---
 
@@ -47,6 +47,17 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 100 (2026-04-12)
+
+**Bug Fixes: AI Setup Key Storage, Minimize Clutter, TTS Disable**
+
+Three bugs fixed found during E2E testing:
+1. **AI Setup key not saved correctly** — `saveSettings()` stored key as plain text at `apiKeys.anthropic` but `getSecureAPIKey()` reads from encrypted `secure_apikey_anthropic`. Fixed by adding `SAVE_API_KEY` service worker handler; ai-setup.js now routes key save through it. Memory rule added: NEVER plain-text API keys.
+2. **Minimize UI clutter not hiding Text Stats badge** — `MINIMIZE_CLUTTER_UPDATE` message fell to `default` in content-simple.js switch (unknown type warning). Added explicit `case 'MINIMIZE_CLUTTER_UPDATE'` that directly toggles `#assist-textstats-badge` display.
+3. **TTS highlights not cleared on disable** — Both the storage onChanged handler and `TTS_COMMAND disable` handler only ran cleanup when `synth.speaking === true`. If speech finished before user disabled, highlights stayed. Fixed by removing the `synth.speaking` guard — cleanup always runs on disable.
+
+Build: ✅ clean.
 
 ### Phase 2 Session 099 (2026-03-22)
 
