@@ -60,6 +60,7 @@ const MDC_PANEL_CSS = `
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    color: #333;
   }
 
   .mdc-header {
@@ -219,7 +220,7 @@ const MDC_PANEL_CSS = `
   .mdc-result-section h4 {
     margin: 0 0 8px 0;
     font-size: 14px;
-    color: #333;
+    color: #333 !important;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -229,11 +230,13 @@ const MDC_PANEL_CSS = `
     background: #f8f9fa;
     border-radius: 8px;
     padding: 12px;
+    color: #333;
   }
 
   .mdc-result-item {
     padding: 6px 0;
     font-size: 13px;
+    color: #333;
     border-bottom: 1px solid #eee;
   }
 
@@ -247,6 +250,7 @@ const MDC_PANEL_CSS = `
     padding: 16px;
     font-size: 14px;
     line-height: 1.6;
+    color: #333;
   }
 
   .mdc-agreement {
