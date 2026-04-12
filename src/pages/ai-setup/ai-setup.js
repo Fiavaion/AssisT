@@ -1019,9 +1019,13 @@ async function saveSettings() {
       settings.cloudProvider = providerEl.value; // cloud-router.js reads this key
     }
     if (keyEl?.value?.trim()) {
-      const existing = (await getStored('apiKeys')) || {};
-      existing[settings.aiProvider] = keyEl.value.trim();
-      settings.apiKeys = existing;
+      // Save via service worker so it uses encrypted storage (secure_apikey_{provider})
+      // ai-setup is a web_accessible_resource and cannot import secure-key-storage directly
+      chrome.runtime.sendMessage({
+        action: 'SAVE_API_KEY',
+        provider: settings.aiProvider,
+        apiKey: keyEl.value.trim(),
+      });
     }
   }
 
@@ -1046,12 +1050,6 @@ async function saveSettings() {
 
   await chrome.storage.local.set(settings);
   console.log('[AISetup] Settings saved:', settings.aiMode);
-}
-
-function getStored(key) {
-  return new Promise(resolve => {
-    chrome.storage.local.get(key, result => resolve(result[key] ?? null));
-  });
 }
 
 // ─── API Key Verification (client-side format check) ──────────────────────────
