@@ -142,10 +142,16 @@ const MDC_PANEL_CSS = `
     background: #ffebee;
     border: none;
     color: #f44336;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex-shrink: 0;
   }
 
   .mdc-doc-remove:hover {
