@@ -404,30 +404,11 @@ export class MicrophoneButton {
   }
 
   /**
-   * Walk up the DOM from element and collect all scrollable ancestors + window.
-   * Scroll events on non-window elements do NOT bubble to window, so we must
-   * listen on each scrollable container individually.
-   * @param {HTMLElement} element
-   * @returns {Array<HTMLElement|Window>}
-   */
-  _getScrollParents(element) {
-    const parents = [];
-    let el = element.parentElement;
-    while (el) {
-      const overflow = getComputedStyle(el).overflowY;
-      if (overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') {
-        parents.push(el);
-      }
-      el = el.parentElement;
-    }
-    parents.push(window);
-    return parents;
-  }
-
-  /**
    * Attach scroll and resize listeners to reposition button when page scrolls.
-   * Listens on all scrollable ancestors so Canvas's inner scroll containers
-   * are covered (window-only listeners miss non-bubbling scroll events).
+   * Uses capture-phase listener on document so ALL scroll events are caught,
+   * regardless of which container they originate from (scroll does not bubble,
+   * but the capture phase fires top-down to any target — this reliably catches
+   * Canvas inner scroll containers, iframes, and any overflow:hidden hacks).
    */
   _attachScrollListeners() {
     this._detachScrollListeners();
@@ -448,10 +429,9 @@ export class MicrophoneButton {
       }
     };
 
-    this._scrollParents = this._getScrollParents(this.targetField);
-    this._scrollParents.forEach(parent => {
-      parent.addEventListener('scroll', this._scrollHandler, { passive: true });
-    });
+    // capture:true catches scroll events on any element in the document tree,
+    // not just window — this is the only reliable way to track all scroll sources.
+    document.addEventListener('scroll', this._scrollHandler, { capture: true, passive: true });
     window.addEventListener('resize', this._resizeHandler, { passive: true });
   }
 
@@ -459,10 +439,8 @@ export class MicrophoneButton {
    * Detach scroll and resize listeners
    */
   _detachScrollListeners() {
-    if (this._scrollHandler && this._scrollParents) {
-      this._scrollParents.forEach(parent => {
-        parent.removeEventListener('scroll', this._scrollHandler);
-      });
+    if (this._scrollHandler) {
+      document.removeEventListener('scroll', this._scrollHandler, { capture: true });
     }
     this._scrollParents = null;
     this._scrollHandler = null;
