@@ -46,9 +46,9 @@ const mdc_settings = {
 const MDC_PANEL_CSS = `
   #assist-mdc-panel {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    top: 70px;
+    right: 20px;
+    left: auto;
     width: 600px;
     max-width: 90vw;
     max-height: 85vh;
@@ -922,9 +922,11 @@ function mdc_show(initialText = null) {
         return;
       }
 
-      // Switch from centering transform to explicit top/left
+      console.log('[MDC] pointerdown on header — starting drag');
+
+      // Switch from right-anchored CSS to explicit left/top for drag
       const rect = mdc_panel.getBoundingClientRect();
-      mdc_panel.style.transform = 'none';
+      mdc_panel.style.right = 'auto';
       mdc_panel.style.left = `${rect.left}px`;
       mdc_panel.style.top = `${rect.top}px`;
 
