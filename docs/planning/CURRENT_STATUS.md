@@ -5,7 +5,7 @@
 **Current Phase**: Phase 2 Extension - Bug Fixes & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 100 (Bug Fixes: AI Setup Key, Minimize Clutter, TTS Disable)
+**Session**: Phase 2 Session 101 (Bug Fixes: STT Scroll, MDC Drag/Compare, Translation Memory, Text Sync Toggle)
 
 ---
 
@@ -48,16 +48,17 @@
 
 ## ✅ Recently Completed
 
-### Phase 2 Session 100 (2026-04-12)
+### Phase 2 Session 101 (2026-04-12)
 
-**Bug Fixes: AI Setup Key Storage, Minimize Clutter, TTS Disable**
+**Bug Fixes: STT Scroll Tracking, MDC Drag/Compare/Text, Translation Memory, Text Customization Sync**
 
-Three bugs fixed found during E2E testing:
-1. **AI Setup key not saved correctly** — `saveSettings()` stored key as plain text at `apiKeys.anthropic` but `getSecureAPIKey()` reads from encrypted `secure_apikey_anthropic`. Fixed by adding `SAVE_API_KEY` service worker handler; ai-setup.js now routes key save through it. Memory rule added: NEVER plain-text API keys.
-2. **Minimize UI clutter not hiding Text Stats badge** — `MINIMIZE_CLUTTER_UPDATE` message fell to `default` in content-simple.js switch (unknown type warning). Added explicit `case 'MINIMIZE_CLUTTER_UPDATE'` that directly toggles `#assist-textstats-badge` display.
-3. **TTS highlights not cleared on disable** — Both the storage onChanged handler and `TTS_COMMAND disable` handler only ran cleanup when `synth.speaking === true`. If speech finished before user disabled, highlights stayed. Fixed by removing the `synth.speaking` guard — cleanup always runs on disable.
+Four BugHive bugs fixed:
+1. **#71 STT mic button scroll** — replaced per-container scroll listener enumeration with `document.addEventListener('scroll', fn, { capture: true })`. Capture phase catches all scroll events regardless of overflow setting.
+2. **#77 Compare Documents** — multiple fixes: Pointer Events drag (setPointerCapture), undeclared `mdc_isLoading`/`mdc_comparisonResult` causing silent ReferenceError on compare click, Canvas white text inheritance on all result elements, remove button centering, panel defaults to top-right.
+3. **#73 Translation language memory** — dropdowns already correctly persisted; fixed Canvas white-on-white text on modal and select elements.
+4. **#74 Text customization sync toggle** — full rework: defaults OFF, toggle OFF sends `CLEAR_TEXT_CUSTOMIZATION` to all other tabs, toggle ON sends `LOCAL_TEXT_CUSTOMIZATION` to all tabs, changes while OFF go only to current tab via direct `chrome.tabs.sendMessage`.
 
-Build: ✅ clean.
+Build: ✅ clean. BugHive queue: 0 open.
 
 ### Phase 2 Session 099 (2026-03-22)
 
