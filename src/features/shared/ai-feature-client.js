@@ -59,14 +59,28 @@ export function isWebLLMModel(modelKey) {
  * @param {string} [featureName='summarization'] - Used to look up the cloud model default
  * @returns {Promise<AIMode>}
  */
+// ── Per-feature model override: short name → registry key mapping ─────────────
+const FEATURE_MODEL_KEY_MAP = {
+  haiku: 'haiku-4.5',
+  sonnet: 'sonnet-4.6',
+  opus: 'opus-4.6',
+};
+
 export async function getAIMode(featureName = 'summarization') {
   try {
-    const result = await chrome.storage.local.get([
+    const storageKeys = [
       'aiMode',
       'cloudProvider',
       'cloudModel',
       'webllmModel',
-    ]);
+      'featureModelAutoSelect',
+    ];
+    if (featureName && featureName !== 'summarization') {
+      storageKeys.push(`featureModel_${featureName}`);
+    } else {
+      storageKeys.push('featureModel_summarization');
+    }
+    const result = await chrome.storage.local.get(storageKeys);
     const aiMode = result.aiMode || 'off';
 
     if (aiMode === 'local') {
@@ -84,7 +98,20 @@ export async function getAIMode(featureName = 'summarization') {
 
     if (aiMode === 'cloud') {
       const provider = result.cloudProvider || 'anthropic';
-      const modelKey = result.cloudModel || getFeatureDefault(provider, featureName) || 'haiku-4.5';
+      // Check for per-feature model override (only for anthropic, only when auto-select is off)
+      let modelKey;
+      const autoSelect = result.featureModelAutoSelect !== false; // default true
+      const featureOverride = result[`featureModel_${featureName}`];
+      if (
+        !autoSelect &&
+        featureOverride &&
+        featureOverride !== 'auto' &&
+        provider === 'anthropic'
+      ) {
+        modelKey = FEATURE_MODEL_KEY_MAP[featureOverride] || featureOverride;
+      } else {
+        modelKey = result.cloudModel || getFeatureDefault(provider, featureName) || 'haiku-4.5';
+      }
       return {
         aiMode: 'cloud',
         modelKey,

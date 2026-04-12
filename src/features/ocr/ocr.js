@@ -1810,6 +1810,18 @@ async function ocr_showResultModal(result, imageDataUrl) {
       border-radius: 0 0 12px 12px;
     `;
     footer.innerHTML = sanitizeHTML(`
+      <button id="assist-ocr-study-path" style="
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #5f2c82 0%, #49a09d 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: opacity 0.2s;
+      " onmouseover="this.style.opacity='0.85'"
+         onmouseout="this.style.opacity='1'">📚 Study Path</button>
       <button id="assist-ocr-copy" style="
         padding: 10px 20px;
         background: #007bff;
@@ -1948,6 +1960,23 @@ async function ocr_showResultModal(result, imageDataUrl) {
       overlay.remove();
       resolve();
     });
+
+    // Study Path button — passes full OCR text directly to avoid textarea selection limitation
+    const studyPathBtn = document.getElementById('assist-ocr-study-path');
+    if (studyPathBtn) {
+      attachInteractiveHandler(studyPathBtn, 'OCR Study Path', () => {
+        const fullText = ocrMediaPlayer.fullText;
+        if (window.assistFeatures?.studyPathGenerator) {
+          ocr_stopPlayback();
+          overlay.remove();
+          resolve();
+          window.assistFeatures.studyPathGenerator.show(fullText);
+        } else {
+          console.warn('[OCR] Study Path Generator feature not loaded');
+          alert('Study Path Generator is not available. Please ensure it is enabled in settings.');
+        }
+      });
+    }
 
     attachInteractiveHandler(document.getElementById('assist-ocr-copy'), 'OCR Copy', () => {
       ocr_copyToClipboard(ocrMediaPlayer.fullText);

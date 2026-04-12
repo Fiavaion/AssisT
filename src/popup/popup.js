@@ -16,6 +16,11 @@ import { migrateAnnotations } from '../features/annotations/migration-manager.js
 import { CitationManagerPanel } from './citation-manager-panel.js';
 import { sanitizeHTML } from '../utils/sanitize.js';
 import Sortable from 'sortablejs';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+} from '../features/shared/ai-feature-client.js';
 
 // Make DOMPurify available for sanitize.js (popup runs in separate context from content script)
 window.DOMPurify = DOMPurify;
@@ -5558,7 +5563,7 @@ class PopupController {
     // Toggle event
     textCustomizationEnabled.addEventListener('change', e => {
       this.settings.textCustomization.enabled = e.target.checked;
-      this.saveSettings();
+      this._saveTextCustomizationSettings();
 
       // Toggle description and options visibility
       if (e.target.checked) {
@@ -5570,12 +5575,29 @@ class PopupController {
       }
     });
 
+    // Sync toggle: "Apply to all windows" (default ON)
+    const syncToggle = document.getElementById('text-customization-sync');
+    chrome.storage.local.get('textCustomSync', result => {
+      // Default to true (sync on) if not yet stored
+      syncToggle.checked = result.textCustomSync !== false;
+    });
+    this.attachInteractiveHandler(syncToggle, 'Text Customization Sync Toggle', () => {
+      const syncEnabled = syncToggle.checked;
+      chrome.storage.local
+        .set({ textCustomSync: syncEnabled })
+        .catch(err => console.error('[Popup] Failed to save textCustomSync:', err));
+      // When switching back to "all windows", push current settings globally
+      if (syncEnabled) {
+        this._saveTextCustomizationSettings();
+      }
+    });
+
     // Font Family selector
     const fontFamilySelect = document.getElementById('text-font-family');
     fontFamilySelect.value = this.settings.textCustomization.fontFamily || 'lexend';
     fontFamilySelect.addEventListener('change', e => {
       this.settings.textCustomization.fontFamily = e.target.value;
-      this.saveSettings();
+      this._saveTextCustomizationSettings();
     });
 
     // Line Spacing slider
@@ -5587,7 +5609,7 @@ class PopupController {
       const value = parseFloat(e.target.value);
       lineSpacingValue.textContent = value;
       this.settings.textCustomization.lineSpacing = value;
-      this.saveSettings();
+      this._saveTextCustomizationSettings();
     });
 
     // Letter Spacing slider (percentage to em conversion)
@@ -5604,7 +5626,7 @@ class PopupController {
       letterSpacingValue.textContent = percent + '%';
       // Convert percentage to em (12% = 0.12em)
       this.settings.textCustomization.letterSpacing = percent / 100;
-      this.saveSettings();
+      this._saveTextCustomizationSettings();
     });
 
     // Word Spacing slider (percentage to em conversion)
@@ -5621,7 +5643,7 @@ class PopupController {
       wordSpacingValue.textContent = percent + '%';
       // Convert percentage to em (16% = 0.16em)
       this.settings.textCustomization.wordSpacing = percent / 100;
-      this.saveSettings();
+      this._saveTextCustomizationSettings();
     });
 
     // Paragraph Spacing slider
@@ -5633,10 +5655,32 @@ class PopupController {
       const value = parseFloat(e.target.value);
       paragraphSpacingValue.textContent = value + 'em';
       this.settings.textCustomization.paragraphSpacing = value;
-      this.saveSettings();
+      this._saveTextCustomizationSettings();
     });
 
     console.log('[Popup] Text Customization initialized');
+  }
+
+  /**
+   * Save text customization settings respecting the "Apply to all windows" sync toggle.
+   * Toggle ON (default): saves via the normal saveSettings() path — broadcasts to all tabs.
+   * Toggle OFF: saves to a dedicated chrome.storage.local key (this-device-only, no broadcast).
+   */
+  async _saveTextCustomizationSettings() {
+    const syncToggle = document.getElementById('text-customization-sync');
+    const syncEnabled = syncToggle ? syncToggle.checked : true;
+
+    if (syncEnabled) {
+      // Normal path: saves to assist_settings and broadcasts to all open tabs
+      await this.saveSettings();
+      // Clear any local-only override so the global setting takes effect everywhere
+      await chrome.storage.local.remove('textCustomization_local');
+    } else {
+      // This-window-only path: save to a dedicated local key (no broadcast to other tabs)
+      await chrome.storage.local.set({
+        textCustomization_local: this.settings.textCustomization,
+      });
+    }
   }
 
   // ============================================================
@@ -7581,6 +7625,8 @@ class PopupController {
         <div style="margin-bottom: 12px;">
           <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Word or Phrase:</label>
           <input type="text" id="vocab-word-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;" placeholder="e.g., adenocarcinoma">
+          <button id="suggest-pronunciation-btn" style="display: none; margin-top: 6px; padding: 5px 10px; border: 1px solid #4a90d9; border-radius: 6px; background: #f0f7ff; color: #357abd; font-size: 12px; cursor: pointer;">Suggest Pronunciation</button>
+          <span id="pronunciation-result" role="status" aria-live="polite" style="display: block; margin-top: 5px; font-size: 12px; color: #555; min-height: 18px;"></span>
         </div>
         <div style="margin-bottom: 16px;">
           <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Pronunciation Hint (optional):</label>
@@ -7664,6 +7710,61 @@ class PopupController {
     wordInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         document.getElementById('confirm-add-vocab').click();
+      }
+    });
+
+    // Show/hide "Suggest Pronunciation" button based on input content
+    const suggestBtn = document.getElementById('suggest-pronunciation-btn');
+    const pronunciationResult = document.getElementById('pronunciation-result');
+
+    wordInput.addEventListener('input', () => {
+      const hasText = wordInput.value.trim().length > 0;
+      suggestBtn.style.display = hasText ? 'inline-block' : 'none';
+      // Clear result when input changes
+      pronunciationResult.textContent = '';
+      pronunciationResult.style.color = '#555';
+    });
+
+    // Suggest Pronunciation button handler
+    this.attachInteractiveHandler(suggestBtn, 'Suggest Pronunciation Button', async () => {
+      const word = wordInput.value.trim();
+      if (!word) {
+        return;
+      }
+
+      pronunciationResult.textContent = 'Checking pronunciation\u2026';
+      pronunciationResult.style.color = '#888';
+      suggestBtn.disabled = true;
+
+      try {
+        const modeInfo = await getAIMode('stt');
+        const availability = await checkAIAvailable(modeInfo);
+
+        if (!availability.available) {
+          pronunciationResult.textContent =
+            'AI unavailable \u2014 pronunciation suggestion requires AI to be enabled';
+          pronunciationResult.style.color = '#c0392b';
+          return;
+        }
+
+        const prompt = `Provide a simple phonetic pronunciation guide for the word: "${word}". Reply with only the phonetic spelling, nothing else. Example format: 'SOK-ra-teez' for 'Socrates'.`;
+        const result = await generateWithAI(prompt, modeInfo, { maxTokens: 60 });
+
+        if (result && result.text) {
+          pronunciationResult.textContent = `Pronunciation: ${result.text.trim()}`;
+          pronunciationResult.style.color = '#27ae60';
+        } else {
+          pronunciationResult.textContent =
+            'Could not generate pronunciation \u2014 check AI settings';
+          pronunciationResult.style.color = '#c0392b';
+        }
+      } catch (err) {
+        console.warn('[Popup] Pronunciation suggestion failed:', err);
+        pronunciationResult.textContent =
+          'Could not generate pronunciation \u2014 check AI settings';
+        pronunciationResult.style.color = '#c0392b';
+      } finally {
+        suggestBtn.disabled = false;
       }
     });
   }
@@ -8156,7 +8257,6 @@ class PopupController {
         bionicReading: true,
         syllableHighlighting: false,
         grammarColors: false,
-        colorIntensity: 0.7,
       };
     }
 
@@ -8227,18 +8327,6 @@ class PopupController {
         this.settings.dyslexiaMode.grammarColors = true;
         this.saveSettings();
       }
-    });
-
-    // Color Intensity slider
-    const intensitySlider = document.getElementById('dyslexia-intensity');
-    const intensityValue = document.getElementById('dyslexia-intensity-value');
-    intensitySlider.value = this.settings.dyslexiaMode.colorIntensity || 0.7;
-    intensityValue.textContent = Math.round(intensitySlider.value * 100) + '%';
-    intensitySlider.addEventListener('input', e => {
-      const value = parseFloat(e.target.value);
-      intensityValue.textContent = Math.round(value * 100) + '%';
-      this.settings.dyslexiaMode.colorIntensity = value;
-      this.saveSettings();
     });
 
     console.log('[Popup] Dyslexia Mode initialized');
@@ -9822,6 +9910,123 @@ class PopupController {
     // Save model selection on blur too (immediate feedback)
     keyInput.addEventListener('blur', () => {
       // Just trim whitespace; save is explicit via button
+    });
+
+    // ── Feature Models section (Anthropic only) ───────────────────
+    await this._renderFeatureModelsSection(container, currentProvider);
+
+    // Keep feature models section in sync when provider changes
+    provSel.addEventListener('change', async () => {
+      const existingSection = container.querySelector('.ai-feature-models-section');
+      if (existingSection) {
+        existingSection.remove();
+      }
+      await this._renderFeatureModelsSection(container, provSel.value);
+    });
+  }
+
+  /**
+   * Render the per-feature model selection section (Anthropic only).
+   * @param {HTMLElement} container
+   * @param {string} provider
+   */
+  async _renderFeatureModelsSection(container, provider) {
+    // Only show for Anthropic
+    if (provider !== 'anthropic') {
+      return;
+    }
+
+    const FEATURE_LIST = [
+      { key: 'summarization', label: 'Summarization' },
+      { key: 'textSimplification', label: 'Text Simplification' },
+      { key: 'studyPathGenerator', label: 'Study Path Generator' },
+      { key: 'assignmentBreakdown', label: 'Assignment Breakdown' },
+      { key: 'socraticTutor', label: 'Socratic Tutor' },
+      { key: 'citationAnalyzer', label: 'Citation Analyzer' },
+      { key: 'knowledgeGraph', label: 'Knowledge Graph' },
+      { key: 'multiDocCompare', label: 'Multi-Doc Compare' },
+      { key: 'emotionalTTS', label: 'Emotional TTS' },
+    ];
+
+    const MODEL_OPTIONS = [
+      { value: 'auto', label: 'Auto (feature default)' },
+      { value: 'haiku', label: 'Haiku (fastest)' },
+      { value: 'sonnet', label: 'Sonnet (balanced)' },
+      { value: 'opus', label: 'Opus (most capable)' },
+    ];
+
+    // Load current preferences
+    const storageKeys = [
+      'featureModelAutoSelect',
+      ...FEATURE_LIST.map(f => `featureModel_${f.key}`),
+    ];
+    const stored = await chrome.storage.local.get(storageKeys);
+    const autoSelect = stored.featureModelAutoSelect !== false; // default true
+
+    const section = document.createElement('div');
+    section.className = 'ai-feature-models-section';
+    section.style.cssText =
+      'margin-top:12px;border-top:1px solid var(--border-color,#e0e0e0);padding-top:10px;';
+
+    // Section header + toggle row
+    const headerRow = document.createElement('div');
+    headerRow.className = 'ai-panel-row';
+    headerRow.style.marginBottom = '6px';
+    headerRow.innerHTML = `<span class="ai-panel-label" style="font-weight:600">Feature Models</span>`;
+
+    const toggleLabel = document.createElement('label');
+    toggleLabel.style.cssText =
+      'display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary,#666);cursor:pointer;';
+    const toggleCheck = document.createElement('input');
+    toggleCheck.type = 'checkbox';
+    toggleCheck.checked = autoSelect;
+    toggleCheck.setAttribute('aria-label', 'Auto-select best model for each feature');
+    toggleLabel.appendChild(toggleCheck);
+    toggleLabel.appendChild(document.createTextNode('Auto-select'));
+    headerRow.appendChild(toggleLabel);
+    section.appendChild(headerRow);
+
+    // Per-feature dropdown rows (shown when auto-select is OFF)
+    const featureRows = document.createElement('div');
+    featureRows.className = 'ai-feature-model-rows';
+    featureRows.style.display = autoSelect ? 'none' : 'block';
+
+    FEATURE_LIST.forEach(feature => {
+      const currentVal = stored[`featureModel_${feature.key}`] || 'auto';
+      const row = document.createElement('div');
+      row.className = 'ai-panel-row';
+      row.style.cssText = 'padding:3px 0;';
+      const labelEl = document.createElement('span');
+      labelEl.className = 'ai-panel-label';
+      labelEl.style.cssText = 'font-size:12px;color:var(--text-secondary,#666);';
+      labelEl.textContent = feature.label;
+      const sel = document.createElement('select');
+      sel.className = 'ai-panel-select';
+      sel.style.cssText = 'font-size:12px;padding:2px 4px;';
+      sel.setAttribute('aria-label', `Model for ${feature.label}`);
+      MODEL_OPTIONS.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        o.selected = opt.value === currentVal;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', () => {
+        chrome.storage.local.set({ [`featureModel_${feature.key}`]: sel.value });
+      });
+      row.appendChild(labelEl);
+      row.appendChild(sel);
+      featureRows.appendChild(row);
+    });
+
+    section.appendChild(featureRows);
+    container.appendChild(section);
+
+    // Toggle handler
+    toggleCheck.addEventListener('change', () => {
+      const isAuto = toggleCheck.checked;
+      chrome.storage.local.set({ featureModelAutoSelect: isAuto });
+      featureRows.style.display = isAuto ? 'none' : 'block';
     });
   }
 

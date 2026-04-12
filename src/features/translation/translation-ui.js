@@ -98,12 +98,24 @@ async function translationUI_init() {
   console.log('[TranslationUI] Initializing...');
 
   try {
-    // Load recent languages from storage
-    const result = await chrome.storage.local.get(['translationRecentLanguages']);
+    // Load recent languages and last-used language pair from storage
+    const result = await chrome.storage.local.get([
+      'translationRecentLanguages',
+      'translation_lastSourceLang',
+      'translation_lastTargetLang',
+    ]);
 
     if (result.translationRecentLanguages) {
       translationUI_recentLanguages = result.translationRecentLanguages;
       console.log('[TranslationUI] Recent languages loaded:', translationUI_recentLanguages);
+    }
+
+    if (result.translation_lastSourceLang) {
+      translationUI_currentSourceLang = result.translation_lastSourceLang;
+    }
+
+    if (result.translation_lastTargetLang) {
+      translationUI_currentTargetLang = result.translation_lastTargetLang;
     }
 
     console.log('[TranslationUI] Initialized successfully');
@@ -298,6 +310,20 @@ function translationUI_createModal(originalText, translatedText = '') {
   attachInteractiveHandler(translateButton, 'Translation Translate Button', () =>
     translationUI_handleTranslate()
   );
+
+  // Persist language selection changes to storage
+  sourceSelect.addEventListener('change', () => {
+    translationUI_currentSourceLang = sourceSelect.value;
+    chrome.storage.local
+      .set({ translation_lastSourceLang: sourceSelect.value })
+      .catch(err => console.error('[TranslationUI] Failed to save source lang:', err));
+  });
+  targetSelect.addEventListener('change', () => {
+    translationUI_currentTargetLang = targetSelect.value;
+    chrome.storage.local
+      .set({ translation_lastTargetLang: targetSelect.value })
+      .catch(err => console.error('[TranslationUI] Failed to save target lang:', err));
+  });
 
   footer.appendChild(sourceContainer);
   footer.appendChild(arrow);
@@ -517,7 +543,7 @@ function translationUI_createLanguageSelector(id, selectedLang, includeAutoDetec
  * @param {string} targetLang - Target language code (default: 'en')
  * @returns {void}
  */
-function translationUI_openModal(selectedText, sourceLang = 'auto', targetLang = 'en') {
+function translationUI_openModal(selectedText, sourceLang = null, targetLang = null) {
   console.log('[TranslationUI] Opening modal');
 
   // Close existing modal if any
@@ -525,9 +551,9 @@ function translationUI_openModal(selectedText, sourceLang = 'auto', targetLang =
     translationUI_closeModal();
   }
 
-  // Update current languages
-  translationUI_currentSourceLang = sourceLang;
-  translationUI_currentTargetLang = targetLang;
+  // Use persisted last-used languages if no explicit override provided
+  translationUI_currentSourceLang = sourceLang || translationUI_currentSourceLang;
+  translationUI_currentTargetLang = targetLang || translationUI_currentTargetLang;
 
   // Create modal
   translationUI_modal = translationUI_createModal(selectedText, '');
@@ -609,6 +635,14 @@ async function translationUI_handleTranslate() {
   // Update current languages
   translationUI_currentSourceLang = sourceLang;
   translationUI_currentTargetLang = targetLang;
+
+  // Persist language selections to storage
+  chrome.storage.local
+    .set({
+      translation_lastSourceLang: sourceLang,
+      translation_lastTargetLang: targetLang,
+    })
+    .catch(err => console.error('[TranslationUI] Failed to save language pair:', err));
 
   // Disable button and show loading
   translateButton.disabled = true;
