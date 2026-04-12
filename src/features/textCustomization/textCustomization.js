@@ -292,6 +292,7 @@ initFeatureSettings(
 window.assistFeatures = window.assistFeatures || {};
 window.assistFeatures.textCustomization = {
   applySettings: settings => applySettings({ ...DEFAULT_SETTINGS, ...settings }, false),
+  remove: () => textCustomization_remove(),
 };
 
 // ============================================================
