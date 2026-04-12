@@ -5589,7 +5589,10 @@ class PopupController {
         .set({ textCustomSync: syncEnabled })
         .catch(err => console.error('[Popup] Failed to save textCustomSync:', err));
 
-      if (!syncEnabled) {
+      if (syncEnabled) {
+        // Toggle switched ON: push current formatting to all other tabs immediately
+        this._applyTextCustomizationAllTabs();
+      } else {
         // Toggle switched OFF: clear formatting on all OTHER tabs, apply to current tab only
         this._clearTextCustomizationOtherTabs();
       }
@@ -5716,6 +5719,33 @@ class PopupController {
       console.log('[Popup] Cleared text customization on all other tabs');
     } catch (err) {
       console.warn('[Popup] Error clearing text customization on other tabs:', err.message);
+    }
+  }
+
+  /**
+   * Push the current text customization settings to ALL tabs (including current).
+   * Called when "Apply to all windows" is toggled ON so other tabs immediately
+   * receive the formatting that was set while the toggle was OFF.
+   */
+  async _applyTextCustomizationAllTabs() {
+    try {
+      const tabs = await chrome.tabs.query({});
+      const sends = tabs
+        .filter(tab => tab.id)
+        .map(tab =>
+          chrome.tabs
+            .sendMessage(tab.id, {
+              type: 'LOCAL_TEXT_CUSTOMIZATION',
+              settings: this.settings.textCustomization,
+            })
+            .catch(() => {
+              // Tab may not have content script — silently ignore
+            })
+        );
+      await Promise.all(sends);
+      console.log('[Popup] Applied text customization to all tabs');
+    } catch (err) {
+      console.warn('[Popup] Error applying text customization to all tabs:', err.message);
     }
   }
 
