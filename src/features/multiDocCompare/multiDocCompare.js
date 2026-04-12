@@ -867,7 +867,11 @@ function mdc_updateLoadingState(loading) {
  */
 function mdc_show(initialText = null) {
   if (mdc_panel) {
+    if (mdc_dragCleanup) {
+      mdc_dragCleanup();
+    }
     mdc_panel.remove();
+    mdc_panel = null;
   }
 
   // Inject CSS to document.head before creating panel
