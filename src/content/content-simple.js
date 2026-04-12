@@ -360,9 +360,11 @@ _storageHandler = changes => {
         settings.pitch = ttsSettings.pitch || settings.pitch;
         settings.volume = ttsSettings.volume || settings.volume;
 
-        // If TTS was disabled, stop any current speech
-        if (!settings.enabled && oldTTSEnabled && synth.speaking) {
-          synth.cancel();
+        // If TTS was disabled, stop any current speech and clean up highlights
+        if (!settings.enabled && oldTTSEnabled) {
+          if (synth.speaking) {
+            synth.cancel();
+          }
           cleanupWordByWord(currentElement);
           removeHighlight();
           removeElementHighlight(currentElement);
@@ -374,7 +376,7 @@ _storageHandler = changes => {
           currentElement = null;
           currentText = '';
           isPaused = false;
-          console.log('[AssisT] TTS disabled, speech stopped');
+          console.log('[AssisT] TTS disabled, speech stopped and highlights cleared');
         }
 
         // Update voice only if changed
@@ -1072,11 +1074,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           settings.enabled = false;
           if (synth.speaking) {
             synth.cancel();
-            cleanupWordByWord(currentElement);
-            removeHighlight();
-            removeElementHighlight(currentElement);
           }
-          console.log('[AssisT] TTS disabled via direct command');
+          cleanupWordByWord(currentElement);
+          removeHighlight();
+          removeElementHighlight(currentElement);
+          if (currentElement) {
+            currentElement.style.outline = '';
+            currentElement.style.outlineOffset = '';
+          }
+          currentUtterance = null;
+          currentElement = null;
+          currentText = '';
+          isPaused = false;
+          console.log('[AssisT] TTS disabled via direct command, highlights cleared');
           break;
 
         case 'setVoice':
@@ -1449,6 +1459,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } else {
           sendResponse({ success: false, error: 'STT feature not initialized' });
         }
+      }
+      break;
+
+    case 'MINIMIZE_CLUTTER_UPDATE':
+      // Hide or show on-page UI overlays (textStats badge, etc.)
+      {
+        const badge = document.getElementById('assist-textstats-badge');
+        if (badge) {
+          badge.style.display = message.state ? 'none' : '';
+        }
+        sendResponse({ success: true });
       }
       break;
 

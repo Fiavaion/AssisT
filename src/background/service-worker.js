@@ -114,6 +114,7 @@ import { claudeGenerate } from '../ai/claude-client.js';
 import { REGISTRY } from '../ai/model-registry.js';
 
 import { cloudGenerate, cloudFetchModels, checkCloudAvailability } from '../ai/cloud-router.js';
+import { saveSecureAPIKey } from '../core/storage/secure-key-storage.js';
 
 // WebLLM imports (browser-native AI)
 import {
@@ -802,6 +803,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'CLOUD_LLM_CHECK') {
     checkCloudAvailability()
       .then(status => sendResponse({ success: true, ...status }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  // Save API key securely (called from ai-setup wizard which can't import secure-key-storage directly)
+  if (message.action === 'SAVE_API_KEY') {
+    const { provider, apiKey } = message;
+    if (!provider || !apiKey) {
+      sendResponse({ success: false, error: 'provider and apiKey are required' });
+      return false;
+    }
+    saveSecureAPIKey(provider, apiKey)
+      .then(() => sendResponse({ success: true }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
