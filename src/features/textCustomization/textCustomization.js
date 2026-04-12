@@ -279,30 +279,20 @@ function applySettings(settings, isInit = false) {
  * Checks chrome.storage.local for a "this window only" override first,
  * then falls back to the shared assist_settings path.
  */
-chrome.storage.local.get('textCustomization_local', result => {
-  if (result.textCustomization_local) {
-    // "This window only" override is set — use it directly
-    applySettings({ ...DEFAULT_SETTINGS, ...result.textCustomization_local }, true);
-    console.log('[TextCustomization] Loaded local-only override settings');
-  } else {
-    // Normal path: load from shared assist_settings
-    initFeatureSettings(
-      'textCustomization',
-      DEFAULT_SETTINGS,
-      settings => applySettings(settings, true),
-      settings => applySettings(settings, false)
-    );
-  }
-});
+// Normal path: load from shared assist_settings
+initFeatureSettings(
+  'textCustomization',
+  DEFAULT_SETTINGS,
+  settings => applySettings(settings, true),
+  settings => applySettings(settings, false)
+);
 
-// Always listen for local override changes (written when toggle is OFF)
-chrome.storage.onChanged.addListener(changes => {
-  if (changes.textCustomization_local) {
-    if (changes.textCustomization_local.newValue) {
-      applySettings({ ...DEFAULT_SETTINGS, ...changes.textCustomization_local.newValue }, false);
-    }
-  }
-});
+// Expose applySettings so content-simple.js can call it for local-only applies
+// (when the popup's "Apply to all windows" toggle is OFF)
+window.assistFeatures = window.assistFeatures || {};
+window.assistFeatures.textCustomization = {
+  applySettings: settings => applySettings({ ...DEFAULT_SETTINGS, ...settings }, false),
+};
 
 // ============================================================
 // EXPORTS

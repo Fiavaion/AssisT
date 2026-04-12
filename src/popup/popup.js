@@ -5664,22 +5664,29 @@ class PopupController {
   /**
    * Save text customization settings respecting the "Apply to all windows" sync toggle.
    * Toggle ON (default): saves via the normal saveSettings() path — broadcasts to all tabs.
-   * Toggle OFF: saves to a dedicated chrome.storage.local key (this-device-only, no broadcast).
+   * Toggle OFF: sends directly to the current tab only via chrome.tabs.sendMessage.
+   *             Do NOT write to chrome.storage.local — it is shared across all tabs and
+   *             storage.onChanged would broadcast the change to every open window.
    */
   async _saveTextCustomizationSettings() {
     const syncToggle = document.getElementById('text-customization-sync');
     const syncEnabled = syncToggle ? syncToggle.checked : true;
 
     if (syncEnabled) {
-      // Normal path: saves to assist_settings and broadcasts to all open tabs
+      // Normal path: saves to assist_settings and broadcasts to all open tabs via storage.onChanged
       await this.saveSettings();
-      // Clear any local-only override so the global setting takes effect everywhere
-      await chrome.storage.local.remove('textCustomization_local');
     } else {
-      // This-window-only path: save to a dedicated local key (no broadcast to other tabs)
-      await chrome.storage.local.set({
-        textCustomization_local: this.settings.textCustomization,
-      });
+      // This-window-only path: send directly to the current tab only
+      if (this.currentTab?.id) {
+        try {
+          await chrome.tabs.sendMessage(this.currentTab.id, {
+            type: 'LOCAL_TEXT_CUSTOMIZATION',
+            settings: this.settings.textCustomization,
+          });
+        } catch (err) {
+          console.warn('[Popup] Could not send local text customization to tab:', err.message);
+        }
+      }
     }
   }
 
