@@ -31,8 +31,8 @@ import {
 let mdc_panel = null;
 let mdc_documents = [];
 let mdc_dragCleanup = null; // Cleanup fn for drag listeners when panel is closed
-// let _mdc_isLoading = false; // Reserved for future use
-// let _mdc_comparisonResult = null; // Reserved for future use
+let mdc_isLoading = false; // eslint-disable-line no-unused-vars
+let mdc_comparisonResult = null; // eslint-disable-line no-unused-vars
 
 const mdc_settings = {
   maxDocuments: 5,
@@ -416,13 +416,20 @@ function mdc_clearDocuments() {
  * @returns {Promise<Object>} Comparison result
  */
 async function mdc_compareDocuments() {
+  console.log('[MDC] mdc_compareDocuments() called');
+  console.log('[MDC] documents count:', mdc_documents.length);
+
   if (mdc_documents.length < 2) {
+    console.warn('[MDC] Not enough documents — need at least 2, have:', mdc_documents.length);
     throw new Error('Need at least 2 documents to compare');
   }
 
   // Get current AI mode
+  console.log('[MDC] Getting AI mode...');
   const modeInfo = await getAIMode('multiDocCompare');
+  console.log('[MDC] AI mode:', modeInfo);
   const availability = await checkAIAvailable(modeInfo);
+  console.log('[MDC] AI availability:', availability);
 
   if (!availability.available) {
     if (availability.needsApiKey) {
@@ -907,7 +914,18 @@ function mdc_show(initialText = null) {
 
   const compareBtn = document.getElementById('mdc-compare-btn');
   if (compareBtn) {
-    attachInteractiveHandler(compareBtn, 'Multi-Doc Compare Button', mdc_compareDocuments);
+    console.log('[MDC] Wiring compare button, disabled:', compareBtn.disabled);
+    attachInteractiveHandler(compareBtn, 'Multi-Doc Compare Button', () => {
+      console.log(
+        '[MDC] Compare button clicked! disabled:',
+        compareBtn.disabled,
+        'docs:',
+        mdc_documents.length
+      );
+      mdc_compareDocuments().catch(err => console.error('[MDC] compareDocuments threw:', err));
+    });
+  } else {
+    console.error('[MDC] Compare button NOT FOUND in DOM');
   }
 
   // Drag-to-move on header (Pointer Events API + setPointerCapture)
