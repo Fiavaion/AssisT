@@ -246,7 +246,7 @@ export const REGISTRY = {
       textSimplification: 'sonnet-4.6',
       assignmentBreakdown: 'sonnet-4.6',
       citationAnalyzer: 'sonnet-4.6',
-      socraticTutor: 'opus-4.6',
+      socraticTutor: 'sonnet-4.6',
       imageUnderstanding: 'sonnet-4.6',
       studyPathGenerator: 'sonnet-4.6',
       multiDocCompare: 'opus-4.6',

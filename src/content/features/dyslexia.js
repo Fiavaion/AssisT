@@ -14,7 +14,6 @@ const dyslexiaMode_settings = {
   bionicReading: true,
   syllableHighlighting: false,
   grammarColors: false,
-  colorIntensity: 0.7, // 0.5-1.0, affects saturation
 };
 const dyslexiaMode_originalContent = new Map(); // Store original HTML
 const dyslexiaMode_processedElements = new Set(); // Track processed elements
@@ -165,11 +164,9 @@ function dyslexiaMode_applySyllableHighlighting(element) {
     textNodes.push(node);
   }
 
-  // More vibrant, visible colors for syllable highlighting
-  // Using higher opacity and more saturated colors for better visibility
-  const intensity = dyslexiaMode_settings.colorIntensity;
-  const color1 = `rgba(100, 181, 246, ${0.3 + intensity * 0.4})`; // Vibrant blue (0.3-0.7 opacity)
-  const color2 = `rgba(255, 213, 79, ${0.3 + intensity * 0.4})`; // Vibrant yellow/gold (0.3-0.7 opacity)
+  // Vibrant, visible colors for syllable highlighting
+  const color1 = `rgba(100, 181, 246, 0.58)`; // Vibrant blue
+  const color2 = `rgba(255, 213, 79, 0.58)`; // Vibrant yellow/gold
 
   textNodes.forEach(textNode => {
     const text = textNode.textContent;
@@ -221,14 +218,12 @@ function dyslexiaMode_applyGrammarColors(element) {
   // Parse with compromise NLP library
   const doc = nlp(text);
 
-  // Color mapping - using vibrant, visible colors with good contrast
-  const intensity = dyslexiaMode_settings.colorIntensity;
-  const baseOpacity = 0.25 + intensity * 0.35; // 0.25-0.6 opacity range
+  // Color mapping - vibrant, visible colors with good contrast
   const colors = {
-    noun: `rgba(33, 150, 243, ${baseOpacity})`, // Blue - nouns
-    verb: `rgba(76, 175, 80, ${baseOpacity})`, // Green - verbs
-    adjective: `rgba(156, 39, 176, ${baseOpacity})`, // Purple - adjectives
-    adverb: `rgba(255, 152, 0, ${baseOpacity})`, // Orange - adverbs
+    noun: `rgba(33, 150, 243, 0.48)`, // Blue - nouns
+    verb: `rgba(76, 175, 80, 0.48)`, // Green - verbs
+    adjective: `rgba(156, 39, 176, 0.48)`, // Purple - adjectives
+    adverb: `rgba(255, 152, 0, 0.48)`, // Orange - adverbs
     other: 'transparent', // No background for other words
   };
 
@@ -488,7 +483,6 @@ function dyslexiaMode_handleSettingsChange(newSettings) {
   dyslexiaMode_settings.bionicReading = dmSettings.bionicReading !== false;
   dyslexiaMode_settings.syllableHighlighting = dmSettings.syllableHighlighting || false;
   dyslexiaMode_settings.grammarColors = dmSettings.grammarColors || false;
-  dyslexiaMode_settings.colorIntensity = dmSettings.colorIntensity || 0.7;
 
   // Handle enable/disable
   if (newEnabled && !wasEnabled) {
@@ -520,7 +514,6 @@ export async function dyslexia_initialize() {
     dyslexiaMode_settings.bionicReading = dmSettings.bionicReading !== false;
     dyslexiaMode_settings.syllableHighlighting = dmSettings.syllableHighlighting || false;
     dyslexiaMode_settings.grammarColors = dmSettings.grammarColors || false;
-    dyslexiaMode_settings.colorIntensity = dmSettings.colorIntensity || 0.7;
 
     if (dyslexiaMode_enabled) {
       // Apply after page loads

@@ -577,26 +577,6 @@
                     </label>
                   </div>
                 </div>
-                <div class="control-subsection">
-                  <h3 class="subsection-title">
-                    <label for="dyslexia-intensity">Color Intensity</label>
-                    <span class="control-value" id="dyslexia-intensity-value">70%</span>
-                  </h3>
-                  <div class="slider-control">
-                    <input
-                      type="range"
-                      id="dyslexia-intensity"
-                      data-testid="dyslexia-intensity-slider"
-                      class="slider"
-                      min="0.5"
-                      max="1.0"
-                      step="0.1"
-                      value="0.7"
-                      aria-label="Adjust color intensity"
-                    />
-                    <div class="slider-labels"><span>Subtle</span><span>Strong</span></div>
-                  </div>
-                </div>
               </div>
             </section>
 
@@ -623,6 +603,19 @@
             <div id="ocr-options-container" class="options-container hidden">
               <section class="control-section">
                 <p class="feature-description">Extract text from PDFs, images, and screenshots</p>
+                <p
+                  style="
+                    margin-top: 8px;
+                    padding: 8px;
+                    background: rgba(245, 158, 11, 0.1);
+                    border-left: 3px solid #f59e0b;
+                    border-radius: 4px;
+                    font-size: 11px;
+                  "
+                >
+                  ⚠️ <strong>Alpha:</strong> OCR accuracy is still being improved and may not
+                  reliably recognise all text from images.
+                </p>
                 <button
                   id="btn-trigger-ocr"
                   data-testid="ocr-button"
@@ -1769,6 +1762,22 @@
                 Adjust font and spacing
               </p>
               <div id="text-customization-options" class="text-customization-options hidden">
+                <div class="control-subsection">
+                  <label class="toggle-label" for="text-customization-sync">
+                    <span class="label-text" style="font-size: 13px">Apply to all windows</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="text-customization-sync"
+                        data-testid="text-customization-sync-toggle"
+                        role="switch"
+                        aria-label="Apply text customization to all windows"
+                        checked
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
                 <div class="control-subsection">
                   <h3 class="subsection-title"><label for="text-font-family">Font</label></h3>
                   <select
