@@ -910,19 +910,17 @@ function mdc_show(initialText = null) {
     attachInteractiveHandler(compareBtn, 'Multi-Doc Compare Button', mdc_compareDocuments);
   }
 
-  // Drag-to-move on header
+  // Drag-to-move on header (Pointer Events API + setPointerCapture)
+  // setPointerCapture routes all subsequent pointer events to the header element
+  // for the duration of the gesture — no document-level listeners needed, and it
+  // works reliably even if the pointer moves outside the element mid-drag.
   const header = mdc_panel.querySelector('.mdc-header');
   if (header) {
-    let mdc_isDragging = false;
-    let mdc_dragOffsetX = 0;
-    let mdc_dragOffsetY = 0;
-
-    header.addEventListener('mousedown', e => {
+    const onPointerDown = e => {
       // Only drag on left button; ignore clicks on the close button
       if (e.button !== 0 || e.target.classList.contains('mdc-close')) {
         return;
       }
-      mdc_isDragging = true;
 
       // Switch from centering transform to explicit top/left
       const rect = mdc_panel.getBoundingClientRect();
@@ -930,42 +928,39 @@ function mdc_show(initialText = null) {
       mdc_panel.style.left = `${rect.left}px`;
       mdc_panel.style.top = `${rect.top}px`;
 
-      mdc_dragOffsetX = e.clientX - rect.left;
-      mdc_dragOffsetY = e.clientY - rect.top;
-
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
       mdc_panel.style.userSelect = 'none';
-      e.preventDefault();
-    });
 
-    const mdc_onMouseMove = e => {
-      if (!mdc_isDragging) {
-        return;
-      }
-      const panelW = mdc_panel.offsetWidth;
-      const panelH = mdc_panel.offsetHeight;
-      let newLeft = e.clientX - mdc_dragOffsetX;
-      let newTop = e.clientY - mdc_dragOffsetY;
-      // Clamp to viewport
-      newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - panelW));
-      newTop = Math.max(0, Math.min(newTop, window.innerHeight - panelH));
-      mdc_panel.style.left = `${newLeft}px`;
-      mdc_panel.style.top = `${newTop}px`;
-    };
+      // Capture pointer so move/up events route here even outside the element
+      header.setPointerCapture(e.pointerId);
 
-    const mdc_onMouseUp = () => {
-      if (mdc_isDragging) {
-        mdc_isDragging = false;
+      const onMove = evt => {
+        const panelW = mdc_panel.offsetWidth;
+        const panelH = mdc_panel.offsetHeight;
+        const newLeft = Math.max(0, Math.min(evt.clientX - offsetX, window.innerWidth - panelW));
+        const newTop = Math.max(0, Math.min(evt.clientY - offsetY, window.innerHeight - panelH));
+        mdc_panel.style.left = `${newLeft}px`;
+        mdc_panel.style.top = `${newTop}px`;
+      };
+
+      const onUp = () => {
         mdc_panel.style.userSelect = '';
-      }
+        header.removeEventListener('pointermove', onMove);
+        header.removeEventListener('pointerup', onUp);
+      };
+
+      header.addEventListener('pointermove', onMove);
+      header.addEventListener('pointerup', onUp);
+
+      e.preventDefault();
     };
 
-    document.addEventListener('mousemove', mdc_onMouseMove);
-    document.addEventListener('mouseup', mdc_onMouseUp);
+    header.addEventListener('pointerdown', onPointerDown);
 
-    // Store cleanup so mdc_hide can remove drag listeners
+    // Store cleanup so mdc_hide can remove the persistent drag listener
     mdc_dragCleanup = () => {
-      document.removeEventListener('mousemove', mdc_onMouseMove);
-      document.removeEventListener('mouseup', mdc_onMouseUp);
+      header.removeEventListener('pointerdown', onPointerDown);
       mdc_dragCleanup = null;
     };
   }
