@@ -5575,11 +5575,11 @@ class PopupController {
       }
     });
 
-    // Sync toggle: "Apply to all windows" (default ON)
+    // Sync toggle: "Apply to all windows" (default OFF)
     const syncToggle = document.getElementById('text-customization-sync');
     chrome.storage.local.get('textCustomSync', result => {
-      // Default to true (sync on) if not yet stored
-      syncToggle.checked = result.textCustomSync !== false;
+      // Default to false (local only) if not yet stored
+      syncToggle.checked = result.textCustomSync === true;
     });
     // Use change event (not attachInteractiveHandler) — mousedown+preventDefault
     // would block the checkbox from toggling its checked state.
@@ -5588,7 +5588,13 @@ class PopupController {
       chrome.storage.local
         .set({ textCustomSync: syncEnabled })
         .catch(err => console.error('[Popup] Failed to save textCustomSync:', err));
-      // Always re-save when toggling so current settings go to the right store
+
+      if (!syncEnabled) {
+        // Toggle switched OFF: clear formatting on all OTHER tabs, apply to current tab only
+        this._clearTextCustomizationOtherTabs();
+      }
+
+      // Save settings to the appropriate destination
       this._saveTextCustomizationSettings();
     });
 
@@ -5687,6 +5693,29 @@ class PopupController {
           console.warn('[Popup] Could not send local text customization to tab:', err.message);
         }
       }
+    }
+  }
+
+  /**
+   * Send CLEAR_TEXT_CUSTOMIZATION to all tabs except the current one.
+   * Called when the "Apply to all windows" toggle is switched OFF so that
+   * other windows revert to unstyled and only the focused window keeps formatting.
+   */
+  async _clearTextCustomizationOtherTabs() {
+    try {
+      const tabs = await chrome.tabs.query({});
+      const currentId = this.currentTab?.id;
+      const sends = tabs
+        .filter(tab => tab.id !== currentId && tab.id)
+        .map(tab =>
+          chrome.tabs.sendMessage(tab.id, { type: 'CLEAR_TEXT_CUSTOMIZATION' }).catch(() => {
+            // Tab may not have content script — silently ignore
+          })
+        );
+      await Promise.all(sends);
+      console.log('[Popup] Cleared text customization on all other tabs');
+    } catch (err) {
+      console.warn('[Popup] Error clearing text customization on other tabs:', err.message);
     }
   }
 

@@ -1499,6 +1499,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'CLEAR_TEXT_CUSTOMIZATION':
+      // Remove all text customization from THIS tab.
+      // Sent to all OTHER tabs when the sync toggle is switched OFF.
+      console.log('[AssisT] Clearing text customization on this tab');
+      if (window.assistFeatures && window.assistFeatures.textCustomization) {
+        window.assistFeatures.textCustomization.remove();
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'textCustomization not initialized' });
+      }
+      break;
+
     default:
       // Handle undefined or unknown message types gracefully
       if (message.type === undefined) {
