@@ -15,7 +15,7 @@
 - [ ] Navigate to Fiavaion website directory:
 
   ```bash
-  cd c:\Users\jones\AIprojects\Fiavaion\website
+  cd <path-to-fiavaion-repo>/website
   ```
 
 - [ ] Build the website:
@@ -47,7 +47,7 @@
 - [ ] Navigate to AssisT directory:
 
   ```bash
-  cd C:\Users\jones\AIprojects\AssisT
+  cd <path-to-assist-repo>
   ```
 
 - [ ] Build extension:
@@ -70,7 +70,7 @@
   1. Open `chrome://extensions/`
   2. Enable "Developer mode"
   3. Click "Load unpacked"
-  4. Select `C:\Users\jones\AIprojects\AssisT\.vite\` directory
+  4. Select `<path-to-assist-repo>/.vite/` directory
 
 - [ ] Verify extension loads without errors
 
