@@ -1,8 +1,8 @@
-# Chrome Web Store Submission Checklist - AssisT v0.1.1
+# Chrome Web Store Submission Checklist - AssisT v0.1.2
 
-**Submission Date:** February 13, 2026
-**Extension Version:** 0.1.1
-**Last Documentation Update:** February 13, 2026
+**Submission Date:** April 12, 2026
+**Extension Version:** 0.1.2
+**Last Documentation Update:** April 12, 2026
 
 ---
 
@@ -28,8 +28,8 @@
 
 - [ ] **VERIFY LIVE URL:** https://fiavaion.com/products/assist/privacy
   - [ ] Page loads successfully
-  - [ ] Shows **"Last Updated: February 13, 2026"**
-  - [ ] Shows **"Version: 0.1.1"**
+  - [ ] Shows **"Last Updated: April 12, 2026"**
+  - [ ] Shows **"Version: 0.1.2"**
   - [ ] All 4 AI modes documented (Off, Ollama, Gemini Nano, Cloud)
   - [ ] Mentions **Claude Haiku 4.5, Sonnet 4.5, Opus 4.6**
   - [ ] Specifies **AES-256-GCM encryption**
@@ -97,7 +97,7 @@
 
 ## ✅ PHASE 3: MANIFEST.JSON VERIFICATION
 
-- [ ] **Version:** `"version": "0.1.1"`
+- [ ] **Version:** `"version": "0.1.2"`
 
 - [ ] **Privacy Policy URL:**
 
@@ -137,9 +137,9 @@
 
 ### Extension Privacy Policy (.vite/privacy-policy.html)
 
-- [ ] **Last Updated:** February 13, 2026
-- [ ] **Effective Date:** February 13, 2026
-- [ ] **Version:** 0.1.1
+- [ ] **Last Updated:** April 12, 2026
+- [ ] **Effective Date:** April 12, 2026
+- [ ] **Version:** 0.1.2
 
 - [ ] **4 AI Modes Documented:**
   - [ ] Mode 1: Off
@@ -175,8 +175,8 @@
 ### Website Privacy Policy (Matches Extension)
 
 - [ ] Both policies are consistent
-- [ ] Same date (February 13, 2026)
-- [ ] Same version (0.1.1)
+- [ ] Same date (April 12, 2026)
+- [ ] Same version (0.1.2)
 - [ ] Same AI modes description
 - [ ] Same encryption details
 - [ ] Same external API list
@@ -187,17 +187,17 @@
 
 ### Version Numbers
 
-- [ ] **manifest.json:** 0.1.1
-- [ ] **README.md:** 0.1.1
-- [ ] **CHANGELOG.md:** 0.1.1 entry exists
-- [ ] **Extension privacy policy:** 0.1.1
-- [ ] **Website privacy policy:** 0.1.1
-- [ ] **Product page:** 0.1.1
+- [ ] **manifest.json:** 0.1.2
+- [ ] **README.md:** 0.1.2
+- [ ] **CHANGELOG.md:** 0.1.2 entry exists
+- [ ] **Extension privacy policy:** 0.1.2
+- [ ] **Website privacy policy:** 0.1.2
+- [ ] **Product page:** 0.1.2
 
 ### Dates
 
-- [ ] **Extension privacy policy:** February 13, 2026
-- [ ] **Website privacy policy:** February 13, 2026
+- [ ] **Extension privacy policy:** April 12, 2026
+- [ ] **Website privacy policy:** April 12, 2026
 - [ ] **README.md:** Last Updated 2026-02-13
 
 ### Feature Counts
@@ -325,7 +325,7 @@
 ### Documentation
 
 - [ ] README.md is accurate
-- [ ] CHANGELOG.md updated for v0.1.1
+- [ ] CHANGELOG.md updated for v0.1.2
 - [ ] GitHub repository is public
 - [ ] License file present (MIT)
 - [ ] Contributing guidelines present
@@ -428,13 +428,13 @@
 ### Must Be True Before Submission:
 
 ✅ **Privacy policy is LIVE at:** https://fiavaion.com/products/assist/privacy
-✅ **Privacy policy shows:** Feb 13, 2026 / v0.1.1
+✅ **Privacy policy shows:** Feb 13, 2026 / v0.1.2
 ✅ **Privacy policy includes:** 4 AI modes, AES-256, Claude 4.5/4.6
 ✅ **manifest.json includes:** privacy_policy URL
 ✅ **Extension builds without errors**
 ✅ **Extension loads and works in Chrome**
-✅ **All version numbers are 0.1.1**
-✅ **All dates are February 13, 2026**
+✅ **All version numbers are 0.1.2**
+✅ **All dates are April 12, 2026**
 ✅ **Documentation is consistent across repos**
 ✅ **No Claude 3 references remain**
 ✅ **Feature counts are accurate (35+ / 8 AI)**

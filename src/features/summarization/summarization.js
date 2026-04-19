@@ -307,6 +307,7 @@ function summarization_injectStyles() {
       max-width: calc(100vw - 40px);
       max-height: 500px;
       background: #ffffff;
+      color: #333;
       border: 1px solid #e0e0e0;
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);

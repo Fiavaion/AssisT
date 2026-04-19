@@ -1,11 +1,11 @@
 # AssisT Extension - Current Status
 
-**Last Updated**: 2026-04-12
-**Version**: v0.1.1 (Phase 1 Complete, Phase 2 COMPLETE, AI Overhaul Edition)
+**Last Updated**: 2026-04-13
+**Version**: v0.1.2 (Phase 1 Complete, Phase 2 COMPLETE, AI Overhaul Edition, CWS Resubmission Ready)
 **Current Phase**: Phase 2 Extension - Bug Fixes & CWS Preparation
 **Git Savepoint**: v0.1.0-pre-phase2 (commit f16053c)
 **Current Branch**: beta_CWS
-**Session**: Phase 2 Session 101 (Bug Fixes: STT Scroll, MDC Drag/Compare, Translation Memory, Text Sync Toggle)
+**Session**: Phase 2 Session 102 (AI Panel White-Text Fix, v0.1.2 Bump, CWS Resubmission Prep)
 
 ---
 
@@ -47,6 +47,16 @@
 ---
 
 ## ✅ Recently Completed
+
+### Phase 2 Session 102 (2026-04-13)
+
+**AI Panel White-Text Fix, v0.1.2 Bump, CWS Resubmission Prep**
+
+Diagnosed "complete failure" report on Study Path local AI — root cause was CSS, not AI pipeline. `#assist-spg-panel` had `background: white` but no explicit `color`, so `.spg-topic-title` inherited white/light text from the dark-themed page body (same Canvas white-text inheritance bug fixed in session 101 for MDC/translation, but missed on this panel). Fixed with single-line `color: #333` addition on root, then proactively applied same fix to three other AI panels with identical pattern: `assignmentBreakdown`, `citationAnalyzer`, `summarization`.
+
+Bumped extension to v0.1.2 (manifest.json, package.json). Updated CHANGELOG.md with comprehensive `[0.1.2]` entry covering sessions 100-102. Updated CWS_SUBMISSION_CHECKLIST.md (bulk date + version), public/privacy-policy.html (April 12, 2026 / 0.1.2), docs/PRIVACY_POLICY.md. Built extension (`.vite/manifest.json` at 0.1.2), produced upload zip `AssisT_0.1.2_CWS.zip` (8.4 MB). Delivered full CWS store copy to user: name, 131-char summary, single purpose description, full description, category, URLs, permissions justification table. Website deploy (Fiavaion repo) deferred to user — correctly identified as separate-repo work.
+
+Build: ✅ clean. Ready for CWS upload pending website privacy policy deploy.
 
 ### Phase 2 Session 101 (2026-04-12)
 

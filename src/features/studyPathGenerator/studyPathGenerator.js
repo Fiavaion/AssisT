@@ -40,6 +40,7 @@ const SPG_PANEL_CSS = `
     max-width: 90vw;
     max-height: 85vh;
     background: white;
+    color: #333;
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.25);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
