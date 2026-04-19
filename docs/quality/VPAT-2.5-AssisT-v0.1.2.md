@@ -6,7 +6,7 @@
 
 **Date:** 2026-04-19
 
-**Contact Information:** `accessibility@fiavaion.com` — Fiavaion ([Your Legal Name]), Ireland. Website: <https://fiavaion.com/products/assist/>
+**Contact Information:** `accessibility@fiavaion.com` — Fiavaion, Ireland. Website: <https://fiavaion.com/products/assist/>. The legal person behind the Fiavaion trading name is identifiable on written request to the contact address above; this ensures funders, HEIs, and procurement offices can confirm counterparty identity without placing the maintainer's personal name in public documentation.
 
 **Notes:** This VPAT is an internal self-assessment prepared by the project maintainer based on the accompanying [WCAG 2.2 AA audit](./WCAG_2.2_AA_AUDIT.md) dated 2025-10-13, updated for product version 0.1.2. It is published in good faith to support adoption decisions. External third-party validation is planned and will be republished as a superseding VPAT. Readers acting on procurement decisions are invited to contact the address above with questions or to report accessibility issues.
 
@@ -192,4 +192,4 @@ We aim to acknowledge reports within 5 working days.
 ---
 
 **Source audit:** [WCAG_2.2_AA_AUDIT.md](./WCAG_2.2_AA_AUDIT.md)
-**Copyright:** © 2026 Fiavaion ([Your Legal Name]). This VPAT is published under the [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/) licence; the AssisT product itself is distributed under the [European Union Public Licence v1.2 (EUPL-1.2)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12) — see repository `LICENSE`.
+**Copyright:** © 2026 Fiavaion. This VPAT is published under the [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/) licence; the AssisT product itself is distributed under the [European Union Public Licence v1.2 (EUPL-1.2)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12) — see repository `LICENSE`.

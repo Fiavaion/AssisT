@@ -103,3 +103,10 @@ docs/setup/
 docs/testing/
 docs/planning/
 !docs/user/
+
+# === Private contact / identity files (hybrid naming policy) ===
+# Legal identity behind the "Fiavaion" trading name is held privately,
+# disclosed to funders / HEIs on written request. Must never be committed.
+CONTACT.private.md
+*.private.md
+*.private.txt
