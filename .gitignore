@@ -110,3 +110,9 @@ docs/planning/
 CONTACT.private.md
 *.private.md
 *.private.txt
+
+# === Funding / grant proposal drafts ===
+# Drafts contain pre-submission budget negotiations and unconfirmed
+# partner-HEI candidates. Gitignored pre-submission. A committed
+# "submitted" folder can be added after the proposal lands.
+docs/funding/
