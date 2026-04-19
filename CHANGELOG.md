@@ -5,6 +5,45 @@ All notable changes to the AssisT extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-04-12
+
+### 🐛 Fixed
+
+#### API Key Security
+
+- **AI Setup wizard now encrypts API keys** — keys are routed through the service worker and stored with AES-256-GCM encryption; previously stored in plain text
+
+#### UI / Visual
+
+- **Minimize UI clutter** — "Minimize clutter" toggle now reliably hides the Text Stats badge
+- **TTS highlights** — disabling TTS now immediately clears stale highlights from the page
+- **Canvas white-text inheritance** — added explicit `color: #333` to root panel elements in Study Path Generator, Assignment Breakdown, Citation Analyzer, and Summarization panels; prevents invisible text on dark-themed pages (Canvas LMS, e2e test harness)
+- **Translation modal** — language dropdowns and result text now render with correct `#333` color on Canvas
+- **Multi-Document Compare** — result text and remove button now render correctly on Canvas
+
+#### STT (Speech-to-Text)
+
+- **Mic button scroll tracking** — button now correctly follows its text field when the page scrolls, using document-level capture phase listeners (fixes Canvas quiz panels and non-standard overflow containers)
+
+#### Multi-Document Compare
+
+- **Drag rewritten with Pointer Events API** — `setPointerCapture` replaces the unreliable `mousedown`+`document.mousemove` pattern; drag is now reliable with no listener leaks
+- **Compare button now functional** — fixed `ReferenceError` on `mdc_isLoading`/`mdc_comparisonResult` (variables were referenced but not declared, silently swallowed by event handler try/catch)
+- **Panel defaults to top-right** — improved initial positioning
+
+#### Translation
+
+- **Language pair memory** — From/To language dropdowns now remember the last used pair across sessions
+
+#### Text Customization Sync
+
+- **Sync toggle defaults to OFF** — text customization now only affects the current window by default (opt-in to broadcast)
+- **Toggle ON immediately applies** — enabling sync pushes current customization to all open tabs
+- **Toggle OFF cleanly clears** — disabling sync removes customization from all other tabs
+- **Storage race condition fixed** — now uses `chrome.tabs.sendMessage` instead of `chrome.storage.local` (which is shared across all tabs, defeating per-window intent)
+
+---
+
 ## [0.1.1] - 2026-02-11
 
 ### ✨ Added

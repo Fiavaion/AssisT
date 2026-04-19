@@ -520,6 +520,7 @@ function citation_injectStyles() {
       width: 420px;
       max-height: 80vh;
       background: white;
+      color: #333;
       border-radius: 12px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
       z-index: 2147483647;

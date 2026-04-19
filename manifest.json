@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "AssisT Development Team",
   "icons": {
     "16": "public/icons/icon16.png",
