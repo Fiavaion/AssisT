@@ -95,20 +95,8 @@ test-ai-features.html
 test-page.html
 start-ollama-cors.bat
 
-# === Project Documentation (internal/session notes) ===
-docs/*.md
-docs/archive/
-docs/sessions/
-docs/setup/
-docs/testing/
-docs/planning/
-docs/proposals/
-docs/typst/
-!docs/user/
-# Whitelist exceptions — user-facing docs caught by docs/*.md pattern above:
-!docs/AI_FEATURES.md
-!docs/AI_FEATURES_SUMMARY.md
-!docs/OCR_FEATURE_DOCUMENTATION.md
+# === Project Documentation (all internal) ===
+docs/
 
 # === Legacy directories archived to ~/.claude/archive/AssisT/ ===
 # These folders were removed from the repo on 2026-04-19 pre-public-flip.
