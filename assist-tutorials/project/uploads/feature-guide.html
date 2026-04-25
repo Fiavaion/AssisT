@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AssisT — Feature Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #09090f;
+    --nav-bg: #0f0f1a;
+    --panel-bg: #0d0d1a;
+    --surface: #141428;
+    --surface-2: #1a1a30;
+    --accent: #6366f1;
+    --accent-2: #818cf8;
+    --accent-glow: rgba(99,102,241,0.15);
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-faint: #475569;
+    --border: rgba(99,102,241,0.12);
+    --border-strong: rgba(99,102,241,0.3);
+    --nav-w: 260px;
+    --radius: 10px;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    overflow: hidden;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 20% 0%, rgba(99,102,241,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139,92,246,0.05) 0%, transparent 50%);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,102,241,0.04) 0%, transparent 70%);
+    top: -100px; left: 30%;
+    animation: blob 20s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes blob {
+    0%   { transform: translate(0,0) scale(1); }
+    33%  { transform: translate(80px, 60px) scale(1.1); }
+    66%  { transform: translate(-60px, 40px) scale(0.95); }
+    100% { transform: translate(40px, -40px) scale(1.05); }
+  }
+
+  /* ── NAV ── */
+  nav {
+    width: var(--nav-w);
+    min-width: var(--nav-w);
+    background: var(--nav-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    z-index: 10;
+  }
+
+  .nav-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .nav-logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 0 16px rgba(99,102,241,0.4);
+    animation: pulse-logo 4s ease-in-out infinite;
+  }
+  @keyframes pulse-logo {
+    0%, 100% { box-shadow: 0 0 16px rgba(99,102,241,0.4); }
+    50%       { box-shadow: 0 0 28px rgba(99,102,241,0.7); }
+  }
+
+  .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-sub  { font-size: 10px; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+
+  .nav-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 0 24px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  .nav-section { margin-bottom: 4px; }
+
+  .nav-section-header {
+    padding: 12px 20px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .nav-item {
+    display: block;
+    width: 100%;
+    padding: 9px 20px;
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nav-item:hover {
+    color: var(--text);
+    background: rgba(99,102,241,0.07);
+    border-left-color: var(--accent-2);
+  }
+  .nav-item.active {
+    color: #fff;
+    background: var(--accent-glow);
+    border-left-color: var(--accent);
+    font-weight: 500;
+  }
+
+  .nav-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.04em;
+  }
+  .badge-alpha { background: rgba(239,68,68,0.15); color: #f87171; }
+  .badge-beta  { background: rgba(234,179,8,0.15); color: #fbbf24; }
+  .badge-new   { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+  /* ── MAIN ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  .panel-header {
+    padding: 28px 48px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(to bottom, rgba(99,102,241,0.04), transparent);
+    flex-shrink: 0;
+  }
+  .panel-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .panel-header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 48px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  .panel { display: none; }
+  .panel.active {
+    display: block;
+    animation: panel-in 0.2s ease-out;
+  }
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── CONTENT ── */
+  .content-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .content-block::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .content-block.wide   { max-width: 860px; }
+  .content-block.narrow { max-width: 640px; }
+
+  .academic-text {
+    font-size: 16px;
+    line-height: 1.8;
+    color: var(--text);
+    font-weight: 300;
+  }
+  .academic-text p           { margin-bottom: 1.2em; }
+  .academic-text p:last-child { margin-bottom: 0; }
+  .academic-text h2 { font-size: 18px; font-weight: 600; margin-bottom: 0.6em; margin-top: 1.4em; color: #fff; }
+  .academic-text h3 { font-size: 15px; font-weight: 600; margin-bottom: 0.4em; margin-top: 1.2em; color: var(--accent-2); }
+  .academic-text blockquote {
+    border-left: 3px solid var(--accent);
+    padding-left: 18px;
+    margin: 1.2em 0;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .academic-text cite { font-size: 13px; color: var(--text-faint); font-style: normal; }
+
+  .stt-field {
+    width: 100%;
+    min-height: 200px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .stt-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .stt-field::placeholder { color: var(--text-faint); }
+
+  .stt-edit-area {
+    width: 100%;
+    min-height: 200px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .stt-edit-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .stt-edit-area:empty::before { content: attr(data-placeholder); color: var(--text-faint); pointer-events: none; }
+
+  .field-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+
+  .section-divider { height: 1px; background: var(--border); margin: 28px 0; }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .chip.accent { background: var(--accent-glow); border-color: var(--border-strong); color: var(--accent-2); }
+
+  .assignment-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    max-width: 780px;
+  }
+  .assignment-header {
+    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .assignment-header h2 { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  .assignment-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+  .meta-pill {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .assignment-body { padding: 24px 28px; }
+  .assignment-body p    { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 12px; }
+  .assignment-body ul   { padding-left: 20px; }
+  .assignment-body li   { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 6px; }
+
+  .long-article { max-width: 740px; font-size: 15.5px; line-height: 1.85; color: var(--text); font-weight: 300; }
+  .long-article h2  { font-size: 20px; font-weight: 700; color: #fff; margin: 1.6em 0 0.6em; }
+  .long-article h3  { font-size: 16px; font-weight: 600; color: var(--accent-2); margin: 1.2em 0 0.4em; }
+  .long-article p   { margin-bottom: 1.1em; }
+  .long-article .ref { font-size: 12px; color: var(--text-faint); font-style: italic; }
+
+  .image-target {
+    background: var(--surface-2);
+    border: 2px dashed var(--border-strong);
+    border-radius: 12px;
+    padding: 48px 32px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 13px;
+    max-width: 500px;
+    margin-bottom: 24px;
+  }
+  .image-target .icon-lg { font-size: 40px; margin-bottom: 12px; opacity: 0.5; display: block; }
+
+  sup { font-size: 0.65em; color: var(--accent-2); vertical-align: super; }
+  code {
+    background: var(--surface-2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  kbd {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">
+      <div class="logo-icon">✦</div>
+      <div>
+        <div class="logo-text">AssisT</div>
+        <div class="logo-sub">Feature Guide</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-scroll">
+
+    <div class="nav-section">
+      <div class="nav-section-header">Reading Help</div>
+      <button class="nav-item active" data-panel="read-aloud">Read Aloud</button>
+      <button class="nav-item" data-panel="reading-mode">Reading Mode</button>
+      <button class="nav-item" data-panel="dyslexia">Dyslexia Mode</button>
+      <button class="nav-item" data-panel="ocr">OCR</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">Writing Help</div>
+      <button class="nav-item" data-panel="stt">Speech to Text <span class="nav-badge badge-beta">BETA</span></button>
+      <button class="nav-item" data-panel="auto-punct">Auto-Punctuation <span class="nav-badge badge-new">NEW</span></button>
+      <button class="nav-item" data-panel="confidence">Confidence Feedback <span class="nav-badge badge-new">NEW</span></button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">Look Up Words</div>
+      <button class="nav-item" data-panel="quick-actions">Quick Actions Menu</button>
+      <button class="nav-item" data-panel="dictionary">Dictionary</button>
+      <button class="nav-item" data-panel="translation">Translation</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">Reading Aids</div>
+      <button class="nav-item" data-panel="text-custom">Text Customisation</button>
+      <button class="nav-item" data-panel="reading-guide">Reading Guide</button>
+      <button class="nav-item" data-panel="reading-progress">Reading Progress</button>
+      <button class="nav-item" data-panel="rsvp">Speed Read (RSVP)</button>
+      <button class="nav-item" data-panel="annotations">Annotations</button>
+      <button class="nav-item" data-panel="sticky-notes">Sticky Notes</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">Pointer &amp; Zoom</div>
+      <button class="nav-item" data-panel="cursor">Custom Cursor</button>
+      <button class="nav-item" data-panel="magnify">Magnifying Lens</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">Visual Comfort</div>
+      <button class="nav-item" data-panel="focus-mode">Focus Mode</button>
+      <button class="nav-item" data-panel="overlay">Screen Colour Overlay</button>
+      <button class="nav-item" data-panel="reduced-motion">Reduced Motion</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">Productivity</div>
+      <button class="nav-item" data-panel="pomodoro">Pomodoro Timer</button>
+      <button class="nav-item" data-panel="simplify-ui">Simplified Interface</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">School Tools</div>
+      <button class="nav-item" data-panel="citations">Citations <span class="nav-badge badge-alpha">ALPHA</span></button>
+      <button class="nav-item" data-panel="canvas">Canvas LMS <span class="nav-badge badge-alpha">ALPHA</span></button>
+      <button class="nav-item" data-panel="moodle">Moodle LMS <span class="nav-badge badge-alpha">ALPHA</span></button>
+      <button class="nav-item" data-panel="classroom">Google Classroom <span class="nav-badge badge-alpha">ALPHA</span></button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-header">AI Assist</div>
+      <button class="nav-item" data-panel="ai-summarise">Summarisation</button>
+      <button class="nav-item" data-panel="ai-simplify">Text Simplification</button>
+      <button class="nav-item" data-panel="ai-assignment">Assignment Breakdown</button>
+      <button class="nav-item" data-panel="ai-socratic">Socratic Tutor</button>
+      <button class="nav-item" data-panel="ai-kg">Knowledge Graph</button>
+      <button class="nav-item" data-panel="ai-study">Study Path Generator</button>
+      <button class="nav-item" data-panel="ai-citation">Citation Analyser</button>
+      <button class="nav-item" data-panel="ai-multidoc">Multi-Doc Compare</button>
+      <button class="nav-item" data-panel="ai-emotional">Emotional TTS</button>
+    </div>
+
+  </div>
+</nav>
+
+<main>
+  <div class="panel-header">
+    <h1 id="header-title">Read Aloud</h1>
+    <p id="header-desc">Text-to-speech with word-by-word synchronised highlighting</p>
+  </div>
+  <div class="panel-content" id="panel-content">
+
+    <!-- READ ALOUD -->
+    <div class="panel active" id="panel-read-aloud">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>The concept of neuroplasticity refers to the brain's remarkable capacity to reorganise itself by forming new neural connections throughout an individual's lifetime. This adaptive mechanism underlies the acquisition of skills, the recovery from injury, and the accommodation of new information within existing cognitive frameworks. Early research by Hebb (1949) proposed that synaptic connections are strengthened when neurons fire simultaneously — a principle later summarised as "neurons that fire together, wire together."</p>
+          <p>Contemporary studies using functional magnetic resonance imaging have demonstrated that sustained reading practice produces measurable changes in cortical thickness within regions associated with phonological processing, semantic retrieval, and visual word form recognition. Dehaene (2009) described a dedicated cortical region, the visual word form area in the left occipito-temporal sulcus, as central to the process of orthographic mapping through which written symbols are converted to phonological representations.</p>
+          <p>For students with dyslexia, this pathway is frequently less efficient, resulting in slower decoding, reduced reading fluency, and elevated cognitive load during academic tasks. Assistive text-to-speech technologies offer a complementary input channel, reducing reliance on the orthographic pathway while maintaining engagement with the semantic and syntactic content of a text. Research consistently demonstrates improvements in comprehension, retention, and academic self-efficacy when TTS tools are integrated into learning environments alongside traditional instruction.</p>
+          <blockquote>
+            "Access to spoken text is not a circumvention of literacy; it is a pedagogically sound accommodation that honours the full range of human cognitive diversity."
+            <br><cite>— Universal Design for Learning Guidelines, CAST, 2018</cite>
+          </blockquote>
+        </div>
+      </div>
+    </div>
+
+    <!-- READING MODE -->
+    <div class="panel" id="panel-reading-mode">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Reading Mode strips away the visual noise of a webpage — advertisements, navigation bars, sidebars, and promotional banners — leaving only the core article or document text rendered in a clean, readable typography. The feature uses the Mozilla Readability algorithm to extract the primary content node, then applies the user's preferred font, spacing, and colour settings from AssisT's text customisation panel.</p>
+          <p>Cognitive load theory (Sweller, 1988) identifies extraneous cognitive load as the processing demand imposed by elements of a learning environment that do not contribute to the instructional goal. On a typical academic news site or journal landing page, extraneous elements may account for a substantial proportion of the visual field, competing for attentional resources and increasing fatigue, particularly for readers with ADHD or sensory processing differences.</p>
+          <p>Activate Reading Mode on any article-style page — news articles, Wikipedia entries, open-access journal pages, or institutional blog posts — to experience the distraction-free view. The keyboard shortcut <kbd>Ctrl+Shift+R</kbd> provides rapid access without interrupting reading flow.</p>
+          <p>Reading Mode is fully compatible with AssisT's TTS feature: once activated, select any passage and use Read Aloud for synchronised word-by-word highlighting within the cleaned view.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DYSLEXIA MODE -->
+    <div class="panel" id="panel-dyslexia">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Evolutionary epistemology examines the development of knowledge and cognitive faculties through the lens of biological evolution. Philosophers such as Popper, Lorenz, and Campbell proposed that epistemic processes — perception, reasoning, hypothesis formation — can be understood as adaptive mechanisms that have been selected for their utility in enabling organisms to interact successfully with their environments.</p>
+          <p>The bionic reading method visually emphasises the initial syllable of each word in bold, leveraging the fact that skilled readers fixate on the beginning of words and use the first phonological units to initiate lexical retrieval. For individuals with reading difficulties, this typographic intervention can reduce the number of saccades required per line and lower the probability of word misidentification.</p>
+          <p>Syllable colour-coding assigns distinct hues to individual syllables, providing an additional visual segmentation cue that supports phonological decoding. Grammar colour-coding applies consistent colours to grammatical categories — nouns, verbs, adjectives, prepositions — enabling readers to rapidly identify syntactic structure without relying solely on linear word-by-word decoding.</p>
+          <p>Theoretical underpinning draws from dual-route models of reading (Coltheart et al., 2001), which describe parallel lexical and phonological pathways. Dyslexia Mode's visual enhancements primarily support the phonological route, reducing the decoding burden so that cognitive resources can be allocated to comprehension and higher-order thinking.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- OCR -->
+    <div class="panel" id="panel-ocr">
+      <div class="content-block narrow">
+        <div class="field-label">Target Image</div>
+        <div class="image-target">
+          <span class="icon-lg">🔍</span>
+          <p>Right-click any image or screenshot on this page and select <strong>AssisT → Read Image Text</strong> to extract text via OCR.</p>
+          <p style="margin-top:8px;">Supports academic diagrams, textbook scans, lecture slides, and handwritten notes.</p>
+        </div>
+      </div>
+      <div class="content-block wide">
+        <div class="academic-text">
+          <h3>Sample Academic Figure Caption</h3>
+          <p>Figure 3.2 — Schematic representation of the dual-route model of reading. The lexical route (top pathway) enables rapid recognition of familiar words via the orthographic lexicon, bypassing phonological decoding. The sublexical route (bottom pathway) applies grapheme-phoneme correspondence rules to decode unfamiliar words and non-words. Damage to either pathway produces distinct reading profiles consistent with observed clinical presentations in acquired alexia.</p>
+          <p class="ref" style="font-size:13px;color:var(--text-faint);font-style:italic;">Source: Coltheart, M., Rastle, K., Perry, C., Langdon, R., &amp; Ziegler, J. (2001). DRC: A dual route cascaded model of visual word recognition and reading aloud. <em>Psychological Review, 108</em>(1), 204–256.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- STT -->
+    <div class="panel" id="panel-stt">
+      <div class="content-block narrow">
+        <div class="field-label">Essay Response</div>
+        <div class="stt-edit-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Essay response" data-placeholder="Activate Speech to Text via the AssisT toolbar to begin dictating here…"></div>
+      </div>
+      <div class="content-block narrow">
+        <div class="field-label">Short Answer</div>
+        <textarea class="stt-field" aria-label="Short answer field" placeholder="Activate Speech to Text via the AssisT toolbar to begin dictating here…"></textarea>
+      </div>
+      <div class="content-block narrow">
+        <div class="field-label">Discussion Post</div>
+        <div class="stt-edit-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Discussion post" data-placeholder="Start your discussion post here…" style="min-height:120px;"></div>
+      </div>
+    </div>
+
+    <!-- AUTO-PUNCTUATION -->
+    <div class="panel" id="panel-auto-punct">
+      <div class="content-block narrow">
+        <div class="field-label">Live Dictation — Auto-Punctuation Active</div>
+        <div class="stt-edit-area" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Dictate continuously — punctuation is inserted automatically based on natural speech pauses…"></div>
+        <div class="chip-row">
+          <span class="chip accent">Automatic mode</span>
+          <span class="chip">Assisted mode</span>
+          <span class="chip">Manual (spoken only)</span>
+        </div>
+      </div>
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Auto-Punctuation analyses the temporal and prosodic patterns in your dictated speech to infer punctuation placement. A long pause after a declarative clause inserts a full stop; a rising intonation contour followed by a pause inserts a question mark; a brief pause mid-sentence inserts a comma. In Assisted mode, suggested punctuation is displayed as a highlight for you to confirm or dismiss before it is committed to the text.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIDENCE FEEDBACK -->
+    <div class="panel" id="panel-confidence">
+      <div class="content-block narrow">
+        <div class="field-label">Dictation Output — Confidence Colours Active</div>
+        <div class="stt-edit-area" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Dictate here — words below your confidence threshold will be highlighted for review…"></div>
+      </div>
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Confidence Feedback provides visual feedback on the reliability of each recognised word. Words transcribed with high confidence appear in standard text; words below a configurable threshold are highlighted in amber, prompting the speaker to review or re-dictate. This is particularly valuable in noisy environments or for speakers with non-standard accents, where recognition accuracy may be inconsistent.</p>
+          <p>The confidence threshold can be adjusted from 0% (no highlighting) to 100% (all words highlighted). Alternative transcription candidates for low-confidence words are displayed inline, enabling rapid correction without requiring manual keyboard input.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="panel" id="panel-quick-actions">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select any portion of the passage below with your cursor — the Quick Actions floating toolbar will appear automatically, providing one-tap access to Read Aloud, Dictionary, Translate, Annotate, and Speed Read.</p>
+          <div class="section-divider"></div>
+          <p>The philosophy of language investigates the relationship between linguistic expressions and the entities, properties, and events they represent in the world. Referential theories of meaning — associated with Frege, Russell, and the early Wittgenstein — hold that the meaning of a term is constituted by its referent: the object in the world to which it points. Fregean semantics introduced the distinction between <em>Sinn</em> (sense) and <em>Bedeutung</em> (reference), permitting two expressions with distinct senses to share a single referent, as in the co-referential terms "the morning star" and "the evening star," both denoting the planet Venus.</p>
+          <p>Use theories of meaning, advanced by the later Wittgenstein and by Gilbert Ryle, locate meaning not in reference but in the patterns of use within language games and forms of life. To know the meaning of a word is to master its use in the relevant social and practical context, rather than to grasp an abstract semantic content.</p>
+          <p>Speech act theory (Austin, 1962; Searle, 1969) extends this analysis to the pragmatic dimension of utterances, distinguishing between locutionary acts (the utterance itself), illocutionary acts (the social force — assertion, promise, command), and perlocutionary acts (the effect produced in the hearer). Understanding language as action rather than mere description has had significant influence on discourse analysis, cognitive pragmatics, and natural language understanding research.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DICTIONARY -->
+    <div class="panel" id="panel-dictionary">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select any word in the passage below and choose <strong>Define</strong> from the Quick Actions menu to look up its definition, pronunciation, and usage examples.</p>
+          <div class="section-divider"></div>
+          <p>The <em>hermeneutic circle</em> describes the interdependence between the interpretation of a whole text and the interpretation of its individual parts. To understand a sentence, one must first understand the words that compose it; yet the meaning of each word is partially determined by its context within the sentence and the broader text. This circularity, identified by Schleiermacher and Dilthey as central to humanistic interpretation, is not a logical fallacy but a characteristic feature of textual understanding that distinguishes <em>Verstehen</em> (interpretive understanding) from causal explanation in the natural sciences.</p>
+          <p>Gadamer (1960) extended the hermeneutic tradition by arguing that all understanding involves a <em>fusion of horizons</em> — the horizon of the interpreter's cultural and historical situation merges with the horizon of the text, producing meaning that is irreducibly situated and historically conditioned. This view challenges the <em>objectivist</em> ambition of recovering the author's original intention as the definitive meaning of a text, proposing instead that interpretation is a productive, ongoing dialogue between past and present.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSLATION -->
+    <div class="panel" id="panel-translation">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select a passage or activate full-page translation via the AssisT toolbar. Translation is available in 14+ languages using MyMemory (free), DeepL, or Azure Translator.</p>
+          <div class="section-divider"></div>
+          <p>Comparative education examines educational systems, institutions, policies, and outcomes across national and cultural contexts with the aim of identifying transferable practices and generating theoretical insights applicable beyond any single jurisdiction. The field employs both quantitative methods — large-scale assessments such as PISA and TIMSS — and qualitative approaches including ethnographic case studies, document analysis, and policy genealogy.</p>
+          <p>The concept of educational borrowing and lending (Phillips &amp; Ochs, 2004) describes the cross-national transfer of educational policies and practices. Analysts note that policies transferred without adaptation to local institutional, cultural, and political contexts frequently produce unintended consequences or fail to replicate the outcomes observed in their origin contexts — a phenomenon sometimes termed "policy tourism."</p>
+          <p>Inclusive education policy provides a productive site for comparative analysis. While the Salamanca Statement (UNESCO, 1994) established international normative consensus around inclusion, national implementations vary substantially along dimensions of placement, support provision, teacher preparation, and assessment accommodation.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEXT CUSTOMISATION -->
+    <div class="panel" id="panel-text-custom">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Adjust font, size, line spacing, letter spacing, and word spacing using the Reading Aids panel in AssisT. Changes apply across all text on this page in real time. Try switching to OpenDyslexic or Lexend to observe the effect on readability.</p>
+          <div class="section-divider"></div>
+          <p>Metacognition refers to the capacity to monitor and regulate one's own cognitive processes. Flavell (1979) distinguished between metacognitive knowledge — beliefs about cognition in general and one's own cognitive abilities in particular — and metacognitive monitoring, the ongoing evaluation of one's comprehension and task performance. A third component, metacognitive control, encompasses the strategic actions a learner takes in response to monitoring feedback, such as re-reading a difficult passage, seeking clarification, or adjusting reading speed.</p>
+          <p>Research in educational psychology has consistently demonstrated that metacognitive skill is a strong predictor of academic achievement, independent of measured intelligence. Interventions that explicitly teach metacognitive strategies — self-questioning, think-alouds, summarisation — produce durable improvements in reading comprehension and transfer to novel tasks.</p>
+          <p>Self-regulated learning theory (Zimmerman, 2000) integrates metacognitive monitoring with motivational and behavioural self-regulation, describing a cyclical process of forethought, performance monitoring, and self-reflection. Students who approach academic tasks with high metacognitive awareness set goals, select strategies, monitor their progress, and adjust their approach in response to feedback — a profile associated with deep learning, academic resilience, and long-term retention.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- READING GUIDE -->
+    <div class="panel" id="panel-reading-guide">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable the Reading Guide in AssisT to activate a horizontal guide line that follows your cursor. Adjust colour, thickness, and opacity in the popup.</p>
+          <div class="section-divider"></div>
+          <div class="long-article">
+            <h2>Cognitive Development in Adolescence</h2>
+            <p>Adolescence represents a period of profound neurobiological change that has direct implications for learning, decision-making, and social cognition. The prefrontal cortex, which mediates executive functions including planning, inhibitory control, working memory, and the regulation of emotional responses, undergoes extensive structural and functional maturation throughout this developmental period — a process that is not complete until the mid-twenties in most individuals.</p>
+            <p>Piaget's formal operational stage, typically associated with the onset of adolescence, describes the emergence of hypothetico-deductive reasoning: the capacity to systematically generate and test hypotheses, reason about abstract propositions, and consider possibilities beyond immediate concrete experience. This cognitive transition enables engagement with complex academic disciplines including algebra, philosophy, historical causation, and scientific methodology.</p>
+            <h3>Executive Function and Academic Performance</h3>
+            <p>The relationship between executive function development and academic performance in adolescence has been extensively studied. Working memory capacity has been identified as a significant predictor of attainment in mathematics and reading comprehension. Students with lower working memory capacity are disproportionately affected by high cognitive load in instructional contexts — a finding with direct implications for instructional design and assessment accommodations.</p>
+            <p>Inhibitory control — the ability to suppress automatic, prepotent responses in favour of goal-directed behaviour — is central to self-regulated learning. Adolescents with well-developed inhibitory control are better able to sustain attention during extended reading tasks, resist distraction in complex learning environments, and maintain task focus in the face of competing emotional or social demands.</p>
+            <h3>Social Cognition and Peer Learning</h3>
+            <p>Social cognitive development in adolescence is characterised by heightened sensitivity to social evaluation, increased perspective-taking capacity, and the emergence of complex theory of mind abilities. These developments support collaborative learning, argumentation, and the integration of diverse viewpoints — but may also increase vulnerability to social comparison processes that undermine academic self-concept and motivation.</p>
+            <p>Peer learning environments that leverage adolescent social cognition — structured academic controversy, collaborative inquiry, peer tutoring — have demonstrated positive effects on both cognitive and motivational outcomes.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- READING PROGRESS -->
+    <div class="panel" id="panel-reading-progress">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable Reading Progress in AssisT — a progress bar appears at the top or bottom of the browser window, tracking your scroll position through this article.</p>
+          <div class="section-divider"></div>
+          <div class="long-article">
+            <h2>The History and Philosophy of Science</h2>
+            <p>The demarcation problem — how to distinguish scientific from non-scientific claims — has been a central preoccupation of the philosophy of science since the early twentieth century. Logical positivists of the Vienna Circle proposed verificationism as a criterion: a statement is meaningful if and only if it can, at least in principle, be empirically verified. This criterion excluded vast domains of traditional metaphysics and ethics from the realm of the meaningful, prompting fierce opposition from both scientific realists and humanistic scholars.</p>
+            <p>Karl Popper's falsificationism offered a more influential demarcation criterion. On Popper's view, the mark of science is not the confirmability but the falsifiability of its claims: a theory is scientific if there exists some possible observation that would count as evidence against it. Popper applied this criterion polemically against Freudian psychoanalysis, arguing that their interpretive flexibility rendered them unfalsifiable in practice.</p>
+            <h3>Kuhn and Scientific Revolutions</h3>
+            <p>Thomas Kuhn's The Structure of Scientific Revolutions (1962) challenged the cumulative, progressive picture of science implicit in logical positivism and Popperian falsificationism. Kuhn argued that scientific practice normally occurs within a paradigm — a constellation of shared assumptions, exemplary problems, methodological commitments, and ontological beliefs. Normal science proceeds by puzzle-solving within the paradigm rather than testing its foundational commitments.</p>
+            <p>Paradigm change, or scientific revolution, occurs when anomalies — findings that persistently resist resolution within the existing framework — accumulate to a point of crisis. The transition from one paradigm to another involves a gestalt-like shift in perception that Kuhn described as a change in worldview.</p>
+            <h3>Lakatos, Feyerabend, and Beyond</h3>
+            <p>Imre Lakatos attempted to reconcile Kuhnian sociology with Popperian rationalism through his methodology of scientific research programmes. A research programme consists of a hard core of fundamental theoretical commitments insulated from falsification by a protective belt of auxiliary hypotheses. Progressive programmes generate novel predictions confirmed by observation; degenerative programmes explain anomalies only post hoc.</p>
+            <p>Paul Feyerabend's anarchist epistemology, articulated in Against Method (1975), argued that no single methodological rule has been consistently adhered to throughout the history of successful science. Feyerabend's provocative conclusion — "anything goes" — was intended not as a prescription for irrationalism but as a critique of the normative authority claimed by philosophers of science over scientific practice.</p>
+            <p>Contemporary philosophy of science has moved beyond these foundational disputes toward more specialised investigations of scientific explanation, causation, modelling, reduction, and the relationship between theory and experiment. Issues of scientific expertise, trust, and the social dimensions of knowledge production have gained increasing prominence, particularly in the context of policy-relevant sciences addressing climate change, public health, and emerging technologies.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RSVP -->
+    <div class="panel" id="panel-rsvp">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the passage below, then activate <strong>Speed Read</strong> from the Quick Actions menu or AssisT toolbar to display words sequentially at the centre of the screen. Adjust the words-per-minute rate in the Reading Aids panel.</p>
+          <div class="section-divider"></div>
+          <p>Rapid serial visual presentation (RSVP) is a reading paradigm in which words or short phrases are displayed in rapid succession at a fixed central location, eliminating the need for saccadic eye movements across a line of text. Proponents argue that RSVP can increase reading speed by removing the saccadic movement time that accounts for a substantial proportion of total reading time in traditional linear presentation. Research has demonstrated that skilled readers can process RSVP stimuli at rates substantially above their typical reading speed while maintaining adequate comprehension for less demanding texts.</p>
+          <p>However, concerns have been raised about the comprehension costs of RSVP at higher presentation rates, the reduced opportunity for regressive eye movements that normally support the resolution of syntactic ambiguity and difficult passages, and the potential for increased cognitive fatigue over extended reading sessions. The elimination of peripheral word preview — which in normal reading provides anticipatory phonological and semantic activation — may offset the benefits of reduced saccadic demand for some readers.</p>
+          <p>The optimal use of RSVP in educational contexts may depend significantly on the nature of the text, the reading purpose, and the individual reader's cognitive and perceptual profile. AssisT's implementation allows users to configure presentation rate, word chunk size, and the position of the pivot character highlighting, enabling personalised calibration for maximum efficiency and comfort.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANNOTATIONS -->
+    <div class="panel" id="panel-annotations">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select any text in the passage below and choose <strong>Annotate</strong> from the Quick Actions menu to add an inline annotation. Annotations persist across sessions and can be exported from the AssisT popup.</p>
+          <div class="section-divider"></div>
+          <p>Formative assessment encompasses all those activities undertaken by teachers — and by students in assessing themselves and one another — that provide information to be used as feedback to modify the teaching and learning activities in which they are engaged. Black and Wiliam's landmark review (1998) synthesised evidence from over 250 studies demonstrating substantial learning gains attributable to effective formative assessment practices, with particularly strong effects for lower-achieving students.</p>
+          <p>The five key strategies of formative assessment identified by Wiliam (2011) — clarifying learning intentions, engineering effective classroom discussions, providing feedback that moves learning forward, activating students as learning resources for one another, and activating students as owners of their own learning — have been widely adopted as a framework for professional development and instructional design.</p>
+          <p>Summative assessment, by contrast, is designed to evaluate student achievement at a defined point in time, typically for the purposes of certification, selection, or accountability reporting. The tension between the formative and summative functions of assessment is a persistent theme in educational policy debates: the high-stakes consequences associated with summative assessments can distort curriculum, narrow teaching, and generate assessment-related anxiety that impairs performance.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- STICKY NOTES -->
+    <div class="panel" id="panel-sticky-notes">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Use the AssisT toolbar to add a Sticky Note anywhere on this page. Notes are colour-coded and persistent across sessions. Click any note to edit or remove it.</p>
+          <div class="section-divider"></div>
+          <p>Academic writing in higher education requires students to develop proficiency across a range of text types — argumentative essays, literature reviews, research reports, reflective journals, lab reports, case studies — each with distinct rhetorical conventions, structural expectations, and disciplinary norms. The challenge of academic literacy development is compounded for students transitioning from secondary to tertiary education, where the implicit conventions of academic discourse are rarely made explicit.</p>
+          <p>Genre pedagogy, rooted in systemic functional linguistics (Halliday, 1985) and developed for educational contexts by Martin and colleagues, argues that explicit teaching of genre structure, linguistic features, and social purpose provides students with the tools to participate effectively in academic discourse communities. The teaching and learning cycle — deconstruction, joint construction, independent construction — offers a structured scaffolding sequence that progressively releases responsibility to the learner as competence develops.</p>
+          <p>Critical academic literacy extends this approach to examine the ideological dimensions of academic genres, questioning whose knowledge counts, whose voices are privileged in citation practices, and how disciplinary discourses construct particular versions of reality.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOM CURSOR -->
+    <div class="panel" id="panel-cursor">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable Custom Cursor in the AssisT popup and move your mouse over the text below. Choose from large high-contrast cursors in multiple styles and colours — designed for users with low vision or visual tracking difficulties.</p>
+          <div class="section-divider"></div>
+          <p>Visual tracking difficulties affect a significant proportion of individuals with dyslexia, visual impairment, or neurological conditions that disrupt oculomotor control. Standard operating system cursors, designed for precision targeting on high-resolution displays, may be insufficiently salient for users who require clear, high-contrast visual anchors during navigation and reading tasks. Enlarging the cursor and increasing its contrast against the page background can reduce the attentional demand of cursor localisation, freeing cognitive resources for the primary reading or writing task.</p>
+          <p>The crosshair cursor style, borrowed from precision-targeting applications, can be particularly effective for users who need to navigate dense tables, spreadsheets, or complex data visualisations. The ringed-dot style provides a clearly defined central point while maintaining a wide visual footprint. Colour options spanning warm and cool hues allow selection of a cursor that provides maximum contrast against the predominant colour scheme of a user's typical working environment.</p>
+          <p>Custom cursor settings in AssisT are stored in <code>chrome.storage.local</code> and persist across browsing sessions, ensuring that the user's preferred cursor configuration is immediately available on each session without requiring manual reconfiguration.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAGNIFYING LENS -->
+    <div class="panel" id="panel-magnify">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable the Magnifying Lens from AssisT and move your cursor over the dense text below. Adjust magnification (1.5×–4×) and lens size in the popup.</p>
+          <div class="section-divider"></div>
+          <p>The formal grammar of a language specifies the set of well-formed sentences permitted by that language's syntactic rules. Context-free grammars (Chomsky, 1956)<sup>1</sup>, formalised as sets of rewrite rules operating on a hierarchical phrase structure, provide the foundation for most computational and generative approaches to syntactic description. A context-free grammar G is defined as a 4-tuple ⟨N, Σ, R, S⟩ where N is a finite set of non-terminal symbols, Σ is a finite set of terminal symbols (the lexical items), R is a finite set of production rules of the form A → α (A ∈ N, α ∈ (N ∪ Σ)∗), and S ∈ N is the designated start symbol.<sup>2</sup></p>
+          <p>The generative capacity of context-free grammars is characterised by the formal language class they define — the context-free languages — which strictly subsumes the class of regular languages definable by finite automata. Natural languages, however, exhibit constructions such as cross-serial dependencies in Swiss German<sup>3</sup> and reduplication in various Austronesian languages that cannot be expressed within a strictly context-free grammar, motivating the development of mildly context-sensitive grammar formalisms including tree-adjoining grammars, head-driven phrase structure grammar, and combinatory categorial grammar.<sup>4</sup></p>
+          <p class="ref">
+            <sup>1</sup> Chomsky, N. (1956). Three models for the description of language. <em>IRE Transactions on Information Theory, 2</em>(3), 113–124.
+            &nbsp;<sup>2</sup> Hopcroft, J.E., Motwani, R., &amp; Ullman, J.D. (2006). <em>Introduction to Automata Theory, Languages, and Computation</em> (3rd ed.). Addison-Wesley.
+            &nbsp;<sup>3</sup> Shieber, S.M. (1985). Evidence against the context-freeness of natural language. <em>Linguistics and Philosophy, 8</em>(3), 333–343.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOCUS MODE -->
+    <div class="panel" id="panel-focus-mode">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable Focus Mode in AssisT — a dark overlay covers the page and a clear reading window follows your cursor. Move slowly down through the paragraphs below.</p>
+          <div class="section-divider"></div>
+          <p>Attention is not a unitary faculty but a family of related processes that regulate the allocation of cognitive resources to competing inputs and tasks. Posner and Petersen (1990) distinguished three attentional networks — alerting, orienting, and executive control — each subserved by distinct neural circuits and differentially sensitive to pharmacological, developmental, and individual difference variables.</p>
+          <p>The alerting network regulates general readiness to respond to incoming stimuli and is closely linked to circadian arousal rhythms and noradrenergic neurotransmission. The orienting network controls the selection of information from sensory inputs, enabling the shift of spatial attention to salient stimuli independent of eye movement.</p>
+          <p>The executive control network, centred on the anterior cingulate cortex and prefrontal regions, monitors and resolves conflict among competing cognitive processes and response tendencies. Sustained attention — the capacity to maintain task focus over extended periods — depends on the integration of alerting and executive control processes.</p>
+          <p>Selective attention enables the processing of task-relevant information while suppressing interference from irrelevant stimuli. The classic Stroop task — naming the ink colour of colour words printed in incongruent colours — provides a paradigmatic measure of selective attention and inhibitory control.</p>
+          <p>Attentional dysregulation is among the most prevalent presenting concerns in educational and clinical settings for school-age children and adults. Accommodations designed to support attentional regulation — structured environments, reduced extraneous stimulation, task chunking, regular movement breaks, assistive technology — are among the most widely evidenced classroom-level interventions in special educational needs research.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN OVERLAY -->
+    <div class="panel" id="panel-overlay">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable the Screen Colour Overlay in AssisT and experiment with colour and intensity settings. Warm Sepia is recommended for most users, but individual responses to colour tints vary — try each option to find the most comfortable setting.</p>
+          <div class="section-divider"></div>
+          <p>Scotopic sensitivity syndrome — also referred to as Meares-Irlen syndrome — describes a pattern of visual stress and perceptual distortions reported by a subset of individuals, particularly those with dyslexia, that is ameliorated by the use of coloured overlays or tinted lenses. Reported symptoms include distortion or movement of text on the page; difficulty sustaining focus on white paper or screen backgrounds; photosensitivity; and associated headaches or eyestrain during extended reading.</p>
+          <p>The theoretical basis for colour-based interventions remains contested. Proponents propose a cortical hyperexcitability mechanism in which the contrast and spatial frequency patterns of standard black text on white backgrounds trigger aversive neural responses in susceptible individuals. Critics argue that the evidence base is methodologically weak and susceptible to placebo effects.</p>
+          <p>Despite these theoretical controversies, colour overlay use is widespread in educational practice and is associated with subjective reports of improved comfort, reduced fatigue, and in some studies, improved reading rate. AssisT's screen overlay applies colour tinting at the CSS level, preserving text contrast and readability while modifying the spectral composition of the light transmitted to the reader's eyes.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- REDUCED MOTION -->
+    <div class="panel" id="panel-reduced-motion">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable Reduced Motion in AssisT to suppress animations across websites you visit. This also respects the standard <code>prefers-reduced-motion</code> CSS media query driven by your operating system accessibility settings.</p>
+          <div class="section-divider"></div>
+          <p>Vestibular disorders and sensory processing differences can result in significant discomfort when exposed to motion-heavy web environments. Parallax scrolling effects, animated backgrounds, auto-playing videos, and modal transition animations can trigger vestibular responses in susceptible individuals, rendering certain websites effectively inaccessible. The Web Content Accessibility Guidelines 2.1 include Success Criterion 2.3.3 (Animation from Interactions) at Level AAA, which specifies that motion animation triggered by interaction can be disabled unless the animation is essential.</p>
+          <p>The CSS <code>prefers-reduced-motion</code> media query, introduced in 2017 and now supported in all major browsers, provides a mechanism by which operating system accessibility settings can be communicated to web authors, enabling conditional suppression of non-essential animations. AssisT's Reduced Motion feature supplements this mechanism by injecting a stylesheet that applies <code>animation: none !important</code> globally, ensuring consistent behaviour across websites whose developers have not implemented native reduced-motion support.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- POMODORO -->
+    <div class="panel" id="panel-pomodoro">
+      <div class="content-block narrow">
+        <div class="academic-text">
+          <p>Enable the Pomodoro Timer from AssisT. The timer appears as a floating widget in your chosen screen corner. Customise work and break durations in the Productivity panel of the popup.</p>
+        </div>
+      </div>
+      <div class="content-block wide">
+        <div class="academic-text">
+          <h3>Current Study Session</h3>
+          <ul style="padding-left:20px;margin-bottom:16px;">
+            <li style="margin-bottom:8px;line-height:1.6;">Read Chapter 4: Cognitive Load Theory and Instructional Design (pp. 87–124)</li>
+            <li style="margin-bottom:8px;line-height:1.6;">Annotate key definitions and theoretical distinctions</li>
+            <li style="margin-bottom:8px;line-height:1.6;">Write 300-word response to seminar question 3</li>
+            <li style="margin-bottom:8px;line-height:1.6;">Review lecture slides for Thursday's tutorial</li>
+            <li style="margin-bottom:8px;line-height:1.6;">Compile reading list bibliography entries (APA 7th)</li>
+          </ul>
+          <div class="section-divider"></div>
+          <p>The Pomodoro Technique, developed by Francesco Cirillo in the late 1980s, structures work into intervals — typically 25 minutes — separated by short breaks, with longer breaks following every fourth interval. The technique leverages the benefits of time-blocked focus while providing regular rest periods that support cognitive recovery and sustained performance over extended study sessions.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIMPLIFIED INTERFACE -->
+    <div class="panel" id="panel-simplify-ui">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Enable Simplified Interface from the AssisT Productivity panel, then navigate to any content-heavy news site, journal landing page, or online textbook. AssisT suppresses advertising, navigation sidebars, promotional banners, and other non-content elements at your chosen intensity level.</p>
+          <div class="section-divider"></div>
+          <p>Environmental design for learning spaces — whether physical or digital — is grounded in the understanding that the information environment shapes attentional allocation, cognitive load, and affective state. The physical classroom research of Barrett et al. (2015) demonstrated that environmental factors including naturalness, individualisation, and stimulation collectively accounted for approximately 16% of variance in learning progress — a substantial effect attributable entirely to the physical environment.</p>
+          <p>The digital learning environment presents analogous design considerations. Web pages encountered in academic research contexts are frequently designed for engagement and advertising revenue rather than learning efficiency, incorporating high-distraction elements that compete with the central content for attentional resources. For students with ADHD, anxious arousal states, or heightened sensory sensitivity, this extraneous visual stimulation can substantially impede productive engagement with academic material.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CITATIONS -->
+    <div class="panel" id="panel-citations">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Activate Citations via AssisT on any academic page to save the source to your citation library. Export your bibliography in APA, MLA, Harvard, or Chicago format from the popup.</p>
+          <div class="section-divider"></div>
+          <p>Accurate citation practice is foundational to academic integrity and scholarly communication. Citing sources serves multiple functions: attributing intellectual credit to the originating authors, enabling readers to locate and verify the original sources, situating a work within its intellectual context, and demonstrating the breadth and quality of the writer's engagement with the literature.</p>
+          <p>The evaluation of source credibility requires attention to multiple dimensions: the expertise and institutional affiliation of the authors; the publication venue (peer-reviewed journal, conference proceedings, preprint server, popular press); the currency of the research relative to a rapidly evolving field; methodological rigour as assessed through the methods section and statistical reporting; potential conflicts of interest; and the reception of the work in subsequent scholarship as evidenced by citation patterns.</p>
+          <p>Predatory publishing — the practice of journals that charge publication fees without providing genuine peer review or editorial services — represents a growing challenge to the maintenance of academic quality standards. Students and researchers need to develop skills for identifying credible publication venues using resources such as the DOAJ (Directory of Open Access Journals) and Cabell's Predatory Reports.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CANVAS LMS -->
+    <div class="panel" id="panel-canvas">
+      <div class="assignment-block">
+        <div class="assignment-header">
+          <h2>PSY3104 — Research Methods in Psychology</h2>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:4px;">Assignment 2: Critical Analysis of a Quantitative Study</p>
+          <div class="assignment-meta">
+            <span class="meta-pill">Due: 14 Nov 2025, 23:59</span>
+            <span class="meta-pill">Weight: 35%</span>
+            <span class="meta-pill">2,500 words</span>
+          </div>
+        </div>
+        <div class="assignment-body">
+          <p>You will critically evaluate one peer-reviewed quantitative study from the approved reading list, examining its research design, sampling strategy, measurement instruments, statistical analysis, and the validity of its conclusions.</p>
+          <p><strong>Your analysis must address the following:</strong></p>
+          <ul>
+            <li>A clear summary of the study's research question, hypotheses, and theoretical framework (approx. 400 words)</li>
+            <li>Critical evaluation of the research design with reference to internal and external validity (approx. 600 words)</li>
+            <li>Examination of the sampling strategy, sample characteristics, and generalisability of findings (approx. 400 words)</li>
+            <li>Assessment of measurement instruments — reliability, validity, construct operationalisation (approx. 400 words)</li>
+            <li>Critical appraisal of the statistical analysis, including effect sizes, confidence intervals, and appropriateness of inferential tests (approx. 400 words)</li>
+            <li>Evaluation of the authors' conclusions and identification of limitations not acknowledged in the discussion (approx. 300 words)</li>
+          </ul>
+          <p style="margin-top:12px;">All claims must be supported by reference to methodological literature. Minimum 12 references, APA 7th edition.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOODLE -->
+    <div class="panel" id="panel-moodle">
+      <div class="assignment-block">
+        <div class="assignment-header">
+          <h2>HIST2210 — Modern European History</h2>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:4px;">Forum Discussion: The Causes of the First World War</p>
+          <div class="assignment-meta">
+            <span class="meta-pill">Participation: 10%</span>
+            <span class="meta-pill">Min. 2 posts + 2 replies</span>
+          </div>
+        </div>
+        <div class="assignment-body">
+          <p>Drawing on the Fischer controversy and its critics (Geiss, Mommsen, Joll), evaluate the claim that German foreign policy was the primary cause of the First World War. You are expected to engage critically with at least two of your peers' posts.</p>
+          <p>Your initial post should:</p>
+          <ul>
+            <li>State and justify your position with reference to primary and secondary sources</li>
+            <li>Identify the strongest counter-argument and explain why your position holds despite it</li>
+            <li>Be at least 300 words in length</li>
+          </ul>
+          <p>Replies should advance the discussion rather than merely agreeing. Challenge specific claims, introduce additional evidence, or propose a synthesis position.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- GOOGLE CLASSROOM -->
+    <div class="panel" id="panel-classroom">
+      <div class="assignment-block">
+        <div class="assignment-header">
+          <h2>BIO1101 — Introduction to Cell Biology</h2>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:4px;">Classwork: Mitosis and Meiosis Comparison</p>
+          <div class="assignment-meta">
+            <span class="meta-pill">100 points</span>
+            <span class="meta-pill">Assigned: 28 Oct</span>
+            <span class="meta-pill">Due: 4 Nov</span>
+          </div>
+        </div>
+        <div class="assignment-body">
+          <p>Complete the following tasks based on lecture materials and Chapter 12–13 of your textbook.</p>
+          <ul>
+            <li>Create a detailed comparison table outlining the key differences between mitosis and meiosis across: purpose, number of divisions, resulting cells, chromosome number, genetic variation, and location in the organism</li>
+            <li>Annotate the provided diagram of the cell cycle, labelling all phases of mitosis with a brief description of the key cellular events in each phase</li>
+            <li>Explain, in 200–250 words, how crossing over during meiosis I contributes to genetic diversity, and describe one evolutionary advantage this variation confers</li>
+            <li>Identify one human condition caused by errors in meiosis, and explain the cellular mechanism that produces this error</li>
+          </ul>
+          <p>Submit your completed worksheet as a single PDF.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: SUMMARISE -->
+    <div class="panel" id="panel-ai-summarise">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the passage below, then activate <strong>Summarise</strong> from the Quick Actions menu or AssisT AI panel to generate a concise summary using your chosen AI mode.</p>
+          <div class="section-divider"></div>
+          <p>The sociology of education examines the ways in which social structures, institutions, and processes shape educational experiences and outcomes. Foundational contributions from Durkheim, Weber, and Marx established competing theoretical frameworks — functionalist, interpretivist, and critical — that continue to orient research and debate in the field. Functionalist accounts, developed most influentially by Talcott Parsons, locate the school within a broader social system as the institution responsible for the socialisation of young people into the value consensus of society and for their allocation to appropriate positions in the occupational structure.</p>
+          <p>Conflict theories, drawing on Marxist and Weberian traditions, challenge this benign functionalist account by emphasising the role of schooling in the reproduction of existing social inequalities. Bourdieu's concept of cultural capital describes the differential endowment of children from different class backgrounds with the dispositions, knowledge, and practices that schools recognise and reward — an endowment that translates unequally distributed cultural resources into academic credentials and, ultimately, social positions.</p>
+          <p>Bernstein's (1971) analysis of pedagogic discourse examines how the classification and framing of educational knowledge — the relative insulation of school subjects from one another and from everyday knowledge, and the degree of control exercised by teachers and students over the sequencing, pacing, and criteria of instruction — differentially advantaged children from middle-class backgrounds. These structural analyses have been supplemented by interactionist and ethnographic research examining the micro-level processes through which inequality is produced and reproduced in everyday classroom interactions.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: SIMPLIFY -->
+    <div class="panel" id="panel-ai-simplify">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the dense passage below and activate <strong>Simplify Text</strong> from the Quick Actions menu or AssisT AI panel to rewrite it in clearer, more accessible language.</p>
+          <div class="section-divider"></div>
+          <p>Phenomenology, as developed by Edmund Husserl, designates a method of philosophical investigation that suspends the natural attitude — the commonsense assumption of an independently existing external world — in order to attend to the structures of consciousness and the ways in which objects are constituted as meaningful for experiencing subjects. The epoché, or phenomenological reduction, brackets the question of the existence of external objects, redirecting attention to the intentional acts through which consciousness is always already directed towards its objects. Intentionality — Brentano's thesis that all mental states are "about" something, have an object — is the central structural feature of consciousness that phenomenological analysis seeks to explicate.</p>
+          <p>Husserl's distinction between the noesis (the act of intending) and the noema (the intentional object as intended) provides the conceptual framework for a descriptive analysis of how objects are given to consciousness with their particular sense, or meaning-content. The noema is not the real object in the world, nor a mental representation of it, but the object as it presents itself in experience — the intended correlate of the act. This analysis aims to recover the pre-theoretical, pre-predicative dimensions of experience that are concealed by the natural attitude and by scientific abstraction.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: ASSIGNMENT BREAKDOWN -->
+    <div class="panel" id="panel-ai-assignment">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the assignment brief below and activate <strong>Assignment Breakdown</strong> from the AssisT AI panel to generate a structured task checklist with time estimates and key requirements.</p>
+          <div class="section-divider"></div>
+        </div>
+        <div class="assignment-block" style="margin-top:0;">
+          <div class="assignment-header">
+            <h2>SOC4502 — Urban Sociology</h2>
+            <p style="font-size:13px;color:var(--text-muted);margin-top:4px;">Final Research Essay</p>
+            <div class="assignment-meta">
+              <span class="meta-pill">Due: 5 Dec 2025</span>
+              <span class="meta-pill">Weight: 50%</span>
+              <span class="meta-pill">4,000 words</span>
+            </div>
+          </div>
+          <div class="assignment-body">
+            <p>Drawing on the theoretical frameworks examined in lectures — including Harvey's spatial theory of capital accumulation, Lefebvre's right to the city, and Sassen's global city thesis — write a critical analysis of a specific urban transformation process in a city of your choice.</p>
+            <p>Your essay should: situate your chosen case within broader theoretical debates about urban restructuring and socio-spatial inequality; provide an empirically grounded account of the transformation process, drawing on appropriate primary and secondary sources; critically evaluate the distributional consequences for different urban populations; and assess the adequacy of at least two of the theoretical frameworks covered in the module for explaining your case.</p>
+            <p>The essay must demonstrate sustained critical engagement with the literature, a clear and coherent argument, and precise use of sociological concepts. A minimum of 20 academic references is required. Referencing: Harvard.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: SOCRATIC TUTOR -->
+    <div class="panel" id="panel-ai-socratic">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the passage below and activate <strong>Socratic Tutor</strong> from the AssisT AI panel to generate thought-provoking questions that deepen critical engagement with the text.</p>
+          <div class="section-divider"></div>
+          <p>Utilitarianism, the moral theory most comprehensively articulated by Jeremy Bentham and John Stuart Mill, holds that the morally right action in any situation is that which produces the greatest net happiness — the greatest balance of pleasure over pain — for all those affected by the action. Act utilitarianism evaluates each individual action by its consequences; rule utilitarianism holds that actions should conform to rules whose general acceptance would maximise aggregate welfare.</p>
+          <p>Mill's refinements to the Benthamite version of utilitarianism introduced a qualitative distinction between pleasures, arguing that some pleasures — those of the intellect, the feelings, and the moral sentiments — are intrinsically superior to merely sensory pleasures, and that a person who has experienced both would prefer the higher even at the cost of some reduction in quantity.</p>
+          <p>Criticisms of utilitarianism fall broadly into two categories: those targeting its aggregative logic (which may justify serious harm to individuals if the aggregate welfare gain is sufficiently large) and those targeting its demandingness (which appears to require that agents sacrifice their own welfare whenever doing so would produce a net benefit for others). Rawlsian contractualism and Kantian deontology represent the most developed alternative frameworks, each locating the ground of moral obligation in principles of reciprocity and rational agency rather than consequences.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: KNOWLEDGE GRAPH -->
+    <div class="panel" id="panel-ai-kg">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the passage below and activate <strong>Knowledge Graph</strong> from the AssisT AI panel to visualise the key concepts and relationships as an interactive node graph.</p>
+          <div class="section-divider"></div>
+          <p>Climate systems science integrates atmospheric physics, oceanography, terrestrial ecology, and human geography to model the Earth's climate as a complex adaptive system characterised by feedback mechanisms, tipping points, and regime shifts. The carbon cycle — encompassing the absorption of atmospheric CO₂ by terrestrial and oceanic sinks, its fixation in biomass through photosynthesis, and its release through respiration, decomposition, and combustion — is the central biogeochemical process mediating anthropogenic forcing of the climate system. Since the Industrial Revolution, the combustion of fossil fuels and land-use change have transferred carbon from geological reservoirs to the atmosphere at rates that substantially exceed the natural uptake capacity of existing sinks.</p>
+          <p>Positive feedback mechanisms amplify the initial radiative forcing of greenhouse gas emissions. Arctic amplification — the accelerated warming of polar regions relative to the global mean, driven by ice-albedo feedback as reflective sea ice is replaced by heat-absorbing open ocean — is among the most significant. Permafrost thaw releases stored methane and CO₂, constituting a carbon-cycle feedback that may substantially exceed current model projections. Ocean acidification — the decrease in seawater pH resulting from carbonic acid formation as CO₂ dissolves in seawater — threatens marine calcifying organisms and the broader marine food web, with potential cascading effects on the ocean's capacity to function as a carbon sink.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: STUDY PATH -->
+    <div class="panel" id="panel-ai-study">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the topic description below and activate <strong>Study Path Generator</strong> from the AssisT AI panel to generate a personalised learning sequence with prerequisite mapping and objectives.</p>
+          <div class="section-divider"></div>
+          <h3>Module: Introduction to Macroeconomics (ECO1202)</h3>
+          <p><strong>Topics covered:</strong> National income accounting and GDP measurement; aggregate demand and aggregate supply; the Keynesian model and fiscal multipliers; money creation, the money supply, and the role of central banks; inflation theory; unemployment theory and the natural rate hypothesis; the Phillips curve; exchange rates and balance of payments; economic growth theories (Harrod-Domar, Solow, endogenous growth); business cycles and macroeconomic stabilisation policy; international trade; current policy debates (austerity, quantitative easing, MMT).</p>
+          <p><strong>Prerequisites assumed:</strong> Basic microeconomics (supply and demand, market equilibrium, elasticity). Introductory mathematics (algebra, graphs, percentage changes).</p>
+          <p><strong>Learning objectives:</strong> Apply macroeconomic models to analyse real-world economic conditions; evaluate government fiscal and monetary policy interventions; interpret macroeconomic data; articulate and critique competing schools of thought in macroeconomics.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: CITATION ANALYSER -->
+    <div class="panel" id="panel-ai-citation">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select a source reference or abstract below and activate <strong>Citation Analyser</strong> from the AssisT AI panel to assess credibility, bias, source type, and key claims.</p>
+          <div class="section-divider"></div>
+          <p><strong>Source 1</strong><br>
+          Hattie, J. (2009). <em>Visible Learning: A synthesis of over 800 meta-analyses relating to achievement.</em> Routledge.</p>
+          <p>This synthesis examined effect sizes from over 800 meta-analyses encompassing approximately 50,000 studies and 150 million students, ranking influences on student achievement from most to least effective. Hattie identified "visible teaching" and "visible learning" as the most powerful contributors, with effect sizes for teacher feedback (d = 0.73) and metacognitive strategies (d = 0.69) among the highest-ranked influences.</p>
+          <div class="section-divider"></div>
+          <p><strong>Source 2</strong><br>
+          Simpson, A. (2017). The mismeasurement of education: Hattie and visible learning. <em>Oxford Review of Education, 43</em>(5), 596–609.</p>
+          <p>This critique examines methodological concerns with Hattie's meta-analytic synthesis, including the aggregation of meta-analyses with heterogeneous populations, outcome measures, and research designs; the use of d = 0.40 as a "hinge point" for distinguishing effective from ineffective interventions without theoretical or empirical justification; and errors in the calculation and reporting of effect sizes.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: MULTI-DOC COMPARE -->
+    <div class="panel" id="panel-ai-multidoc">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the first passage, activate <strong>Multi-Document Compare</strong> from AssisT, then select the second passage. AssisT will identify key agreements, disagreements, and thematic overlaps.</p>
+          <div class="section-divider"></div>
+          <h3>Passage A — Constructivist Learning Theory</h3>
+          <p>Constructivism holds that learners actively construct knowledge through their engagement with experience, rather than passively receiving information transmitted from external sources. Piaget's cognitive constructivism emphasises the individual's adaptation to their environment through the complementary processes of assimilation (incorporating new information into existing schemas) and accommodation (restructuring schemas to incorporate information that cannot be assimilated). Learning, on this account, occurs at the boundary of existing and new knowledge, requiring a state of cognitive disequilibrium that motivates the reorganisation of mental structures.</p>
+          <h3>Passage B — Social Constructivism</h3>
+          <p>Vygotsky's sociocultural theory locates the origins of higher cognitive functions not in the individual's encounter with the physical environment, as in Piaget's account, but in social interaction and cultural mediation. The zone of proximal development — the distance between what a learner can accomplish independently and what they can accomplish with the guidance of a more capable other — defines the optimal site for instruction and scaffolding. Learning, in this framework, proceeds from the inter-psychological to the intra-psychological: cognitive functions first appear in joint activity between learners before being internalised as individual competencies.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI: EMOTIONAL TTS -->
+    <div class="panel" id="panel-ai-emotional">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>Select the passage below and activate <strong>Read Aloud</strong> with Emotional TTS enabled in the AssisT AI panel. The feature detects the emotional register of the text and adjusts the voice's pitch, pace, and inflection accordingly.</p>
+          <div class="section-divider"></div>
+          <p>The letter arrived on a Tuesday in early October, four months after she had submitted the thesis, and longer than any formal acknowledgement of receipt had led her to expect. She had stopped anticipating it — had moved, in the way of graduate students who have lived too long inside a single project, into a kind of determined indifference about outcomes she could not control. But standing in the hallway with the envelope in her hand, she felt the careful architecture of that indifference give way, and beneath it, unanticipated, something closer to fear than to hope.</p>
+          <p>The decision, when she finally read it, was conditional. Two minor revisions. No resubmission required. The committee had found the theoretical framework original and the empirical chapters well-executed, but requested clarification of the epistemological assumptions in Chapter Two and expansion of the discussion of methodological limitations. She sat on the bottom stair for a long time, the letter loose in her hands, trying to locate the appropriate response in herself — the relief, the satisfaction, the small private vindication of years of solitary effort — and finding, somewhat to her surprise, that what she felt most clearly was gratitude, directed at no one in particular, for the simple fact of having been allowed to finish.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-content -->
+</main>
+
+<script>
+  const PANEL_META = {
+    'read-aloud':       { title: 'Read Aloud',              desc: 'Text-to-speech with word-by-word synchronised highlighting' },
+    'reading-mode':     { title: 'Reading Mode',            desc: 'Distraction-free reading view using Mozilla Readability' },
+    'dyslexia':         { title: 'Dyslexia Mode',           desc: 'Bionic reading, syllable colour-coding, grammar colours' },
+    'ocr':              { title: 'OCR',                     desc: 'Text extraction from images, screenshots, and PDFs' },
+    'stt':              { title: 'Speech to Text',          desc: 'Voice-based text input for any text field — Beta' },
+    'auto-punct':       { title: 'Auto-Punctuation',        desc: 'Automatic punctuation from speech prosody — New' },
+    'confidence':       { title: 'Confidence Feedback',     desc: 'Colour-coded confidence scores for recognised words — New' },
+    'quick-actions':    { title: 'Quick Actions Menu',      desc: 'Floating toolbar on text selection for instant access' },
+    'dictionary':       { title: 'Dictionary',              desc: 'Word definitions, pronunciations, and usage examples' },
+    'translation':      { title: 'Translation',             desc: 'Full-page and selected text translation in 14+ languages' },
+    'text-custom':      { title: 'Text Customisation',      desc: 'Font, size, line spacing, letter and word spacing — WCAG 2.2 SC 1.4.12' },
+    'reading-guide':    { title: 'Reading Guide',           desc: 'Mouse-tracking guide line for focus and tracking support' },
+    'reading-progress': { title: 'Reading Progress',        desc: 'Visual scroll progress bar for long documents' },
+    'rsvp':             { title: 'Speed Read (RSVP)',        desc: 'Rapid serial visual presentation with pivot-letter highlighting' },
+    'annotations':      { title: 'Annotations',             desc: 'Inline and sidebar annotations with export and import' },
+    'sticky-notes':     { title: 'Sticky Notes',            desc: 'Colour-coded persistent notes attached to pages' },
+    'cursor':           { title: 'Custom Cursor',           desc: 'Large, high-contrast cursor styles for improved visibility' },
+    'magnify':          { title: 'Magnifying Lens',         desc: 'Cursor-following magnification lens, 1.5×–4×' },
+    'focus-mode':       { title: 'Focus Mode',              desc: 'Dark overlay with a clear reading window following the cursor' },
+    'overlay':          { title: 'Screen Colour Overlay',   desc: 'Tinted screen overlay for visual stress and eye strain reduction' },
+    'reduced-motion':   { title: 'Reduced Motion',          desc: 'Suppress animations across all websites visited' },
+    'pomodoro':         { title: 'Pomodoro Timer',          desc: 'Floating timer widget with customisable work and break durations' },
+    'simplify-ui':      { title: 'Simplified Interface',    desc: 'Suppress ads, sidebars, and non-content elements' },
+    'citations':        { title: 'Citations',               desc: 'Save and manage citations with bibliography export — Alpha' },
+    'canvas':           { title: 'Canvas LMS',              desc: 'Assignment reader and quiz helper for Canvas — Alpha' },
+    'moodle':           { title: 'Moodle LMS',              desc: 'Assignment, forum, and page readers for Moodle — Alpha' },
+    'classroom':        { title: 'Google Classroom',        desc: 'Assignment, stream, and classwork readers — Alpha' },
+    'ai-summarise':     { title: 'Summarisation',           desc: 'AI-powered concise summary of selected text' },
+    'ai-simplify':      { title: 'Text Simplification',     desc: 'Semantic rewriting for accessibility and clarity' },
+    'ai-assignment':    { title: 'Assignment Breakdown',    desc: 'Convert assignment briefs to structured task checklists' },
+    'ai-socratic':      { title: 'Socratic Tutor',          desc: 'Generate thought-provoking questions to deepen understanding' },
+    'ai-kg':            { title: 'Knowledge Graph',         desc: 'Visualise concepts and relationships as interactive nodes' },
+    'ai-study':         { title: 'Study Path Generator',    desc: 'Personalised learning sequences with prerequisite mapping' },
+    'ai-citation':      { title: 'Citation Analyser',       desc: 'AI source credibility, bias detection, and key claims' },
+    'ai-multidoc':      { title: 'Multi-Doc Compare',       desc: 'AI comparison of multiple texts for overlaps and differences' },
+    'ai-emotional':     { title: 'Emotional TTS',           desc: 'Tone-aware text-to-speech with expressive voice modulation' },
+  };
+
+  const navItems    = document.querySelectorAll('.nav-item');
+  const panels      = document.querySelectorAll('.panel');
+  const headerTitle = document.getElementById('header-title');
+  const headerDesc  = document.getElementById('header-desc');
+  const panelContent = document.getElementById('panel-content');
+
+  function showPanel(id) {
+    navItems.forEach(b => b.classList.toggle('active', b.dataset.panel === id));
+    panels.forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+    const meta = PANEL_META[id];
+    if (meta) { headerTitle.textContent = meta.title; headerDesc.textContent = meta.desc; }
+    panelContent.scrollTop = 0;
+  }
+
+  navItems.forEach(btn => btn.addEventListener('click', () => showPanel(btn.dataset.panel)));
+
+  document.addEventListener('keydown', e => {
+    if (e.target.closest('[contenteditable], textarea, input')) return;
+    const all = [...navItems];
+    const idx = all.indexOf(document.querySelector('.nav-item.active'));
+    if (e.key === 'ArrowDown' && idx < all.length - 1) { e.preventDefault(); showPanel(all[idx+1].dataset.panel); }
+    if (e.key === 'ArrowUp'   && idx > 0)              { e.preventDefault(); showPanel(all[idx-1].dataset.panel); }
+  });
+</script>
+</body>
+</html>
