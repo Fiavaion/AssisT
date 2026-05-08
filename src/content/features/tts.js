@@ -1,3 +1,7 @@
+// UNUSED as of 2026-05: not imported anywhere; the active TTS path is
+// src/content/content-simple.js. Kept temporarily as reference for the
+// onboundary-based highlighting pattern. Scheduled for deletion in a follow-up PR.
+
 /**
  * TTS (Text-to-Speech) Feature
  * Handles click-to-read functionality with synchronized highlighting
@@ -88,80 +92,69 @@ function tts_highlightElement(element) {
 }
 
 /**
- * Word-by-word highlighting
+ * Word-by-word highlighting driven by onboundary events (true sync).
+ * Must be called after the utterance is created so onboundary/onstart can be attached.
+ * Falls back to element-level highlight if the voice doesn't fire onboundary within 500ms.
  */
-function tts_highlightWordByWord(element, text, rate) {
-  // Clear any existing word highlighting
+function tts_setupWordHighlighting(element, text, utterance) {
   if (tts_wordHighlightInterval) {
     clearInterval(tts_wordHighlightInterval);
     tts_wordHighlightInterval = null;
   }
-
-  // Remove previous word highlights
   tts_removeHighlight();
 
-  // Split text into words
-  const words = text.split(/\s+/);
-  if (words.length === 0) {
-    return;
-  }
-
-  // Estimate time per word (avg reading speed ~ 150 words/min at 1.0x rate)
-  const baseWordsPerMinute = 150;
-  const adjustedWordsPerMinute = baseWordsPerMinute * rate;
-  const msPerWord = (60 * 1000) / adjustedWordsPerMinute;
-
-  let currentWordIndex = 0;
-
-  // Wrap each word in the element with a span
   const bgColor = hexToRgba(tts_settings.highlightColor, tts_settings.highlightOpacity);
-  const originalHTML = element.innerHTML;
+  element.dataset.originalHTML = element.innerHTML;
 
-  // Store original content for cleanup
-  element.dataset.originalHTML = originalHTML;
+  // Build char-range map for each word in the utterance string
+  const wordRanges = [];
+  const wordRegex = /\S+/g;
+  let m;
+  while ((m = wordRegex.exec(text)) !== null) {
+    wordRanges.push({ start: m.index, end: m.index + m[0].length });
+  }
 
-  // Create wrapped HTML
-  const wrappedHTML = text
-    .split(/(\s+)/)
-    .map((part, index) => {
-      if (part.trim().length === 0) {
-        return part;
-      } else {
-        return `<span class="assist-word" data-word-index="${Math.floor(index / 2)}">${part}</span>`;
-      }
-    })
-    .join('');
+  // Wrap words in spans so we have DOM targets
+  element.innerHTML = sanitizeHTML(text.replace(/(\S+)/g, '<span class="assist-word">$1</span>'));
+  const wordSpans = Array.from(element.querySelectorAll('.assist-word'));
 
-  element.innerHTML = sanitizeHTML(wrappedHTML);
+  let activeSpan = null;
+  let boundaryFired = false;
 
-  // Highlight words progressively
-  const wordSpans = element.querySelectorAll('.assist-word');
-
-  function highlightWord(index) {
-    // Remove previous highlight
-    wordSpans.forEach(span => {
-      span.style.backgroundColor = '';
-    });
-
-    // Highlight current word
-    if (index < wordSpans.length) {
-      wordSpans[index].style.backgroundColor = bgColor;
-      wordSpans[index].style.transition = 'background-color 0.1s';
+  function activateSpan(span) {
+    if (activeSpan) {
+      activeSpan.style.backgroundColor = '';
+    }
+    activeSpan = span;
+    if (span) {
+      span.style.backgroundColor = bgColor;
+      span.style.transition = 'background-color 0.1s';
     }
   }
 
-  // Start highlighting
-  highlightWord(0);
-
-  tts_wordHighlightInterval = setInterval(() => {
-    currentWordIndex++;
-    if (currentWordIndex >= words.length) {
-      clearInterval(tts_wordHighlightInterval);
-      tts_wordHighlightInterval = null;
-    } else {
-      highlightWord(currentWordIndex);
+  utterance.onboundary = event => {
+    if (event.name !== 'word') {
+      return;
     }
-  }, msPerWord);
+    boundaryFired = true;
+    const idx = wordRanges.findIndex(r => event.charIndex >= r.start && event.charIndex < r.end);
+    if (idx !== -1 && idx < wordSpans.length) {
+      activateSpan(wordSpans[idx]);
+    }
+  };
+
+  // If onboundary never fires (voice doesn't support it), fall back to element highlight
+  utterance.onstart = () => {
+    setTimeout(() => {
+      if (!boundaryFired) {
+        console.warn(
+          '[TTS] onboundary not supported by this voice — falling back to element highlight'
+        );
+        tts_cleanupWordByWord(element);
+        tts_highlightElement(element);
+      }
+    }, 500);
+  };
 }
 
 /**
@@ -214,21 +207,20 @@ function tts_readText(text, element) {
     element.style.outline = '2px solid #2196F3';
     element.style.outlineOffset = '2px';
 
-    // Highlight based on settings
-    if (tts_settings.wordByWordEnabled && tts_settings.highlightEnabled) {
-      tts_highlightWordByWord(element, text, tts_settings.rate);
-    } else {
-      tts_highlightElement(element);
-    }
-
-    // Create utterance
+    // Create utterance first — onboundary must be attached before speak()
     tts_currentUtterance = new SpeechSynthesisUtterance(text);
     tts_currentUtterance.rate = tts_settings.rate;
     tts_currentUtterance.pitch = tts_settings.pitch;
     tts_currentUtterance.volume = tts_settings.volume;
-
     if (tts_settings.voice) {
       tts_currentUtterance.voice = tts_settings.voice;
+    }
+
+    // Set up highlighting
+    if (tts_settings.wordByWordEnabled && tts_settings.highlightEnabled) {
+      tts_setupWordHighlighting(element, text, tts_currentUtterance);
+    } else {
+      tts_highlightElement(element);
     }
 
     // Clean up on end
