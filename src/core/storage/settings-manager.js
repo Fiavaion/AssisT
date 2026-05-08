@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
     highlightColor: '#FFEB3B',
     highlightOpacity: 0.7,
     wordByWordEnabled: false,
+    readingScope: 'paragraph', // 'paragraph' | 'section' | 'page'
     rate: 1.0,
     pitch: 1.0,
     volume: 1.0,
