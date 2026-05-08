@@ -1,38 +1,198 @@
 /**
  * AssisT DOM Highlighting Module
- * Provides text and element highlighting functionality for TTS features
- * Phase 1, Step 3: Extracted from content-simple.js
+ * Provides text and element highlighting for TTS playback.
+ *
+ * Word-by-word highlighting uses a hybrid scheduler:
+ *   - Primary signal: utterance.onboundary (fires per word for local voices)
+ *   - Backup tick:    chained setTimeout weighted by word.length * msPerChar
+ *                     (covers Chrome network voices that never fire onboundary)
+ *   - Drift correction: each boundary recomputes msPerChar from observed pacing
+ *   - Pause/resume:   timer halts on onpause, continues from active word on onresume
+ *   - Auto-scroll:    when settings.autoScroll, scrollIntoView when active word
+ *                     leaves the viewport
+ *
+ * Per-leaf, per-text-node wrapping: each text node within a text-bearing leaf
+ * (P/LI/Hn/BLOCKQUOTE) is replaced with a fragment of <span class="assist-word">
+ * elements + whitespace text nodes. Surrounding inline elements (<a>, <strong>,
+ * <button>, <iframe>, <input>, etc.) and their event listeners stay intact.
+ * Cleanup unwraps each span back to a text node and normalizes — no innerHTML
+ * round-trip means no DOM destruction.
  */
 
 import { hexToRgba } from '../utils/color.js';
-import { sanitizeHTML } from '../../utils/sanitize.js';
 
-/**
- * Global reference to the currently highlighted element
- * Used for tracking and cleanup of highlight state
- * @type {HTMLElement|null}
- */
 let currentHighlight = null;
 
-/**
- * Interval ID for word-by-word highlighting animation
- * Used to track and clear the progressive highlighting timer
- * @type {number|null}
- */
-let wordHighlightInterval = null;
+// Word-by-word scheduler state (single-utterance at a time).
+let wordHighlightTimeout = null;
+let watchdogTimeout = null;
+let activeIndex = -1;
+let boundaryIndex = -1;
+let boundaryFired = false;
+let startTs = 0;
+let pausedAt = 0;
+let pauseAccum = 0;
+let wordSpans = [];
+let charRanges = [];
+let msPerChar = 60; // updated per-utterance from rate
+let autoScrollEnabled = false;
+let activeUtterance = null;
+let wrappedLeaves = []; // leaves we wrapped this run; restored on cleanup
+
+function resetSchedulerState() {
+  if (wordHighlightTimeout) {
+    clearTimeout(wordHighlightTimeout);
+    wordHighlightTimeout = null;
+  }
+  if (watchdogTimeout) {
+    clearTimeout(watchdogTimeout);
+    watchdogTimeout = null;
+  }
+  activeIndex = -1;
+  boundaryIndex = -1;
+  boundaryFired = false;
+  startTs = 0;
+  pausedAt = 0;
+  pauseAccum = 0;
+  wordSpans = [];
+  charRanges = [];
+  autoScrollEnabled = false;
+  activeUtterance = null;
+}
+
+// Tags whose text content must NOT be wrapped — wrapping would break script
+// execution, CSS, SVG rendering, or form input handling.
+const NON_READABLE_PARENTS = new Set([
+  'SCRIPT',
+  'STYLE',
+  'NOSCRIPT',
+  'TEMPLATE',
+  'TEXTAREA',
+  'SVG',
+]);
+
+function isEditable(el) {
+  if (!el) {
+    return false;
+  }
+  if (el.isContentEditable === true) {
+    return true;
+  }
+  if (typeof el.getAttribute === 'function') {
+    const attr = el.getAttribute('contenteditable');
+    if (attr === 'true' || attr === '') {
+      return true;
+    }
+  }
+  return false;
+}
+
+function shouldWrapTextNode(node, leaf) {
+  if (!node.textContent || !/\S/.test(node.textContent)) {
+    return false;
+  }
+  let p = node.parentElement;
+  while (p && p !== leaf.parentElement) {
+    if (NON_READABLE_PARENTS.has(p.tagName)) {
+      return false;
+    }
+    if (isEditable(p)) {
+      return false;
+    }
+    if (p === leaf) {
+      break;
+    }
+    p = p.parentElement;
+  }
+  return true;
+}
 
 /**
- * Removes all highlighting from the DOM
- * Cleans up both current highlight reference and any elements with 'assist-highlight' class
- * Restores original text nodes and normalizes parent elements
- *
- * @function removeHighlight
- * @returns {void}
- *
- * @example
- * // Remove all highlights after TTS stops
- * removeHighlight();
+ * Walk every text node under `leaf` in document order, tracking each node's
+ * cumulative offset within `leaf.textContent`. Wrap each non-whitespace token
+ * in a wrappable text node into a <span class="assist-word">; skip text inside
+ * <script>/<style>/<svg>/<textarea> and contenteditable subtrees so we don't
+ * corrupt them. Returns spans + each span's position in the untrimmed leaf
+ * textContent — callers adjust for trim and concatenation.
  */
+function wrapLeafTextNodes(leaf) {
+  if (isEditable(leaf)) {
+    return { spans: [], positions: [] };
+  }
+
+  // First pass: collect ALL text nodes (so cursor math accounts for unwrappable
+  // text — e.g., a contenteditable inside a paragraph still occupies char
+  // positions in the speech-engine's view).
+  const allWalker = document.createTreeWalker(leaf, NodeFilter.SHOW_TEXT, null);
+  const visit = [];
+  let n;
+  while ((n = allWalker.nextNode())) {
+    visit.push(n);
+  }
+
+  const spans = [];
+  const positions = [];
+  let cursor = 0;
+
+  for (const textNode of visit) {
+    const text = textNode.textContent;
+    if (shouldWrapTextNode(textNode, leaf)) {
+      const parent = textNode.parentNode;
+      if (parent) {
+        const fragment = document.createDocumentFragment();
+        const tokenRegex = /(\s+)|(\S+)/g;
+        let m;
+        while ((m = tokenRegex.exec(text)) !== null) {
+          if (m[1]) {
+            fragment.appendChild(document.createTextNode(m[1]));
+          } else if (m[2]) {
+            const span = document.createElement('span');
+            span.className = 'assist-word';
+            span.textContent = m[2];
+            fragment.appendChild(span);
+            spans.push(span);
+            positions.push({
+              start: cursor + m.index,
+              end: cursor + m.index + m[2].length,
+            });
+          }
+        }
+        parent.replaceChild(fragment, textNode);
+      }
+    }
+    cursor += text.length;
+  }
+  return { spans, positions };
+}
+
+/**
+ * Unwrap every <span class="assist-word"> inside `leaf`, replacing each with
+ * its text content. Then normalize() to merge adjacent text nodes.
+ */
+function unwrapLeafSpans(leaf) {
+  if (!leaf || !leaf.querySelectorAll) {
+    return;
+  }
+  const spans = leaf.querySelectorAll('.assist-word');
+  for (const span of spans) {
+    const parent = span.parentNode;
+    if (!parent) {
+      continue;
+    }
+    parent.replaceChild(document.createTextNode(span.textContent), span);
+  }
+  if (typeof leaf.normalize === 'function') {
+    leaf.normalize();
+  }
+}
+
+function restoreWrappedLeaves() {
+  for (const leaf of wrappedLeaves) {
+    unwrapLeafSpans(leaf);
+  }
+  wrappedLeaves = [];
+}
+
 export function removeHighlight() {
   if (currentHighlight) {
     const parent = currentHighlight.parentNode;
@@ -54,24 +214,8 @@ export function removeHighlight() {
   });
 }
 
-/**
- * Applies background color highlight to a single element
- * Removes any existing highlights before applying new one
- * Only applies if highlighting is enabled in settings
- *
- * @function highlightElement
- * @param {HTMLElement} element - The DOM element to highlight
- * @returns {void}
- *
- * @example
- * // Highlight a paragraph element during TTS
- * const paragraph = document.querySelector('p');
- * highlightElement(paragraph);
- */
 export function highlightElement(element, settings) {
   removeHighlight();
-
-  // Only apply highlight if enabled
   if (settings.highlightEnabled) {
     const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
     element.style.backgroundColor = bgColor;
@@ -79,19 +223,6 @@ export function highlightElement(element, settings) {
   }
 }
 
-/**
- * Removes background color highlighting from a specific element
- * Resets the backgroundColor style property
- *
- * @function removeElementHighlight
- * @param {HTMLElement} element - The DOM element to remove highlight from
- * @returns {void}
- *
- * @example
- * // Clean up highlight after TTS finishes
- * const paragraph = document.querySelector('p');
- * removeElementHighlight(paragraph);
- */
 export function removeElementHighlight(element) {
   if (element) {
     element.style.backgroundColor = '';
@@ -99,126 +230,229 @@ export function removeElementHighlight(element) {
 }
 
 /**
- * Implements word-by-word progressive highlighting synchronized with TTS playback
- * Splits text into individual words, wraps each in a span, and highlights progressively
- * Calculates timing based on reading rate (default 150 words/min at 1.0x)
- * Stores original HTML for cleanup restoration
+ * Hybrid word-by-word highlighter driven by onboundary + char-weighted prediction.
  *
- * @function highlightWordByWord
- * @param {HTMLElement} element - The DOM element containing text to highlight
- * @param {string} text - The text content to be highlighted word by word
- * @param {number} rate - Speech rate multiplier (e.g., 1.0 = normal, 1.5 = faster)
- * @param {Object} settings - Settings object containing highlight configuration
- * @param {string} settings.highlightColor - Hex color code for highlight (e.g., '#FFEB3B')
- * @param {number} settings.highlightOpacity - Opacity value 0-1 (e.g., 0.7)
- * @returns {void}
+ * INVARIANT: `text` MUST equal `leaves.map(l => l.textContent.trim()).join('\n\n')`
+ * — the boundary event's charIndex maps into this concatenated string, and the
+ * scheduler depends on word ordering matching exactly. Callers that produce
+ * `text` and `leaves` independently (e.g., AI-generated summaries) MUST NOT
+ * use this function; gate them on `leaves` being scope-resolver output.
  *
- * @example
- * // Highlight paragraph text word by word at 1.2x speed
- * const paragraph = document.querySelector('p');
- * const text = paragraph.textContent;
- * highlightWordByWord(paragraph, text, 1.2, settings);
+ * @param {HTMLElement} element  - container (used only for cleanup tracking)
+ * @param {string} text          - exact text passed to the SpeechSynthesisUtterance
+ * @param {SpeechSynthesisUtterance} utterance - utterance whose events drive sync
+ * @param {Object} settings      - highlight + scroll config
+ * @param {string} settings.highlightColor
+ * @param {number} settings.highlightOpacity
+ * @param {boolean} [settings.autoScroll] - scroll active word into view when off-screen
+ * @param {HTMLElement[]} [leaves] - text-leaf elements to wrap; defaults to [element]
  */
-export function highlightWordByWord(element, text, rate, settings) {
-  // Clear any existing word highlighting
-  if (wordHighlightInterval) {
-    clearInterval(wordHighlightInterval);
-    wordHighlightInterval = null;
-  }
-
-  // Remove previous word highlights
+export function highlightWordByWord(element, text, utterance, settings, leaves) {
+  // Defensive: if a previous run left leaves wrapped, restore them first.
+  restoreWrappedLeaves();
+  resetSchedulerState();
   removeHighlight();
 
-  // Split text into words
-  const words = text.split(/\s+/);
-  if (words.length === 0) {
+  const targetLeaves = leaves && leaves.length ? leaves : [element];
+  const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
+
+  const spans = [];
+  const ranges = [];
+  let charCursor = 0;
+
+  for (let li = 0; li < targetLeaves.length; li++) {
+    const leaf = targetLeaves[li];
+    if (!leaf) {
+      continue;
+    }
+
+    const fullText = leaf.textContent;
+    const leafText = fullText?.trim();
+    if (!leafText) {
+      continue;
+    }
+
+    // Defensive: if this leaf carries spans from a stale run, unwrap first.
+    if (leaf.querySelector && leaf.querySelector('.assist-word')) {
+      unwrapLeafSpans(leaf);
+    }
+
+    const leadingWs = fullText.length - fullText.trimStart().length;
+    const { spans: leafSpans, positions: leafPositions } = wrapLeafTextNodes(leaf);
+
+    if (leafSpans.length > 0) {
+      wrappedLeaves.push(leaf);
+      for (let k = 0; k < leafSpans.length; k++) {
+        const pos = leafPositions[k];
+        const trimmedStart = pos.start - leadingWs;
+        const trimmedEnd = pos.end - leadingWs;
+        // Drop any word that falls outside the trimmed text (shouldn't happen
+        // because we only wrap non-whitespace, but defends against weird DOM).
+        if (trimmedStart < 0 || trimmedEnd > leafText.length) {
+          continue;
+        }
+        ranges.push({
+          start: charCursor + trimmedStart,
+          end: charCursor + trimmedEnd,
+        });
+        spans.push(leafSpans[k]);
+      }
+    }
+    // ALWAYS advance cursor — even leaves with zero wrappable spans contribute
+    // to the speech text (e.g., a paragraph entirely inside a contenteditable
+    // span). Skipping them would desync all subsequent leaves' charRanges.
+    charCursor += leafText.length;
+    if (li < targetLeaves.length - 1) {
+      charCursor += 2;
+    } // "\n\n" separator
+  }
+
+  if (spans.length === 0) {
     return;
   }
 
-  // Estimate time per word (avg reading speed ~ 150 words/min at 1.0x rate)
-  // Adjusted for rate setting
-  const baseWordsPerMinute = 150;
-  const adjustedWordsPerMinute = baseWordsPerMinute * rate;
-  const msPerWord = (60 * 1000) / adjustedWordsPerMinute;
+  // English speech ~13 chars/sec at 1x; per-char ms scales inversely with rate.
+  const rate = utterance.rate || 1;
+  const initialMsPerChar = 1000 / (13 * rate);
 
-  let currentWordIndex = 0;
+  wordSpans = spans;
+  charRanges = ranges;
+  msPerChar = initialMsPerChar;
+  autoScrollEnabled = !!settings.autoScroll;
+  activeUtterance = utterance;
 
-  // Wrap each word in the element with a span
-  const bgColor = hexToRgba(settings.highlightColor, settings.highlightOpacity);
-  const originalHTML = element.innerHTML;
+  function activate(i) {
+    if (i < 0 || i >= wordSpans.length) {
+      return;
+    }
+    if (activeIndex >= 0 && activeIndex < wordSpans.length && wordSpans[activeIndex]) {
+      wordSpans[activeIndex].style.backgroundColor = '';
+    }
+    const span = wordSpans[i];
+    if (!span) {
+      return;
+    }
+    span.style.backgroundColor = bgColor;
+    span.style.transition = 'background-color 0.1s';
+    activeIndex = i;
 
-  // Store original content for cleanup
-  element.dataset.originalHTML = originalHTML;
-
-  // Create wrapped HTML
-  const wrappedHTML = text
-    .split(/(\s+)/)
-    .map((part, index) => {
-      if (part.trim().length === 0) {
-        // Keep whitespace as-is
-        return part;
-      } else {
-        // Wrap words in spans
-        return `<span class="assist-word" data-word-index="${Math.floor(index / 2)}">${part}</span>`;
+    if (autoScrollEnabled) {
+      const rect = span.getBoundingClientRect();
+      const margin = 80;
+      if (rect.top < margin || rect.bottom > window.innerHeight - margin) {
+        span.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    })
-    .join('');
-
-  element.innerHTML = sanitizeHTML(wrappedHTML);
-
-  // Highlight words progressively
-  const wordSpans = element.querySelectorAll('.assist-word');
-
-  function highlightWord(index) {
-    // Remove previous highlight
-    wordSpans.forEach(span => {
-      span.style.backgroundColor = '';
-    });
-
-    // Highlight current word
-    if (index < wordSpans.length) {
-      wordSpans[index].style.backgroundColor = bgColor;
-      wordSpans[index].style.transition = 'background-color 0.1s';
     }
   }
 
-  // Start highlighting
-  highlightWord(0);
-
-  wordHighlightInterval = setInterval(() => {
-    currentWordIndex++;
-    if (currentWordIndex >= words.length) {
-      clearInterval(wordHighlightInterval);
-      wordHighlightInterval = null;
-    } else {
-      highlightWord(currentWordIndex);
+  function scheduleNext(i) {
+    if (i >= wordSpans.length) {
+      return;
     }
-  }, msPerWord);
+    // Always clear any previously-pending timer first so callers like
+    // onresume/onboundary can't leak a parallel chain by overwriting the id.
+    if (wordHighlightTimeout) {
+      clearTimeout(wordHighlightTimeout);
+      wordHighlightTimeout = null;
+    }
+    // Anchor each activation to the word's char position in the speech text,
+    // not its sequential span index — otherwise unwrappable text between
+    // wrapped words (e.g., contenteditable subtree, skipped script content)
+    // would cause the next span to fire too early.
+    const targetTime = charRanges[i].start * msPerChar;
+    const elapsed = performance.now() - startTs - pauseAccum;
+    const delay = Math.max(40, targetTime - elapsed);
+    wordHighlightTimeout = setTimeout(() => {
+      if (activeUtterance !== utterance) {
+        return;
+      }
+      if (i > boundaryIndex) {
+        activate(i);
+      }
+      scheduleNext(i + 1);
+    }, delay);
+  }
+
+  utterance.onstart = () => {
+    if (activeUtterance !== utterance) {
+      return;
+    } // stale
+    startTs = performance.now();
+    // Don't activate(0) directly — schedule it. If charRanges[0].start > 0
+    // (leading speech text was unwrappable), activating immediately would
+    // highlight the first wrapped word before the synth reaches it.
+    scheduleNext(0);
+    watchdogTimeout = setTimeout(() => {
+      if (activeUtterance !== utterance) {
+        return;
+      }
+      if (!boundaryFired) {
+        console.warn('[AssisT] onboundary unsupported by this voice — running on prediction');
+      }
+    }, 750);
+  };
+
+  utterance.onboundary = event => {
+    if (activeUtterance !== utterance) {
+      return;
+    } // stale
+    if (event.name !== 'word') {
+      return;
+    }
+    boundaryFired = true;
+    const idx = charRanges.findIndex(r => event.charIndex >= r.start && event.charIndex < r.end);
+    if (idx === -1 || idx >= wordSpans.length) {
+      return;
+    }
+
+    if (idx > activeIndex) {
+      // When boundary fires for word `idx`, Chrome is starting that word.
+      // Use the word's char position in the speech text as the expected anchor —
+      // this counts spaces, punctuation, and unwrappable interleaved text the
+      // synth is speaking between our wrapped words.
+      const charsBefore = charRanges[idx].start;
+      const expected = charsBefore * msPerChar;
+      const actual = performance.now() - startTs - pauseAccum;
+      if (expected > 0 && actual > 0) {
+        const ratio = Math.max(0.5, Math.min(2.0, actual / expected));
+        msPerChar = msPerChar * ratio;
+      }
+      activate(idx);
+      boundaryIndex = idx;
+      scheduleNext(idx + 1); // scheduleNext clears any pending timer
+    }
+    // Late boundary (idx <= activeIndex): ignore, never go backward.
+  };
+
+  utterance.onpause = () => {
+    if (activeUtterance !== utterance) {
+      return;
+    } // stale
+    if (wordHighlightTimeout) {
+      clearTimeout(wordHighlightTimeout);
+      wordHighlightTimeout = null;
+    }
+    pausedAt = performance.now();
+  };
+
+  utterance.onresume = () => {
+    if (activeUtterance !== utterance) {
+      return;
+    } // stale
+    if (pausedAt > 0) {
+      pauseAccum += performance.now() - pausedAt;
+      pausedAt = 0;
+    }
+    scheduleNext(activeIndex + 1);
+  };
 }
 
 /**
- * Cleans up word-by-word highlighting and restores original element HTML
- * Clears any active highlight interval and restores pre-wrapped content
- * Safe to call multiple times or on elements without word highlighting
- *
- * @function cleanupWordByWord
- * @param {HTMLElement} element - The DOM element to restore
- * @returns {void}
- *
- * @example
- * // Restore paragraph to original state after TTS stops
- * const paragraph = document.querySelector('p');
- * cleanupWordByWord(paragraph);
+ * Restore all leaves wrapped by highlightWordByWord and reset scheduler state.
+ * The `_element` param is accepted for backward compatibility but ignored —
+ * cleanup operates on the leaves the highlighter actually mutated.
  */
-export function cleanupWordByWord(element) {
-  if (wordHighlightInterval) {
-    clearInterval(wordHighlightInterval);
-    wordHighlightInterval = null;
-  }
-
-  // Restore original HTML if it was modified
-  if (element && element.dataset.originalHTML) {
-    element.innerHTML = sanitizeHTML(element.dataset.originalHTML);
-    delete element.dataset.originalHTML;
-  }
+export function cleanupWordByWord(_element) {
+  resetSchedulerState();
+  restoreWrappedLeaves();
 }

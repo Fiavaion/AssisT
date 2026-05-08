@@ -61,6 +61,7 @@ import {
   highlightWordByWord,
   cleanupWordByWord,
 } from '../core/dom/highlighting.js';
+import { resolveReadingTarget } from '../core/dom/scope-resolver.js';
 import { registerShortcut } from '../utils/keyboard-shortcuts.js';
 
 // Make DOMPurify globally available for web_accessible_resources
@@ -119,6 +120,7 @@ import '../features/lms/googleClassroom.js'; // Self-initializing module with Ch
 let currentUtterance = null;
 let currentElement = null;
 let currentText = '';
+let currentLeaves = null; // text-leaf elements wrapped for word-by-word; preserved across restart-on-rate-change
 let isPaused = false; // Manual pause state tracker
 // Note: currentHighlight and wordHighlightInterval moved to src/core/dom/highlighting.js
 
@@ -145,6 +147,7 @@ const settings = {
   highlightColor: '#FFEB3B',
   highlightOpacity: 0.7,
   wordByWordEnabled: false,
+  readingScope: 'paragraph', // 'paragraph' | 'section' | 'page'
   rate: 1.0,
   pitch: 1.0,
   volume: 1.0,
@@ -287,6 +290,7 @@ function cleanupContentScript() {
   currentUtterance = null;
   currentElement = null;
   currentText = '';
+  currentLeaves = null;
   isPaused = false;
   console.log('[AssisT] Content script cleaned up for SPA navigation');
 }
@@ -310,6 +314,7 @@ chrome.storage.local.get('assist_settings', result => {
     settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
     settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
     settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
+    settings.readingScope = ttsSettings.readingScope || settings.readingScope;
     settings.rate = ttsSettings.rate || settings.rate;
     settings.pitch = ttsSettings.pitch || settings.pitch;
     settings.volume = ttsSettings.volume || settings.volume;
@@ -356,6 +361,7 @@ _storageHandler = changes => {
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
         settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
+        settings.readingScope = ttsSettings.readingScope || settings.readingScope;
         settings.rate = ttsSettings.rate || settings.rate;
         settings.pitch = ttsSettings.pitch || settings.pitch;
         settings.volume = ttsSettings.volume || settings.volume;
@@ -375,6 +381,7 @@ _storageHandler = changes => {
           currentUtterance = null;
           currentElement = null;
           currentText = '';
+          currentLeaves = null;
           isPaused = false;
           console.log('[AssisT] TTS disabled, speech stopped and highlights cleared');
         }
@@ -425,10 +432,11 @@ _storageHandler = changes => {
           const wasPaused = synth.paused;
           const element = currentElement;
           const text = currentText;
+          const leaves = currentLeaves;
 
           synth.cancel();
           setTimeout(() => {
-            readText(text, element);
+            readText(text, element, leaves);
             if (wasPaused) {
               setTimeout(() => synth.pause(), 100);
             }
@@ -475,7 +483,7 @@ chrome.storage.onChanged.addListener(_storageHandler);
  * // From Canvas module
  * readTextFunction(assignmentText, assignmentElement);
  */
-function readText(text, element) {
+function readText(text, element, leaves) {
   console.log('[AssisT][readText] ========== READ TEXT CALLED ==========');
   console.log('[AssisT][readText] Text length:', text?.length);
   console.log('[AssisT][readText] Element:', element?.tagName);
@@ -532,6 +540,7 @@ function readText(text, element) {
     console.log('[AssisT][readText] Inside timeout - preparing to speak');
     currentElement = element;
     currentText = text;
+    currentLeaves = Array.isArray(leaves) && leaves.length > 0 ? leaves : null;
     isPaused = false; // Reset pause state
 
     console.log('[AssisT][readText] Reading:', text.substring(0, 50) + '...');
@@ -541,18 +550,8 @@ function readText(text, element) {
     element.style.outlineOffset = '2px';
     console.log('[AssisT][readText] Applied outline to element');
 
-    // Highlight based on settings
-    if (settings.wordByWordEnabled && settings.highlightEnabled) {
-      // Use word-by-word highlighting
-      console.log('[AssisT][readText] Using word-by-word highlighting');
-      highlightWordByWord(element, text, settings.rate, settings);
-    } else {
-      // Use whole-element highlighting
-      console.log('[AssisT][readText] Using whole-element highlighting');
-      highlightElement(element, settings);
-    }
-
-    // Create utterance
+    // Create utterance FIRST so onboundary/onstart can be attached by the
+    // word-by-word highlighter for true sync with the speaking voice.
     console.log('[AssisT][readText] Creating SpeechSynthesisUtterance...');
     currentUtterance = new SpeechSynthesisUtterance(text);
     currentUtterance.rate = settings.rate;
@@ -574,28 +573,82 @@ function readText(text, element) {
       voice: currentUtterance.voice?.name,
     });
 
+    // Word-by-word requires a leaves array whose joined textContent matches
+    // the speech text (boundary events index into the speech text). Click-flow
+    // through resolveReadingTarget always provides this; third-party callers
+    // (window.readText from AI features, Canvas, etc.) typically don't, and
+    // their `text` may not correspond to `element`'s DOM at all. Without
+    // leaves we fall back to whole-element highlight rather than mutating an
+    // arbitrary container's innerHTML.
+    const canDoWordByWord =
+      settings.wordByWordEnabled &&
+      settings.highlightEnabled &&
+      Array.isArray(leaves) &&
+      leaves.length > 0;
+
+    if (canDoWordByWord) {
+      const autoScroll = settings.readingScope && settings.readingScope !== 'paragraph';
+      console.log(
+        '[AssisT][readText] Using word-by-word highlighting (autoScroll=' + autoScroll + ')'
+      );
+      highlightWordByWord(element, text, currentUtterance, { ...settings, autoScroll }, leaves);
+    } else {
+      if (settings.wordByWordEnabled && settings.highlightEnabled) {
+        console.log(
+          '[AssisT][readText] Word-by-word skipped (no leaves for this caller); using whole-element highlight'
+        );
+      } else {
+        console.log('[AssisT][readText] Using whole-element highlighting');
+      }
+      highlightElement(element, settings);
+    }
+
+    // Capture this utterance for stale-event guards. synth.cancel() schedules
+    // an async "canceled" onerror against the OLD utterance; if it fires after
+    // a new readText has already replaced module state, the old handler must
+    // not tear down the new run.
+    const owningUtterance = currentUtterance;
+    const owningElement = currentElement;
+
     // Clean up on end
     currentUtterance.onend = () => {
+      if (currentUtterance !== owningUtterance) {
+        console.log('[AssisT][readText] Stale onend (newer utterance active); ignoring');
+        return;
+      }
       console.log('[AssisT][readText] >>> UTTERANCE ONEND <<<');
-      cleanupWordByWord(currentElement);
+      cleanupWordByWord(owningElement);
       removeHighlight();
-      removeElementHighlight(currentElement);
-      if (currentElement) {
-        currentElement.style.outline = '';
-        currentElement.style.outlineOffset = '';
+      removeElementHighlight(owningElement);
+      if (owningElement) {
+        owningElement.style.outline = '';
+        owningElement.style.outlineOffset = '';
       }
       currentUtterance = null;
       currentElement = null;
       currentText = '';
+      currentLeaves = null;
       isPaused = false;
       console.log('[AssisT][readText] Reading complete and cleaned up');
     };
 
     // Handle errors
     currentUtterance.onerror = event => {
-      // "interrupted" and "canceled" are normal events (user stopped TTS or started new speech)
       const benignErrors = ['interrupted', 'canceled'];
       const isBenign = benignErrors.includes(event.error);
+
+      if (currentUtterance !== owningUtterance) {
+        // Stale: a newer utterance owns the module state. Just clear the
+        // outline on our own element (no shared-state mutation).
+        if (owningElement) {
+          owningElement.style.outline = '';
+          owningElement.style.outlineOffset = '';
+        }
+        if (!isBenign) {
+          console.warn('[AssisT][readText] Stale onerror (non-benign):', event.error);
+        }
+        return;
+      }
 
       if (isBenign) {
         console.log('[AssisT][readText] Speech stopped:', event.error);
@@ -603,23 +656,22 @@ function readText(text, element) {
         console.warn('[AssisT][readText] Speech error:', event.error);
       }
 
-      cleanupWordByWord(currentElement);
+      cleanupWordByWord(owningElement);
       removeHighlight();
-      removeElementHighlight(currentElement);
-      if (currentElement) {
-        currentElement.style.outline = '';
-        currentElement.style.outlineOffset = '';
+      removeElementHighlight(owningElement);
+      if (owningElement) {
+        owningElement.style.outline = '';
+        owningElement.style.outlineOffset = '';
       }
-      // BUG-4 fix: null currentElement AFTER cleanup, not before
       currentElement = null;
       currentText = '';
+      currentLeaves = null;
       isPaused = false;
     };
 
-    // Also log onstart
-    currentUtterance.onstart = () => {
-      console.log('[AssisT][readText] >>> UTTERANCE ONSTART - Speech actually started! <<<');
-    };
+    // NOTE: do NOT assign currentUtterance.onstart here. The word-by-word
+    // highlighter installs its own onstart handler to anchor sync timing.
+    // Whole-element mode doesn't need an onstart hook.
 
     // Speak!
     console.log('[AssisT][readText] ========== CALLING synth.speak() ==========');
@@ -716,51 +768,25 @@ _clickHandler = e => {
     return;
   }
 
-  console.log('[AssisT][Click] TTS is ENABLED - looking for text element');
+  console.log(
+    '[AssisT][Click] TTS is ENABLED - resolving target (scope=' +
+      (settings.readingScope || 'paragraph') +
+      ')'
+  );
 
-  // Find text container
-  let target = e.target;
-  let textElement = null;
+  const resolved = resolveReadingTarget(e.target, settings.readingScope || 'paragraph');
 
-  while (target && target !== document.body) {
-    const tag = target.tagName?.toLowerCase();
-
-    if (
-      tag &&
-      [
-        'p',
-        'li',
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        'blockquote',
-        'div',
-        'article',
-        'section',
-      ].includes(tag)
-    ) {
-      const text = target.textContent?.trim();
-
-      if (text && text.length > 10) {
-        textElement = target;
-        console.log('[AssisT][Click] Found text element:', tag, 'text length:', text.length);
-        break;
-      }
-    }
-
-    target = target.parentElement;
-  }
-
-  if (textElement) {
+  if (resolved && resolved.text) {
     e.preventDefault();
     e.stopPropagation();
-
-    const text = textElement.textContent.trim();
-    console.log('[AssisT][Click] Calling readText() with', text.length, 'chars');
-    readText(text, textElement);
+    console.log(
+      '[AssisT][Click] Calling readText() with',
+      resolved.text.length,
+      'chars across',
+      resolved.leaves?.length || 1,
+      'leaf block(s)'
+    );
+    readText(resolved.text, resolved.element, resolved.leaves);
   } else {
     console.log('[AssisT][Click] No readable text element found');
   }
@@ -825,10 +851,11 @@ _keydownHandler = e => {
     if (currentUtterance && synth.speaking) {
       const text = currentText;
       const element = currentElement;
+      const leaves = currentLeaves;
       const wasPaused = synth.paused;
       synth.cancel();
       setTimeout(() => {
-        readText(text, element);
+        readText(text, element, leaves);
         if (wasPaused) {
           setTimeout(() => synth.pause(), 100);
         }
@@ -848,10 +875,11 @@ _keydownHandler = e => {
     if (currentUtterance && synth.speaking) {
       const text = currentText;
       const element = currentElement;
+      const leaves = currentLeaves;
       const wasPaused = synth.paused;
       synth.cancel();
       setTimeout(() => {
-        readText(text, element);
+        readText(text, element, leaves);
         if (wasPaused) {
           setTimeout(() => synth.pause(), 100);
         }
@@ -1085,6 +1113,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           currentUtterance = null;
           currentElement = null;
           currentText = '';
+          currentLeaves = null;
           isPaused = false;
           console.log('[AssisT] TTS disabled via direct command, highlights cleared');
           break;
