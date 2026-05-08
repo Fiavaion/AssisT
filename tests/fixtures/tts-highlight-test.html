@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AssisT TTS Highlight Test Fixture</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1em; line-height: 1.6; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 0.3em; }
+    h2 { color: #2196F3; margin-top: 2em; }
+    nav, header, footer, aside { background: #fde; padding: 0.5em; border: 1px dashed red; margin: 0.5em 0; }
+    nav::before, header::before, footer::before, aside::before {
+      content: '⛔ THIS BLOCK SHOULD BE SKIPPED IN PAGE MODE — ';
+      font-weight: bold; color: red;
+    }
+    .case { background: #f4f8ff; border-left: 4px solid #2196F3; padding: 0.5em 1em; margin: 1em 0; }
+    .expect { background: #efe; padding: 0.3em 0.8em; border-left: 4px solid green; font-size: 0.9em; margin-top: 0.5em; }
+    button.test-button { background: #2196F3; color: white; border: 0; padding: 0.4em 0.8em; cursor: pointer; }
+    button.test-button:hover { background: #0c7cd5; }
+    .editable { background: #fff8dc; border: 1px dashed #c80; padding: 0.2em; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <p>This navigation bar contains text that should be EXCLUDED from page-mode reading.</p>
+  <a href="#">Skip link</a>
+</nav>
+
+<header>
+  <p>This is the page header text and should be excluded from page-mode reading.</p>
+</header>
+
+<main>
+  <h1>AssisT TTS Highlight Test Fixture</h1>
+  <p>Open this file in Chrome with the AssisT extension loaded. Open the popup, enable TTS,
+     turn on Word-by-Word, then click each test paragraph to verify the expected behaviour.</p>
+
+  <h2>Case 1 — basic paragraph</h2>
+  <div class="case">
+    <p id="case1">The quick brown fox jumps over the lazy dog beside the ancient oak tree by the river.</p>
+    <div class="expect">Expected: each word lights up as it is spoken; sync should be tight on local voices, slightly looser on Google network voices but still finish near the end of speech.</div>
+  </div>
+
+  <h2>Case 2 — paragraph containing a link (regression check)</h2>
+  <div class="case">
+    <p id="case2">This paragraph contains an <a href="https://example.com" target="_blank">important inline link</a> that the user might want to click after reading.</p>
+    <div class="expect">Expected: the link stays visible and clickable during reading. After cleanup, click the link — it should navigate. Pre-PR behavior destroyed the link during reading.</div>
+  </div>
+
+  <h2>Case 3 — paragraph containing a button (regression check)</h2>
+  <div class="case">
+    <p id="case3">Read this paragraph, then click the
+      <button class="test-button" onclick="alert('Button click WORKED — PR fix successful')">test button</button>
+      to confirm its event handler survived word-wrapping.</p>
+    <div class="expect">Expected: button click triggers the alert. Pre-PR behavior would have destroyed the button.</div>
+  </div>
+
+  <h2>Case 4 — paragraph with bold and italic inline formatting</h2>
+  <div class="case">
+    <p id="case4">This paragraph has <strong>bold words</strong> and <em>italic words</em> that should remain styled while the highlight passes through them.</p>
+    <div class="expect">Expected: bold/italic styles remain visible during reading (text-node walker preserves inline elements). Pre-PR behavior wiped formatting.</div>
+  </div>
+
+  <h2>Case 5 — paragraph with embedded contenteditable</h2>
+  <div class="case">
+    <p id="case5">Read this paragraph but do <span class="editable" contenteditable="true">not wrap me, I am editable</span> so the highlight should skip me.</p>
+    <div class="expect">Expected: words outside the editable span get highlighted. Words inside (yellow background) are NOT wrapped and remain editable. Try clicking and typing in the yellow span — should work.</div>
+  </div>
+
+  <h2>Case 6 — heading element (h2 itself)</h2>
+  <h2 id="case6">A standalone heading element with sufficient text length to be read by TTS.</h2>
+  <div class="case">
+    <div class="expect">Expected: clicking on this heading reads the heading itself with word-by-word highlight.</div>
+  </div>
+
+  <h2>Case 7 — list items</h2>
+  <div class="case">
+    <ol>
+      <li id="case7a">First list item with several words for the highlight tracker.</li>
+      <li id="case7b">Second list item with several words for the highlight tracker.</li>
+      <li id="case7c">Third list item with several words for the highlight tracker.</li>
+    </ol>
+    <div class="expect">Expected (paragraph mode): clicking each list item reads only that item. Expected (section mode): clicking any list item reads the whole article (depending on ancestor).</div>
+  </div>
+
+  <h2>Case 8 — blockquote with nested paragraph (leafmost regression check)</h2>
+  <div class="case">
+    <blockquote id="case8">
+      <p>This paragraph is nested inside a blockquote element which is also a text-leaf.</p>
+    </blockquote>
+    <div class="expect">Expected: in section/page mode, the nested &lt;p&gt; is wrapped (NOT the &lt;blockquote&gt;), so we don't get double-wrapping. Verify with DevTools that only one set of .assist-word spans appears during reading.</div>
+  </div>
+
+  <h2>Case 9 — div with direct text (no nested paragraphs)</h2>
+  <div class="case">
+    <div id="case9">This is a plain div that contains only text and no nested block elements at all.</div>
+    <div class="expect">Expected: clicking reads the div's full text in word-by-word. (Without the leaf-fallback fix, this case would do nothing.)</div>
+  </div>
+
+  <h2>Case 10 — div mixing direct text and nested paragraphs</h2>
+  <div class="case">
+    <div id="case10">Intro text right here.
+      <p>Then a nested paragraph follows the intro.</p>
+    </div>
+    <div class="expect">Expected (paragraph mode): clicking reads ALL of div content, including both "Intro text right here" AND "Then a nested paragraph follows the intro" (paragraph mode treats target as one leaf).</div>
+  </div>
+
+  <h2>Case 11 — long paragraph for autoscroll (page mode test)</h2>
+  <div class="case">
+    <p id="case11pad-1">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+    <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+    <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+    <p>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+    <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</p>
+    <p>Totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+    <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores.</p>
+    <p>Eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet.</p>
+    <p id="case11pad-9">Consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam.</p>
+    <div class="expect">Expected (page mode + word-by-word): switch to "Whole page" in popup, click any paragraph here. The page should scroll smoothly to keep the active word in view as it advances. Press Space to pause; scrolling should freeze. Press Space again; scrolling and highlight resume from the same word.</div>
+  </div>
+
+  <h2>Case 12 — script tag (defensive parser check)</h2>
+  <div class="case">
+    <p id="case12">Before the script. <script type="text/plain">var insideScript = "this should not be wrapped or read";</script> After the script.</p>
+    <div class="expect">Expected: script content is NOT wrapped in word-spans (would break execution). Walker should skip text inside &lt;script&gt;. Verify with DevTools that the script element's children are unchanged during reading.</div>
+  </div>
+
+  <h2>Case 13 — quick double-click (race check)</h2>
+  <div class="case">
+    <p id="case13a">First test paragraph for the rapid double-click race-condition stress test.</p>
+    <p id="case13b">Second test paragraph for the rapid double-click race-condition stress test.</p>
+    <div class="expect">Expected: click case13a, then immediately (within 100ms) click case13b. Reading switches cleanly to case13b with no orphan spans left in case13a's DOM. Inspect both paragraphs after — neither should have any .assist-word remnants.</div>
+  </div>
+
+  <h2>Case 14 — pause/resume test</h2>
+  <div class="case">
+    <p id="case14">A long paragraph for testing pause and resume behaviour without the highlight getting out of sync after a pause-resume cycle which is the most common bug class.</p>
+    <div class="expect">Expected: click to start. After ~3 words, press Space (pause). Wait 5 seconds. Press Space again (resume). The highlight should resume from the SAME word, not a different one, and stay aligned with subsequent speech.</div>
+  </div>
+</main>
+
+<aside>
+  <p>This sidebar should be EXCLUDED from page-mode reading because it is inside &lt;aside&gt;.</p>
+</aside>
+
+<footer>
+  <p>This footer should be EXCLUDED from page-mode reading because it is inside &lt;footer&gt;.</p>
+</footer>
+
+</body>
+</html>
