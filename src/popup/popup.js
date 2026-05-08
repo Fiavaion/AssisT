@@ -2195,6 +2195,19 @@ class PopupController {
         this.sendCommandToTab('setWordByWord', { enabled: e.target.checked });
       });
 
+      // Reading scope selector (paragraph / section / page)
+      const readingScope = document.getElementById('reading-scope');
+      if (readingScope) {
+        readingScope.value = this.settings?.tts?.readingScope || 'paragraph';
+        readingScope.addEventListener('change', e => {
+          if (!this.settings.tts) {
+            this.settings.tts = {};
+          }
+          this.settings.tts.readingScope = e.target.value;
+          this.saveSettings();
+        });
+      }
+
       // ============================================================
       // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
       // ============================================================

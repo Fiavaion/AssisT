@@ -476,6 +476,26 @@
                   </div>
                   <p class="feature-description">Highlight each word as it's spoken</p>
                 </section>
+
+                <section class="control-section">
+                  <h2 class="section-title">
+                    <label for="reading-scope">Read on click</label>
+                  </h2>
+                  <select
+                    id="reading-scope"
+                    data-testid="tts-reading-scope"
+                    class="voice-select"
+                    aria-label="Choose how much text a click reads"
+                  >
+                    <option value="paragraph">This paragraph</option>
+                    <option value="section">This section</option>
+                    <option value="page">Whole page (skip menus)</option>
+                  </select>
+                  <p class="feature-description">
+                    Whole-page mode skips navigation, headers, footers, and sidebars. With
+                    word-by-word on, the page auto-scrolls to keep up.
+                  </p>
+                </section>
               </div>
             </div>
 
