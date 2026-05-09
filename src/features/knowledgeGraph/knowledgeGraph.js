@@ -277,59 +277,6 @@ function graph_simpleExtract(text) {
 }
 
 /**
- * Heuristic check: does this label look like a person's name?
- * Catches cases where local models misclassify people as "concept".
- */
-function graph_looksLikePerson(label) {
-  if (!label) {
-    return false;
-  }
-  const words = label.trim().split(/\s+/);
-  // Must be 1-4 words
-  if (words.length < 1 || words.length > 4) {
-    return false;
-  }
-  // Every word must start with a capital letter and contain only letters/hyphens
-  if (!words.every(w => /^[A-Z][a-zA-Z'-]*$/.test(w))) {
-    return false;
-  }
-  // Exclude known non-person proper nouns: single-word movements, places, eras
-  const NON_PERSON_WORDS = new Set([
-    'Impressionism',
-    'Realism',
-    'Cubism',
-    'Surrealism',
-    'Modernism',
-    'Baroque',
-    'Renaissance',
-    'Romanticism',
-    'Expressionism',
-    'Naturalism',
-    'Symbolism',
-    'Paris',
-    'France',
-    'Europe',
-    'London',
-    'Italy',
-    'Rome',
-    'New',
-    'York',
-    'Art',
-    'Post',
-    'Neo',
-    'Theory',
-    'Movement',
-    'Style',
-    'Period',
-    'Era',
-  ]);
-  if (words.length === 1 && NON_PERSON_WORDS.has(words[0])) {
-    return false;
-  }
-  return true;
-}
-
-/**
  * Validate and enhance graph data
  * @param {Object} data - Raw graph data
  * @returns {Object} Enhanced graph data
@@ -341,12 +288,7 @@ function graph_validateAndEnhance(data) {
   const nodes = (data.nodes || []).map((node, idx) => {
     const id = node.id || `node_${idx}`;
     nodeIds.add(id);
-    let type = NODE_TYPES[node.type] ? node.type : 'unknown';
-    // Local models often misclassify person names as "concept" or unknown — fix heuristically
-    if ((type === 'concept' || type === 'unknown') && graph_looksLikePerson(node.label)) {
-      type = 'person';
-      console.log(`[KnowledgeGraph] Reclassified "${node.label}" → person`);
-    }
+    const type = NODE_TYPES[node.type] ? node.type : 'unknown';
     return {
       id,
       label: node.label || `Node ${idx}`,
