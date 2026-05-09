@@ -92,28 +92,36 @@ const GRAPH_CLOUD_SYSTEM_PROMPT = `You are a knowledge graph extractor for educa
  */
 async function graph_extractFromText(text, modeInfo) {
   // Core extraction instructions — shared for both local and cloud
-  const prompt = `Extract a knowledge graph from the educational text below.
+  const prompt = `Extract a knowledge graph from the educational text below. The text may span multiple academic disciplines (e.g. climate science, ecology, economics, sociology) — extract the most meaningful concepts and the real relationships between them, not just word co-occurrence.
 
 NODE TYPES (use exactly these string values):
-- "person"  → Any human: artists, scientists, historical figures, authors. Use for full names AND first-name-only references when context identifies them as a person ("Vincent", "Pierre", "Paul" in an art context).
-- "place"   → Locations: cities, countries, regions (Paris, France, Europe)
-- "date"    → Time periods or years (19th century, 1874, Renaissance period)
-- "event"   → Historical events or movements (First Impressionist Exhibition)
-- "theory"  → Theories, philosophies, ideologies, art/academic movements (Impressionism)
-- "term"    → Technical vocabulary or subject-specific defined terms
-- "concept" → Abstract ideas that don't fit any category above
+- "person"  → Any human: scientists, researchers, historical figures, authors. Use for full names AND recognisable first-name-only references.
+- "place"   → Locations: cities, countries, regions, ecosystems
+- "date"    → Time periods, years, eras (e.g. "20th century", "pre-industrial era")
+- "event"   → Specific historical or scientific events (e.g. "Industrial Revolution", "Paris Agreement")
+- "theory"  → Named theories, models, frameworks, schools of thought (e.g. "systems theory", "Keynesian economics")
+- "term"    → Technical vocabulary that has a precise domain-specific meaning (e.g. "albedo", "trophic cascade")
+- "concept" → Broader abstract ideas that cross domains (e.g. "feedback loop", "resilience", "interdependence")
 
 EDGE TYPES (use exactly these string values):
 related_to | causes | part_of | example_of | opposite_of | leads_to | defined_by
 
-RULES:
-- Extract ${modeInfo.isLocal ? '6–8' : '6–12'} nodes maximum
-- Node ids must be unique, lowercase, underscores only, no spaces
-- Do NOT split multi-word proper names into separate nodes ("Pierre-Auguste Renoir" = one node)
-- A list of names (even first names only) → classify each as "person", never "concept"
-- Definitions must be real and informative — never write "A concept mentioned in the text"
-- Every edge source and target must match an existing node id exactly
-- Keep definitions short: 1 sentence only
+EDGE QUALITY RULES — edges must represent REAL relationships, not just co-occurrence:
+- "causes": A directly produces or drives B (e.g. deforestation causes biodiversity loss)
+- "part_of": A is a component or subdomain of B (e.g. oceanography part_of climate science)
+- "leads_to": A sequentially results in B (e.g. warming leads_to sea level rise)
+- "example_of": A is a specific instance of B (e.g. El Niño example_of climate oscillation)
+- "defined_by": A is characterised or explained by B (e.g. resilience defined_by adaptive capacity)
+- "related_to": use ONLY when no more specific type fits
+
+NODE QUALITY RULES:
+- Extract ${modeInfo.isLocal ? '6–8' : '6–14'} nodes maximum — prefer fewer meaningful nodes over many generic ones
+- Node ids must be unique, lowercase, underscores only (e.g. "atmospheric_physics", "trophic_cascade")
+- Do NOT use generic words as nodes (avoid: "text", "study", "approach", "system", "data", "model" alone)
+- Do NOT split multi-word proper names ("atmospheric physics" = one node: "atmospheric_physics")
+- Definitions must be real and domain-accurate — NEVER write "A concept mentioned in the text"
+- Keep definitions short: 1 informative sentence only
+- Every edge source and target must exactly match an existing node id
 
 REQUIRED JSON STRUCTURE:
 {
