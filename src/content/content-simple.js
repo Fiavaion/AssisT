@@ -631,6 +631,12 @@ function readText(text, element, leaves) {
       currentLeaves = null;
       isPaused = false;
       console.log('[AssisT][readText] Reading complete and cleaned up');
+      // Advance the speech queue if a chunked read is in progress.
+      if (_pendingQueueNext) {
+        const next = _pendingQueueNext;
+        _pendingQueueNext = null;
+        next();
+      }
     };
 
     // Handle errors
@@ -716,6 +722,75 @@ if (typeof readText !== 'function') {
 initializeCanvasModule(readText, settings);
 
 // ============================================================
+// CHUNKED READING — splits long texts for Chrome's SpeechSynthesis
+// Chrome silently fails for utterances > ~4000 chars with network voices.
+// ============================================================
+
+const MAX_UTTERANCE_CHARS = 3500;
+
+let _speechQueue = [];
+let _queueRunning = false;
+
+function _drainQueue() {
+  if (_queueRunning || _speechQueue.length === 0) {
+    return;
+  }
+  _queueRunning = true;
+  const { text, element, leaves } = _speechQueue.shift();
+  // Patch onend so we can advance the queue when this chunk finishes.
+  // We do this by temporarily overriding _queueOnEnd before calling readText.
+  _pendingQueueNext = () => {
+    _queueRunning = false;
+    _drainQueue();
+  };
+  readText(text, element, leaves);
+}
+
+let _pendingQueueNext = null;
+
+function _splitAndQueueLeaves(resolvedElement, leaves) {
+  const chunks = [];
+  let currentLeaves = [];
+  let currentLen = 0;
+
+  for (const leaf of leaves) {
+    const leafText = leaf.textContent?.trim() || '';
+    const addLen = currentLen === 0 ? leafText.length : leafText.length + 2; // +2 for '\n\n'
+    if (currentLen > 0 && currentLen + addLen > MAX_UTTERANCE_CHARS) {
+      const text = currentLeaves.map(l => l.textContent.trim()).join('\n\n');
+      chunks.push({ text, element: currentLeaves[0], leaves: [...currentLeaves] });
+      currentLeaves = [];
+      currentLen = 0;
+    }
+    currentLeaves.push(leaf);
+    currentLen += addLen;
+  }
+  if (currentLeaves.length > 0) {
+    const text = currentLeaves.map(l => l.textContent.trim()).join('\n\n');
+    chunks.push({ text, element: currentLeaves[0], leaves: [...currentLeaves] });
+  }
+  return chunks;
+}
+
+function readChunked(resolved) {
+  const { text, element, leaves } = resolved;
+  if (!leaves || text.length <= MAX_UTTERANCE_CHARS) {
+    // Short enough for a single utterance — no chunking needed.
+    readText(text, element, leaves);
+    return;
+  }
+  const chunks = _splitAndQueueLeaves(element, leaves);
+  if (chunks.length <= 1) {
+    readText(text, element, leaves);
+    return;
+  }
+  showToast(`📖 Reading ${chunks.length} sections...`);
+  _speechQueue = chunks;
+  _queueRunning = false;
+  _drainQueue();
+}
+
+// ============================================================
 // USER INTERACTION - CLICK HANDLER
 // ============================================================
 // Main click detection for reading text on click
@@ -751,13 +826,13 @@ _clickHandler = e => {
     e.preventDefault();
     e.stopPropagation();
     console.log(
-      '[AssisT][Click] Calling readText() with',
+      '[AssisT][Click] Calling readChunked() with',
       resolved.text.length,
       'chars across',
       resolved.leaves?.length || 1,
       'leaf block(s)'
     );
-    readText(resolved.text, resolved.element, resolved.leaves);
+    readChunked(resolved);
   } else {
     console.log('[AssisT][Click] No readable text element found');
   }
@@ -1140,6 +1215,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'setWordByWord':
           if (ttsData.enabled !== undefined) {
             settings.wordByWordEnabled = ttsData.enabled;
+          }
+          break;
+
+        case 'setReadingScope':
+          if (ttsData.scope) {
+            settings.readingScope = ttsData.scope;
           }
           break;
 

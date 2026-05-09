@@ -2205,6 +2205,7 @@ class PopupController {
           }
           this.settings.tts.readingScope = e.target.value;
           this.saveSettings();
+          this.sendCommandToTab('setReadingScope', { scope: e.target.value });
         });
       }
 

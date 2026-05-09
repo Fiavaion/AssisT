@@ -32,6 +32,12 @@ let boundaryFired = false;
 let startTs = 0;
 let pausedAt = 0;
 let pauseAccum = 0;
+// Relative-sync anchor: set to (now, charPos, pauseAccum) on each boundary event
+// so scheduleNext() measures delay from the LAST known sync point, not from
+// speech start. Prevents cumulative drift from an inaccurate initial msPerChar.
+let lastSyncTs = 0;
+let lastSyncCharPos = 0;
+let lastSyncPauseAccum = 0;
 let wordSpans = [];
 let charRanges = [];
 let msPerChar = 60; // updated per-utterance from rate
@@ -55,6 +61,9 @@ function resetSchedulerState() {
   startTs = 0;
   pausedAt = 0;
   pauseAccum = 0;
+  lastSyncTs = 0;
+  lastSyncCharPos = 0;
+  lastSyncPauseAccum = 0;
   wordSpans = [];
   charRanges = [];
   autoScrollEnabled = false;
@@ -313,9 +322,11 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
     return;
   }
 
-  // English speech ~13 chars/sec at 1x; per-char ms scales inversely with rate.
+  // English speech ~10 chars/sec at 1x (conservative — slower is safer than faster,
+  // since highlights lagging slightly feels more natural than racing ahead).
+  // onboundary corrections will calibrate this within the first few words.
   const rate = utterance.rate || 1;
-  const initialMsPerChar = 1000 / (13 * rate);
+  const initialMsPerChar = 1000 / (10 * rate);
 
   wordSpans = spans;
   charRanges = ranges;
@@ -357,13 +368,14 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
       clearTimeout(wordHighlightTimeout);
       wordHighlightTimeout = null;
     }
-    // Anchor each activation to the word's char position in the speech text,
-    // not its sequential span index — otherwise unwrappable text between
-    // wrapped words (e.g., contenteditable subtree, skipped script content)
-    // would cause the next span to fire too early.
-    const targetTime = charRanges[i].start * msPerChar;
-    const elapsed = performance.now() - startTs - pauseAccum;
-    const delay = Math.max(40, targetTime - elapsed);
+    // Relative timing from last known sync point (onboundary or onstart).
+    // Prevents cumulative drift: error only accumulates from the LAST boundary,
+    // not from speech start. When boundaries fire frequently (Google voices),
+    // each word has at most one word of accumulated error.
+    const charsFromSync = charRanges[i].start - lastSyncCharPos;
+    const pauseSinceSync = pauseAccum - lastSyncPauseAccum;
+    const elapsedSinceSync = performance.now() - lastSyncTs - pauseSinceSync;
+    const delay = Math.max(40, charsFromSync * msPerChar - elapsedSinceSync);
     wordHighlightTimeout = setTimeout(() => {
       if (activeUtterance !== utterance) {
         return;
@@ -382,6 +394,10 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
       return;
     } // stale
     startTs = performance.now();
+    // Initialise the relative-sync anchor at speech start.
+    lastSyncTs = startTs;
+    lastSyncCharPos = 0;
+    lastSyncPauseAccum = 0;
     // Don't activate(0) directly — schedule it. If charRanges[0].start > 0
     // (leading speech text was unwrappable), activating immediately would
     // highlight the first wrapped word before the synth reaches it.
@@ -410,17 +426,23 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
     }
 
     if (idx > activeIndex) {
-      // When boundary fires for word `idx`, Chrome is starting that word.
-      // Use the word's char position in the speech text as the expected anchor —
-      // this counts spaces, punctuation, and unwrappable interleaved text the
-      // synth is speaking between our wrapped words.
-      const charsBefore = charRanges[idx].start;
-      const expected = charsBefore * msPerChar;
-      const actual = performance.now() - startTs - pauseAccum;
-      if (expected > 0 && actual > 0) {
-        const ratio = Math.max(0.5, Math.min(2.0, actual / expected));
-        msPerChar = msPerChar * ratio;
+      // Calibrate msPerChar using INTERVAL since last sync point (not from speech
+      // start) — avoids accumulated startup-delay error corrupting the estimate.
+      const now = performance.now();
+      const charsSinceSync = charRanges[idx].start - lastSyncCharPos;
+      const pauseSinceSync = pauseAccum - lastSyncPauseAccum;
+      const actualSinceSync = now - lastSyncTs - pauseSinceSync;
+      if (charsSinceSync > 0 && actualSinceSync > 0) {
+        const observedMsPerChar = actualSinceSync / charsSinceSync;
+        // Blend: 70% observed, 30% previous — smooths outliers.
+        msPerChar = 0.7 * observedMsPerChar + 0.3 * msPerChar;
       }
+      // Update sync anchor to this boundary so the next scheduleNext() call
+      // measures elapsed time from here, not from speech start.
+      lastSyncTs = now;
+      lastSyncCharPos = charRanges[idx].start;
+      lastSyncPauseAccum = pauseAccum;
+
       activate(idx);
       boundaryIndex = idx;
       scheduleNext(idx + 1); // scheduleNext clears any pending timer
@@ -485,6 +507,10 @@ export function resumeHighlighting() {
     pauseAccum += performance.now() - pausedAt;
     pausedAt = 0;
   }
+  // Reset sync anchor so the next scheduleNext() measures from NOW,
+  // not from the paused timestamp (which would produce a negative elapsed).
+  lastSyncTs = performance.now();
+  lastSyncPauseAccum = pauseAccum;
   if (scheduleNextFn) {
     scheduleNextFn(activeIndex + 1);
   }
