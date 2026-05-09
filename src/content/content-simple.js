@@ -148,6 +148,7 @@ const settings = {
   highlightColor: '#FFEB3B',
   highlightOpacity: 0.7,
   wordByWordEnabled: false,
+  wordHighlightMode: 'boundary', // 'boundary' | 'timer'
   readingScope: 'paragraph', // 'paragraph' | 'section' | 'page'
   rate: 1.0,
   pitch: 1.0,
@@ -315,6 +316,7 @@ chrome.storage.local.get('assist_settings', result => {
     settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
     settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
     settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
+    settings.wordHighlightMode = ttsSettings.wordHighlightMode || settings.wordHighlightMode;
     settings.readingScope = ttsSettings.readingScope || settings.readingScope;
     settings.rate = ttsSettings.rate || settings.rate;
     settings.pitch = ttsSettings.pitch || settings.pitch;
@@ -1221,6 +1223,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'setReadingScope':
           if (ttsData.scope) {
             settings.readingScope = ttsData.scope;
+          }
+          break;
+
+        case 'setWordHighlightMode':
+          if (ttsData.mode) {
+            settings.wordHighlightMode = ttsData.mode;
           }
           break;
 

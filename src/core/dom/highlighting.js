@@ -358,20 +358,20 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
     }
   }
 
+  const mode = settings.wordHighlightMode || 'boundary';
+
+  // ── TIMER MODE helpers ────────────────────────────────────────────────────
+  // scheduleNext() drives timer-based prediction. Uses relative-from-last-sync
+  // timing so drift accumulates only from the most recent boundary event, not
+  // from speech start.
   function scheduleNext(i) {
     if (i >= wordSpans.length) {
       return;
     }
-    // Always clear any previously-pending timer first so callers like
-    // onresume/onboundary can't leak a parallel chain by overwriting the id.
     if (wordHighlightTimeout) {
       clearTimeout(wordHighlightTimeout);
       wordHighlightTimeout = null;
     }
-    // Relative timing from last known sync point (onboundary or onstart).
-    // Prevents cumulative drift: error only accumulates from the LAST boundary,
-    // not from speech start. When boundaries fire frequently (Google voices),
-    // each word has at most one word of accumulated error.
     const charsFromSync = charRanges[i].start - lastSyncCharPos;
     const pauseSinceSync = pauseAccum - lastSyncPauseAccum;
     const elapsedSinceSync = performance.now() - lastSyncTs - pauseSinceSync;
@@ -386,36 +386,73 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
       scheduleNext(i + 1);
     }, delay);
   }
-  // Expose scheduleNext at module level so pauseHighlighting/resumeHighlighting can call it.
   scheduleNextFn = scheduleNext;
 
-  utterance.onstart = () => {
-    if (activeUtterance !== utterance) {
+  // ── BOUNDARY MODE helpers ─────────────────────────────────────────────────
+  // Watchdog advances one word at a time when no boundary event arrives.
+  // In pure boundary mode the voice drives all highlights; the watchdog is
+  // only a safety net for voices that occasionally skip an event.
+  function setWatchdog(i) {
+    if (watchdogTimeout) {
+      clearTimeout(watchdogTimeout);
+      watchdogTimeout = null;
+    }
+    if (i >= wordSpans.length) {
       return;
-    } // stale
-    startTs = performance.now();
-    // Initialise the relative-sync anchor at speech start.
-    lastSyncTs = startTs;
-    lastSyncCharPos = 0;
-    lastSyncPauseAccum = 0;
-    // Don't activate(0) directly — schedule it. If charRanges[0].start > 0
-    // (leading speech text was unwrappable), activating immediately would
-    // highlight the first wrapped word before the synth reaches it.
-    scheduleNext(0);
+    }
+    // Wait long enough that a legitimate boundary would have fired, but short
+    // enough that we don't visibly stall. 2 seconds covers the longest words.
+    const timeout = 2000;
     watchdogTimeout = setTimeout(() => {
       if (activeUtterance !== utterance) {
         return;
       }
-      if (!boundaryFired) {
-        console.warn('[AssisT] onboundary unsupported by this voice — running on prediction');
+      if (i > activeIndex) {
+        activate(i);
+        boundaryIndex = Math.max(boundaryIndex, i);
       }
-    }, 750);
+      setWatchdog(i + 1);
+    }, timeout);
+  }
+
+  // ── onstart ───────────────────────────────────────────────────────────────
+  utterance.onstart = () => {
+    if (activeUtterance !== utterance) {
+      return;
+    }
+    startTs = performance.now();
+    lastSyncTs = startTs;
+    lastSyncCharPos = 0;
+    lastSyncPauseAccum = 0;
+
+    if (mode === 'boundary') {
+      // Activate word 0 immediately so there's visible feedback, then let
+      // boundary events drive the rest. Watchdog fires if a boundary is missed.
+      activate(0);
+      activeIndex = 0;
+      boundaryIndex = 0;
+      setWatchdog(1);
+    } else {
+      // Timer mode: schedule predictions from the start.
+      scheduleNext(0);
+      // Log if no boundary fires within 750ms (voice may not support them).
+      const timerWatchdog = setTimeout(() => {
+        if (activeUtterance !== utterance) {
+          return;
+        }
+        if (!boundaryFired) {
+          console.warn('[AssisT] onboundary not supported — running on timer prediction only');
+        }
+      }, 750);
+      watchdogTimeout = timerWatchdog;
+    }
   };
 
+  // ── onboundary ────────────────────────────────────────────────────────────
   utterance.onboundary = event => {
     if (activeUtterance !== utterance) {
       return;
-    } // stale
+    }
     if (event.name !== 'word') {
       return;
     }
@@ -426,37 +463,50 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
     }
 
     if (idx > activeIndex) {
-      // Calibrate msPerChar using INTERVAL since last sync point (not from speech
-      // start) — avoids accumulated startup-delay error corrupting the estimate.
-      const now = performance.now();
-      const charsSinceSync = charRanges[idx].start - lastSyncCharPos;
-      const pauseSinceSync = pauseAccum - lastSyncPauseAccum;
-      const actualSinceSync = now - lastSyncTs - pauseSinceSync;
-      if (charsSinceSync > 0 && actualSinceSync > 0) {
-        const observedMsPerChar = actualSinceSync / charsSinceSync;
-        // Blend: 70% observed, 30% previous — smooths outliers.
-        msPerChar = 0.7 * observedMsPerChar + 0.3 * msPerChar;
-      }
-      // Update sync anchor to this boundary so the next scheduleNext() call
-      // measures elapsed time from here, not from speech start.
-      lastSyncTs = now;
-      lastSyncCharPos = charRanges[idx].start;
-      lastSyncPauseAccum = pauseAccum;
+      if (mode === 'boundary') {
+        // Pure boundary mode: events drive everything. Clear watchdog so it
+        // doesn't double-activate, activate this word, set next watchdog.
+        if (watchdogTimeout) {
+          clearTimeout(watchdogTimeout);
+          watchdogTimeout = null;
+        }
+        activate(idx);
+        boundaryIndex = idx;
+        setWatchdog(idx + 1);
+      } else {
+        // Timer mode: use boundary to calibrate msPerChar (fast direct convergence —
+        // one boundary event is enough to lock onto the voice's actual rate).
+        const now = performance.now();
+        const charsSinceSync = charRanges[idx].start - lastSyncCharPos;
+        const pauseSinceSync = pauseAccum - lastSyncPauseAccum;
+        const actualSinceSync = now - lastSyncTs - pauseSinceSync;
+        if (charsSinceSync > 0 && actualSinceSync > 0) {
+          msPerChar = actualSinceSync / charsSinceSync;
+        }
+        lastSyncTs = now;
+        lastSyncCharPos = charRanges[idx].start;
+        lastSyncPauseAccum = pauseAccum;
 
-      activate(idx);
-      boundaryIndex = idx;
-      scheduleNext(idx + 1); // scheduleNext clears any pending timer
+        activate(idx);
+        boundaryIndex = idx;
+        scheduleNext(idx + 1);
+      }
     }
     // Late boundary (idx <= activeIndex): ignore, never go backward.
   };
 
+  // ── onpause / onresume ────────────────────────────────────────────────────
   utterance.onpause = () => {
     if (activeUtterance !== utterance) {
       return;
-    } // stale
+    }
     if (wordHighlightTimeout) {
       clearTimeout(wordHighlightTimeout);
       wordHighlightTimeout = null;
+    }
+    if (watchdogTimeout) {
+      clearTimeout(watchdogTimeout);
+      watchdogTimeout = null;
     }
     pausedAt = performance.now();
   };
@@ -464,12 +514,16 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
   utterance.onresume = () => {
     if (activeUtterance !== utterance) {
       return;
-    } // stale
+    }
     if (pausedAt > 0) {
       pauseAccum += performance.now() - pausedAt;
       pausedAt = 0;
     }
-    scheduleNext(activeIndex + 1);
+    if (mode === 'boundary') {
+      setWatchdog(activeIndex + 1);
+    } else {
+      scheduleNext(activeIndex + 1);
+    }
   };
 }
 
@@ -507,11 +561,13 @@ export function resumeHighlighting() {
     pauseAccum += performance.now() - pausedAt;
     pausedAt = 0;
   }
-  // Reset sync anchor so the next scheduleNext() measures from NOW,
-  // not from the paused timestamp (which would produce a negative elapsed).
+  // Reset sync anchor so timing is measured from NOW after resume.
   lastSyncTs = performance.now();
   lastSyncPauseAccum = pauseAccum;
   if (scheduleNextFn) {
     scheduleNextFn(activeIndex + 1);
   }
+  // Note: boundary mode's watchdog is restarted by utterance.onresume (which
+  // fires when synth.resume() is called). pauseHighlighting/resumeHighlighting
+  // are called first (before the event fires) so this covers the timer path.
 }
