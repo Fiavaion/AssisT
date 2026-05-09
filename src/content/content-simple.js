@@ -149,6 +149,7 @@ const settings = {
   highlightOpacity: 0.7,
   wordByWordEnabled: false,
   wordHighlightMode: 'boundary', // 'boundary' | 'timer'
+  wordHighlightSpeed: 1.0, // multiplier: >1 faster, <1 slower
   readingScope: 'paragraph', // 'paragraph' | 'section' | 'page'
   rate: 1.0,
   pitch: 1.0,
@@ -317,6 +318,10 @@ chrome.storage.local.get('assist_settings', result => {
     settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
     settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
     settings.wordHighlightMode = ttsSettings.wordHighlightMode || settings.wordHighlightMode;
+    settings.wordHighlightSpeed =
+      ttsSettings.wordHighlightSpeed !== null && ttsSettings.wordHighlightSpeed !== undefined
+        ? ttsSettings.wordHighlightSpeed
+        : settings.wordHighlightSpeed;
     settings.readingScope = ttsSettings.readingScope || settings.readingScope;
     settings.rate = ttsSettings.rate || settings.rate;
     settings.pitch = ttsSettings.pitch || settings.pitch;
@@ -364,6 +369,10 @@ _storageHandler = changes => {
         settings.highlightColor = ttsSettings.highlightColor || settings.highlightColor;
         settings.highlightOpacity = ttsSettings.highlightOpacity || settings.highlightOpacity;
         settings.wordByWordEnabled = ttsSettings.wordByWordEnabled || false;
+        settings.wordHighlightSpeed =
+          ttsSettings.wordHighlightSpeed !== null && ttsSettings.wordHighlightSpeed !== undefined
+            ? ttsSettings.wordHighlightSpeed
+            : settings.wordHighlightSpeed;
         settings.readingScope = ttsSettings.readingScope || settings.readingScope;
         settings.rate = ttsSettings.rate || settings.rate;
         settings.pitch = ttsSettings.pitch || settings.pitch;
@@ -1229,6 +1238,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'setWordHighlightMode':
           if (ttsData.mode) {
             settings.wordHighlightMode = ttsData.mode;
+          }
+          break;
+
+        case 'setWordHighlightSpeed':
+          if (ttsData.speed !== null && ttsData.speed !== undefined) {
+            settings.wordHighlightSpeed = ttsData.speed;
           }
           break;
 
