@@ -370,6 +370,47 @@ const SPG_PANEL_CSS = `
     background: #e8f5e9;
     color: #2e7d32;
   }
+
+  .spg-path-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 0 4px;
+    border-top: 1px solid #e0e0e0;
+    margin-top: 16px;
+  }
+
+  .spg-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    color: #333;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .spg-action-btn:hover {
+    background: #f0f0f0;
+    border-color: #ccc;
+  }
+
+  .spg-action-btn.active {
+    background: linear-gradient(135deg, #5f2c82 0%, #49a09d 100%);
+    color: white;
+    border-color: transparent;
+  }
+
+  .spg-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 
 /**
@@ -900,11 +941,109 @@ function spg_createPanel() {
           <h4>💡 Study Tips</h4>
           <div id="spg-tips-list"></div>
         </div>
+
+        <div class="spg-path-actions">
+          <button class="spg-action-btn" id="spg-copy-all-btn" aria-label="Copy all study path content to clipboard">
+            📋 Copy All
+          </button>
+          <button class="spg-action-btn" id="spg-read-all-btn" aria-label="Read all study path content aloud">
+            🔊 Read All
+          </button>
+        </div>
       </div>
     </div>
   `;
 
   return panel;
+}
+
+/**
+ * Build plain-text summary of the full study path for copying
+ * @param {Object} path
+ * @returns {string}
+ */
+function spg_buildCopyText(path) {
+  const lines = [`📚 Study Path: ${path.title || 'Untitled'}`];
+  lines.push(
+    `Estimated: ${path.estimatedHours} hours • ${path.topics.length} topics • ${path.difficulty}`
+  );
+  lines.push('');
+
+  path.topics.forEach((t, i) => {
+    lines.push(`Topic ${i + 1}: ${t.title} (${t.estimatedMinutes} min • ${t.difficulty})`);
+    if (t.description) {
+      lines.push(`  ${t.description}`);
+    }
+    if (t.objectives && t.objectives.length) {
+      lines.push('  Learning objectives:');
+      t.objectives.forEach(o => lines.push(`    • ${o}`));
+    }
+    if (t.keyTerms && t.keyTerms.length) {
+      lines.push(`  Key terms: ${t.keyTerms.join(', ')}`);
+    }
+    lines.push('');
+  });
+
+  if (path.tips && path.tips.length) {
+    lines.push('💡 Study Tips:');
+    path.tips.forEach(t => lines.push(`  • ${t}`));
+  }
+
+  return lines.join('\n');
+}
+
+/** @type {SpeechSynthesisUtterance|null} */
+let spg_utterance = null;
+
+/**
+ * Read all study path text aloud using TTS
+ * @param {Object} path
+ * @param {HTMLElement} btn
+ */
+async function spg_readAll(path, btn) {
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    spg_utterance = null;
+    btn.classList.remove('active');
+    btn.textContent = '🔊 Read All';
+    return;
+  }
+
+  const text = spg_buildCopyText(path);
+  spg_utterance = new SpeechSynthesisUtterance(text);
+
+  try {
+    const stored = await chrome.storage.sync.get(['tts']);
+    const tts = stored.tts || {};
+    spg_utterance.rate = tts.rate || 1.0;
+    spg_utterance.pitch = tts.pitch || 1.0;
+    spg_utterance.volume = tts.volume || 1.0;
+    if (tts.voice) {
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find(v => v.name === tts.voice);
+      if (match) {
+        spg_utterance.voice = match;
+      }
+    }
+  } catch {
+    // Use defaults if storage fails
+  }
+
+  btn.classList.add('active');
+  btn.textContent = '⏹ Stop';
+
+  spg_utterance.onend = () => {
+    btn.classList.remove('active');
+    btn.textContent = '🔊 Read All';
+    spg_utterance = null;
+  };
+  spg_utterance.onerror = () => {
+    btn.classList.remove('active');
+    btn.textContent = '🔊 Read All';
+    spg_utterance = null;
+  };
+
+  window.speechSynthesis.speak(spg_utterance);
 }
 
 /**
@@ -1044,6 +1183,34 @@ function spg_displayPath(path) {
     tipsEl.innerHTML = sanitizeHTML(
       path.tips.map(t => `<div class="spg-tip-item">• ${t}</div>`).join('')
     );
+  }
+
+  // Wire up Copy All and Read All buttons
+  const copyBtn = document.getElementById('spg-copy-all-btn');
+  if (copyBtn) {
+    attachInteractiveHandler(copyBtn, 'Study Path Copy All', async () => {
+      const text = spg_buildCopyText(path);
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = copyBtn.textContent.trim();
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(() => {
+          copyBtn.textContent = orig;
+        }, 2000);
+      } catch {
+        copyBtn.textContent = '❌ Failed';
+        setTimeout(() => {
+          copyBtn.textContent = '📋 Copy All';
+        }, 2000);
+      }
+    });
+  }
+
+  const readBtn = document.getElementById('spg-read-all-btn');
+  if (readBtn) {
+    attachInteractiveHandler(readBtn, 'Study Path Read All', () => {
+      spg_readAll(path, readBtn);
+    });
   }
 
   spg_updateProgressDisplay();

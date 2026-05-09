@@ -322,6 +322,13 @@ body {
   font-weight: 600;
 }
 
+/* Text Stats Bar */
+.text-stats-bar {
+  padding: 8px var(--spacing-md);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
 /* Main Content */
 .popup-main {
   flex: 1;

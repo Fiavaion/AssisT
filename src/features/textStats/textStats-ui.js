@@ -669,7 +669,7 @@ export const textStatsUI = new TextStatsUI();
       enabled: settings.textStats?.enabled !== false,
       targetWordCount: settings.textStatsTargetWordCount || 0,
       readingSpeed: settings.textStatsReadingSpeed || 225,
-      badgeVisible: settings.textStatsBadgeVisible !== false,
+      badgeVisible: settings.textStatsBadgeVisible === true,
       autoUpdate: settings.textStatsAutoUpdate !== false,
     };
 

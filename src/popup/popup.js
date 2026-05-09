@@ -2340,6 +2340,25 @@ class PopupController {
         });
       }
 
+      // Text Stats main toggle
+      const mainTextStatsToggle = document.getElementById('main-text-stats-toggle');
+      if (mainTextStatsToggle) {
+        this.attachInteractiveHandler(mainTextStatsToggle, 'Text Stats Toggle', () => {
+          const enabled = mainTextStatsToggle.checked;
+          if (!this.settings.ui_overlay) {
+            this.settings.ui_overlay = {};
+          }
+          this.settings.ui_overlay.show_text_stats_badge = enabled;
+          this.settings.ui_overlay.show_text_stats_notifications = enabled;
+          chrome.storage.local.set({
+            textStatsBadgeVisible: enabled,
+            textStatsNotificationsEnabled: enabled,
+          });
+          this.saveSettings();
+          this.updateStatus(enabled ? 'Text stats visible' : 'Text stats hidden');
+        });
+      }
+
       // Quick Start section handlers
       this.setupQuickStart();
 
@@ -2550,10 +2569,10 @@ class PopupController {
       chrome.storage.local.set({
         textStatsBadgeVisible: newState
           ? false
-          : this.settings.ui_overlay.show_text_stats_badge !== false,
+          : this.settings.ui_overlay.show_text_stats_badge === true,
         textStatsNotificationsEnabled: newState
           ? false
-          : this.settings.ui_overlay.show_text_stats_notifications !== false,
+          : this.settings.ui_overlay.show_text_stats_notifications === true,
         featureNotificationsEnabled: newState
           ? false
           : this.settings.ui_overlay.show_feature_notifications !== false,
@@ -4881,14 +4900,20 @@ class PopupController {
     // Load UI overlay visibility settings
     const uiOverlay = this.settings.ui_overlay || {};
 
+    // Main popup text stats toggle — default OFF
+    const mainTextStatsToggle = document.getElementById('main-text-stats-toggle');
+    if (mainTextStatsToggle) {
+      mainTextStatsToggle.checked = uiOverlay.show_text_stats_badge === true;
+    }
+
     const showTextStatsBadge = document.getElementById('show-text-stats-badge');
     if (showTextStatsBadge) {
-      showTextStatsBadge.checked = uiOverlay.show_text_stats_badge !== false;
+      showTextStatsBadge.checked = uiOverlay.show_text_stats_badge === true;
     }
 
     const showTextStatsNotifications = document.getElementById('show-text-stats-notifications');
     if (showTextStatsNotifications) {
-      showTextStatsNotifications.checked = uiOverlay.show_text_stats_notifications !== false;
+      showTextStatsNotifications.checked = uiOverlay.show_text_stats_notifications === true;
     }
 
     const showFeatureNotifications = document.getElementById('show-feature-notifications');
@@ -5360,10 +5385,10 @@ class PopupController {
     chrome.storage.local.set({
       textStatsBadgeVisible: this.settings.ui_overlay.minimize_clutter
         ? false
-        : this.settings.ui_overlay.show_text_stats_badge !== false,
+        : this.settings.ui_overlay.show_text_stats_badge === true,
       textStatsNotificationsEnabled: this.settings.ui_overlay.minimize_clutter
         ? false
-        : this.settings.ui_overlay.show_text_stats_notifications !== false,
+        : this.settings.ui_overlay.show_text_stats_notifications === true,
       featureNotificationsEnabled: this.settings.ui_overlay.minimize_clutter
         ? false
         : this.settings.ui_overlay.show_feature_notifications !== false,
