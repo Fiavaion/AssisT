@@ -7229,8 +7229,6 @@ class PopupController {
     const engineOfflineBadge = document.getElementById('stt-engine-offline-badge');
     const preferOfflineCheckbox = document.getElementById('stt-prefer-offline');
 
-    const whisperDownloadSection = document.getElementById('stt-whisper-download');
-
     if (engineSelect) {
       // Initialize engine settings if not present
       if (this.settings.stt.engine === undefined) {
@@ -7240,13 +7238,19 @@ class PopupController {
         this.settings.stt.preferOffline = true;
       }
 
+      // Whisper is not yet available — reset any stored 'whisper' selection to 'auto'
+      if (this.settings.stt.engine === 'whisper') {
+        this.settings.stt.engine = 'auto';
+        this.saveSettings();
+      }
+
       engineSelect.value = this.settings.stt.engine || 'auto';
 
       // Update engine status display
-      const updateEngineStatus = (engineType, isOffline = false) => {
+      const updateEngineStatus = engineType => {
         const engineNames = {
           auto: 'Web Speech API',
-          whisper: 'Whisper (Offline)',
+          whisper: 'Whisper (Coming Soon)',
           'web-speech': 'Web Speech API',
           azure: 'Azure Speech Services',
         };
@@ -7260,29 +7264,21 @@ class PopupController {
           engineStatusIndicator.style.background = '#10b981'; // Green by default
         }
 
+        // Never show the OFFLINE badge — Whisper is disabled (coming soon) and
+        // the online engine (Web Speech API) does not need an offline badge.
         if (engineOfflineBadge) {
-          if (isOffline || engineType === 'whisper') {
-            engineOfflineBadge.classList.remove('hidden');
-          } else {
-            engineOfflineBadge.classList.add('hidden');
-          }
+          engineOfflineBadge.classList.add('hidden');
         }
       };
 
       // Initialize display
-      updateEngineStatus(this.settings.stt.engine, this.settings.stt.engine === 'whisper');
+      updateEngineStatus(this.settings.stt.engine);
 
       engineSelect.addEventListener('change', e => {
         this.settings.stt.engine = e.target.value;
         this.saveSettings();
 
-        updateEngineStatus(e.target.value, e.target.value === 'whisper');
-
-        // If selecting Whisper and model not loaded, show download progress
-        if (e.target.value === 'whisper' && whisperDownloadSection) {
-          // Check if Whisper is available - for now, just update UI
-          // The actual model download is handled by the content script
-        }
+        updateEngineStatus(e.target.value);
 
         // Notify content script
         this.sendCommandToTab({
