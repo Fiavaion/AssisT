@@ -593,7 +593,7 @@ function breakdown_injectStyles() {
       background: #f5f5f5;
       border-bottom: 1px solid #e0e0e0;
       font-size: 12px;
-      color: #666;
+      color: #444;
       display: none;
     }
 
@@ -624,7 +624,7 @@ function breakdown_injectStyles() {
     }
 
     .assist-breakdown-placeholder {
-      color: #999;
+      color: #595959;
       font-style: italic;
       text-align: center;
       margin: 20px 0;
@@ -636,7 +636,7 @@ function breakdown_injectStyles() {
       align-items: center;
       gap: 12px;
       padding: 20px;
-      color: #666;
+      color: #444;
     }
 
     .assist-breakdown-spinner {
@@ -762,7 +762,7 @@ function breakdown_injectStyles() {
       gap: 12px;
       margin-top: 6px;
       font-size: 12px;
-      color: #666;
+      color: #444;
     }
 
     .assist-breakdown-task-time {
@@ -773,7 +773,7 @@ function breakdown_injectStyles() {
 
     .assist-breakdown-task-tip {
       font-style: italic;
-      color: #888;
+      color: #595959;
     }
 
     .assist-breakdown-requirements {
@@ -975,6 +975,22 @@ function breakdown_injectStyles() {
       .assist-breakdown-status {
         background: #2d2d2d;
         border-color: #333;
+        color: #ccc;
+      }
+
+      .assist-breakdown-placeholder {
+        color: #aaa;
+      }
+
+      .assist-breakdown-loading {
+        color: #bbb;
+      }
+
+      .assist-breakdown-task-meta {
+        color: #bbb;
+      }
+
+      .assist-breakdown-task-tip {
         color: #aaa;
       }
 
