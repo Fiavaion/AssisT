@@ -75,16 +75,16 @@ async function simplification_generate(text, level = 'moderate', modelKey = 'loc
 
   // LOCAL MODEL PROMPTS (with examples for in-context learning)
   const localPrompts = {
-    basic: `Simplify this text using very simple words and short sentences.
+    basic: `Rewrite the full text below using very simple words and short sentences. Cover every idea in the original — do NOT summarise or skip parts. Your simplified version must address all the key points and be at least 2-3 sentences long.
 
 EXAMPLE:
-Input: "Cognitive dissonance occurs when beliefs contradict actions."
-Output: "We feel bad when what we think and what we do don't match."
+Input: "Cognitive dissonance occurs when a person experiences psychological discomfort because their beliefs and actions are in conflict with each other."
+Output: "We feel uncomfortable when what we believe and what we do don't match. For example, someone might know that eating lots of sugar is bad for them, but still do it every day. This creates a kind of mental tension that can make us feel uneasy."
 
 TEXT:
 ${text}
 
-SIMPLIFIED:`,
+FULL SIMPLIFIED VERSION (cover all points, 2-3+ sentences):`,
 
     moderate: `Rewrite this text to be clearer. Keep academic terms but add brief definitions in parentheses.
 
@@ -111,15 +111,15 @@ IMPROVED VERSION:`,
 
   // CLOUD MODEL PROMPTS (with CoT for better reasoning)
   const cloudPrompts = {
-    basic: `You are a reading accessibility expert. Simplify text for people with severe reading difficulties.
+    basic: `You are a reading accessibility expert. Rewrite the FULL text below so that someone with severe reading difficulties can understand it easily. You MUST cover every idea in the original — do NOT summarise, skip, or shorten the content. Your simplified version must address all the key points and be at least 2-3 sentences long.
 
 EXAMPLE 1:
-Input: "The implementation of sustainable practices necessitates comprehensive stakeholder engagement."
-Output: "We need to work with everyone to be more green. (= better for the planet)"
+Input: "The implementation of sustainable practices necessitates comprehensive stakeholder engagement and cross-sector collaboration."
+Output: "Being more green and kind to the planet takes a lot of teamwork. We need to work with many different groups of people. Businesses, governments, and communities all have to work together to make it happen."
 
 EXAMPLE 2:
-Input: "Cognitive dissonance occurs when beliefs contradict actions."
-Output: "We feel bad when what we think and what we do don't match."
+Input: "Cognitive dissonance occurs when a person's beliefs and actions conflict, creating psychological discomfort and internal tension."
+Output: "We feel bad when what we think and what we do don't match. For example, if you believe lying is wrong but then you tell a lie, it feels uncomfortable inside. This uncomfortable feeling is called cognitive dissonance (= when your thoughts and actions clash)."
 
 RULES:
 - Use very simple, common words only
@@ -127,12 +127,13 @@ RULES:
 - Break into small paragraphs
 - Replace any hard words with easy ones
 - If there's a technical term, add "(= simple explanation)" after it
-- Keep the main meaning but make it VERY easy to read
+- Cover ALL ideas from the original text — do not skip anything
+- Your output must be at least 2-3 sentences long
 
 TEXT TO SIMPLIFY:
 ${text}
 
-SIMPLIFIED VERSION (very simple English):`,
+FULL SIMPLIFIED VERSION (cover all points, very simple English):`,
 
     moderate: `You are an educational accessibility specialist. Simplify academic text while keeping important terms with definitions.
 
@@ -186,7 +187,9 @@ IMPROVED VERSION:`,
   // Select prompt based on model type
   const promptSet = isCloud ? cloudPrompts : localPrompts;
   const prompt = promptSet[level] || promptSet.moderate;
-  const maxTokens = level === 'basic' ? 800 : level === 'academic' ? 1500 : 1200;
+  // Basic gets 1200 tokens — simplified text expands word count vs original.
+  // Academic gets 1500 for added definitions. Moderate baseline is 1200.
+  const maxTokens = level === 'academic' ? 1500 : 1200;
 
   console.log('[TextSimplification] Generating with:', {
     level,
