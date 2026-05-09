@@ -18,15 +18,12 @@ import { checkGeminiAvailability, generateText as geminiGenerateText } from '../
  * @returns {boolean} True if sender is trusted (from this extension)
  */
 function isValidSender(sender) {
-  // Accept messages from this extension's ID
-  if (sender.id === chrome.runtime.id) {
-    return true;
-  }
-  // Accept messages from content scripts running in tabs (they have sender.tab)
-  if (sender.tab && sender.id === chrome.runtime.id) {
-    return true;
-  }
-  return false;
+  // All trusted messages must originate from this extension's own runtime.
+  // This covers both popup messages (no sender.tab) and content script messages
+  // (sender.tab present). The extension deliberately supports All Sites Mode
+  // via optional <all_urls> permission, so origin is not further restricted here —
+  // only code from our own bundle runs as a content script.
+  return sender.id === chrome.runtime.id;
 }
 
 /**
@@ -107,6 +104,29 @@ function validateURL(url, options = {}) {
   }
 
   return { valid: false, error: `Unsupported protocol: ${parsed.protocol}` };
+}
+
+/**
+ * Return a generic error message safe to forward to content scripts.
+ * Full error detail is always logged in the service worker console.
+ * @param {Error} err
+ * @returns {string}
+ */
+function sanitizeError(err) {
+  const msg = err?.message ?? '';
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+    return 'Network error';
+  }
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return 'Request timed out';
+  }
+  if (msg.includes('Ollama') || msg.includes('localhost:11434')) {
+    return 'Local AI service error';
+  }
+  if (msg.includes('API key') || msg.includes('Unauthorized') || msg.includes('401')) {
+    return 'API key error';
+  }
+  return 'An error occurred';
 }
 
 // Cloud AI imports
@@ -296,7 +316,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     checkOllamaAvailability()
       .then(status => sendResponse({ success: true, ...status }))
       .catch(error =>
-        sendResponse({ success: false, available: false, models: [], error: error.message })
+        sendResponse({ success: false, available: false, models: [], error: sanitizeError(error) })
       );
     return true;
   }
@@ -332,7 +352,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch(error => {
         console.error('[AssisT] Content script injection failed:', error.message);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       });
 
     return true; // Keep channel open for async response
@@ -420,7 +440,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch(error => {
         console.error('[AssisT] Image fetch failed:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       });
 
     return true; // Keep channel open for async response
@@ -459,7 +479,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch(error => {
         console.error('[AssisT] PDF fetch failed:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       });
 
     return true; // Keep channel open for async response
@@ -524,7 +544,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         })
         .catch(error => {
           console.error('[AssisT] PDF Page Down failed:', error);
-          sendResponse({ success: false, error: error.message });
+          sendResponse({ success: false, error: sanitizeError(error) });
         });
 
       return true; // Keep channel open for async response
@@ -606,7 +626,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch(error => {
         console.error('[AssisT] PDF scroll failed:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       });
 
     return true; // Keep channel open for async response
@@ -620,7 +640,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'LOCAL_LLM_CHECK') {
     checkOllamaAvailability()
       .then(status => sendResponse({ success: true, ...status }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -714,7 +734,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const result = await ollamaGenerate(message.prompt, options);
         sendResponse({ success: true, data: result });
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       } finally {
         clearInterval(keepAlive);
       }
@@ -756,7 +776,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           },
         });
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     })();
     return true;
@@ -766,7 +786,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'LOCAL_LLM_VISION') {
     ollamaVision(message.image, message.prompt, message.options || {})
       .then(result => sendResponse({ success: true, data: result }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -783,7 +803,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .catch(() => {}); // Ignore if no listeners
     })
       .then(() => sendResponse({ success: true }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -791,7 +811,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'LOCAL_LLM_GET_MODELS') {
     getOllamaModels()
       .then(models => sendResponse({ success: true, models }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -803,7 +823,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'CLOUD_LLM_CHECK') {
     checkCloudAvailability()
       .then(status => sendResponse({ success: true, ...status }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -816,7 +836,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     saveSecureAPIKey(provider, apiKey)
       .then(() => sendResponse({ success: true }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -830,7 +850,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           usage: result.usage,
         })
       )
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -848,7 +868,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           usage: result.usage,
         })
       )
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -856,7 +876,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'CLOUD_FETCH_MODELS') {
     cloudFetchModels(message.provider, message.apiKey)
       .then(models => sendResponse({ success: true, models }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -878,7 +898,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'BENCHMARK_RUN_TEST') {
     runBenchmarkTest(message)
       .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
@@ -889,11 +909,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, ...availability });
       })
       .catch(error => {
+        console.error('[AssisT]', error);
         sendResponse({
           success: false,
           available: false,
           status: 'error',
-          error: error.message,
+          error: sanitizeError(error),
         });
       });
     return true; // Keep channel open for async response
@@ -917,7 +938,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch(error => {
         console.error('[Gemini] Generation error:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       });
 
     return true; // Keep channel open for async response
@@ -940,7 +961,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           success: false,
           available: false,
           status: 'error',
-          error: error.message,
+          error: sanitizeError(error),
         });
       });
     return true; // Async
@@ -952,7 +973,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const models = getWebLLMModels();
       sendResponse({ success: true, models });
     } catch (error) {
-      sendResponse({ success: false, error: error.message });
+      sendResponse({ success: false, error: sanitizeError(error) });
     }
     return false;
   }
@@ -1018,11 +1039,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       } catch (error) {
         console.error('[WebLLM] Initialization failed:', error);
-        sendResponse({
-          success: false,
-          error: error.message,
-          details: error.stack,
-        });
+        sendResponse({ success: false, error: 'WebLLM initialisation failed' });
       }
     })();
 
@@ -1059,8 +1076,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.error('[WebLLM] Generation failed:', error);
         sendResponse({
           success: false,
-          error: error.message,
-          requiresInit: error.message.includes('not initialized'),
+          error: sanitizeError(error),
+          requiresInit: error.message?.includes('not initialized') ?? false,
         });
       }
     })();
@@ -1075,7 +1092,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const status = client.getStatus();
       sendResponse({ success: true, status });
     } catch (error) {
-      sendResponse({ success: false, error: error.message });
+      sendResponse({ success: false, error: sanitizeError(error) });
     }
     return false;
   }
@@ -1088,7 +1105,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await client.unload();
         sendResponse({ success: true });
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     })();
     return true; // Async
@@ -1106,7 +1123,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Route other messages through MessageRouter
   MessageRouter.route(message, sender)
     .then(response => sendResponse({ success: true, data: response }))
-    .catch(error => sendResponse({ success: false, error: error.message }));
+    .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
 
   return true; // Keep message channel open for async response
 });
@@ -1401,7 +1418,6 @@ const TASK_TO_PREFERENCE_CATEGORY = {
   // General tasks
   summarization: 'general',
   multiDocCompare: 'general',
-  emotionalTTS: 'general',
 
   // Academic tasks
   textSimplification: 'academic',

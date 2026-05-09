@@ -10,7 +10,12 @@
 // Core infrastructure
 export { OllamaClient, getOllamaClient, MODEL_CONFIGS } from './ollama-client.js';
 export { ModelManager, getModelManager, MODEL_SETS } from './model-manager.js';
-export { ContextManager, getContextManager, ContextWindow, CONTEXT_LIMITS } from './context-manager.js';
+export {
+  ContextManager,
+  getContextManager,
+  ContextWindow,
+  CONTEXT_LIMITS,
+} from './context-manager.js';
 export { FallbackManager, getFallbackManager, FALLBACK_BEHAVIORS } from './fallback-manager.js';
 
 /**
@@ -31,7 +36,7 @@ export async function initializeAI() {
   console.log('[AI] Initialization complete:', {
     available: status.available,
     models: status.models.length,
-    visionAvailable: status.visionAvailable
+    visionAvailable: status.visionAvailable,
   });
 
   return {
@@ -39,7 +44,7 @@ export async function initializeAI() {
     models: status.models,
     visionAvailable: status.visionAvailable,
     client,
-    modelManager
+    modelManager,
   };
 }
 
@@ -114,7 +119,7 @@ export async function summarize(text, options = {}) {
   const levelPrompts = {
     brief: 'Summarize in 1-2 sentences:',
     moderate: 'Summarize the key points in a short paragraph:',
-    detailed: 'Provide a comprehensive summary with main points:'
+    detailed: 'Provide a comprehensive summary with main points:',
   };
 
   const prompt = `${levelPrompts[level] || levelPrompts.brief}\n\n${text}`;
@@ -122,7 +127,7 @@ export async function summarize(text, options = {}) {
   return generate(prompt, {
     taskType: 'balanced',
     featureId: 'summarize',
-    maxTokens: level === 'detailed' ? 500 : 200
+    maxTokens: level === 'detailed' ? 500 : 200,
   });
 }
 
@@ -146,7 +151,7 @@ Simplified version:`;
   return generate(prompt, {
     taskType: 'balanced',
     featureId: 'simplify',
-    maxTokens: Math.max(text.length * 1.5, 300)
+    maxTokens: Math.max(text.length * 1.5, 300),
   });
 }
 
@@ -184,34 +189,7 @@ Question:`;
   return generate(prompt, {
     taskType: 'balanced',
     featureId: 'socratic-question',
-    maxTokens: 150
-  });
-}
-
-/**
- * Convenience method: Analyze emotional tone for TTS prosody
- * @param {string} text - Text to analyze
- * @returns {Promise<Object>}
- */
-export async function analyzeProsody(text) {
-  const prompt = `Analyze the emotional tone of this text for text-to-speech:
-"${text.slice(0, 500)}"
-
-Return JSON with:
-{
-  "emotion": "encouraging/neutral/serious/exciting/calming",
-  "rate": 0.8-1.2 (speech rate multiplier),
-  "pitch": 0.9-1.1 (pitch multiplier),
-  "emphasisWords": ["word1", "word2"] (words to emphasize)
-}
-
-JSON:`;
-
-  return generate(prompt, {
-    taskType: 'fast',
-    featureId: 'prosody-analyze',
-    format: 'json',
-    maxTokens: 150
+    maxTokens: 150,
   });
 }
 
@@ -224,5 +202,4 @@ export default {
   summarize,
   simplify,
   socraticQuestion,
-  analyzeProsody
 };

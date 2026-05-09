@@ -134,7 +134,6 @@ export class StorageManager {
         socraticTutor: true, // Guided questioning mode
         assignmentAnalyzer: true, // Assignment breakdown
         citationAnalyzer: true, // Source evaluation
-        emotionalProsody: true, // TTS emotional tone
         visionAnalysis: true, // Image/page understanding
         knowledgeGraph: true, // Annotation linking
         adaptiveRSVP: true, // Intelligent RSVP timing

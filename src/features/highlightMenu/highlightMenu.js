@@ -44,7 +44,6 @@ const highlightMenu_settings = {
   showKnowledgeGraph: true, // AI knowledge graph visualization
   showSpeedRead: true, // RSVP speed reading (modular system)
   showCitationAnalyzer: true, // AI citation/source analysis
-  showCognitiveMonitor: true, // AI cognitive state monitoring
   showMultiDocCompare: true, // Multi-document comparison
   showStudyPath: true, // Study path generator
   autoHideDelay: 5000, // milliseconds
@@ -405,16 +404,6 @@ function highlightMenu_createToolbar() {
       label: 'Cite',
       fullLabel: 'Analyze Citation',
       handler: highlightMenu_handleCitationAnalyzer,
-      index: buttonIndex++,
-      isAI: true,
-    });
-  }
-  if (aiEnabled && highlightMenu_settings.showCognitiveMonitor) {
-    allButtons.push({
-      icon: '🧠',
-      label: 'Focus',
-      fullLabel: 'Cognitive Monitor',
-      handler: highlightMenu_handleCognitiveMonitor,
       index: buttonIndex++,
       isAI: true,
     });
@@ -913,27 +902,6 @@ function highlightMenu_handleCitationAnalyzer() {
       window.showToast('Citation Analyzer feature not available.');
     } else {
       alert('Citation Analyzer feature not available. Please reload the page.');
-    }
-  }
-
-  highlightMenu_hide();
-}
-
-/**
- * Handles Cognitive Monitor action (cognitive state tracking)
- */
-function highlightMenu_handleCognitiveMonitor() {
-  console.log('[HighlightMenu] Cognitive Monitor action triggered');
-
-  // Check if cognitive state monitor feature is available
-  if (window.assistFeatures?.cognitiveStateMonitor) {
-    window.assistFeatures.cognitiveStateMonitor.show();
-  } else {
-    console.warn('[HighlightMenu] Cognitive State Monitor feature not loaded');
-    if (window.showToast) {
-      window.showToast('Cognitive Monitor feature not available.');
-    } else {
-      alert('Cognitive Monitor feature not available. Please reload the page.');
     }
   }
 

@@ -96,7 +96,6 @@ import '../features/summarization/summarization.js'; // Self-initializing AI sum
 import '../features/textSimplification/textSimplification.js'; // Self-initializing AI text simplification with LLM integration
 import '../features/assignmentBreakdown/assignmentBreakdown.js'; // Self-initializing AI assignment breakdown with LLM integration
 import '../features/socraticTutor/socraticTutor.js'; // Self-initializing Socratic questioning for critical thinking
-import '../features/emotionalTTS/emotionalTTS.js'; // Self-initializing emotional tone detection for TTS
 import '../features/imageUnderstanding/imageUnderstanding.js'; // Self-initializing AI vision for image descriptions
 import '../features/cognitiveProfile/cognitiveProfile.js'; // Self-initializing learning profile tracking
 import '../features/knowledgeGraph/knowledgeGraph.js'; // Self-initializing knowledge graph visualization

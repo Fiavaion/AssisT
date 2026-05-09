@@ -104,16 +104,25 @@ async function getStaticEntropy() {
  * @returns {Promise<string>}
  * @private
  */
-async function getEncryptionSecret() {
-  // Check if user has set a password
-  const passwordData = await chrome.storage.local.get([PASSWORD_HASH_KEY, 'assist_temp_password']);
+const TEMP_PASSWORD_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-  // If temp password exists (session-based), use it
+async function getEncryptionSecret() {
+  const passwordData = await chrome.storage.local.get([
+    PASSWORD_HASH_KEY,
+    'assist_temp_password',
+    'assist_temp_password_ts',
+  ]);
+
   if (passwordData.assist_temp_password) {
-    return passwordData.assist_temp_password;
+    const age = Date.now() - (passwordData.assist_temp_password_ts || 0);
+    if (age > TEMP_PASSWORD_TTL_MS) {
+      // Expired — clear and fall through to machine ID
+      await chrome.storage.local.remove(['assist_temp_password', 'assist_temp_password_ts']);
+    } else {
+      return passwordData.assist_temp_password;
+    }
   }
 
-  // Fall back to machine identifier
   return getMachineIdentifier();
 }
 
@@ -261,9 +270,11 @@ export async function setUserPassword(password) {
       [PASSWORD_SALT_KEY]: saltHex,
     });
 
+    // Re-encryption complete — temp password no longer needed
+    await chrome.storage.local.remove('assist_temp_password');
+
     return { success: true, message: 'Password set and keys re-encrypted' };
   } catch (error) {
-    // Clean up on failure
     await chrome.storage.local.remove('assist_temp_password');
     return { success: false, message: error.message };
   }
@@ -300,8 +311,11 @@ export async function unlockWithPassword(password) {
       return { success: false, message: 'Incorrect password' };
     }
 
-    // Store password temporarily for this session
-    await chrome.storage.local.set({ assist_temp_password: password });
+    // Store password for this session with a timestamp so it can be expired
+    await chrome.storage.local.set({
+      assist_temp_password: password,
+      assist_temp_password_ts: Date.now(),
+    });
 
     return { success: true, message: 'Unlocked successfully' };
   } catch (error) {
@@ -314,7 +328,7 @@ export async function unlockWithPassword(password) {
  * @returns {Promise<void>}
  */
 export async function lockEncryption() {
-  await chrome.storage.local.remove('assist_temp_password');
+  await chrome.storage.local.remove(['assist_temp_password', 'assist_temp_password_ts']);
 }
 
 /**
@@ -333,11 +347,11 @@ export async function removeUserPassword(currentPassword) {
     // Get all existing keys (decrypted with current password)
     const existingKeys = await getAllDecryptedKeys();
 
-    // Remove password data
     await chrome.storage.local.remove([
       PASSWORD_HASH_KEY,
       PASSWORD_SALT_KEY,
       'assist_temp_password',
+      'assist_temp_password_ts',
     ]);
 
     // Re-encrypt all keys with machine ID
