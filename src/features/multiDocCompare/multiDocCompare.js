@@ -33,6 +33,8 @@ let mdc_documents = [];
 let mdc_dragCleanup = null; // Cleanup fn for drag listeners when panel is closed
 let mdc_isLoading = false; // eslint-disable-line no-unused-vars
 let mdc_comparisonResult = null; // eslint-disable-line no-unused-vars
+/** @type {SpeechSynthesisUtterance|null} */
+let mdc_utterance = null;
 
 const mdc_settings = {
   maxDocuments: 5,
@@ -337,6 +339,42 @@ const MDC_PANEL_CSS = `
   .mdc-status.success {
     background: #e8f5e9;
     color: #2e7d32;
+  }
+
+  .mdc-results-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 0 4px;
+    border-top: 1px solid #e0e0e0;
+    margin-top: 16px;
+  }
+
+  .mdc-results-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    color: #333;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .mdc-results-action-btn:hover {
+    background: #f0f0f0;
+    border-color: #ccc;
+  }
+
+  .mdc-results-action-btn.active {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    border-color: transparent;
   }
 `;
 
@@ -669,6 +707,15 @@ function mdc_createPanel() {
           <h4>📝 Synthesis</h4>
           <div class="mdc-synthesis" id="mdc-synthesis"></div>
         </div>
+
+        <div class="mdc-results-actions">
+          <button
+            class="mdc-results-action-btn"
+            id="mdc-read-all-btn"
+            role="button"
+            aria-label="Read all comparison results aloud"
+          >🔊 Read All</button>
+        </div>
       </div>
 
       <div class="mdc-tip" id="mdc-tip">
@@ -761,6 +808,15 @@ function mdc_displayResults(result) {
   resultsEl.classList.add('visible');
   document.getElementById('mdc-tip').style.display = 'none';
 
+  // Wire Read All button (idempotent — only attach once via data flag)
+  const readAllBtn = document.getElementById('mdc-read-all-btn');
+  if (readAllBtn && !readAllBtn.dataset.handlerAttached) {
+    readAllBtn.dataset.handlerAttached = 'true';
+    attachInteractiveHandler(readAllBtn, 'Multi-Doc Read All Button', () =>
+      mdc_readAll(readAllBtn)
+    );
+  }
+
   // Agreement level
   const agreementEl = document.getElementById('mdc-agreement');
   if (agreementEl) {
@@ -852,6 +908,148 @@ function mdc_clearResults() {
     resultsEl.classList.remove('visible');
   }
   document.getElementById('mdc-tip').style.display = 'block';
+}
+
+/**
+ * Wait for speechSynthesis voices to be available
+ * @returns {Promise<SpeechSynthesisVoice[]>}
+ */
+function mdc_ensureVoicesLoaded() {
+  return new Promise(resolve => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+      return;
+    }
+    const onChanged = () => {
+      const loaded = window.speechSynthesis.getVoices();
+      if (loaded.length > 0) {
+        window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
+        resolve(loaded);
+      }
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onChanged);
+    setTimeout(() => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
+      resolve(window.speechSynthesis.getVoices());
+    }, 2000);
+  });
+}
+
+/**
+ * Build plain-text summary of comparison results for reading aloud
+ * @returns {string}
+ */
+function mdc_buildReadText() {
+  const resultsEl = document.getElementById('mdc-results');
+  if (!resultsEl) {
+    return '';
+  }
+
+  const lines = ['Comparison results.'];
+
+  const agreementEl = document.getElementById('mdc-agreement');
+  if (agreementEl && agreementEl.textContent) {
+    lines.push(`Agreement level: ${agreementEl.textContent}.`);
+  }
+
+  const themesSection = document.getElementById('mdc-themes-section');
+  if (themesSection && themesSection.style.display !== 'none') {
+    const themesEl = document.getElementById('mdc-themes');
+    if (themesEl) {
+      lines.push('Common themes.');
+      lines.push(themesEl.innerText || '');
+    }
+  }
+
+  const diffsSection = document.getElementById('mdc-differences-section');
+  if (diffsSection && diffsSection.style.display !== 'none') {
+    const diffsEl = document.getElementById('mdc-differences');
+    if (diffsEl) {
+      lines.push('Key differences.');
+      lines.push(diffsEl.innerText || '');
+    }
+  }
+
+  const contradictionsSection = document.getElementById('mdc-contradictions-section');
+  if (contradictionsSection && contradictionsSection.style.display !== 'none') {
+    const contradictionsEl = document.getElementById('mdc-contradictions');
+    if (contradictionsEl) {
+      lines.push('Contradictions.');
+      lines.push(contradictionsEl.innerText || '');
+    }
+  }
+
+  const insightsSection = document.getElementById('mdc-insights-section');
+  if (insightsSection && insightsSection.style.display !== 'none') {
+    const insightsEl = document.getElementById('mdc-insights');
+    if (insightsEl) {
+      lines.push('Unique insights.');
+      lines.push(insightsEl.innerText || '');
+    }
+  }
+
+  const synthesisEl = document.getElementById('mdc-synthesis');
+  if (synthesisEl && synthesisEl.textContent) {
+    lines.push('Synthesis.');
+    lines.push(synthesisEl.textContent);
+  }
+
+  return lines.join(' ');
+}
+
+/**
+ * Read all comparison results aloud using TTS
+ * @param {HTMLElement} btn - The read-all button
+ */
+async function mdc_readAll(btn) {
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    mdc_utterance = null;
+    btn.classList.remove('active');
+    btn.textContent = '🔊 Read All';
+    return;
+  }
+
+  const text = mdc_buildReadText();
+  if (!text.trim()) {
+    return;
+  }
+
+  mdc_utterance = new SpeechSynthesisUtterance(text);
+
+  try {
+    const stored = await chrome.storage.local.get(['assist_settings']);
+    const tts = stored.assist_settings?.tts || {};
+    mdc_utterance.rate = tts.rate || 1.0;
+    mdc_utterance.pitch = tts.pitch || 1.0;
+    mdc_utterance.volume = tts.volume || 1.0;
+    if (tts.voice && tts.voice !== 'default') {
+      const voices = await mdc_ensureVoicesLoaded();
+      const match = voices.find(v => v.name === tts.voice);
+      if (match) {
+        mdc_utterance.voice = match;
+      }
+    }
+  } catch {
+    // Use browser defaults if storage fails
+  }
+
+  btn.classList.add('active');
+  btn.textContent = '⏹ Stop';
+
+  mdc_utterance.onend = () => {
+    btn.classList.remove('active');
+    btn.textContent = '🔊 Read All';
+    mdc_utterance = null;
+  };
+  mdc_utterance.onerror = () => {
+    btn.classList.remove('active');
+    btn.textContent = '🔊 Read All';
+    mdc_utterance = null;
+  };
+
+  window.speechSynthesis.speak(mdc_utterance);
 }
 
 /**
@@ -1011,6 +1209,11 @@ function mdc_hide() {
   if (mdc_panel) {
     mdc_panel.remove();
     mdc_panel = null;
+  }
+  // Stop any in-progress TTS when panel is closed
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    mdc_utterance = null;
   }
   document.removeEventListener('keydown', mdc_handleKeydown);
 }
