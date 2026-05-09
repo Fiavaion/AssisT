@@ -149,7 +149,7 @@ const settings = {
   highlightOpacity: 0.7,
   wordByWordEnabled: false,
   wordHighlightMode: 'boundary', // 'boundary' | 'timer'
-  wordHighlightSpeed: 1.0, // multiplier: >1 faster, <1 slower
+  wordHighlightSpeed: 2.0, // multiplier: >1 faster, <1 slower
   readingScope: 'paragraph', // 'paragraph' | 'section' | 'page'
   rate: 1.0,
   pitch: 1.0,
