@@ -178,12 +178,6 @@ const ALL_FEATURES = [
     modality: ['visual', 'both'],
   },
   {
-    key: 'emotionalTTS',
-    name: 'Expressive TTS',
-    desc: 'Text-to-speech with natural intonation',
-    modality: ['auditory', 'both'],
-  },
-  {
     key: 'multiDocCompare',
     name: 'Multi-Document Compare',
     desc: 'Find similarities and differences across sources',

@@ -9593,7 +9593,6 @@ class PopupController {
           socraticTutor: true,
           assignmentAnalyzer: true,
           citationAnalyzer: true,
-          emotionalProsody: true,
           visionAnalysis: true,
           knowledgeGraph: true,
           predictiveLoading: true,
@@ -10024,7 +10023,6 @@ class PopupController {
       { key: 'citationAnalyzer', label: 'Citation Analyzer' },
       { key: 'knowledgeGraph', label: 'Knowledge Graph' },
       { key: 'multiDocCompare', label: 'Multi-Doc Compare' },
-      { key: 'emotionalTTS', label: 'Emotional TTS' },
     ];
 
     const MODEL_OPTIONS = [

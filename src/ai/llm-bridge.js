@@ -15,14 +15,14 @@
 export async function checkLLMAvailability() {
   try {
     const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_CHECK'
+      action: 'LOCAL_LLM_CHECK',
     });
 
     if (response.success) {
       return {
         available: response.available,
         models: response.models || [],
-        visionAvailable: response.visionAvailable || false
+        visionAvailable: response.visionAvailable || false,
       };
     }
 
@@ -44,7 +44,7 @@ export async function generate(prompt, options = {}) {
     const response = await chrome.runtime.sendMessage({
       action: 'LOCAL_LLM_GENERATE',
       prompt,
-      options
+      options,
     });
 
     if (response.success) {
@@ -74,7 +74,7 @@ export async function vision(imageBase64, prompt, options = {}) {
       action: 'LOCAL_LLM_VISION',
       image: cleanBase64,
       prompt,
-      options
+      options,
     });
 
     if (response.success) {
@@ -97,7 +97,7 @@ export async function installModel(modelName) {
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'LOCAL_LLM_INSTALL_MODEL',
-      modelName
+      modelName,
     });
 
     if (response.success) {
@@ -118,7 +118,7 @@ export async function installModel(modelName) {
 export async function getModels() {
   try {
     const response = await chrome.runtime.sendMessage({
-      action: 'LOCAL_LLM_GET_MODELS'
+      action: 'LOCAL_LLM_GET_MODELS',
     });
 
     if (response.success) {
@@ -138,7 +138,7 @@ export async function getModels() {
  * @returns {function} Unsubscribe function
  */
 export function onInstallProgress(callback) {
-  const handler = (message) => {
+  const handler = message => {
     if (message.type === 'LLM_INSTALL_PROGRESS') {
       callback(message.modelName, message.progress);
     }
@@ -167,14 +167,14 @@ export async function summarize(text, options = {}) {
   const levelPrompts = {
     brief: 'Summarize in 1-2 sentences:',
     moderate: 'Summarize the key points in a short paragraph:',
-    detailed: 'Provide a comprehensive summary with main points:'
+    detailed: 'Provide a comprehensive summary with main points:',
   };
 
   const prompt = `${levelPrompts[level] || levelPrompts.brief}\n\n${text}`;
 
   return generate(prompt, {
     maxTokens: level === 'detailed' ? 500 : 200,
-    ...options
+    ...options,
   });
 }
 
@@ -197,7 +197,7 @@ Simplified version:`;
 
   return generate(prompt, {
     maxTokens: Math.max(text.length * 1.5, 300),
-    ...options
+    ...options,
   });
 }
 
@@ -233,28 +233,6 @@ Question:`;
   }
 
   return generate(prompt, { maxTokens: 150 });
-}
-
-/**
- * Analyze text for TTS prosody
- * @param {string} text - Text to analyze
- * @returns {Promise<Object>}
- */
-export async function analyzeProsody(text) {
-  const prompt = `Analyze the emotional tone of this text for text-to-speech:
-"${text.slice(0, 500)}"
-
-Return JSON with:
-{
-  "emotion": "encouraging/neutral/serious/exciting/calming",
-  "rate": 0.8-1.2 (speech rate multiplier),
-  "pitch": 0.9-1.1 (pitch multiplier),
-  "emphasisWords": ["word1", "word2"] (words to emphasize)
-}
-
-JSON:`;
-
-  return generate(prompt, { format: 'json', maxTokens: 150 });
 }
 
 /**
@@ -337,8 +315,7 @@ export default {
   summarize,
   simplify,
   socraticQuestion,
-  analyzeProsody,
   analyzeAssignment,
   describeImage,
-  evaluateSource
+  evaluateSource,
 };

@@ -950,6 +950,12 @@
   <div class="nav-scroll">
 
     <div class="nav-section">
+      <div class="nav-section-header">Getting Started</div>
+      <button class="nav-item" data-panel="install">Install</button>
+      <button class="nav-item" data-panel="first-setup">First Setup</button>
+    </div>
+
+    <div class="nav-section">
       <div class="nav-section-header">Reading Help</div>
       <button class="nav-item active" data-panel="read-aloud">Read Aloud</button>
       <button class="nav-item" data-panel="reading-mode">Reading Mode</button>
@@ -959,7 +965,7 @@
 
     <div class="nav-section">
       <div class="nav-section-header">Writing Help</div>
-      <button class="nav-item" data-panel="stt">Speech to Text <span class="nav-badge badge-beta">BETA</span></button>
+      <button class="nav-item" data-panel="stt">Speech to Text</button>
     </div>
 
     <div class="nav-section">
@@ -1000,10 +1006,10 @@
 
     <div class="nav-section">
       <div class="nav-section-header">School Tools</div>
-      <button class="nav-item" data-panel="citations">Citations <span class="nav-badge badge-alpha">ALPHA</span></button>
-      <button class="nav-item" data-panel="canvas">Canvas LMS <span class="nav-badge badge-alpha">ALPHA</span></button>
-      <button class="nav-item" data-panel="moodle">Moodle LMS <span class="nav-badge badge-alpha">ALPHA</span></button>
-      <button class="nav-item" data-panel="classroom">Google Classroom <span class="nav-badge badge-alpha">ALPHA</span></button>
+      <button class="nav-item" data-panel="citations">Citations</button>
+      <button class="nav-item" data-panel="canvas">Canvas LMS</button>
+      <button class="nav-item" data-panel="moodle">Moodle LMS</button>
+      <button class="nav-item" data-panel="classroom">Google Classroom</button>
     </div>
 
     <div class="nav-section">
@@ -1016,7 +1022,6 @@
       <button class="nav-item" data-panel="ai-study">Study Path Generator</button>
       <button class="nav-item" data-panel="ai-citation">Citation Analyser</button>
       <button class="nav-item" data-panel="ai-multidoc">Multi-Doc Compare</button>
-      <button class="nav-item" data-panel="ai-emotional">Emotional TTS</button>
     </div>
 
   </div>
@@ -1031,6 +1036,37 @@
   </div>
   <div class="panel-content" id="panel-content">
     <div class="panel-wash" id="panelWash"></div>
+
+    <!-- INSTALL -->
+    <div class="panel" id="panel-install">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>AssisT is distributed as a browser extension for Google Chrome and Chromium-based browsers. Installation takes under a minute and requires no account, no subscription, and no personal data. The extension runs entirely client-side — nothing you read or write is transmitted to any server unless you explicitly enable an optional cloud AI feature.</p>
+          <p>To install, open the Chrome Web Store and search for <strong>AssisT</strong>, or follow a direct link to the listing. Click <strong>Add to Chrome</strong>, then confirm by clicking <strong>Add extension</strong> in the browser dialogue that appears. Chrome will download and install the extension automatically.</p>
+          <p>Once installed, the AssisT icon will appear in the Chrome toolbar. If it is not immediately visible, click the puzzle-piece icon on the right side of the address bar to see all installed extensions, then click the pin icon next to AssisT to keep it permanently visible in the toolbar. Pinning the icon makes it faster to open the control panel while studying.</p>
+          <blockquote>
+            "Universal Design for Learning recognises that no single means of representation is optimal for all learners. Installing an assistive layer at the browser level extends that principle to every page a student visits, without requiring institutional action."
+            <br><cite>— Based on UDL Guidelines, CAST, 2018</cite>
+          </blockquote>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIRST SETUP -->
+    <div class="panel" id="panel-first-setup">
+      <div class="content-block wide">
+        <div class="academic-text">
+          <p>After installation, clicking the AssisT icon in the Chrome toolbar opens the main popup. All reading, writing, and visual features are available immediately with no account required. For users who want to use the AI features, a dedicated <strong>AI Setup wizard</strong> opens automatically on first use — or can be launched at any time from the popup settings.</p>
+          <p>The wizard runs through seven steps. It begins with a <strong>system scan</strong> that checks for WebGPU support, available device memory, whether Ollama is running locally, and Gemini Nano availability. Based on those results it makes a <strong>recommendation</strong> — Browser AI (WebLLM, runs on your GPU), Local AI (Ollama, fully private), Cloud AI (API key required), or Gemini Nano (on-device, no key needed). The user can accept the recommendation or choose a different mode.</p>
+          <p>The wizard then shows a <strong>configuration panel</strong> tailored to the chosen mode: Cloud mode asks for an API key and provider; Browser AI lets you select and pre-download a model; Ollama shows your installed models and lets you assign different models per task. A short <strong>needs assessment</strong> — three questions about preferred response length, reading level, and modality — shapes how AI features phrase their output.</p>
+          <p>A <strong>live test</strong> fires a sample question to confirm everything is working, followed by a <strong>suggested features</strong> screen that pre-enables features matched to the user's answers. The final screen confirms the configured AI mode and returns the user to the popup. All choices are stored locally in the browser — nothing is uploaded or shared, and settings can be changed at any time.</p>
+          <blockquote>
+            "The effectiveness of an assistive technology intervention is strongly mediated by ease of access and perceived control. Tools that require extensive configuration before first use create additional cognitive barriers for the very students they are designed to support."
+            <br><cite>— Edyburn, D. L., Handbook of Special Education Technology Research and Practice, 2006</cite>
+          </blockquote>
+        </div>
+      </div>
+    </div>
 
     <!-- READ ALOUD -->
     <div class="panel active" id="panel-read-aloud">
@@ -1689,50 +1725,18 @@
       </div>
     </div>
 
-    <!-- AI: EMOTIONAL TTS -->
-    <div class="panel" id="panel-ai-emotional">
-      <div class="content-block wide">
-        <div class="academic-text">
-          <p>Select any passage below and activate <strong>Read Aloud</strong> with Emotional TTS enabled. Each passage has a distinct emotional register — notice how the voice pitch, pace, and inflection shift between them.</p>
-        </div>
-      </div>
-      <div class="content-block wide">
-        <div class="academic-text">
-          <h3>Grief &amp; Loss — slow, low, subdued</h3>
-          <p>The letter arrived on a Tuesday in early October, four months after she had submitted the thesis, and longer than any formal acknowledgement of receipt had led her to expect. She had stopped anticipating it — had moved, in the way of graduate students who have lived too long inside a single project, into a kind of determined indifference about outcomes she could not control. But standing in the hallway with the envelope in her hand, she felt the careful architecture of that indifference give way, and beneath it, unanticipated, something closer to fear than to hope.</p>
-          <p>The decision, when she finally read it, was conditional. Two minor revisions. No resubmission required. She sat on the bottom stair for a long time, the letter loose in her hands, trying to locate the appropriate response in herself — the relief, the satisfaction, the small private vindication of years of solitary effort — and finding, somewhat to her surprise, that what she felt most clearly was gratitude, directed at no one in particular, for the simple fact of having been allowed to finish.</p>
-        </div>
-      </div>
-      <div class="content-block wide">
-        <div class="academic-text">
-          <h3>Joy &amp; Triumph — fast, bright, rising</h3>
-          <p>She burst through the doors into the courtyard and stopped dead, blinking in the afternoon light. They were all there — her entire cohort, her supervisor, the department administrator who never smiled at anything, all of them applauding. Someone had brought flowers. Someone else had brought a cake with her name on it in violet icing that was already melting in the heat. She had been so certain the viva had gone wrong. She had replayed every fumbled answer for three days. And now here was Dr. Okafor, laughing, stepping forward with his hand extended, saying: "Well done. Really, genuinely, well done." She shook his hand. She shook everyone's hand. She ate two slices of cake and cried into the third, and none of it felt real, and all of it felt exactly right.</p>
-        </div>
-      </div>
-      <div class="content-block wide">
-        <div class="academic-text">
-          <h3>Suspense &amp; Tension — clipped, urgent, unresolved</h3>
-          <p>The data didn't match. That was the first thing she noticed — not the missing file, not the altered timestamp, not even the anomalous entry in the audit log that she would only find three hours later. The data didn't match, and the presentation was in forty minutes, and the professor was already in the building. She ran the comparison again. Same result. She opened the backup. Different figures. Her hands were very still on the keyboard. Somewhere down the corridor, a door opened. Footsteps. She pressed save. She pressed it again. The footsteps stopped outside her office. She looked at the screen. She looked at the door.</p>
-        </div>
-      </div>
-      <div class="content-block wide">
-        <div class="academic-text">
-          <h3>Dry Academic — flat, measured, even</h3>
-          <p>The present study investigated the relationship between working memory capacity, as measured by the automated operation span task (Unsworth et al., 2005), and reading comprehension performance on standardised assessments in a sample of 214 undergraduate students (M age = 20.3 years, SD = 1.8; 61% female). A hierarchical multiple regression analysis was conducted, entering age, prior academic attainment, and vocabulary knowledge in the first block, and working memory span scores in the second block. Results indicated that working memory capacity accounted for a significant increment in explained variance (ΔR² = .09, p &lt; .001) after controlling for the covariates, consistent with resource-based theories of reading comprehension.</p>
-        </div>
-      </div>
-    </div>
-
   </div><!-- /panel-content -->
 </main>
 
 <script>
   const PANEL_META = {
+    'install':          { title: 'Install',                   desc: 'Add AssisT to Chrome from the Web Store in under a minute' },
+    'first-setup':      { title: 'First Setup',               desc: 'Open the popup, try Read Aloud, and configure your preferences' },
     'read-aloud':       { title: 'Read Aloud',              desc: 'Text-to-speech with word-by-word synchronised highlighting' },
     'reading-mode':     { title: 'Reading Mode',            desc: 'Distraction-free reading view using Mozilla Readability' },
     'dyslexia':         { title: 'Dyslexia Mode',           desc: 'Bionic reading, syllable colour-coding, grammar colours' },
     'ocr':              { title: 'OCR',                     desc: 'Text extraction from images, screenshots, and PDFs' },
-    'stt':              { title: 'Speech to Text',          desc: 'Voice-based text input for any text field — Beta' },
+    'stt':              { title: 'Speech to Text',          desc: 'Voice-based text input for any text field' },
     'quick-actions':    { title: 'Quick Actions Menu',      desc: 'Floating toolbar on text selection for instant access' },
     'dictionary':       { title: 'Dictionary',              desc: 'Word definitions, pronunciations, and usage examples' },
     'translation':      { title: 'Translation',             desc: 'Full-page and selected text translation in 14+ languages' },
@@ -1749,10 +1753,10 @@
     'reduced-motion':   { title: 'Reduced Motion',          desc: 'Suppress animations across all websites visited' },
     'pomodoro':         { title: 'Pomodoro Timer',          desc: 'Floating timer widget with customisable work and break durations' },
     'simplify-ui':      { title: 'Simplified Interface',    desc: 'Suppress ads, sidebars, and non-content elements' },
-    'citations':        { title: 'Citations',               desc: 'Save and manage citations with bibliography export — Alpha' },
-    'canvas':           { title: 'Canvas LMS',              desc: 'Assignment reader and quiz helper for Canvas — Alpha' },
-    'moodle':           { title: 'Moodle LMS',              desc: 'Assignment, forum, and page readers for Moodle — Alpha' },
-    'classroom':        { title: 'Google Classroom',        desc: 'Assignment, stream, and classwork readers — Alpha' },
+    'citations':        { title: 'Citations',               desc: 'Save and manage citations with bibliography export' },
+    'canvas':           { title: 'Canvas LMS',              desc: 'Assignment reader and quiz helper for Canvas' },
+    'moodle':           { title: 'Moodle LMS',              desc: 'Assignment, forum, and page readers for Moodle' },
+    'classroom':        { title: 'Google Classroom',        desc: 'Assignment, stream, and classwork readers' },
     'ai-summarise':     { title: 'Summarisation',           desc: 'AI-powered concise summary of selected text' },
     'ai-simplify':      { title: 'Text Simplification',     desc: 'Semantic rewriting for accessibility and clarity' },
     'ai-assignment':    { title: 'Assignment Breakdown',    desc: 'Convert assignment briefs to structured task checklists' },
@@ -1902,7 +1906,7 @@
 
   function advanceToNext() {
     if (onLanding) {
-      dismissLanding(() => showChapterIntro('read-aloud', () => showPanel('read-aloud')));
+      dismissLanding(() => showChapterIntro('install', () => showPanel('install')));
       return;
     }
     const all = [...navItems];

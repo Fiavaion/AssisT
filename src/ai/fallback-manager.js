@@ -16,17 +16,17 @@ const FALLBACK_BEHAVIORS = {
   summarize: {
     type: 'partial',
     message: 'AI summarization unavailable. Showing first paragraph instead.',
-    handler: (text) => {
+    handler: text => {
       // Extract first paragraph or first 500 chars
       const paragraphs = text.split(/\n\n+/);
       return paragraphs[0]?.slice(0, 500) + (paragraphs[0]?.length > 500 ? '...' : '');
-    }
+    },
   },
 
   simplify: {
     type: 'disabled',
     message: 'AI text simplification requires local LLM. Please start Ollama.',
-    handler: () => null
+    handler: () => null,
   },
 
   explain: {
@@ -34,8 +34,8 @@ const FALLBACK_BEHAVIORS = {
     message: 'For explanations, try the Dictionary feature or web search.',
     handler: () => ({
       suggestion: 'dictionary',
-      altSuggestion: 'search'
-    })
+      altSuggestion: 'search',
+    }),
   },
 
   'cognitive-state': {
@@ -44,38 +44,39 @@ const FALLBACK_BEHAVIORS = {
     handler: () => ({
       state: 'unknown',
       confidence: 0,
-      recommendation: null
-    })
+      recommendation: null,
+    }),
   },
 
   'content-prioritize': {
     type: 'fallback',
     message: 'Using standard content extraction (AI prioritization unavailable).',
-    handler: (content) => ({
+    handler: content => ({
       critical: [content],
       supporting: [],
       navigational: [],
-      aiEnhanced: false
-    })
+      aiEnhanced: false,
+    }),
   },
 
   'assignment-breakdown': {
     type: 'partial',
     message: 'AI assignment analysis unavailable. Showing basic structure.',
-    handler: (text) => {
+    handler: text => {
       // Simple rule-based extraction
       const lines = text.split('\n').filter(l => l.trim());
-      const tasks = lines.filter(l =>
-        /^[\d\-\*\•]/.test(l.trim()) ||
-        /\b(submit|complete|write|read|answer|create|prepare)\b/i.test(l)
+      const tasks = lines.filter(
+        l =>
+          /^[\d\-\*\•]/.test(l.trim()) ||
+          /\b(submit|complete|write|read|answer|create|prepare)\b/i.test(l)
       );
 
       return {
         tasks: tasks.slice(0, 10),
         aiAnalysis: false,
-        message: 'Basic extraction only. Enable AI for detailed breakdown.'
+        message: 'Basic extraction only. Enable AI for detailed breakdown.',
       };
-    }
+    },
   },
 
   'socratic-question': {
@@ -85,36 +86,25 @@ const FALLBACK_BEHAVIORS = {
       'What is the main idea of this section?',
       'How does this connect to what you already know?',
       'What questions do you still have?',
-      'Can you explain this in your own words?'
-    ]
+      'Can you explain this in your own words?',
+    ],
   },
 
   'image-describe': {
     type: 'disabled',
     message: 'Image description requires Vision AI model. Click "Install Vision AI" to enable.',
     requiresVision: true,
-    handler: () => null
-  },
-
-  'prosody-analyze': {
-    type: 'fallback',
-    message: 'Using standard TTS (emotional prosody requires AI).',
-    handler: () => ({
-      rate: 1.0,
-      pitch: 1.0,
-      emphasis: [],
-      emotion: 'neutral'
-    })
+    handler: () => null,
   },
 
   'knowledge-gap': {
     type: 'partial',
     message: 'Tracking lookups but AI analysis unavailable.',
-    handler: (lookups) => ({
+    handler: lookups => ({
       frequentLookups: lookups.sort((a, b) => b.count - a.count).slice(0, 5),
-      aiInsights: null
-    })
-  }
+      aiInsights: null,
+    }),
+  },
 };
 
 /**
@@ -140,7 +130,7 @@ export class FallbackManager {
       return {
         type: 'unknown',
         message: 'This feature requires AI. Please ensure Ollama is running.',
-        result: null
+        result: null,
       };
     }
 
@@ -159,7 +149,7 @@ export class FallbackManager {
       this._notifyListeners('fallback-used', {
         featureId,
         message: behavior.message,
-        type: behavior.type
+        type: behavior.type,
       });
 
       // Don't spam the same message
@@ -172,7 +162,7 @@ export class FallbackManager {
       message: behavior.message,
       result,
       requiresVision: behavior.requiresVision || false,
-      aiAvailable: false
+      aiAvailable: false,
     };
   }
 
@@ -197,20 +187,20 @@ export class FallbackManager {
         title: 'Local AI Not Running',
         body: 'Start Ollama to enable AI-powered features.',
         action: 'Learn how to install',
-        actionUrl: 'https://ollama.ai'
+        actionUrl: 'https://ollama.ai',
       },
       vision: {
         title: 'Vision AI Not Installed',
         body: 'The LLaVA model is needed for image understanding.',
         action: 'Install Vision AI',
-        actionType: 'install-vision'
+        actionType: 'install-vision',
       },
       firstTime: {
         title: 'Enable AI Features',
         body: 'AssisT can use local AI for smarter assistance. Your data stays on your device.',
         action: 'Set up AI',
-        actionType: 'setup-wizard'
-      }
+        actionType: 'setup-wizard',
+      },
     };
 
     return messages[context] || messages.general;
@@ -225,19 +215,17 @@ export class FallbackManager {
     const suggestions = {
       summarize: [
         { label: 'Use Reading Mode', action: 'enable-reading-mode' },
-        { label: 'Read with TTS', action: 'enable-tts' }
+        { label: 'Read with TTS', action: 'enable-tts' },
       ],
       simplify: [
         { label: 'Adjust text settings', action: 'open-text-settings' },
-        { label: 'Use dictionary', action: 'enable-dictionary' }
+        { label: 'Use dictionary', action: 'enable-dictionary' },
       ],
-      'image-describe': [
-        { label: 'Use OCR to extract text', action: 'enable-ocr' }
-      ],
+      'image-describe': [{ label: 'Use OCR to extract text', action: 'enable-ocr' }],
       explain: [
         { label: 'Look up in dictionary', action: 'dictionary-lookup' },
-        { label: 'Search online', action: 'web-search' }
-      ]
+        { label: 'Search online', action: 'web-search' },
+      ],
     };
 
     return suggestions[featureId] || [];

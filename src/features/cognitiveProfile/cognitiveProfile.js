@@ -46,7 +46,6 @@ const DEFAULT_PROFILE = {
   reading: {
     preferredSpeed: 1.0,
     preferredVoice: null,
-    emotionalTTSEnabled: true,
   },
 
   // Learning style indicators
@@ -744,10 +743,6 @@ function profile_renderContent() {
         <div class="assist-profile-pref-item">
           <span>Reading Speed</span>
           <strong>${profile_data.reading.preferredSpeed.toFixed(1)}x</strong>
-        </div>
-        <div class="assist-profile-pref-item">
-          <span>Emotional TTS</span>
-          <strong>${profile_data.reading.emotionalTTSEnabled ? 'On' : 'Off'}</strong>
         </div>
       </div>
     </div>
