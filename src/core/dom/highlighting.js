@@ -392,8 +392,9 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
 
   // ── BOUNDARY MODE helpers ─────────────────────────────────────────────────
   // Watchdog advances one word at a time when no boundary event arrives.
-  // In pure boundary mode the voice drives all highlights; the watchdog is
-  // only a safety net for voices that occasionally skip an event.
+  // Two modes:
+  //   - onboundary HAS fired: long safety-net (2s/speed) — events drive sync
+  //   - onboundary NEVER fired: word-length-timed — watchdog IS the primary driver
   function setWatchdog(i) {
     if (watchdogTimeout) {
       clearTimeout(watchdogTimeout);
@@ -402,9 +403,17 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
     if (i >= wordSpans.length) {
       return;
     }
-    // Wait long enough that a legitimate boundary would have fired, but short
-    // enough that we don't visibly stall. Scale by speed: faster = shorter watchdog.
-    const timeout = Math.max(400, 2000 / speedMultiplier);
+    let timeout;
+    if (boundaryFired) {
+      // Boundary events work — watchdog is only a safety net for missed events.
+      timeout = Math.max(400, 2000 / speedMultiplier);
+    } else {
+      // Boundary events never fired — use per-word estimated duration so the
+      // watchdog actually keeps pace with speech (otherwise it's 1 word/second
+      // while TTS speaks 3–5 words/second and highlighting never advances).
+      const wordLen = charRanges[i] ? Math.max(1, charRanges[i].end - charRanges[i].start) : 5;
+      timeout = Math.max(60, wordLen * msPerChar);
+    }
     watchdogTimeout = setTimeout(() => {
       if (activeUtterance !== utterance) {
         return;
