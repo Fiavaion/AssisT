@@ -2226,7 +2226,7 @@ class PopupController {
       const speedSlider = document.getElementById('word-highlight-speed');
       const speedValue = document.getElementById('word-highlight-speed-value');
       if (speedSlider && speedValue) {
-        const savedSpeed = this.settings?.tts?.wordHighlightSpeed ?? 1.0;
+        const savedSpeed = this.settings?.tts?.wordHighlightSpeed ?? 2.0;
         speedSlider.value = savedSpeed;
         speedValue.textContent = `${savedSpeed}×`;
         speedSlider.addEventListener('input', e => {
