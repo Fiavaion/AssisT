@@ -85,56 +85,77 @@ const RELATION_TYPES = {
 const GRAPH_CLOUD_SYSTEM_PROMPT = `You are a knowledge graph extractor for educational content. Your sole task is to return a raw JSON object. STRICT OUTPUT RULES: Start your response with { and end with }. Never write any preamble, explanation, label, or markdown. Never write phrases like "Here is the knowledge graph:" or wrap the JSON in code blocks.`;
 
 /**
+ * Build the extraction prompt. Local models get a shorter, more directive prompt
+ * with a compact JSON template at the end — small models follow recent examples best.
+ */
+function graph_buildPrompt(text, modeInfo) {
+  if (modeInfo.isLocal) {
+    return `Extract a knowledge graph from this educational text. Return ONLY a JSON object — no explanation, no markdown.
+
+TEXT: "${text.substring(0, 1000)}"
+
+STRICT RULES:
+- 6-8 nodes only. NO generic or stop words as nodes (never use: since, after, positive, negative, general, key, main, various, through, within, first, last, more, less, also, often, always, new, old)
+- node "type" MUST be exactly one of: person, place, date, event, theory, term, concept
+  person = a named human (e.g. Darwin, Marie Curie)
+  place = a real location or ecosystem (e.g. Arctic Ocean, Amazon, Earth's atmosphere)
+  event = a historical event (e.g. Industrial Revolution, Ice Age, Paris Agreement)
+  term = a precise scientific/technical word (e.g. permafrost, albedo, photosynthesis, osmosis)
+  concept = an abstract idea (e.g. feedback loop, resilience, biodiversity, climate forcing)
+- edge "type" MUST be exactly one of: causes, part_of, leads_to, example_of, related_to
+  Use causes/leads_to/part_of/example_of whenever possible. Only use related_to as last resort.
+- Every edge source and target must match an existing node id exactly
+
+OUTPUT THIS EXACT JSON STRUCTURE:
+{"nodes":[{"id":"snake_case_id","label":"Display Name","type":"term","definition":"One accurate sentence."}],"edges":[{"source":"id1","target":"id2","type":"causes","label":"causes"}]}
+
+JSON:`;
+  }
+
+  return `Extract a knowledge graph from the educational text below. The text may span multiple academic disciplines — extract the most meaningful concepts and the real relationships between them, not just word co-occurrence.
+
+NODE TYPES (use exactly these string values):
+- "person"  → Any named human: scientists, researchers, historical figures
+- "place"   → Locations, regions, ecosystems (e.g. Arctic Ocean, Amazon Basin)
+- "date"    → Time periods, years, eras (e.g. "pre-industrial era", "20th century")
+- "event"   → Specific historical or scientific events (e.g. "Industrial Revolution", "Paris Agreement")
+- "theory"  → Named theories, models, frameworks (e.g. "systems theory", "plate tectonics")
+- "term"    → Precise scientific/technical vocabulary (e.g. "albedo", "trophic cascade", "permafrost")
+- "concept" → Broader abstract ideas (e.g. "feedback loop", "resilience", "interdependence")
+
+EDGE TYPES: related_to | causes | part_of | example_of | opposite_of | leads_to | defined_by
+- causes: A directly produces B (deforestation → biodiversity loss)
+- part_of: A is a component/subdomain of B (oceanography part_of climate science)
+- leads_to: A sequentially results in B (warming → sea level rise)
+- example_of: A is a specific instance of B (El Niño example_of climate oscillation)
+- related_to: ONLY when no more specific type fits
+
+NODE QUALITY RULES:
+- Extract 6–14 nodes — prefer fewer meaningful nodes over many generic ones
+- Node ids: unique, lowercase, underscores only (e.g. "atmospheric_physics", "feedback_loop")
+- NO generic words as nodes (avoid: text, study, approach, system, data, model, factor, process)
+- Definitions must be domain-accurate — NEVER write "A concept mentioned in the text"
+- 1 informative sentence per definition
+- Every edge source/target must exactly match an existing node id
+
+REQUIRED JSON STRUCTURE:
+{
+  "nodes": [{"id": "unique_id", "label": "Name or Term", "type": "person|place|date|event|theory|term|concept", "definition": "1 sentence definition"}],
+  "edges": [{"source": "node_id_1", "target": "node_id_2", "type": "causes|part_of|leads_to|example_of|related_to", "label": "short label"}]
+}
+
+TEXT TO ANALYZE:
+${text.substring(0, 3000)}`;
+}
+
+/**
  * Extract entities and relationships from text using AI
  * @param {string} text - Text to analyze
  * @param {import('../shared/ai-feature-client.js').AIMode} modeInfo - AI mode from getAIMode()
  * @returns {Promise<Object>} Graph data with nodes and edges
  */
 async function graph_extractFromText(text, modeInfo) {
-  // Core extraction instructions — shared for both local and cloud
-  const prompt = `Extract a knowledge graph from the educational text below. The text may span multiple academic disciplines (e.g. climate science, ecology, economics, sociology) — extract the most meaningful concepts and the real relationships between them, not just word co-occurrence.
-
-NODE TYPES (use exactly these string values):
-- "person"  → Any human: scientists, researchers, historical figures, authors. Use for full names AND recognisable first-name-only references.
-- "place"   → Locations: cities, countries, regions, ecosystems
-- "date"    → Time periods, years, eras (e.g. "20th century", "pre-industrial era")
-- "event"   → Specific historical or scientific events (e.g. "Industrial Revolution", "Paris Agreement")
-- "theory"  → Named theories, models, frameworks, schools of thought (e.g. "systems theory", "Keynesian economics")
-- "term"    → Technical vocabulary that has a precise domain-specific meaning (e.g. "albedo", "trophic cascade")
-- "concept" → Broader abstract ideas that cross domains (e.g. "feedback loop", "resilience", "interdependence")
-
-EDGE TYPES (use exactly these string values):
-related_to | causes | part_of | example_of | opposite_of | leads_to | defined_by
-
-EDGE QUALITY RULES — edges must represent REAL relationships, not just co-occurrence:
-- "causes": A directly produces or drives B (e.g. deforestation causes biodiversity loss)
-- "part_of": A is a component or subdomain of B (e.g. oceanography part_of climate science)
-- "leads_to": A sequentially results in B (e.g. warming leads_to sea level rise)
-- "example_of": A is a specific instance of B (e.g. El Niño example_of climate oscillation)
-- "defined_by": A is characterised or explained by B (e.g. resilience defined_by adaptive capacity)
-- "related_to": use ONLY when no more specific type fits
-
-NODE QUALITY RULES:
-- Extract ${modeInfo.isLocal ? '6–8' : '6–14'} nodes maximum — prefer fewer meaningful nodes over many generic ones
-- Node ids must be unique, lowercase, underscores only (e.g. "atmospheric_physics", "trophic_cascade")
-- Do NOT use generic words as nodes (avoid: "text", "study", "approach", "system", "data", "model" alone)
-- Do NOT split multi-word proper names ("atmospheric physics" = one node: "atmospheric_physics")
-- Definitions must be real and domain-accurate — NEVER write "A concept mentioned in the text"
-- Keep definitions short: 1 informative sentence only
-- Every edge source and target must exactly match an existing node id
-
-REQUIRED JSON STRUCTURE:
-{
-  "nodes": [
-    {"id": "unique_id", "label": "Name or Term", "type": "person|place|date|event|theory|term|concept", "definition": "1 sentence definition"}
-  ],
-  "edges": [
-    {"source": "node_id_1", "target": "node_id_2", "type": "related_to|causes|part_of|example_of|opposite_of|leads_to|defined_by", "label": "short relationship label"}
-  ]
-}
-
-TEXT TO ANALYZE:
-${text.substring(0, modeInfo.isLocal ? 1000 : 3000)}${modeInfo.isCloud ? '' : '\n\nJSON OUTPUT:'}`;
+  const prompt = graph_buildPrompt(text, modeInfo);
 
   const maxTokens = modeInfo.isLocal ? 900 : 2000;
 
@@ -276,28 +297,166 @@ function graph_simpleExtract(text) {
   return { nodes, edges };
 }
 
+// Single-word labels that are never meaningful graph nodes
+const GRAPH_STOP_WORDS = new Set([
+  'since',
+  'after',
+  'before',
+  'during',
+  'through',
+  'between',
+  'within',
+  'without',
+  'under',
+  'over',
+  'above',
+  'below',
+  'along',
+  'across',
+  'against',
+  'toward',
+  'towards',
+  'positive',
+  'negative',
+  'general',
+  'basic',
+  'simple',
+  'complex',
+  'various',
+  'different',
+  'similar',
+  'common',
+  'important',
+  'significant',
+  'major',
+  'minor',
+  'main',
+  'key',
+  'new',
+  'old',
+  'large',
+  'small',
+  'high',
+  'low',
+  'good',
+  'bad',
+  'best',
+  'worst',
+  'first',
+  'last',
+  'next',
+  'previous',
+  'more',
+  'less',
+  'most',
+  'least',
+  'also',
+  'often',
+  'usually',
+  'always',
+  'never',
+  'sometimes',
+  'further',
+  'text',
+  'study',
+  'data',
+  'model',
+  'approach',
+  'system',
+  'factor',
+  'process',
+  'result',
+  'effect',
+  'aspect',
+  'part',
+  'level',
+  'type',
+  'form',
+  'way',
+  'role',
+]);
+
+// Known place labels → force type to 'place'
+const KNOWN_PLACES = new Set([
+  'earth',
+  'arctic',
+  'antarctic',
+  'antarctica',
+  'ocean',
+  'pacific',
+  'atlantic',
+  'indian',
+  'amazon',
+  'sahara',
+  'himalayas',
+  'greenland',
+  'tundra',
+  'taiga',
+  'savanna',
+  'tropics',
+]);
+
+// Known event labels → force type to 'event'
+const KNOWN_EVENTS = new Set([
+  'industrial revolution',
+  'ice age',
+  'little ice age',
+  'paris agreement',
+  'kyoto protocol',
+  'cold war',
+  'world war',
+  'great depression',
+  'renaissance',
+  'enlightenment',
+]);
+
 /**
- * Validate and enhance graph data
+ * Validate and enhance graph data — filter garbage nodes, fix obvious type errors
  * @param {Object} data - Raw graph data
  * @returns {Object} Enhanced graph data
  */
 function graph_validateAndEnhance(data) {
-  const nodeIds = new Set();
+  const rawNodes = data.nodes || [];
 
-  // Validate nodes
-  const nodes = (data.nodes || []).map((node, idx) => {
-    const id = node.id || `node_${idx}`;
-    nodeIds.add(id);
-    const type = NODE_TYPES[node.type] ? node.type : 'unknown';
-    return {
-      id,
-      label: node.label || `Node ${idx}`,
-      type,
-      definition: node.definition || '',
-    };
-  });
+  // Filter and validate nodes
+  const nodes = rawNodes
+    .filter(node => {
+      const label = (node.label || '').trim().toLowerCase();
+      // Remove single-word stop words
+      if (!label.includes(' ') && GRAPH_STOP_WORDS.has(label)) {
+        return false;
+      }
+      // Remove empty or single-character labels
+      if (label.length <= 1) {
+        return false;
+      }
+      return true;
+    })
+    .map((node, idx) => {
+      const id = node.id || `node_${idx}`;
+      let type = NODE_TYPES[node.type] ? node.type : 'unknown';
+      const labelLower = (node.label || '').toLowerCase();
 
-  // Validate edges - convert to D3 format (source/target as objects)
+      // Apply conservative type corrections for well-known categories
+      if (type === 'concept' || type === 'unknown') {
+        if (KNOWN_PLACES.has(labelLower)) {
+          type = 'place';
+        } else if (KNOWN_EVENTS.has(labelLower)) {
+          type = 'event';
+        }
+      }
+
+      return {
+        id,
+        label: node.label || `Node ${idx}`,
+        type,
+        definition: node.definition || '',
+      };
+    });
+
+  const nodeIds = new Set(nodes.map(n => n.id));
+
+  // Validate edges — drop any whose source/target was filtered out
   const edges = (data.edges || [])
     .filter(edge => nodeIds.has(edge.source) && nodeIds.has(edge.target))
     .map(edge => ({
