@@ -910,9 +910,34 @@ function runAITest() {
       return;
     }
 
+    // Scale timeout based on model size detected from model name/tag.
+    // Large quantised or full-precision models need significantly longer first-token latency.
+    const ollamaModelEl = document.getElementById('ollama-model-select');
+    const modelKey = (ollamaModelEl?.value || '').toLowerCase();
+    const timeoutMs = (() => {
+      // Very large models: 34b+ or f16/fp16/16bit full-precision weights
+      if (/:(34b|70b|72b|110b)|[_:-](f16|fp16|16bit)/.test(modelKey)) {
+        return 180_000;
+      }
+      // Large models: 13b–33b or q8 quantisation
+      if (/:(13b|14b|16b|20b|30b|32b|33b)|[_:-]q8/.test(modelKey)) {
+        return 120_000;
+      }
+      // Medium models: 7b–12b
+      if (/:(7b|8b|9b|10b|11b|12b)/.test(modelKey)) {
+        return 60_000;
+      }
+      // Small models (default): 1b–6b or cloud
+      return 30_000;
+    })();
+
+    const timeoutSec = Math.round(timeoutMs / 1000);
     const timer = setTimeout(() => {
-      resolve({ success: false, error: 'Timed out after 30 seconds' });
-    }, 30_000);
+      resolve({
+        success: false,
+        error: `Timed out after ${timeoutSec} seconds. Large models may need more time on first load — try again.`,
+      });
+    }, timeoutMs);
 
     chrome.runtime.sendMessage(
       { action, prompt: TEST_PROMPT, feature: 'summarization', maxTokens: 150 },
