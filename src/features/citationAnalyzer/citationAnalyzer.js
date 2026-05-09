@@ -60,28 +60,32 @@ const citation_settings = {
  * @returns {Promise<{analysis: Object}>} Analysis results
  */
 async function citation_analyze(text, context = {}, modeInfo) {
-  // Truncate input to avoid token overflow
-  const truncatedText = text.length > 2000 ? text.substring(0, 2000) + '...' : text;
+  // Truncate input to avoid token overflow — tighter limit for local to leave room for JSON output
+  const inputLimit = modeInfo.isLocal ? 800 : 1500;
+  const truncatedText = text.length > inputLimit ? text.substring(0, inputLimit) + '...' : text;
 
-  const maxTokens = modeInfo.isLocal ? 600 : 700;
+  // Local mode: smaller token budget, JSON format hint, larger context window
+  const maxTokens = modeInfo.isLocal ? 500 : 700;
 
-  // Strict, concise prompt
-  const prompt = `TASK: Evaluate source credibility. Return ONLY valid JSON.
+  // Concise prompt — keep the JSON schema template brief to stay within token budget
+  const prompt = `Evaluate this source for credibility. Return ONLY valid JSON, no markdown, no explanation.
 
 SOURCE: ${truncatedText}
 ${context.url ? `URL: ${context.url}` : ''}
 
-OUTPUT FORMAT (no markdown, no explanation):
-{"sourceType":"academic|news|blog|social|government|organization|unknown","credibilityScore":0-100,"credibilityRating":"High|Medium|Low","biasIndicators":{"detected":true|false,"type":"none|commercial|political|ideological","severity":"none|mild|moderate|strong","explanation":"10 words max"},"keyClaims":["max 2 claims, 8 words each"],"strengths":["max 2, 8 words each"],"weaknesses":["max 2, 8 words each"],"recommendations":"15 words max","summary":"20 words max"}
+JSON schema (fill in values):
+{"sourceType":"academic|news|blog|social|government|organization|unknown","credibilityScore":0,"credibilityRating":"High|Medium|Low","biasIndicators":{"detected":false,"type":"none","severity":"none","explanation":"brief"},"keyClaims":["claim1"],"strengths":["s1"],"weaknesses":["w1"],"recommendations":"brief","summary":"brief"}
 
-SCORING: blogs 20-50, news 40-70, academic 60-90. Be critical.
-Start with { end with }`;
+Rules: credibilityScore is 0-100 integer. blogs 20-50, news 40-70, academic 60-90.
+Output ONLY the JSON object, starting with { and ending with }.`;
 
   try {
     const aiResult = await generateWithAI(prompt, modeInfo, {
       maxTokens,
       temperature: 0.2,
       feature: 'citationAnalyzer',
+      taskType: 'citationAnalyzer',
+      ...(modeInfo.isLocal ? { format: 'json', num_ctx: 2048 } : {}),
     });
 
     if (aiResult && aiResult.text) {
@@ -89,12 +93,12 @@ Start with { end with }`;
 
       // Parse JSON response
       try {
-        // Clean response: remove markdown code blocks
+        // Clean response: strip markdown fences and any leading "json" label
         const cleanedResponse = aiResult.text
           .replace(/```json\s*/gi, '')
-          .replace(/```JSON\s*/g, '')
           .replace(/```\s*/g, '')
-          .replace(/^\s*json\s*/i, '')
+          // Only strip a bare "json" word at the very start of the string (not inside a key)
+          .replace(/^\s*json\b\s*/i, '')
           .trim();
 
         // Try to find JSON object in response
@@ -1261,8 +1265,17 @@ async function citation_runAnalysis(text, context = {}) {
         setAIStatusBar(statusBar, availability, 'assist-citation-status');
       }
     } else {
-      // Use AI analysis
-      const response = await citation_analyze(text, context, modeInfo);
+      // Use AI analysis with a 25s timeout race to guard against service-worker hangs
+      // (Chrome sendMessage has a ~30s hard limit; we fail gracefully before it fires)
+      const ANALYSIS_TIMEOUT_MS = 25000;
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), ANALYSIS_TIMEOUT_MS)
+      );
+
+      const response = await Promise.race([
+        citation_analyze(text, context, modeInfo),
+        timeoutPromise,
+      ]);
       analysis = response.analysis;
       isAI = !analysis.isFallback;
 
@@ -1277,12 +1290,19 @@ async function citation_runAnalysis(text, context = {}) {
   } catch (error) {
     console.error('[CitationAnalyzer] Error:', error);
 
+    // Show heuristic fallback — never leave the user with an empty panel or raw error
     const fallbackAnalysis = citation_fallback(text, context);
     citation_currentAnalysis = fallbackAnalysis;
     citation_renderResults(fallbackAnalysis, false);
 
+    // User-friendly status message — hide raw error details from the user
+    const isTimeout = error.message === 'timeout';
+    const friendlyMsg = isTimeout
+      ? '⚠️ Analysis timed out — showing basic result. Try again or switch AI mode.'
+      : '⚠️ Unable to analyze citation — showing basic result. Please try again.';
+
     if (statusBar) {
-      statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
+      statusBar.textContent = friendlyMsg;
       statusBar.className = 'assist-citation-status visible error';
     }
   } finally {
