@@ -541,6 +541,52 @@
                         </span>
                       </label>
                     </div>
+                    <div style="margin-top: 12px">
+                      <div
+                        style="
+                          display: flex;
+                          justify-content: space-between;
+                          align-items: center;
+                          margin-bottom: 4px;
+                        "
+                      >
+                        <label for="word-highlight-speed" style="font-size: 12px; color: #555"
+                          >Highlight speed</label
+                        >
+                        <span
+                          id="word-highlight-speed-value"
+                          style="
+                            font-size: 12px;
+                            color: #2196f3;
+                            font-weight: 600;
+                            min-width: 28px;
+                            text-align: right;
+                          "
+                          >1×</span
+                        >
+                      </div>
+                      <input
+                        type="range"
+                        id="word-highlight-speed"
+                        min="0.25"
+                        max="4"
+                        step="0.25"
+                        value="1"
+                        style="width: 100%; cursor: pointer"
+                        aria-label="Word highlight speed multiplier"
+                      />
+                      <div
+                        style="
+                          display: flex;
+                          justify-content: space-between;
+                          font-size: 10px;
+                          color: #999;
+                          margin-top: 2px;
+                        "
+                      >
+                        <span>Slower</span><span>Faster</span>
+                      </div>
+                    </div>
                   </div>
                 </section>
 

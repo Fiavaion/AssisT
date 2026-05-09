@@ -325,8 +325,10 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
   // English speech ~10 chars/sec at 1x (conservative — slower is safer than faster,
   // since highlights lagging slightly feels more natural than racing ahead).
   // onboundary corrections will calibrate this within the first few words.
+  // speedMultiplier > 1 → faster highlights (shorter delay per char).
   const rate = utterance.rate || 1;
-  const initialMsPerChar = 1000 / (10 * rate);
+  const speedMultiplier = settings.wordHighlightSpeed ?? 1.0;
+  const initialMsPerChar = 1000 / (10 * rate * speedMultiplier);
 
   wordSpans = spans;
   charRanges = ranges;
@@ -401,8 +403,8 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
       return;
     }
     // Wait long enough that a legitimate boundary would have fired, but short
-    // enough that we don't visibly stall. 2 seconds covers the longest words.
-    const timeout = 2000;
+    // enough that we don't visibly stall. Scale by speed: faster = shorter watchdog.
+    const timeout = Math.max(400, 2000 / speedMultiplier);
     watchdogTimeout = setTimeout(() => {
       if (activeUtterance !== utterance) {
         return;
@@ -481,7 +483,7 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
         const pauseSinceSync = pauseAccum - lastSyncPauseAccum;
         const actualSinceSync = now - lastSyncTs - pauseSinceSync;
         if (charsSinceSync > 0 && actualSinceSync > 0) {
-          msPerChar = actualSinceSync / charsSinceSync;
+          msPerChar = actualSinceSync / charsSinceSync / speedMultiplier;
         }
         lastSyncTs = now;
         lastSyncCharPos = charRanges[idx].start;

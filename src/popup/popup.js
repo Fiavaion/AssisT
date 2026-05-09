@@ -2222,6 +2222,25 @@ class PopupController {
         });
       });
 
+      // Word highlight speed slider
+      const speedSlider = document.getElementById('word-highlight-speed');
+      const speedValue = document.getElementById('word-highlight-speed-value');
+      if (speedSlider && speedValue) {
+        const savedSpeed = this.settings?.tts?.wordHighlightSpeed ?? 1.0;
+        speedSlider.value = savedSpeed;
+        speedValue.textContent = `${savedSpeed}×`;
+        speedSlider.addEventListener('input', e => {
+          const speed = parseFloat(e.target.value);
+          speedValue.textContent = `${speed}×`;
+          if (!this.settings.tts) {
+            this.settings.tts = {};
+          }
+          this.settings.tts.wordHighlightSpeed = speed;
+          this.saveSettings();
+          this.sendCommandToTab('setWordHighlightSpeed', { speed });
+        });
+      }
+
       // Reading scope selector (paragraph / section / page)
       const readingScope = document.getElementById('reading-scope');
       if (readingScope) {
