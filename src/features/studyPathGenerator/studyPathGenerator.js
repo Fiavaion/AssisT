@@ -996,6 +996,32 @@ function spg_buildCopyText(path) {
 let spg_utterance = null;
 
 /**
+ * Wait for speechSynthesis voices to be available
+ * @returns {Promise<SpeechSynthesisVoice[]>}
+ */
+function spg_ensureVoicesLoaded() {
+  return new Promise(resolve => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+      return;
+    }
+    const onChanged = () => {
+      const loaded = window.speechSynthesis.getVoices();
+      if (loaded.length > 0) {
+        window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
+        resolve(loaded);
+      }
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onChanged);
+    setTimeout(() => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
+      resolve(window.speechSynthesis.getVoices());
+    }, 2000);
+  });
+}
+
+/**
  * Read all study path text aloud using TTS
  * @param {Object} path
  * @param {HTMLElement} btn
@@ -1013,20 +1039,22 @@ async function spg_readAll(path, btn) {
   spg_utterance = new SpeechSynthesisUtterance(text);
 
   try {
-    const stored = await chrome.storage.sync.get(['tts']);
-    const tts = stored.tts || {};
+    // Correct storage: assist_settings lives in chrome.storage.local
+    const stored = await chrome.storage.local.get(['assist_settings']);
+    const tts = stored.assist_settings?.tts || {};
     spg_utterance.rate = tts.rate || 1.0;
     spg_utterance.pitch = tts.pitch || 1.0;
     spg_utterance.volume = tts.volume || 1.0;
-    if (tts.voice) {
-      const voices = window.speechSynthesis.getVoices();
+    if (tts.voice && tts.voice !== 'default') {
+      // Wait for voices to be available before matching by name
+      const voices = await spg_ensureVoicesLoaded();
       const match = voices.find(v => v.name === tts.voice);
       if (match) {
         spg_utterance.voice = match;
       }
     }
   } catch {
-    // Use defaults if storage fails
+    // Use browser defaults if storage fails
   }
 
   btn.classList.add('active');
