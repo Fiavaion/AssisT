@@ -25,6 +25,7 @@ import { getStorageAdapter } from './storage-adapter.js';
 import { createTagInput, renderTagPills } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
 
 // ============================================================
 // STATE MANAGEMENT
@@ -105,6 +106,9 @@ async function initializeStickyNotes() {
 
     // Listen for storage mode changes
     chrome.storage.local.onChanged.addListener(handleStorageChange);
+
+    // Register Alt+N keyboard shortcut for creating sticky notes
+    await registerStickyNoteShortcut();
 
     console.log('[StickyNotes] Initialized successfully with settings:', annotationSettings);
   } catch (error) {
@@ -1424,6 +1428,39 @@ function openTagEditModal(noteId, currentTags = []) {
  * @param {Object} sender - Sender information
  * @param {Function} sendResponse - Response callback
  */
+/**
+ * Register the Alt+N keyboard shortcut for sticky note creation.
+ * Only triggers when the annotations feature is enabled in popup settings.
+ * Reads enabled state from assist_settings.annotations.enabled.
+ */
+async function registerStickyNoteShortcut() {
+  await registerShortcut('sticky_note_create', async () => {
+    console.log('[StickyNotes] Alt+N shortcut triggered');
+
+    // Check annotations enabled flag from assist_settings
+    const result = await chrome.storage.local.get('assist_settings');
+    const annotationsEnabled = result.assist_settings?.annotations?.enabled;
+
+    if (!annotationsEnabled) {
+      console.log('[StickyNotes] Shortcut blocked: annotations feature is disabled');
+      return;
+    }
+
+    // Create note centred in the viewport
+    const x = window.innerWidth / 2 - 100;
+    const y = window.innerHeight / 2 - 100;
+
+    try {
+      await createStickyNote({ x, y, content: '', color: null });
+      console.log('[StickyNotes] Note created via Alt+N shortcut');
+    } catch (error) {
+      console.error('[StickyNotes] Error creating note via shortcut:', error);
+    }
+  });
+
+  console.log('[StickyNotes] Alt+N shortcut registered');
+}
+
 function handleMessage(message, sender, sendResponse) {
   // SECURITY: Validate sender is from this extension
   if (sender.id !== chrome.runtime.id) {
