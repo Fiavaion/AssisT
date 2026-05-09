@@ -7198,7 +7198,7 @@ class PopupController {
       // Update engine status display
       const updateEngineStatus = (engineType, isOffline = false) => {
         const engineNames = {
-          auto: 'Auto (selecting...)',
+          auto: 'Web Speech API',
           whisper: 'Whisper (Offline)',
           'web-speech': 'Web Speech API',
           azure: 'Azure Speech Services',
