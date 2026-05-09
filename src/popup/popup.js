@@ -4901,9 +4901,16 @@ class PopupController {
     const uiOverlay = this.settings.ui_overlay || {};
 
     // Main popup text stats toggle — default OFF
+    // Also sync to chrome.storage.local so content scripts respect the current setting
+    // (without this, a stale true value from a previous install would keep stats visible)
     const mainTextStatsToggle = document.getElementById('main-text-stats-toggle');
     if (mainTextStatsToggle) {
-      mainTextStatsToggle.checked = uiOverlay.show_text_stats_badge === true;
+      const textStatsEnabled = uiOverlay.show_text_stats_badge === true;
+      mainTextStatsToggle.checked = textStatsEnabled;
+      chrome.storage.local.set({
+        textStatsBadgeVisible: textStatsEnabled,
+        textStatsNotificationsEnabled: uiOverlay.show_text_stats_notifications === true,
+      });
     }
 
     const showTextStatsBadge = document.getElementById('show-text-stats-badge');
