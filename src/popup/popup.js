@@ -2343,7 +2343,9 @@ class PopupController {
       // Text Stats main toggle
       const mainTextStatsToggle = document.getElementById('main-text-stats-toggle');
       if (mainTextStatsToggle) {
-        this.attachInteractiveHandler(mainTextStatsToggle, 'Text Stats Toggle', () => {
+        // Use 'change' (not attachInteractiveHandler/mousedown) — checkboxes need
+        // the change event so .checked reflects the new state, not the pre-click state.
+        mainTextStatsToggle.addEventListener('change', () => {
           const enabled = mainTextStatsToggle.checked;
           if (!this.settings.ui_overlay) {
             this.settings.ui_overlay = {};
