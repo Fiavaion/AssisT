@@ -2188,11 +2188,38 @@ class PopupController {
 
       // Word-by-Word Highlighting toggle
       const wordByWordEnabled = document.getElementById('word-by-word-enabled');
+      const wordHighlightModeRow = document.getElementById('word-highlight-mode-row');
+      const showModeRow = show => {
+        if (wordHighlightModeRow) {
+          wordHighlightModeRow.style.display = show ? 'block' : 'none';
+        }
+      };
       wordByWordEnabled.checked = this.settings?.tts?.wordByWordEnabled || false;
+      showModeRow(wordByWordEnabled.checked);
       wordByWordEnabled.addEventListener('change', e => {
         this.settings.tts.wordByWordEnabled = e.target.checked;
         this.saveSettings();
         this.sendCommandToTab('setWordByWord', { enabled: e.target.checked });
+        showModeRow(e.target.checked);
+      });
+
+      // Word highlight mode (boundary events vs timer prediction)
+      const savedMode = this.settings?.tts?.wordHighlightMode || 'boundary';
+      const whmRadio = document.querySelector(
+        `input[name="word-highlight-mode"][value="${savedMode}"]`
+      );
+      if (whmRadio) {
+        whmRadio.checked = true;
+      }
+      document.querySelectorAll('input[name="word-highlight-mode"]').forEach(radio => {
+        radio.addEventListener('change', e => {
+          if (!this.settings.tts) {
+            this.settings.tts = {};
+          }
+          this.settings.tts.wordHighlightMode = e.target.value;
+          this.saveSettings();
+          this.sendCommandToTab('setWordHighlightMode', { mode: e.target.value });
+        });
       });
 
       // Reading scope selector (paragraph / section / page)
