@@ -60,6 +60,8 @@ import {
   removeElementHighlight,
   highlightWordByWord,
   cleanupWordByWord,
+  pauseHighlighting,
+  resumeHighlighting,
 } from '../core/dom/highlighting.js';
 import { resolveReadingTarget } from '../core/dom/scope-resolver.js';
 import { registerShortcut } from '../utils/keyboard-shortcuts.js';
@@ -731,39 +733,9 @@ _clickHandler = e => {
     return;
   }
 
-  // Don't read if TTS is disabled
+  // Don't read if TTS is disabled — silently ignore, no toast
   if (!settings.enabled) {
     console.log('[AssisT][Click] TTS is DISABLED');
-    // Check if they clicked on readable content to show helpful message
-    let target = e.target;
-    while (target && target !== document.body) {
-      const tag = target.tagName?.toLowerCase();
-      if (
-        tag &&
-        [
-          'p',
-          'li',
-          'h1',
-          'h2',
-          'h3',
-          'h4',
-          'h5',
-          'h6',
-          'blockquote',
-          'div',
-          'article',
-          'section',
-        ].includes(tag)
-      ) {
-        const text = target.textContent?.trim();
-        if (text && text.length > 10) {
-          showToast('⚠️ TTS is disabled. Enable it in the popup to read text.');
-          console.log('[AssisT][Click] Showing disabled toast');
-          break;
-        }
-      }
-      target = target.parentElement;
-    }
     return;
   }
 
@@ -825,12 +797,14 @@ _keydownHandler = e => {
       if (isPaused) {
         // Resume
         synth.resume();
+        resumeHighlighting(); // onresume may not fire reliably in Chrome
         isPaused = false;
         showToast('▶️ Resumed');
         console.log('[AssisT] Resumed playback');
       } else {
         // Pause
         synth.pause();
+        pauseHighlighting(); // onpause may not fire reliably in Chrome
         isPaused = true;
         showToast('⏸️ Paused');
         console.log('[AssisT] Paused playback');

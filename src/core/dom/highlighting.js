@@ -38,6 +38,7 @@ let msPerChar = 60; // updated per-utterance from rate
 let autoScrollEnabled = false;
 let activeUtterance = null;
 let wrappedLeaves = []; // leaves we wrapped this run; restored on cleanup
+let scheduleNextFn = null; // module-level ref so pauseHighlighting/resumeHighlighting can call it
 
 function resetSchedulerState() {
   if (wordHighlightTimeout) {
@@ -58,6 +59,7 @@ function resetSchedulerState() {
   charRanges = [];
   autoScrollEnabled = false;
   activeUtterance = null;
+  scheduleNextFn = null;
 }
 
 // Tags whose text content must NOT be wrapped — wrapping would break script
@@ -372,6 +374,8 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
       scheduleNext(i + 1);
     }, delay);
   }
+  // Expose scheduleNext at module level so pauseHighlighting/resumeHighlighting can call it.
+  scheduleNextFn = scheduleNext;
 
   utterance.onstart = () => {
     if (activeUtterance !== utterance) {
@@ -455,4 +459,33 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
 export function cleanupWordByWord(_element) {
   resetSchedulerState();
   restoreWrappedLeaves();
+}
+
+/**
+ * Halt the highlight timer immediately.
+ * Call this whenever speechSynthesis.pause() is called — Chrome doesn't always
+ * fire utterance.onpause reliably, so we drive it manually from the keydown handler.
+ */
+export function pauseHighlighting() {
+  if (wordHighlightTimeout) {
+    clearTimeout(wordHighlightTimeout);
+    wordHighlightTimeout = null;
+  }
+  if (pausedAt === 0 && activeUtterance !== null) {
+    pausedAt = performance.now();
+  }
+}
+
+/**
+ * Resume the highlight timer from where it paused.
+ * Call this whenever speechSynthesis.resume() is called.
+ */
+export function resumeHighlighting() {
+  if (pausedAt > 0) {
+    pauseAccum += performance.now() - pausedAt;
+    pausedAt = 0;
+  }
+  if (scheduleNextFn) {
+    scheduleNextFn(activeIndex + 1);
+  }
 }
