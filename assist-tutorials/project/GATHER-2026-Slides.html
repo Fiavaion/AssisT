@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AssisT — GATHER 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #07070d;
+  --surface:   rgba(18,18,36,0.75);
+  --surface2:  rgba(26,26,52,0.6);
+  --accent:    #7c7cff;
+  --accent2:   #a78bfa;
+  --accent3:   #f0abfc;
+  --text:      #e8ecff;
+  --muted:     #9aa3c7;
+  --faint:     #4e5675;
+  --border:    rgba(167,139,250,0.14);
+  --borderhi:  rgba(167,139,250,0.34);
+}
+
+html { height: 100%; }
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* atmosphere */
+.atmo {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 38% at 12% 10%, rgba(124,124,255,.12) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 28% at 88% 90%, rgba(240,171,252,.07) 0%, transparent 58%);
+  z-index: 0;
+}
+
+/* deck */
+.deck {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1;
+}
+
+/* individual slide */
+.slide {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  flex-direction: column;
+  padding: 52px 72px 80px;
+  overflow: hidden;
+}
+.slide.active {
+  display: flex;
+  animation: fadein .4s ease both;
+}
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* slide chrome */
+.slide-counter {
+  position: fixed;
+  bottom: 26px; right: 40px;
+  font-size: 12px; color: var(--faint);
+  letter-spacing: .07em;
+  z-index: 20;
+}
+.prog {
+  position: fixed;
+  bottom: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width .4s ease;
+  z-index: 20;
+}
+.nav-btn {
+  position: fixed; bottom: 18px;
+  width: 34px; height: 34px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 20;
+  transition: border-color .2s, color .2s, background .2s;
+}
+.nav-btn:hover   { border-color: var(--accent); color: var(--text); background: rgba(124,124,255,.1); }
+.nav-btn:disabled { opacity: .22; pointer-events: none; }
+.btn-prev { right: 82px; }
+.btn-next { right: 40px; }
+
+/* ── TYPOGRAPHY ── */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 14px;
+}
+.eyebrow .n { color: var(--faint); margin-left: 8px; }
+
+h1 {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(52px, 8.5vw, 96px);
+  font-weight: 400;
+  line-height: .96;
+  letter-spacing: -2px;
+  color: var(--text);
+  margin-bottom: 18px;
+}
+h2 {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(26px, 3.8vw, 46px);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -.5px;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+.gr {
+  background: linear-gradient(125deg, var(--accent) 0%, var(--accent2) 50%, var(--accent3) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+h2 .gr {
+  background: linear-gradient(125deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+p {
+  font-size: clamp(14px, 1.65vw, 18px);
+  line-height: 1.68;
+  color: var(--muted);
+  max-width: 860px;
+}
+p + p { margin-top: 14px; }
+strong { color: var(--text); font-weight: 600; }
+em { font-style: italic; }
+a { color: var(--accent2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.rule {
+  width: 38px; height: 3px;
+  border-radius: 3px;
+  margin-bottom: 22px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+
+/* ── NUMBERED LIST ── */
+.nlist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 900px;
+}
+.nlist li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  font-size: clamp(14px, 1.6vw, 17px);
+  line-height: 1.58;
+  color: var(--muted);
+}
+.nlist .nb {
+  min-width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--borderhi);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+.nlist li strong { color: var(--text); }
+
+/* ── DOTTED LIST ── */
+.dlist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 860px;
+}
+.dlist li {
+  padding-left: 22px;
+  position: relative;
+  font-size: clamp(14px, 1.6vw, 17px);
+  line-height: 1.58;
+  color: var(--muted);
+}
+.dlist li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 9px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+.dlist li strong { color: var(--text); }
+
+/* ── TAGS ── */
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.tag {
+  font-size: 12px; font-weight: 500;
+  padding: 5px 13px;
+  border-radius: 20px;
+  border: 1px solid var(--borderhi);
+  color: var(--muted);
+}
+
+/* ── 2×2 FEATURE GRID ── */
+.fgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  flex: 1;
+  margin-top: 4px;
+}
+.fcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.fcard .lbl {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .13em; text-transform: uppercase;
+  color: var(--accent2); margin-bottom: 8px;
+}
+.fcard h3 {
+  font-size: 14px; font-weight: 700;
+  color: var(--text); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.fcard p { font-size: 13px; line-height: 1.55; color: var(--muted); max-width: none; }
+
+/* ── LMS 3-COL ── */
+.lgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  flex: 1;
+  margin-top: 4px;
+}
+.lcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px;
+}
+.lcard .badge {
+  display: inline-block;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--borderhi);
+  border-radius: 4px;
+  padding: 2px 7px;
+  margin-bottom: 10px;
+}
+.lcard h3 {
+  font-size: 14px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text);
+  margin-bottom: 12px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.lcard ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.lcard ul li {
+  font-size: 13px; line-height: 1.45;
+  color: var(--muted);
+  padding-left: 16px; position: relative;
+}
+.lcard ul li::before {
+  content: '→';
+  position: absolute; left: 0; top: 0;
+  color: var(--accent); font-size: 11px;
+}
+
+/* ── AI 2-COL GRID ── */
+.agrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px 40px;
+  flex: 1;
+}
+.aitem { display: flex; gap: 11px; align-items: flex-start; }
+.anum {
+  min-width: 24px; height: 24px;
+  border-radius: 6px; flex-shrink: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 10px; font-weight: 700;
+  color: var(--accent2);
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 2px;
+}
+.aitem h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.aitem p  { font-size: 13px; color: var(--muted); line-height: 1.45; max-width: none; }
+.anote {
+  margin-top: 14px; padding: 12px 16px;
+  background: rgba(124,124,255,.08);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px; line-height: 1.55; color: var(--muted);
+}
+.anote strong { color: var(--accent2); }
+
+/* ── NUMBERED STEPS ── */
+.steps { display: flex; flex-direction: column; gap: 20px; }
+.step  { display: flex; gap: 16px; align-items: flex-start; }
+.snum {
+  width: 36px; height: 36px;
+  border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 2px;
+}
+.step h3 { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.step p  { font-size: 14px; color: var(--muted); line-height: 1.5; max-width: none; }
+.step a  { display: block; margin-top: 5px; font-size: 13px; color: var(--accent2); }
+
+/* ── ROADMAP 2×2 ── */
+.roadmap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  flex: 1;
+  margin-top: 4px;
+}
+.ritem {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  padding: 14px 18px;
+}
+.ritem .rlbl {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent2); margin-bottom: 5px;
+}
+.ritem h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.ritem p  { font-size: 12.5px; line-height: 1.52; color: var(--muted); max-width: none; }
+
+/* ── SLIDE 1 SPECIFICS ── */
+#s1 {
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding-bottom: 72px;
+}
+.chip {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--borderhi);
+  border-radius: 100px;
+  padding: 6px 16px;
+  margin-bottom: 24px;
+}
+.tagline {
+  font-size: clamp(14px, 1.8vw, 20px);
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 620px;
+  margin-bottom: 0;
+}
+.metarow { display: flex; gap: 32px; margin-top: 40px; }
+.metaitem { display: flex; flex-direction: column; gap: 3px; }
+.metaitem .ml { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.metaitem .mv { font-size: 14px; color: var(--muted); }
+
+/* ── SLIDE 2 BIO GRID ── */
+.biogrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 28px;
+  align-items: center;
+  max-width: 680px;
+  margin-bottom: 28px;
+}
+.blbl { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
+.bval { font-size: 15px; color: var(--muted); line-height: 1.45; }
+.bval strong { color: var(--text); }
+
+/* ── BOTTOM NOTE ── */
+.bnote {
+  margin-top: auto;
+  padding-top: 18px;
+  font-style: italic;
+  font-size: clamp(13px, 1.4vw, 16px);
+  color: var(--faint);
+}
+
+/* ── SLIDE 14 ── */
+#s14 {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+#s14 h2 { font-size: clamp(40px, 6.5vw, 82px); margin-bottom: 18px; }
+.closing {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: clamp(15px, 1.9vw, 21px);
+  color: var(--muted);
+  max-width: 660px;
+  margin: 0 auto 28px;
+  line-height: 1.65;
+}
+.contactblock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.contactblock .cname { font-size: 18px; font-weight: 600; color: var(--text); }
+.contactblock a, .contactblock span { font-size: 15px; color: var(--muted); }
+.contactblock a { color: var(--accent2); }
+
+/* ── SR ONLY ── */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* ── PRINT / PDF ── */
+@media print {
+  .nav-btn, .slide-counter, .prog { display: none !important; }
+  html, body { overflow: visible; height: auto; }
+  .slide { display: flex !important; position: relative !important; min-height: 100vh; page-break-after: always; }
+}
+</style>
+</head>
+<body>
+
+<div class="atmo" aria-hidden="true"></div>
+<div class="sr" aria-live="polite" aria-atomic="true" id="ann"></div>
+
+<main class="deck">
+
+<!-- SLIDE 01 — TITLE -->
+<section class="slide active" id="s1" aria-label="Slide 1 of 14: Title">
+  <div class="chip">GATHER 2026 — AHEAD &amp; AONTAS &nbsp;·&nbsp; Dublin &nbsp;·&nbsp; 19 May 2026</div>
+  <h1><span class="gr">Assis</span>T</h1>
+  <p class="tagline">Adaptive Augmentation for Student Achievement<br>
+  A free, open-source Chrome extension for neurodivergent students<br>
+  in further, higher education and beyond.</p>
+  <div class="metarow">
+    <div class="metaitem"><span class="ml">Speaker</span><span class="mv">Mark Jones</span></div>
+    <div class="metaitem"><span class="ml">Affiliation</span><span class="mv">NCAD · Fiavaion</span></div>
+    <div class="metaitem"><span class="ml">Session</span><span class="mv">Showcase · 20 min</span></div>
+  </div>
+</section>
+
+<!-- SLIDE 02 — WHO I AM -->
+<section class="slide" id="s2" aria-label="Slide 2 of 14: Who I Am" style="display:none">
+  <div class="eyebrow">About <span class="n">02</span></div>
+  <h2>Who <span class="gr">I Am</span></h2>
+  <div class="rule"></div>
+  <div class="biogrid">
+    <span class="blbl">Name</span>   <span class="bval"><strong>Mark Jones</strong></span>
+    <span class="blbl">Role</span>   <span class="bval">Digital Technical Officer, Developer</span>
+    <span class="blbl">Where</span>  <span class="bval">National College of Art &amp; Design, Dublin</span>
+    <span class="blbl">Tenure</span> <span class="bval">18+ years at NCAD · 2 years on AT</span>
+  </div>
+  <p>Students with disabilities navigate a <strong>fragmented landscape</strong>: expensive proprietary tools, platform-locked licences, and support that varies wildly by institution, country, and diagnosis.</p>
+  <p>Some students receive excellent support in one college and none in another. Some lose access to tools entirely when they change course or transfer. Others simply never know what's available. AssisT began as a direct response to that fragmentation — a single, consistent tool that goes wherever the student goes.</p>
+</section>
+
+<!-- SLIDE 03 — THE PROBLEM -->
+<section class="slide" id="s3" aria-label="Slide 3 of 14: The Problem" style="display:none">
+  <div class="eyebrow">The Problem <span class="n">03</span></div>
+  <h2>Students face barriers every day on the very <span class="gr">platforms we use to teach them.</span></h2>
+  <ul class="nlist">
+    <li><span class="nb">01</span><span><strong>Cost &amp; gatekeeping.</strong> TTS tools are expensive, locked to lab machines, or require a formal diagnosis to access.</span></li>
+    <li><span class="nb">02</span><span><strong>Empty platforms.</strong> Canvas, Moodle and Google Classroom ship with no built-in reading or writing support.</span></li>
+    <li><span class="nb">03</span><span><strong>The discovery gap.</strong> First-generation and EAL students rarely know what support exists.</span></li>
+    <li><span class="nb">04</span><span><strong>The support cliff.</strong> Institutional licences end at graduation. The tool a student built four years of habits around — gone, exactly when they need it most.</span></li>
+  </ul>
+</section>
+
+<!-- SLIDE 04 — WHAT IS ASSIST -->
+<section class="slide" id="s4" aria-label="Slide 4 of 14: What is AssisT" style="display:none">
+  <div class="eyebrow">The Product <span class="n">04</span></div>
+  <h2>What <span class="gr">AssisT Is</span></h2>
+  <div class="rule"></div>
+  <p>A Chrome extension that runs quietly alongside every website a student visits.</p>
+  <ul class="dlist" style="margin-top:18px;">
+    <li>Installs in under a minute from the Chrome Web Store</li>
+    <li>Works on Canvas, Moodle, Google Classroom — and every other site</li>
+    <li>No account required · no data leaves the browser · <strong>GDPR &amp; FERPA compliant</strong></li>
+    <li>Free and open source — EUPL-1.2</li>
+  </ul>
+  <p style="margin-top:20px; font-style:italic; color:var(--faint);">"Because support shouldn't end at graduation."</p>
+  <div class="tags">
+    <span class="tag">Dyslexia</span>
+    <span class="tag">ADHD</span>
+    <span class="tag">Visual impairment</span>
+    <span class="tag">Processing differences</span>
+    <span class="tag">EAL learners</span>
+    <span class="tag">Anxiety</span>
+  </div>
+</section>
+
+<!-- SLIDE 05 — READING HELP -->
+<section class="slide" id="s5" aria-label="Slide 5 of 14: Reading Help" style="display:none">
+  <div class="eyebrow">Features · 1 of 6 <span class="n">05</span></div>
+  <h2>Reading <span class="gr">Help</span></h2>
+  <div class="fgrid">
+    <div class="fcard">
+      <div class="lbl">01 · Read Aloud</div>
+      <h3>Text-to-speech, synced to the word</h3>
+      <p>Word-by-word highlighting follows the student across any webpage.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">02 · Reading Mode</div>
+      <h3>Strip the noise. Keep the article.</h3>
+      <p>Removes navigation, ads, sidebars. Renders in the student's preferred font and spacing.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">03 · Dyslexia Mode</div>
+      <h3>Bionic reading, by default</h3>
+      <p>Syllable colour-coding and grammar highlighting. Switchable with one click.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">04 · OCR</div>
+      <h3>Read what isn't text yet</h3>
+      <p>Extracts and reads from images, scanned PDFs, and screenshots.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 06 — WRITING HELP -->
+<section class="slide" id="s6" aria-label="Slide 6 of 14: Writing Help" style="display:none">
+  <div class="eyebrow">Features · 2 of 6 <span class="n">06</span></div>
+  <h2>Writing <span class="gr">Help</span></h2>
+  <div class="rule"></div>
+  <p><strong>Speech to text</strong> — for students who think faster than they type.</p>
+  <ul class="dlist" style="margin-top:18px;">
+    <li>Works in <em>any</em> text field — assignments, discussion posts, search boxes</li>
+    <li>Uses the browser's built-in speech engine — nothing leaves the device</li>
+    <li><strong>FixOver:</strong> dictate, review, edit — without switching modes</li>
+  </ul>
+  <div style="margin-top:28px;">
+    <div class="eyebrow" style="margin-bottom:10px;">Particularly valuable for</div>
+    <div class="tags" style="margin-top:0;">
+      <span class="tag">Motor difficulties</span>
+      <span class="tag">Dysgraphia</span>
+      <span class="tag">Students who compose better verbally</span>
+      <span class="tag">Exam accommodations</span>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 07 — VISUAL COMFORT -->
+<section class="slide" id="s7" aria-label="Slide 7 of 14: Visual Comfort" style="display:none">
+  <div class="eyebrow">Features · 3 of 6 <span class="n">07</span></div>
+  <h2>Visual <span class="gr">Comfort</span></h2>
+  <div class="fgrid" style="margin-top:8px;">
+    <div class="fcard">
+      <div class="lbl">Overlay</div>
+      <h3>Screen Colour Overlay</h3>
+      <p>Tinted overlay across the whole screen. Colour, intensity, blend mode — fully adjustable. Evidence-based for Meares-Irlen-type visual stress.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">Attention</div>
+      <h3>Focus Mode</h3>
+      <p>Dark overlay with a clear reading window that follows the cursor. Filters distraction for ADHD and attention difficulties.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">Tracking</div>
+      <h3>Reading Guide</h3>
+      <p>A horizontal guide line that tracks mouse movement. Supports visual tracking difficulties.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">Vestibular</div>
+      <h3>Reduced Motion</h3>
+      <p>Suppresses animations globally. Essential for vestibular disorders and sensory sensitivities.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 08 — STUDY TOOLS -->
+<section class="slide" id="s8" aria-label="Slide 8 of 14: Study Tools" style="display:none">
+  <div class="eyebrow">Features · 4 of 6 <span class="n">08</span></div>
+  <h2>Study <span class="gr">Tools</span></h2>
+  <div class="fgrid" style="margin-top:8px;">
+    <div class="fcard">
+      <div class="lbl">Capture</div>
+      <h3>Annotations &amp; Sticky Notes</h3>
+      <p>Highlight and annotate inline. Colour-coded sticky notes attached to any page. Both persist across sessions and are exportable.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">Pace</div>
+      <h3>Speed Read (RSVP)</h3>
+      <p>Sequential word display for students who benefit from a controlled reading pace.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">Focus</div>
+      <h3>Pomodoro Timer</h3>
+      <p>Floating focus timer. Customisable work and break durations.</p>
+    </div>
+    <div class="fcard">
+      <div class="lbl">Reference &amp; Comply</div>
+      <h3>Citations &amp; Text Customisation</h3>
+      <p>Save references, export in APA / MLA / Harvard / Chicago. Full typography control — satisfies WCAG 2.2 SC 1.4.12.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 09 — LMS INTEGRATION -->
+<section class="slide" id="s9" aria-label="Slide 9 of 14: LMS Integration" style="display:none">
+  <div class="eyebrow">Features · 5 of 6 <span class="n">09</span></div>
+  <h2>LMS <span class="gr">Integration</span></h2>
+  <div class="lgrid">
+    <div class="lcard">
+      <div class="badge">LMS</div>
+      <h3>Canvas</h3>
+      <ul>
+        <li>TTS on assignment and module pages</li>
+        <li>TTS on quiz and assessment pages</li>
+        <li>STT for text submission fields</li>
+        <li>All AssisT features active on every Canvas page</li>
+      </ul>
+    </div>
+    <div class="lcard">
+      <div class="badge">LMS</div>
+      <h3>Moodle</h3>
+      <ul>
+        <li>TTS on forum discussions and resource pages</li>
+        <li>STT for discussion post composition</li>
+        <li>Reading Mode on long-form content pages</li>
+        <li>All AssisT features active on every Moodle page</li>
+      </ul>
+    </div>
+    <div class="lcard">
+      <div class="badge">LMS</div>
+      <h3>Google Classroom</h3>
+      <ul>
+        <li>TTS across classwork stream and assignments</li>
+        <li>STT for written responses</li>
+        <li>Reading Mode on linked documents</li>
+        <li>All AssisT features active within Classroom</li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:14px; font-size:13px; color:var(--faint);">AssisT detects the LMS automatically — students don't need to configure anything.</p>
+</section>
+
+<!-- SLIDE 10 — AI ASSIST -->
+<section class="slide" id="s10" aria-label="Slide 10 of 14: AI Assist" style="display:none">
+  <div class="eyebrow">Features · 6 of 6 <span class="n">10</span></div>
+  <h2>AI <span class="gr">Assist</span></h2>
+  <div class="agrid">
+    <div class="aitem"><div class="anum">01</div><div><h3>Summarisation</h3><p>Concise summary of any selected text.</p></div></div>
+    <div class="aitem"><div class="anum">05</div><div><h3>Knowledge Graph</h3><p>Visualises concepts and relationships interactively.</p></div></div>
+    <div class="aitem"><div class="anum">02</div><div><h3>Text Simplification</h3><p>Rewrites dense academic language accessibly.</p></div></div>
+    <div class="aitem"><div class="anum">06</div><div><h3>Study Path Generator</h3><p>Personalised learning sequences from a topic description.</p></div></div>
+    <div class="aitem"><div class="anum">03</div><div><h3>Assignment Breakdown</h3><p>Converts a brief into a structured checklist.</p></div></div>
+    <div class="aitem"><div class="anum">07</div><div><h3>Citation Analyser</h3><p>Credibility and bias assessment for sources.</p></div></div>
+    <div class="aitem"><div class="anum">04</div><div><h3>Socratic Tutor</h3><p>Generates questions that deepen understanding.</p></div></div>
+    <div class="aitem"><div class="anum">08</div><div><h3>Multi-Doc Compare</h3><p>Finds agreements, contradictions, and themes across texts.</p></div></div>
+  </div>
+  <div class="anote">
+    <strong>Privacy by default.</strong> Runs locally via Ollama or browser AI — or in cloud with the student's own API key. No data goes to AssisT servers.
+    <strong>AI prompts improve with community feedback</strong> — particularly when running on smaller local models where prompt quality has a greater impact on output accuracy. If you use AssisT with local AI, your feedback helps refine the experience for everyone.
+  </div>
+</section>
+
+<!-- SLIDE 11 — FREE FOR EVERYONE -->
+<section class="slide" id="s11" aria-label="Slide 11 of 14: Free For Everyone" style="display:none">
+  <div class="eyebrow">Access <span class="n">11</span></div>
+  <h2>Free, For <span class="gr">Everyone</span></h2>
+  <div class="rule"></div>
+  <p><strong>No subscription. No waitlist. No institutional licence required.</strong></p>
+  <ul class="dlist" style="margin-top:18px;">
+    <li>Available now on the <strong>Chrome Web Store</strong></li>
+    <li>Open source: <a href="https://github.com/Fiavaion/AssisT" target="_blank" rel="noopener">github.com/Fiavaion/AssisT</a></li>
+    <li>Works on any Chromium browser — Chrome, Edge, Brave</li>
+    <li>Any student, on any campus, on any device — installs in 60 seconds</li>
+  </ul>
+  <p class="bnote">A disability services officer can recommend it. A student can install it themselves. A lecturer can model it in class.</p>
+</section>
+
+<!-- SLIDE 12 — HOW YOU CAN HELP -->
+<section class="slide" id="s12" aria-label="Slide 12 of 14: How You Can Help" style="display:none">
+  <div class="eyebrow">Call to Action <span class="n">12</span></div>
+  <h2>How You Can <span class="gr">Help</span></h2>
+  <p style="margin-bottom:22px;">Three things you can do this week.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="snum">1</div>
+      <div>
+        <h3>Install it.</h3>
+        <p>Try it yourself before recommending it to a student. Five minutes is enough.</p>
+        <a href="https://chromewebstore.google.com/detail/assist-adaptive-augmentat/dkekfjomoacmhbkekjkngmpbdlljjfhi" target="_blank" rel="noopener">→ Chrome Web Store</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum">2</div>
+      <div>
+        <h3>Share it.</h3>
+        <p>Add the link to your student-facing AT resources and DSO handouts.</p>
+        <a href="https://www.fiavaion.com/products/assist/" target="_blank" rel="noopener">→ fiavaion.com/products/assist</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum">3</div>
+      <div>
+        <h3>Give feedback.</h3>
+        <p>File a bug, request a feature, or start a Discussion on GitHub. Every release is shaped by it.</p>
+        <a href="https://github.com/Fiavaion/AssisT/discussions" target="_blank" rel="noopener">→ GitHub Discussions</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 13 — WHAT'S NEXT -->
+<section class="slide" id="s13" aria-label="Slide 13 of 14: What's Coming Next" style="display:none">
+  <div class="eyebrow">What's Next <span class="n">13</span></div>
+  <h2>The Roadmap <span class="gr">Ahead</span></h2>
+  <div class="roadmap">
+    <div class="ritem">
+      <div class="rlbl">Reach</div>
+      <h3>Browser Support — Firefox &amp; Safari</h3>
+      <p>So AssisT reaches students on every platform, not just Chromium.</p>
+    </div>
+    <div class="ritem">
+      <div class="rlbl">Speech</div>
+      <h3>STT Voice Profile Creator</h3>
+      <p>A dedicated voice training tool for users with Dysarthria — calibrating the recognition engine to a student's individual speech patterns, rather than expecting students to adapt to the engine.</p>
+    </div>
+    <div class="ritem">
+      <div class="rlbl">Exams</div>
+      <h3>Exam Mode</h3>
+      <p>A password-protected lockdown mode configured by the AT technician — restricting AssisT to only the features approved for a student's exam accommodations. The student retains their permitted supports; everything else is locked until the AT re-enters the password. No more all-or-nothing workarounds at exam time.</p>
+    </div>
+    <div class="ritem">
+      <div class="rlbl">Polish &amp; Community</div>
+      <h3>UI Overhaul &amp; Community-led Refinement</h3>
+      <p>A full redesign of the control panel shaped by AT technicians and learning support professionals. The goal is not a finished product — it's a tool that keeps improving with the community that uses it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 14 — Q&A -->
+<section class="slide" id="s14" aria-label="Slide 14 of 14: Thank You" style="display:none">
+  <h2>Thank <span class="gr">You</span></h2>
+  <p class="closing">AssisT is free, open source, and built on one belief:<br>support that disappears at graduation was never really support.</p>
+  <p style="font-style:italic; color:var(--faint); margin-bottom:28px;">Questions?</p>
+  <div class="contactblock">
+    <span class="cname">Mark Jones</span>
+    <a href="mailto:info@fiavaion.com">info@fiavaion.com</a>
+    <a href="https://www.fiavaion.com/products/assist/" target="_blank" rel="noopener">fiavaion.com/products/assist</a>
+    <a href="https://github.com/Fiavaion/AssisT" target="_blank" rel="noopener">github.com/Fiavaion/AssisT</a>
+  </div>
+</section>
+
+</main>
+
+<div class="slide-counter" id="counter" aria-hidden="true">01 / 14</div>
+<div class="prog" id="prog" style="width:7.14%"></div>
+<button class="nav-btn btn-prev" id="btnPrev" aria-label="Previous slide" disabled>&#8249;</button>
+<button class="nav-btn btn-next" id="btnNext" aria-label="Next slide">&#8250;</button>
+
+<script>
+(function () {
+  var slides = document.querySelectorAll('.slide');
+  var counter = document.getElementById('counter');
+  var prog    = document.getElementById('prog');
+  var ann     = document.getElementById('ann');
+  var btnPrev = document.getElementById('btnPrev');
+  var btnNext = document.getElementById('btnNext');
+  var total   = slides.length;
+  var cur     = 0;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function show(n) {
+    if (n < 0 || n >= total) return;
+    slides[cur].style.display = 'none';
+    slides[cur].classList.remove('active');
+    cur = n;
+    var s = slides[cur];
+    s.style.display = 'flex';
+    s.classList.remove('active');
+    void s.offsetWidth; /* reflow to restart animation */
+    s.classList.add('active');
+    counter.textContent = pad(cur + 1) + ' / ' + pad(total);
+    prog.style.width = ((cur + 1) / total * 100) + '%';
+    ann.textContent  = s.getAttribute('aria-label') || 'Slide ' + (cur + 1);
+    btnPrev.disabled = (cur === 0);
+    btnNext.disabled = (cur === total - 1);
+  }
+
+  btnPrev.addEventListener('click', function () { show(cur - 1); });
+  btnNext.addEventListener('click', function () { show(cur + 1); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ')  { e.preventDefault(); show(cur + 1); }
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                     { e.preventDefault(); show(cur - 1); }
+    if (e.key === 'Home') { e.preventDefault(); show(0); }
+    if (e.key === 'End')  { e.preventDefault(); show(total - 1); }
+  });
+
+  /* touch swipe */
+  var tx = 0;
+  document.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend',   function (e) {
+    var dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) show(dx < 0 ? cur + 1 : cur - 1);
+  });
+
+  /* init — show() handles display toggle, so just call it */
+  slides[0].style.display = 'flex';
+  slides[0].classList.add('active');
+  prog.style.width = (1 / total * 100) + '%';
+  btnPrev.disabled = true;
+})();
+</script>
+</body>
+</html>
