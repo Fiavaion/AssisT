@@ -557,6 +557,13 @@ export function createShortcutHandler(shortcut, callback) {
 const shortcutHandlers = new Map();
 
 /**
+ * Global registry of registered callbacks
+ * Kept separately so reloadShortcuts() can re-register with new key bindings
+ * @private
+ */
+const shortcutCallbacks = new Map();
+
+/**
  * Registers a keyboard shortcut for a feature
  *
  * @param {string} featureKey - Feature key (e.g., 'ocr_activate')
@@ -585,8 +592,9 @@ export async function registerShortcut(featureKey, callback) {
   const handler = createShortcutHandler(shortcut, callback);
   document.addEventListener('keydown', handler);
 
-  // Store handler for later cleanup
+  // Store handler and callback (callback kept for reloadShortcuts)
   shortcutHandlers.set(featureKey, handler);
+  shortcutCallbacks.set(featureKey, callback);
 
   console.log(`[Keyboard Shortcuts] Registered: ${featureKey} → ${shortcut}`);
 
@@ -633,20 +641,16 @@ export function unregisterAllShortcuts() {
  * await reloadShortcuts();
  */
 export async function reloadShortcuts() {
-  // Get all currently registered features
-  const registeredFeatures = Array.from(shortcutHandlers.keys());
+  // Snapshot callbacks before unregistering (unregisterShortcut only clears handlers)
+  const callbacks = new Map(shortcutCallbacks);
 
-  // Unregister all
   unregisterAllShortcuts();
 
-  // Re-register with updated shortcuts
-  const shortcuts = await loadShortcuts();
-
-  for (const featureKey of registeredFeatures) {
-    // Note: This re-registration requires the original callbacks
-    // Features should handle storage.onChanged events to update their own shortcuts
-    console.log(`[Keyboard Shortcuts] Reloaded: ${featureKey} → ${shortcuts[featureKey]}`);
+  for (const [featureKey, callback] of callbacks) {
+    await registerShortcut(featureKey, callback);
   }
+
+  console.log(`[Keyboard Shortcuts] Reloaded ${callbacks.size} shortcuts`);
 }
 
 // ============================================================================
