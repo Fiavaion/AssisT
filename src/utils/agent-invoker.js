@@ -72,11 +72,8 @@ export async function invokeSubAgent(taskId) {
     }
   }
 
-  // eslint-disable-next-line no-console
   console.log(`[AgentInvoker] Invoking ${config.agentType} agent for task ${taskId}`);
-  // eslint-disable-next-line no-console
   console.log(`[AgentInvoker] Thoroughness: ${config.thoroughness}`);
-  // eslint-disable-next-line no-console
   console.log(`[AgentInvoker] Estimated time: ${config.estimatedTime}`);
 
   // In a real implementation, this would call the Task tool with the configured agent
@@ -202,7 +199,6 @@ export function logAgentInvocation(taskId, result) {
     error: result.error,
   };
 
-  // eslint-disable-next-line no-console
   console.log(
     `[AgentInvoker] ${timestamp} - Task ${taskId}:`,
     result.success ? 'SUCCESS' : 'FAILED'
