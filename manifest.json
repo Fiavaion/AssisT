@@ -54,7 +54,8 @@
         "src/pages/ai-setup/*",
         "src/pages/discovery/*",
         "src/pages/demo/*",
-        "src/pages/help/*"
+        "src/pages/help/*",
+        "src/assets/fonts/*"
       ],
       "matches": [
         "*://*.instructure.com/*",
@@ -71,7 +72,8 @@
         "public/icons/*",
         "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
         "assets/*.js",
-        "assets/*.css"
+        "assets/*.css",
+        "src/assets/fonts/*"
       ],
       "matches": [
         "<all_urls>"
