@@ -1,0 +1,1209 @@
+<!DOCTYPE html><html lang="en"><head>
+
+<meta charset="utf-8">
+<title>AssisT — GATHER 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    /* palette */
+    --paper: #F4EFE6;
+    --paper-2: #EAE2D2;
+    --ink: #0E1A2B;
+    --ink-soft: #1A2A40;
+    --coral: #D55A3C;
+    --teal: #2E7E7C;
+    --rule: rgba(14, 26, 43, 0.14);
+    --rule-on-ink: rgba(244, 239, 230, 0.18);
+    --muted: rgba(14, 26, 43, 0.62);
+    --muted-on-ink: rgba(244, 239, 230, 0.68);
+
+    /* type scale (1920x1080) */
+    --type-hero: 168px;
+    --type-display: 112px;
+    --type-title: 64px;
+    --type-subtitle: 40px;
+    --type-lead: 36px;
+    --type-body: 30px;
+    --type-small: 24px;
+    --type-tag: 24px;
+
+    /* spacing */
+    --pad-top: 110px;
+    --pad-bottom: 130px;
+    --pad-x: 120px;
+    --gap-title: 56px;
+    --gap-item: 28px;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ---------- slide base ---------- */
+  deck-stage section {
+    background: var(--paper);
+    color: var(--ink);
+    overflow: hidden;
+    position: relative;
+    padding: var(--pad-top) var(--pad-x) var(--pad-bottom);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+  deck-stage section.ink {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  deck-stage section.ink :where(h1, h2, h3, p, li, span) { color: inherit; }
+
+  /* ---------- type ---------- */
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: var(--type-tag);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--coral);
+    font-weight: 500;
+    margin: 0;
+  }
+  .ink .eyebrow { color: #F2A78D; }
+
+  h1.slide-title {
+    font-size: var(--type-title);
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+    margin: 24px 0 0;
+    text-wrap: balance;
+    max-width: 22ch;
+  }
+  .lede {
+    font-size: var(--type-lead);
+    line-height: 1.28;
+    margin: 28px 0 0;
+    max-width: 30ch;
+    color: var(--muted);
+    font-weight: 400;
+    text-wrap: pretty;
+  }
+  .ink .lede { color: var(--muted-on-ink); }
+
+  p, li { font-size: var(--type-body); line-height: 1.42; }
+
+  /* ---------- footer ---------- */
+  .footer {
+    position: absolute;
+    left: var(--pad-x);
+    right: var(--pad-x);
+    bottom: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 24px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .ink .footer { color: var(--muted-on-ink); }
+  .footer .meta {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    text-transform: uppercase;
+  }
+  .footer .meta .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--coral); display: inline-block;
+  }
+  .logos {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .brand-logo {
+    display: block;
+    width: auto;
+    object-fit: contain;
+    border-radius: 4px;
+  }
+  .brand-assist { height: 56px; }
+  .brand-fiav   { height: 56px; border-radius: 50%; }
+  .brand-ahead  { height: 40px; background: #fff; padding: 6px 10px; border-radius: 4px; }
+  .brand-aontas { height: 56px; background: #fff; padding: 4px 10px; border-radius: 4px; }
+  .ink .brand-ahead, .ink .brand-aontas { background: #fff; }
+
+  /* ---------- topbar ---------- */
+  .topbar {
+    position: absolute;
+    top: 56px;
+    left: var(--pad-x);
+    right: var(--pad-x);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .ink .topbar { color: var(--muted-on-ink); }
+  .topbar .num::before { content: "/ "; opacity: 0.5; }
+
+  /* ---------- hero (slide 1) ---------- */
+  .hero {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 680px;
+    align-items: stretch;
+    gap: 0;
+  }
+  .hero-text {
+    display: grid;
+    align-content: center;
+    gap: 40px;
+  }
+  .hero-logo-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-logo-large {
+    width: 600px;
+    height: 600px;
+    object-fit: contain;
+  }
+  .hero h1 {
+    font-size: var(--type-hero);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-weight: 700;
+    margin: 0;
+  }
+  .hero .accent { color: var(--coral); }
+  .hero .tag {
+    font-size: var(--type-subtitle);
+    line-height: 1.2;
+    max-width: 26ch;
+    font-weight: 400;
+    color: var(--muted-on-ink);
+    margin: 0;
+  }
+  .hero-rule {
+    height: 1px;
+    background: var(--rule-on-ink);
+    margin: 16px 0;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 80px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--type-small);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-on-ink);
+  }
+  .hero-meta strong {
+    display: block;
+    font-family: "Atkinson Hyperlegible", sans-serif;
+    font-weight: 700;
+    font-size: 30px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--paper);
+    margin-top: 8px;
+  }
+
+  /* ---------- two-col ---------- */
+  .two-col {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 96px;
+    align-items: start;
+  }
+  .two-col-3070 { grid-template-columns: 7fr 5fr; }
+  .two-col-4060 { grid-template-columns: 4fr 6fr; }
+
+  /* ---------- speaker card (slide 2) ---------- */
+  .portrait {
+    width: 100%;
+    aspect-ratio: 4/5;
+    background:
+      repeating-linear-gradient(45deg, rgba(14,26,43,0.05) 0 12px, rgba(14,26,43,0) 12px 24px),
+      var(--paper-2);
+    border: 1.5px solid var(--rule);
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    padding: 28px;
+    box-sizing: border-box;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .speaker-meta dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    row-gap: 22px;
+    column-gap: 32px;
+    font-size: 28px;
+    line-height: 1.35;
+  }
+  .speaker-meta dt {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-top: 8px;
+  }
+  .speaker-meta dd { margin: 0; font-weight: 400; }
+  .speaker-meta dd strong { font-weight: 700; }
+  .pull {
+    margin-top: 60px;
+    padding: 36px 0 0;
+    border-top: 1.5px solid var(--rule);
+    font-family: "Atkinson Hyperlegible", serif;
+    font-style: italic;
+    font-size: 36px;
+    line-height: 1.32;
+    max-width: 28ch;
+    text-wrap: pretty;
+  }
+  .pull .q { color: var(--coral); font-style: normal; }
+
+  /* ---------- lists ---------- */
+  .num-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 28px;
+  }
+  .num-list li {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    align-items: baseline;
+    gap: 24px;
+    font-size: 26px;
+    line-height: 1.36;
+    text-wrap: pretty;
+  }
+  .num-list li .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--coral);
+    letter-spacing: 0.08em;
+  }
+  .num-list li strong { display: block; font-weight: 700; margin-bottom: 2px; font-size: 28px; }
+
+  .clean-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 22px;
+  }
+  .clean-list li {
+    font-size: 30px;
+    line-height: 1.4;
+    padding-left: 36px;
+    position: relative;
+    text-wrap: pretty;
+  }
+  .clean-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.62em;
+    width: 14px;
+    height: 1.5px;
+    background: var(--coral);
+  }
+
+  /* ---------- feature grid ---------- */
+  .grid {
+    display: grid;
+    gap: 36px;
+    flex: 1;
+    align-content: start;
+  }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+  .feature {
+    border: 1.5px solid var(--rule);
+    border-radius: 6px;
+    padding: 32px 32px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(255,255,255,0.35);
+  }
+  .ink .feature {
+    border-color: var(--rule-on-ink);
+    background: rgba(244,239,230,0.04);
+  }
+  .feature .label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--coral);
+  }
+  .feature h3 {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .feature p {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.42;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .ink .feature p { color: var(--muted-on-ink); }
+  .feature.compact { padding: 26px 28px 28px; gap: 8px; }
+  .feature.compact h3 { font-size: 28px; }
+  .feature.compact p { font-size: 24px; }
+  .feature.compact .label { font-size: 24px; }
+
+  /* ---------- LMS table (slide 9) ---------- */
+  .lms-table {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1.5px solid var(--rule);
+    border-bottom: 1.5px solid var(--rule);
+  }
+  .lms-col {
+    padding: 28px 36px 36px;
+    border-left: 1.5px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .lms-col:first-child { border-left: 0; padding-left: 0; }
+  .lms-col h3 { margin: 0 0 12px; font-size: 36px; font-weight: 700; }
+  .lms-col h3 .badge {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-right: 10px;
+    vertical-align: middle;
+    letter-spacing: 0.08em;
+  }
+  .lms-col ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+  .lms-col li { font-size: 24px; line-height: 1.35; padding-left: 24px; position: relative; }
+  .lms-col li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.6em;
+    width: 10px; height: 1.5px;
+    background: var(--coral);
+  }
+
+  /* ---------- AI grid (slide 10) ---------- */
+  .ai-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px 20px;
+    flex: 1;
+    align-content: start;
+  }
+  .ai-card {
+    padding: 18px 22px 18px;
+    border: 1.5px solid var(--rule-on-ink);
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ai-card .num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.08em;
+    color: #F2A78D;
+  }
+  .ai-card h3 { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.12; letter-spacing: -0.005em; }
+  .ai-card p { margin: 0; font-size: 24px; line-height: 1.38; color: var(--muted-on-ink); text-wrap: pretty; }
+  .ai-foot {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    padding: 16px 24px;
+    border: 1.5px dashed rgba(242, 167, 141, 0.5);
+    border-radius: 5px;
+    font-size: 24px;
+    line-height: 1.4;
+    color: var(--paper);
+  }
+  .ai-foot strong { color: #F2A78D; }
+  .badge-experimental {
+    display: inline-block;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    color: rgba(251, 191, 36, 0.85);
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+
+  /* ---------- statement (slide 11) ---------- */
+  .statement {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .statement h2 {
+    font-size: 132px;
+    line-height: 0.95;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin: 0;
+    max-width: 18ch;
+    text-wrap: balance;
+  }
+  .statement h2 .accent { color: var(--coral); }
+  .statement .meta {
+    margin-top: 60px;
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    gap: 24px 56px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 28px;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  .statement .meta span small {
+    display: block;
+    font-size: 24px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* ---------- CTA actions (slide 12) ---------- */
+  .actions {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    align-content: center;
+    margin-top: 30px;
+  }
+  .action {
+    border: 1.5px solid var(--rule);
+    border-radius: 6px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 380px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .action:hover { border-color: var(--coral); transform: translateY(-2px); }
+  .action .verb {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--coral);
+  }
+  .action h3 { margin: 0; font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; }
+  .action p { margin: 0; font-size: 24px; line-height: 1.4; color: var(--muted); }
+  .action .num {
+    margin-top: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ---------- roadmap (slide 13) ---------- */
+  .roadmap {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    align-content: start;
+    gap: 0 40px;
+  }
+  .road-row { display: contents; }
+  .road-row .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--coral);
+    padding-top: var(--row-pad, 22px);
+    border-top: 1.5px solid var(--rule);
+  }
+  .road-row .what { padding: var(--row-pad, 22px) 0 var(--row-pad, 24px); border-top: 1.5px solid var(--rule); }
+  .road-row .what h3 { margin: 0 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .road-row .what p { margin: 0; font-size: 24px; line-height: 1.4; color: var(--muted); max-width: 90ch; text-wrap: pretty; }
+  .road-row:last-child .what { padding-bottom: 0; }
+
+  /* ---------- closing (slide 14) ---------- */
+  .closing {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 7fr 5fr;
+    gap: 100px;
+    align-items: stretch;
+  }
+  .closing-l h2 { font-size: 168px; font-weight: 700; line-height: 0.92; letter-spacing: -0.03em; margin: 0; }
+  .closing-l h2 .accent { color: var(--coral); }
+  .closing-l p { font-size: 30px; line-height: 1.4; margin: 36px 0 0; max-width: 28ch; color: var(--muted-on-ink); }
+  .closing-r {
+    border-left: 1.5px solid var(--rule-on-ink);
+    padding-left: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 26px;
+  }
+  .closing-r dt {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted-on-ink);
+    margin-bottom: 6px;
+  }
+  .closing-r dd { margin: 0 0 18px; font-size: 30px; line-height: 1.35; font-weight: 400; }
+  .closing-r dd strong { font-weight: 700; }
+
+</style>
+
+<script type="application/json" id="speaker-notes">
+[
+  "Welcome — thanks for having me at GATHER 2026. I'm Mark Jones from NCAD, and I'm here to talk about a free, open-source Chrome extension called AssisT, built for neurodivergent students in further and higher education. About 20 minutes, then questions. Slides will be shared.",
+  "Quick about me. Designer-developer at the National College of Art and Design in Dublin — eighteen years there, two of those focused entirely on assistive tech. AssisT didn't start as a product idea; it started from watching how fragmented the AT landscape is. Students assemble a toolkit from incompatible vendors and licences, and the moment they change device, browser, or institution, half of it disappears.",
+  "Before what AssisT does, the gap it sits in. Four things, all true at once: TTS tools cost real money or are tied to lab machines; the LMS platforms we teach on have no built-in reading or writing support; first-gen and EAL students often don't know what's available; and the support cliff — institutions pay for licences while a student is enrolled, and the moment they graduate, the tool they built years of study habits around vanishes. The student struggling in silence is the majority.",
+  "AssisT is a Chrome extension that runs quietly alongside every website a student visits. Installs in under a minute. No account, no data leaves the browser. GDPR compliant — fonts bundled locally, no CDN calls, privacy policy in place. EUPL-1.2 licensed — free forever, because support shouldn't end at graduation. Designed for dyslexia, ADHD, visual impairment, processing differences, EAL learners, anxiety.",
+  "Reading help. Read Aloud — TTS with synchronised word highlighting, follows the student across any page. Reading Mode — strips the noise, leaves the article in the student's chosen font and spacing. Dyslexia Mode — bionic reading, syllable colour-coding, grammar highlighting; one click to toggle. OCR — extracts text from images, scanned PDFs, screenshots.",
+  "Writing help, primarily speech-to-text. Works in any text field — assignment box, discussion post, search bar. Uses the browser's built-in engine, nothing leaves the device. Important for motor difficulties, dysgraphia, students who compose better verbally, and exam accommodations.",
+  "Visual comfort — reducing visual stress without needing a clinical referral. Screen Colour Overlay, evidence-based for Meares-Irlen-type stress, fully adjustable. Focus Mode — dark overlay with a clear window that follows the cursor. Reading Guide — horizontal line that tracks the mouse, supports tracking difficulties. Reduced Motion — kills animations globally, essential for vestibular and sensory sensitivities.",
+  "Study tools that support the full workflow — annotations, sticky notes, RSVP speed reading, Pomodoro, accessibility profiles for one-tap personalisation switching, and full WCAG 2.2 compliant text customisation.",
+  "Built for the platforms educators actually use. AssisT detects Canvas, Moodle, and Google Classroom automatically and adapts — students don't configure anything. Specific support for assignments, forums, quizzes, classwork, the lot.",
+  "Eight AI-powered features — and crucially, all privacy-first. Summarisation, simplification, assignment breakdown into a checklist, a Socratic tutor, an interactive knowledge graph, study path generator, citation analyser, and multi-document compare. Runs locally via Ollama or browser AI, or via cloud with the student's own API key. Nothing goes to AssisT servers. One honest caveat: prompt quality on smaller local models is an active area, and user feedback is what tunes it — if you spot a weak result, please tell us.",
+  "This is the part that matters: free, for everyone. No subscription, no waitlist, no institutional licence required. Available on the Chrome Web Store now, open source on GitHub. Any student, any campus, any device, sixty seconds to install. A DSO can recommend it; a student can install it themselves; a lecturer can model it in class.",
+  "Four things you can do this week. Install it — try it before recommending it. Share it — add the product page to your AT resources. Learn — the tutorial series on YouTube covers every feature for both students and DSOs. Give feedback — file a bug, request a feature, start a Discussion. AssisT is maintained by one developer, and community feedback genuinely shapes every release.",
+  "What's coming next. Firefox and Safari ports so AssisT reaches every platform. A voice profile creator for Dysarthria — calibrating the engine to the student rather than the other way round. Exam Mode — a password-locked profile configured by the AT technician, restricting features to a student's approved accommodations, ending the all-or-nothing workaround. A full UI overhaul. And — most importantly — community-led refinement. If you work in this space, I want to hear from you.",
+  "Thank you. AssisT is free, open source, and built on the idea that access to learning tools shouldn't depend on a diagnosis, a licence, or an institution's budget. Questions?"
+]
+</script>
+
+</head>
+<body>
+
+<deck-stage width="1920" height="1080" style="--deck-rail-w: 188px;">
+
+  <!-- ============ SLIDE 1 — TITLE ============ -->
+  <section class="ink" data-label="01 Title">
+    <div class="topbar">
+      <span>GATHER 2026 — AHEAD &amp; AONTAS</span>
+      <span>Dublin · 19 May 2026</span>
+    </div>
+    <div class="hero">
+      <div class="hero-text">
+        <p class="eyebrow">Adaptive Augmentation for Student Achievement</p>
+        <h1>Assis<span class="accent">T</span></h1>
+        <p class="tag">A free, open-source Chrome extension for neurodivergent students in further, higher education and beyond.</p>
+        <div class="hero-rule"></div>
+        <div class="hero-meta">
+          <div>Speaker<strong>Mark Jones</strong></div>
+          <div>Affiliation<strong>NCAD · Fiavaion</strong></div>
+          <div>Session<strong>Showcase · 20 min</strong></div>
+        </div>
+      </div>
+      <div class="hero-logo-col">
+        <img src="assets/AssisTCircleAlpha.png" alt="AssisT" class="hero-logo-large">
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>01 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 2 — WHO I AM ============ -->
+  <section data-label="02 About">
+    <div class="topbar">
+      <span>About</span>
+      <span class="num">02</span>
+    </div>
+    <h1 class="slide-title">Who I am</h1>
+    <div class="two-col two-col-4060" style="margin-top: var(--gap-title); flex: 1;">
+      <div>
+        <div class="portrait portrait-photo" style="aspect-ratio: 1/1.15; padding: 0;">
+          <img src="assets/MJ_headshot.jpg" alt="Mark Jones" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 4px;">
+        </div>
+      </div>
+      <div>
+        <div class="speaker-meta">
+          <dl>
+            <dt>Name</dt><dd><strong>Mark Jones</strong></dd>
+            <dt>Role</dt><dd>Digital Technical Officer, Developer</dd>
+            <dt>Where</dt><dd>National College of Art &amp; Design, Dublin</dd>
+            <dt>Tenure</dt><dd>18+ years at NCAD &nbsp;·&nbsp; 2 years on AT</dd>
+          </dl>
+        </div>
+        <div class="pull">
+          The AT landscape is <span class="q">fragmented</span>. Tools split across vendors, platforms and licences. Students assemble their own toolkit from incompatible parts &mdash; and lose half of it the moment they change device, browser, or institution.
+          <div style="font-style: normal; font-size: 24px; color: var(--muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 24px;">&mdash; The gap that started AssisT</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>02 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 3 — THE PROBLEM ============ -->
+  <section class="ink" data-label="03 Problem">
+    <div class="topbar">
+      <span>The problem</span>
+      <span class="num">03</span>
+    </div>
+    <h1 class="slide-title" style="max-width: 26ch;">Students face barriers every day on the very platforms we use to teach them.</h1>
+    <ol class="num-list" style="margin-top: 40px; max-width: 88ch; gap: 22px;">
+      <li><span class="n">01</span><span><strong>Cost &amp; gatekeeping.</strong> TTS tools are expensive, locked to lab machines, or require a formal diagnosis to access.</span></li>
+      <li><span class="n">02</span><span><strong>Empty platforms.</strong> Canvas, Moodle and Google Classroom ship with no built-in reading or writing support.</span></li>
+      <li><span class="n">03</span><span><strong>The discovery gap.</strong> First-generation and EAL students rarely know what support exists.</span></li>
+      <li><span class="n">04</span><span><strong>The support cliff.</strong> Institutional licences end at graduation. The tool a student built four years of habits around — gone, exactly when they need it most.</span></li>
+    </ol>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>03 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 4 — WHAT IS ASSIST ============ -->
+  <section data-label="04 What is AssisT">
+    <div class="topbar">
+      <span>The product</span>
+      <span class="num">04</span>
+    </div>
+    <p class="eyebrow">What AssisT is</p>
+    <h1 class="slide-title">A Chrome extension that runs quietly alongside every website a student visits.</h1>
+    <div class="two-col two-col-3070" style="margin-top: var(--gap-title); flex: 1;">
+      <ul class="clean-list">
+        <li>Installs in under a minute from the Chrome Web Store</li>
+        <li>Works on Canvas, Moodle, Google Classroom — and every other site</li>
+        <li>No account required &nbsp;·&nbsp; no data leaves the browser</li>
+        <li>GDPR compliant &nbsp;·&nbsp; FERPA-aligned</li>
+        <li>Free and open source — EUPL-1.2</li>
+      </ul>
+      <aside style="border-left: 1.5px solid var(--rule); padding-left: 56px;">
+        <p style="font-family: 'JetBrains Mono', monospace; font-size: 24px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--coral); margin: 0 0 24px;">Built for</p>
+        <ul style="list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; font-size: 26px;">
+          <li>Dyslexia</li><li>ADHD</li>
+          <li>Visual impairment</li><li>Processing differences</li>
+          <li>EAL learners</li><li>Anxiety</li>
+        </ul>
+        <p style="margin: 40px 0 0; font-size: 24px; line-height: 1.4; color: var(--muted); font-style: italic;">"Because support shouldn't end at graduation."</p>
+      </aside>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>04 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 5 — READING HELP ============ -->
+  <section data-label="05 Reading">
+    <div class="topbar">
+      <span>Features · 1 of 6</span>
+      <span class="num">05</span>
+    </div>
+    <p class="eyebrow">Reading help</p>
+    <h1 class="slide-title">Three features that change how students read online.</h1>
+    <div class="grid grid-4" style="margin-top: var(--gap-title);">
+      <div class="feature">
+        <span class="label">01 · Read aloud</span>
+        <h3>Text-to-speech with word highlighting.</h3>
+        <p>Word-by-word highlighting follows the student across any webpage.</p>
+      </div>
+      <div class="feature">
+        <span class="label">02 · Reading mode</span>
+        <h3>Strip the noise. Keep the article.</h3>
+        <p>Removes navigation, ads, sidebars. Renders in the student's preferred font and spacing.</p>
+      </div>
+      <div class="feature">
+        <span class="label">03 · Dyslexia mode</span>
+        <h3>Bionic reading, by default.</h3>
+        <p>Syllable colour-coding and grammar highlighting. Switchable with one click.</p>
+      </div>
+      <div class="feature">
+        <span class="label">04 · OCR</span>
+        <h3>Read what isn't text yet.</h3>
+        <p>Extracts and reads from images, scanned PDFs, screenshots.</p>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>05 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 6 — WRITING HELP ============ -->
+  <section data-label="06 Writing">
+    <div class="topbar">
+      <span>Features · 2 of 6</span>
+      <span class="num">06</span>
+    </div>
+    <p class="eyebrow">Writing help</p>
+    <h1 class="slide-title">Speech to text, for students who think faster than they type.</h1>
+    <div class="two-col two-col-3070" style="margin-top: var(--gap-title); flex: 1;">
+      <ul class="clean-list">
+        <li>Works in <strong>any</strong> text field — assignments, discussion posts, search boxes</li>
+        <li>Uses the browser's built-in engine — nothing leaves the device</li>
+      </ul>
+      <aside style="border-left: 1.5px solid var(--rule); padding-left: 56px;">
+        <p style="font-family: 'JetBrains Mono', monospace; font-size: 24px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--coral); margin: 0 0 24px;">Particularly valuable for</p>
+        <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; font-size: 26px;">
+          <li>Motor difficulties</li>
+          <li>Dysgraphia</li>
+          <li>Students who compose better verbally</li>
+          <li>Exam accommodations</li>
+        </ul>
+      </aside>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>06 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 7 — VISUAL COMFORT ============ -->
+  <section class="ink" data-label="07 Visual">
+    <div class="topbar">
+      <span>Features · 3 of 6</span>
+      <span class="num">07</span>
+    </div>
+    <p class="eyebrow">Visual comfort</p>
+    <h1 class="slide-title">Reducing visual stress — without a clinical referral.</h1>
+    <div class="grid grid-4" style="margin-top: var(--gap-title);">
+      <div class="feature">
+        <span class="label">Overlay</span>
+        <h3>Screen colour overlay</h3>
+        <p>Tinted overlay across the whole screen. Colour, intensity, blend mode — fully adjustable. Evidence-based for Meares-Irlen-type visual stress.</p>
+      </div>
+      <div class="feature">
+        <span class="label">Attention</span>
+        <h3>Focus mode</h3>
+        <p>Dark overlay with a clear reading window that follows the cursor. Filters distraction for ADHD and attention difficulties.</p>
+      </div>
+      <div class="feature">
+        <span class="label">Tracking</span>
+        <h3>Reading guide</h3>
+        <p>A horizontal guide line that tracks mouse movement. Supports visual tracking difficulties.</p>
+      </div>
+      <div class="feature">
+        <span class="label">Vestibular</span>
+        <h3>Reduced motion</h3>
+        <p>Suppresses animations globally. Essential for vestibular disorders and sensory sensitivities.</p>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>07 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 8 — STUDY TOOLS ============ -->
+  <section data-label="08 Study">
+    <div class="topbar">
+      <span>Features · 4 of 6</span>
+      <span class="num">08</span>
+    </div>
+    <p class="eyebrow">Study tools</p>
+    <h1 class="slide-title">Features that support the full study workflow.</h1>
+    <div class="grid grid-3" style="margin-top: var(--gap-title); gap: 28px;">
+      <div class="feature compact">
+        <span class="label">Capture</span>
+        <h3>Annotations</h3>
+        <p>Highlight and annotate text inline. Persistent across sessions, exportable.</p>
+      </div>
+      <div class="feature compact">
+        <span class="label">Capture</span>
+        <h3>Sticky notes</h3>
+        <p>Pin notes to any page. Persistent, resizable, colour-coded.</p>
+      </div>
+      <div class="feature compact">
+        <span class="label">Pace</span>
+        <h3>Speed read (RSVP)</h3>
+        <p>Sequential word display for students who benefit from controlled reading pace.</p>
+      </div>
+      <div class="feature compact">
+        <span class="label">Focus</span>
+        <h3>Pomodoro timer</h3>
+        <p>Floating focus timer. Customisable work and break durations.</p>
+      </div>
+      <div class="feature compact">
+        <span class="label">Personalise</span>
+        <h3>Accessibility profiles</h3>
+        <p>Save and switch full personalisation sets in one tap. Share profiles across devices.</p>
+      </div>
+      <div class="feature compact">
+        <span class="label">Comply</span>
+        <h3>Text customisation</h3>
+        <p>Font, size, line spacing, letter and word spacing. Satisfies WCAG 2.2 SC 1.4.12.</p>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>08 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 9 — LMS INTEGRATION ============ -->
+  <section data-label="09 LMS">
+    <div class="topbar">
+      <span>Features · 5 of 6</span>
+      <span class="num">09</span>
+    </div>
+    <p class="eyebrow">LMS integration</p>
+    <h1 class="slide-title">Purpose-built for the platforms educators actually use.</h1>
+    <div class="lms-table" style="margin-top: var(--gap-title);">
+      <div class="lms-col">
+        <h3><span class="badge">LMS</span>Canvas</h3>
+        <ul>
+          <li>Assignment reader</li>
+          <li>Quiz helper</li>
+          <li>Submission support</li>
+        </ul>
+      </div>
+      <div class="lms-col">
+        <h3><span class="badge">LMS</span>Moodle</h3>
+        <ul>
+          <li>Forum &amp; discussion reader</li>
+          <li>Page &amp; resource reader</li>
+          <li>Activity support</li>
+        </ul>
+      </div>
+      <div class="lms-col">
+        <h3><span class="badge">LMS</span>Google Classroom</h3>
+        <ul>
+          <li>Classwork reader</li>
+          <li>Stream reader</li>
+          <li>Assignment support</li>
+        </ul>
+      </div>
+    </div>
+    <p style="position: absolute; bottom: 130px; left: var(--pad-x); right: var(--pad-x); font-size: 30px; font-style: italic; max-width: 60ch; color: var(--muted); margin: 0;">AssisT detects the LMS automatically — students don't need to configure anything.</p>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>09 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 10 — AI ASSIST ============ -->
+  <section class="ink" data-label="10 AI">
+    <div class="topbar">
+      <span>Features · 6 of 6</span>
+      <span class="num">10</span>
+    </div>
+    <p class="eyebrow">AI assist</p>
+    <h1 class="slide-title">Eight AI-powered features — all privacy-first.</h1>
+    <div class="ai-grid" style="margin-top: 24px;">
+      <div class="ai-card">
+        <span class="num">01</span>
+        <h3>Summarisation</h3>
+        <p>Concise summary of any selected text.</p>
+      </div>
+      <div class="ai-card">
+        <span class="num">02</span>
+        <h3>Text simplification</h3>
+        <p>Rewrites dense academic language accessibly.</p>
+      </div>
+      <div class="ai-card">
+        <span class="num">03</span>
+        <h3>Assignment breakdown</h3>
+        <p>Converts a brief into a structured checklist.</p>
+      </div>
+      <div class="ai-card">
+        <span class="num">04</span>
+        <h3>Socratic tutor</h3>
+        <p>Generates questions that deepen understanding.</p>
+      </div>
+      <div class="ai-card">
+        <span class="num">05</span>
+        <h3>Knowledge graph</h3>
+        <p>Visualises concepts and relationships interactively.</p>
+      </div>
+      <div class="ai-card">
+        <span class="num">06</span>
+        <h3>Study path generator</h3>
+        <p>Personalised learning sequence from a topic description.</p>
+      </div>
+      <div class="ai-card">
+        <span class="num">07</span>
+        <h3>Citation analyser <span class="badge-experimental">Experimental</span></h3>
+        <p>Credibility and bias assessment for sources. AI outputs should be verified independently.</p>
+      </div>
+      <div class="ai-card">
+        <span class="num">08</span>
+        <h3>Multi-doc compare</h3>
+        <p>Finds agreements, contradictions, and themes across texts.</p>
+      </div>
+      <div class="ai-foot">
+        <strong>Privacy by default.</strong> &nbsp;Runs locally on the student's device via Ollama or browser AI — or in cloud with the student's own API key. <strong>No data goes to AssisT servers.</strong> &nbsp;<span style="color: #F2A78D;">Prompt quality on smaller local models is an active area — user feedback is what tunes it.</span>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>10 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 11 — FREE FOR EVERYONE ============ -->
+  <section data-label="11 Free">
+    <div class="topbar">
+      <span>Access</span>
+      <span class="num">11</span>
+    </div>
+    <div class="statement" style="color: var(--ink);">
+      <p class="eyebrow">Free, for everyone</p>
+      <h2 style="margin-top: 28px;">No subscription. <br>No waitlist. <br>No institutional <span class="accent">licence</span> required.</h2>
+      <div class="meta" style="color: var(--ink); margin-top: 64px;">
+        <span><small>Available on</small>Chrome Web Store</span>
+        <span><small>Open source</small>github.com/Fiavaion/AssisT</span>
+        <span><small>Works on</small>Any Chromium browser</span>
+      </div>
+      <p style="margin-top: 40px; font-size: 28px; max-width: 64ch; color: var(--muted); line-height: 1.4;">Any student, on any campus, on any device &mdash; installs it in 60 seconds. A disability services officer can recommend it. A student can install it themselves. A lecturer can model it in class.</p>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>11 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 12 — HOW YOU CAN HELP ============ -->
+  <section data-label="12 Help">
+    <div class="topbar">
+      <span>Call to action</span>
+      <span class="num">12</span>
+    </div>
+    <p class="eyebrow">How you can help</p>
+    <h1 class="slide-title">Four things you can do this week.</h1>
+    <div class="actions">
+      <a class="action" href="https://chromewebstore.google.com/detail/assist/" target="_blank" rel="noopener">
+        <span class="verb">Step 01</span>
+        <h3>Install it.</h3>
+        <p>Try it yourself before recommending it to a student. Five minutes is enough.</p>
+        <span class="num">→ chrome web store</span>
+      </a>
+      <a class="action" href="https://fiavaion.com/products/assist" target="_blank" rel="noopener">
+        <span class="verb">Step 02</span>
+        <h3>Share it.</h3>
+        <p>Add the AssisT product page to your student-facing AT resources and DSO handouts.</p>
+        <span class="num">→ fiavaion.com/products/assist</span>
+      </a>
+      <a class="action" href="https://www.youtube.com/@fiavaion" target="_blank" rel="noopener">
+        <span class="verb">Step 03</span>
+        <h3>Learn.</h3>
+        <p>Watch the tutorial series — feature walkthroughs and setup guides for students and DSOs.</p>
+        <span class="num">→ youtube.com/@fiavaion</span>
+      </a>
+      <a class="action" href="https://github.com/Fiavaion/AssisT/discussions" target="_blank" rel="noopener">
+        <span class="verb">Step 04</span>
+        <h3>Give feedback.</h3>
+        <p>File a bug, request a feature, or start a Discussion on GitHub. Every release is shaped by it.</p>
+        <span class="num">→ github discussions</span>
+      </a>
+    </div>
+    <p style="position: absolute; bottom: 110px; left: var(--pad-x); font-size: 24px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; color: var(--muted); margin: 0;">fiavaion.com/products/assist &nbsp;·&nbsp; github.com/Fiavaion/AssisT</p>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>12 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 13 — ROADMAP ============ -->
+  <section data-label="13 Roadmap">
+    <div class="topbar">
+      <span>What's next</span>
+      <span class="num">13</span>
+    </div>
+    <p class="eyebrow">The roadmap ahead</p>
+    <h1 class="slide-title">What's coming next.</h1>
+    <div class="roadmap" style="margin-top: 16px; --row-pad: 12px;">
+      <div class="road-row">
+        <div class="when">Reach</div>
+        <div class="what">
+          <h3>Browser support — Firefox &amp; Safari</h3>
+          <p>So AssisT reaches students on every platform, not just Chromium.</p>
+        </div>
+      </div>
+      <div class="road-row">
+        <div class="when">Speech</div>
+        <div class="what">
+          <h3>STT voice profile creator</h3>
+          <p>A dedicated voice training tool for users with Dysarthria — calibrating the recognition engine to a student's individual speech patterns, rather than expecting students to adapt to the engine.</p>
+        </div>
+      </div>
+      <div class="road-row">
+        <div class="when">Exams</div>
+        <div class="what">
+          <h3>Exam Mode</h3>
+          <p>A password-protected lockdown profile, configured by the AT technician. Only the supports approved on a student's accommodation plan stay active — everything else (AI, web access, summarisation) is locked. No more all-or-nothing workarounds at exam time.</p>
+        </div>
+      </div>
+      <div class="road-row">
+        <div class="when">Polish</div>
+        <div class="what">
+          <h3>UI overhaul</h3>
+          <p>A full redesign of the control panel — clearer layout, better keyboard navigation, simpler first-run experience for students new to AT.</p>
+        </div>
+      </div>
+      <div class="road-row">
+        <div class="when">Community</div>
+        <div class="what">
+          <h3>Community-led refinement</h3>
+          <p>Shaped by AT technicians and learning support professionals. The goal is not a finished product — it's a tool that keeps improving with the community that uses it.</p>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>13 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 14 — Q&A ============ -->
+  <section class="ink" data-label="14 QA" data-deck-last-visible="">
+    <div class="topbar">
+      <span>Q &amp; A</span>
+      <span class="num">14</span>
+    </div>
+    <div class="closing">
+      <div class="closing-l" style="display: flex; flex-direction: column; justify-content: center;">
+        <p class="eyebrow">Thank you</p>
+        <h2 style="margin-top: 32px;">Questions<span class="accent">?</span></h2>
+        <p>AssisT is free, open source, and built on the idea that access to learning tools shouldn't depend on a diagnosis, a licence, or an institution's budget.</p>
+      </div>
+      <dl class="closing-r">
+        <div><dt>Speaker</dt><dd><strong>Mark Jones</strong></dd></div>
+        <div><dt>Email</dt><dd>info@fiavaion.com</dd></div>
+        <div><dt>Web</dt><dd>fiavaion.com</dd></div>
+        <div><dt>Source</dt><dd>github.com/<br>Fiavaion/AssisT</dd></div>
+      </dl>
+    </div>
+    <div class="footer">
+      <div class="meta"><span class="dot"></span><span>14 / 14</span></div>
+      <div class="logos">
+        <img class="brand-logo brand-assist" src="assets/AssisTCircleAlpha.png" alt="AssisT">
+        <img class="brand-logo brand-fiav" src="assets/FiavaionLogo.png" alt="Fiavaion">
+        <img class="brand-logo brand-ahead" src="assets/AHEAD_logo.jpg" alt="AHEAD">
+        <img class="brand-logo brand-aontas" src="assets/AONTAS_logo.png" alt="AONTAS">
+      </div>
+    </div>
+  </section>
+
+</deck-stage>
+
+<script src="deck-stage.js"></script>
+
+</body></html>
