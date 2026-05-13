@@ -341,7 +341,7 @@ describe('Tag Pill Rendering', () => {
     const pill = createTagPill('work', onRemove);
 
     const removeBtn = pill.querySelector('.assist-tag-remove');
-    removeBtn.click();
+    removeBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 
     expect(onRemove).toHaveBeenCalled();
   });
