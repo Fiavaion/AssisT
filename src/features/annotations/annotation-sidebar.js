@@ -1045,7 +1045,7 @@ function highlightMatches(text, query) {
 
   // Escape HTML and highlight the match
   const escaped = escapeHtml(text);
-  const escapedQuery = escapeHtml(query);
+  const escapedQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const highlighted = escaped.replace(new RegExp(`(${escapedQuery})`, 'gi'), '<strong>$1</strong>');
 
   return highlighted;

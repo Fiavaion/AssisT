@@ -27,7 +27,6 @@ export { LLMController, getLLMController } from './llm-controller.js';
  */
 export async function initLLMIfEnabled() {
   // __LLM_ENABLED__ is defined by Vite at build time
-  // eslint-disable-next-line no-undef
   if (typeof __LLM_ENABLED__ !== 'undefined' && __LLM_ENABLED__) {
     const { getLLMController } = await import('./llm-controller.js');
     const controller = getLLMController();
@@ -51,6 +50,5 @@ export async function initLLMIfEnabled() {
  * @returns {boolean}
  */
 export function isLLMEnabled() {
-  // eslint-disable-next-line no-undef
   return typeof __LLM_ENABLED__ !== 'undefined' && __LLM_ENABLED__;
 }

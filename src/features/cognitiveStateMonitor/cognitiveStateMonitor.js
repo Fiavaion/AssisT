@@ -534,7 +534,9 @@ function csm_createPanel() {
   `;
   panel.appendChild(style);
 
-  panel.innerHTML += `
+  panel.insertAdjacentHTML(
+    'beforeend',
+    `
     <div class="csm-header">
       <h3>🧠 Cognitive Monitor</h3>
       <button class="csm-close" aria-label="Close">&times;</button>
@@ -574,7 +576,8 @@ function csm_createPanel() {
         <div class="csm-toggle-switch active" id="csm-auto-toggle"></div>
       </div>
     </div>
-  `;
+  `
+  );
 
   return panel;
 }
