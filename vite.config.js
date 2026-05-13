@@ -14,6 +14,8 @@ import { defineConfig } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.json' with { type: 'json' };
 
+const isDev = process.env.NODE_ENV === 'development';
+
 export default defineConfig({
   plugins: [
     crx({ manifest })
@@ -24,11 +26,11 @@ export default defineConfig({
     outDir: '.vite',
     emptyOutDir: true,
 
-    // Enable source maps for debugging
-    sourcemap: true,
+    // Source maps for local debugging only — never shipped to CWS
+    sourcemap: isDev,
 
-    // Don't minify for easier debugging (enable for production)
-    minify: false,
+    // Minify in production to reduce bundle size
+    minify: !isDev,
 
     rollupOptions: {
       // No need to specify input - CRXJS reads from manifest.json
