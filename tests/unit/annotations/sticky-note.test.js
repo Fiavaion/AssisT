@@ -48,7 +48,7 @@ describe('Sticky Note Creation', () => {
       getByUrl: jest.fn().mockResolvedValue([])
     };
 
-    storageAdapter.getStorageAdapter = jest.fn(() => mockAdapter);
+    storageAdapter.getStorageAdapter.mockReturnValue(mockAdapter);
 
     // Mock annotation settings
     chrome.storage.local.get.mockImplementation((keys, callback) => {
@@ -222,7 +222,7 @@ describe('Sticky Note Deletion', () => {
       getByUrl: jest.fn().mockResolvedValue([])
     };
 
-    storageAdapter.getStorageAdapter = jest.fn(() => mockAdapter);
+    storageAdapter.getStorageAdapter.mockReturnValue(mockAdapter);
 
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({
@@ -279,7 +279,7 @@ describe('Sticky Note Settings', () => {
       getByUrl: jest.fn().mockResolvedValue([])
     };
 
-    storageAdapter.getStorageAdapter = jest.fn(() => mockAdapter);
+    storageAdapter.getStorageAdapter.mockReturnValue(mockAdapter);
   });
 
   test('should use default color from settings', async () => {
@@ -489,7 +489,7 @@ describe('Sticky Note Content', () => {
       getByUrl: jest.fn().mockResolvedValue([])
     };
 
-    storageAdapter.getStorageAdapter = jest.fn(() => mockAdapter);
+    storageAdapter.getStorageAdapter.mockReturnValue(mockAdapter);
 
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({
@@ -529,7 +529,7 @@ describe('Sticky Note Content', () => {
       getByUrl: jest.fn().mockResolvedValue([])
     };
 
-    storageAdapter.getStorageAdapter = jest.fn(() => mockAdapter);
+    storageAdapter.getStorageAdapter.mockReturnValue(mockAdapter);
 
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({
@@ -562,7 +562,7 @@ describe('Sticky Note Error Handling', () => {
       getByUrl: jest.fn().mockResolvedValue([])
     };
 
-    storageAdapter.getStorageAdapter = jest.fn(() => mockAdapter);
+    storageAdapter.getStorageAdapter.mockReturnValue(mockAdapter);
 
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({

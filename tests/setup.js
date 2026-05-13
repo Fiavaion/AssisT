@@ -6,6 +6,24 @@
  * Note: This file uses CommonJS to ensure jest globals are available
  */
 
+// DOMPurify requires window to be set — make it available for sanitize.js in jsdom
+const DOMPurify = require('dompurify');
+global.window.DOMPurify = DOMPurify;
+
+// jsdom does not implement speechSynthesis — stub it so TTS-dependent modules don't crash
+global.window.speechSynthesis = {
+  getVoices: () => [],
+  speak: () => {},
+  cancel: () => {},
+  pause: () => {},
+  resume: () => {},
+  speaking: false,
+  paused: false,
+  pending: false,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+};
+
 // Mock Chrome Extension API - proper Jest mock functions
 global.chrome = {
   storage: {

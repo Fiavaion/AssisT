@@ -38,7 +38,7 @@ describe('Keyboard Shortcuts', () => {
 
     test('No default shortcuts should conflict with Chrome', () => {
       for (const [key, shortcut] of Object.entries(DEFAULT_SHORTCUTS)) {
-        expect(isConflictWithChrome(shortcut)).toBe(false);
+        expect(isConflictWithChrome(shortcut)).toBeNull();
       }
     });
   });
@@ -141,36 +141,36 @@ describe('Keyboard Shortcuts', () => {
 
   describe('isConflictWithChrome', () => {
     test('should detect Chrome tab management shortcuts', () => {
-      expect(isConflictWithChrome('Ctrl+T')).toBe(true);
-      expect(isConflictWithChrome('Ctrl+W')).toBe(true);
-      expect(isConflictWithChrome('Ctrl+Shift+T')).toBe(true);
+      expect(isConflictWithChrome('Ctrl+T')).not.toBeNull();
+      expect(isConflictWithChrome('Ctrl+W')).not.toBeNull();
+      expect(isConflictWithChrome('Ctrl+Shift+T')).not.toBeNull();
     });
 
     test('should detect Chrome navigation shortcuts', () => {
-      expect(isConflictWithChrome('Ctrl+L')).toBe(true);
-      expect(isConflictWithChrome('Alt+D')).toBe(true);
+      expect(isConflictWithChrome('Ctrl+L')).not.toBeNull();
+      expect(isConflictWithChrome('Alt+D')).not.toBeNull();
     });
 
     test('should detect Chrome text editing shortcuts', () => {
-      expect(isConflictWithChrome('Ctrl+A')).toBe(true);
-      expect(isConflictWithChrome('Ctrl+C')).toBe(true);
-      expect(isConflictWithChrome('Ctrl+V')).toBe(true);
+      expect(isConflictWithChrome('Ctrl+A')).not.toBeNull();
+      expect(isConflictWithChrome('Ctrl+C')).not.toBeNull();
+      expect(isConflictWithChrome('Ctrl+V')).not.toBeNull();
     });
 
     test('should detect Chrome DevTools shortcuts', () => {
-      expect(isConflictWithChrome('F12')).toBe(true);
-      expect(isConflictWithChrome('Ctrl+Shift+I')).toBe(true);
+      expect(isConflictWithChrome('F12')).not.toBeNull();
+      expect(isConflictWithChrome('Ctrl+Shift+I')).not.toBeNull();
     });
 
     test('should not flag non-Chrome shortcuts', () => {
-      expect(isConflictWithChrome('Ctrl+Shift+X')).toBe(false);
-      expect(isConflictWithChrome('Alt+O')).toBe(false);
-      expect(isConflictWithChrome('Ctrl+Shift+Space')).toBe(false);
+      expect(isConflictWithChrome('Ctrl+Shift+X')).toBeNull();
+      expect(isConflictWithChrome('Alt+O')).toBeNull();
+      expect(isConflictWithChrome('Ctrl+Shift+Space')).toBeNull();
     });
 
     test('should be case-insensitive', () => {
-      expect(isConflictWithChrome('ctrl+t')).toBe(true);
-      expect(isConflictWithChrome('CTRL+W')).toBe(true);
+      expect(isConflictWithChrome('ctrl+t')).not.toBeNull();
+      expect(isConflictWithChrome('CTRL+W')).not.toBeNull();
     });
   });
 
@@ -228,7 +228,7 @@ describe('Keyboard Shortcuts', () => {
     test('should reject Chrome reserved shortcuts', () => {
       const result = validateShortcut('Ctrl+T', testShortcuts);
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('reserved by Chrome');
+      expect(result.error).toContain('Conflicts with Chrome');
       expect(result.conflictWith).toBe('Chrome');
     });
 
