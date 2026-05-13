@@ -64,7 +64,7 @@ import {
   resumeHighlighting,
 } from '../core/dom/highlighting.js';
 import { resolveReadingTarget } from '../core/dom/scope-resolver.js';
-import { registerShortcut } from '../utils/keyboard-shortcuts.js';
+import { registerShortcut, reloadShortcuts } from '../utils/keyboard-shortcuts.js';
 
 // Make DOMPurify globally available for web_accessible_resources
 window.DOMPurify = DOMPurify;
@@ -351,6 +351,13 @@ let updateTimeout = null;
 _storageHandler = changes => {
   if (changes.assist_settings && updateTimeout === null) {
     updateTimeout = setTimeout(() => {
+      // Re-register all shortcuts if the user changed their key bindings
+      const oldShortcuts = changes.assist_settings.oldValue?.keyboardShortcuts;
+      const newShortcuts = changes.assist_settings.newValue?.keyboardShortcuts;
+      if (JSON.stringify(oldShortcuts) !== JSON.stringify(newShortcuts)) {
+        reloadShortcuts();
+      }
+
       const ttsSettings = changes.assist_settings.newValue?.tts;
       if (ttsSettings) {
         const oldRate = settings.rate;
@@ -959,7 +966,6 @@ registerShortcut('ocr_activate', () => {
   console.log('[AssisT] OCR keyboard shortcut triggered');
 
   if (window.assistFeatures && window.assistFeatures.ocr) {
-    // Call performOCR which will show the screenshot UI modal
     window.assistFeatures.ocr.performOCR();
     showToast('📸 OCR: Select screenshot mode');
   } else {
@@ -967,6 +973,83 @@ registerShortcut('ocr_activate', () => {
     showToast('❌ OCR feature not initialized');
   }
 });
+
+// TTS play/pause — mirrors Space key logic but user-configurable key combo
+registerShortcut('tts_play_pause', () => {
+  if (currentUtterance) {
+    if (isPaused) {
+      synth.resume();
+      resumeHighlighting();
+      isPaused = false;
+      showToast('▶️ Resumed');
+    } else {
+      synth.pause();
+      pauseHighlighting();
+      isPaused = true;
+      showToast('⏸️ Paused');
+    }
+  }
+});
+
+// TTS stop
+registerShortcut('tts_stop', () => {
+  if (synth.speaking || currentUtterance) {
+    synth.cancel();
+    cleanupWordByWord(currentElement);
+    removeHighlight();
+    removeElementHighlight(currentElement);
+    if (currentElement) {
+      currentElement.style.outline = '';
+      currentElement.style.outlineOffset = '';
+    }
+    currentUtterance = null;
+    currentElement = null;
+    currentText = '';
+    currentLeaves = null;
+    isPaused = false;
+    showToast('⏹️ Stopped');
+  }
+});
+
+// Toggle storage setting helper — flips a boolean in assist_settings
+function _toggleStorageSetting(featureKey, subKey = 'enabled', label = '') {
+  chrome.storage.local.get('assist_settings', result => {
+    const s = result.assist_settings || {};
+    const feature = s[featureKey] || {};
+    const wasEnabled = feature[subKey] || false;
+    feature[subKey] = !wasEnabled;
+    s[featureKey] = feature;
+    chrome.storage.local.set({ assist_settings: s }, () => {
+      showToast(feature[subKey] ? `✅ ${label} on` : `${label} off`);
+    });
+  });
+}
+
+registerShortcut('focus_mode_toggle', () =>
+  _toggleStorageSetting('focusMode', 'enabled', 'Focus Mode')
+);
+registerShortcut('reading_guide_toggle', () =>
+  _toggleStorageSetting('readingGuide', 'enabled', 'Reading Guide')
+);
+registerShortcut('screen_overlay_toggle', () =>
+  _toggleStorageSetting('screenOverlay', 'enabled', 'Screen Overlay')
+);
+registerShortcut('dyslexia_mode_toggle', () =>
+  _toggleStorageSetting('dyslexiaMode', 'enabled', 'Dyslexia Mode')
+);
+
+// Translation — opens modal with current text selection
+registerShortcut('translation_toggle', () => {
+  const translationUI = window.assistFeatures?.translationUI;
+  if (translationUI) {
+    const selectedText = window.getSelection()?.toString() || '';
+    translationUI.openModal(selectedText);
+  }
+});
+
+registerShortcut('highlight_menu_toggle', () =>
+  _toggleStorageSetting('highlightMenu', 'enabled', 'Highlight Menu')
+);
 
 // ============================================================
 // EXTRACTION DOCUMENTATION
@@ -1255,7 +1338,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (mainContent) {
               const text = mainContent.innerText;
               if (text) {
-                speak(text, mainContent);
+                readText(text, mainContent, null);
               }
             }
           }

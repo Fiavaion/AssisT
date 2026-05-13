@@ -180,51 +180,6 @@
         <button id="btn-organize-done" class="organize-done-btn">Done</button>
       </div>
 
-      <!-- Quick Start Section -->
-      <section id="quick-start-section" class="quick-start-section">
-        <div class="quick-start-header">
-          <h2 class="quick-start-title">Quick Start</h2>
-          <button
-            id="btn-quick-start-dismiss"
-            class="quick-start-dismiss"
-            title="Hide Quick Start"
-            aria-label="Hide Quick Start section"
-          >
-            ✕
-          </button>
-        </div>
-        <p class="quick-start-subtitle">Choose a preset that matches your needs</p>
-        <div class="quick-start-presets">
-          <button
-            class="quick-start-btn"
-            data-preset="ADHD Focus"
-            title="Pomodoro timer, progress tracking, simplified interface"
-          >
-            <span class="quick-start-icon">🎯</span>
-            <span class="quick-start-label">ADHD Focus</span>
-          </button>
-          <button
-            class="quick-start-btn"
-            data-preset="Dyslexia Support"
-            title="OpenDyslexic font, wide spacing, reading progress"
-          >
-            <span class="quick-start-icon">📖</span>
-            <span class="quick-start-label">Dyslexia</span>
-          </button>
-          <button
-            class="quick-start-btn"
-            data-preset="Sensory Sensitive"
-            title="No animations, muted colors, media blocking"
-          >
-            <span class="quick-start-icon">🌿</span>
-            <span class="quick-start-label">Low Stimuli</span>
-          </button>
-        </div>
-        <p class="quick-start-hint">
-          <a href="#" id="quick-start-more-link">More presets in Settings...</a>
-        </p>
-      </section>
-
       <!-- Main Controls -->
       <main class="popup-main">
         <!-- ============================================================ -->
@@ -989,7 +944,7 @@
                       id="stt-engine-offline-badge"
                       class="hidden"
                       style="
-                        background: #059669;
+                        background: #00875d;
                         color: white;
                         font-size: 9px;
                         padding: 1px 5px;
@@ -2974,7 +2929,7 @@
                   <span
                     id="citation-count-badge"
                     style="
-                      background: #f59e0b;
+                      background: #a76900;
                       color: white;
                       padding: 1px 5px;
                       border-radius: 8px;
@@ -3548,6 +3503,7 @@
       id="profile-import-input"
       data-testid="profile-import-input"
       accept=".json"
+      aria-label="Import profile JSON file"
       style="display: none"
     />
 

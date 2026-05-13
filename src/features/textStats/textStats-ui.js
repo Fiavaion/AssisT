@@ -19,6 +19,7 @@
 import { textStatsEngine } from './textStats.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
 
 /**
  * Text Statistics UI Manager
@@ -593,16 +594,10 @@ export class TextStatsUI {
   }
 
   /**
-   * Register keyboard shortcut (Ctrl+Shift+W)
+   * Register keyboard shortcut via the centralized shortcuts manager
    */
   registerKeyboardShortcut() {
-    document.addEventListener('keydown', e => {
-      // Ctrl+Shift+W or Cmd+Shift+W
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'W') {
-        e.preventDefault();
-        this.showModal();
-      }
-    });
+    registerShortcut('text_stats_toggle', () => this.showModal());
   }
 
   /**

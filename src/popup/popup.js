@@ -14,7 +14,7 @@ import {
 } from '../utils/keyboard-shortcuts.js';
 import { migrateAnnotations } from '../features/annotations/migration-manager.js';
 import { CitationManagerPanel } from './citation-manager-panel.js';
-import { sanitizeHTML } from '../utils/sanitize.js';
+import { sanitizeHTML, sanitizeText } from '../utils/sanitize.js';
 import Sortable from 'sortablejs';
 import {
   getAIMode,
@@ -814,6 +814,8 @@ class PopupController {
       console.log('[Popup] Step 5: Updating UI...');
       this.updateUI();
       console.log('[Popup] Step 5: ✓ UI update complete');
+
+      this.injectShortcutBadges();
 
       console.log('[Popup] Step 6: Loading voices...');
       this.loadVoices();
@@ -2326,6 +2328,16 @@ class PopupController {
       this.setupCanvasIntegration();
 
       // ============================================================
+      // MOODLE INTEGRATION
+      // ============================================================
+      this.setupMoodleIntegration();
+
+      // ============================================================
+      // GOOGLE CLASSROOM INTEGRATION
+      // ============================================================
+      this.setupGoogleClassroomIntegration();
+
+      // ============================================================
       // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
       // ============================================================
       this.setupSTT();
@@ -2407,9 +2419,6 @@ class PopupController {
           this.updateStatus(enabled ? 'Text stats visible' : 'Text stats hidden');
         });
       }
-
-      // Quick Start section handlers
-      this.setupQuickStart();
 
       // Options button
       this.attachInteractiveHandler(
@@ -2497,77 +2506,6 @@ class PopupController {
         btn.classList.remove('active');
       }
     });
-  }
-
-  /**
-   * Setup Quick Start section handlers
-   * Allows users to quickly apply preset profiles
-   */
-  setupQuickStart() {
-    const quickStartSection = document.getElementById('quick-start-section');
-    if (!quickStartSection) {
-      console.log('[Popup] Quick Start section not found');
-      return;
-    }
-
-    // Check if Quick Start should be hidden (user dismissed it)
-    chrome.storage.local.get('quick_start_hidden', result => {
-      if (result.quick_start_hidden) {
-        quickStartSection.classList.add('hidden');
-      }
-    });
-
-    // Dismiss button handler
-    const dismissBtn = document.getElementById('btn-quick-start-dismiss');
-    if (dismissBtn) {
-      this.attachInteractiveHandler(dismissBtn, 'Quick Start Dismiss', () => {
-        quickStartSection.classList.add('hidden');
-        // Remember the dismissal
-        chrome.storage.local.set({ quick_start_hidden: true });
-      });
-    }
-
-    // Preset button handlers
-    const presetBtns = quickStartSection.querySelectorAll('.quick-start-btn[data-preset]');
-    presetBtns.forEach(btn => {
-      this.attachInteractiveHandler(btn, 'Quick Start Preset', async () => {
-        const presetName = btn.getAttribute('data-preset');
-
-        // Visual feedback - show active state
-        presetBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        // Load the preset profile
-        if (
-          confirm(
-            `Apply the "${presetName}" preset?\n\nThis will configure settings optimized for your needs.`
-          )
-        ) {
-          await this.profiles_loadProfile(presetName);
-          console.log(`[Popup] Quick Start: Applied preset "${presetName}"`);
-        } else {
-          btn.classList.remove('active');
-        }
-      });
-    });
-
-    // "More presets" link handler
-    const moreLink = document.getElementById('quick-start-more-link');
-    if (moreLink) {
-      this.attachInteractiveHandler(moreLink, 'Quick Start More Link', e => {
-        e.preventDefault();
-        this.showAdvancedOptions();
-        // Switch to Preferences tab after a short delay
-        setTimeout(() => {
-          const preferencesTab = document.querySelector('.modal-tab[data-tab="preferences"]');
-          if (preferencesTab) {
-            preferencesTab.click();
-          }
-        }, 100);
-      });
-    }
-
-    console.log('[Popup] Quick Start section initialized');
   }
 
   /**
@@ -2892,7 +2830,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-stt">
                   <span>Speech-to-Text</span>
-                  <span class="feature-badge alpha">Alpha</span>
+                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
@@ -3079,14 +3017,14 @@ class PopupController {
               </div>
 
               <div class="feature-section-header">
-                <span>🎓 School Tools & LMS Integration</span>
+                <span>🎓 School Tools & LMS Integration <span class="feature-badge beta">Beta</span></span>
               </div>
 
               <div class="feature-item">
                 <label class="feature-label">
                   <input type="checkbox" id="show-citations">
                   <span>Citation Manager</span>
-                  <span class="feature-badge experimental">Experimental</span>
+                  <span class="feature-badge alpha">Alpha</span>
                 </label>
               </div>
 
@@ -3094,7 +3032,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-canvas-integration">
                   <span>Canvas LMS</span>
-                  <span class="feature-badge alpha">Alpha</span>
+                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
@@ -3102,7 +3040,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-moodle-integration">
                   <span>Moodle LMS</span>
-                  <span class="feature-badge alpha">Alpha</span>
+                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
@@ -3110,7 +3048,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-google-classroom-integration">
                   <span>Google Classroom</span>
-                  <span class="feature-badge alpha">Alpha</span>
+                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
@@ -4991,6 +4929,65 @@ class PopupController {
     this.loadKeyboardShortcuts();
   }
 
+  /**
+   * Inject shortcut badge elements into toggle labels in the main popup.
+   * Reads current shortcuts from storage and inserts small <kbd> chips.
+   * Called on init and whenever shortcuts are updated in settings.
+   */
+  async injectShortcutBadges() {
+    const shortcuts = await loadShortcuts();
+
+    const isMac = navigator.platform.startsWith('Mac');
+
+    // Maps shortcut key → the label[for] selector of the corresponding toggle
+    const BADGE_TARGETS = {
+      tts_play_pause: 'label[for="tts-enabled"]',
+      reading_mode_toggle: 'label[for="reading-mode-enabled"]',
+      ocr_activate: 'label[for="ocr-enabled"]',
+      highlight_menu_toggle: 'label[for="highlight-menu-enabled"]',
+      sticky_note_create: 'label[for="annotations-enabled"]',
+      focus_mode_toggle: 'label[for="focus-mode-enabled"]',
+      reading_guide_toggle: 'label[for="reading-guide-enabled"]',
+      screen_overlay_toggle: 'label[for="screen-overlay-enabled"]',
+      dyslexia_mode_toggle: 'label[for="dyslexia-mode-enabled"]',
+    };
+
+    for (const [key, selector] of Object.entries(BADGE_TARGETS)) {
+      const label = document.querySelector(selector);
+      if (!label) {
+        continue;
+      }
+
+      // Remove any existing badge so re-injection is idempotent
+      label.querySelector('.shortcut-badge')?.remove();
+
+      const shortcut = shortcuts[key];
+      if (!shortcut) {
+        continue;
+      }
+
+      let display = shortcut;
+      if (isMac) {
+        display = display
+          .replace(/\bCtrl\b/g, '⌃')
+          .replace(/\bAlt\b/g, '⌥')
+          .replace(/\bShift\b/g, '⇧')
+          .replace(/\+/g, '');
+      }
+
+      const labelText = label.querySelector('.label-text');
+      if (!labelText) {
+        continue;
+      }
+
+      const badge = document.createElement('kbd');
+      badge.className = 'shortcut-badge';
+      badge.setAttribute('aria-hidden', 'true');
+      badge.textContent = display;
+      labelText.appendChild(badge);
+    }
+  }
+
   async loadKeyboardShortcuts() {
     const shortcuts = await loadShortcuts();
     const grid = document.getElementById('keyboard-shortcuts-grid');
@@ -5060,6 +5057,7 @@ class PopupController {
         shortcuts[key] = '';
         await saveShortcuts(shortcuts);
         this.loadKeyboardShortcuts();
+        this.injectShortcutBadges();
         this.updateStatus(`Cleared shortcut: ${SHORTCUT_LABELS[key]}`);
       });
     });
@@ -5075,6 +5073,7 @@ class PopupController {
           }
           await saveShortcuts(emptyShortcuts);
           this.loadKeyboardShortcuts();
+          this.injectShortcutBadges();
           this.updateStatus('All shortcuts cleared');
         }
       });
@@ -5110,22 +5109,41 @@ class PopupController {
    */
   async applyShortcutPreset(preset) {
     const presets = {
+      // Mirrors DEFAULT_SHORTCUTS — all 14 keys with balanced modifiers
       default: {
         tts_play_pause: 'Ctrl+Shift+Space',
         tts_stop: 'Ctrl+Shift+S',
         ocr_activate: 'Alt+O',
-        reading_mode_toggle: 'Ctrl+Shift+R',
+        reading_mode_toggle: 'Alt+R',
         reading_mode_exit: 'Escape',
-        dictionary_lookup: 'Ctrl+Shift+D',
+        dictionary_lookup: 'Alt+Shift+D',
+        text_stats_toggle: 'Ctrl+Shift+W',
+        highlight_menu_toggle: 'Ctrl+Shift+H',
+        sticky_note_create: 'Alt+N',
+        translation_toggle: 'Alt+T',
+        focus_mode_toggle: 'Alt+F',
+        reading_guide_toggle: 'Alt+G',
+        screen_overlay_toggle: 'Alt+Shift+O',
+        dyslexia_mode_toggle: 'Alt+Y',
       },
+      // Essential shortcuts only — empty string disables a shortcut
       minimal: {
         tts_play_pause: 'Ctrl+Space',
         tts_stop: '',
         ocr_activate: '',
-        reading_mode_toggle: 'Ctrl+R',
+        reading_mode_toggle: 'Alt+R',
         reading_mode_exit: 'Escape',
         dictionary_lookup: '',
+        text_stats_toggle: '',
+        highlight_menu_toggle: '',
+        sticky_note_create: '',
+        translation_toggle: '',
+        focus_mode_toggle: 'Alt+F',
+        reading_guide_toggle: 'Alt+G',
+        screen_overlay_toggle: '',
+        dyslexia_mode_toggle: '',
       },
+      // All Alt+ combos on the left side of the keyboard — usable with one hand
       oneHanded: {
         tts_play_pause: 'Alt+Q',
         tts_stop: 'Alt+W',
@@ -5133,6 +5151,14 @@ class PopupController {
         reading_mode_toggle: 'Alt+A',
         reading_mode_exit: 'Escape',
         dictionary_lookup: 'Alt+S',
+        text_stats_toggle: 'Alt+D',
+        highlight_menu_toggle: 'Alt+F',
+        sticky_note_create: 'Alt+Z',
+        translation_toggle: 'Alt+X',
+        focus_mode_toggle: 'Alt+V',
+        reading_guide_toggle: 'Alt+C',
+        screen_overlay_toggle: 'Alt+B',
+        dyslexia_mode_toggle: 'Alt+G',
       },
     };
 
@@ -5141,13 +5167,14 @@ class PopupController {
       return;
     }
 
-    // Save preset shortcuts
-    for (const [key, value] of Object.entries(selectedPreset)) {
-      await updateShortcut(key, value);
-    }
+    // Load current shortcuts, merge preset on top, save atomically
+    const current = await loadShortcuts();
+    const merged = { ...current, ...selectedPreset };
+    await saveShortcuts(merged);
 
-    // Reload the shortcuts display
+    // Reload the shortcuts display and refresh inline badges
     this.loadKeyboardShortcuts();
+    this.injectShortcutBadges();
     this.updateStatus(`Applied "${preset}" shortcut preset`);
   }
 
@@ -5272,8 +5299,9 @@ class PopupController {
         currentShortcuts[featureKey] = recordedShortcut;
         await saveShortcuts(currentShortcuts);
 
-        // Reload the shortcuts grid
+        // Reload the shortcuts grid and refresh inline badges
         this.loadKeyboardShortcuts();
+        this.injectShortcutBadges();
 
         // Close overlay
         closeOverlay();
@@ -7164,6 +7192,169 @@ class PopupController {
   }
 
   // ============================================================
+  // MOODLE INTEGRATION
+  // ============================================================
+  setupMoodleIntegration() {
+    if (!this.settings.moodleIntegration) {
+      this.settings.moodleIntegration = {
+        enabled: false,
+        assignmentReader: true,
+        forumReader: true,
+        pageReader: true,
+        quizHelper: false,
+      };
+    }
+
+    const moodleEnabled = document.getElementById('moodle-integration-enabled');
+    const moodleDescription = document.getElementById('moodle-integration-description');
+    const moodleOptions = document.getElementById('moodle-integration-options');
+
+    if (!moodleEnabled) {
+      console.warn('[Popup] Moodle Integration elements not found');
+      return;
+    }
+
+    moodleEnabled.checked = this.settings.moodleIntegration.enabled || false;
+
+    const setMoodleVisibility = enabled => {
+      if (enabled) {
+        moodleDescription?.classList.remove('hidden');
+        moodleOptions?.classList.remove('hidden');
+      } else {
+        moodleDescription?.classList.add('hidden');
+        moodleOptions?.classList.add('hidden');
+      }
+    };
+
+    setMoodleVisibility(moodleEnabled.checked);
+
+    moodleEnabled.addEventListener('change', e => {
+      this.settings.moodleIntegration.enabled = e.target.checked;
+      this.saveSettings();
+      setMoodleVisibility(e.target.checked);
+    });
+
+    const moodleAssignmentReader = document.getElementById('moodle-assignment-reader');
+    if (moodleAssignmentReader) {
+      moodleAssignmentReader.checked = this.settings.moodleIntegration.assignmentReader !== false;
+      moodleAssignmentReader.addEventListener('change', e => {
+        this.settings.moodleIntegration.assignmentReader = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    const moodleForumReader = document.getElementById('moodle-forum-reader');
+    if (moodleForumReader) {
+      moodleForumReader.checked = this.settings.moodleIntegration.forumReader !== false;
+      moodleForumReader.addEventListener('change', e => {
+        this.settings.moodleIntegration.forumReader = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    const moodlePageReader = document.getElementById('moodle-page-reader');
+    if (moodlePageReader) {
+      moodlePageReader.checked = this.settings.moodleIntegration.pageReader !== false;
+      moodlePageReader.addEventListener('change', e => {
+        this.settings.moodleIntegration.pageReader = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    // Quiz helper — disabled in HTML until implemented; wired to storage only
+    const moodleQuizHelper = document.getElementById('moodle-quiz-helper');
+    if (moodleQuizHelper) {
+      moodleQuizHelper.checked = this.settings.moodleIntegration.quizHelper || false;
+      moodleQuizHelper.addEventListener('change', e => {
+        this.settings.moodleIntegration.quizHelper = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    console.log('[Popup] Moodle Integration initialized', this.settings.moodleIntegration);
+  }
+
+  // ============================================================
+  // GOOGLE CLASSROOM INTEGRATION
+  // ============================================================
+  setupGoogleClassroomIntegration() {
+    if (!this.settings.googleClassroomIntegration) {
+      this.settings.googleClassroomIntegration = {
+        enabled: false,
+        assignmentReader: true,
+        streamReader: true,
+        classworkReader: true,
+      };
+    }
+
+    const classroomEnabled = document.getElementById('google-classroom-integration-enabled');
+    const classroomDescription = document.getElementById(
+      'google-classroom-integration-description'
+    );
+    const classroomOptions = document.getElementById('google-classroom-integration-options');
+
+    if (!classroomEnabled) {
+      console.warn('[Popup] Google Classroom Integration elements not found');
+      return;
+    }
+
+    classroomEnabled.checked = this.settings.googleClassroomIntegration.enabled || false;
+
+    const setClassroomVisibility = enabled => {
+      if (enabled) {
+        classroomDescription?.classList.remove('hidden');
+        classroomOptions?.classList.remove('hidden');
+      } else {
+        classroomDescription?.classList.add('hidden');
+        classroomOptions?.classList.add('hidden');
+      }
+    };
+
+    setClassroomVisibility(classroomEnabled.checked);
+
+    classroomEnabled.addEventListener('change', e => {
+      this.settings.googleClassroomIntegration.enabled = e.target.checked;
+      this.saveSettings();
+      setClassroomVisibility(e.target.checked);
+    });
+
+    const classroomAssignmentReader = document.getElementById('google-classroom-assignment-reader');
+    if (classroomAssignmentReader) {
+      classroomAssignmentReader.checked =
+        this.settings.googleClassroomIntegration.assignmentReader !== false;
+      classroomAssignmentReader.addEventListener('change', e => {
+        this.settings.googleClassroomIntegration.assignmentReader = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    const classroomStreamReader = document.getElementById('google-classroom-stream-reader');
+    if (classroomStreamReader) {
+      classroomStreamReader.checked =
+        this.settings.googleClassroomIntegration.streamReader !== false;
+      classroomStreamReader.addEventListener('change', e => {
+        this.settings.googleClassroomIntegration.streamReader = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    const classroomClassworkReader = document.getElementById('google-classroom-classwork-reader');
+    if (classroomClassworkReader) {
+      classroomClassworkReader.checked =
+        this.settings.googleClassroomIntegration.classworkReader !== false;
+      classroomClassworkReader.addEventListener('change', e => {
+        this.settings.googleClassroomIntegration.classworkReader = e.target.checked;
+        this.saveSettings();
+      });
+    }
+
+    console.log(
+      '[Popup] Google Classroom Integration initialized',
+      this.settings.googleClassroomIntegration
+    );
+  }
+
+  // ============================================================
   // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
   // ============================================================
   setupSTT() {
@@ -7958,8 +8149,8 @@ class PopupController {
               (w, i) => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee;">
               <div>
-                <span style="font-weight: 500;">${w.word}</span>
-                ${w.phonetic ? `<span style="font-size: 11px; color: #888; margin-left: 8px;">(${w.phonetic})</span>` : ''}
+                <span style="font-weight: 500;">${sanitizeText(w.word)}</span>
+                ${w.phonetic ? `<span style="font-size: 11px; color: #888; margin-left: 8px;">(${sanitizeText(w.phonetic)})</span>` : ''}
               </div>
               <button class="delete-vocab-word" data-index="${i}" style="background: #ff4757; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;">Delete</button>
             </div>
@@ -8565,6 +8756,8 @@ class PopupController {
           focusMode: { enabled: false },
           screenOverlay: { enabled: false },
           canvasIntegration: { enabled: false },
+          moodleIntegration: { enabled: false },
+          googleClassroomIntegration: { enabled: false },
         },
       },
       'Reading Mode': {
@@ -8583,6 +8776,8 @@ class PopupController {
           focusMode: { enabled: false },
           screenOverlay: { enabled: true, color: '#FFF4E6', opacity: 0.2 },
           canvasIntegration: { enabled: false },
+          moodleIntegration: { enabled: false },
+          googleClassroomIntegration: { enabled: false },
         },
       },
       'Quiz Mode': {
@@ -8604,6 +8799,8 @@ class PopupController {
               keyboardNavigation: true,
             },
           },
+          moodleIntegration: { enabled: false },
+          googleClassroomIntegration: { enabled: false },
         },
       },
       'Low Vision': {
@@ -8629,6 +8826,8 @@ class PopupController {
           focusMode: { enabled: true, dimAmount: 0.9 },
           screenOverlay: { enabled: false },
           canvasIntegration: { enabled: false },
+          moodleIntegration: { enabled: false },
+          googleClassroomIntegration: { enabled: false },
         },
       },
       // ============================================================
