@@ -1005,13 +1005,18 @@
     opacity: 0.9;
   }
   .landing-event-presenters img {
-    height: 44px;
+    height: 88px;
     width: auto;
-    background: #fff;
-    padding: 6px 12px;
-    border-radius: 6px;
     display: block;
   }
+  .landing-event-url {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+    text-decoration: none;
+  }
+  .landing-event-url:hover { color: var(--accent-2); }
 
   /* Reduced motion — WCAG 2.3.3, SC 2.2.2; respects user preference */
   @media (prefers-reduced-motion: reduce) {
@@ -1524,6 +1529,7 @@
   <div aria-hidden="true" style="width:220px;height:1px;background:linear-gradient(90deg,transparent,var(--accent-2),var(--accent-3),transparent);"></div>
   <div class="landing-event-presenters" aria-label="Fiavaion">
     <img src="../../Ident/FiavaionLogo.png" alt="Fiavaion logo">
+    <a class="landing-event-url" href="https://fiavaion.com/products/assist" target="_blank" rel="noopener">fiavaion.com/products/assist</a>
   </div>
 </div>
 
