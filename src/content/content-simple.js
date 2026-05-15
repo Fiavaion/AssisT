@@ -104,7 +104,6 @@ import '../features/knowledgeGraph/knowledgeGraph.js'; // Self-initializing know
 import '../features/rsvp/rsvp-controller.js'; // Self-initializing RSVP speed reading (modular architecture)
 import '../features/struggleDetection/struggleDetection.js'; // Self-initializing struggle detection and proactive assistance
 import '../features/citationAnalyzer/citationAnalyzer.js'; // Self-initializing AI citation analysis for source evaluation
-import '../features/cognitiveStateMonitor/cognitiveStateMonitor.js'; // Self-initializing cognitive state monitoring
 import '../features/multiDocCompare/multiDocCompare.js'; // Self-initializing multi-document comparison
 import '../features/studyPathGenerator/studyPathGenerator.js'; // Self-initializing study path generator
 import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
