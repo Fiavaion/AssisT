@@ -160,7 +160,7 @@ Output ONLY the JSON object, starting with { and ending with }.`;
 
       // If JSON parsing failed, use the heuristic fallback with the original text
       console.log('[CitationAnalyzer] Using heuristic fallback due to parse failure');
-      const fallbackResult = citation_fallback(text, context);
+      const fallbackResult = citation_fallback(text, context, true);
       fallbackResult.aiAttempted = true;
       fallbackResult.rawResponse = aiResult.text;
       return { analysis: fallbackResult };
@@ -196,6 +196,27 @@ function citation_extractDOI(text) {
 }
 
 /**
+ * Heuristically extract the article title from a citation string.
+ * Academic citations typically follow: Authors (Year). Title. Journal...
+ * Falls back to first 120 chars if no year boundary is found.
+ */
+function citation_extractSearchTitle(text) {
+  // Try to find the boundary after the year — "(2006)." or ". 2006." etc.
+  const yearBoundary = text.match(/\(\d{4}\)[.,]?\s+|(?:[\.\s])\d{4}[.,]\s+/);
+  if (yearBoundary) {
+    const afterYear = text.slice(yearBoundary.index + yearBoundary[0].length).trim();
+    // Title is the first full stop-delimited segment
+    const segments = afterYear.split(/\.\s+/);
+    const title = segments[0].trim();
+    if (title.length > 10) {
+      return title.substring(0, 150);
+    }
+  }
+  // No year boundary found — use raw text up to 120 chars
+  return text.substring(0, 120);
+}
+
+/**
  * Verify the citation online via CrossRef (DOI) or Semantic Scholar (title search).
  * Fires after the panel is already rendered — appends a verification section.
  * Non-blocking; errors are swallowed silently.
@@ -218,12 +239,13 @@ async function citation_startVerification(text) {
   contentArea.appendChild(slot);
 
   const doi = citation_extractDOI(text);
+  const searchText = citation_extractSearchTitle(text);
   let result;
   try {
     result = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('timeout')), 8000);
       chrome.runtime.sendMessage(
-        { action: 'CITATION_VERIFY_ONLINE', doi, searchText: text.substring(0, 120) },
+        { action: 'CITATION_VERIFY_ONLINE', doi, searchText },
         response => {
           clearTimeout(timer);
           if (chrome.runtime.lastError) {
@@ -268,7 +290,7 @@ async function citation_startVerification(text) {
   }
 }
 
-function citation_fallback(text, context = {}) {
+function citation_fallback(text, context = {}, aiAttempted = false) {
   const lowerText = text.toLowerCase();
   const url = context.url || '';
   const lowerUrl = url.toLowerCase();
@@ -502,8 +524,9 @@ function citation_fallback(text, context = {}) {
     keyClaims: ['Unable to extract claims without AI'],
     strengths: strengths.length > 0 ? strengths : ['Basic analysis only'],
     weaknesses: weaknesses.length > 0 ? weaknesses : ['Requires AI for deeper analysis'],
-    recommendations:
-      'For a more thorough analysis, ensure Ollama is running with a language model.',
+    recommendations: aiAttempted
+      ? 'AI returned an unexpected response — try again or switch to a different model in settings.'
+      : 'For a more thorough analysis, enable an AI model in AssisT settings.',
     summary: `Basic analysis suggests this is a ${sourceType} source with ${rating.toLowerCase()} credibility. Score: ${score}/100.`,
     isFallback: true,
   };
@@ -1365,8 +1388,13 @@ async function citation_runAnalysis(text, context = {}) {
       isAI = !analysis.isFallback;
 
       if (statusBar) {
-        statusBar.textContent = getSuccessStatusMessage(modeInfo, 'analysis complete');
-        statusBar.className = 'assist-citation-status visible success';
+        if (!isAI && analysis.aiAttempted) {
+          statusBar.textContent = '⚠️ AI returned an unreadable response — showing basic analysis';
+          statusBar.className = 'assist-citation-status visible error';
+        } else {
+          statusBar.textContent = getSuccessStatusMessage(modeInfo, 'analysis complete');
+          statusBar.className = 'assist-citation-status visible success';
+        }
       }
     }
 
