@@ -27,7 +27,7 @@ test.describe('Reading Mode - Core', () => {
     // Check for reading mode related elements
     const readingModeSection = popupPage.locator('[data-section="reading"], #reading-mode-section, .reading-mode');
     const hasSection = await readingModeSection.count() > 0;
-    expect(hasSection || true).toBe(true); // Pass if section exists or not (may be hidden)
+    expect(hasSection).toBe(true);
   });
 });
 
