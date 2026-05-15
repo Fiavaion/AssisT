@@ -446,6 +446,79 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
+  // ── Citation online verification ──────────────────────────────────────────
+  // Fetches only the DOI or a short title string — no surrounding student text.
+  // CrossRef is tried first (DOI lookup); Semantic Scholar is the title fallback.
+  if (message.action === 'CITATION_VERIFY_ONLINE') {
+    (async () => {
+      const { doi, searchText } = message;
+      let result = null;
+
+      try {
+        // 1. CrossRef by DOI (most precise — resolves to exact paper metadata)
+        if (doi) {
+          const resp = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
+            headers: { 'User-Agent': 'AssisT-Extension/0.9' },
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.status === 'ok' && data.message) {
+              const m = data.message;
+              result = {
+                found: true,
+                source: 'crossref',
+                doi: m.DOI,
+                title: Array.isArray(m.title) ? m.title[0] : m.title || '',
+                authors: m.author
+                  ? m.author.map(a => `${a.given || ''} ${a.family || ''}`.trim()).join(', ')
+                  : '',
+                year: m.published?.['date-parts']?.[0]?.[0] ?? null,
+                journal: Array.isArray(m['container-title'])
+                  ? m['container-title'][0]
+                  : m['container-title'] || '',
+                url: m.URL || `https://doi.org/${m.DOI}`,
+              };
+            }
+          }
+        }
+
+        // 2. Semantic Scholar title search (fallback when no DOI)
+        if (!result && searchText) {
+          const query = searchText
+            .substring(0, 120)
+            .replace(/[^\w\s]/g, ' ')
+            .trim();
+          const resp = await fetch(
+            `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&fields=title,authors,year,venue,externalIds&limit=1`
+          );
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.data && data.data.length > 0) {
+              const p = data.data[0];
+              result = {
+                found: true,
+                source: 'semanticscholar',
+                doi: p.externalIds?.DOI || null,
+                title: p.title || '',
+                authors: p.authors ? p.authors.map(a => a.name).join(', ') : '',
+                year: p.year || null,
+                journal: p.venue || '',
+                url: p.externalIds?.DOI
+                  ? `https://doi.org/${p.externalIds.DOI}`
+                  : `https://www.semanticscholar.org/paper/${p.paperId}`,
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[AssisT] Citation verification error:', err.message);
+      }
+
+      sendResponse(result || { found: false });
+    })();
+    return true; // Keep channel open for async response
+  }
+
   // Handle PDF fetch requests (for local file:// URLs that content scripts can't access)
   if (message.action === 'FETCH_PDF') {
     // SECURITY: Validate URL - allow file:// for local PDFs, but validate http/https
