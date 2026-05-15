@@ -2521,6 +2521,13 @@ body.dark-mode .webllm-model-card.is-cached {
 }
 
 /* Advanced settings link */
+.ai-privacy-note {
+  font-size: 10px;
+  color: var(--text-muted, #666);
+  margin: 6px 0 2px;
+  line-height: 1.4;
+}
+
 .ai-advanced-link {
   background: none;
   border: none;
