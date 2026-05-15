@@ -7501,72 +7501,65 @@ class PopupController {
       });
     }
 
-    // Punctuation Commands
-    const punctuationCheckbox = document.getElementById('stt-punctuation-commands');
-    punctuationCheckbox.checked = this.settings.stt.punctuationCommands !== false;
-    punctuationCheckbox.addEventListener('change', e => {
-      this.settings.stt.punctuationCommands = e.target.checked;
-      this.saveSettings();
-    });
-
-    // Auto-Punctuation (Phase 2.7 - S.3)
-    const autoPunctuationCheckbox = document.getElementById('stt-auto-punctuation');
-    const autoPunctuationModeSection = document.getElementById('auto-punctuation-mode-section');
-    const autoPunctuationModeSelect = document.getElementById('stt-auto-punctuation-mode');
-
-    if (autoPunctuationCheckbox) {
-      // Initialize autoPunctuation setting if not present
+    // Unified Punctuation Help toggle — sets both punctuationCommands and autoPunctuation
+    const punctuationCheckbox = document.getElementById('stt-punctuation');
+    if (punctuationCheckbox) {
       if (this.settings.stt.autoPunctuation === undefined) {
         this.settings.stt.autoPunctuation = true;
       }
       if (this.settings.stt.autoPunctuationMode === undefined) {
         this.settings.stt.autoPunctuationMode = 'auto';
       }
+      const punctuationEnabled =
+        this.settings.stt.punctuationCommands !== false ||
+        this.settings.stt.autoPunctuation !== false;
+      punctuationCheckbox.checked = punctuationEnabled;
 
-      autoPunctuationCheckbox.checked = this.settings.stt.autoPunctuation !== false;
-      autoPunctuationModeSelect.value = this.settings.stt.autoPunctuationMode || 'auto';
-
-      // Show/hide mode section based on enabled state
-      if (autoPunctuationModeSection) {
-        autoPunctuationModeSection.style.display = autoPunctuationCheckbox.checked
-          ? 'block'
-          : 'none';
-      }
-
-      autoPunctuationCheckbox.addEventListener('change', e => {
+      punctuationCheckbox.addEventListener('change', e => {
+        this.settings.stt.punctuationCommands = e.target.checked;
         this.settings.stt.autoPunctuation = e.target.checked;
         this.saveSettings();
-
-        // Show/hide mode section
-        if (autoPunctuationModeSection) {
-          autoPunctuationModeSection.style.display = e.target.checked ? 'block' : 'none';
-        }
-
-        // Notify content script
         this.sendCommandToTab({
           command: 'UPDATE_STT_SETTINGS',
           settings: {
+            punctuationCommands: e.target.checked,
             autoPunctuation: e.target.checked,
             autoPunctuationMode: this.settings.stt.autoPunctuationMode,
           },
         });
       });
+    }
 
-      if (autoPunctuationModeSelect) {
-        autoPunctuationModeSelect.addEventListener('change', e => {
-          this.settings.stt.autoPunctuationMode = e.target.value;
-          this.saveSettings();
-
-          // Notify content script
-          this.sendCommandToTab({
-            command: 'UPDATE_STT_SETTINGS',
-            settings: {
-              autoPunctuation: this.settings.stt.autoPunctuation,
-              autoPunctuationMode: e.target.value,
-            },
-          });
+    // Punctuation mode select (lives in Advanced section — always present, no show/hide)
+    const autoPunctuationModeSelect = document.getElementById('stt-auto-punctuation-mode');
+    if (autoPunctuationModeSelect) {
+      autoPunctuationModeSelect.value = this.settings.stt.autoPunctuationMode || 'auto';
+      autoPunctuationModeSelect.addEventListener('change', e => {
+        this.settings.stt.autoPunctuationMode = e.target.value;
+        this.saveSettings();
+        this.sendCommandToTab({
+          command: 'UPDATE_STT_SETTINGS',
+          settings: {
+            autoPunctuation: this.settings.stt.autoPunctuation,
+            autoPunctuationMode: e.target.value,
+          },
         });
-      }
+      });
+    }
+
+    // Advanced section toggle
+    const advancedToggle = document.getElementById('stt-advanced-toggle');
+    const advancedSection = document.getElementById('stt-advanced-section');
+    if (advancedToggle && advancedSection) {
+      advancedToggle.addEventListener('click', () => {
+        const isOpen = advancedSection.style.display !== 'none';
+        advancedSection.style.display = isOpen ? 'none' : 'block';
+        advancedToggle.setAttribute('aria-expanded', String(!isOpen));
+        const arrow = advancedToggle.querySelector('.advanced-arrow');
+        if (arrow) {
+          arrow.textContent = isOpen ? '▶' : '▼';
+        }
+      });
     }
 
     // Confidence Feedback (Phase 2.7 - S.4)

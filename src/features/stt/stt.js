@@ -16,6 +16,7 @@ import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 import { STTController } from '../../engines/stt/stt-controller-facade.js';
 import { MicrophoneButton } from '../../ui/components/microphone-button.js';
+import { AmbientDetector } from '../../engines/stt/ambient-detector.js';
 
 // ============================================================
 // STT STATE MANAGEMENT
@@ -44,6 +45,15 @@ let stt_micButton = null;
  * @type {HTMLElement|null}
  */
 let stt_activeField = null;
+
+/** Ambient detector instance — classifies background sound during recording */
+let stt_ambientDetector = null;
+/** Parallel audio stream used only for ambient frequency analysis */
+let stt_ambientStream = null;
+/** AudioContext for the ambient analysis stream */
+let stt_ambientContext = null;
+/** True when ambient detector reports keyboard typing — suppresses interim results */
+let stt_typingDetected = false;
 
 /**
  * STT configuration settings
@@ -97,6 +107,49 @@ const stt_settings = {
  * // Called automatically when STT is enabled via settings
  * await stt_initialize();
  */
+function stt_startAmbientDetection() {
+  if (stt_ambientDetector) {
+    return;
+  } // already running
+  stt_ambientDetector = new AmbientDetector();
+  stt_ambientDetector.onStateChange = state => {
+    stt_typingDetected = state === 'typing';
+  };
+
+  navigator.mediaDevices
+    .getUserMedia({ audio: true })
+    .then(stream => {
+      stt_ambientStream = stream;
+      stt_ambientContext = new AudioContext();
+      const source = stt_ambientContext.createMediaStreamSource(stream);
+      const analyser = stt_ambientContext.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      stt_ambientDetector.setAnalyser(analyser);
+      stt_ambientDetector.start();
+    })
+    .catch(() => {
+      // Best-effort — ambient detection unavailable, no effect on STT
+      stt_ambientDetector = null;
+    });
+}
+
+function stt_stopAmbientDetection() {
+  if (stt_ambientDetector) {
+    stt_ambientDetector.stop();
+    stt_ambientDetector = null;
+  }
+  if (stt_ambientStream) {
+    stt_ambientStream.getTracks().forEach(t => t.stop());
+    stt_ambientStream = null;
+  }
+  if (stt_ambientContext) {
+    stt_ambientContext.close();
+    stt_ambientContext = null;
+  }
+  stt_typingDetected = false;
+}
+
 async function stt_initialize() {
   console.log('[STT] stt_initialize() called, stt_enabled:', stt_enabled);
 
@@ -122,19 +175,24 @@ async function stt_initialize() {
         if (stt_micButton) {
           stt_micButton.updateState({ isRecording: true });
         }
+        stt_startAmbientDetection();
       },
       onEnd: () => {
         console.log('[STT] Recording ended');
         if (stt_micButton) {
           stt_micButton.updateState({ isRecording: false });
         }
+        stt_stopAmbientDetection();
       },
       onResult: (text, _fullTranscript) => {
         console.log('[STT] Result:', text);
         // Text already inserted by controller
       },
       onInterimResult: text => {
-        // Show interim results in mic button
+        // Suppress interim display while user is typing (keyboard ambient detected)
+        if (stt_typingDetected) {
+          return;
+        }
         if (stt_micButton && stt_settings.interimResults) {
           stt_micButton.showInterimResult(text);
         }
@@ -210,6 +268,7 @@ function stt_cleanup() {
     stt_micButton = null;
   }
 
+  stt_stopAmbientDetection();
   stt_activeField = null;
   console.log('[STT] Cleanup complete');
 }
