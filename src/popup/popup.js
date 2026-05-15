@@ -4586,7 +4586,7 @@ class PopupController {
     loadCheckbox('show-google-classroom-integration', 'show_google_classroom_integration', false); // EXPERIMENTAL - hidden by default
     loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     loadCheckbox('show-annotations', 'show_annotations'); // Annotations
-    loadCheckbox('show-citations', 'show_citations'); // Citations
+    loadCheckbox('show-citations', 'show_citations', false); // Citations — default off, matches applyVisibilitySettings
     // Dark Mode feature removed - extension UI dark mode remains in popup header
     loadCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
     loadCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
