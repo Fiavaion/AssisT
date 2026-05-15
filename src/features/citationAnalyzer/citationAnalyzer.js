@@ -117,12 +117,11 @@ Output ONLY the JSON object, starting with { and ending with }.`;
             const heuristic = citation_fallback(text, context);
             console.log('[CitationAnalyzer] Heuristic score:', heuristic.credibilityScore);
 
-            // If heuristic found strong indicators AI missed, boost the score
+            // If heuristic found strong indicators AI missed, nudge the score — AI leads 70:30
             if (heuristic.credibilityScore > parsed.credibilityScore + 20) {
-              console.log('[CitationAnalyzer] Boosting AI score with heuristic indicators');
-              // Use weighted average: 40% AI, 60% heuristic when AI underestimates
+              console.log('[CitationAnalyzer] Nudging AI score with heuristic indicators');
               parsed.credibilityScore = Math.round(
-                parsed.credibilityScore * 0.4 + heuristic.credibilityScore * 0.6
+                parsed.credibilityScore * 0.7 + heuristic.credibilityScore * 0.3
               );
 
               // Merge strengths from heuristic
@@ -197,23 +196,54 @@ function citation_extractDOI(text) {
 
 /**
  * Heuristically extract the article title from a citation string.
- * Academic citations typically follow: Authors (Year). Title. Journal...
- * Falls back to first 120 chars if no year boundary is found.
+ * Handles APA, Harvard, MLA, Chicago, Vancouver, and IEEE styles.
  */
 function citation_extractSearchTitle(text) {
-  // Try to find the boundary after the year — "(2006)." or ". 2006." etc.
-  const yearBoundary = text.match(/\(\d{4}\)[.,]?\s+|(?:[\.\s])\d{4}[.,]\s+/);
-  if (yearBoundary) {
-    const afterYear = text.slice(yearBoundary.index + yearBoundary[0].length).trim();
-    // Title is the first full stop-delimited segment
-    const segments = afterYear.split(/\.\s+/);
-    const title = segments[0].trim();
-    if (title.length > 10) {
+  // Strip numbered list prefix: “1. “ or “[1] “ at start — require whitespace after dot
+  // so bare DOIs starting with “10.” are not affected
+  const stripped = text.replace(/^\s*(?:\[\d+\]|\d+\.\s+)/, '').trim();
+
+  // Strategy 1 — quoted title (MLA “Title.”, IEEE “Title,”, Chicago “Title.”)
+  // Matches straight and curly double quotes
+  const quotedTitle = stripped.match(/[“”]((?:[^””]{10,}))[“”]/);
+  if (quotedTitle) {
+    return quotedTitle[1].trim().substring(0, 150);
+  }
+
+  // Strategy 2 — APA / Harvard / Chicago author-date: year in (YYYY) → title follows
+  const apaMatch = stripped.match(/\(\d{4}[a-z]?\)[.,]?\s+/);
+  if (apaMatch) {
+    const afterYear = stripped.slice(apaMatch.index + apaMatch[0].length).trim();
+    // Harvard uses single-quoted titles: (2006) 'Title here', Journal...
+    const harvardQuoted = afterYear.match(/^['''](.{10,}?)[''']/);
+    if (harvardQuoted) {
+      return harvardQuoted[1].trim().substring(0, 150);
+    }
+    // APA/Chicago: title is first period-delimited segment, must start uppercase
+    const title = afterYear.split(/\.\s+/)[0].trim();
+    if (title.length > 10 && /^[A-ZÀ-ɏ]/.test(title)) {
       return title.substring(0, 150);
     }
   }
-  // No year boundary found — use raw text up to 120 chars
-  return text.substring(0, 120);
+
+  // Strategy 3 — Chicago notes / Vancouver / Newspaper APA:
+  // Scan up to 4 period-segments; skip author, date, journal abbreviation, and URL chunks
+  const segments = stripped.split(/\.\s+/);
+  for (let i = 1; i < Math.min(segments.length, 4); i++) {
+    const candidate = segments[i].trim();
+    // Accept as title if: long enough, starts with uppercase or quote, and doesn't look like
+    // a date `(YYYY...)`, journal abbreviation, volume notation, or URL
+    if (
+      candidate.length > 10 &&
+      /^[A-ZÀ-ɏ"'']/.test(candidate) &&
+      !/^vol\b|^no\.\s|^pp\.\s|\d+\(\d+\)|^\d{4}$|^\(|^https?:/i.test(candidate)
+    ) {
+      return candidate.substring(0, 150);
+    }
+  }
+
+  // Fallback — raw text, best Semantic Scholar can do
+  return stripped.substring(0, 120);
 }
 
 /**
@@ -299,15 +329,20 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
   let sourceType = 'unknown';
 
   // Check text for institutional/academic indicators
+  // "press" and bare "journal" excluded — too ambiguous; reputable publishers list handles them
   const academicKeywords = [
-    'journal',
     'university',
-    'press',
     'doi:',
     'vol.',
     'pp.',
     'et al',
     'proceedings',
+    'peer-reviewed',
+    'peer reviewed',
+    'preprint',
+    'arxiv',
+    'pubmed',
+    'pmid',
   ];
   const institutionalKeywords = [
     'museum',
@@ -328,6 +363,9 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     'tribune',
     'reuters',
     'associated press',
+    'bbc news',
+    'the guardian',
+    'the independent',
   ];
   const blogKeywords = [
     'blog',
@@ -339,7 +377,10 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     'best of',
   ];
 
-  const hasAcademicIndicators = academicKeywords.some(k => lowerText.includes(k));
+  // Require 2+ academic indicators to avoid single-word false positives
+  const academicHits = academicKeywords.filter(k => lowerText.includes(k));
+  const hasAcademicIndicators =
+    academicHits.length >= 2 || (academicHits.length === 1 && CITATION_DOI_REGEX.test(text));
   const hasInstitutionalIndicators = institutionalKeywords.some(k => lowerText.includes(k));
   const hasNewsIndicators = newsKeywords.some(k => lowerText.includes(k));
   const hasBlogIndicators = blogKeywords.some(k => lowerText.includes(k));
@@ -405,11 +446,16 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     strengths.push('Institutional publisher (museum/gallery/institute)');
   }
 
-  // Check for formal citation format (Author. (Year). Title.)
-  const hasCitationFormat = /\(\d{4}\)/.test(text) && text.includes('.') && text.includes(':');
+  // Check for formal citation format across styles:
+  // APA/Harvard: (YYYY) — Vancouver: YYYY; — MLA/Chicago: , YYYY, or . YYYY.
+  const hasCitationFormat =
+    text.length > 25 &&
+    (/\(\d{4}[a-z]?\)/.test(text) || // APA/Harvard parenthetical year
+      /\b(?:19|20)\d{2}[;,]/.test(text) || // Vancouver / MLA year + punctuation
+      /\b(?:19|20)\d{2}\.(\s|$)/.test(text)); // Chicago / IEEE year + period
   if (hasCitationFormat) {
     score += 10;
-    strengths.push('Proper citation format');
+    strengths.push('Formal citation format');
   }
 
   // Check for reputable publishers
@@ -437,7 +483,11 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     score += 15;
     strengths.push('Mentions peer review');
   }
-  if (lowerText.includes('doi:') || lowerText.includes('doi.org') || lowerText.includes('10.')) {
+  if (
+    CITATION_DOI_REGEX.test(text) ||
+    lowerText.includes('doi:') ||
+    lowerText.includes('doi.org')
+  ) {
     score += 10;
     strengths.push('Has DOI identifier');
   }
@@ -480,13 +530,15 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     weaknesses.push('Contains commercial/promotional language');
   }
 
-  // Date check
-  const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+  // Date check — prefer parenthetical citation year over any year in prose
+  const parenYearMatch = text.match(/\((\d{4})[a-z]?\)/);
+  const anyYearMatch = text.match(/\b((?:19|20)\d{2})\b/);
+  const yearStr = parenYearMatch ? parenYearMatch[1] : anyYearMatch ? anyYearMatch[1] : null;
   const currentYear = new Date().getFullYear();
-  if (yearMatch) {
-    const year = parseInt(yearMatch[0]);
+  if (yearStr) {
+    const year = parseInt(yearStr);
     if (currentYear - year > 10) {
-      weaknesses.push(`Source may be outdated (${yearMatch[0]})`);
+      weaknesses.push(`Source may be outdated (${yearStr})`);
       score -= 5;
     } else if (currentYear - year <= 2) {
       strengths.push('Recent publication');
@@ -1407,7 +1459,8 @@ async function citation_runAnalysis(text, context = {}) {
     console.error('[CitationAnalyzer] Error:', error);
 
     // Show heuristic fallback — never leave the user with an empty panel or raw error
-    const fallbackAnalysis = citation_fallback(text, context);
+    // Mark aiAttempted=true since we were in the AI branch when the error occurred
+    const fallbackAnalysis = citation_fallback(text, context, true);
     citation_currentAnalysis = fallbackAnalysis;
     citation_renderResults(fallbackAnalysis, false);
 
@@ -1613,10 +1666,11 @@ async function citation_start(text, selectionRect = null) {
     return;
   }
 
-  // Extract URL if present in text
+  // Extract URL if present in the selected text; don't fall back to page URL
+  // (the page URL is unrelated to the citation and would mislead the AI)
   const urlMatch = text.match(/https?:\/\/[^\s]+/);
   const context = {
-    url: urlMatch ? urlMatch[0] : window.location.href,
+    url: urlMatch ? urlMatch[0] : '',
     title: document.title,
   };
 
