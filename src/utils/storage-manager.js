@@ -129,7 +129,6 @@ export class StorageManager {
         smartSummarization: true, // AI-powered text summaries
         textSimplification: true, // Semantic text simplification
         cognitiveProfile: true, // Cognitive Twin learning
-        stateDetection: true, // Cognitive state monitoring
         struggleDetection: true, // Proactive help triggers
         socraticTutor: true, // Guided questioning mode
         assignmentAnalyzer: true, // Assignment breakdown

@@ -38,16 +38,6 @@ const FALLBACK_BEHAVIORS = {
     }),
   },
 
-  'cognitive-state': {
-    type: 'disabled',
-    message: 'Cognitive state detection requires AI. Using default settings.',
-    handler: () => ({
-      state: 'unknown',
-      confidence: 0,
-      recommendation: null,
-    }),
-  },
-
   'content-prioritize': {
     type: 'fallback',
     message: 'Using standard content extraction (AI prioritization unavailable).',

@@ -9864,7 +9864,6 @@ class PopupController {
           smartSummarization: true,
           textSimplification: true,
           cognitiveProfile: true,
-          stateDetection: true,
           struggleDetection: true,
           socraticTutor: true,
           assignmentAnalyzer: true,
