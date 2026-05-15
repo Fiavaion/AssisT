@@ -2000,6 +2000,27 @@ class PopupController {
       }
 
       // ============================================================
+      // CITATION: VERIFY ONLINE TOGGLE
+      // ============================================================
+      const citationVerifyOnline = document.getElementById('citation-verify-online');
+      if (citationVerifyOnline) {
+        citationVerifyOnline.checked = this.settings.citation?.verifyOnline === true;
+        citationVerifyOnline.addEventListener('change', async e => {
+          if (!this.settings.citation) {
+            this.settings.citation = { enabled: true };
+          }
+          this.settings.citation.verifyOnline = e.target.checked;
+          this.saveSettings();
+          // Push directly to citationAnalyzerSettings so the feature picks it up immediately
+          const stored = await chrome.storage.local.get('citationAnalyzerSettings');
+          const existing = stored.citationAnalyzerSettings || {};
+          chrome.storage.local.set({
+            citationAnalyzerSettings: { ...existing, verifyOnline: e.target.checked },
+          });
+        });
+      }
+
+      // ============================================================
       // CITATION: SAVE CITATION BUTTON
       // ============================================================
       const btnSaveCitation = document.getElementById('btn-save-citation');

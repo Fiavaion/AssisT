@@ -46,6 +46,7 @@ const citation_settings = {
   showInHighlightMenu: true,
   includeRecommendations: true,
   autoDetectLinks: true,
+  verifyOnline: false,
 };
 
 // ============================================================================
@@ -183,6 +184,90 @@ Output ONLY the JSON object, starting with { and ending with }.`;
  * @param {Object} context - Additional context
  * @returns {Object} Basic analysis results
  */
+// ============================================================================
+// ONLINE VERIFICATION (CrossRef + Semantic Scholar)
+// ============================================================================
+
+const CITATION_DOI_REGEX = /\b(10\.\d{4,}\/[^\s"'<>&,;()\[\]{}]+)/i;
+
+function citation_extractDOI(text) {
+  const match = text.match(CITATION_DOI_REGEX);
+  return match ? match[1] : null;
+}
+
+/**
+ * Verify the citation online via CrossRef (DOI) or Semantic Scholar (title search).
+ * Fires after the panel is already rendered — appends a verification section.
+ * Non-blocking; errors are swallowed silently.
+ */
+async function citation_startVerification(text) {
+  const contentArea = citation_panel?.querySelector('.assist-citation-content');
+  if (!contentArea) {
+    return;
+  }
+
+  // Insert loading slot at the bottom of the panel
+  const slot = document.createElement('div');
+  slot.id = 'citation-verify-slot';
+  slot.className = 'assist-citation-section';
+  slot.innerHTML =
+    '<div class="assist-citation-section-title">' +
+    '<span class="assist-citation-section-icon">🌐</span> Online Verification</div>' +
+    '<div class="assist-citation-verify-body" style="font-size:12px;color:#6b7280;padding:4px 0;">' +
+    'Checking CrossRef &amp; Semantic Scholar…</div>';
+  contentArea.appendChild(slot);
+
+  const doi = citation_extractDOI(text);
+  let result;
+  try {
+    result = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timeout')), 8000);
+      chrome.runtime.sendMessage(
+        { action: 'CITATION_VERIFY_ONLINE', doi, searchText: text.substring(0, 120) },
+        response => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response || { found: false });
+          }
+        }
+      );
+    });
+  } catch {
+    result = { found: false };
+  }
+
+  const body = slot.querySelector('.assist-citation-verify-body');
+  if (!body) {
+    return;
+  }
+
+  if (result && result.found) {
+    const sourceName = result.source === 'crossref' ? 'CrossRef' : 'Semantic Scholar';
+    const yearStr = result.year ? ` (${result.year})` : '';
+    const journalStr = result.journal ? ` — ${escapeHtml(result.journal)}` : '';
+    const doiLink = result.doi
+      ? `<div style="margin-top:4px;font-size:11px;color:#6b7280;">` +
+        `DOI: <a href="https://doi.org/${escapeHtml(result.doi)}" target="_blank" ` +
+        `rel="noopener noreferrer" style="color:#4f46e5;">${escapeHtml(result.doi)}</a></div>`
+      : '';
+    const authorsStr = result.authors
+      ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(result.authors)}</div>`
+      : '';
+    body.innerHTML =
+      `<div style="display:flex;align-items:flex-start;gap:6px;">` +
+      `<span style="color:#16a34a;font-size:14px;flex-shrink:0;">&#10003;</span>` +
+      `<div><div style="font-size:12px;font-weight:600;color:#15803d;">Found on ${escapeHtml(sourceName)}</div>` +
+      `<div style="font-size:11px;color:#374151;margin-top:2px;">${escapeHtml(result.title)}${yearStr}${journalStr}</div>` +
+      `${authorsStr}${doiLink}</div></div>`;
+  } else {
+    body.innerHTML =
+      `<div style="display:flex;align-items:center;gap:6px;color:#6b7280;font-size:12px;">` +
+      `<span>—</span><span>Not found in CrossRef or Semantic Scholar</span></div>`;
+  }
+}
+
 function citation_fallback(text, context = {}) {
   const lowerText = text.toLowerCase();
   const url = context.url || '';
@@ -1286,7 +1371,10 @@ async function citation_runAnalysis(text, context = {}) {
     }
 
     citation_currentAnalysis = analysis;
-    citation_renderResults(analysis, isAI);
+    await citation_renderResults(analysis, isAI);
+    if (citation_settings.verifyOnline) {
+      citation_startVerification(text).catch(() => {});
+    }
   } catch (error) {
     console.error('[CitationAnalyzer] Error:', error);
 

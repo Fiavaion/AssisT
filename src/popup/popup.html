@@ -2844,6 +2844,29 @@
             </section>
             <div id="citation-options-container" class="options-container">
               <section class="control-section">
+                <!-- Verify Online toggle -->
+                <div class="toggle-control" style="margin-bottom: 10px">
+                  <label for="citation-verify-online" class="toggle-label">
+                    <span class="label-text"
+                      >🌐 Verify citations online
+                      <span
+                        class="label-hint"
+                        style="font-size: 10px; color: #6b7280; display: block; font-weight: 400"
+                        >Checks CrossRef &amp; Semantic Scholar by DOI/title only</span
+                      ></span
+                    >
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="citation-verify-online"
+                        data-testid="citation-verify-online-toggle"
+                        role="switch"
+                        aria-label="Verify citations online via CrossRef and Semantic Scholar"
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
                 <p class="feature-description">Save citations from web pages</p>
                 <button
                   id="btn-save-citation"
