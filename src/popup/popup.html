@@ -849,6 +849,7 @@
                 Type using your voice in any text field
               </p>
               <div id="stt-options" class="stt-options hidden">
+                <!-- ── Essential Controls ── -->
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-continuous-mode" class="toggle-label">
@@ -894,159 +895,18 @@
                     <option value="zh-TW">Chinese (Traditional)</option>
                   </select>
                 </div>
-                <!-- Recognition Engine Selection (Phase 2.8 - S.8) -->
-                <div class="control-subsection" id="stt-engine-section">
-                  <h3 class="subsection-title">
-                    <label for="stt-engine">Recognition Engine</label>
-                    <span
-                      class="badge badge-new"
-                      style="
-                        background: linear-gradient(135deg, #f59e0b, #d97706);
-                        color: white;
-                        font-size: 10px;
-                        padding: 2px 6px;
-                        border-radius: 4px;
-                        margin-left: 6px;
-                      "
-                      >NEW</span
-                    >
-                  </h3>
-                  <select
-                    id="stt-engine"
-                    data-testid="stt-engine-select"
-                    class="voice-select"
-                    aria-label="Speech recognition engine"
-                  >
-                    <option value="auto">Web Speech API (Browser Built-in)</option>
-                    <option value="web-speech">Web Speech API</option>
-                    <option value="whisper" disabled>Whisper Offline (coming soon)</option>
-                    <option value="azure">Azure Speech (Cloud)</option>
-                  </select>
-                  <div
-                    id="stt-engine-status"
-                    class="engine-status"
-                    style="margin-top: 8px; font-size: 11px"
-                  >
-                    <span
-                      id="stt-engine-indicator"
-                      class="engine-indicator"
-                      style="
-                        display: inline-block;
-                        width: 8px;
-                        height: 8px;
-                        border-radius: 50%;
-                        background: #10b981;
-                        margin-right: 6px;
-                      "
-                    ></span>
-                    <span id="stt-engine-name">Web Speech API</span>
-                    <span
-                      id="stt-engine-offline-badge"
-                      class="hidden"
-                      style="
-                        background: #00875d;
-                        color: white;
-                        font-size: 9px;
-                        padding: 1px 5px;
-                        border-radius: 3px;
-                        margin-left: 6px;
-                      "
-                      >OFFLINE</span
-                    >
-                  </div>
-                </div>
-                <div class="control-subsection" id="stt-offline-section">
-                  <div class="toggle-control">
-                    <label for="stt-prefer-offline" class="toggle-label">
-                      <span class="label-text">Prefer Offline Mode</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="stt-prefer-offline"
-                          data-testid="stt-prefer-offline-toggle"
-                          role="switch"
-                          aria-label="Prefer offline recognition"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                  <p class="feature-description">
-                    Use Whisper when available for privacy and offline use
-                  </p>
-                </div>
-                <!-- Whisper Model Download Progress (hidden by default) -->
-                <div id="stt-whisper-download" class="control-subsection hidden">
-                  <div class="download-progress">
-                    <span class="download-label">Downloading Whisper model...</span>
-                    <div
-                      class="progress-bar"
-                      style="height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 6px"
-                    >
-                      <div
-                        id="stt-whisper-progress"
-                        class="progress-fill"
-                        style="
-                          height: 100%;
-                          width: 0%;
-                          background: linear-gradient(90deg, #10b981, #059669);
-                          border-radius: 3px;
-                          transition: width 0.3s;
-                        "
-                      ></div>
-                    </div>
-                    <span
-                      id="stt-whisper-progress-text"
-                      class="progress-text"
-                      style="font-size: 10px; color: #666; margin-top: 4px; display: block"
-                      >0%</span
-                    >
-                  </div>
-                </div>
+
                 <div class="control-subsection">
                   <div class="toggle-control">
-                    <label for="stt-punctuation-commands" class="toggle-label">
-                      <span class="label-text">Punctuation Commands</span>
+                    <label for="stt-punctuation" class="toggle-label">
+                      <span class="label-text">Punctuation Help</span>
                       <div class="toggle-switch">
                         <input
                           type="checkbox"
-                          id="stt-punctuation-commands"
+                          id="stt-punctuation"
                           data-testid="stt-punctuation-toggle"
                           role="switch"
-                          aria-label="Punctuation commands"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                  <p class="feature-description">Say "period", "comma", "new line"</p>
-                </div>
-                <!-- Auto-Punctuation Settings (Phase 2.7 - S.3) -->
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="stt-auto-punctuation" class="toggle-label">
-                      <span class="label-text">Smart Auto-Punctuation</span>
-                      <span
-                        class="badge badge-new"
-                        style="
-                          background: linear-gradient(135deg, #10b981, #059669);
-                          color: white;
-                          font-size: 10px;
-                          padding: 2px 6px;
-                          border-radius: 4px;
-                          margin-left: 6px;
-                        "
-                        >NEW</span
-                      >
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="stt-auto-punctuation"
-                          data-testid="stt-auto-punctuation-toggle"
-                          role="switch"
-                          aria-label="Smart auto punctuation"
+                          aria-label="Punctuation help"
                           checked
                         />
                         <span class="toggle-slider"></span>
@@ -1054,216 +914,14 @@
                     </label>
                   </div>
                   <p class="feature-description">
-                    Automatically adds periods, commas, and question marks
+                    Adds punctuation automatically — or say "period", "comma" to insert manually
                   </p>
                 </div>
-                <div class="control-subsection" id="auto-punctuation-mode-section">
-                  <label class="control-label" for="stt-auto-punctuation-mode"
-                    >Punctuation Mode</label
-                  >
-                  <select
-                    id="stt-auto-punctuation-mode"
-                    class="dropdown"
-                    data-testid="stt-auto-punctuation-mode"
-                    aria-label="Auto punctuation mode"
-                  >
-                    <option value="auto">Automatic (fully automatic)</option>
-                    <option value="assisted">Assisted (suggestions only)</option>
-                    <option value="manual">Manual (spoken commands only)</option>
-                  </select>
-                  <p
-                    class="feature-description"
-                    style="margin-top: 4px; font-size: 11px; color: #666"
-                  >
-                    Auto: AI adds punctuation based on pauses and patterns<br />
-                    Manual: Say "period", "comma", etc.
-                  </p>
-                </div>
-                <!-- Confidence Feedback Settings (Phase 2.7 - S.4) -->
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="stt-confidence-feedback" class="toggle-label">
-                      <span class="label-text">Confidence Feedback</span>
-                      <span
-                        class="badge badge-new"
-                        style="
-                          background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-                          color: white;
-                          font-size: 10px;
-                          padding: 2px 6px;
-                          border-radius: 4px;
-                          margin-left: 6px;
-                        "
-                        >NEW</span
-                      >
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="stt-confidence-feedback"
-                          data-testid="stt-confidence-feedback-toggle"
-                          role="switch"
-                          aria-label="Confidence feedback"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                  <p class="feature-description">
-                    Shows recognition accuracy with color-coded confidence scores
-                  </p>
-                </div>
-                <div class="control-subsection" id="confidence-threshold-section">
-                  <label class="control-label" for="stt-confidence-threshold"
-                    >Minimum Confidence Threshold</label
-                  >
-                  <div style="display: flex; align-items: center; gap: 10px">
-                    <input
-                      type="range"
-                      id="stt-confidence-threshold"
-                      class="slider"
-                      min="0"
-                      max="100"
-                      value="60"
-                      step="5"
-                      data-testid="stt-confidence-threshold"
-                      aria-label="Minimum confidence threshold"
-                      style="flex: 1"
-                    />
-                    <span
-                      id="stt-confidence-threshold-value"
-                      style="min-width: 45px; text-align: right; font-weight: 600; color: #4a90d9"
-                      >60%</span
-                    >
-                  </div>
-                  <p
-                    class="feature-description"
-                    style="margin-top: 4px; font-size: 11px; color: #666"
-                  >
-                    Words below this threshold will be highlighted for review
-                  </p>
-                </div>
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="stt-highlight-low-confidence" class="toggle-label">
-                      <span class="label-text">Highlight Low-Confidence Words</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="stt-highlight-low-confidence"
-                          data-testid="stt-highlight-low-confidence-toggle"
-                          role="switch"
-                          aria-label="Highlight low confidence words"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="stt-show-alternatives" class="toggle-label">
-                      <span class="label-text">Show Alternative Suggestions</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="stt-show-alternatives"
-                          data-testid="stt-show-alternatives-toggle"
-                          role="switch"
-                          aria-label="Show alternative suggestions"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-                <div class="control-subsection">
-                  <button
-                    type="button"
-                    id="stt-show-stats"
-                    class="btn-secondary"
-                    aria-label="View session statistics"
-                    style="
-                      width: 100%;
-                      padding: 10px;
-                      font-size: 13px;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      gap: 8px;
-                    "
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <line x1="18" y1="20" x2="18" y2="10"></line>
-                      <line x1="12" y1="20" x2="12" y2="4"></line>
-                      <line x1="6" y1="20" x2="6" y2="14"></line>
-                    </svg>
-                    View Session Statistics
-                  </button>
-                  <div
-                    id="stt-stats-summary"
-                    style="
-                      margin-top: 8px;
-                      padding: 10px;
-                      background: #f8f9fa;
-                      border-radius: 8px;
-                      display: none;
-                    "
-                  >
-                    <div
-                      style="
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        gap: 8px;
-                        font-size: 12px;
-                      "
-                    >
-                      <div>
-                        <span style="color: #666">Words/min:</span>
-                        <span id="stt-stats-wpm" style="font-weight: 600">0</span>
-                      </div>
-                      <div>
-                        <span style="color: #666">Accuracy:</span>
-                        <span id="stt-stats-accuracy" style="font-weight: 600">0%</span>
-                      </div>
-                      <div>
-                        <span style="color: #666">Total Words:</span>
-                        <span id="stt-stats-words" style="font-weight: 600">0</span>
-                      </div>
-                      <div>
-                        <span style="color: #666">Duration:</span>
-                        <span id="stt-stats-duration" style="font-weight: 600">0m</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-voice-commands" class="toggle-label">
                       <span class="label-text">Voice Editing Commands</span>
-                      <span
-                        class="badge badge-new"
-                        style="
-                          background: linear-gradient(135deg, #ff6b35, #f7931e);
-                          color: white;
-                          font-size: 10px;
-                          padding: 2px 6px;
-                          border-radius: 4px;
-                          margin-left: 6px;
-                        "
-                        >NEW</span
-                      >
                       <div class="toggle-switch">
                         <input
                           type="checkbox"
@@ -1297,6 +955,7 @@
                     View all voice commands →
                   </button>
                 </div>
+
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-auto-capitalize" class="toggle-label">
@@ -1315,24 +974,7 @@
                     </label>
                   </div>
                 </div>
-                <div class="control-subsection">
-                  <div class="toggle-control">
-                    <label for="stt-interim-results" class="toggle-label">
-                      <span class="label-text">Show Interim Results</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="stt-interim-results"
-                          data-testid="stt-interim-results-toggle"
-                          role="switch"
-                          aria-label="Show interim results"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
+
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-floating-button" class="toggle-label">
@@ -1352,151 +994,476 @@
                   </div>
                 </div>
 
-                <!-- Custom Vocabulary Section -->
-                <div class="control-subsection vocabulary-section">
-                  <h3 class="subsection-title">
-                    <span>📚 Custom Vocabulary</span>
-                    <span
-                      class="badge badge-new"
-                      style="
-                        background: linear-gradient(135deg, #10b981, #059669);
-                        color: white;
-                        font-size: 10px;
-                        padding: 2px 6px;
-                        border-radius: 4px;
-                        margin-left: 6px;
-                      "
-                      >NEW</span
-                    >
-                  </h3>
-                  <p class="feature-description">Add specialized terms for better recognition</p>
-
-                  <!-- Auto-learn Toggle -->
-                  <div class="toggle-control" style="margin-top: 8px">
-                    <label for="stt-auto-learn" class="toggle-label">
-                      <span class="label-text">Auto-learn from corrections</span>
-                      <div class="toggle-switch">
-                        <input
-                          type="checkbox"
-                          id="stt-auto-learn"
-                          data-testid="stt-auto-learn-toggle"
-                          role="switch"
-                          aria-label="Auto-learn vocabulary"
-                          checked
-                        />
-                        <span class="toggle-slider"></span>
-                      </div>
-                    </label>
-                  </div>
-
-                  <!-- Vocabulary Presets -->
-                  <div class="vocabulary-presets" style="margin-top: 12px">
-                    <label
-                      class="preset-label"
-                      style="font-size: 12px; margin-bottom: 6px; display: block"
-                      >Subject Presets:</label
-                    >
-                    <div class="preset-chips" style="display: flex; flex-wrap: wrap; gap: 8px">
-                      <button
-                        type="button"
-                        id="vocab-preset-medical"
-                        class="preset-chip"
-                        data-preset="medical"
-                        aria-pressed="false"
-                      >
-                        🏥 Medical
-                      </button>
-                      <button
-                        type="button"
-                        id="vocab-preset-legal"
-                        class="preset-chip"
-                        data-preset="legal"
-                        aria-pressed="false"
-                      >
-                        ⚖️ Legal
-                      </button>
-                      <button
-                        type="button"
-                        id="vocab-preset-academic"
-                        class="preset-chip"
-                        data-preset="academic"
-                        aria-pressed="false"
-                      >
-                        🎓 Academic
-                      </button>
-                      <button
-                        type="button"
-                        id="vocab-preset-stem"
-                        class="preset-chip"
-                        data-preset="stem"
-                        aria-pressed="false"
-                      >
-                        🔬 STEM
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Custom Word Count -->
-                  <div
-                    class="vocab-stats"
-                    style="
-                      margin-top: 10px;
-                      padding: 8px;
-                      background: #f8f9fa;
-                      border-radius: 6px;
-                      font-size: 11px;
-                      color: #666;
-                    "
+                <!-- Subject Vocabulary Presets (visible at top level) -->
+                <div class="control-subsection">
+                  <label
+                    class="preset-label"
+                    style="font-size: 12px; margin-bottom: 6px; display: block; font-weight: 600"
+                    >Subject Vocabulary:</label
                   >
-                    <span id="vocab-word-count">0</span> custom words
-                    <span style="margin-left: 8px">|</span>
-                    <span id="vocab-preset-count" style="margin-left: 8px">0</span> preset words
-                  </div>
-
-                  <!-- Action Buttons -->
-                  <div class="vocab-actions" style="display: flex; gap: 8px; margin-top: 10px">
+                  <div class="preset-chips" style="display: flex; flex-wrap: wrap; gap: 8px">
                     <button
                       type="button"
-                      id="btn-add-vocab-word"
-                      class="control-btn secondary"
-                      style="flex: 1; font-size: 11px; padding: 6px"
-                      aria-label="Add custom word"
+                      id="vocab-preset-medical"
+                      class="preset-chip"
+                      data-preset="medical"
+                      aria-pressed="false"
                     >
-                      + Add Word
+                      🏥 Medical
                     </button>
                     <button
                       type="button"
-                      id="btn-manage-vocabulary"
-                      class="control-btn secondary"
-                      style="flex: 1; font-size: 11px; padding: 6px"
-                      aria-label="Manage vocabulary"
+                      id="vocab-preset-legal"
+                      class="preset-chip"
+                      data-preset="legal"
+                      aria-pressed="false"
                     >
-                      Manage
-                    </button>
-                  </div>
-
-                  <!-- Import/Export -->
-                  <div class="vocab-import-export" style="display: flex; gap: 8px; margin-top: 6px">
-                    <button
-                      type="button"
-                      id="btn-import-vocabulary"
-                      class="control-btn tertiary"
-                      style="flex: 1; font-size: 10px; padding: 4px"
-                      aria-label="Import vocabulary"
-                    >
-                      📥 Import
+                      ⚖️ Legal
                     </button>
                     <button
                       type="button"
-                      id="btn-export-vocabulary"
-                      class="control-btn tertiary"
-                      style="flex: 1; font-size: 10px; padding: 4px"
-                      aria-label="Export vocabulary"
+                      id="vocab-preset-academic"
+                      class="preset-chip"
+                      data-preset="academic"
+                      aria-pressed="false"
                     >
-                      📤 Export
+                      🎓 Academic
+                    </button>
+                    <button
+                      type="button"
+                      id="vocab-preset-stem"
+                      class="preset-chip"
+                      data-preset="stem"
+                      aria-pressed="false"
+                    >
+                      🔬 STEM
                     </button>
                   </div>
                 </div>
+
+                <!-- ── Advanced Settings (collapsible) ── -->
+                <button
+                  type="button"
+                  id="stt-advanced-toggle"
+                  aria-expanded="false"
+                  aria-controls="stt-advanced-section"
+                  style="
+                    width: 100%;
+                    margin-top: 12px;
+                    padding: 8px 12px;
+                    background: #f0f4f8;
+                    border: 1px solid #d1d9e0;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    color: #555;
+                    cursor: pointer;
+                    text-align: left;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                  "
+                >
+                  <span>Advanced Settings</span>
+                  <span aria-hidden="true">▾</span>
+                </button>
+
+                <div
+                  id="stt-advanced-section"
+                  class="hidden"
+                  style="
+                    border: 1px solid #e5e7eb;
+                    border-top: none;
+                    border-radius: 0 0 6px 6px;
+                    padding: 4px 0 0;
+                  "
+                >
+                  <!-- Show Interim Results -->
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="stt-interim-results" class="toggle-label">
+                        <span class="label-text">Show Interim Results</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="stt-interim-results"
+                            data-testid="stt-interim-results-toggle"
+                            role="switch"
+                            aria-label="Show interim results"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                    <p class="feature-description">Live transcription as you speak</p>
+                  </div>
+
+                  <!-- Punctuation Mode -->
+                  <div class="control-subsection" id="auto-punctuation-mode-section">
+                    <label class="control-label" for="stt-auto-punctuation-mode"
+                      >Punctuation Mode</label
+                    >
+                    <select
+                      id="stt-auto-punctuation-mode"
+                      class="dropdown"
+                      data-testid="stt-auto-punctuation-mode"
+                      aria-label="Auto punctuation mode"
+                    >
+                      <option value="auto">Automatic (fully automatic)</option>
+                      <option value="assisted">Assisted (suggestions only)</option>
+                      <option value="manual">Manual (spoken commands only)</option>
+                    </select>
+                  </div>
+
+                  <!-- Recognition Engine -->
+                  <div class="control-subsection" id="stt-engine-section">
+                    <h3 class="subsection-title">
+                      <label for="stt-engine">Recognition Engine</label>
+                    </h3>
+                    <select
+                      id="stt-engine"
+                      data-testid="stt-engine-select"
+                      class="voice-select"
+                      aria-label="Speech recognition engine"
+                    >
+                      <option value="auto">Web Speech API (Browser Built-in)</option>
+                      <option value="web-speech">Web Speech API</option>
+                      <option value="whisper" disabled>Whisper Offline (coming soon)</option>
+                      <option value="azure">Azure Speech (Cloud)</option>
+                    </select>
+                    <div
+                      id="stt-engine-status"
+                      class="engine-status"
+                      style="margin-top: 8px; font-size: 11px"
+                    >
+                      <span
+                        id="stt-engine-indicator"
+                        class="engine-indicator"
+                        style="
+                          display: inline-block;
+                          width: 8px;
+                          height: 8px;
+                          border-radius: 50%;
+                          background: #10b981;
+                          margin-right: 6px;
+                        "
+                      ></span>
+                      <span id="stt-engine-name">Web Speech API</span>
+                      <span
+                        id="stt-engine-offline-badge"
+                        class="hidden"
+                        style="
+                          background: #00875d;
+                          color: white;
+                          font-size: 9px;
+                          padding: 1px 5px;
+                          border-radius: 3px;
+                          margin-left: 6px;
+                        "
+                        >OFFLINE</span
+                      >
+                    </div>
+                  </div>
+
+                  <!-- Prefer Offline -->
+                  <div class="control-subsection" id="stt-offline-section">
+                    <div class="toggle-control">
+                      <label for="stt-prefer-offline" class="toggle-label">
+                        <span class="label-text">Prefer Offline Mode</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="stt-prefer-offline"
+                            data-testid="stt-prefer-offline-toggle"
+                            role="switch"
+                            aria-label="Prefer offline recognition"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                    <p class="feature-description">
+                      Use Whisper when available for privacy and offline use
+                    </p>
+                  </div>
+
+                  <!-- Whisper Download Progress (hidden by default) -->
+                  <div id="stt-whisper-download" class="control-subsection hidden">
+                    <div class="download-progress">
+                      <span class="download-label">Downloading Whisper model...</span>
+                      <div
+                        class="progress-bar"
+                        style="
+                          height: 6px;
+                          background: #e5e7eb;
+                          border-radius: 3px;
+                          margin-top: 6px;
+                        "
+                      >
+                        <div
+                          id="stt-whisper-progress"
+                          class="progress-fill"
+                          style="
+                            height: 100%;
+                            width: 0%;
+                            background: linear-gradient(90deg, #10b981, #059669);
+                            border-radius: 3px;
+                            transition: width 0.3s;
+                          "
+                        ></div>
+                      </div>
+                      <span
+                        id="stt-whisper-progress-text"
+                        class="progress-text"
+                        style="font-size: 10px; color: #666; margin-top: 4px; display: block"
+                        >0%</span
+                      >
+                    </div>
+                  </div>
+
+                  <!-- Confidence Feedback -->
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="stt-confidence-feedback" class="toggle-label">
+                        <span class="label-text">Confidence Feedback</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="stt-confidence-feedback"
+                            data-testid="stt-confidence-feedback-toggle"
+                            role="switch"
+                            aria-label="Confidence feedback"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                    <p class="feature-description">Color-coded recognition accuracy scores</p>
+                  </div>
+
+                  <div class="control-subsection" id="confidence-threshold-section">
+                    <label class="control-label" for="stt-confidence-threshold"
+                      >Minimum Confidence Threshold</label
+                    >
+                    <div style="display: flex; align-items: center; gap: 10px">
+                      <input
+                        type="range"
+                        id="stt-confidence-threshold"
+                        class="slider"
+                        min="0"
+                        max="100"
+                        value="60"
+                        step="5"
+                        data-testid="stt-confidence-threshold"
+                        aria-label="Minimum confidence threshold"
+                        style="flex: 1"
+                      />
+                      <span
+                        id="stt-confidence-threshold-value"
+                        style="min-width: 45px; text-align: right; font-weight: 600; color: #4a90d9"
+                        >60%</span
+                      >
+                    </div>
+                    <p
+                      class="feature-description"
+                      style="margin-top: 4px; font-size: 11px; color: #666"
+                    >
+                      Words below this threshold are highlighted for review
+                    </p>
+                  </div>
+
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="stt-highlight-low-confidence" class="toggle-label">
+                        <span class="label-text">Highlight Low-Confidence Words</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="stt-highlight-low-confidence"
+                            data-testid="stt-highlight-low-confidence-toggle"
+                            role="switch"
+                            aria-label="Highlight low confidence words"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="control-subsection">
+                    <div class="toggle-control">
+                      <label for="stt-show-alternatives" class="toggle-label">
+                        <span class="label-text">Show Alternative Suggestions</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="stt-show-alternatives"
+                            data-testid="stt-show-alternatives-toggle"
+                            role="switch"
+                            aria-label="Show alternative suggestions"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="control-subsection">
+                    <button
+                      type="button"
+                      id="stt-show-stats"
+                      class="btn-secondary"
+                      aria-label="View session statistics"
+                      style="
+                        width: 100%;
+                        padding: 10px;
+                        font-size: 13px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                      "
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                      </svg>
+                      View Session Statistics
+                    </button>
+                    <div
+                      id="stt-stats-summary"
+                      style="
+                        margin-top: 8px;
+                        padding: 10px;
+                        background: #f8f9fa;
+                        border-radius: 8px;
+                        display: none;
+                      "
+                    >
+                      <div
+                        style="
+                          display: grid;
+                          grid-template-columns: 1fr 1fr;
+                          gap: 8px;
+                          font-size: 12px;
+                        "
+                      >
+                        <div>
+                          <span style="color: #666">Words/min:</span>
+                          <span id="stt-stats-wpm" style="font-weight: 600">0</span>
+                        </div>
+                        <div>
+                          <span style="color: #666">Accuracy:</span>
+                          <span id="stt-stats-accuracy" style="font-weight: 600">0%</span>
+                        </div>
+                        <div>
+                          <span style="color: #666">Total Words:</span>
+                          <span id="stt-stats-words" style="font-weight: 600">0</span>
+                        </div>
+                        <div>
+                          <span style="color: #666">Duration:</span>
+                          <span id="stt-stats-duration" style="font-weight: 600">0m</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Vocabulary Management -->
+                  <div class="control-subsection">
+                    <div class="toggle-control" style="margin-top: 4px">
+                      <label for="stt-auto-learn" class="toggle-label">
+                        <span class="label-text">Auto-learn from corrections</span>
+                        <div class="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="stt-auto-learn"
+                            data-testid="stt-auto-learn-toggle"
+                            role="switch"
+                            aria-label="Auto-learn vocabulary"
+                            checked
+                          />
+                          <span class="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div
+                      class="vocab-stats"
+                      style="
+                        margin-top: 10px;
+                        padding: 8px;
+                        background: #f8f9fa;
+                        border-radius: 6px;
+                        font-size: 11px;
+                        color: #666;
+                      "
+                    >
+                      <span id="vocab-word-count">0</span> custom words
+                      <span style="margin-left: 8px">|</span>
+                      <span id="vocab-preset-count" style="margin-left: 8px">0</span> preset words
+                    </div>
+
+                    <div class="vocab-actions" style="display: flex; gap: 8px; margin-top: 10px">
+                      <button
+                        type="button"
+                        id="btn-add-vocab-word"
+                        class="control-btn secondary"
+                        style="flex: 1; font-size: 11px; padding: 6px"
+                        aria-label="Add custom word"
+                      >
+                        + Add Word
+                      </button>
+                      <button
+                        type="button"
+                        id="btn-manage-vocabulary"
+                        class="control-btn secondary"
+                        style="flex: 1; font-size: 11px; padding: 6px"
+                        aria-label="Manage vocabulary"
+                      >
+                        Manage
+                      </button>
+                    </div>
+
+                    <div
+                      class="vocab-import-export"
+                      style="display: flex; gap: 8px; margin-top: 6px"
+                    >
+                      <button
+                        type="button"
+                        id="btn-import-vocabulary"
+                        class="control-btn tertiary"
+                        style="flex: 1; font-size: 10px; padding: 4px"
+                        aria-label="Import vocabulary"
+                      >
+                        📥 Import
+                      </button>
+                      <button
+                        type="button"
+                        id="btn-export-vocabulary"
+                        class="control-btn tertiary"
+                        style="flex: 1; font-size: 10px; padding: 4px"
+                        aria-label="Export vocabulary"
+                      >
+                        📤 Export
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <!-- end stt-advanced-section -->
               </div>
             </section>
 

@@ -280,9 +280,8 @@ export class STTController {
         this.recognition.start();
       } catch (error) {
         console.error('[STT] Failed to restart continuous recognition:', error);
-        this.isRecording = false;
-        this.isPaused = false;
-        this.onEnd();
+        // Use stop() for consistent flag cleanup rather than resetting manually
+        this.stop();
       }
     } else {
       // User stopped recording (not just paused)

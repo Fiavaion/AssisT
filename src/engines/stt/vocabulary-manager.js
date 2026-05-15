@@ -281,9 +281,13 @@ export class VocabularyManager {
     };
 
     this.db = getDatabase();
-    this.correctionTracker = new Map(); // Track corrections for auto-learning
+    // correctionTracker: word → { count, target, confidence }
+    this.correctionTracker = new Map();
     this.cachedVocabulary = null;
     this.cacheExpiry = null;
+    this._correctionPersistKey = 'stt_correction_tracker';
+    // Load persisted tracker asynchronously; errors are non-fatal
+    this._loadCorrectionTracker().catch(() => {});
 
     // Callbacks
     this.onWordAdded = options.onWordAdded || (() => {});
@@ -746,7 +750,11 @@ export class VocabularyManager {
   // ==========================================
 
   /**
-   * Track a correction for auto-learning
+   * Track a correction for auto-learning.
+   * Each unique (word → target) pair accumulates a count. If the user corrects
+   * a word to a different target than before, the count is halved (decay), so
+   * inconsistent corrections never cross the threshold on their own.
+   *
    * @param {string} original - Original recognized text
    * @param {string} corrected - User's correction
    */
@@ -755,29 +763,40 @@ export class VocabularyManager {
       return;
     }
 
-    // Extract words that were corrected
     const originalWords = original.toLowerCase().split(/\s+/);
     const correctedWords = corrected.toLowerCase().split(/\s+/);
-
-    // Find new words that weren't in original
     const newWords = correctedWords.filter(w => !originalWords.includes(w) && w.length > 2);
 
     for (const word of newWords) {
-      const count = (this.correctionTracker.get(word) || 0) + 1;
-      this.correctionTracker.set(word, count);
+      const existing = this.correctionTracker.get(word);
+      let entry;
 
-      // Auto-add if threshold reached
-      if (count >= this.settings.autoLearnThreshold) {
+      if (!existing) {
+        entry = { count: 1, target: corrected, confidence: 0 };
+      } else if (existing.target !== corrected) {
+        // Target changed — apply decay to penalise inconsistency
+        entry = {
+          count: Math.max(1, Math.floor(existing.count / 2)),
+          target: corrected,
+          confidence: 0,
+        };
+      } else {
+        entry = { ...existing, count: existing.count + 1 };
+      }
+
+      const threshold = this.settings.autoLearnThreshold;
+      entry.confidence = Math.min(1, entry.count / (threshold + 2));
+      this.correctionTracker.set(word, entry);
+
+      if (entry.count >= threshold) {
         this.autoLearnWord(word);
         this.correctionTracker.delete(word);
       }
     }
+
+    this._saveCorrectionTracker().catch(() => {});
   }
 
-  /**
-   * Auto-learn a word from corrections
-   * @param {string} word
-   */
   async autoLearnWord(word) {
     try {
       await this.addWord(word, {
@@ -787,6 +806,30 @@ export class VocabularyManager {
       console.log(`[VocabularyManager] Auto-learned word: "${word}"`);
     } catch (error) {
       console.error('[VocabularyManager] Auto-learn failed:', error);
+    }
+  }
+
+  async _saveCorrectionTracker() {
+    try {
+      const obj = {};
+      for (const [k, v] of this.correctionTracker) {
+        obj[k] = v;
+      }
+      await chrome.storage.local.set({ [this._correctionPersistKey]: obj });
+    } catch {
+      // Non-fatal — in-memory tracker still works
+    }
+  }
+
+  async _loadCorrectionTracker() {
+    const result = await chrome.storage.local.get(this._correctionPersistKey);
+    const saved = result[this._correctionPersistKey];
+    if (saved && typeof saved === 'object') {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v && typeof v.count === 'number') {
+          this.correctionTracker.set(k, v);
+        }
+      }
     }
   }
 
