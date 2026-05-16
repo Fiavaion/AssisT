@@ -30,7 +30,6 @@ import {
 // ============================================================================
 
 let tutor_panel = null;
-// const _tutor_isLoading = false; // Reserved for future use
 let tutor_currentText = '';
 let tutor_currentQuestions = null;
 
@@ -44,22 +43,6 @@ const tutor_settings = {
 // ============================================================================
 // LLM BRIDGE COMMUNICATION
 // ============================================================================
-
-/**
- * Check if cloud mode is enabled
- * @returns {Promise<boolean>}
- * Reserved for future use
- */
-/*
-async function tutor_isCloudEnabled() {
-  try {
-    const result = await chrome.storage.local.get(['cloudModeEnabled']);
-    return result.cloudModeEnabled === true;
-  } catch {
-    return false;
-  }
-}
-*/
 
 /**
  * Generate Socratic questions using AI
@@ -192,9 +175,6 @@ function isUsefulHint(hint) {
  */
 function tutor_fallback(text) {
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
-  // const words = text.toLowerCase().split(/\s+/); // Reserved for future use
-  // Extract potential key concepts (longer words, capitalized words)
-  // const _keyWords = words.filter(w => w.length > 6 || /^[A-Z]/.test(w)).slice(0, 5); // Reserved for future use
 
   const topic = sentences[0]?.substring(0, 50).trim() + '...' || 'Selected text';
 
