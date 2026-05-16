@@ -28,6 +28,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { Z } from '../../utils/z-index.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
@@ -188,7 +189,7 @@ function pomodoro_injectStyles() {
     /* Pomodoro Timer Widget - Accessible & Neurodivergent-Friendly */
     #assist-pomodoro-container {
       position: fixed;
-      z-index: 999999;
+      z-index: ${Z.FLOATING};
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       user-select: none;
       transition: opacity 0.2s ease;

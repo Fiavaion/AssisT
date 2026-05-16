@@ -17,6 +17,7 @@
  */
 
 import { textStatsEngine } from './textStats.js';
+import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
@@ -199,7 +200,7 @@ export class TextStatsUI {
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 999999;
+      z-index: ${Z.MODAL};
     `;
 
     this.modal.innerHTML = sanitizeHTML(`

@@ -27,6 +27,7 @@
  */
 
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { Z } from '../../utils/z-index.js';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -58,7 +59,7 @@ function fullPageTranslate_createProgressModal() {
     padding: 20px;
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    z-index: 999999;
+    z-index: ${Z.MODAL};
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     min-width: 300px;
   `;

@@ -23,6 +23,7 @@
  */
 
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
+import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
@@ -134,7 +135,7 @@ function dictionary_createModal(word, data) {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 999999;
+    z-index: ${Z.MODAL};
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
 
@@ -442,7 +443,7 @@ function dictionary_showLoading(word) {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 999999;
+    z-index: ${Z.MODAL};
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
 
@@ -500,7 +501,7 @@ function dictionary_showError(word, errorMessage) {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 999999;
+    z-index: ${Z.MODAL};
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
 
