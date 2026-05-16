@@ -16,6 +16,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 /**
  * Confidence level thresholds
@@ -897,9 +898,10 @@ export class ConfidenceFeedback {
     panel.innerHTML = sanitizeHTML(this.createStatsPanelHTML());
 
     // Add close handler
-    panel.querySelector('.assist-stats-close')?.addEventListener('click', () => {
-      this.hideStatsPanel();
-    });
+    const closeBtn = panel.querySelector('.assist-stats-close');
+    if (closeBtn) {
+      attachInteractiveHandler(closeBtn, 'Stats Close', () => this.hideStatsPanel());
+    }
 
     document.body.appendChild(panel);
     this.statsPanel = panel;
