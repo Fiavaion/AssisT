@@ -17,6 +17,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
@@ -1055,7 +1056,7 @@ const GRAPH_PANEL_CSS = `
     font-size: 13px;
     max-width: 280px;
     pointer-events: none;
-    z-index: 999999;
+    z-index: ${Z.FLOATING};
     display: none;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

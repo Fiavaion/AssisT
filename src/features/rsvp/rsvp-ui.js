@@ -15,6 +15,7 @@
  */
 
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { Z } from '../../utils/z-index.js';
 
 /**
  * RSVP UI Class
@@ -56,7 +57,7 @@ export class RSVPUI {
           width: 100%;
           height: 100%;
           background: rgba(0, 0, 0, 0.9);
-          z-index: 999999;
+          z-index: ${Z.MODAL};
           display: flex;
           align-items: center;
           justify-content: center;

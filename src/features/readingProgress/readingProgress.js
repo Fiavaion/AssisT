@@ -40,6 +40,7 @@
  */
 
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
+import { Z } from '../../utils/z-index.js';
 import { showToast } from '../../core/ui/toast.js';
 
 // ============================================================
@@ -247,7 +248,7 @@ function progress_injectStyles() {
       width: 100%;
       height: ${progress_settings.height}px;
       background-color: ${progress_settings.backgroundColor};
-      z-index: 999999;
+      z-index: ${Z.OVERLAY};
       pointer-events: none;
       transition: opacity 0.3s ease;
     }

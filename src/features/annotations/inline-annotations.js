@@ -24,6 +24,7 @@
  */
 
 import { getStorageAdapter } from './storage-adapter.js';
+import { Z } from '../../utils/z-index.js';
 import { createTagInput } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
@@ -373,7 +374,7 @@ function createTooltip(annotation, target) {
     line-height: 1.4;
     max-width: 300px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 999999;
+    z-index: ${Z.FLOATING};
     pointer-events: none;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   `;

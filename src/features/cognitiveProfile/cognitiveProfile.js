@@ -15,6 +15,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
@@ -412,7 +413,7 @@ function profile_createPanel() {
         background: white;
         border-radius: 16px;
         box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        z-index: 999999;
+        z-index: ${Z.MODAL};
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         overflow: hidden;
         display: flex;

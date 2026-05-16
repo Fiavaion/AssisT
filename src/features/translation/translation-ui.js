@@ -28,6 +28,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { Z } from '../../utils/z-index.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
@@ -151,7 +152,7 @@ function translationUI_createModal(originalText, translatedText = '') {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 999999;
+    z-index: ${Z.MODAL};
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
 

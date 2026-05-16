@@ -26,6 +26,7 @@
  */
 
 import { getStorageAdapter } from './storage-adapter.js';
+import { Z } from '../../utils/z-index.js';
 import { exportAnnotations } from './export-manager.js';
 import { getExistingTags } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
@@ -1740,7 +1741,7 @@ function injectStyles() {
       font-size: 13px;
       font-weight: 500;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 999999;
+      z-index: ${Z.OVERLAY};
       animation: assist-toast-slide 0.3s ease-out;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }

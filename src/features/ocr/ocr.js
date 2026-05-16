@@ -21,6 +21,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
+import { Z } from '../../utils/z-index.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // ============================================================================
@@ -595,7 +596,7 @@ async function ocr_captureRegion() {
       border: 2px dashed #007bff;
       background: rgba(0, 123, 255, 0.1);
       display: none;
-      z-index: 999999;
+      z-index: ${Z.MODAL};
       pointer-events: none;
     `;
 
@@ -813,7 +814,7 @@ async function ocr_showScreenshotUI() {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.7);
-    z-index: 999999;
+    z-index: ${Z.MODAL};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1186,7 +1187,7 @@ function ocr_showProgressModal(totalPages) {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.8);
-    z-index: 999999;
+    z-index: ${Z.MODAL};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1510,7 +1511,7 @@ async function ocr_showResultModal(result, imageDataUrl) {
       width: 100%;
       height: 100%;
       background: rgba(0, 0, 0, 0.8);
-      z-index: 999999;
+      z-index: ${Z.MODAL};
       display: flex;
       align-items: center;
       justify-content: center;

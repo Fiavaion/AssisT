@@ -11,6 +11,7 @@
  */
 
 import { validateCitation } from './citation-model.js';
+import { Z } from '../../utils/z-index.js';
 import { formatReference } from './citation-formatter.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
@@ -86,7 +87,7 @@ function createToast(message, type) {
     gap: '10px',
     fontSize: '14px',
     fontFamily: 'system-ui, -apple-system, sans-serif',
-    zIndex: '999999',
+    zIndex: Z.MODAL,
     opacity: '0',
     transform: 'translateY(20px)',
     transition: 'all 0.3s ease',

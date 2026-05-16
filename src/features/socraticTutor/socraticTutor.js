@@ -14,6 +14,7 @@
  */
 
 import { showToast } from '../../core/ui/toast.js';
+import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
@@ -737,7 +738,7 @@ async function tutor_show() {
     background: 'white',
     borderRadius: '16px',
     boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-    zIndex: '999999',
+    zIndex: Z.MODAL,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     overflow: 'hidden',
     display: 'flex',
