@@ -4,7 +4,7 @@
  * Centralized management for all extension settings using Chrome's storage API.
  * Implements a pub/sub pattern for reactive settings changes.
  *
- * Handles storage interactions with chrome.storage.sync and emits events
+ * Handles storage interactions with chrome.storage.local and emits events
  * whenever settings are modified, allowing other modules to react to changes
  * without tight coupling.
  *
@@ -190,7 +190,7 @@ class SettingsManager {
    */
   initStorageListener() {
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName === 'sync' && changes.assist_settings) {
+      if (areaName === 'local' && changes.assist_settings) {
         // Update cache with new values from storage
         this.currentSettings = { ...changes.assist_settings.newValue };
         // Notify all listeners of the change
@@ -212,8 +212,21 @@ class SettingsManager {
    * console.log(settings.tts.enabled);
    */
   async loadSettings() {
+    // One-time migration: copy any settings saved in .sync by an older build
+    await new Promise(resolve => {
+      chrome.storage.sync.get('assist_settings', syncResult => {
+        if (syncResult.assist_settings) {
+          chrome.storage.local.set({ assist_settings: syncResult.assist_settings }, () => {
+            chrome.storage.sync.remove('assist_settings', resolve);
+          });
+        } else {
+          resolve();
+        }
+      });
+    });
+
     return new Promise(resolve => {
-      chrome.storage.sync.get('assist_settings', result => {
+      chrome.storage.local.get('assist_settings', result => {
         if (result.assist_settings) {
           this.currentSettings = this.mergeSettings(DEFAULT_SETTINGS, result.assist_settings);
         } else {
@@ -279,7 +292,7 @@ class SettingsManager {
     return new Promise(resolve => {
       clearTimeout(this.saveDebounceTimer);
       this.saveDebounceTimer = setTimeout(() => {
-        chrome.storage.sync.set({ assist_settings: this.currentSettings }, () => {
+        chrome.storage.local.set({ assist_settings: this.currentSettings }, () => {
           resolve(this.currentSettings);
         });
       }, this.DEBOUNCE_DELAY);
@@ -322,7 +335,7 @@ class SettingsManager {
   async resetSettings() {
     this.currentSettings = { ...DEFAULT_SETTINGS };
     return new Promise(resolve => {
-      chrome.storage.sync.set({ assist_settings: this.currentSettings }, () => {
+      chrome.storage.local.set({ assist_settings: this.currentSettings }, () => {
         resolve(this.currentSettings);
       });
     });
@@ -337,7 +350,7 @@ class SettingsManager {
    */
   async clearStorage() {
     return new Promise(resolve => {
-      chrome.storage.sync.remove('assist_settings', () => {
+      chrome.storage.local.remove('assist_settings', () => {
         this.currentSettings = { ...DEFAULT_SETTINGS };
         resolve();
       });
