@@ -301,6 +301,3 @@ export function sanitizeURL(url) {
 
   return url.trim();
 }
-
-// Export DOMPurify instance for advanced usage
-export const DOMPurifyInstance = getDOMPurify;
