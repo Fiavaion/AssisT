@@ -6,6 +6,7 @@
  */
 
 import { sanitizeHTML } from '../utils/sanitize.js';
+import { attachInteractiveHandler } from '../utils/event-handlers.js';
 
 /**
  * Canvas page types
@@ -320,7 +321,7 @@ export function createCanvasFAB(options = {}) {
     fab.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
   });
 
-  fab.addEventListener('click', onClick);
+  attachInteractiveHandler(fab, 'Canvas FAB', onClick, { enableVisualFeedback: false });
 
   return fab;
 }

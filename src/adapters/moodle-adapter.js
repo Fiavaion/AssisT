@@ -6,6 +6,7 @@
  */
 
 import { sanitizeHTML } from '../utils/sanitize.js';
+import { attachInteractiveHandler } from '../utils/event-handlers.js';
 
 /**
  * Moodle page types
@@ -412,7 +413,7 @@ export function createMoodleFAB(options = {}) {
     fab.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
   });
 
-  fab.addEventListener('click', onClick);
+  attachInteractiveHandler(fab, 'Moodle FAB', onClick, { enableVisualFeedback: false });
 
   return fab;
 }
