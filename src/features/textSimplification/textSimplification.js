@@ -393,8 +393,8 @@ function simplification_simplifySentence(sentence) {
 
   // Replace complex words with simpler alternatives
   for (const [complex, simple] of Object.entries(simplification_wordReplacements)) {
-    // Case-insensitive replacement
-    const regex = new RegExp(`\\b${complex}\\b`, 'gi');
+    const escapedComplex = complex.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escapedComplex}\\b`, 'gi');
     simplified = simplified.replace(regex, match => {
       // Preserve case of first letter
       if (match[0] === match[0].toUpperCase()) {
@@ -536,8 +536,8 @@ function simplification_addDefinitions(text) {
 
   let result = text;
   for (const [term, definition] of Object.entries(termDefinitions)) {
-    // Add definition only on first occurrence
-    const regex = new RegExp(`\\b${term}\\b(?!\\s*\\()`, 'i');
+    const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escapedTerm}\\b(?!\\s*\\()`, 'i');
     result = result.replace(regex, `${term} ${definition}`);
   }
 

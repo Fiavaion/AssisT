@@ -14,7 +14,7 @@
  * @module features/studyPathGenerator
  */
 
-import { sanitizeHTML } from '../../utils/sanitize.js';
+import { sanitizeHTML, sanitizeText } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
@@ -1100,7 +1100,7 @@ function spg_displayPath(path) {
         : generatedByLabel
           ? `⚠️ ${generatedByLabel}`
           : '';
-    const statsLine = `${path.estimatedHours} hours • ${path.topics.length} topics • ${path.difficulty}`;
+    const statsLine = `${path.estimatedHours} hours • ${path.topics.length} topics • ${sanitizeText(path.difficulty)}`;
     headerMeta.innerHTML = `<span>${statsLine}</span>${aiIndicator ? `<br><span style="font-size:11px;opacity:0.85">${aiIndicator}</span>` : ''}`;
   }
 

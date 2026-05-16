@@ -754,7 +754,8 @@ export class STTController {
 
     // Check each punctuation command
     for (const [command, punctuation] of Object.entries(this.punctuationCommands)) {
-      const regex = new RegExp(`\\s*${command}\\s*`, 'gi');
+      const escapedCommand = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\s*${escapedCommand}\\s*`, 'gi');
 
       // Replace command with punctuation
       if (command === 'new line') {

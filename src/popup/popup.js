@@ -3989,7 +3989,7 @@ class PopupController {
       console.log(`[Popup] Auto-saved default cloudModel: ${recommendedModel.id}`);
     }
 
-    // Build options HTML
+    // Build options HTML — sanitize API-sourced strings before injecting into DOM
     modelSelect.innerHTML = modelList
       .map(m => {
         const selected =
@@ -3997,8 +3997,10 @@ class PopupController {
           (!savedModel && recommendedModel && m.id === recommendedModel.id)
             ? ' selected'
             : '';
-        const desc = m.description ? ` — ${m.description}` : '';
-        return `<option value="${m.id}"${selected}>${m.name}${desc}</option>`;
+        const safeId = sanitizeText(m.id);
+        const safeName = sanitizeText(m.name);
+        const safeDesc = m.description ? ` — ${sanitizeText(m.description)}` : '';
+        return `<option value="${safeId}"${selected}>${safeName}${safeDesc}</option>`;
       })
       .join('\n');
 
