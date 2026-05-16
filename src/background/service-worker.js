@@ -1624,12 +1624,12 @@ let userModelPreferences = {
 };
 
 // Load model preferences from storage on startup
-chrome.storage.local.get('modelPreferences', result => {
+(async () => {
+  const result = await chrome.storage.local.get('modelPreferences');
   if (result.modelPreferences) {
     userModelPreferences = { ...userModelPreferences, ...result.modelPreferences };
-    console.log('[LLM Bridge] Loaded model preferences:', userModelPreferences);
   }
-});
+})();
 
 const VRAM_TIER_MODELS = {
   auto: {

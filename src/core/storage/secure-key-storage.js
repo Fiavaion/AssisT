@@ -256,8 +256,11 @@ export async function setUserPassword(password) {
     // Get all existing API keys (decrypted with old secret)
     const existingKeys = await getAllDecryptedKeys();
 
-    // Store the password temporarily for re-encryption
-    await chrome.storage.local.set({ assist_temp_password: password });
+    // Store the password temporarily for re-encryption (timestamp required for TTL check in getEncryptionSecret)
+    await chrome.storage.local.set({
+      assist_temp_password: password,
+      assist_temp_password_ts: Date.now(),
+    });
 
     // Re-encrypt all keys with new password
     for (const { provider, apiKey } of existingKeys) {
