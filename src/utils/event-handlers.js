@@ -230,17 +230,6 @@ export function attachAccessibleHandler(element, label, handler, options = {}) {
   };
 }
 
-// Legacy support for scripts that can't use ESM imports
-if (typeof window !== 'undefined') {
-  window.AssistEventHandlers = {
-    attachInteractiveHandler,
-    attachQuietHandler,
-    attachHandlerBatch,
-    attachDelegatedHandler,
-    attachAccessibleHandler,
-  };
-}
-
 export default {
   attachInteractiveHandler,
   attachQuietHandler,
