@@ -170,6 +170,7 @@ export async function getCachedModels(provider) {
     }
     return null;
   } catch {
+    // storage unavailable — caller falls back to live fetch
     return null;
   }
 }
