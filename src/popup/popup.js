@@ -8881,7 +8881,6 @@ class PopupController {
           },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: true },
-          // darkMode feature removed - extension UI dark mode remains
           // S.7.1: ADHD STT Profile - fast response, minimal distractions
           stt: {
             enabled: true,
@@ -8926,7 +8925,6 @@ class PopupController {
           },
           reducedMotion: { enabled: true, respectSystemPreference: true },
           mediaControl: { enabled: true },
-          // darkMode feature removed - extension UI dark mode remains
           // S.7.6: Autism STT Profile - predictable, literal commands
           stt: {
             enabled: true,
@@ -8967,7 +8965,6 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: false },
-          // darkMode feature removed - extension UI dark mode remains
           // S.7.2: Dyslexia STT Profile - extra pause time, simple commands
           stt: {
             enabled: true,
@@ -9001,7 +8998,6 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: true, respectSystemPreference: false }, // Always reduce motion
           mediaControl: { enabled: true },
-          // darkMode feature removed - extension UI dark mode remains
           // S.7.3: Anxiety/Sensory STT Profile - calm colors, no alarming sounds
           stt: {
             enabled: true,
@@ -9042,7 +9038,6 @@ class PopupController {
           },
           reducedMotion: { enabled: true },
           mediaControl: { enabled: true },
-          // darkMode feature removed - extension UI dark mode remains
         },
       },
       'Anxiety Calm': {
@@ -9078,7 +9073,6 @@ class PopupController {
           },
           reducedMotion: { enabled: true },
           mediaControl: { enabled: true },
-          // darkMode feature removed - extension UI dark mode remains
           // S.7.3: Anxiety STT Profile - calm, forgiving, no pressure
           stt: {
             enabled: true,
@@ -9110,7 +9104,6 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: false },
-          // darkMode feature removed - extension UI dark mode remains
           stt: {
             enabled: true,
             profile: 'motor-impairment',
@@ -9157,7 +9150,6 @@ class PopupController {
           pomodoro: { enabled: false },
           reducedMotion: { enabled: false },
           mediaControl: { enabled: false },
-          // darkMode feature removed - extension UI dark mode remains
           stt: {
             enabled: true,
             profile: 'low-vision',

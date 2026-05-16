@@ -23,7 +23,6 @@ import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 // ============================================================================
 
 let imageUI_panel = null;
-// const _imageUI_isLoading = false; // Reserved for future use
 let imageUI_currentImage = null;
 let imageUI_currentDescription = '';
 

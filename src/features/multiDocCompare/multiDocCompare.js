@@ -614,7 +614,6 @@ function mdc_heuristicCompare() {
 
   // Calculate word count differences
   const wordCounts = mdc_documents.map(d => d.wordCount);
-  // const _avgWords = wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length; // Reserved for future use
 
   return {
     commonThemes:
