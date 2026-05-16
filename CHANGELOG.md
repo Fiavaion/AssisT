@@ -1,9 +1,90 @@
 # Changelog
 
-All notable changes to the AssisT extension will be documented in this file.
+All notable changes to AssisT are documented here.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+
+---
+
+## [Unreleased]
+
+### Planned
+
+- Whisper offline STT engine
+- Azure Speech cloud STT adapter
+- v1.0.0 stable release
+
+---
+
+## [0.9.0] — Public Beta — 2026-05-21
+
+First public release, launched on Global Accessibility Awareness Day (GAAD) 2026.
+
+### Reading & TTS
+
+- Text-to-Speech with synchronized word/sentence highlighting (speed 0.5×–2.0×, voice, pitch, volume)
+- Word-by-word highlighting with boundary-event sync and timer-prediction fallback
+- Configurable reading scope: paragraph, section, or whole page (skips nav/headers)
+- Reading Mode — distraction-free reader view (Alt+R)
+- Dyslexia Mode — Bionic Reading, Syllable Colours, Grammar Colours (Alt+Y)
+- OCR (Alpha) — capture and read text from images and PDFs (Alt+O)
+
+### Writing & STT
+
+- Speech-to-Text (Beta) — Web Speech API, continuous listening, auto-punctuation, voice editing commands
+- Confidence feedback with low-confidence word highlighting
+- Vocabulary manager — custom words + domain presets (medical, legal, academic, STEM)
+- Annotations & Sticky Notes — per-URL notes in IndexedDB, sidebar manager, JSON export (Alt+N)
+
+### Text & Visual Customisation
+
+- Text Customisation — WCAG 2.2 SC 1.4.12: font, line/letter/word/paragraph spacing, tab sync
+- Highlight Menu — on-select mini-toolbar (TTS, dictionary, translate, annotate, speed-read)
+- Dictionary Lookup — inline word definitions via Free Dictionary API (Alt+Shift+D)
+- Translation — full-page and selection (MyMemory, DeepL, Microsoft Translator) (Alt+T)
+- Text Statistics — readability metrics overlay (Ctrl+Shift+W)
+
+### Focus & Visual Aids
+
+- Focus Mode — spotlight window with adjustable dimensions and overlay darkness (Alt+F)
+- Reading Guide — horizontal cursor-tracking line (Alt+G)
+- Screen Overlay — full-screen tinted comfort overlay (Alt+Shift+O)
+- Magnifying Lens — hovering magnifier with zoom, offset, and lock modes
+- Custom Cursor, Reduced Motion, Media Controls, Simplified Page View
+
+### Productivity
+
+- Pomodoro Timer — configurable intervals with sound and auto-start
+- Reading Progress — scroll position indicator
+- Citations — detect, save, verify (CrossRef / Semantic Scholar), export bibliography
+
+### LMS Integrations
+
+- Canvas LMS — assignment reader, quiz helper, keyboard navigation
+- Moodle — assignment, forum, and page readers
+- Google Classroom (Alpha) — assignment, stream, and classwork readers
+
+### AI Assist (4 Privacy Modes)
+
+- Off, Local/Ollama (100% private), Browser/WebLLM (8 models via WebGPU, 100% private), Cloud (your own API key — Anthropic, Google Gemini, OpenAI, Perplexity)
+- AI features: Summarisation, Text Simplification, Study Path Generator, Assignment Breakdown, Socratic Tutor, Multi-Doc Compare, Citation Analyser, Knowledge Graph, Emotional TTS
+
+### Keyboard Shortcuts & Profiles
+
+- 14 configurable shortcuts with conflict detection; 3 presets (Default, Minimal, One-Handed)
+- Shortcut badges in popup labels (⌥ Mac / Alt Windows); live-reload on change
+- 4 base profiles (General, ADHD, Dyslexia, Low Vision); save/import/export custom profiles
+- Discovery Quiz — recommends tools based on learning style
+
+### Security & Quality
+
+- DOMPurify 3.4.2 (XSS prevention); AES-256-GCM for stored API keys
+- No data collection, no analytics, no external servers; FERPA/COPPA/GDPR compliant
+- Manifest V3; production bundle ~11 MB (dev sourcemaps only)
+- 997 unit tests passing; Pa11y WCAG2AA clean; 0 production CVEs
+
+---
 
 ## [0.1.2] - 2026-04-12
 
