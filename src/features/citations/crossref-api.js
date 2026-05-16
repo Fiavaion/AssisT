@@ -31,6 +31,7 @@ export async function fetchDOIMetadata(doi) {
       headers: {
         'User-Agent': USER_AGENT,
       },
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) {

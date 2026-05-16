@@ -116,6 +116,7 @@ export async function geminiGenerate(prompt, options = {}) {
 export async function fetchGeminiModels(apiKey) {
   const response = await fetch(`${GEMINI_API_BASE}/models`, {
     method: 'GET',
+    signal: AbortSignal.timeout(10000),
     headers: { 'x-goog-api-key': apiKey },
     credentials: 'omit',
     cache: 'no-store',
