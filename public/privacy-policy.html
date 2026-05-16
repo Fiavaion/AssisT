@@ -343,14 +343,14 @@
             <img src="icons/icon128.png" alt="AssisT Logo" onerror="this.style.display='none'">
             <div>
                 <h1>AssisT Privacy Policy</h1>
-                <p class="tagline">Adaptive Augmentative Chrome Extension</p>
+                <p class="tagline">Adaptive Accessibility Chrome Extension</p>
             </div>
         </div>
 
         <div class="meta">
-            <strong>Last Updated:</strong> April 12, 2026<br>
-            <strong>Effective Date:</strong> April 12, 2026<br>
-            <strong>Version:</strong> 0.1.2
+            <strong>Last Updated:</strong> May 15, 2026<br>
+            <strong>Effective Date:</strong> February 24, 2026<br>
+            <strong>Version:</strong> 0.9.0
         </div>
 
         <div class="tldr-box">
@@ -359,7 +359,7 @@
                 <li><strong>No data collection:</strong> We don't track you or collect personal information</li>
                 <li><strong>Local-only storage:</strong> Your settings, notes, and citations stay on your device</li>
                 <li><strong>No external servers:</strong> AssisT has no backend—all processing happens locally</li>
-                <li><strong>AI privacy options:</strong> Choose between local AI (Ollama), on-device (Gemini Nano), cloud AI (Anthropic Claude 4.5/4.6 with your own key), or no AI at all</li>
+                <li><strong>AI privacy options:</strong> Choose between local AI (Ollama), browser AI (WebLLM — runs in your browser tab), cloud AI (your own API key), or no AI at all</li>
                 <li><strong>You control third-party services:</strong> Translation providers are optional and you choose which to use</li>
                 <li><strong>FERPA/COPPA/GDPR compliant:</strong> Designed for educational use with student privacy as the priority</li>
                 <li><strong>Open source:</strong> Our code is transparent and auditable on GitHub</li>
@@ -401,9 +401,9 @@
         <hr>
 
         <h2>3. What Data Is Stored Locally</h2>
-        <p>AssisT stores the following data <strong>on your device only</strong> using Chrome's secure storage APIs:</p>
+        <p>AssisT stores the following data <strong>on your device only</strong> using Chrome's secure local storage API (<code>chrome.storage.local</code>). Settings do not sync across devices.</p>
 
-        <h3>3.1 User Preferences</h3>
+        <h3>3.1 User Preferences (chrome.storage.local)</h3>
         <ul>
             <li>Feature toggles (which features are enabled/disabled)</li>
             <li>Text-to-Speech settings (voice, speed, pitch, highlight colors)</li>
@@ -411,7 +411,11 @@
             <li>Visual settings (font choice, spacing, dark mode preset, overlay colors)</li>
             <li>Keyboard shortcut customizations</li>
             <li>Selected user profile (ADHD, Dyslexia, etc.)</li>
+            <li>Text customization sync preference (whether to apply settings to all open tabs or current tab only)</li>
+            <li>Translation language preferences (last-used source and target language, recently-used languages list)</li>
+            <li>AI model preferences and cloud mode preference</li>
         </ul>
+        <p><strong>Note:</strong> All preferences are stored locally on your device only. Nothing is sent to Fiavaion.</p>
 
         <h3>3.2 User-Created Content</h3>
         <ul>
@@ -428,7 +432,7 @@
         </ul>
 
         <h3>3.4 Optional API Keys</h3>
-        <p>If you choose to use cloud AI features (Anthropic Claude API), you may provide API keys. These are:</p>
+        <p>If you choose to use cloud AI features (Anthropic, Google, OpenAI, or Perplexity), you may provide API keys. These are:</p>
         <ul>
             <li>Stored locally on your device only using AES-256 encryption</li>
             <li>Never transmitted to Fiavaion</li>
@@ -551,31 +555,39 @@
         </div>
 
         <div class="service-card">
-            <h4>Mode 3: Gemini Nano (Chrome Built-In AI)</h4>
+            <h4>Mode 3: Browser AI (WebLLM)</h4>
             <ul>
-                <li><strong>Privacy:</strong> 100% Private - On-device AI in Chrome</li>
-                <li><strong>Data Sent:</strong> None - Processed locally in your browser</li>
-                <li><strong>Requirements:</strong> Chrome 128+ with feature flag enabled</li>
-                <li><strong>Best For:</strong> Zero-setup AI, Chrome users, private on-device processing</li>
-                <li>Chrome downloads the model automatically (no manual installation)</li>
+                <li><strong>Privacy:</strong> 100% Private — AI runs in your browser tab via WebGPU</li>
+                <li><strong>Data Sent:</strong> None — All processing happens locally in browser memory</li>
+                <li><strong>Requirements:</strong> WebGPU-capable browser (Chrome 113+)</li>
+                <li><strong>Best For:</strong> No-install private AI, works offline after model download</li>
+                <li>8 models available (1B to 8B parameters), downloaded once and cached locally</li>
+                <li>No external API calls during inference</li>
             </ul>
         </div>
 
         <div class="service-card">
             <h4>Mode 4: Cloud AI (Your API Key)</h4>
             <ul>
-                <li><strong>Privacy:</strong> Data sent to Anthropic (not Fiavaion)</li>
-                <li><strong>Data Sent:</strong> Selected text sent to Anthropic Claude API</li>
-                <li><strong>Requirements:</strong> Your own API key from Anthropic</li>
-                <li><strong>Models:</strong> Claude Haiku 4.5 (fast), Sonnet 4.5 (balanced), Opus 4.6 (most capable)</li>
-                <li>You pay per use directly to Anthropic (typical: $0.002-0.004 per summary)</li>
+                <li><strong>Privacy:</strong> Data sent to your chosen provider (not Fiavaion)</li>
+                <li><strong>Data Sent:</strong> Selected text sent to the cloud AI provider you configure</li>
+                <li><strong>Requirements:</strong> Your own API key from one of the supported providers</li>
+                <li><strong>Supported Providers:</strong>
+                    <ul>
+                        <li>Google (Gemini 2.5 Flash, Flash-Lite, Pro) — free API key available</li>
+                        <li>Anthropic (Claude Haiku 4.5, Sonnet 4.6, Opus 4.6)</li>
+                        <li>OpenAI (GPT-4o mini, GPT-4o, o1)</li>
+                        <li>Perplexity (Sonar, Sonar Pro)</li>
+                    </ul>
+                </li>
+                <li>You pay per use directly to your chosen provider</li>
                 <li>API keys stored locally using AES-256-GCM encryption, never sent to Fiavaion</li>
-                <li>Subject to Anthropic's privacy policy: <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer">anthropic.com/privacy</a></li>
+                <li>Subject to your chosen provider's privacy policy</li>
             </ul>
         </div>
 
         <div class="important-box">
-            <strong>Important:</strong> Fiavaion does not receive, store, or have access to any data processed by third-party services or local AI. When you use Cloud AI mode, data goes directly from your browser to Anthropic—we are not an intermediary. Modes 1, 2, and 3 keep all processing on your device.
+            <strong>Important:</strong> Fiavaion does not receive, store, or have access to any data processed by third-party services or local AI. When you use cloud AI or translation services, data goes directly from your browser to the service provider—we are not an intermediary.
         </div>
 
         <hr>
