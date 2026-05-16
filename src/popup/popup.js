@@ -7728,8 +7728,8 @@ class PopupController {
             if (!isVisible) {
               // Request stats from content script
               try {
-                const response = await this.sendCommandToTab({
-                  command: 'GET_STT_STATS',
+                const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+                  type: 'GET_STT_STATS',
                 });
                 if (response && response.stats) {
                   this.updateSTTStatsDisplay(response.stats);
