@@ -288,6 +288,7 @@ async function translation_detectLanguage(text) {
       `${API_CONFIG.libre.baseUrl}${API_CONFIG.libre.endpoints.detect}`,
       {
         method: 'POST',
+        signal: AbortSignal.timeout(10000),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -339,7 +340,8 @@ async function translation_getSupportedLanguages() {
 
   try {
     const response = await fetch(
-      `${API_CONFIG.libre.baseUrl}${API_CONFIG.libre.endpoints.languages}`
+      `${API_CONFIG.libre.baseUrl}${API_CONFIG.libre.endpoints.languages}`,
+      { signal: AbortSignal.timeout(10000) }
     );
 
     if (!response.ok) {
@@ -452,6 +454,7 @@ async function translation_translateChunkWithMyMemory(text, targetLang, sourceLa
 
   const response = await fetch(url, {
     method: 'GET',
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {

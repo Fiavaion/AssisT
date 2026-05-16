@@ -121,6 +121,7 @@ export async function openaiGenerate(prompt, options = {}) {
 export async function fetchOpenAIModels(apiKey) {
   const response = await fetch(OPENAI_MODELS_URL, {
     method: 'GET',
+    signal: AbortSignal.timeout(10000),
     headers: { Authorization: `Bearer ${apiKey}` },
     credentials: 'omit',
     cache: 'no-store',

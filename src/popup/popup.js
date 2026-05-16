@@ -1892,6 +1892,7 @@ class PopupController {
               // Test with a simple translation
               const response = await fetch('https://api-free.deepl.com/v2/translate', {
                 method: 'POST',
+                signal: AbortSignal.timeout(10000),
                 body: new URLSearchParams({
                   auth_key: apiKey,
                   text: 'Hello',
@@ -1936,6 +1937,7 @@ class PopupController {
                 'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=es',
                 {
                   method: 'POST',
+                  signal: AbortSignal.timeout(10000),
                   headers: {
                     'Ocp-Apim-Subscription-Key': apiKey,
                     'Ocp-Apim-Subscription-Region': region,
@@ -4202,7 +4204,9 @@ class PopupController {
     const statusText = modal.querySelector('#ollama-status .status-text');
 
     try {
-      const response = await fetch('http://localhost:11434/api/tags');
+      const response = await fetch('http://localhost:11434/api/tags', {
+        signal: AbortSignal.timeout(5000),
+      });
       if (response.ok) {
         const data = await response.json();
         statusDot.style.backgroundColor = '#10b981';
@@ -11501,6 +11505,20 @@ class PopupController {
     console.log('[Popup] Dark mode feature removed - skipping setup');
   }
 }
+
+window.addEventListener('unhandledrejection', event => {
+  console.error('[Popup] Unhandled promise rejection:', event.reason);
+  event.preventDefault();
+  const statusIndicator = document.getElementById('status-indicator');
+  if (statusIndicator && !statusIndicator.classList.contains('error')) {
+    statusIndicator.textContent = 'Unexpected error — see console (F12)';
+    statusIndicator.className = 'status-indicator error';
+  }
+});
+
+window.addEventListener('error', event => {
+  console.error('[Popup] Uncaught error:', event.error?.message || event.message);
+});
 
 // Initialize popup when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {

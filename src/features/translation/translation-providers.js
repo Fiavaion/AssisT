@@ -42,7 +42,7 @@ export async function translateWithMyMemory(text, targetLang, sourceLang = 'en')
   const langpair = `${sourceLang}|${targetLang}`;
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
 
   if (response.status === 429) {
     throw new Error('RATE_LIMIT_EXCEEDED');
@@ -96,6 +96,7 @@ export async function translateWithDeepL(text, targetLang, sourceLang, apiKey) {
 
   const response = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(15000),
     body: params,
   });
 
@@ -146,6 +147,7 @@ export async function translateWithAzure(text, targetLang, sourceLang, apiKey, r
 
   const response = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(15000),
     headers: headers,
     body: JSON.stringify([{ text: text }]),
   });

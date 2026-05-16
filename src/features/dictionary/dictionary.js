@@ -66,7 +66,8 @@ async function dictionary_fetchDefinition(word) {
 
   try {
     const response = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(normalizedWord)}`
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(normalizedWord)}`,
+      { signal: AbortSignal.timeout(8000) }
     );
 
     if (!response.ok) {

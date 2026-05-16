@@ -262,7 +262,7 @@ async function ocr_fetchPDFData(pdfUrl) {
 
   // For HTTP/HTTPS URLs, use fetch
   try {
-    const response = await fetch(pdfUrl);
+    const response = await fetch(pdfUrl, { signal: AbortSignal.timeout(60000) });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }

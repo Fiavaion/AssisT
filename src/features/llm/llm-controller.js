@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
   // Default model (can be changed in settings)
   defaultModel: 'llama3.2',
   // Request timeout in ms
-  timeout: 30000
+  timeout: 30000,
 };
 
 /**
@@ -38,7 +38,7 @@ export class LLMController {
     try {
       const response = await fetch(`${this.config.ollamaUrl}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(5000),
       });
       if (response.ok) {
         this.isConnected = true;
@@ -53,7 +53,7 @@ export class LLMController {
     try {
       const response = await fetch(`${this.config.lmStudioUrl}/v1/models`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(5000),
       });
       if (response.ok) {
         this.isConnected = true;
@@ -79,13 +79,17 @@ export class LLMController {
     }
 
     if (this.currentProvider === 'ollama') {
-      const response = await fetch(`${this.config.ollamaUrl}/api/tags`);
+      const response = await fetch(`${this.config.ollamaUrl}/api/tags`, {
+        signal: AbortSignal.timeout(5000),
+      });
       const data = await response.json();
       return data.models?.map(m => m.name) || [];
     }
 
     if (this.currentProvider === 'lm-studio') {
-      const response = await fetch(`${this.config.lmStudioUrl}/v1/models`);
+      const response = await fetch(`${this.config.lmStudioUrl}/v1/models`, {
+        signal: AbortSignal.timeout(5000),
+      });
       const data = await response.json();
       return data.data?.map(m => m.id) || [];
     }
@@ -132,9 +136,9 @@ export class LLMController {
         model,
         prompt,
         stream: false,
-        ...options
+        ...options,
       }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -158,9 +162,9 @@ export class LLMController {
         prompt,
         max_tokens: options.maxTokens || 500,
         temperature: options.temperature || 0.7,
-        ...options
+        ...options,
       }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -193,7 +197,7 @@ export class LLMController {
       elementary: 'a 5th grade student',
       middle: 'a middle school student',
       high: 'a high school student',
-      college: 'a college freshman'
+      college: 'a college freshman',
     };
 
     const prompt = `Rewrite the following text so it can be easily understood by ${levelDescriptions[level] || levelDescriptions.middle}. Keep the meaning but use simpler words and shorter sentences:\n\n${text}\n\nSimplified version:`;

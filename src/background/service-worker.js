@@ -8,6 +8,15 @@ import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
 import { checkGeminiAvailability, generateText as geminiGenerateText } from '../ai/nano-client.js';
 
+self.addEventListener('unhandledrejection', event => {
+  console.error('[AssisT SW] Unhandled promise rejection:', event.reason);
+  event.preventDefault();
+});
+
+self.addEventListener('error', event => {
+  console.error('[AssisT SW] Uncaught error:', event.message, event.filename, event.lineno);
+});
+
 // ========================================
 // SECURITY UTILITIES
 // ========================================
@@ -414,7 +423,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     console.log('[AssisT] Fetching image:', message.url);
 
-    const fetchOptions = isFileUrl ? {} : { mode: 'cors', credentials: 'omit' };
+    const fetchOptions = isFileUrl
+      ? { signal: AbortSignal.timeout(30000) }
+      : { mode: 'cors', credentials: 'omit', signal: AbortSignal.timeout(30000) };
     fetch(message.url, fetchOptions)
       .then(response => {
         if (!response.ok) {
@@ -459,6 +470,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (doi) {
           const resp = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
             headers: { 'User-Agent': 'AssisT-Extension/0.9' },
+            signal: AbortSignal.timeout(10000),
           });
           if (resp.ok) {
             const data = await resp.json();
@@ -489,7 +501,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             .replace(/[^\w\s]/g, ' ')
             .trim();
           const resp = await fetch(
-            `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&fields=title,authors,year,venue,externalIds&limit=1`
+            `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&fields=title,authors,year,venue,externalIds&limit=1`,
+            { signal: AbortSignal.timeout(10000) }
           );
           if (resp.ok) {
             const data = await resp.json();
@@ -535,7 +548,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     console.log('[AssisT] Fetching PDF:', message.url);
 
-    fetch(message.url)
+    fetch(message.url, { signal: AbortSignal.timeout(60000) })
       .then(response => {
         if (!response.ok && !message.url.startsWith('file://')) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1752,6 +1765,7 @@ async function runBenchmarkTest(params) {
 
       const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
         method: 'POST',
+        signal: AbortSignal.timeout(120000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: model,

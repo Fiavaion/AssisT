@@ -736,6 +736,7 @@ export async function testSecureConnection(provider, apiKey) {
 async function testAnthropicAPI(apiKey) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: AbortSignal.timeout(10000),
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
@@ -764,6 +765,7 @@ async function testAnthropicAPI(apiKey) {
 async function testOpenAIAPI(apiKey) {
   const response = await fetch('https://api.openai.com/v1/models', {
     method: 'GET',
+    signal: AbortSignal.timeout(10000),
     headers: { Authorization: `Bearer ${apiKey}` },
     credentials: 'omit',
     cache: 'no-store',
@@ -782,6 +784,7 @@ async function testOpenAIAPI(apiKey) {
 async function testGoogleAIAPI(apiKey) {
   const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
     method: 'GET',
+    signal: AbortSignal.timeout(10000),
     headers: { 'x-goog-api-key': apiKey },
     credentials: 'omit',
     cache: 'no-store',
@@ -800,6 +803,7 @@ async function testGoogleAIAPI(apiKey) {
 async function testPerplexityAPI(apiKey) {
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
+    signal: AbortSignal.timeout(10000),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
