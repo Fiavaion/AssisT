@@ -820,7 +820,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const result = await ollamaGenerate(message.prompt, options);
         sendResponse({ success: true, data: result });
       } catch (error) {
-        sendResponse({ success: false, error: sanitizeError(error) });
+        const isTimeout =
+          error.name === 'AbortError' ||
+          (error.message &&
+            (error.message.includes('timeout') ||
+              error.message.includes('timed out') ||
+              error.message.includes('aborted')));
+        sendResponse({
+          success: false,
+          error: isTimeout
+            ? 'Local AI timed out. Your hardware may be too slow for this request. Try a smaller model (phi3:mini or llama3.2:3b) or switch to Browser AI (WebLLM) in the popup.'
+            : sanitizeError(error),
+        });
       } finally {
         clearInterval(keepAlive);
       }
