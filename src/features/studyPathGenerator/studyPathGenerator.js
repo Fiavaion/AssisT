@@ -531,8 +531,10 @@ Rules:
 - Respond with ONLY valid JSON, no extra text`;
 
   try {
+    // Local: 1200 — a 4-6 topic JSON plan is ~500-800 tokens; 1200 is safe headroom.
+    // Cloud: 8192 for full fidelity (API imposes its own limits).
     const aiResult = await generateWithAI(prompt, modeInfo, {
-      maxTokens: 8192,
+      maxTokens: modeInfo.isLocal ? 1200 : 8192,
       temperature: 0.4,
       feature: 'studyPathGenerator',
       noCache: true,

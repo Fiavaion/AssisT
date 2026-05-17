@@ -73,6 +73,10 @@ async function simplification_generate(text, level = 'moderate', modelKey = 'loc
   // Optimized prompts: CoT for cloud (50B+ benefits), direct for local (faster, similar quality)
   // Research: https://www.promptingguide.ai/techniques/cot - "CoT benefits large models (50B+)"
 
+  // Local mode: cap input to 800 chars to avoid Chrome's ~30s sendMessage timeout.
+  // Cloud mode: send full text (no sendMessage round-trip limit).
+  const inputText = !isCloud && text.length > 800 ? text.substring(0, 800) + '…' : text;
+
   // LOCAL MODEL PROMPTS (with examples for in-context learning)
   const localPrompts = {
     basic: `Rewrite the full text below using very simple words and short sentences. Cover every idea in the original — do NOT summarise or skip parts. Your simplified version must address all the key points and be at least 2-3 sentences long.
@@ -82,7 +86,7 @@ Input: "Cognitive dissonance occurs when a person experiences psychological disc
 Output: "We feel uncomfortable when what we believe and what we do don't match. For example, someone might know that eating lots of sugar is bad for them, but still do it every day. This creates a kind of mental tension that can make us feel uneasy."
 
 TEXT:
-${text}
+${inputText}
 
 FULL SIMPLIFIED VERSION (cover all points, 2-3+ sentences):`,
 
@@ -93,7 +97,7 @@ Input: "The phenomenological approach emphasizes lived experience."
 Output: "The phenomenological approach (studying direct experience) emphasizes what people actually experience."
 
 TEXT:
-${text}
+${inputText}
 
 CLEAR VERSION:`,
 
@@ -104,7 +108,7 @@ Input: "Ontological reframing proves particularly generative."
 Output: "Ontological reframing (reconceptualising what something fundamentally is) proves particularly productive."
 
 TEXT:
-${text}
+${inputText}
 
 IMPROVED VERSION:`,
   };
@@ -187,9 +191,10 @@ IMPROVED VERSION:`,
   // Select prompt based on model type
   const promptSet = isCloud ? cloudPrompts : localPrompts;
   const prompt = promptSet[level] || promptSet.moderate;
-  // Basic gets 1200 tokens — simplified text expands word count vs original.
-  // Academic gets 1500 for added definitions. Moderate baseline is 1200.
-  const maxTokens = level === 'academic' ? 1500 : 1200;
+  // Cloud: 1200-1500 tokens (API has no sendMessage timeout).
+  // Local/WebLLM: 800 tokens — Chrome's sendMessage has a ~30s hard timeout;
+  // at typical Ollama speeds (10-15 tok/s) 1200+ tokens reliably exceeds it.
+  const maxTokens = isCloud ? (level === 'academic' ? 1500 : 1200) : 800;
 
   console.log('[TextSimplification] Generating with:', {
     level,

@@ -813,7 +813,10 @@ async function summarization_summarize(text, level = 'brief') {
         'Provide a comprehensive summary with main points and supporting details (5-7 sentences):',
     };
     const prompt = `${levelPrompts[level] || levelPrompts.brief}\n\n${text}\n\nSummary:`;
-    const maxTokens = level === 'detailed' ? 1500 : level === 'moderate' ? 800 : 400;
+    // Cloud: full budget. Local: cap at 600 — "5-7 sentences" is ~200 tokens;
+    // 600 is generous headroom without risking the ~30s Chrome sendMessage window.
+    const cloudMax = level === 'detailed' ? 1500 : level === 'moderate' ? 800 : 400;
+    const maxTokens = modeInfo.isLocal ? Math.min(cloudMax, 600) : cloudMax;
 
     const result = await generateWithAI(prompt, modeInfo, {
       maxTokens,
