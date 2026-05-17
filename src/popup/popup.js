@@ -3047,7 +3047,7 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-citations">
                   <span>Citation Manager</span>
-                  <span class="feature-badge alpha">Alpha</span>
+                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
