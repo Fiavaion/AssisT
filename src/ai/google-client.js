@@ -163,6 +163,9 @@ export async function fetchGeminiModels(apiKey) {
 function formatGeminiModelName(modelId) {
   const id = modelId.toLowerCase();
 
+  if (id.includes('3.1-pro')) {
+    return 'Gemini 3.1 Pro (Most Capable)';
+  }
   if (id.includes('2.5-pro')) {
     return 'Gemini 2.5 Pro';
   }
@@ -197,8 +200,11 @@ function formatGeminiModelName(modelId) {
 function getGeminiModelDescription(modelId) {
   const id = modelId.toLowerCase();
 
+  if (id.includes('3.1-pro')) {
+    return 'Most capable — complex tasks';
+  }
   if (id.includes('2.5-pro')) {
-    return 'Most capable';
+    return 'Highly capable';
   }
   if (id.includes('2.5-flash')) {
     return 'Fast and capable';
@@ -226,20 +232,23 @@ function getGeminiModelDescription(modelId) {
  */
 function getGeminiSortOrder(modelId) {
   const id = modelId.toLowerCase();
-  if (id.includes('2.5-pro')) {
+  if (id.includes('3.1-pro')) {
     return 1;
   }
-  if (id.includes('2.5-flash')) {
+  if (id.includes('2.5-pro')) {
     return 2;
   }
-  if (id.includes('2.0-flash-lite')) {
-    return 4;
-  }
-  if (id.includes('2.0-flash')) {
+  if (id.includes('2.5-flash')) {
     return 3;
   }
-  if (id.includes('1.5-pro')) {
+  if (id.includes('2.0-flash-lite')) {
     return 5;
+  }
+  if (id.includes('2.0-flash')) {
+    return 4;
+  }
+  if (id.includes('1.5-pro')) {
+    return 6;
   }
   if (id.includes('1.5-flash')) {
     return 6;

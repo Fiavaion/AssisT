@@ -108,7 +108,7 @@ export function getModeInfo(mode) {
       title: 'Cloud AI',
       subtitle: 'Most powerful, needs API key',
       pros: [
-        'Most capable models (Claude, GPT-4o, Gemini 2.0)',
+        'Most capable models (Claude, GPT-5.5, Gemini 3.1)',
         'No GPU required',
         'Fast responses',
       ],
