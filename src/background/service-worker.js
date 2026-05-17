@@ -798,10 +798,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         let options = message.options || {};
 
-        // If taskType provided, use model routing to get optimal model.
-        // Wrapped in its own try/catch so routing errors (e.g. 5s availability AbortError)
-        // never kill the generation request — we fall through to the user's default model.
-        if (message.taskType || options.taskType) {
+        // User's explicit model preference always wins.
+        // Task routing only runs as a fallback when the user hasn't chosen a model.
+        const stored = await chrome.storage.local.get('ollamaModel');
+        if (stored.ollamaModel) {
+          options = { ...options, model: stored.ollamaModel };
+        } else if (message.taskType || options.taskType) {
+          // No user preference — use task routing to find best available model
           try {
             const status = await checkOllamaAvailability();
             if (status.available && status.models.length > 0) {
@@ -813,18 +816,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               );
             }
           } catch (availErr) {
-            console.warn(
-              '[LLM Generate] Model routing skipped (availability check failed):',
-              availErr.message
-            );
-          }
-        }
-
-        // Use user's preferred Ollama model if no model specified
-        if (!options.model) {
-          const stored = await chrome.storage.local.get('ollamaModel');
-          if (stored.ollamaModel) {
-            options = { ...options, model: stored.ollamaModel };
+            console.warn('[LLM Generate] Model routing skipped:', availErr.message);
           }
         }
 
