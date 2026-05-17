@@ -558,6 +558,10 @@ export function pauseHighlighting() {
     clearTimeout(wordHighlightTimeout);
     wordHighlightTimeout = null;
   }
+  if (watchdogTimeout) {
+    clearTimeout(watchdogTimeout);
+    watchdogTimeout = null;
+  }
   if (pausedAt === 0 && activeUtterance !== null) {
     pausedAt = performance.now();
   }
