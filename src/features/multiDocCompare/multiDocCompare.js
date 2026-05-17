@@ -528,8 +528,10 @@ Rules:
 - Respond with ONLY valid JSON`;
 
   try {
+    // Local: 700 tokens — JSON output is compact, model terminates early.
+    // Cloud: 1200 for full-depth analysis.
     const aiResult = await generateWithAI(prompt, modeInfo, {
-      maxTokens: 1200,
+      maxTokens: modeInfo.isLocal ? 700 : 1200,
       temperature: 0.3,
       feature: 'multiDocCompare',
     });
