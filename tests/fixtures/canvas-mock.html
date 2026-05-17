@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Design Fundamentals — Canvas LMS (AssisT Mock)</title>
+  <style>
+    /* ── Reset ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #2d3b45;
+      background: #f5f5f5;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Canvas sidebar nav ──────────────────────────────────────── */
+    #left-side {
+      width: 68px;
+      background: #394b58;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 8px;
+      gap: 4px;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+    }
+    .nav-item {
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #c7cdd1;
+      font-size: 11px;
+      gap: 2px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .nav-item:hover, .nav-item.active { background: #4f6576; color: #fff; }
+    .nav-icon { font-size: 20px; }
+
+    /* ── Course top nav ──────────────────────────────────────────── */
+    #header {
+      position: fixed;
+      top: 0; left: 68px; right: 0;
+      height: 52px;
+      background: #fff;
+      border-bottom: 1px solid #d9dde0;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 99;
+    }
+    #header h1 { font-size: 16px; font-weight: 600; color: #2d3b45; flex: 1; }
+    .course-nav-tabs {
+      display: flex;
+      gap: 0;
+      height: 52px;
+      align-items: stretch;
+    }
+    .course-tab {
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: #6b7780;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .course-tab:hover { color: #2d3b45; border-bottom-color: #d9dde0; }
+    .course-tab.active { color: #0770a3; border-bottom-color: #0770a3; font-weight: 600; }
+
+    /* ── Main content area ───────────────────────────────────────── */
+    #main {
+      margin-left: 68px;
+      margin-top: 52px;
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 980px;
+    }
+
+    /* ── Pages (hidden by default) ───────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Breadcrumb ──────────────────────────────────────────────── */
+    .ic-app-crumbs {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 12px;
+      color: #6b7780;
+      margin-bottom: 20px;
+    }
+    .ic-app-crumbs a { color: #0770a3; text-decoration: none; }
+    .ic-app-crumbs a:hover { text-decoration: underline; }
+    .ic-app-crumbs span::before { content: "›"; margin-right: 6px; }
+
+    /* ── Assignment page ─────────────────────────────────────────── */
+    #assignment_show {
+      background: #fff;
+      border: 1px solid #d9dde0;
+      border-radius: 4px;
+      padding: 32px 40px;
+    }
+    #assignment_show h1.title.page-title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2d3b45;
+    }
+    .assignment-meta {
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: #6b7780;
+      padding: 12px 0;
+      border-bottom: 1px solid #eef0f2;
+      margin-bottom: 24px;
+    }
+    .assignment-meta span strong { color: #2d3b45; }
+    .description.user_content h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 24px 0 10px;
+      color: #2d3b45;
+    }
+    .description.user_content h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 18px 0 8px;
+      color: #2d3b45;
+    }
+    .description.user_content p {
+      line-height: 1.7;
+      margin-bottom: 12px;
+      color: #2d3b45;
+    }
+    .description.user_content ul, .description.user_content ol {
+      margin: 8px 0 16px 24px;
+      line-height: 1.8;
+    }
+    .description.user_content blockquote {
+      border-left: 4px solid #0770a3;
+      padding: 8px 16px;
+      margin: 16px 0;
+      background: #f0f8ff;
+      font-style: italic;
+      color: #4a5568;
+      border-radius: 0 4px 4px 0;
+    }
+    .description.user_content .rubric-callout {
+      background: #fef9e7;
+      border: 1px solid #f5c518;
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+
+    /* ── Quiz page ───────────────────────────────────────────────── */
+    #quiz-content { max-width: 780px; }
+    .quiz-header {
+      background: #fff;
+      border: 1px solid #d9dde0;
+      border-radius: 4px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .quiz-header h1.page-title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    .quiz-header p { color: #6b7780; font-size: 13px; }
+    .question {
+      background: #fff;
+      border: 1px solid #d9dde0;
+      border-radius: 4px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .question .question_text {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      color: #2d3b45;
+    }
+    .question .question_text strong { color: #394b58; }
+    .answers { list-style: none; }
+    .answer {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      border: 1px solid #d9dde0;
+    }
+    .answer:hover { background: #f0f8ff; border-color: #0770a3; }
+    .answer input[type="radio"] { margin-top: 2px; flex-shrink: 0; }
+    .answer_label { font-size: 13px; line-height: 1.5; color: #2d3b45; }
+
+    /* ── Discussion page ─────────────────────────────────────────── */
+    #discussion_topic {
+      background: #fff;
+      border: 1px solid #d9dde0;
+      border-radius: 4px;
+      padding: 28px 36px;
+      margin-bottom: 20px;
+    }
+    .discussion-title { font-size: 22px; font-weight: 600; margin-bottom: 12px; }
+    .discussion-meta { font-size: 12px; color: #6b7780; margin-bottom: 20px; }
+    .discussion-topic { margin-bottom: 20px; }
+    .discussion-topic .user_content p {
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    .discussion-topic .user_content ul {
+      margin: 8px 0 16px 24px;
+      line-height: 1.8;
+    }
+    .discussion-reply-header {
+      font-size: 15px;
+      font-weight: 600;
+      border-top: 1px solid #d9dde0;
+      padding-top: 20px;
+      margin-top: 4px;
+      margin-bottom: 16px;
+    }
+    .discussion-entry {
+      display: flex;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid #eef0f2;
+    }
+    .discussion-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .discussion-entry-body { flex: 1; }
+    .discussion-entry-author { font-weight: 600; font-size: 13px; }
+    .discussion-entry-date { font-size: 11px; color: #6b7780; margin-bottom: 6px; }
+    .discussion-entry-content { font-size: 13px; line-height: 1.6; }
+
+    /* ── Modules / Course Home ───────────────────────────────────── */
+    .module {
+      background: #fff;
+      border: 1px solid #d9dde0;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .module-header {
+      background: #394b58;
+      color: #fff;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .module-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #eef0f2;
+      font-size: 13px;
+    }
+    .module-item:last-child { border-bottom: none; }
+    .module-item-icon { color: #6b7780; width: 16px; text-align: center; }
+    .module-item-title { color: #0770a3; text-decoration: none; flex: 1; }
+    .module-item-title:hover { text-decoration: underline; }
+    .module-item-meta { font-size: 11px; color: #6b7780; }
+    .module-item.completed .module-item-icon { color: #0b7637; }
+
+    /* ── Dev helper banner ───────────────────────────────────────── */
+    #assist-mock-banner {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #394b58;
+      color: #e0e7ef;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 12px;
+      z-index: 10000;
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    #assist-mock-banner strong { color: #7ec8e3; }
+  </style>
+</head>
+
+<!--
+  Canvas-style body classes — isCanvasPage() in canvas-adapter.js checks for
+  'course-menu-expanded' and 'primary-nav-expanded' so the extension treats
+  this as a Canvas environment.
+-->
+<body class="course-menu-expanded primary-nav-expanded">
+
+  <!-- Canvas global nav (left sidebar) -->
+  <nav id="left-side" aria-label="Global navigation">
+    <a class="nav-item active" href="#" aria-label="Dashboard">
+      <span class="nav-icon">🏠</span>
+      <span>Home</span>
+    </a>
+    <a class="nav-item" href="#" aria-label="Courses">
+      <span class="nav-icon">📚</span>
+      <span>Courses</span>
+    </a>
+    <a class="nav-item" href="#" aria-label="Inbox">
+      <span class="nav-icon">✉️</span>
+      <span>Inbox</span>
+    </a>
+    <a class="nav-item" href="#" aria-label="Account">
+      <span class="nav-icon">👤</span>
+      <span>Account</span>
+    </a>
+  </nav>
+
+  <!-- Top course nav -->
+  <div id="header">
+    <h1>Design Fundamentals I — NCAD</h1>
+    <nav class="course-nav-tabs" aria-label="Course navigation">
+      <button class="course-tab active" onclick="showPage('home', this, '/courses/101')">Home</button>
+      <button class="course-tab" onclick="showPage('assignment', this, '/courses/101/assignments/201')">Assignments</button>
+      <button class="course-tab" onclick="showPage('quiz', this, '/courses/101/quizzes/301')">Quizzes</button>
+      <button class="course-tab" onclick="showPage('discussion', this, '/courses/101/discussion_topics/401')">Discussions</button>
+    </nav>
+  </div>
+
+  <!-- Canvas application root — isCanvasPage() also checks getElementById('application') -->
+  <div id="application">
+    <main id="main" role="main">
+
+      <!-- ════════════════════════════════════════════════════════════
+           PAGE 1 — COURSE HOME / MODULES
+           URL path: /courses/101
+           detectCanvasPageType() → COURSE_HOME
+      ═══════════════════════════════════════════════════════════════ -->
+      <div id="page-home" class="page active">
+        <nav class="ic-app-crumbs" aria-label="breadcrumbs">
+          <a href="#">NCAD Canvas</a>
+          <span>Design Fundamentals I</span>
+        </nav>
+
+        <div class="module">
+          <div class="module-header">
+            <span>Week 1 — Visual Perception &amp; the Gestalt Principles</span>
+            <span>3/5 completed</span>
+          </div>
+          <div class="module-item completed">
+            <span class="module-item-icon">✓</span>
+            <a class="module-item-title" href="#">Introduction to Visual Communication (Reading)</a>
+            <span class="module-item-meta">Page</span>
+          </div>
+          <div class="module-item completed">
+            <span class="module-item-icon">✓</span>
+            <a class="module-item-title" href="#">Gestalt Principles Overview (Slides)</a>
+            <span class="module-item-meta">File · 4.2 MB</span>
+          </div>
+          <div class="module-item completed">
+            <span class="module-item-icon">✓</span>
+            <a class="module-item-title" href="#">Proximity, Similarity &amp; Continuity — Video Lecture</a>
+            <span class="module-item-meta">Media · 18 min</span>
+          </div>
+          <div class="module-item">
+            <span class="module-item-icon">📝</span>
+            <a class="module-item-title" href="#" onclick="document.querySelector('[onclick*=assignment]').click(); return false;">Assignment 1: Gestalt Composition Study</a>
+            <span class="module-item-meta">Due 24 May</span>
+          </div>
+          <div class="module-item">
+            <span class="module-item-icon">❓</span>
+            <a class="module-item-title" href="#" onclick="document.querySelector('[onclick*=quiz]').click(); return false;">Quiz: Design Principles Check-in</a>
+            <span class="module-item-meta">10 pts</span>
+          </div>
+        </div>
+
+        <div class="module">
+          <div class="module-header">
+            <span>Week 2 — Typography &amp; Visual Hierarchy</span>
+            <span>0/4 completed</span>
+          </div>
+          <div class="module-item">
+            <span class="module-item-icon">📄</span>
+            <a class="module-item-title" href="#">The Anatomy of Type — Reading</a>
+            <span class="module-item-meta">Page</span>
+          </div>
+          <div class="module-item">
+            <span class="module-item-icon">🎬</span>
+            <a class="module-item-title" href="#">Grid Systems &amp; Typographic Scale — Video</a>
+            <span class="module-item-meta">Media · 22 min</span>
+          </div>
+          <div class="module-item">
+            <span class="module-item-icon">📝</span>
+            <a class="module-item-title" href="#">Assignment 2: Typographic Poster</a>
+            <span class="module-item-meta">Due 31 May</span>
+          </div>
+          <div class="module-item">
+            <span class="module-item-icon">💬</span>
+            <a class="module-item-title" href="#" onclick="document.querySelector('[onclick*=discussion]').click(); return false;">Discussion: Contemporary Irish Typography</a>
+            <span class="module-item-meta">3 replies</span>
+          </div>
+        </div>
+
+        <div class="module">
+          <div class="module-header">
+            <span>Week 3 — Colour Theory &amp; Emotional Response</span>
+            <span>Unlocks 3 Jun</span>
+          </div>
+          <div class="module-item" style="color:#9aa5ae">
+            <span class="module-item-icon">🔒</span>
+            <span class="module-item-title" style="color:#9aa5ae; pointer-events:none">Colour Models: RGB, CMYK &amp; Pantone</span>
+            <span class="module-item-meta">Locked</span>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ════════════════════════════════════════════════════════════
+           PAGE 2 — ASSIGNMENT
+           URL path: /courses/101/assignments/201
+           detectCanvasPageType() → ASSIGNMENT
+           Content extracted via: .description.user_content
+           Title extracted via:   .page-title  (h1 or data-testid)
+      ═══════════════════════════════════════════════════════════════ -->
+      <div id="page-assignment" class="page">
+        <nav class="ic-app-crumbs" aria-label="breadcrumbs">
+          <a href="#">NCAD Canvas</a>
+          <span>Design Fundamentals I</span>
+          <span>Assignment 1: Gestalt Composition Study</span>
+        </nav>
+
+        <div id="assignment_show">
+          <h1 class="title page-title">Assignment 1: Gestalt Composition Study</h1>
+
+          <div class="assignment-meta">
+            <span><strong>Due:</strong> Sunday 24 May, 23:59</span>
+            <span><strong>Points:</strong> 40</span>
+            <span><strong>Submission:</strong> PDF upload</span>
+            <span><strong>Group:</strong> Individual</span>
+          </div>
+
+          <!-- Primary content block — canvas-adapter looks for .description.user_content -->
+          <div class="description user_content">
+
+            <h2>Overview</h2>
+            <p>
+              This assignment asks you to demonstrate your understanding of the Gestalt principles
+              of visual perception by creating a composition that intentionally exploits at least
+              <strong>four of the six principles</strong> covered in Week 1: proximity, similarity,
+              continuity, closure, figure–ground, and prägnanz (simplicity).
+            </p>
+            <p>
+              Your work should be developed in <strong>Adobe Illustrator or Figma</strong> and
+              submitted as a single A3 PDF (300 dpi, CMYK colour space). Include a one-page
+              reflective annotation (approx. 250 words) explaining how each principle manifests
+              in your composition and why you made specific visual decisions.
+            </p>
+
+            <h2>Learning Outcomes</h2>
+            <p>On successful completion of this assignment, you will be able to:</p>
+            <ul>
+              <li>Identify and apply Gestalt principles in original visual work.</li>
+              <li>Articulate design decisions using appropriate critical vocabulary.</li>
+              <li>Produce print-ready artwork to professional technical specifications.</li>
+              <li>Evaluate the perceptual impact of compositional choices.</li>
+            </ul>
+
+            <h2>Task Breakdown</h2>
+
+            <h3>Part A — Research (10 pts)</h3>
+            <p>
+              Select one historical or contemporary designer whose work demonstrates strong
+              application of Gestalt principles. Suitable references include <em>Josef Müller-Brockmann</em>,
+              <em>Paula Scher</em>, <em>Neville Brody</em>, or <em>Aoife Doyle</em>. Write a short
+              contextual note (150 words) situating their approach and identifying which principles
+              they employ most prominently.
+            </p>
+
+            <h3>Part B — Composition (20 pts)</h3>
+            <p>
+              Produce a single-page abstract or semi-abstract composition, A3 landscape.
+              The composition must be <strong>non-representational</strong> — avoid recognisable
+              figures, objects, or letterforms. Use a restricted palette of no more than
+              <strong>three spot colours</strong> plus black and white.
+            </p>
+            <blockquote>
+              "Design is not just what it looks like and feels like. Design is how it works."
+              — Steve Jobs. Consider this in relation to perceptual organisation: your composition
+              should guide the viewer's eye with intention.
+            </blockquote>
+
+            <h3>Part C — Reflective Annotation (10 pts)</h3>
+            <p>
+              Annotate your final composition with numbered callouts (1–4 minimum) keyed to a
+              written annotation that names each Gestalt principle and explains the specific
+              visual device used to achieve it. Use correct design terminology throughout.
+            </p>
+
+            <div class="rubric-callout">
+              ⚠️ <strong>Submission checklist:</strong> A3 PDF at 300 dpi · CMYK colour profile ·
+              Named <code>StudentID_Gestalt_Final.pdf</code> · Uploaded before 23:59 on the due date.
+              Late submissions will incur a 10% penalty per 24 hours.
+            </div>
+
+            <h2>Resources</h2>
+            <ul>
+              <li><em>Thinking with Type</em> — Ellen Lupton (library e-book available)</li>
+              <li><em>Grid Systems in Graphic Design</em> — Josef Müller-Brockmann</li>
+              <li>Canvas Week 1 slides: Gestalt Principles Overview</li>
+              <li>NCAD Library digital resources: JSTOR Design Studies collection</li>
+            </ul>
+
+          </div><!-- /.description.user_content -->
+        </div><!-- /#assignment_show -->
+      </div><!-- /#page-assignment -->
+
+
+      <!-- ════════════════════════════════════════════════════════════
+           PAGE 3 — QUIZ
+           URL path: /courses/101/quizzes/301
+           detectCanvasPageType() → QUIZ
+           Questions extracted via: .question > .question_text
+           Answers via: .answer .answer_label
+      ═══════════════════════════════════════════════════════════════ -->
+      <div id="page-quiz" class="page">
+        <nav class="ic-app-crumbs" aria-label="breadcrumbs">
+          <a href="#">NCAD Canvas</a>
+          <span>Design Fundamentals I</span>
+          <span>Quiz: Design Principles Check-in</span>
+        </nav>
+
+        <div id="quiz-content">
+          <div class="quiz-header">
+            <h1 class="page-title">Quiz: Design Principles Check-in</h1>
+            <p>10 questions · 10 points · Time limit: 20 minutes</p>
+          </div>
+
+          <div class="question" data-testid="question" id="question_1">
+            <div class="question_text">
+              <strong>1.</strong> The Gestalt principle that describes our tendency to perceive
+              objects placed close together as belonging to the same group is called:
+            </div>
+            <ul class="answers">
+              <li class="answer">
+                <input type="radio" name="q1" id="q1a" role="radio" />
+                <label class="answer_label" for="q1a">Similarity</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q1" id="q1b" role="radio" />
+                <label class="answer_label" for="q1b">Proximity</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q1" id="q1c" role="radio" />
+                <label class="answer_label" for="q1c">Closure</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q1" id="q1d" role="radio" />
+                <label class="answer_label" for="q1d">Continuity</label>
+              </li>
+            </ul>
+          </div>
+
+          <div class="question" data-testid="question" id="question_2">
+            <div class="question_text">
+              <strong>2.</strong> In typography, <em>leading</em> refers to:
+            </div>
+            <ul class="answers">
+              <li class="answer">
+                <input type="radio" name="q2" id="q2a" role="radio" />
+                <label class="answer_label" for="q2a">The space between individual letter pairs</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q2" id="q2b" role="radio" />
+                <label class="answer_label" for="q2b">The overall spacing across a line of text</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q2" id="q2c" role="radio" />
+                <label class="answer_label" for="q2c">The vertical distance between lines of text</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q2" id="q2d" role="radio" />
+                <label class="answer_label" for="q2d">The weight of a typeface relative to its x-height</label>
+              </li>
+            </ul>
+          </div>
+
+          <div class="question" data-testid="question" id="question_3">
+            <div class="question_text">
+              <strong>3.</strong> Which colour model is used for screen-based digital design?
+            </div>
+            <ul class="answers">
+              <li class="answer">
+                <input type="radio" name="q3" id="q3a" role="radio" />
+                <label class="answer_label" for="q3a">CMYK</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q3" id="q3b" role="radio" />
+                <label class="answer_label" for="q3b">Pantone (PMS)</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q3" id="q3c" role="radio" />
+                <label class="answer_label" for="q3c">RGB</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q3" id="q3d" role="radio" />
+                <label class="answer_label" for="q3d">LAB</label>
+              </li>
+            </ul>
+          </div>
+
+          <div class="question" data-testid="question" id="question_4">
+            <div class="question_text">
+              <strong>4.</strong> The principle of <em>figure–ground</em> in visual design refers to:
+            </div>
+            <ul class="answers">
+              <li class="answer">
+                <input type="radio" name="q4" id="q4a" role="radio" />
+                <label class="answer_label" for="q4a">The hierarchy of elements from foreground to background</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q4" id="q4b" role="radio" />
+                <label class="answer_label" for="q4b">The perceptual separation of an object from its surrounding field</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q4" id="q4c" role="radio" />
+                <label class="answer_label" for="q4c">The use of negative space to create implied forms</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q4" id="q4d" role="radio" />
+                <label class="answer_label" for="q4d">The contrast ratio between text and background</label>
+              </li>
+            </ul>
+          </div>
+
+          <div class="question" data-testid="question" id="question_5">
+            <div class="question_text">
+              <strong>5.</strong> Josef Müller-Brockmann is most closely associated with which
+              design movement and typographic style?
+            </div>
+            <ul class="answers">
+              <li class="answer">
+                <input type="radio" name="q5" id="q5a" role="radio" />
+                <label class="answer_label" for="q5a">Art Nouveau, decorative serif typography</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q5" id="q5b" role="radio" />
+                <label class="answer_label" for="q5b">Swiss International Style, systematic grid use and Helvetica</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q5" id="q5c" role="radio" />
+                <label class="answer_label" for="q5c">Postmodernism, layered mixed-media typography</label>
+              </li>
+              <li class="answer">
+                <input type="radio" name="q5" id="q5d" role="radio" />
+                <label class="answer_label" for="q5d">Brutalism, raw unpolished layouts</label>
+              </li>
+            </ul>
+          </div>
+
+        </div><!-- /#quiz-content -->
+      </div><!-- /#page-quiz -->
+
+
+      <!-- ════════════════════════════════════════════════════════════
+           PAGE 4 — DISCUSSION
+           URL path: /courses/101/discussion_topics/401
+           detectCanvasPageType() → DISCUSSION
+           Content extracted via: .discussion-topic .user_content
+      ═══════════════════════════════════════════════════════════════ -->
+      <div id="page-discussion" class="page">
+        <nav class="ic-app-crumbs" aria-label="breadcrumbs">
+          <a href="#">NCAD Canvas</a>
+          <span>Design Fundamentals I</span>
+          <span>Discussion: Contemporary Irish Typography</span>
+        </nav>
+
+        <div id="discussion_topic">
+          <h1 class="discussion-title">Discussion: Contemporary Irish Typography</h1>
+          <p class="discussion-meta">Posted by <strong>Aoife Brennan (Lecturer)</strong> · 14 May 2026 · 3 replies</p>
+
+          <div class="discussion-topic">
+            <div class="user_content">
+              <p>
+                Irish graphic design has experienced a significant renewal over the past decade,
+                with a growing number of practitioners exploring the intersection of vernacular
+                lettering traditions and contemporary digital practice. Studios such as
+                <strong>Atelier David Smith</strong>, <strong>Unthink</strong>, and
+                <strong>Provisional</strong> have produced work that consciously references
+                the material culture of Irish signage, shopfront lettering, and Celtic
+                manuscript traditions — while remaining formally rigorous and commercially viable.
+              </p>
+              <p>
+                For this discussion, I'd like you to identify <strong>one contemporary Irish
+                designer or design studio</strong> whose typographic work you find compelling.
+                You should:
+              </p>
+              <ul>
+                <li>Name the designer/studio and provide a brief background (2–3 sentences)</li>
+                <li>Share a specific example of their typographic work (include an image link or URL if possible)</li>
+                <li>Explain what visual or conceptual qualities make this work distinctive</li>
+                <li>Respond substantively to at least <strong>one peer's post</strong></li>
+              </ul>
+              <p>
+                Please post your initial contribution by <strong>Wednesday 20 May</strong> and
+                your peer response by <strong>Friday 22 May</strong>. The quality of your
+                reasoning matters more than the volume — write with precision.
+              </p>
+            </div>
+          </div>
+
+          <div class="discussion-reply-header">3 Replies</div>
+
+          <div class="discussion-entry">
+            <div class="discussion-avatar" style="background:#3b82f6;">SC</div>
+            <div class="discussion-entry-body">
+              <div class="discussion-entry-author">Seán Callahan</div>
+              <div class="discussion-entry-date">15 May 2026, 11:42</div>
+              <div class="discussion-entry-content">
+                I've been looking at the work of <strong>Conor & David</strong>, a Dublin-based
+                studio known for their identity work for the Gate Theatre. Their use of a
+                custom condensed serif — clearly referencing 1950s Irish broadsheet typography —
+                creates an immediate sense of cultural specificity while still feeling
+                contemporary in its proportions. The restraint they show in avoiding
+                historicism is what I find most impressive.
+              </div>
+            </div>
+          </div>
+
+          <div class="discussion-entry">
+            <div class="discussion-avatar" style="background:#8b5cf6;">MF</div>
+            <div class="discussion-entry-body">
+              <div class="discussion-entry-author">Méadhbh Flynn</div>
+              <div class="discussion-entry-date">16 May 2026, 09:17</div>
+              <div class="discussion-entry-content">
+                I'd like to write about <strong>Red&amp;Grey</strong> and their identity for
+                the Irish Museum of Modern Art. The wordmark uses a geometric sans-serif with
+                very tight tracking — it feels institutional but not cold. The way the letterforms
+                sit in the grid relates directly to how IMMA curates space in a physical gallery.
+                Typography as architecture, essentially.
+              </div>
+            </div>
+          </div>
+
+          <div class="discussion-entry">
+            <div class="discussion-avatar" style="background:#10b981;">DP</div>
+            <div class="discussion-entry-body">
+              <div class="discussion-entry-author">Darragh Prendergast</div>
+              <div class="discussion-entry-date">17 May 2026, 14:55</div>
+              <div class="discussion-entry-content">
+                Responding to Méadhbh — the IMMA identity is a great example. I'd add that
+                the colour system (neutral backgrounds with a single accent) mirrors how the
+                gallery presents artwork: it gets out of the way. I'm writing about
+                <strong>Áine Carroll Studio</strong> whose editorial work for <em>Gorse</em>
+                literary journal uses old-style figures and a wide measure that's quite unusual
+                for a contemporary Irish publication. It reads as confidence in the reader.
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /#discussion_topic -->
+      </div><!-- /#page-discussion -->
+
+    </main>
+  </div><!-- /#application -->
+
+  <!-- Dev helper: visible reminder that this is a mock page -->
+  <div id="assist-mock-banner">
+    <strong>AssisT Mock</strong> — Canvas DOM simulation · Enable All Sites mode in the extension popup
+  </div>
+
+  <script>
+    /**
+     * Tab switcher — uses history.pushState so the URL pathname matches
+     * Canvas patterns, which makes detectCanvasPageType() work correctly.
+     *
+     * Paths used:
+     *   /courses/101                          → COURSE_HOME
+     *   /courses/101/assignments/201          → ASSIGNMENT
+     *   /courses/101/quizzes/301              → QUIZ
+     *   /courses/101/discussion_topics/401   → DISCUSSION
+     */
+    function showPage(pageId, tabEl, path) {
+      // Hide all pages
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      // Deactivate all tabs
+      document.querySelectorAll('.course-tab').forEach(t => t.classList.remove('active'));
+
+      // Show selected page
+      document.getElementById('page-' + pageId).classList.add('active');
+      // Activate tab
+      tabEl.classList.add('active');
+
+      // Update URL so canvas-adapter.js detectCanvasPageType() returns the right type
+      history.pushState({}, '', path);
+
+      console.log('[AssisT Mock] Navigated to:', path, '→ page type will be detected by adapter');
+    }
+
+    // Log Canvas detection result on load (useful for verifying adapter works)
+    window.addEventListener('load', () => {
+      console.log('[AssisT Mock] Body classes:', document.body.className);
+      console.log('[AssisT Mock] #application present:', !!document.getElementById('application'));
+      console.log('[AssisT Mock] Current path:', window.location.pathname);
+      console.log('[AssisT Mock] Extension should detect this as a Canvas environment.');
+    });
+  </script>
+</body>
+</html>
