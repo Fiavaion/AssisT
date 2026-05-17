@@ -98,19 +98,18 @@ export async function getAIMode(featureName = 'summarization') {
 
     if (aiMode === 'cloud') {
       const provider = result.cloudProvider || 'anthropic';
-      // Check for per-feature model override (only for anthropic, only when auto-select is off)
       let modelKey;
       const autoSelect = result.featureModelAutoSelect !== false; // default true
       const featureOverride = result[`featureModel_${featureName}`];
-      if (
-        !autoSelect &&
-        featureOverride &&
-        featureOverride !== 'auto' &&
-        provider === 'anthropic'
-      ) {
+      if (autoSelect) {
+        // Auto-select ON: user's dropdown model is always respected — never override with feature defaults
+        modelKey = result.cloudModel || 'haiku-4.5';
+      } else if (featureOverride && featureOverride !== 'auto' && provider === 'anthropic') {
+        // Auto-select OFF + per-feature override explicitly set
         modelKey = FEATURE_MODEL_KEY_MAP[featureOverride] || featureOverride;
       } else {
-        modelKey = result.cloudModel || getFeatureDefault(provider, featureName) || 'haiku-4.5';
+        // Auto-select OFF, no per-feature override: use feature-optimal model
+        modelKey = getFeatureDefault(provider, featureName) || result.cloudModel || 'haiku-4.5';
       }
       return {
         aiMode: 'cloud',
