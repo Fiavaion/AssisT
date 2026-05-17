@@ -798,14 +798,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         let options = message.options || {};
 
-        // If taskType provided, use model routing to get optimal model
+        // If taskType provided, use model routing to get optimal model.
+        // Wrapped in its own try/catch so routing errors (e.g. 5s availability AbortError)
+        // never kill the generation request — we fall through to the user's default model.
         if (message.taskType || options.taskType) {
-          const status = await checkOllamaAvailability();
-          if (status.available && status.models.length > 0) {
-            const taskType = message.taskType || options.taskType;
-            const routing = getOptimalModelForTask(taskType, options.level, status.models);
-            options = { ...options, model: routing.model };
-            console.log(`[LLM Generate] Task "${taskType}" → ${routing.model} (${routing.reason})`);
+          try {
+            const status = await checkOllamaAvailability();
+            if (status.available && status.models.length > 0) {
+              const taskType = message.taskType || options.taskType;
+              const routing = getOptimalModelForTask(taskType, options.level, status.models);
+              options = { ...options, model: routing.model };
+              console.log(
+                `[LLM Generate] Task "${taskType}" → ${routing.model} (${routing.reason})`
+              );
+            }
+          } catch (availErr) {
+            console.warn(
+              '[LLM Generate] Model routing skipped (availability check failed):',
+              availErr.message
+            );
           }
         }
 
