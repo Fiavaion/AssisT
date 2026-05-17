@@ -27,8 +27,8 @@ const ANTHROPIC_MODELS = {
     avgCost: 0.003,
     outputCost: 0.015,
   },
-  'opus-4.6': {
-    id: 'claude-opus-4-6',
+  'opus-4.7': {
+    id: 'claude-opus-4-7',
     name: 'Opus (Most Capable)',
     description: 'Most capable for complex work',
     avgCost: 0.015,
@@ -37,15 +37,20 @@ const ANTHROPIC_MODELS = {
 };
 
 const OPENAI_MODELS = {
-  'gpt-4o-mini': {
-    id: 'gpt-4o-mini',
-    name: 'GPT-4o Mini (Fast)',
-    description: 'Fast and economical',
+  'gpt-5.5': {
+    id: 'gpt-5.5',
+    name: 'GPT-5.5 (Most Capable)',
+    description: 'Latest flagship — complex tasks',
   },
   'gpt-4o': {
     id: 'gpt-4o',
     name: 'GPT-4o (Recommended)',
     description: 'Best for everyday tasks',
+  },
+  'gpt-4o-mini': {
+    id: 'gpt-4o-mini',
+    name: 'GPT-4o Mini (Fast)',
+    description: 'Fast and economical',
   },
   'o3-mini': {
     id: 'o3-mini',
@@ -55,10 +60,15 @@ const OPENAI_MODELS = {
 };
 
 const GOOGLE_MODELS = {
+  'gemini-3.1-pro-preview': {
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro (Most Capable)',
+    description: 'Most capable — complex tasks',
+  },
   'gemini-2.5-pro': {
     id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro (Most Capable)',
-    description: 'Most capable',
+    name: 'Gemini 2.5 Pro',
+    description: 'Highly capable',
   },
   'gemini-2.0-flash': {
     id: 'gemini-2.0-flash',
@@ -249,7 +259,7 @@ export const REGISTRY = {
       socraticTutor: 'sonnet-4.6',
       imageUnderstanding: 'sonnet-4.6',
       studyPathGenerator: 'sonnet-4.6',
-      multiDocCompare: 'opus-4.6',
+      multiDocCompare: 'opus-4.7',
       knowledgeGraph: 'sonnet-4.6',
     },
   },
@@ -260,11 +270,11 @@ export const REGISTRY = {
       summarization: 'gpt-4o-mini',
       textSimplification: 'gpt-4o',
       assignmentBreakdown: 'gpt-4o',
-      citationAnalyzer: 'gpt-4o',
-      socraticTutor: 'gpt-4o',
+      citationAnalyzer: 'gpt-5.5',
+      socraticTutor: 'gpt-5.5',
       imageUnderstanding: 'gpt-4o',
-      studyPathGenerator: 'gpt-4o',
-      multiDocCompare: 'gpt-4o',
+      studyPathGenerator: 'gpt-5.5',
+      multiDocCompare: 'gpt-5.5',
       knowledgeGraph: 'gpt-4o',
     },
   },
@@ -276,10 +286,10 @@ export const REGISTRY = {
       textSimplification: 'gemini-2.0-flash',
       assignmentBreakdown: 'gemini-2.0-flash',
       citationAnalyzer: 'gemini-2.0-flash',
-      socraticTutor: 'gemini-2.0-flash',
+      socraticTutor: 'gemini-3.1-pro-preview',
       imageUnderstanding: 'gemini-2.0-flash',
-      studyPathGenerator: 'gemini-2.0-flash',
-      multiDocCompare: 'gemini-2.0-flash',
+      studyPathGenerator: 'gemini-3.1-pro-preview',
+      multiDocCompare: 'gemini-3.1-pro-preview',
       knowledgeGraph: 'gemini-2.0-flash',
     },
   },
