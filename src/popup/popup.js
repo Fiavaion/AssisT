@@ -3944,8 +3944,8 @@ class PopupController {
         { id: 'o3-mini', name: 'o3 Mini (Reasoning)' },
       ],
       google: [
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Most Capable)' },
         { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended)' },
-        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
         { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (Fast)' },
       ],
       perplexity: [
@@ -10170,8 +10170,8 @@ class PopupController {
         { id: 'o3-mini', name: 'o3 Mini (Reasoning)' },
       ],
       google: [
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Most Capable)' },
         { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended)' },
-        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
         { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (Fast)' },
       ],
       perplexity: [

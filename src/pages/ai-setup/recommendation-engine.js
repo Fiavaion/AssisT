@@ -107,7 +107,11 @@ export function getModeInfo(mode) {
       icon: '☁️',
       title: 'Cloud AI',
       subtitle: 'Most powerful, needs API key',
-      pros: ['Most capable models (Claude, GPT-4, Gemini)', 'No GPU required', 'Fast responses'],
+      pros: [
+        'Most capable models (Claude, GPT-4o, Gemini 2.0)',
+        'No GPU required',
+        'Fast responses',
+      ],
       cons: ['Requires API key (free tier available)', 'Sends text to cloud provider'],
     },
     webllm: {
