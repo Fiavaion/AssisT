@@ -94,21 +94,39 @@ Output ONLY the JSON object, starting with { and ending with }.`;
 
       // Parse JSON response
       try {
-        // Clean response: strip markdown fences and any leading "json" label
-        const cleanedResponse = aiResult.text
-          .replace(/```json\s*/gi, '')
-          .replace(/```\s*/g, '')
-          // Only strip a bare "json" word at the very start of the string (not inside a key)
-          .replace(/^\s*json\b\s*/i, '')
-          .trim();
+        let parsed;
 
-        // Try to find JSON object in response
-        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          // Clean up common JSON issues
-          const jsonStr = jsonMatch[0].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        // Local mode with format:'json' — service worker pre-parses and returns an object directly.
+        // If it failed to parse, it returns { raw, parseError: true }.
+        if (typeof aiResult.text === 'object') {
+          if (aiResult.text.parseError) {
+            // SW couldn't parse — re-attempt with the raw string below
+            const rawStr = aiResult.text.raw || '';
+            const rawMatch = rawStr.replace(/<think>[\s\S]*?<\/think>/g, '').match(/\{[\s\S]*\}/);
+            if (rawMatch) {
+              const jsonStr = rawMatch[0].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+              parsed = JSON.parse(jsonStr);
+            }
+          } else {
+            parsed = aiResult.text;
+          }
+        } else {
+          // String response — clean markdown fences then extract JSON object
+          const cleanedResponse = aiResult.text
+            .replace(/<think>[\s\S]*?<\/think>/g, '')
+            .replace(/```json\s*/gi, '')
+            .replace(/```\s*/g, '')
+            .replace(/^\s*json\b\s*/i, '')
+            .trim();
 
-          const parsed = JSON.parse(jsonStr);
+          const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const jsonStr = jsonMatch[0].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+            parsed = JSON.parse(jsonStr);
+          }
+        }
+
+        if (parsed) {
           console.log('[CitationAnalyzer] Parsed JSON:', parsed);
 
           // Validate required fields exist

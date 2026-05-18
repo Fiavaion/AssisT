@@ -98,7 +98,8 @@
     "*://*.moodle.org/*",
     "*://*.moodlecloud.com/*",
     "*://classroom.google.com/*",
-    "*://docs.google.com/*"
+    "*://docs.google.com/*",
+    "http://localhost:11434/*"
   ],
   "optional_host_permissions": [
     "<all_urls>"
