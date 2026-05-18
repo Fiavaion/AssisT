@@ -1244,9 +1244,9 @@ const OLLAMA_BASE_URL = 'http://localhost:11434';
 async function ollamaFetch(endpoint, options = {}) {
   const url = `${OLLAMA_BASE_URL}${endpoint}`;
 
-  // Service workers have special privileges - they can access localhost
-  // WITHOUT CORS restrictions. Don't set mode: 'cors' - let it use default.
-  // This allows the extension to work out-of-the-box without CORS setup.
+  // http://localhost:11434 is declared in host_permissions, which grants the
+  // service worker an explicit CORS bypass for Ollama. Do not set mode:'cors'
+  // explicitly — let Chrome use its default so the host_permissions grant applies.
   const fetchOptions = {
     ...options,
     headers: {
