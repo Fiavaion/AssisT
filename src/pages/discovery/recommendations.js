@@ -275,25 +275,67 @@ export function createProfile(scores) {
   };
 }
 
+// Maps quiz settingKey values → dot-path within assist_settings
+// Special cases: dyslexiaEnabled→dyslexiaMode, citationsEnabled→citation (singular)
+const SETTING_KEY_MAP = {
+  ttsEnabled: 'tts.enabled',
+  sttEnabled: 'stt.enabled',
+  textCustomizationEnabled: 'textCustomization.enabled',
+  readingGuideEnabled: 'readingGuide.enabled',
+  focusModeEnabled: 'focusMode.enabled',
+  readingModeEnabled: 'readingMode.enabled',
+  dyslexiaEnabled: 'dyslexiaMode.enabled',
+  screenOverlayEnabled: 'screenOverlay.enabled',
+  reducedMotionEnabled: 'reducedMotion.enabled',
+  pomodoroEnabled: 'pomodoro.enabled',
+  mediaControlEnabled: 'mediaControl.enabled',
+  annotationsEnabled: 'annotations.enabled',
+  citationsEnabled: 'citation.enabled',
+  highlightMenuEnabled: 'highlightMenu.enabled',
+  simplifyEnabled: 'simplify.enabled',
+  readingProgressEnabled: 'readingProgress.enabled',
+  translationEnabled: 'translation.enabled',
+  dictionaryEnabled: 'dictionary.enabled',
+  textStatsEnabled: 'textStats.enabled',
+  darkModeEnabled: 'screenOverlay.enabled',
+};
+
+function applyNestedPath(obj, dotPath, value) {
+  const keys = dotPath.split('.');
+  let node = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!node[keys[i]] || typeof node[keys[i]] !== 'object') {
+      node[keys[i]] = {};
+    }
+    node = node[keys[i]];
+  }
+  node[keys[keys.length - 1]] = value;
+}
+
 /**
  * Apply profile settings to Chrome storage
  * @param {Object} profile - Profile from createProfile()
  * @returns {Promise<void>}
  */
 export async function applyProfile(profile) {
-  const settings = {};
+  if (typeof chrome === 'undefined' || !chrome.storage) {
+    return;
+  }
+
+  const result = await chrome.storage.local.get('assist_settings');
+  const settings = result.assist_settings || {};
 
   profile.enabledFeatures.forEach(settingKey => {
-    settings[settingKey] = true;
+    const path = SETTING_KEY_MAP[settingKey];
+    if (path) {
+      applyNestedPath(settings, path, true);
+    }
   });
 
-  // Save to Chrome storage
-  if (typeof chrome !== 'undefined' && chrome.storage) {
-    await chrome.storage.local.set({
-      discoveryProfile: profile,
-      ...settings,
-    });
-  }
+  await chrome.storage.local.set({
+    assist_settings: settings,
+    discoveryProfile: profile,
+  });
 }
 
 /**
@@ -336,18 +378,22 @@ export async function clearProfile() {
  * @returns {Promise<void>}
  */
 export async function applyPreset(preset) {
-  const settings = {};
+  if (typeof chrome === 'undefined' || !chrome.storage) {
+    return;
+  }
 
-  // Enable all features in the preset
+  const result = await chrome.storage.local.get('assist_settings');
+  const settings = result.assist_settings || {};
+
   preset.features.forEach(settingKey => {
-    settings[settingKey] = true;
+    const path = SETTING_KEY_MAP[settingKey];
+    if (path) {
+      applyNestedPath(settings, path, true);
+    }
   });
 
-  // Save to Chrome storage
-  if (typeof chrome !== 'undefined' && chrome.storage) {
-    await chrome.storage.local.set({
-      discoveryPreset: preset.name,
-      ...settings,
-    });
-  }
+  await chrome.storage.local.set({
+    assist_settings: settings,
+    discoveryPreset: preset.name,
+  });
 }
