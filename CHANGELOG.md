@@ -68,7 +68,7 @@ First public release, launched on Global Accessibility Awareness Day (GAAD) 2026
 ### AI Assist (4 Privacy Modes)
 
 - Off, Local/Ollama (100% private), Browser/WebLLM (8 models via WebGPU, 100% private), Cloud (your own API key — Anthropic, Google Gemini, OpenAI, Perplexity)
-- AI features: Summarisation, Text Simplification, Study Path Generator, Assignment Breakdown, Socratic Tutor, Multi-Doc Compare, Citation Analyser, Knowledge Graph, Emotional TTS
+- AI features: Summarisation, Text Simplification, Study Path Generator, Assignment Breakdown, Socratic Tutor, Multi-Doc Compare, Citation Analyser, Knowledge Graph
 
 ### Keyboard Shortcuts & Profiles
 
