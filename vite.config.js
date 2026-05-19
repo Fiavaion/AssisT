@@ -33,12 +33,13 @@ export default defineConfig({
     minify: !isDev,
 
     rollupOptions: {
-      // No need to specify input - CRXJS reads from manifest.json
-      // It will automatically discover:
-      // - background service worker
-      // - content scripts
-      // - popup HTML
-      // - web_accessible_resources
+      // CRXJS reads entry points from manifest.json.
+      // Additional HTML pages (not in manifest fields) are listed here so
+      // Vite/CRXJS fully bundles them with their imports resolved.
+      input: {
+        // Offscreen document for WebLLM — needs WebGPU (DOM context, not SW)
+        'webllm-offscreen': 'src/pages/webllm-offscreen/offscreen.html',
+      },
     }
   },
 

@@ -145,13 +145,69 @@ import { REGISTRY } from '../ai/model-registry.js';
 import { cloudGenerate, cloudFetchModels, checkCloudAvailability } from '../ai/cloud-router.js';
 import { saveSecureAPIKey } from '../core/storage/secure-key-storage.js';
 
-// WebLLM imports (browser-native AI)
+// WebLLM — static data helpers only (no WebGPU needed in service worker)
 import {
-  getWebLLMClient,
-  checkWebLLMAvailability,
   getAvailableModels as getWebLLMModels,
   getCachedModels as getWebLLMCachedModels,
 } from '../ai/webllm-client.js';
+
+// ── WebLLM Offscreen Document helpers ────────────────────────────────────────
+// WebGPU is unavailable in service workers; all model operations run in a
+// hidden offscreen page and communicate back via chrome.runtime.sendMessage.
+
+const WEBLLM_OFFSCREEN_URL = 'src/pages/webllm-offscreen/offscreen.html';
+const pendingWebLLMRequests = new Map();
+let _webllmReqCounter = 0;
+
+async function ensureWebLLMOffscreen() {
+  const url = chrome.runtime.getURL(WEBLLM_OFFSCREEN_URL);
+  try {
+    const existing = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [url],
+    });
+    if (existing.length > 0) {
+      return;
+    }
+  } catch {
+    // getContexts not available on older Chrome — attempt create and ignore AlreadyExists
+  }
+  try {
+    await chrome.offscreen.createDocument({
+      url: WEBLLM_OFFSCREEN_URL,
+      reasons: ['WORKERS'],
+      justification: 'WebLLM model inference via WebGPU',
+    });
+  } catch (err) {
+    if (!err.message?.includes('Only a single')) {
+      throw err;
+    }
+  }
+}
+
+function sendToOffscreen(action, payload = {}) {
+  return new Promise(async (resolve, reject) => {
+    const requestId = `wllm_${++_webllmReqCounter}`;
+    const timer = setTimeout(() => {
+      pendingWebLLMRequests.delete(requestId);
+      reject(new Error('WebLLM offscreen request timed out'));
+    }, 180_000); // 3 min — enough for a first-time download
+    pendingWebLLMRequests.set(requestId, result => {
+      clearTimeout(timer);
+      resolve(result);
+    });
+    try {
+      await ensureWebLLMOffscreen();
+      chrome.runtime
+        .sendMessage({ ...payload, action, target: 'offscreen-webllm', requestId })
+        .catch(() => {});
+    } catch (err) {
+      clearTimeout(timer);
+      pendingWebLLMRequests.delete(requestId);
+      reject(err);
+    }
+  });
+}
 
 // ========================================
 // CONTEXT MENU SETUP (runs on every service worker start)
@@ -1045,29 +1101,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // ========================================
-  // WEBLLM MESSAGE HANDLERS
+  // WEBLLM MESSAGE HANDLERS (via Offscreen Document)
   // ========================================
+  // WebGPU is unavailable in service workers. All model operations are
+  // forwarded to src/pages/webllm-offscreen/offscreen.html which has
+  // full DOM + WebGPU access. Responses return via WEBLLM_OFFSCREEN_RESPONSE.
+
+  // Responses from the offscreen document — resolve pending promises
+  if (message.action === 'WEBLLM_OFFSCREEN_RESPONSE') {
+    const { requestId, ...result } = message;
+    const resolve = pendingWebLLMRequests.get(requestId);
+    if (resolve) {
+      pendingWebLLMRequests.delete(requestId);
+      resolve(result);
+    }
+    return false;
+  }
+
+  // Progress from offscreen — already broadcast to all extension contexts
+  // (ai-setup page and popup receive it directly), so just ignore here.
+  if (message.action === 'WEBLLM_PROGRESS' && message.source === 'webllm-offscreen') {
+    return false;
+  }
 
   // Check WebLLM/WebGPU availability
   if (message.action === 'WEBLLM_CHECK') {
-    checkWebLLMAvailability()
-      .then(status => {
-        console.log('[WebLLM] Availability check:', status);
-        sendResponse({ success: true, ...status });
-      })
-      .catch(error => {
-        console.error('[WebLLM] Availability check failed:', error);
+    (async () => {
+      try {
+        const result = await sendToOffscreen('WEBLLM_CHECK');
+        sendResponse(result);
+      } catch (error) {
         sendResponse({
           success: false,
           available: false,
           status: 'error',
           error: sanitizeError(error),
         });
-      });
-    return true; // Async
+      }
+    })();
+    return true;
   }
 
-  // Get available WebLLM models
+  // Get available WebLLM models (static data — no offscreen needed)
   if (message.action === 'WEBLLM_GET_MODELS') {
     try {
       const models = getWebLLMModels();
@@ -1083,140 +1158,88 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const cachedModelKeys = await getWebLLMCachedModels();
-        sendResponse({
-          success: true,
-          cachedModels: Array.from(cachedModelKeys),
-        });
-      } catch (error) {
-        console.error('[WebLLM] Error getting cached models:', error);
+        sendResponse({ success: true, cachedModels: Array.from(cachedModelKeys) });
+      } catch {
         sendResponse({ success: true, cachedModels: [] });
       }
     })();
-    return true; // Async
+    return true;
   }
 
   // Initialize WebLLM with specific model
   if (message.action === 'WEBLLM_INITIALIZE') {
     const { modelKey } = message;
-
     if (!modelKey) {
       sendResponse({ success: false, error: 'Model key required' });
       return false;
     }
-
     (async () => {
       try {
-        const client = getWebLLMClient();
-
-        // Create progress relay to popup
-        const progressCallback = progress => {
-          // Send progress update back to popup via chrome.runtime
-          // Note: Can't use sendResponse for multiple messages
-          // Popup should listen via chrome.runtime.onMessage for WEBLLM_PROGRESS
-          chrome.runtime
-            .sendMessage({
-              action: 'WEBLLM_PROGRESS',
-              modelKey,
-              progress,
-            })
-            .catch(() => {
-              // Popup may not be open, that's OK
-            });
-        };
-
-        await client.initialize(modelKey, progressCallback);
-
-        // Persist as downloaded so the wizard can detect it without IndexedDB guessing
-        const stored = await chrome.storage.local.get(['webllmCachedModels']);
-        const cachedSet = new Set(stored.webllmCachedModels || []);
-        cachedSet.add(modelKey);
-        await chrome.storage.local.set({ webllmCachedModels: Array.from(cachedSet) });
-
-        sendResponse({
-          success: true,
-          model: modelKey,
-          status: client.getStatus(),
-        });
+        const result = await sendToOffscreen('WEBLLM_INITIALIZE', { modelKey });
+        if (result.success) {
+          // Persist cached model so the wizard can detect it without IndexedDB guessing
+          const stored = await chrome.storage.local.get(['webllmCachedModels']);
+          const cachedSet = new Set(stored.webllmCachedModels || []);
+          cachedSet.add(modelKey);
+          await chrome.storage.local.set({ webllmCachedModels: Array.from(cachedSet) });
+        }
+        sendResponse(result);
       } catch (error) {
         console.error('[WebLLM] Initialization failed:', error);
-        sendResponse({ success: false, error: 'WebLLM initialisation failed' });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     })();
-
-    return true; // Async
+    return true;
   }
 
   // Generate text with WebLLM
   if (message.action === 'WEBLLM_GENERATE') {
     const { prompt, options } = message;
-
     if (!prompt) {
       sendResponse({ success: false, error: 'Prompt required' });
       return false;
     }
-
     (async () => {
       try {
-        const client = getWebLLMClient();
-
-        // Check if engine is ready
-        const status = client.getStatus();
-        if (!status.ready) {
-          // Try to auto-initialize with default model
-          const { webllmModel } = await chrome.storage.local.get(['webllmModel']);
-          const modelKey = webllmModel || 'llama-3.2-1b';
-
-          console.log('[WebLLM] Auto-initializing with', modelKey);
-          await client.initialize(modelKey);
-        }
-
-        const result = await client.generate(prompt, options || {});
-        sendResponse({ success: true, data: result });
+        const result = await sendToOffscreen('WEBLLM_GENERATE', { prompt, options });
+        sendResponse(result);
       } catch (error) {
         console.error('[WebLLM] Generation failed:', error);
-        sendResponse({
-          success: false,
-          error: sanitizeError(error),
-          requiresInit: error.message?.includes('not initialized') ?? false,
-        });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     })();
-
-    return true; // Async
+    return true;
   }
 
   // Get WebLLM engine status
   if (message.action === 'WEBLLM_STATUS') {
-    try {
-      const client = getWebLLMClient();
-      const status = client.getStatus();
-      sendResponse({ success: true, status });
-    } catch (error) {
-      sendResponse({ success: false, error: sanitizeError(error) });
-    }
-    return false;
+    (async () => {
+      try {
+        const result = await sendToOffscreen('WEBLLM_STATUS');
+        sendResponse(result);
+      } catch {
+        sendResponse({ success: true, status: { ready: false, loading: false, model: null } });
+      }
+    })();
+    return true;
   }
 
   // Unload WebLLM model (free memory)
   if (message.action === 'WEBLLM_UNLOAD') {
     (async () => {
       try {
-        const client = getWebLLMClient();
-        await client.unload();
-        sendResponse({ success: true });
+        const result = await sendToOffscreen('WEBLLM_UNLOAD');
+        sendResponse(result);
       } catch (error) {
         sendResponse({ success: false, error: sanitizeError(error) });
       }
     })();
-    return true; // Async
+    return true;
   }
 
   // WebLLM vision support (future enhancement)
   if (message.action === 'WEBLLM_VISION') {
-    sendResponse({
-      success: false,
-      error: 'Vision models not yet supported in WebLLM mode',
-    });
+    sendResponse({ success: false, error: 'Vision models not yet supported in WebLLM mode' });
     return false;
   }
 
