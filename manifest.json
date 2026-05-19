@@ -90,7 +90,8 @@
     "activeTab",
     "tabs",
     "contextMenus",
-    "scripting"
+    "scripting",
+    "offscreen"
   ],
   "host_permissions": [
     "*://*.instructure.com/*",
