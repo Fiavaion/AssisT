@@ -29,9 +29,9 @@ export const GoogleClassroomPageType = {
  */
 export function isGoogleClassroomPage() {
   const hostname = window.location.hostname;
+  const isMockPage = document.querySelector('[data-assist-mock="google-classroom"]') !== null;
 
-  // Check for Google Classroom domain
-  if (!hostname.includes('classroom.google.com')) {
+  if (!hostname.includes('classroom.google.com') && !isMockPage) {
     return false;
   }
 
