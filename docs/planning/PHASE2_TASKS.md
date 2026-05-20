@@ -10,7 +10,7 @@
 All code tasks complete. Human-touch items remaining before GAAD launch (May 21, 2026):
 
 - [x] Push AssisT repo to GitHub (pushed session 121 — 3 commits)
-- [ ] Push Fiavaion website repo to GitHub (2 commits ahead)
+- [x] Push Fiavaion website repo to GitHub (pushed session 122 — feature guide added)
 - [x] CWS screenshots — selected: 01, 02, 06, 07, 05 (Session 119)
 - [x] CWS store description — short + long written, AI modes corrected (Session 119)
 - [x] CWS promo video — `docs/CWS/assist_promo.mp4` rendered 84.6s (Session 119); upload to YouTube still needed
