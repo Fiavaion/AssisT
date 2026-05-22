@@ -242,7 +242,7 @@ export async function checkAIAvailable(modeInfo) {
   if (modeInfo.isWebLLM) {
     try {
       const response = await chrome.runtime.sendMessage({ action: 'WEBLLM_STATUS' });
-      if (response?.available || response?.ready) {
+      if (response?.status?.ready) {
         return {
           available: true,
           reason: '',

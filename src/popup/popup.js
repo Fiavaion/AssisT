@@ -21,6 +21,7 @@ import {
   checkAIAvailable,
   generateWithAI,
 } from '../features/shared/ai-feature-client.js';
+import { getCompatibleModels } from '../pages/ai-setup/ollama-catalog.js';
 
 // Make DOMPurify available for sanitize.js (popup runs in separate context from content script)
 window.DOMPurify = DOMPurify;
@@ -10422,7 +10423,7 @@ class PopupController {
       { key: 'qwen2.5-3b', label: 'Qwen 2.5 3B (1.9 GB)' },
       { key: 'mistral-7b', label: 'Mistral 7B (4.4 GB)' },
       { key: 'llama-3.1-8b', label: 'Llama 3.1 8B (4.9 GB)' },
-      { key: 'gemma-7b', label: 'Gemma 7B (4.3 GB)' },
+      { key: 'gemma-9b', label: 'Gemma 2 9B (5.4 GB)' },
     ];
 
     const s = await chrome.storage.local.get(['webllmModel', 'webllmCachedModels']);
@@ -10594,10 +10595,10 @@ class PopupController {
         category: 'high-quality',
       },
       {
-        key: 'gemma-7b',
-        name: 'Gemma 7B',
-        size: '4.3 GB',
-        speed: '6–11 tok/s',
+        key: 'gemma-9b',
+        name: 'Gemma 2 9B',
+        size: '5.4 GB',
+        speed: '5–10 tok/s',
         quant: 'q4f16_1',
         category: 'high-quality',
       },
@@ -10756,6 +10757,8 @@ class PopupController {
    * @param {boolean} isModal
    */
   async _renderLocalPanel(container, _isModal) {
+    let lastDetectedModels = [];
+
     // Status row
     const card = document.createElement('div');
     card.className = 'ai-panel-row';
@@ -10793,6 +10796,7 @@ class PopupController {
     const { ollamaModel: savedModel = '' } = await chrome.storage.local.get('ollamaModel');
 
     const populateModels = detectedModels => {
+      lastDetectedModels = detectedModels || [];
       modelSel.innerHTML = '';
       const models =
         detectedModels && detectedModels.length > 0
@@ -10851,6 +10855,134 @@ class PopupController {
     await checkOllama();
 
     this.attachInteractiveHandler(checkBtn, 'Check Ollama Status', checkOllama);
+
+    // ── Get more models ────────────────────────────────────────────────────────
+    const catalogDetails = document.createElement('details');
+    catalogDetails.className = 'ollama-popup-catalog';
+
+    const catalogSummary = document.createElement('summary');
+    catalogSummary.className = 'ollama-popup-catalog-summary';
+    catalogSummary.textContent = 'Get more models';
+    catalogDetails.appendChild(catalogSummary);
+
+    const catalogBody = document.createElement('div');
+    catalogBody.className = 'ollama-popup-catalog-body';
+    catalogDetails.appendChild(catalogBody);
+    container.appendChild(catalogDetails);
+
+    const buildPopupCatalog = () => {
+      if (catalogBody.dataset.built) {
+        return;
+      }
+      catalogBody.dataset.built = '1';
+
+      const ramGB = navigator.deviceMemory || 4;
+      const installSet = new Set(lastDetectedModels.map(m => m.toLowerCase().split(':')[0]));
+      const compatible = getCompatibleModels(ramGB);
+
+      if (compatible.length === 0) {
+        const msg = document.createElement('p');
+        msg.style.cssText = 'font-size:11px;color:var(--color-text-muted);padding:6px 0;';
+        msg.textContent = 'No compatible models found for your system.';
+        catalogBody.appendChild(msg);
+        return;
+      }
+
+      compatible.forEach(model => {
+        const baseName = model.name.split(':')[0];
+        const isInstalled = installSet.has(baseName) || installSet.has(model.name.toLowerCase());
+
+        const row = document.createElement('div');
+        row.className = 'ollama-popup-model-row';
+
+        const info = document.createElement('div');
+        info.className = 'ollama-popup-model-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'ollama-popup-model-name';
+        nameEl.textContent = model.label;
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'ollama-popup-model-meta';
+        metaEl.textContent = `${model.size} · ${model.categoryLabel}`;
+
+        info.appendChild(nameEl);
+        info.appendChild(metaEl);
+
+        const actionEl = document.createElement('div');
+        actionEl.className = 'ollama-popup-model-action';
+
+        if (isInstalled) {
+          const installed = document.createElement('span');
+          installed.className = 'ollama-popup-installed';
+          installed.textContent = '✓';
+          installed.title = 'Installed';
+          actionEl.appendChild(installed);
+        } else {
+          const dlBtn = document.createElement('button');
+          dlBtn.type = 'button';
+          dlBtn.className = 'ai-panel-action-btn';
+          dlBtn.textContent = 'Get';
+          dlBtn.style.fontSize = '11px';
+          dlBtn.setAttribute('aria-label', `Download ${model.label}`);
+
+          const progressBar = document.createElement('div');
+          progressBar.className = 'ollama-popup-progress';
+          progressBar.hidden = true;
+
+          const barFill = document.createElement('div');
+          barFill.className = 'ollama-popup-progress-fill';
+          progressBar.appendChild(barFill);
+
+          this.attachInteractiveHandler(dlBtn, `Download ${model.label}`, () => {
+            dlBtn.disabled = true;
+            dlBtn.textContent = '…';
+            progressBar.hidden = false;
+
+            const listener = msg => {
+              if (msg.type !== 'LLM_INSTALL_PROGRESS' || msg.modelName !== model.name) {
+                return;
+              }
+              const pct = msg.progress?.percent || 0;
+              barFill.style.width = `${pct}%`;
+              dlBtn.title = `${pct}%`;
+            };
+            chrome.runtime.onMessage.addListener(listener);
+
+            chrome.runtime.sendMessage(
+              { action: 'LOCAL_LLM_INSTALL_MODEL', modelName: model.name },
+              response => {
+                chrome.runtime.onMessage.removeListener(listener);
+                if (response?.success) {
+                  barFill.style.width = '100%';
+                  dlBtn.textContent = '✓';
+                  dlBtn.disabled = true;
+                  row.classList.add('installed');
+                  checkOllama();
+                } else {
+                  dlBtn.disabled = false;
+                  dlBtn.textContent = 'Retry';
+                  dlBtn.title = response?.error || 'Failed';
+                }
+              }
+            );
+          });
+
+          actionEl.appendChild(dlBtn);
+          actionEl.appendChild(progressBar);
+        }
+
+        row.appendChild(info);
+        row.appendChild(actionEl);
+        catalogBody.appendChild(row);
+      });
+    };
+
+    catalogDetails.addEventListener('toggle', () => {
+      if (catalogDetails.open) {
+        buildPopupCatalog();
+      }
+    });
   }
 
   /**

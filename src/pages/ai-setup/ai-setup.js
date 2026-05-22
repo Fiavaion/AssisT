@@ -12,6 +12,7 @@
 import { assess } from './system-detector.js';
 import { recommend, getModeInfo, buildSystemPromptFromProfile } from './recommendation-engine.js';
 import { attachAccessibleHandler, attachDelegatedHandler } from '../../utils/event-handlers.js';
+import { getCompatibleModels } from './ollama-catalog.js';
 
 // ─── WebLLM Model Data ────────────────────────────────────────────────────────
 // Inlined here: ai-setup is a web_accessible_resource (files copied verbatim,
@@ -82,13 +83,13 @@ const WEBLLM_REGISTRY = {
       avgSpeed: 'Slower (5–10 tok/s)',
       category: 'high-quality',
     },
-    'gemma-7b': {
-      id: 'gemma-7b-it-q4f16_1-MLC',
-      name: 'Gemma 7B',
-      size: '4.3GB',
-      vramRequired: '5.5GB',
-      description: "Google's larger model, high performance",
-      avgSpeed: 'Slower (6–11 tok/s)',
+    'gemma-9b': {
+      id: 'gemma-2-9b-it-q4f16_1-MLC',
+      name: 'Gemma 2 9B',
+      size: '5.4GB',
+      vramRequired: '6.5GB',
+      description: "Google's Gemma 2 9B — high performance",
+      avgSpeed: 'Slower (5–10 tok/s)',
       category: 'high-quality',
     },
   },
@@ -437,29 +438,7 @@ function updateApiKeyLink(provider) {
   }
 }
 
-// Suggested Ollama models to pull if none installed
-const OLLAMA_SUGGESTED = [
-  {
-    name: 'llama3.2',
-    label: 'Llama 3.2 (3B) — recommended, balanced',
-    pull: 'ollama pull llama3.2',
-  },
-  {
-    name: 'phi3:mini',
-    label: 'Phi-3 Mini (3.8B) — fastest, low memory',
-    pull: 'ollama pull phi3:mini',
-  },
-  {
-    name: 'mistral',
-    label: 'Mistral 7B — best quality, needs ~5GB RAM',
-    pull: 'ollama pull mistral',
-  },
-  {
-    name: 'gemma3:4b',
-    label: 'Gemma 3 4B — Google, good reasoning',
-    pull: 'ollama pull gemma3:4b',
-  },
-];
+// OLLAMA_MODEL_CATALOG imported from ./ollama-catalog.js
 
 const OLLAMA_TASKS = [
   { key: 'summarization', label: 'Summarise text' },
@@ -493,6 +472,7 @@ function renderOllamaPanel() {
       installSteps.hidden = true;
     }
     renderOllamaTaskModels(ollama.models);
+    renderOllamaModelCatalog(ollama.models, true);
   } else {
     if (statusEl) {
       statusEl.innerHTML = '<span class="status-badge error">❌ Ollama not detected</span>';
@@ -503,29 +483,161 @@ function renderOllamaPanel() {
     if (installSteps) {
       installSteps.hidden = false;
     }
-    renderOllamaSuggestedModels();
+    renderOllamaModelCatalog([], false);
   }
 }
 
-function renderOllamaSuggestedModels() {
+/**
+ * Render hardware-aware Ollama model download catalog.
+ * @param {string[]} installedModels  Models already installed in Ollama.
+ * @param {boolean}  hasOllama        True when Ollama is running.
+ */
+function renderOllamaModelCatalog(installedModels, hasOllama) {
   const container = document.getElementById('ollama-suggested-models');
   if (!container) {
     return;
   }
   container.hidden = false;
-  container.innerHTML = `
-    <p class="helper-text" style="margin-bottom:var(--space-xs);">Once Ollama is running, pull a model to get started:</p>
-    <div class="ollama-model-list">
-      ${OLLAMA_SUGGESTED.map(
-        m => `
-        <div class="ollama-model-item">
-          <div style="flex:1;">
-            <span class="model-name">${escapeHtml(m.label)}</span>
-          </div>
-          <code class="code-snippet" style="font-size:0.75rem;user-select:all;">${escapeHtml(m.pull)}</code>
-        </div>`
-      ).join('')}
-    </div>`;
+
+  const ramGB = state.assessment?.memory?.ramGB || navigator.deviceMemory || 4;
+  const installSet = new Set(installedModels.map(m => m.toLowerCase().split(':')[0]));
+  const compatible = getCompatibleModels(ramGB);
+
+  const heading = hasOllama ? 'Get more models' : 'Download a model to get started';
+  const subtext = hasOllama
+    ? `Add models to your Ollama library. Showing models that fit your system (${ramGB} GB RAM).`
+    : `Once Ollama is running, download a model. Showing models that fit your system (${ramGB} GB RAM).`;
+
+  // Clear and rebuild
+  container.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.className = 'ollama-catalog-header';
+  header.innerHTML = `
+    <p class="helper-text"><strong>${escapeHtml(heading)}</strong> — ${escapeHtml(subtext)}</p>`;
+  container.appendChild(header);
+
+  const list = document.createElement('div');
+  list.className = 'ollama-catalog';
+  container.appendChild(list);
+
+  compatible.forEach(model => {
+    const baseName = model.name.split(':')[0];
+    const isInstalled = installSet.has(baseName) || installSet.has(model.name.toLowerCase());
+
+    const card = document.createElement('div');
+    card.className = `ollama-model-card${isInstalled ? ' installed' : ''}`;
+
+    card.innerHTML = `
+      <div class="ollama-model-header">
+        <span class="ollama-model-name">${escapeHtml(model.label)}</span>
+        <span class="ollama-model-badge badge-${escapeHtml(model.category)}">${escapeHtml(model.categoryLabel)}</span>
+      </div>
+      <p class="ollama-model-desc">${escapeHtml(model.description)}</p>
+      <div class="ollama-model-footer">
+        <span class="ollama-model-meta">${escapeHtml(model.size)} · ${model.ramRequired} GB RAM</span>
+        <span class="ollama-model-action"></span>
+      </div>
+      <div class="ollama-model-progress" hidden>
+        <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="progress-bar-fill" style="width:0%"></div>
+        </div>
+        <p class="progress-text">Starting download…</p>
+      </div>`;
+
+    const actionEl = card.querySelector('.ollama-model-action');
+    if (isInstalled) {
+      actionEl.innerHTML = '<span class="ollama-installed-label">✓ Installed</span>';
+    } else {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ollama-download-btn';
+      btn.setAttribute('aria-label', `Download ${model.label}`);
+      btn.textContent = 'Download';
+      if (!hasOllama) {
+        btn.disabled = true;
+        btn.title = 'Start Ollama first';
+      }
+      attachAccessibleHandler(btn, `Download ${model.label}`, () => {
+        downloadOllamaModel(model.name, card);
+      });
+      actionEl.appendChild(btn);
+    }
+
+    list.appendChild(card);
+  });
+}
+
+/**
+ * Trigger an Ollama model pull and update the card with live progress.
+ * @param {string}      modelName  Ollama model tag, e.g. 'llama3.1:8b'.
+ * @param {HTMLElement} cardEl     The .ollama-model-card element.
+ */
+function downloadOllamaModel(modelName, cardEl) {
+  const btn = cardEl.querySelector('.ollama-download-btn');
+  const progressEl = cardEl.querySelector('.ollama-model-progress');
+  const trackEl = cardEl.querySelector('.progress-track');
+  const barEl = cardEl.querySelector('.progress-bar-fill');
+  const textEl = cardEl.querySelector('.progress-text');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Downloading…';
+  }
+  if (progressEl) {
+    progressEl.hidden = false;
+  }
+
+  const progressListener = msg => {
+    if (msg.type !== 'LLM_INSTALL_PROGRESS' || msg.modelName !== modelName) {
+      return;
+    }
+    const p = msg.progress || {};
+    const pct = p.percent || 0;
+    if (barEl) {
+      barEl.style.width = `${pct}%`;
+    }
+    if (trackEl) {
+      trackEl.setAttribute('aria-valuenow', pct);
+    }
+    if (textEl) {
+      textEl.textContent = p.status ? `${p.status} — ${pct}%` : `Downloading… ${pct}%`;
+    }
+  };
+
+  chrome.runtime.onMessage.addListener(progressListener);
+
+  chrome.runtime.sendMessage({ action: 'LOCAL_LLM_INSTALL_MODEL', modelName }, response => {
+    chrome.runtime.onMessage.removeListener(progressListener);
+
+    if (response?.success) {
+      if (barEl) {
+        barEl.style.width = '100%';
+      }
+      if (trackEl) {
+        trackEl.setAttribute('aria-valuenow', 100);
+      }
+      if (textEl) {
+        textEl.textContent = '✓ Model downloaded successfully';
+      }
+      cardEl.classList.add('installed');
+      const actionEl = cardEl.querySelector('.ollama-model-action');
+      if (actionEl) {
+        actionEl.innerHTML = '<span class="ollama-installed-label">✓ Installed</span>';
+      }
+      // Refresh the Ollama panel model selector
+      recheckOllama();
+    } else {
+      const err = response?.error || 'Download failed';
+      if (textEl) {
+        textEl.textContent = `Error: ${err}`;
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+      }
+    }
+  });
 }
 
 function renderOllamaTaskModels(installedModels) {
@@ -1156,57 +1268,102 @@ function initiateModelDownload() {
     downloadBtn.textContent = 'Downloading…';
   }
 
-  // Listen for progress messages from service worker
-  const progressListener = msg => {
-    if (msg.action !== 'WEBLLM_PROGRESS' || msg.modelKey !== modelKey) {
+  // Guard against double-handling (broadcast may arrive before SW sendResponse)
+  let downloadHandled = false;
+
+  const onSuccess = () => {
+    if (downloadHandled) {
       return;
     }
-    const p = msg.progress || {};
-    const pct = Math.min(Math.round(p.percent || 0), 100);
+    downloadHandled = true;
     if (barEl) {
-      barEl.style.width = `${pct}%`;
-      barEl.setAttribute('aria-valuenow', pct);
+      barEl.style.width = '100%';
+      barEl.setAttribute('aria-valuenow', 100);
     }
     if (percentEl) {
-      percentEl.textContent = `${pct}%`;
+      percentEl.textContent = '100%';
     }
     if (textEl) {
-      textEl.textContent = p.status || 'Downloading…';
+      textEl.textContent = '✓ Model downloaded and ready';
+    }
+    if (downloadBtn) {
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = 'Re-download model';
+    }
+    // Persist the chosen mode and model immediately so the user doesn't have to
+    // manually activate WebLLM in the popup after returning from the wizard.
+    state.selectedMode = 'webllm';
+    chrome.storage.local.set({ aiMode: 'webllm', webllmModel: modelKey });
+    renderWebLLMPanel();
+  };
+
+  const onError = errMsg => {
+    if (downloadHandled) {
+      return;
+    }
+    downloadHandled = true;
+    if (textEl) {
+      textEl.textContent = `Error: ${errMsg}`;
+    }
+    if (downloadBtn) {
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = 'Retry download';
+    }
+  };
+
+  // Single listener handles both live progress and the completion broadcast.
+  // The completion broadcast (WEBLLM_DOWNLOAD_COMPLETE) is sent directly by the
+  // offscreen document, so it arrives even when the service worker has been killed.
+  const progressListener = msg => {
+    if (!msg || msg.source !== 'webllm-offscreen') {
+      return;
+    }
+
+    if (msg.action === 'WEBLLM_PROGRESS' && msg.modelKey === modelKey) {
+      if (downloadHandled) {
+        return;
+      }
+      const p = msg.progress || {};
+      const pct = Math.min(Math.round(p.percent || 0), 100);
+      if (barEl) {
+        barEl.style.width = `${pct}%`;
+        barEl.setAttribute('aria-valuenow', pct);
+      }
+      if (percentEl) {
+        percentEl.textContent = `${pct}%`;
+      }
+      if (textEl) {
+        textEl.textContent = p.status || 'Downloading…';
+      }
+    } else if (msg.action === 'WEBLLM_DOWNLOAD_COMPLETE' && msg.modelKey === modelKey) {
+      chrome.runtime.onMessage.removeListener(progressListener);
+      if (msg.success) {
+        onSuccess();
+      } else {
+        onError(msg.error || 'Download failed');
+      }
     }
   };
   chrome.runtime.onMessage.addListener(progressListener);
 
-  // Trigger actual download via service worker
+  // Also listen via the service-worker sendResponse path (fast path when SW is alive).
+  // If the SW was killed before responding, response will be undefined — in that case
+  // we rely on the WEBLLM_DOWNLOAD_COMPLETE broadcast above.
   chrome.runtime.sendMessage({ action: 'WEBLLM_INITIALIZE', modelKey }, response => {
-    chrome.runtime.onMessage.removeListener(progressListener);
-
-    if (response?.success) {
-      if (barEl) {
-        barEl.style.width = '100%';
-        barEl.setAttribute('aria-valuenow', 100);
-      }
-      if (percentEl) {
-        percentEl.textContent = '100%';
-      }
-      if (textEl) {
-        textEl.textContent = '✓ Model downloaded and ready';
-      }
-      if (downloadBtn) {
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = 'Re-download model';
-      }
-      // Refresh the status badge (model is now cached)
-      renderWebLLMPanel();
-    } else {
-      const errMsg = response?.error || 'Download failed';
-      if (textEl) {
-        textEl.textContent = `Error: ${errMsg}`;
-      }
-      if (downloadBtn) {
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = 'Retry download';
-      }
+    if (downloadHandled) {
+      // Already handled by the WEBLLM_DOWNLOAD_COMPLETE broadcast
+      chrome.runtime.onMessage.removeListener(progressListener);
+      return;
     }
+    if (response?.success) {
+      chrome.runtime.onMessage.removeListener(progressListener);
+      onSuccess();
+    } else if (response) {
+      chrome.runtime.onMessage.removeListener(progressListener);
+      onError(response.error || 'Download failed');
+    }
+    // If response is undefined the service worker was killed — keep progressListener
+    // active so it can still receive the WEBLLM_DOWNLOAD_COMPLETE broadcast.
   });
 }
 
