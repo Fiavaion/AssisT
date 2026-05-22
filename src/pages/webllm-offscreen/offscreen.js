@@ -115,13 +115,11 @@ async function handleInitialize(modelKey, requestId) {
     return;
   }
 
-  // Already ready with this model
   if (isReady && currentModel === modelKey) {
     reply(requestId, { success: true, model: modelKey, status: getStatus() });
     return;
   }
 
-  // Already loading — shouldn't happen in normal flow, but guard anyway
   if (isLoading) {
     reply(requestId, { success: false, error: 'Already loading a model, please wait' });
     return;
@@ -131,6 +129,11 @@ async function handleInitialize(modelKey, requestId) {
   isReady = false;
 
   try {
+    // Offscreen documents are extension pages and share host_permissions with the
+    // service worker — they can fetch from huggingface.co / raw.githubusercontent.com
+    // directly. No fetch proxy is needed or wanted: the proxy approach requires the
+    // service worker to download entire model shards (hundreds of MB each) before
+    // responding, and MV3 service workers are killed mid-transfer, causing the error.
     engine = await CreateMLCEngine(modelConfig.id, {
       initProgressCallback: progress => {
         const pct = Math.round((progress.progress || 0) * 100);
@@ -154,11 +157,43 @@ async function handleInitialize(modelKey, requestId) {
     isReady = true;
     isLoading = false;
 
+    // Write to storage directly — the service worker may be killed before it can do this
+    try {
+      const stored = await new Promise(resolve =>
+        chrome.storage.local.get(['webllmCachedModels'], resolve)
+      );
+      const cachedSet = new Set(stored.webllmCachedModels || []);
+      cachedSet.add(modelKey);
+      await chrome.storage.local.set({ webllmCachedModels: Array.from(cachedSet) });
+    } catch (storageErr) {
+      console.warn('[WebLLM Offscreen] Storage write failed:', storageErr);
+    }
+
+    chrome.runtime
+      .sendMessage({
+        action: 'WEBLLM_DOWNLOAD_COMPLETE',
+        source: 'webllm-offscreen',
+        modelKey,
+        success: true,
+      })
+      .catch(() => {});
+
     reply(requestId, { success: true, model: modelKey, status: getStatus() });
   } catch (err) {
     isLoading = false;
     isReady = false;
     console.error('[WebLLM Offscreen] Init failed:', err);
+
+    chrome.runtime
+      .sendMessage({
+        action: 'WEBLLM_DOWNLOAD_COMPLETE',
+        source: 'webllm-offscreen',
+        modelKey,
+        success: false,
+        error: err.message || 'WebLLM initialisation failed',
+      })
+      .catch(() => {});
+
     reply(requestId, { success: false, error: err.message || 'WebLLM initialisation failed' });
   }
 }

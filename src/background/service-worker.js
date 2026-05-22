@@ -1118,10 +1118,67 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // Progress from offscreen — already broadcast to all extension contexts
-  // (ai-setup page and popup receive it directly), so just ignore here.
-  if (message.action === 'WEBLLM_PROGRESS' && message.source === 'webllm-offscreen') {
+  // Progress / completion broadcasts from offscreen — already received by all extension
+  // contexts directly, so there's nothing for the service worker to do here.
+  if (
+    (message.action === 'WEBLLM_PROGRESS' || message.action === 'WEBLLM_DOWNLOAD_COMPLETE') &&
+    message.source === 'webllm-offscreen'
+  ) {
     return false;
+  }
+
+  // Proxy fetch: the offscreen document cannot reach external URLs directly.
+  // It sends this message; the SW fetches the URL and caches it in 'tvmjs'
+  // (web-llm's own cache name). Both share the same cache because they share
+  // the same extension origin (chrome-extension://[id]).
+  if (message.action === 'PROXY_FETCH_TO_CACHE') {
+    const { url } = message;
+    console.log('[WebLLM-SW] PROXY_FETCH_TO_CACHE received:', url?.slice(0, 120));
+    if (!url || typeof url !== 'string') {
+      console.error('[WebLLM-SW] PROXY_FETCH_TO_CACHE: missing/invalid url');
+      sendResponse({ success: false, error: 'Invalid URL' });
+      return false;
+    }
+    (async () => {
+      try {
+        const cache = await caches.open('tvmjs');
+        const existing = await cache.match(url);
+        if (existing) {
+          console.log('[WebLLM-SW] Cache HIT (skipping fetch):', url.slice(0, 80));
+          sendResponse({ success: true, fromCache: true });
+          return;
+        }
+        console.log('[WebLLM-SW] Fetching:', url.slice(0, 80));
+        const response = await fetch(url);
+        console.log(
+          '[WebLLM-SW] Fetch response:',
+          response.status,
+          response.statusText,
+          url.slice(0, 80)
+        );
+        if (!response.ok) {
+          console.error('[WebLLM-SW] Non-OK response:', response.status, url.slice(0, 80));
+          sendResponse({
+            success: false,
+            error: `HTTP ${response.status}: ${response.statusText}`,
+          });
+          return;
+        }
+        console.log('[WebLLM-SW] Caching response for:', url.slice(0, 80));
+        await cache.put(url, response);
+        console.log('[WebLLM-SW] Cached OK:', url.slice(0, 80));
+        sendResponse({ success: true });
+      } catch (err) {
+        console.error(
+          '[WebLLM-SW] PROXY_FETCH_TO_CACHE error:',
+          err.message,
+          'for:',
+          url?.slice(0, 80)
+        );
+        sendResponse({ success: false, error: err.message || 'Fetch failed' });
+      }
+    })();
+    return true; // keep channel open during async fetch
   }
 
   // Check WebLLM/WebGPU availability

@@ -93,7 +93,7 @@ function getWebLLMModelName(modelKey) {
     // High-quality
     'mistral-7b': 'Mistral 7B',
     'llama-3.1-8b': 'Llama 3.1 8B',
-    'gemma-7b': 'Gemma 7B',
+    'gemma-9b': 'Gemma 2 9B',
   };
   return names[modelKey] || modelKey;
 }
