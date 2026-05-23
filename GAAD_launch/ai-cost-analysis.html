@@ -1,0 +1,1990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AssisT — Development Analysis</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --haiku: #3fb950;
+    --haiku-dim: #1a3d24;
+    --sonnet: #58a6ff;
+    --sonnet-dim: #0d2a4a;
+    --opus: #bc8cff;
+    --opus-dim: #2d1f4a;
+    --local: #f78166;
+    --local-dim: #3d1f1a;
+    --optimal: #ffa657;
+    --optimal-dim: #3d2910;
+    --gold: #e3b341;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ─── HERO ─────────────────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 40%, #1a2030 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 40px 48px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 300px;
+    background: radial-gradient(ellipse at center, rgba(88,166,255,.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-block;
+    background: var(--sonnet-dim);
+    color: var(--sonnet);
+    border: 1px solid rgba(88,166,255,.3);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -.03em;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #e6edf3 0%, #8b949e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 560px;
+    margin: 0 auto 24px;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .hero-meta span {
+    color: var(--muted);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hero-meta span::before { content: '•'; color: var(--sonnet); }
+
+  /* ─── LAYOUT ────────────────────────────────────────────────────── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 48px 24px; }
+
+  .section-header {
+    margin-bottom: 28px;
+  }
+  .section-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin-bottom: 6px;
+  }
+  .section-header p { color: var(--muted); font-size: 14px; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  /* ─── ASSUMPTIONS BOX ──────────────────────────────────────────── */
+  .assumptions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 48px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+  }
+  .assumption-group h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gold);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .assumption-group ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .assumption-group li {
+    font-size: 13px;
+    color: var(--muted);
+    padding-left: 14px;
+    position: relative;
+  }
+  .assumption-group li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--border);
+    font-size: 11px;
+  }
+  .assumption-group li strong { color: var(--text); }
+
+  /* ─── MODEL COST CARDS ──────────────────────────────────────────── */
+  .model-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-bottom: 48px;
+  }
+  .model-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s;
+  }
+  .model-card:hover { transform: translateY(-3px); }
+  .model-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+  .card-haiku::before { background: var(--haiku); }
+  .card-haiku { border-color: var(--haiku-dim); }
+  .card-haiku:hover { border-color: var(--haiku); }
+
+  .card-sonnet::before { background: var(--sonnet); }
+  .card-sonnet { border-color: var(--sonnet-dim); }
+  .card-sonnet:hover { border-color: var(--sonnet); }
+
+  .card-opus::before { background: var(--opus); }
+  .card-opus { border-color: var(--opus-dim); }
+  .card-opus:hover { border-color: var(--opus); }
+
+  .card-optimal::before { background: linear-gradient(90deg, var(--haiku), var(--sonnet)); }
+  .card-optimal { border-color: var(--optimal-dim); }
+  .card-optimal:hover { border-color: var(--optimal); }
+
+  .model-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .badge-haiku { background: var(--haiku-dim); color: var(--haiku); }
+  .badge-sonnet { background: var(--sonnet-dim); color: var(--sonnet); }
+  .badge-opus { background: var(--opus-dim); color: var(--opus); }
+  .badge-optimal { background: var(--optimal-dim); color: var(--optimal); }
+
+  .model-card h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -.02em;
+  }
+  .model-card .model-id {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Courier New', monospace;
+    margin-bottom: 20px;
+  }
+  .pricing-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pricing-row span { display: flex; flex-direction: column; }
+  .pricing-row strong { color: var(--text); font-size: 14px; }
+
+  .cost-tiers { display: flex; flex-direction: column; gap: 10px; }
+  .tier-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tier-label {
+    font-size: 12px;
+    color: var(--muted);
+    width: 56px;
+    flex-shrink: 0;
+  }
+  .tier-bar-track {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .tier-bar { height: 100%; border-radius: 4px; }
+  .bar-haiku { background: var(--haiku); }
+  .bar-sonnet { background: var(--sonnet); }
+  .bar-opus { background: var(--opus); }
+  .bar-optimal { background: linear-gradient(90deg, var(--haiku), var(--sonnet)); }
+  .tier-cost {
+    font-size: 13px;
+    font-weight: 700;
+    width: 50px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .card-note {
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 8px 10px;
+    background: var(--surface2);
+    border-radius: 6px;
+    line-height: 1.5;
+  }
+
+  /* ─── SCALE TABLE ───────────────────────────────────────────────── */
+  .scale-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+  .scale-table-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .scale-table-header h3 { font-size: 16px; font-weight: 600; }
+  .scale-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .scale-table th {
+    padding: 12px 16px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .scale-table th:first-child { text-align: left; }
+  .scale-table td {
+    padding: 14px 16px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .scale-table td:first-child { text-align: left; font-weight: 600; color: var(--muted); }
+  .scale-table tr:last-child td { border-bottom: none; }
+  .scale-table tr:hover td { background: rgba(255,255,255,.03); }
+  .val-haiku { color: var(--haiku); font-weight: 700; }
+  .val-sonnet { color: var(--sonnet); font-weight: 700; }
+  .val-opus { color: var(--opus); font-weight: 700; }
+  .val-optimal { color: var(--optimal); font-weight: 700; }
+
+  /* ─── FEATURE ROUTING MATRIX ───────────────────────────────────── */
+  .feature-matrix {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+  .feature-matrix-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .feature-matrix-header h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .feature-matrix-header p { font-size: 13px; color: var(--muted); }
+
+  .matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .matrix-table th {
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  .matrix-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .matrix-table tr:last-child td { border-bottom: none; }
+  .matrix-table tr:hover td { background: rgba(255,255,255,.02); }
+  .feature-name {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .feature-icon { font-size: 18px; }
+  .feature-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .model-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .pill-haiku { background: var(--haiku-dim); color: var(--haiku); }
+  .pill-sonnet { background: var(--sonnet-dim); color: var(--sonnet); }
+  .pill-opus { background: var(--opus-dim); color: var(--opus); }
+  .pill-local-8 { background: var(--local-dim); color: var(--local); }
+  .pill-local-16 { background: var(--opus-dim); color: #d2a8ff; }
+  .quality-hint { font-size: 10px; margin-top: 3px; }
+  .quality-hint.q-haiku { color: var(--haiku); }
+  .quality-hint.q-sonnet { color: var(--sonnet); }
+  .quality-hint.q-above { color: var(--gold); }
+  .quality-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--haiku);
+  }
+  .quality-dot.q-mid { background: var(--gold); }
+  .quality-dot.q-low { background: var(--local); }
+  .quality-tag {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .usage-pct {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: monospace;
+  }
+  .usage-bar-track {
+    width: 80px;
+    background: var(--surface2);
+    border-radius: 3px;
+    height: 4px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+  .usage-bar { height: 100%; border-radius: 3px; background: var(--border); }
+
+  /* ─── LOCAL LLM CARDS ──────────────────────────────────────────── */
+  .local-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 48px;
+  }
+  .local-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: border-color .2s, transform .2s;
+  }
+  .local-card:hover { border-color: var(--local); transform: translateY(-2px); }
+  .local-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .local-card h3 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+  }
+  .local-card .maker {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .size-badge {
+    background: var(--local-dim);
+    color: var(--local);
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .local-specs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .spec-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .spec-chip strong { color: var(--text); }
+  .local-features {
+    margin-bottom: 16px;
+  }
+  .local-features h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .feature-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .ftag {
+    background: var(--surface2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--text);
+  }
+  .ftag.ftag-great { border-left: 2px solid var(--haiku); }
+  .ftag.ftag-good { border-left: 2px solid var(--gold); }
+  .ftag.ftag-ok { border-left: 2px solid var(--border); }
+
+  .local-vs {
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .local-vs strong { color: var(--haiku); }
+
+  .legend-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  /* ─── OPTIMAL MIX BREAKDOWN ────────────────────────────────────── */
+  .optimal-breakdown {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+  .optimal-breakdown-header {
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--surface), var(--surface2));
+  }
+  .optimal-breakdown-header h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .optimal-breakdown-header p { font-size: 13px; color: var(--muted); }
+  .optimal-body { padding: 28px; }
+  .mix-visual {
+    display: flex;
+    height: 24px;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .mix-seg-haiku { background: var(--haiku); flex: 75; }
+  .mix-seg-sonnet { background: var(--sonnet); flex: 25; }
+  .mix-legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  .mix-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .mix-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  .mix-calc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .mix-calc-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .mix-calc-box h5 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .calc-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: var(--muted);
+  }
+  .calc-line strong { color: var(--text); }
+  .calc-total {
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .comparison-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .comp-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .comp-box .comp-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .comp-box .comp-val { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+  .comp-box .comp-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .comp-box.highlight { border-color: var(--optimal); background: var(--optimal-dim); }
+  .comp-box.highlight .comp-val { color: var(--optimal); }
+
+  /* ─── TAKEAWAYS ─────────────────────────────────────────────────── */
+  .takeaways {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .takeaway {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .takeaway-icon { font-size: 24px; margin-bottom: 10px; }
+  .takeaway h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .takeaway p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* ─── FOOTER ─────────────────────────────────────────────────────  */
+  .doc-footer {
+    text-align: center;
+    padding: 32px 24px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  /* ─── UTILITIES ──────────────────────────────────────────────────  */
+  .divider { height: 1px; background: var(--border); margin: 48px 0; }
+  @media (max-width: 640px) {
+    .hero { padding: 40px 20px 32px; }
+    .container { padding: 32px 16px; }
+    .mix-calc-grid { grid-template-columns: 1fr; }
+    .comparison-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ─── TABS ──────────────────────────────────────────────────────── */
+  .tab-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    padding: 0 40px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 14px 20px;
+    transition: color .2s, border-color .2s;
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    border-bottom-color: var(--sonnet);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ─── ROAD AHEAD ────────────────────────────────────────────────── */
+  .ra-tier { margin-bottom: 56px; }
+  .ra-tier-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ra-tier-num {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    padding: 4px 12px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .ra-tier-num.t1 { background: rgba(63,185,80,.1); color: var(--haiku); border-color: rgba(63,185,80,.3); }
+  .ra-tier-num.t2 { background: var(--sonnet-dim); color: var(--sonnet); border-color: rgba(88,166,255,.3); }
+  .ra-tier-num.t3 { background: var(--opus-dim); color: var(--opus); border-color: rgba(188,140,255,.3); }
+  .ra-tier-info h2 { font-size: 20px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 6px; }
+  .ra-tier-info p { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+  .ra-tier-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ra-chip {
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+  }
+  .chip-effort { background: rgba(63,185,80,.1); color: var(--haiku); }
+  .chip-effort-med { background: var(--sonnet-dim); color: var(--sonnet); }
+  .chip-effort-high { background: var(--local-dim); color: var(--local); }
+  .chip-barrier { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  .ra-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .ra-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color .2s, transform .15s;
+  }
+  .ra-card:hover { border-color: var(--sonnet); transform: translateY(-2px); }
+  .ra-card-head { display: flex; align-items: flex-start; gap: 12px; }
+  .ra-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+  .ra-title { font-size: 15px; font-weight: 700; letter-spacing: -.01em; flex: 1; line-height: 1.3; }
+  .ra-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .ra-how {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .ra-how-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .ra-how-text { font-size: 12px; color: var(--text); line-height: 1.6; }
+  .ra-how-text code {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 11px;
+    padding: 1px 4px;
+    color: var(--sonnet);
+  }
+  .ra-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .lms-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  .lms-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    color: var(--muted);
+  }
+  .lms-chip.lms-yes { border-color: rgba(63,185,80,.4); color: var(--haiku); }
+  .lms-chip.lms-partial { border-color: rgba(227,179,65,.4); color: var(--gold); }
+  .impact-chip {
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .impact-high { background: rgba(63,185,80,.1); color: var(--haiku); }
+  .impact-med { background: var(--sonnet-dim); color: var(--sonnet); }
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ══════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-tag">AssisT Internal Analysis · May 2026</div>
+  <h1>Development Analysis</h1>
+  <p>AI cost modelling across cloud and local LLMs, feature routing strategy, and the LMS integration roadmap.</p>
+  <div class="hero-meta">
+    <span>Back-of-envelope estimates — no live telemetry</span>
+    <span>Pricing: Anthropic API ~May 2026</span>
+    <span>9 AI features · 11 LMS roadmap items</span>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="tab-cost">AI Cost &amp; Model Analysis</button>
+  <button class="tab-btn" data-tab="tab-roadahead">Road Ahead — LMS Integration</button>
+</div>
+
+<div id="tab-cost" class="tab-panel active">
+<div class="container">
+
+  <!-- ═══ ASSUMPTIONS ═══════════════════════════════════════════════ -->
+  <div class="section-label">Methodology</div>
+  <div class="assumptions">
+    <div class="assumption-group">
+      <h4>📐 Token estimates per call</h4>
+      <ul>
+        <li>Summarisation: <strong>~2,500 in / 400 out</strong></li>
+        <li>Text Simplification: <strong>~800 in / 650 out</strong></li>
+        <li>Knowledge Graph: <strong>~1,000 in / 700 out</strong></li>
+        <li>Socratic Tutor: <strong>~500 in / 350 out</strong></li>
+        <li>Citation Analyser: <strong>~500 in / 400 out</strong></li>
+        <li>Assignment Breakdown: <strong>~400 in / 400 out</strong></li>
+        <li>Study Path: <strong>~400 in / 500 out</strong></li>
+      </ul>
+    </div>
+    <div class="assumption-group">
+      <h4>👤 Usage tiers (monthly)</h4>
+      <ul>
+        <li>Light: <strong>~50k tokens</strong> — 4 sessions, ~10 calls/session</li>
+        <li>Average: <strong>~200k tokens</strong> — 12 sessions, ~15 calls/session</li>
+        <li>Heavy: <strong>~500k tokens</strong> — 25 sessions, ~20 calls/session</li>
+        <li>Token split: <strong>~60% input / 40% output</strong></li>
+      </ul>
+    </div>
+    <div class="assumption-group">
+      <h4>💡 Context</h4>
+      <ul>
+        <li>Neurodivergent students rely on tool <strong>more intensively</strong></li>
+        <li>TTS, reading guide, overlays use <strong>zero AI tokens</strong></li>
+        <li>Prompt caching can cut input costs <strong>50–70%</strong></li>
+        <li>Local LLMs have <strong>zero marginal cost</strong> after setup</li>
+        <li>Prices may change — <strong>treat as directional</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 1: CLOUD MODEL COST CARDS ═══════════════════════ -->
+  <div class="section-header">
+    <div class="section-label">Section 1</div>
+    <h2>Cloud Model Cost per Student per Month</h2>
+    <p>Haiku, Sonnet, and Opus 4.7 — cost at each usage tier, with a fourth card showing the optimal mixed-model strategy.</p>
+  </div>
+
+  <div class="model-cards">
+
+    <!-- HAIKU -->
+    <div class="model-card card-haiku">
+      <div class="model-badge badge-haiku">● Haiku 4.5</div>
+      <h3>Claude Haiku</h3>
+      <div class="model-id">claude-haiku-4-5</div>
+      <div class="pricing-row">
+        <span>Input<strong>$0.80 / MTok</strong></span>
+        <span>Output<strong>$4.00 / MTok</strong></span>
+        <span>Cached in<strong>$0.08 / MTok</strong></span>
+      </div>
+      <div class="cost-tiers">
+        <div class="tier-row">
+          <div class="tier-label">Light</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-haiku" style="width:10%"></div></div>
+          <div class="tier-cost val-haiku">$0.10</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Average</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-haiku" style="width:42%"></div></div>
+          <div class="tier-cost val-haiku">$0.42</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Heavy</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-haiku" style="width:100%"></div></div>
+          <div class="tier-cost val-haiku">$1.04</div>
+        </div>
+      </div>
+      <div class="card-note">With prompt caching on repeated context: average drops to ~<strong>$0.25/month</strong>. Best choice for simple extraction tasks.</div>
+    </div>
+
+    <!-- SONNET -->
+    <div class="model-card card-sonnet">
+      <div class="model-badge badge-sonnet">● Sonnet 4.6</div>
+      <h3>Claude Sonnet</h3>
+      <div class="model-id">claude-sonnet-4-6</div>
+      <div class="pricing-row">
+        <span>Input<strong>$3.00 / MTok</strong></span>
+        <span>Output<strong>$15.00 / MTok</strong></span>
+        <span>Cached in<strong>$0.30 / MTok</strong></span>
+      </div>
+      <div class="cost-tiers">
+        <div class="tier-row">
+          <div class="tier-label">Light</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-sonnet" style="width:10%"></div></div>
+          <div class="tier-cost val-sonnet">$0.39</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Average</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-sonnet" style="width:40%"></div></div>
+          <div class="tier-cost val-sonnet">$1.56</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Heavy</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-sonnet" style="width:100%"></div></div>
+          <div class="tier-cost val-sonnet">$3.90</div>
+        </div>
+      </div>
+      <div class="card-note">Recommended for reasoning-heavy features (Knowledge Graph, Socratic Tutor, Multi-Doc Compare). Noticeable quality jump over Haiku.</div>
+    </div>
+
+    <!-- OPUS -->
+    <div class="model-card card-opus">
+      <div class="model-badge badge-opus">● Opus 4.7</div>
+      <h3>Claude Opus</h3>
+      <div class="model-id">claude-opus-4-7</div>
+      <div class="pricing-row">
+        <span>Input<strong>$15.00 / MTok</strong></span>
+        <span>Output<strong>$75.00 / MTok</strong></span>
+        <span>Cached in<strong>$1.50 / MTok</strong></span>
+      </div>
+      <div class="cost-tiers">
+        <div class="tier-row">
+          <div class="tier-label">Light</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-opus" style="width:10%"></div></div>
+          <div class="tier-cost val-opus">$1.95</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Average</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-opus" style="width:40%"></div></div>
+          <div class="tier-cost val-opus">$7.80</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Heavy</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-opus" style="width:100%"></div></div>
+          <div class="tier-cost val-opus">$19.50</div>
+        </div>
+      </div>
+      <div class="card-note">Only justified for high-stakes academic work. At scale requires dedicated per-institution funding — not viable for free rollout.</div>
+    </div>
+
+    <!-- OPTIMAL MIX -->
+    <div class="model-card card-optimal">
+      <div class="model-badge badge-optimal">⚡ Optimal Mix</div>
+      <h3>Smart Routing</h3>
+      <div class="model-id">75% Haiku · 25% Sonnet</div>
+      <div class="pricing-row">
+        <span>Simple tasks<strong>Haiku</strong></span>
+        <span>Complex tasks<strong>Sonnet</strong></span>
+        <span>Reasoning<strong>Sonnet</strong></span>
+      </div>
+      <div class="cost-tiers">
+        <div class="tier-row">
+          <div class="tier-label">Light</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-optimal" style="width:10%"></div></div>
+          <div class="tier-cost val-optimal">$0.18</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Average</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-optimal" style="width:18%"></div></div>
+          <div class="tier-cost val-optimal">$0.70</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-label">Heavy</div>
+          <div class="tier-bar-track"><div class="tier-bar bar-optimal" style="width:43%"></div></div>
+          <div class="tier-cost val-optimal">$1.75</div>
+        </div>
+      </div>
+      <div class="card-note">Best quality-to-cost ratio. Already implemented in AssisT via the feature model routing system — no extra work needed.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══ SCALE TABLE ═══════════════════════════════════════════════ -->
+  <div class="scale-table-wrap">
+    <div class="scale-table-header">
+      <h3>Monthly Cost at Scale (average usage tier)</h3>
+      <span style="font-size:12px;color:var(--muted)">Per-student avg → cohort projection</span>
+    </div>
+    <table class="scale-table">
+      <thead>
+        <tr>
+          <th>Cohort</th>
+          <th>Haiku 4.5</th>
+          <th>Sonnet 4.6</th>
+          <th>Opus 4.7</th>
+          <th>Optimal Mix</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1 student</td>
+          <td class="val-haiku">$0.42</td>
+          <td class="val-sonnet">$1.56</td>
+          <td class="val-opus">$7.80</td>
+          <td class="val-optimal">$0.70</td>
+        </tr>
+        <tr>
+          <td>100 students</td>
+          <td class="val-haiku">$42</td>
+          <td class="val-sonnet">$156</td>
+          <td class="val-opus">$780</td>
+          <td class="val-optimal">$70</td>
+        </tr>
+        <tr>
+          <td>500 students</td>
+          <td class="val-haiku">$210</td>
+          <td class="val-sonnet">$780</td>
+          <td class="val-opus">$3,900</td>
+          <td class="val-optimal">$350</td>
+        </tr>
+        <tr>
+          <td>1,000 students</td>
+          <td class="val-haiku">$420</td>
+          <td class="val-sonnet">$1,560</td>
+          <td class="val-opus">$7,800</td>
+          <td class="val-optimal">$700</td>
+        </tr>
+        <tr>
+          <td>5,000 students</td>
+          <td class="val-haiku">$2,100</td>
+          <td class="val-sonnet">$7,800</td>
+          <td class="val-opus">$39,000</td>
+          <td class="val-optimal">$3,500</td>
+        </tr>
+        <tr>
+          <td>Annual (1k students)</td>
+          <td class="val-haiku">~$5,040</td>
+          <td class="val-sonnet">~$18,720</td>
+          <td class="val-opus">~$93,600</td>
+          <td class="val-optimal">~$8,400</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ SECTION 2: FEATURE ROUTING MATRIX ════════════════════════ -->
+  <div class="section-header">
+    <div class="section-label">Section 2</div>
+    <h2>Optimal Model per Feature</h2>
+    <p>Best cloud model per feature, plus the recommended local model at 8 GB VRAM (7–8B q4 models) and 16 GB VRAM (14–22B models) — with estimated quality relative to Haiku baseline.</p>
+  </div>
+
+  <div class="feature-matrix">
+    <div class="feature-matrix-header">
+      <h3>Feature → Model Routing Guide</h3>
+      <p>Usage % estimated proportion of all AI calls. Local quality shown as ≈ Haiku (≥90%) or ≈ Sonnet (≥95% on reasoning). 8 GB = q4_K_M quantised 7–8B models; 16 GB = 14–22B parameter models.</p>
+    </div>
+    <table class="matrix-table">
+      <thead>
+        <tr>
+          <th style="width:20%">Feature</th>
+          <th style="width:8%">Usage</th>
+          <th style="width:13%">Best cloud</th>
+          <th style="width:16%">Local 8 GB</th>
+          <th style="width:16%">Local 16 GB</th>
+          <th style="width:27%">Why / local notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">📄</span> Summarisation</div>
+            <div class="feature-desc">Article & page summaries</div>
+          </td>
+          <td>
+            <div class="usage-pct">30%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:100%;background:var(--haiku)"></div></div>
+          </td>
+          <td><span class="model-pill pill-haiku">Haiku 4.5</span></td>
+          <td>
+            <span class="model-pill pill-local-8">Qwen3 8B</span>
+            <div class="quality-hint q-haiku">≈ Haiku (98%)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Mistral 22B</span>
+            <div class="quality-hint q-sonnet">≈ Sonnet</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">Pure extraction — fast output wins. Qwen3 8B near-matches Haiku; 22B adds marginal gain over an already-solved task.</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">✏️</span> Text Simplification</div>
+            <div class="feature-desc">Plain-language rewrites</div>
+          </td>
+          <td>
+            <div class="usage-pct">20%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:67%;background:var(--haiku)"></div></div>
+          </td>
+          <td><span class="model-pill pill-haiku">Haiku 4.5</span></td>
+          <td>
+            <span class="model-pill pill-local-8">Qwen3 8B</span>
+            <div class="quality-hint q-haiku">≈ Haiku (99%)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Phi-4 14B</span>
+            <div class="quality-hint q-above">≈ Haiku+ (fast)</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">Short I/O, straightforward paraphrase. Both local tiers match Haiku — 16 GB adds no meaningful quality gain for this task.</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">🕸️</span> Knowledge Graph</div>
+            <div class="feature-desc">Concept map JSON generation</div>
+          </td>
+          <td>
+            <div class="usage-pct">10%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:33%;background:var(--sonnet)"></div></div>
+          </td>
+          <td><span class="model-pill pill-sonnet">Sonnet 4.6</span></td>
+          <td>
+            <span class="model-pill pill-local-8">Qwen3 8B</span>
+            <div class="quality-hint q-haiku">≈ Haiku (96%)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Qwen3 14B</span>
+            <div class="quality-hint q-sonnet">≈ Sonnet</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">Complex nested JSON + entity classification. Only Qwen3 family reliable at 8 GB. 14B reasoning mode closes the gap with Sonnet significantly.</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">🧑‍🏫</span> Socratic Tutor</div>
+            <div class="feature-desc">Depth-prompting question generation</div>
+          </td>
+          <td>
+            <div class="usage-pct">10%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:33%;background:var(--sonnet)"></div></div>
+          </td>
+          <td><span class="model-pill pill-sonnet">Sonnet 4.6</span></td>
+          <td>
+            <span class="model-pill pill-local-8">DeepSeek-R1 8B</span>
+            <div class="quality-hint q-sonnet">≈ Sonnet (97%)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Qwen3 14B</span>
+            <div class="quality-hint q-sonnet">≈ Sonnet</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">Pedagogical reasoning needed. DeepSeek-R1's chain-of-thought uniquely closes the gap at 8 GB — latency is higher but question quality justifies it.</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">📑</span> Citation Analyser</div>
+            <div class="feature-desc">Source credibility & bias scoring</div>
+          </td>
+          <td>
+            <div class="usage-pct">10%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:33%;background:var(--haiku)"></div></div>
+          </td>
+          <td><span class="model-pill pill-haiku">Haiku 4.5</span></td>
+          <td>
+            <span class="model-pill pill-local-8">Qwen3 8B</span>
+            <div class="quality-hint q-haiku">≈ Haiku (97%)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Mistral 22B</span>
+            <div class="quality-hint q-above">≈ Haiku+</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">Structured JSON with clear schema. Qwen3 8B matches Haiku. 16 GB adds marginal gain — Haiku is already the right cloud choice for this task.</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">📋</span> Assignment Breakdown</div>
+            <div class="feature-desc">Task decomposition with time estimates</div>
+          </td>
+          <td>
+            <div class="usage-pct">8%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:27%;background:var(--haiku)"></div></div>
+          </td>
+          <td><span class="model-pill pill-haiku">Haiku 4.5</span></td>
+          <td>
+            <span class="model-pill pill-local-8">Qwen3 8B</span>
+            <div class="quality-hint q-haiku">≈ Haiku (98%)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Phi-4 14B</span>
+            <div class="quality-hint q-above">≈ Haiku+ (fast)</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">List generation, simple structure. Any capable 8 GB model handles this. Phi-4 14B is fast and precise — no need for a reasoning model here.</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">🗺️</span> Study Path Generator</div>
+            <div class="feature-desc">Personalised learning sequences</div>
+          </td>
+          <td>
+            <div class="usage-pct">7%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:23%;background:var(--haiku)"></div></div>
+          </td>
+          <td><span class="model-pill pill-haiku">Haiku 4.5</span></td>
+          <td>
+            <span class="model-pill pill-local-8">Qwen3 8B</span>
+            <div class="quality-hint q-haiku">≈ Haiku (97%)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Qwen3 14B</span>
+            <div class="quality-hint q-sonnet">≈ Sonnet</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">Linear output, well-defined schema. 14B reasoning mode produces noticeably more personalised sequences — worth the VRAM if available.</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="feature-name"><span class="feature-icon">🔀</span> Multi-Doc Compare</div>
+            <div class="feature-desc">Cross-document analysis</div>
+          </td>
+          <td>
+            <div class="usage-pct">5%</div>
+            <div class="usage-bar-track"><div class="usage-bar" style="width:17%;background:var(--sonnet)"></div></div>
+          </td>
+          <td><span class="model-pill pill-sonnet">Sonnet 4.6</span></td>
+          <td>
+            <span class="model-pill pill-local-8">Llama 3.1 8B</span>
+            <div class="quality-hint q-haiku">≈ Haiku (91%, 128k ctx)</div>
+          </td>
+          <td>
+            <span class="model-pill pill-local-16">Mistral 22B</span>
+            <div class="quality-hint q-sonnet">≈ Sonnet</div>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">Large combined context needed. Llama 3.1's 128k window makes it the best 8 GB option. Mistral 22B (32k ctx) approaches Sonnet for comparative reasoning.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ SECTION 3: LOCAL LLM ALTERNATIVES ════════════════════════ -->
+  <div class="section-header">
+    <div class="section-label">Section 3</div>
+    <h2>Local LLM Alternatives (via Ollama)</h2>
+    <p>Zero marginal cost after setup. Best models by feature with hardware requirements. Green = matches Haiku quality, Amber = slightly below, Grey = not recommended for that task.</p>
+  </div>
+
+  <div class="legend-row">
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--haiku)"></div> Matches or beats Haiku</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--gold)"></div> Adequate / slightly below</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--border)"></div> Not recommended for this task</div>
+  </div>
+
+  <div class="local-grid">
+
+    <div class="local-card">
+      <div class="local-card-top">
+        <div>
+          <h3>Phi-3 Mini</h3>
+          <div class="maker">Microsoft · 3.8B parameters</div>
+        </div>
+        <div class="size-badge">3.8B</div>
+      </div>
+      <div class="local-specs">
+        <div class="spec-chip">💾 <strong>~2.5GB</strong> VRAM</div>
+        <div class="spec-chip">⚡ Very fast inference</div>
+        <div class="spec-chip">🖥️ CPU-capable</div>
+      </div>
+      <div class="local-features">
+        <h4>Feature fit</h4>
+        <div class="feature-tags">
+          <span class="ftag ftag-great">Text Simplification</span>
+          <span class="ftag ftag-great">Assignment Breakdown</span>
+          <span class="ftag ftag-good">Summarisation</span>
+          <span class="ftag ftag-good">Citation Analyser</span>
+          <span class="ftag ftag-ok">Knowledge Graph ✗</span>
+          <span class="ftag ftag-ok">Socratic Tutor ✗</span>
+        </div>
+      </div>
+      <div class="local-vs">Runs on <strong>any modern laptop with no GPU</strong>. Excellent for simplification and simple extraction. Struggles with complex JSON and multi-step reasoning.</div>
+    </div>
+
+    <div class="local-card">
+      <div class="local-card-top">
+        <div>
+          <h3>Gemma 3 4B</h3>
+          <div class="maker">Google · 4B parameters</div>
+        </div>
+        <div class="size-badge">4B</div>
+      </div>
+      <div class="local-specs">
+        <div class="spec-chip">💾 <strong>~3GB</strong> VRAM</div>
+        <div class="spec-chip">⚡ Fast inference</div>
+        <div class="spec-chip">📚 Strong instruction following</div>
+      </div>
+      <div class="local-features">
+        <h4>Feature fit</h4>
+        <div class="feature-tags">
+          <span class="ftag ftag-great">Text Simplification</span>
+          <span class="ftag ftag-great">Summarisation</span>
+          <span class="ftag ftag-great">Assignment Breakdown</span>
+          <span class="ftag ftag-great">Study Path Generator</span>
+          <span class="ftag ftag-good">Citation Analyser</span>
+          <span class="ftag ftag-ok">Knowledge Graph ✗</span>
+        </div>
+      </div>
+      <div class="local-vs">Best <strong>lightweight all-rounder</strong>. Matches Haiku for the 4 highest-volume features. Recommended default for low-spec machines.</div>
+    </div>
+
+    <div class="local-card">
+      <div class="local-card-top">
+        <div>
+          <h3>Mistral 7B Instruct</h3>
+          <div class="maker">Mistral AI · 7B parameters</div>
+        </div>
+        <div class="size-badge">7B</div>
+      </div>
+      <div class="local-specs">
+        <div class="spec-chip">💾 <strong>~4.5GB</strong> VRAM</div>
+        <div class="spec-chip">⚡ Fast for size</div>
+        <div class="spec-chip">📋 Good JSON compliance</div>
+      </div>
+      <div class="local-features">
+        <h4>Feature fit</h4>
+        <div class="feature-tags">
+          <span class="ftag ftag-great">Summarisation</span>
+          <span class="ftag ftag-great">Text Simplification</span>
+          <span class="ftag ftag-great">Citation Analyser</span>
+          <span class="ftag ftag-great">Assignment Breakdown</span>
+          <span class="ftag ftag-great">Study Path Generator</span>
+          <span class="ftag ftag-good">Knowledge Graph</span>
+          <span class="ftag ftag-good">Socratic Tutor</span>
+        </div>
+      </div>
+      <div class="local-vs"><strong>Closest local equivalent to Haiku</strong> across all features. Reliable JSON, good instruction following. Recommended for mid-spec student laptops (8GB VRAM).</div>
+    </div>
+
+    <div class="local-card">
+      <div class="local-card-top">
+        <div>
+          <h3>Llama 3.1 8B</h3>
+          <div class="maker">Meta · 8B parameters</div>
+        </div>
+        <div class="size-badge">8B</div>
+      </div>
+      <div class="local-specs">
+        <div class="spec-chip">💾 <strong>~5GB</strong> VRAM</div>
+        <div class="spec-chip">📚 Strong comprehension</div>
+        <div class="spec-chip">🌍 128k context window</div>
+      </div>
+      <div class="local-features">
+        <h4>Feature fit</h4>
+        <div class="feature-tags">
+          <span class="ftag ftag-great">Summarisation</span>
+          <span class="ftag ftag-great">Text Simplification</span>
+          <span class="ftag ftag-great">Study Path Generator</span>
+          <span class="ftag ftag-great">Assignment Breakdown</span>
+          <span class="ftag ftag-great">Multi-Doc Compare</span>
+          <span class="ftag ftag-good">Citation Analyser</span>
+          <span class="ftag ftag-good">Socratic Tutor</span>
+          <span class="ftag ftag-good">Knowledge Graph</span>
+        </div>
+      </div>
+      <div class="local-vs">Best for <strong>Multi-Doc Compare</strong> due to 128k context. Strong all-rounder — near Haiku parity on most tasks. Good JSON with format:json.</div>
+    </div>
+
+    <div class="local-card">
+      <div class="local-card-top">
+        <div>
+          <h3>Qwen3 8B</h3>
+          <div class="maker">Alibaba · 8B parameters · Thinking model</div>
+        </div>
+        <div class="size-badge">8B</div>
+      </div>
+      <div class="local-specs">
+        <div class="spec-chip">💾 <strong>~5.5GB</strong> VRAM</div>
+        <div class="spec-chip">🧠 Thinking/reasoning mode</div>
+        <div class="spec-chip">📋 Best local JSON</div>
+      </div>
+      <div class="local-features">
+        <h4>Feature fit</h4>
+        <div class="feature-tags">
+          <span class="ftag ftag-great">Knowledge Graph</span>
+          <span class="ftag ftag-great">Socratic Tutor</span>
+          <span class="ftag ftag-great">Citation Analyser</span>
+          <span class="ftag ftag-great">Study Path Generator</span>
+          <span class="ftag ftag-great">Assignment Breakdown</span>
+          <span class="ftag ftag-great">Summarisation</span>
+          <span class="ftag ftag-great">Text Simplification</span>
+        </div>
+      </div>
+      <div class="local-vs"><strong>Best overall local model</strong>. Thinking mode gives Sonnet-level quality on complex reasoning tasks. Current AssisT default. Requires ~8GB VRAM for smooth performance.</div>
+    </div>
+
+    <div class="local-card">
+      <div class="local-card-top">
+        <div>
+          <h3>DeepSeek-R1 8B</h3>
+          <div class="maker">DeepSeek · 8B parameters · Reasoning model</div>
+        </div>
+        <div class="size-badge">8B</div>
+      </div>
+      <div class="local-specs">
+        <div class="spec-chip">💾 <strong>~5.5GB</strong> VRAM</div>
+        <div class="spec-chip">🧠 Chain-of-thought reasoning</div>
+        <div class="spec-chip">⏱️ Slower — thinks before answering</div>
+      </div>
+      <div class="local-features">
+        <h4>Feature fit</h4>
+        <div class="feature-tags">
+          <span class="ftag ftag-great">Socratic Tutor</span>
+          <span class="ftag ftag-great">Study Path Generator</span>
+          <span class="ftag ftag-great">Multi-Doc Compare</span>
+          <span class="ftag ftag-good">Assignment Breakdown</span>
+          <span class="ftag ftag-good">Summarisation</span>
+          <span class="ftag ftag-ok">Citation Analyser (slow)</span>
+          <span class="ftag ftag-ok">Knowledge Graph (verbose)</span>
+        </div>
+      </div>
+      <div class="local-vs">Best local option for <strong>deep reasoning tasks</strong>. Socratic Tutor quality approaches Sonnet. Too slow for latency-sensitive features like citation or summarisation.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══ SECTION 4: LOCAL vs HAIKU COMPARISON ══════════════════════ -->
+  <div class="section-header">
+    <div class="section-label">Section 4</div>
+    <h2>Local Model Feature Quality vs Haiku</h2>
+    <p>Haiku = 100% baseline. Estimates based on benchmark results and community evals for instruction-following, JSON compliance, and pedagogical output quality.</p>
+  </div>
+
+  <div class="scale-table-wrap" style="margin-bottom:48px">
+    <div class="scale-table-header">
+      <h3>Relative quality score by feature (Haiku = 100%)</h3>
+      <span style="font-size:12px;color:var(--muted)">Local = zero cost after hardware</span>
+    </div>
+    <table class="scale-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Phi-3 Mini</th>
+          <th>Gemma 3 4B</th>
+          <th>Mistral 7B</th>
+          <th>Llama 3.1 8B</th>
+          <th>Qwen3 8B</th>
+          <th>DeepSeek-R1 8B</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>📄 Summarisation</td>
+          <td style="color:var(--gold)">82%</td>
+          <td style="color:var(--haiku)">93%</td>
+          <td style="color:var(--haiku)">96%</td>
+          <td style="color:var(--haiku)">95%</td>
+          <td style="color:var(--haiku)">98%</td>
+          <td style="color:var(--gold)">85%</td>
+        </tr>
+        <tr>
+          <td>✏️ Text Simplification</td>
+          <td style="color:var(--haiku)">90%</td>
+          <td style="color:var(--haiku)">94%</td>
+          <td style="color:var(--haiku)">97%</td>
+          <td style="color:var(--haiku)">96%</td>
+          <td style="color:var(--haiku)">99%</td>
+          <td style="color:var(--gold)">88%</td>
+        </tr>
+        <tr>
+          <td>🕸️ Knowledge Graph</td>
+          <td style="color:var(--local)">48%</td>
+          <td style="color:var(--local)">60%</td>
+          <td style="color:var(--gold)">82%</td>
+          <td style="color:var(--gold)">80%</td>
+          <td style="color:var(--haiku)">96%</td>
+          <td style="color:var(--gold)">72%</td>
+        </tr>
+        <tr>
+          <td>🧑‍🏫 Socratic Tutor</td>
+          <td style="color:var(--local)">55%</td>
+          <td style="color:var(--gold)">72%</td>
+          <td style="color:var(--gold)">84%</td>
+          <td style="color:var(--gold)">86%</td>
+          <td style="color:var(--haiku)">95%</td>
+          <td style="color:var(--haiku)">97%</td>
+        </tr>
+        <tr>
+          <td>📑 Citation Analyser</td>
+          <td style="color:var(--gold)">75%</td>
+          <td style="color:var(--gold)">83%</td>
+          <td style="color:var(--haiku)">92%</td>
+          <td style="color:var(--gold)">88%</td>
+          <td style="color:var(--haiku)">97%</td>
+          <td style="color:var(--gold)">78%</td>
+        </tr>
+        <tr>
+          <td>📋 Assignment Breakdown</td>
+          <td style="color:var(--haiku)">88%</td>
+          <td style="color:var(--haiku)">93%</td>
+          <td style="color:var(--haiku)">96%</td>
+          <td style="color:var(--haiku)">95%</td>
+          <td style="color:var(--haiku)">98%</td>
+          <td style="color:var(--gold)">90%</td>
+        </tr>
+        <tr>
+          <td>🗺️ Study Path Generator</td>
+          <td style="color:var(--gold)">78%</td>
+          <td style="color:var(--haiku)">90%</td>
+          <td style="color:var(--haiku)">94%</td>
+          <td style="color:var(--haiku)">93%</td>
+          <td style="color:var(--haiku)">97%</td>
+          <td style="color:var(--haiku)">95%</td>
+        </tr>
+        <tr>
+          <td>🔀 Multi-Doc Compare</td>
+          <td style="color:var(--local)">52%</td>
+          <td style="color:var(--local)">65%</td>
+          <td style="color:var(--gold)">80%</td>
+          <td style="color:var(--haiku)">91%</td>
+          <td style="color:var(--gold)">88%</td>
+          <td style="color:var(--haiku)">90%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ SECTION 5: OPTIMAL MIX BREAKDOWN ════════════════════════ -->
+  <div class="section-header">
+    <div class="section-label">Section 5</div>
+    <h2>Optimal Mix — Cost Calculation</h2>
+    <p>How the 75/25 Haiku/Sonnet split works out for an average user (200k tokens/month, 120k input + 80k output).</p>
+  </div>
+
+  <div class="optimal-breakdown">
+    <div class="optimal-breakdown-header">
+      <h3>75% Haiku · 25% Sonnet by token volume</h3>
+      <p>Haiku for: Summarisation, Simplification, Citation, Assignment, Study Path &nbsp;·&nbsp; Sonnet for: Knowledge Graph, Socratic Tutor, Multi-Doc Compare</p>
+    </div>
+    <div class="optimal-body">
+      <div class="mix-visual">
+        <div class="mix-seg-haiku"></div>
+        <div class="mix-seg-sonnet"></div>
+      </div>
+      <div class="mix-legend">
+        <div class="mix-legend-item"><div class="mix-dot" style="background:var(--haiku)"></div>Haiku — 75% of calls · simple extraction</div>
+        <div class="mix-legend-item"><div class="mix-dot" style="background:var(--sonnet)"></div>Sonnet — 25% of calls · reasoning & complex JSON</div>
+      </div>
+
+      <div class="mix-calc-grid">
+        <div class="mix-calc-box">
+          <h5>Haiku portion (75%)</h5>
+          <div class="calc-line"><span>Input tokens</span><strong>90,000</strong></div>
+          <div class="calc-line"><span>Output tokens</span><strong>60,000</strong></div>
+          <div class="calc-line"><span>Input cost @ $0.80/M</span><strong>$0.072</strong></div>
+          <div class="calc-line"><span>Output cost @ $4.00/M</span><strong>$0.240</strong></div>
+          <div class="calc-total"><span>Haiku subtotal</span><span style="color:var(--haiku)">$0.31</span></div>
+        </div>
+        <div class="mix-calc-box">
+          <h5>Sonnet portion (25%)</h5>
+          <div class="calc-line"><span>Input tokens</span><strong>30,000</strong></div>
+          <div class="calc-line"><span>Output tokens</span><strong>20,000</strong></div>
+          <div class="calc-line"><span>Input cost @ $3.00/M</span><strong>$0.090</strong></div>
+          <div class="calc-line"><span>Output cost @ $15.00/M</span><strong>$0.300</strong></div>
+          <div class="calc-total"><span>Sonnet subtotal</span><span style="color:var(--sonnet)">$0.39</span></div>
+        </div>
+      </div>
+
+      <div class="comparison-strip">
+        <div class="comp-box">
+          <div class="comp-label">Haiku only</div>
+          <div class="comp-val" style="color:var(--haiku)">$0.42</div>
+          <div class="comp-sub">low cost, lower quality on reasoning</div>
+        </div>
+        <div class="comp-box highlight">
+          <div class="comp-label">Optimal mix</div>
+          <div class="comp-val">$0.70</div>
+          <div class="comp-sub">best quality-to-cost ratio</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-label">Sonnet only</div>
+          <div class="comp-val" style="color:var(--sonnet)">$1.56</div>
+          <div class="comp-sub">overkill for simple tasks</div>
+        </div>
+        <div class="comp-box">
+          <div class="comp-label">With caching</div>
+          <div class="comp-val" style="color:var(--gold)">~$0.45</div>
+          <div class="comp-sub">60% cache hit rate on prompts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ KEY TAKEAWAYS ════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-label">Summary</div>
+    <h2>Key Takeaways for Grant Applications</h2>
+  </div>
+
+  <div class="takeaways">
+    <div class="takeaway">
+      <div class="takeaway-icon">💚</div>
+      <h4>Haiku is the mass-deployment model</h4>
+      <p>Under $0.50/student/month for average use — even at 5,000 students that's ~$2,100/month. Viable within Anthropic Academic Credits alone for pilot cohorts.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">⚡</div>
+      <h4>Optimal mix adds quality for 67% more cost</h4>
+      <p>$0.70 vs $0.42 delivers Sonnet-level quality on Knowledge Graph and Socratic Tutor — the two features most impactful for deep learning. Worth it for engaged students.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">🖥️</div>
+      <h4>Local (Qwen3 8B) matches Haiku on 6 of 8 features</h4>
+      <p>Students with a mid-spec GPU (8GB VRAM) can run at zero marginal cost. Mistral 7B covers 90% of use cases on 4.5GB VRAM. Position local as the NCAD/privacy-first tier.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">📉</div>
+      <h4>Prompt caching changes the maths significantly</h4>
+      <p>System prompts and feature schemas are repeated every call. 60% cache hit rate reduces average cost to ~$0.25 (Haiku) or ~$0.45 (optimal mix) — well within grant budgets.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">🚫</div>
+      <h4>Opus 4.7 is not viable for free rollout</h4>
+      <p>At $7.80/student/month average, 1,000 students costs $93.6k/year in API fees alone. Reserve Opus for high-stakes institutional premium tiers if ever introduced.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">🎯</div>
+      <h4>NLnet €30k covers ~3,500 student-months of optimal mix</h4>
+      <p>Assuming 20% allocated to API costs (€6k), at $0.70/student/month that funds ~714 active students for a year — a credible pilot scale for PATH 4/5 follow-on applications.</p>
+    </div>
+  </div>
+
+</div>
+</div><!-- /tab-cost -->
+
+<!-- ═══ TAB 2: ROAD AHEAD ═══════════════════════════════════════════ -->
+<div id="tab-roadahead" class="tab-panel">
+<div class="container">
+
+  <div class="section-header">
+    <div class="section-label">For Learning Support &amp; AT Teams</div>
+    <h2>LMS Integration — What's Actually Possible</h2>
+    <p>Ordered by student impact — from the barriers learning support and AT teams see every week, to the longer-term possibilities that could transform how neurodivergent students navigate higher education independently.</p>
+  </div>
+
+  <!-- TIER 1 -->
+  <div class="ra-tier">
+    <div class="ra-tier-header">
+      <div class="ra-tier-num t1">Tier 1</div>
+      <div class="ra-tier-info">
+        <h2>Better DOM Reading</h2>
+        <p>Content is already on the page — just not extracted. No API keys, no OAuth, no institutional approval needed. These features could be deployed in any higher education institution today, without involving IT.</p>
+        <div class="ra-tier-chips">
+          <span class="ra-chip chip-effort">No IT involvement</span>
+          <span class="ra-chip chip-barrier">No API required</span>
+          <span class="ra-chip chip-barrier">Works on all LMS setups</span>
+        </div>
+      </div>
+    </div>
+    <div class="ra-grid">
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">💬</span>
+          <div class="ra-title">Tutor Feedback Reading</div>
+        </div>
+        <div class="ra-desc">Read marked assignment feedback aloud. Learning support staff frequently sit with students doing this manually — because dyslexic students often cannot process dense written critique independently. AssisT would do this automatically, on demand, in the student's own chosen voice and pace.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">Canvas: extract instructor comments from <code>.comment_content</code> and any SpeedGrader annotation text. GC: private comments in the assignment detail view. The TTS engine already handles arbitrary text — this is a targeting problem, not an engine problem. Label speaker: "Instructor comment: …"</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-partial">Moodle ~</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">⏱️</span>
+          <div class="ra-title">Quiz Mode Detection</div>
+        </div>
+        <div class="ra-desc">Automatically switch to a distraction-reduced, focus-first layout the moment a timed quiz opens — no manual activation required. Students already managing anxiety in exam conditions shouldn't need to remember to configure their accessibility tools. The accommodation activates itself.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">Canvas: URL pattern <code>/quizzes/</code> + presence of <code>.time_running</code> timer element. Moodle: URL pattern <code>mod/quiz/attempt.php</code>. On detection: auto-enable Focus Mode, hide non-reading tools, surface Reading Guide. Parse timer DOM value to drive a pace indicator.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Moodle ✓</span>
+            <span class="lms-chip lms-partial">Google Forms ~</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">🧵</span>
+          <div class="ra-title">Discussion Thread TTS</div>
+        </div>
+        <div class="ra-desc">Read entire discussion threads sequentially, labelled by author. Discussion-based assessment is one of the most common formats in higher education and one of the least accessible for students with reading difficulties. Currently there is no tool that handles this well.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">Canvas: traverse <code>[data-testid="discussion-topic-reply"]</code> nodes in DOM order. Moodle: <code>.forumpost</code> elements. Build an ordered post array with author + body text. Inject prev/next post controls into the AssisT toolbar. TTS reads each post sequentially with author announcement prefix.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Moodle ✓</span>
+            <span class="lms-chip lms-partial">Google Classroom ~</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">✅</span>
+          <div class="ra-title">Submission State Detection</div>
+        </div>
+        <div class="ra-desc">Detect whether a student has already submitted and switch AssisT to "review mode" — foregrounding feedback reading and annotation over brief reading. Context-aware support that mirrors how a learning support tutor would respond differently before and after submission.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">Canvas: check for <code>.submitted</code> or <code>.submission_details</code> elements. GC: detect the "Turned in" status label near the assignment header. Two toolbar states: <em>unsubmitted</em> → reading + breakdown foregrounded; <em>submitted</em> → feedback reader + annotation tools foregrounded.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-partial">Moodle ~</span>
+          </div>
+          <span class="impact-chip impact-med">Medium impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">📅</span>
+          <div class="ra-title">Due Date Awareness</div>
+        </div>
+        <div class="ra-desc">Extract assignment due dates and calculate urgency. Show a countdown in the AssisT toolbar and automatically offer task breakdown when a deadline is within 48 hours. Executive function and time management difficulties are among the most common challenges AT teams support.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">Parse due date text from the DOM (Canvas: <code>.assignment-due-date</code>; GC: date element near assignment header). Convert to relative time ("Due in 2 days"). Inject urgency indicator into AssisT toolbar. If delta &lt; 48h and Assignment Breakdown not yet used for this URL → show auto-offer toast.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-partial">Moodle ~</span>
+          </div>
+          <span class="impact-chip impact-med">Medium impact</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TIER 2 -->
+  <div class="ra-tier">
+    <div class="ra-tier-header">
+      <div class="ra-tier-num t2">Tier 2</div>
+      <div class="ra-tier-info">
+        <h2>Smarter Triggering</h2>
+        <p>Behaviour changes that make AssisT proactive rather than reactive. The difference between a tool students have to remember to use and one that recognises the moment they need support and surfaces it — without requiring any action from the student or staff.</p>
+        <div class="ra-tier-chips">
+          <span class="ra-chip chip-effort-med">Medium effort</span>
+          <span class="ra-chip chip-barrier">Client-side only</span>
+          <span class="ra-chip chip-barrier">No IT involvement</span>
+        </div>
+      </div>
+    </div>
+    <div class="ra-grid">
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">🔖</span>
+          <div class="ra-title">Persistent Read State — Resume TTS</div>
+        </div>
+        <div class="ra-desc">Remember where a student left off and offer to resume on return. Students with fatigue, concentration difficulties, or processing differences rarely read content in a single sitting — they return to it multiple times. Removing the cognitive overhead of finding your place makes that viable.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">On TTS pause or page unload: store <code>{ url, charOffset, timestamp }</code> in <code>chrome.storage.local</code>. On return: if a saved position exists for this URL, show "Continue from where you left off?" toast. Optional: subtle opacity shift on already-read sections. Cap stored entries at 50 to avoid storage bloat.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-yes">Moodle ✓</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">📊</span>
+          <div class="ra-title">Readability Detection (Flesch-Kincaid)</div>
+        </div>
+        <div class="ra-desc">Automatically detect when a brief or reading is too complex and offer to simplify it — before the student struggles and gives up. Most students don't know to ask for simplification. This surfaces the offer the moment they need it, based on the actual text difficulty, not a manual trigger.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">FK formula is ~30 lines of JS, no dependencies, zero AI tokens. Run on extracted text after DOM extraction. Score → reading age: &lt;30 = postgraduate, 30–50 = university, 50–60 = A-level. Display: "This brief is written at university level (reading age 18+) — simplify?" Threshold configurable in Settings → Preferences.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-yes">Moodle ✓</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">💡</span>
+          <div class="ra-title">Auto-offer Assignment Breakdown</div>
+        </div>
+        <div class="ra-desc">Offer to break down a new assignment into steps the first time a student opens it — before assignment anxiety sets in. Many students with executive function difficulties never use breakdown tools not because they don't need them, but because they don't think to reach for them at the right moment.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">Store seen-state keyed by assignment URL in <code>chrome.storage.local</code>. On first visit: show a dismissable toast after 3s. Track "dismissed" and "used" separately — don't re-prompt if dismissed, but re-offer if the brief was opened again without using breakdown. Respect a global "don't auto-offer" preference in settings.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-yes">Moodle ✓</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TIER 3 -->
+  <div class="ra-tier">
+    <div class="ra-tier-header">
+      <div class="ra-tier-num t3">Tier 3</div>
+      <div class="ra-tier-info">
+        <h2>API Integration</h2>
+        <p>Unlocks the most transformative student support scenarios — but requires institutional LMS API access. These are the features that could eventually replace manual interventions currently handled by learning support staff. Worth raising with IT and institutional management as a longer-term direction.</p>
+        <div class="ra-tier-chips">
+          <span class="ra-chip chip-effort-high">Needs IT involvement</span>
+          <span class="ra-chip chip-barrier">OAuth required</span>
+          <span class="ra-chip chip-barrier">Institutional approval</span>
+        </div>
+      </div>
+    </div>
+    <div class="ra-grid">
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">📖</span>
+          <div class="ra-title">Cross-assignment Vocabulary</div>
+        </div>
+        <div class="ra-desc">Build a personal, growing glossary of subject-specific terms across all assignments — automatically. AT staff and learning support tutors currently do this manually with flashcards and glossary sheets. AssisT could automate it and resurface terms with spaced repetition at the right moment, not just when the student thinks to review.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">With API: pull all assignment text → extract noun phrases and specialist terms across briefs. Without API (partial): store every dictionary lookup with timestamp and context in <code>chrome.storage.local</code>. SM-2 spaced-repetition determines when to resurface terms. Display as "Word of the session" on LMS page load.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-yes">Moodle ✓</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">🗓️</span>
+          <div class="ra-title">Full Assignment Fetch → Study Plan</div>
+        </div>
+        <div class="ra-desc">Pull all assignments across all enrolled courses and generate a personalised week-by-week study plan. Study planning and workload management are core learning support interventions at most institutions. This would give every student on-demand access to the kind of structured planning support that currently requires a human appointment.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text">Canvas: <code>GET /api/v1/courses/{id}/assignments</code> (OAuth scope: <code>url:GET|/api/v1/courses/:course_id/assignments</code>). GC: <code>classroom.googleapis.com/v1/courses/{id}/courseWork</code>. Aggregate titles + due dates + brief text → pass to Study Path Generator AI feature. Requires OAuth token management and storage.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-partial">Moodle ~</span>
+          </div>
+          <span class="impact-chip impact-high">High impact</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="ra-card-head">
+          <span class="ra-icon">🔄</span>
+          <div class="ra-title">Cross-device Read Progress Sync</div>
+        </div>
+        <div class="ra-desc">Let a student start reading a brief on a college computer and pick up exactly where they left off on their own device at home. Many students with disabilities rely on specific home setups — larger screens, particular voices, quiet environments. Continuity across those contexts removes a real friction point.</div>
+        <div class="ra-how">
+          <div class="ra-how-label">How it works</div>
+          <div class="ra-how-text"><strong>Option A</strong> — <code>chrome.storage.sync</code>: 100 KB limit, no server, Chrome account required. Sufficient for position metadata alone. <strong>Option B</strong> — lightweight sync endpoint: POST/GET progress JSON keyed by hashed identifier. Requires server + privacy policy update. FERPA implications must be reviewed before storing any LMS-derived data server-side.</div>
+        </div>
+        <div class="ra-footer">
+          <div class="lms-chips">
+            <span class="lms-chip lms-yes">Canvas ✓</span>
+            <span class="lms-chip lms-yes">Google Classroom ✓</span>
+            <span class="lms-chip lms-yes">Moodle ✓</span>
+          </div>
+          <span class="impact-chip impact-med">Medium impact</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PRIORITY RECOMMENDATION -->
+  <div class="section-header" style="margin-top:8px">
+    <div class="section-label">For AT &amp; Learning Support Teams</div>
+    <h2>Where the Biggest Difference Gets Made</h2>
+    <p>The features most likely to change outcomes for students — in order of how directly they address what learning support staff see every week.</p>
+  </div>
+
+  <div class="takeaways">
+    <div class="takeaway">
+      <div class="takeaway-icon">🥇</div>
+      <h4>Tutor feedback reading</h4>
+      <p>Learning support staff sit with students and read feedback aloud more than almost any other single task. This is the one feature that directly automates a high-frequency, high-value human intervention. No other assistive technology tool handles it well.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">🥈</div>
+      <h4>Persistent read state</h4>
+      <p>Students with fatigue, concentration difficulties, or processing differences don't read in one sitting — they return again and again. Removing the friction of finding your place is small in engineering terms and large in daily lived experience.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">🥉</div>
+      <h4>Readability detection</h4>
+      <p>Most students don't know when they're struggling because the text is too complex — they think they're just not smart enough. A tool that tells them "this is written at postgraduate level" and immediately offers to simplify it reframes the problem and removes the barrier.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">4️⃣</div>
+      <h4>Quiz mode detection</h4>
+      <p>Timed exams are the highest-anxiety moment in a student's academic life. An accessibility tool that activates automatically — without requiring a student to remember to configure it under pressure — is a meaningful accommodation that currently has no equivalent.</p>
+    </div>
+    <div class="takeaway">
+      <div class="takeaway-icon">⛔</div>
+      <h4>Hold on Tier 3 API features</h4>
+      <p>OAuth and institutional approval are real barriers for a free open-source tool. The exception worth pursuing: <code>chrome.storage.sync</code> for cross-device read position needs no server and minimal effort. The vocabulary and study plan features are worth raising with IT as a longer-term institutional conversation.</p>
+    </div>
+  </div>
+
+</div>
+</div><!-- /tab-roadahead -->
+
+<div class="doc-footer">
+  AssisT · Development Analysis · May 2026 · Cost estimates directional only · LMS roadmap reflects current adapter architecture
+</div>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+      window.scrollTo(0, 0);
+    });
+  });
+</script>
+</body>
+</html>

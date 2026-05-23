@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AssisT — GATHER 2026 Speaker Script</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a10;
+    --panel: #12121e;
+    --border: rgba(167,139,250,0.2);
+    --accent: #a78bfa;
+    --accent2: #7c7cff;
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --red: #f87171;
+    --text: #e8ecff;
+    --muted: #8892b0;
+    --faint: #4a5270;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.55; }
+
+  body { display: flex; gap: 0; }
+
+  /* ── LEFT NAV ── */
+  nav {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  nav h2 { font-size: 10px; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; padding: 0 16px 8px; }
+  nav a {
+    display: block;
+    padding: 7px 16px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  nav a:hover, nav a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(167,139,250,0.06); }
+  nav .nav-section { margin-top: 16px; }
+
+  /* ── MAIN ── */
+  main { flex: 1; overflow-y: auto; padding: 28px 36px 80px; max-width: 860px; }
+
+  /* ── HEADER ── */
+  .page-header { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .page-header h1 { font-size: 22px; font-weight: 600; color: var(--text); }
+  .page-header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* ── TIMER BAR ── */
+  .timer-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .timer-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .timer-card .label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .timer-card .time { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 2px 0; }
+  .timer-card .dur { font-size: 11px; color: var(--muted); }
+  .timer-card.slides .time { color: var(--accent); }
+  .timer-card.demo .time { color: var(--green); }
+  .timer-card.qa .time { color: var(--yellow); }
+
+  /* ── CHECKPOINTS ── */
+  .checkpoints {
+    background: rgba(167,139,250,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .cp { text-align: center; }
+  .cp .cp-time { font-size: 16px; font-weight: 700; color: var(--accent2); }
+  .cp .cp-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── CHECKLIST ── */
+  .checklist { margin-bottom: 28px; }
+  .checklist h3 { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+  }
+  .check-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); margin-top: 1px; flex-shrink: 0; cursor: pointer; }
+  .check-item label { font-size: 13px; color: var(--text); cursor: pointer; }
+  .check-item.done label { text-decoration: line-through; color: var(--faint); }
+
+  /* ── SECTION HEADING ── */
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 32px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-heading .badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+  .badge-slides { background: rgba(124,124,255,0.18); color: var(--accent2); }
+  .badge-demo   { background: rgba(52,211,153,0.18);  color: var(--green); }
+  .badge-qa     { background: rgba(251,191,36,0.18);  color: var(--yellow); }
+  .section-heading h2 { font-size: 16px; font-weight: 600; }
+  .section-heading .range { font-size: 12px; color: var(--faint); margin-left: auto; }
+
+  /* ── SLIDE CARD / DEMO CARD ── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .card-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .card-num { font-size: 11px; font-weight: 700; color: var(--faint); min-width: 60px; }
+  .card-title { font-size: 14px; font-weight: 600; flex: 1; }
+  .card-clock { font-size: 12px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .card-dur { font-size: 11px; color: var(--faint); }
+
+  .script-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    border-left: 3px solid var(--accent2);
+    padding-left: 14px;
+    margin: 8px 0;
+  }
+  .script-text em { font-style: normal; color: var(--accent); }
+
+  .action {
+    font-size: 12px;
+    color: var(--green);
+    background: rgba(52,211,153,0.08);
+    border: 1px solid rgba(52,211,153,0.15);
+    border-radius: 6px;
+    padding: 5px 10px;
+    margin: 6px 0;
+    font-style: italic;
+  }
+
+  .note {
+    font-size: 12px;
+    color: var(--yellow);
+    background: rgba(251,191,36,0.07);
+    border: 1px solid rgba(251,191,36,0.15);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin: 6px 0;
+  }
+
+  .warning {
+    font-size: 12px;
+    color: var(--red);
+    background: rgba(248,113,113,0.07);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin: 6px 0;
+  }
+
+  .pause { font-size: 12px; color: var(--accent); font-style: italic; margin: 6px 0; }
+
+  .card.optional { opacity: 0.6; border-style: dashed; }
+  .card.optional::after {
+    content: 'ONLY IF RUNNING AHEAD';
+    position: absolute;
+    top: 10px; right: 12px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--yellow);
+    background: rgba(251,191,36,0.12);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  /* ── Q&A ── */
+  .qa-item { margin-bottom: 12px; }
+  .qa-q { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .qa-a { font-size: 13px; color: var(--text); line-height: 1.55; padding-left: 12px; border-left: 2px solid var(--border); }
+
+  /* ── PACE ALERTS ── */
+  .pace-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .pace-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .pace-card strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .pace-card.fast strong { color: var(--green); }
+  .pace-card.slow strong { color: var(--red); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.2); border-radius: 3px; }
+
+  /* ── LIVE CLOCK ── */
+  #live-clock {
+    position: fixed;
+    bottom: 20px;
+    right: 24px;
+    background: rgba(10,10,20,0.9);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 28px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    z-index: 999;
+    backdrop-filter: blur(10px);
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-section">
+    <h2>Setup</h2>
+    <a href="#setup">Pre-talk checklist</a>
+    <a href="#timing">Timing</a>
+  </div>
+  <div class="nav-section">
+    <h2>Slides · 0–5:30</h2>
+    <a href="#slide01">01 Title</a>
+    <a href="#slide02">02 Who I Am</a>
+    <a href="#slide03">03 The Problem</a>
+    <a href="#slide04">04 What is AssisT</a>
+    <a href="#slide05">05 Reading</a>
+    <a href="#slide06">06 Writing</a>
+    <a href="#slide07">07 Visual</a>
+    <a href="#slide08">08 Study Tools</a>
+    <a href="#slide09">09 LMS</a>
+    <a href="#slide10">10 AI</a>
+    <a href="#slide11">11 Free</a>
+    <a href="#slide12">12 How to Help</a>
+    <a href="#slide13">13 Roadmap ★</a>
+  </div>
+  <div class="nav-section">
+    <h2>Demo · 5:30–15:00</h2>
+    <a href="#demo1">Popup overview</a>
+    <a href="#demo2">TTS highlight</a>
+    <a href="#demo3">Reading mode</a>
+    <a href="#demo4">Visual comfort</a>
+    <a href="#demo5">Speech to text</a>
+    <a href="#demo6">AI simplify</a>
+    <a href="#demo7">Profiles</a>
+    <a href="#demo8">Wrap</a>
+  </div>
+  <div class="nav-section">
+    <h2>Q&amp;A · 15–20</h2>
+    <a href="#qa">Likely questions</a>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <div class="page-header">
+    <h1>AssisT — GATHER 2026 Speaker Script</h1>
+    <p>Mark Jones · 19 May 2026 · 20 minutes</p>
+  </div>
+
+  <!-- TIMING -->
+  <div id="timing" class="timer-bar">
+    <div class="timer-card slides">
+      <div class="label">Slides</div>
+      <div class="time">0:00 – 5:30</div>
+      <div class="dur">5 min 30 sec</div>
+    </div>
+    <div class="timer-card demo">
+      <div class="label">Live Demo</div>
+      <div class="time">5:30 – 15:00</div>
+      <div class="dur">9 min 30 sec</div>
+    </div>
+    <div class="timer-card qa">
+      <div class="label">Q&amp;A</div>
+      <div class="time">15:00 – 20:00</div>
+      <div class="dur">5 min</div>
+    </div>
+  </div>
+
+  <!-- PACE CHECKPOINTS -->
+  <div class="checkpoints">
+    <div class="cp"><div class="cp-time">1:00</div><div class="cp-label">Slide 03 — Problem</div></div>
+    <div class="cp"><div class="cp-time">2:00</div><div class="cp-label">Slide 04 — What is AssisT</div></div>
+    <div class="cp"><div class="cp-time">5:00</div><div class="cp-label">Slides done → browser</div></div>
+    <div class="cp"><div class="cp-time">7:00</div><div class="cp-label">TTS underway</div></div>
+    <div class="cp"><div class="cp-time">10:00</div><div class="cp-label">STT demo</div></div>
+    <div class="cp"><div class="cp-time">13:00</div><div class="cp-label">Profiles demo</div></div>
+    <div class="cp"><div class="cp-time">15:00</div><div class="cp-label">Back to slides / Q&amp;A</div></div>
+    <div class="cp"><div class="cp-time">20:00</div><div class="cp-label">Done</div></div>
+  </div>
+
+  <!-- PACE -->
+  <div class="pace-row">
+    <div class="pace-card fast"><strong>Running fast →</strong> Slow down in the TTS highlight. Let the audience watch the word sync. Linger there — don't rush to the next demo.</div>
+    <div class="pace-card slow"><strong>Running slow →</strong> After slide 12, skip slide 13. Demo: TTS → Visual overlay → STT → wrap. Cut AI and Profiles if needed.</div>
+  </div>
+
+  <!-- ── SETUP CHECKLIST ── -->
+  <div id="setup" class="checklist">
+    <h3>Pre-talk Setup Checklist</h3>
+    <div class="check-item"><input type="checkbox" id="c1"><label for="c1">Browser open — AssisT installed and visible in toolbar</label></div>
+    <div class="check-item"><input type="checkbox" id="c2"><label for="c2">Tab 1: Canvas assignment page (or long Wikipedia article as fallback)</label></div>
+    <div class="check-item"><input type="checkbox" id="c3"><label for="c3">Tab 2: Dense academic article (3+ paragraphs of complex text)</label></div>
+    <div class="check-item"><input type="checkbox" id="c4"><label for="c4">Tab 3: Google Doc or any page with a text input field</label></div>
+    <div class="check-item"><input type="checkbox" id="c5"><label for="c5">Popup tested — TTS voice set, overlay colour ready</label></div>
+    <div class="check-item"><input type="checkbox" id="c6"><label for="c6">Slides open in separate window (not same monitor as demo)</label></div>
+    <div class="check-item"><input type="checkbox" id="c7"><label for="c7">Clock / timer visible — phone face-up or second screen corner</label></div>
+  </div>
+
+  <!-- ══════════════════════════════
+       SLIDES
+  ══════════════════════════════ -->
+  <div class="section-heading" id="slides">
+    <span class="badge badge-slides">Slides</span>
+    <h2>Slides</h2>
+    <span class="range">0:00 – 5:30</span>
+  </div>
+
+  <div class="card" id="slide01">
+    <div class="card-header">
+      <span class="card-num">Slide 01</span>
+      <span class="card-title">Title</span>
+      <span class="card-clock">[0:00]</span>
+      <span class="card-dur">~15 sec</span>
+    </div>
+    <div class="script-text">"Good [morning/afternoon] everyone. I'm Mark Jones — Digital Technical Officer at NCAD — and I've spent the last two years building something I want to show you today. It's called AssisT."</div>
+  </div>
+
+  <div class="card" id="slide02">
+    <div class="card-header">
+      <span class="card-num">Slide 02</span>
+      <span class="card-title">Who I Am</span>
+      <span class="card-clock">[0:15]</span>
+      <span class="card-dur">~45 sec</span>
+    </div>
+    <div class="script-text">"Quick context. Eighteen years at NCAD. Two years ago I moved into assistive technology work, and immediately ran into the problem that I suspect most of you deal with every week — the tools we have are expensive, fragmented, and locked to a specific machine or institution. Students build four years of habits around a tool. They graduate. It disappears.<br><br>That gap is what started AssisT."</div>
+    <div class="pause">▶ PAUSE — let the quote on the slide land before advancing</div>
+  </div>
+
+  <div class="card" id="slide03">
+    <div class="card-header">
+      <span class="card-num">Slide 03</span>
+      <span class="card-title">The Problem</span>
+      <span class="card-clock">[1:00]</span>
+      <span class="card-dur">~60 sec</span>
+    </div>
+    <div class="script-text">"Four problems on this slide — and I'd bet you recognise every one of them.<br><br><em>Cost and gatekeeping.</em> TTS tools locked to lab machines, or requiring a formal diagnosis before a student can even try them.<br><br><em>Empty platforms.</em> Canvas, Moodle, Google Classroom ship with essentially zero built-in reading or writing support. For a student with dyslexia, that's not a small gap — that's the whole thing.<br><br><em>The discovery gap.</em> First-generation students, EAL learners, students who don't self-identify as needing AT — they often don't know what's available, and nobody tells them.<br><br><em>The support cliff.</em> Institutional licence ends at graduation. The tool a student built four years of habits around disappears exactly when they're entering a workplace and need it most."</div>
+  </div>
+
+  <div class="card" id="slide04">
+    <div class="card-header">
+      <span class="card-num">Slide 04</span>
+      <span class="card-title">What is AssisT</span>
+      <span class="card-clock">[2:00]</span>
+      <span class="card-dur">~30 sec</span>
+    </div>
+    <div class="script-text">"AssisT is a Chrome extension. Installs in under a minute from the Chrome Web Store. Works on Canvas, Moodle, Google Classroom — and every other site.<br><br>No account required. Nothing leaves the browser. GDPR compliant. Free and open source.<br><br>That last point matters — it means the support cliff doesn't exist. The tool doesn't disappear when funding ends."</div>
+  </div>
+
+  <div class="card" id="slide05">
+    <div class="card-header">
+      <span class="card-num">Slide 05</span>
+      <span class="card-title">Reading Help</span>
+      <span class="card-clock">[2:30]</span>
+      <span class="card-dur">~20 sec</span>
+    </div>
+    <div class="note">Slides 05–09 are intentionally quick — name the category and move on. Save the detail for the demo.</div>
+    <div class="script-text">"I'll move through the next six feature slides quickly because I'd rather show you than tell you.<br><br>Reading: TTS with word-by-word highlight, a reading mode that strips the noise from any page, dyslexia mode with bionic reading, and OCR for scanned PDFs and images."</div>
+  </div>
+
+  <div class="card" id="slide06">
+    <div class="card-header">
+      <span class="card-num">Slide 06</span>
+      <span class="card-title">Writing Help</span>
+      <span class="card-clock">[2:50]</span>
+      <span class="card-dur">~20 sec</span>
+    </div>
+    <div class="script-text">"Writing: speech-to-text that works in any text field on any website — Canvas assignment submissions, Moodle forum posts, Google Docs — using the browser's built-in engine. Nothing leaves the device."</div>
+  </div>
+
+  <div class="card" id="slide07">
+    <div class="card-header">
+      <span class="card-num">Slide 07</span>
+      <span class="card-title">Visual Comfort</span>
+      <span class="card-clock">[3:10]</span>
+      <span class="card-dur">~20 sec</span>
+    </div>
+    <div class="script-text">"Visual comfort: colour overlay for Meares-Irlen-type visual stress, a focus mode with a clear reading window for attention difficulties, a tracking guide line, and global motion suppression for vestibular sensitivities."</div>
+  </div>
+
+  <div class="card" id="slide08">
+    <div class="card-header">
+      <span class="card-num">Slide 08</span>
+      <span class="card-title">Study Tools</span>
+      <span class="card-clock">[3:30]</span>
+      <span class="card-dur">~20 sec</span>
+    </div>
+    <div class="script-text">"Study tools: annotations, sticky notes, RSVP speed reading, a Pomodoro timer, accessibility profiles — I'll show those shortly — and full WCAG-compliant text customisation: font, size, line spacing, letter and word spacing."</div>
+  </div>
+
+  <div class="card" id="slide09">
+    <div class="card-header">
+      <span class="card-num">Slide 09</span>
+      <span class="card-title">LMS Integration</span>
+      <span class="card-clock">[3:50]</span>
+      <span class="card-dur">~15 sec</span>
+    </div>
+    <div class="script-text">"Purpose-built for Canvas, Moodle, and Google Classroom. And crucially — it detects the LMS automatically. Students don't configure anything."</div>
+  </div>
+
+  <div class="card" id="slide10">
+    <div class="card-header">
+      <span class="card-num">Slide 10</span>
+      <span class="card-title">AI Assist</span>
+      <span class="card-clock">[4:05]</span>
+      <span class="card-dur">~25 sec</span>
+    </div>
+    <div class="script-text">"Eight AI-powered features — summarisation, text simplification, assignment breakdown, a Socratic tutor, knowledge graphs, study path generator, citation analyser, multi-doc compare.<br><br>Privacy-first by default — runs locally on the student's device. No data goes to AssisT servers. If a student wants cloud AI, they supply their own API key. We never touch it."</div>
+  </div>
+
+  <div class="card" id="slide11">
+    <div class="card-header">
+      <span class="card-num">Slide 11</span>
+      <span class="card-title">Free for Everyone</span>
+      <span class="card-clock">[4:30]</span>
+      <span class="card-dur">~30 sec</span>
+    </div>
+    <div class="note">Emotional peak for this audience — "Nothing goes through IT procurement" will get a reaction. Let it land.</div>
+    <div class="script-text">"No subscription. No waitlist. No institutional licence required.<br><br>Any student installs it in sixty seconds. You can recommend it today and they can have it running before they leave this session. A lecturer can model it in class. A DSO can add it to their handout. <em>Nothing goes through IT procurement.</em>"</div>
+  </div>
+
+  <div class="card" id="slide12">
+    <div class="card-header">
+      <span class="card-num">Slide 12</span>
+      <span class="card-title">How You Can Help</span>
+      <span class="card-clock">[5:00]</span>
+      <span class="card-dur">~15 sec</span>
+    </div>
+    <div class="script-text">"Four steps for after this session — install it, share it, watch the tutorial series on YouTube, give feedback on GitHub. Links are at the bottom — I'll leave this up.<br><br>Let me show you what it actually does."</div>
+    <div class="action">→ Switch to browser — do NOT advance slides yet. Return to slide 14 for Q&A.</div>
+  </div>
+
+  <div class="card optional" id="slide13">
+    <div class="card-header">
+      <span class="card-num">Slide 13</span>
+      <span class="card-title">Roadmap</span>
+    </div>
+    <div class="script-text">"Three things coming that are directly relevant to your work.<br><br>Firefox and Safari support — so AssisT reaches students on every platform.<br><br>An STT voice profile creator — so students with Dysarthria can train the recognition engine to their speech, instead of adapting to the engine.<br><br>And <em>Exam Mode</em> — a password-locked profile configured by the AT technician. Only the supports on the student's accommodation plan stay active. Everything else — AI, summarisation, web access — is locked. No more all-or-nothing workarounds at exam time."</div>
+    <div class="note">Plant the Exam Mode seed — it will come up in Q&A regardless.</div>
+  </div>
+
+  <!-- ══════════════════════════════
+       LIVE DEMO
+  ══════════════════════════════ -->
+  <div class="section-heading" id="demo">
+    <span class="badge badge-demo">Live Demo</span>
+    <h2>Live Demo</h2>
+    <span class="range">5:30 – 15:00</span>
+  </div>
+
+  <div class="note" style="margin-bottom:14px;">You're live in the browser. Speak to the screen — point at what you're clicking so remote attendees can follow.</div>
+
+  <div class="card" id="demo1">
+    <div class="card-header">
+      <span class="card-num">Demo 1</span>
+      <span class="card-title">Popup Overview</span>
+      <span class="card-clock">[5:30]</span>
+      <span class="card-dur">~45 sec</span>
+    </div>
+    <div class="action">Click the AssisT icon in the Chrome toolbar.</div>
+    <div class="script-text">"This is the control centre. Everything is organised into sections — Reading, Writing, Visual, Study Tools, AI. By default nothing is on. Students turn on what they need — and it remembers.<br><br>Let me start with the feature most of your students will reach for first."</div>
+  </div>
+
+  <div class="card" id="demo2">
+    <div class="card-header">
+      <span class="card-num">Demo 2</span>
+      <span class="card-title">TTS with Word Highlighting</span>
+      <span class="card-clock">[6:15]</span>
+      <span class="card-dur">~2:00</span>
+    </div>
+    <div class="note">This is the moment to let breathe. Don't rush — word-level sync on a webpage is often new to this audience.</div>
+    <div class="action">Switch to Tab 1. Select a paragraph. Press TTS play.</div>
+    <div class="script-text">"Text to speech. I'll select a paragraph and play."</div>
+    <div class="action">Let it run 3–4 sentences. Watch the room.</div>
+    <div class="script-text">"Watch the highlight — word by word, exactly in sync with the voice.<br><br>Now — the interaction that students tell me makes the biggest difference:"</div>
+    <div class="action">Click somewhere in a different paragraph.</div>
+    <div class="script-text">"Click anywhere on the page and the reader jumps to that sentence. They stop being a passenger in their own reading. They can navigate by clicking."</div>
+    <div class="action">Open TTS settings. Move the speed slider.</div>
+    <div class="script-text">"Speed: 0.5x for students who need processing time, up to 2x for students who just want a faster scan. Set once, remembered. Voice choice is here too — any voice the browser has installed."</div>
+  </div>
+
+  <div class="card" id="demo3">
+    <div class="card-header">
+      <span class="card-num">Demo 3</span>
+      <span class="card-title">Reading Mode</span>
+      <span class="card-clock">[8:15]</span>
+      <span class="card-dur">~45 sec</span>
+    </div>
+    <div class="action">Toggle Reading Mode from the popup.</div>
+    <div class="script-text">"Reading mode. One click."</div>
+    <div class="pause">▶ Pause — let the page transform register with the audience</div>
+    <div class="script-text">"Navigation: gone. Ads: gone. Sidebars: gone. Font, size, and spacing snap to whatever the student has saved. For a student with ADHD trying to read a dense university page — this alone can be the difference between reading it and not."</div>
+  </div>
+
+  <div class="card" id="demo4">
+    <div class="card-header">
+      <span class="card-num">Demo 4</span>
+      <span class="card-title">Visual Comfort</span>
+      <span class="card-clock">[9:00]</span>
+      <span class="card-dur">~60 sec</span>
+    </div>
+    <div class="action">Open Visual section. Toggle colour overlay.</div>
+    <div class="script-text">"Colour overlay."</div>
+    <div class="action">Adjust colour and intensity.</div>
+    <div class="script-text">"Colour, intensity, blend mode — all adjustable. Evidence-based for Meares-Irlen-type visual stress. Students who've relied on a physical tinted overlay for print — they now have it on screen, on every website they use."</div>
+    <div class="action">Toggle off overlay. Toggle Focus Mode.</div>
+    <div class="script-text">"Focus mode. Dark overlay, clear reading window that follows the cursor."</div>
+    <div class="action">Move mouse slowly across the page.</div>
+    <div class="script-text">"For students with attention difficulties — keeps eyes on one area at a time. One-second toggle."</div>
+  </div>
+
+  <div class="card" id="demo5">
+    <div class="card-header">
+      <span class="card-num">Demo 5</span>
+      <span class="card-title">Speech to Text</span>
+      <span class="card-clock">[10:00]</span>
+      <span class="card-dur">~90 sec</span>
+    </div>
+    <div class="warning">If Chrome asks for mic permission — grant it. On <code>file://</code> pages Chrome doesn't remember mic permission by design. Say so out loud: "On a real site like Canvas this only happens once." This is NOT an AssisT bug.</div>
+    <div class="action">Switch to Tab 3 (text field). Click the floating mic icon.</div>
+    <div class="script-text">"Speech to text. I'll click the mic."</div>
+    <div class="action">Dictate a sentence or two clearly.</div>
+    <div class="script-text">"Direct into the text field — no copy-paste, no intermediate window. Works in Canvas submissions, Moodle forum posts, Google Docs, email, search boxes — anywhere there's a text box on any website.<br><br>Browser's own speech engine — nothing leaves the device.<br><br>For a student with motor difficulties, or dysgraphia, or who simply composes better verbally than in writing — this removes the transcription barrier. They think, they speak, it's there."</div>
+  </div>
+
+  <div class="card" id="demo6">
+    <div class="card-header">
+      <span class="card-num">Demo 6</span>
+      <span class="card-title">AI: Text Simplification</span>
+      <span class="card-clock">[11:30]</span>
+      <span class="card-dur">~90 sec</span>
+    </div>
+    <div class="action">Switch to Tab 2. Select a complex paragraph.</div>
+    <div class="script-text">"AI features. I'll select some dense academic text."</div>
+    <div class="action">Trigger text simplification. Wait for response.</div>
+    <div class="script-text">"The same content, rewritten at an accessible reading level.<br><br>By default this runs locally — Ollama or the browser's built-in AI. Nothing leaves the student's machine. If they have their own Claude or Gemini API key they can use cloud AI — but AssisT never sees the data, never logs it, never sends it anywhere.<br><br>Assignment breakdown is equally useful — paste in a brief, get back a structured checklist. For a student who struggles to extract actionable steps from a wall of text — that's a significant cognitive load reduction."</div>
+  </div>
+
+  <div class="card" id="demo7">
+    <div class="card-header">
+      <span class="card-num">Demo 7</span>
+      <span class="card-title">Accessibility Profiles</span>
+      <span class="card-clock">[13:00]</span>
+      <span class="card-dur">~45 sec</span>
+    </div>
+    <div class="action">Open popup → Profiles.</div>
+    <div class="script-text">"Accessibility profiles. A profile is a complete saved state — TTS voice and speed, visual settings, text spacing, everything — in one name.<br><br>A student can have a 'Focus session' profile and a 'Reading aloud' profile and switch in one tap.<br><br>Crucially:"</div>
+    <div class="action">Point to export/import.</div>
+    <div class="script-text">"Export and import as JSON. If you — as an AT technician — set up the optimal configuration for a student, you export it and they import it. They don't need to sit with you going through every single setting. You build it once, they get it instantly."</div>
+  </div>
+
+  <div class="card" id="demo8">
+    <div class="card-header">
+      <span class="card-num">Demo 8</span>
+      <span class="card-title">Wrap</span>
+      <span class="card-clock">[13:45]</span>
+      <span class="card-dur">~30 sec</span>
+    </div>
+    <div class="script-text">"That's maybe a third of what's in here — I haven't shown you annotations, sticky notes, the knowledge graph, RSVP reading, the Pomodoro timer. The full feature guide is on the Fiavaion website — I'll drop the link in the chat.<br><br>Everything you've just seen: free, installs in sixty seconds, works on any site."</div>
+    <div class="action">→ Advance to Slide 14 (Q&A slide).</div>
+  </div>
+
+  <!-- ══════════════════════════════
+       Q&A
+  ══════════════════════════════ -->
+  <div class="section-heading" id="qa">
+    <span class="badge badge-qa">Q&amp;A</span>
+    <h2>Q&amp;A</h2>
+    <span class="range">15:00 – 20:00</span>
+  </div>
+
+  <div class="note" style="margin-bottom:16px;">Slide 14 on screen with contact details. "I'll leave the contact details up. What questions do you have?"</div>
+
+  <div class="card">
+    <div class="qa-item">
+      <div class="qa-q">"What if a student doesn't have Chrome?"</div>
+      <div class="qa-a">Works on any Chromium browser — Edge, Brave, Opera. Firefox and Safari are on the roadmap.</div>
+    </div>
+    <div class="qa-item">
+      <div class="qa-q">"Can I configure it for a student before they come to see me?"</div>
+      <div class="qa-a">Yes. Build the profile you want, export it as JSON, send it or import it when they sit down. Takes about five minutes to set up once.</div>
+    </div>
+    <div class="qa-item">
+      <div class="qa-q">"What about exams?"</div>
+      <div class="qa-a">Exam Mode is the next major feature — password-locked profile configured by you. Only the supports on the accommodation plan stay active; AI and web access locked. Not in current release, but it's the top priority.</div>
+    </div>
+    <div class="qa-item">
+      <div class="qa-q">"Is this GDPR compliant?"</div>
+      <div class="qa-a">Yes. Nothing leaves the browser by default. Settings stored locally. Nothing sent to Fiavaion servers. Open source — anyone can audit the code.</div>
+    </div>
+    <div class="qa-item">
+      <div class="qa-q">"Is it just for students?"</div>
+      <div class="qa-a">No — any person, any website. Lecturers use it for their own reading. Graduates keep it after they leave.</div>
+    </div>
+    <div class="qa-item">
+      <div class="qa-q">"Will it stay free?"</div>
+      <div class="qa-a">Yes. EUPL open-source licence — it can't be made proprietary. We're pursuing grant funding to sustain development long-term.</div>
+    </div>
+    <div class="qa-item">
+      <div class="qa-q">"How do students find out it exists?"</div>
+      <div class="qa-a">That's partly why I'm here. The biggest barrier right now is discovery. If you add it to your AT resources and DSO handouts, that's the most valuable thing that can happen after this session.</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── LIVE CLOCK ── -->
+<div id="live-clock">00:00:00</div>
+
+<script>
+  // Live clock
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('live-clock').textContent = h + ':' + m + ':' + s;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Checkbox done state
+  document.querySelectorAll('.check-item input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      cb.closest('.check-item').classList.toggle('done', cb.checked);
+    });
+  });
+
+  // Nav active highlight on scroll
+  const sections = document.querySelectorAll('[id]');
+  const navLinks = document.querySelectorAll('nav a');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const link = document.querySelector(`nav a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
