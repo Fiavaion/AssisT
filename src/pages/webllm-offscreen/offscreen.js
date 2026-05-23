@@ -46,6 +46,9 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
     case 'WEBLLM_UNLOAD':
       handleUnload(requestId);
       break;
+    case 'WEBLLM_CLEAR_CACHE':
+      handleClearCache(requestId);
+      break;
     default:
       break;
   }
@@ -238,4 +241,23 @@ async function handleUnload(requestId) {
   isReady = false;
   isLoading = false;
   reply(requestId, { success: true });
+}
+
+// ── Clear cache ───────────────────────────────────────────────────────────────
+
+async function handleClearCache(requestId) {
+  try {
+    engine = null;
+    currentModel = null;
+    isReady = false;
+    isLoading = false;
+
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+
+    reply(requestId, { success: true, cleared: keys.length });
+  } catch (err) {
+    console.error('[WebLLM Offscreen] Cache clear failed:', err);
+    reply(requestId, { success: false, error: err.message });
+  }
 }

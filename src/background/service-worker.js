@@ -1294,6 +1294,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Clear all WebLLM cached model data
+  if (message.action === 'WEBLLM_CLEAR_CACHE') {
+    (async () => {
+      try {
+        const result = await sendToOffscreen('WEBLLM_CLEAR_CACHE');
+        await chrome.storage.local.remove([
+          'webllmCachedModels',
+          'webllmModel',
+          'webllmTaskModels',
+        ]);
+        sendResponse({ success: true, ...result });
+      } catch (error) {
+        console.error('[WebLLM] Cache clear failed:', error);
+        sendResponse({ success: false, error: sanitizeError(error) });
+      }
+    })();
+    return true;
+  }
+
   // WebLLM vision support (future enhancement)
   if (message.action === 'WEBLLM_VISION') {
     sendResponse({ success: false, error: 'Vision models not yet supported in WebLLM mode' });

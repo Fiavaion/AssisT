@@ -1367,6 +1367,46 @@ function initiateModelDownload() {
   });
 }
 
+async function clearWebLLMCache() {
+  const btn = $('btn-clear-webllm-cache');
+  const statusEl = $('clear-cache-status');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Removing…';
+  }
+  if (statusEl) {
+    statusEl.textContent = '';
+  }
+  try {
+    const response = await new Promise(resolve =>
+      chrome.runtime.sendMessage({ action: 'WEBLLM_CLEAR_CACHE' }, resolve)
+    );
+    if (response?.success) {
+      if (statusEl) {
+        statusEl.textContent = '✓ All downloaded models removed.';
+        statusEl.style.color = 'var(--color-success, #16a34a)';
+      }
+      if (btn) {
+        btn.textContent = '🗑 Remove all downloaded models';
+        btn.disabled = false;
+      }
+      // Refresh the panel so the model list shows as clean
+      renderWebLLMPanel();
+    } else {
+      throw new Error(response?.error || 'Clear failed');
+    }
+  } catch (err) {
+    if (statusEl) {
+      statusEl.textContent = `Error: ${err.message}`;
+      statusEl.style.color = 'var(--color-danger, #dc2626)';
+    }
+    if (btn) {
+      btn.textContent = '🗑 Remove all downloaded models';
+      btn.disabled = false;
+    }
+  }
+}
+
 // ─── Button Wiring ────────────────────────────────────────────────────────────
 function wireButtons() {
   // Step 0: Welcome
@@ -1397,6 +1437,11 @@ function wireButtons() {
 
   // WebLLM sub-panel
   attachAccessibleHandler($('btn-download-model'), 'Download Model', initiateModelDownload);
+  attachAccessibleHandler(
+    $('btn-clear-webllm-cache'),
+    'Remove Downloaded Models',
+    clearWebLLMCache
+  );
 
   // Ollama sub-panel
   attachAccessibleHandler($('btn-recheck-ollama'), 'Recheck Ollama', recheckOllama);

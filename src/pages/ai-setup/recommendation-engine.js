@@ -117,7 +117,7 @@ export function getModeInfo(mode) {
     webllm: {
       icon: '🌐',
       title: 'Browser AI',
-      subtitle: 'Zero-config, runs in your browser',
+      subtitle: 'Zero-config, runs in your browser — responses are slow (30–90s)',
       pros: [
         'No account or installation needed',
         'Private — runs locally in browser',
@@ -126,7 +126,7 @@ export function getModeInfo(mode) {
       cons: [
         'Requires WebGPU-capable GPU',
         'First-time download (0.6–5GB)',
-        'Slower than cloud AI',
+        'Much slower than Ollama or cloud AI (30–90s per response)',
       ],
     },
     'gemini-nano': {

@@ -2520,6 +2520,108 @@ body.dark-mode .webllm-model-card.is-cached {
   background: var(--primary-dark);
 }
 
+/* ── Ollama popup model catalog ─────────────────────────────────────────────── */
+.ollama-popup-catalog {
+  margin-top: 8px;
+  border-top: 1px solid var(--border-light, #e0e0e0);
+  padding-top: 6px;
+}
+
+.ollama-popup-catalog-summary {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 2px 0;
+  list-style: none;
+}
+
+.ollama-popup-catalog-summary::-webkit-details-marker {
+  display: none;
+}
+.ollama-popup-catalog-summary::before {
+  content: '▶ ';
+  font-size: 9px;
+}
+details[open] .ollama-popup-catalog-summary::before {
+  content: '▼ ';
+}
+
+.ollama-popup-catalog-body {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ollama-popup-model-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 4px;
+  border-radius: 6px;
+}
+
+.ollama-popup-model-row:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+}
+
+.ollama-popup-model-row.installed .ollama-popup-model-name {
+  color: var(--text-muted, #666);
+}
+
+.ollama-popup-model-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ollama-popup-model-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ollama-popup-model-meta {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+}
+
+.ollama-popup-model-action {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: 44px;
+}
+
+.ollama-popup-installed {
+  font-size: 12px;
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.ollama-popup-progress {
+  width: 44px;
+  height: 3px;
+  background: var(--border-light, #e0e0e0);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ollama-popup-progress-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 300ms ease;
+}
+
 /* Advanced settings link */
 .ai-privacy-note {
   font-size: 10px;
