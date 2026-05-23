@@ -1,0 +1,22 @@
+name: Notify Fiavaion Website on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  trigger-website-rebuild:
+    name: Trigger website rebuild
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch rebuild to Fiavaion website repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.FIAVAION_WEBSITE_DEPLOY_TOKEN }}
+          repository: fiavaion/fiavaion-website
+          event-type: assist-release
+          client-payload: |
+            {
+              "tag": "${{ github.event.release.tag_name }}",
+              "release_url": "${{ github.event.release.html_url }}"
+            }
