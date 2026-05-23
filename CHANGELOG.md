@@ -1,9 +1,12 @@
 # Changelog
 
-All notable changes to AssisT are documented here.
+All notable changes to this project will be documented in this file.
 
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
-Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+For download links and full release notes see the
+[GitHub Releases](https://github.com/fiavaion/AssisT/releases) page.
 
 ---
 
@@ -17,302 +20,322 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
-## [0.9.0] — Public Beta — 2026-05-21
+## [0.9.2] - 2026-05-23
 
-First public release, launched on Global Accessibility Awareness Day (GAAD) 2026.
+### Added
 
-### Reading & TTS
+- **Ollama model catalog** — curated list of 11 recommended models organised by
+  category (General, Reasoning, Multilingual, Code, Vision) and hardware tier
+  (4 GB / 8 GB RAM). The AI Setup Wizard surfaces compatible models based on
+  detected system RAM.
+- **"Remove all downloaded models" button** in the Browser AI (WebLLM) setup panel
+  — clears cached model files from browser storage without leaving the extension.
 
-- Text-to-Speech with synchronized word/sentence highlighting (speed 0.5×–2.0×, voice, pitch, volume)
-- Word-by-word highlighting with boundary-event sync and timer-prediction fallback
-- Configurable reading scope: paragraph, section, or whole page (skips nav/headers)
-- Reading Mode — distraction-free reader view (Alt+R)
-- Dyslexia Mode — Bionic Reading, Syllable Colours, Grammar Colours (Alt+Y)
-- OCR (Alpha) — capture and read text from images and PDFs (Alt+O)
+### Changed
 
-### Writing & STT
+- Browser AI recommendation chip now includes an honest speed caveat:
+  "Zero-config, runs in your browser — responses are slow (30–90s)".
+- AI Setup Wizard Browser AI panel adds a visible performance note directing
+  users who need faster local AI toward Ollama.
 
-- Speech-to-Text (Beta) — Web Speech API, continuous listening, auto-punctuation, voice editing commands
-- Confidence feedback with low-confidence word highlighting
-- Vocabulary manager — custom words + domain presets (medical, legal, academic, STEM)
-- Annotations & Sticky Notes — per-URL notes in IndexedDB, sidebar manager, JSON export (Alt+N)
+### Fixed
 
-### Text & Visual Customisation
-
-- Text Customisation — WCAG 2.2 SC 1.4.12: font, line/letter/word/paragraph spacing, tab sync
-- Highlight Menu — on-select mini-toolbar (TTS, dictionary, translate, annotate, speed-read)
-- Dictionary Lookup — inline word definitions via Free Dictionary API (Alt+Shift+D)
-- Translation — full-page and selection (MyMemory, DeepL, Microsoft Translator) (Alt+T)
-- Text Statistics — readability metrics overlay (Ctrl+Shift+W)
-
-### Focus & Visual Aids
-
-- Focus Mode — spotlight window with adjustable dimensions and overlay darkness (Alt+F)
-- Reading Guide — horizontal cursor-tracking line (Alt+G)
-- Screen Overlay — full-screen tinted comfort overlay (Alt+Shift+O)
-- Magnifying Lens — hovering magnifier with zoom, offset, and lock modes
-- Custom Cursor, Reduced Motion, Media Controls, Simplified Page View
-
-### Productivity
-
-- Pomodoro Timer — configurable intervals with sound and auto-start
-- Reading Progress — scroll position indicator
-- Citations — detect, save, verify (CrossRef / Semantic Scholar), export bibliography
-
-### LMS Integrations
-
-- Canvas LMS — assignment reader, quiz helper, keyboard navigation
-- Moodle — assignment, forum, and page readers
-- Google Classroom (Alpha) — assignment, stream, and classwork readers
-
-### AI Assist (4 Privacy Modes)
-
-- Off, Local/Ollama (100% private), Browser/WebLLM (8 models via WebGPU, 100% private), Cloud (your own API key — Anthropic, Google Gemini, OpenAI, Perplexity)
-- AI features: Summarisation, Text Simplification, Study Path Generator, Assignment Breakdown, Socratic Tutor, Multi-Doc Compare, Citation Analyser, Knowledge Graph
-
-### Keyboard Shortcuts & Profiles
-
-- 14 configurable shortcuts with conflict detection; 3 presets (Default, Minimal, One-Handed)
-- Shortcut badges in popup labels (⌥ Mac / Alt Windows); live-reload on change
-- 4 base profiles (General, ADHD, Dyslexia, Low Vision); save/import/export custom profiles
-- Discovery Quiz — recommends tools based on learning style
-
-### Security & Quality
-
-- DOMPurify 3.4.2 (XSS prevention); AES-256-GCM for stored API keys
-- No data collection, no analytics, no external servers; FERPA/COPPA/GDPR compliant
-- Manifest V3; production bundle ~11 MB (dev sourcemaps only)
-- 997 unit tests passing; Pa11y WCAG2AA clean; 0 production CVEs
+- `WEBLLM_CLEAR_CACHE` message handler wired in service-worker — cache-clear
+  button now removes both IndexedDB model data and the `webllmCachedModels`
+  storage key correctly.
 
 ---
 
-## [0.1.2] - 2026-04-12
+## [0.9.1] - 2026-05-21
 
-### 🐛 Fixed
+> First public release — launched on Global Accessibility Awareness Day (GAAD) 2026.
+> Available on the [Chrome Web Store](https://chromewebstore.google.com/detail/dkekfjomoacmhbkekjkngmpbdlljjfhi).
+> Awarded the **Chrome Web Store Featured badge** by Google.
 
-#### API Key Security
+### Fixed
 
-- **AI Setup wizard now encrypts API keys** — keys are routed through the service worker and stored with AES-256-GCM encryption; previously stored in plain text
+- WebLLM inference moved to an offscreen document — resolves WebGPU context
+  restrictions that prevented model loading on the CWS-distributed build.
+- Discovery Quiz results now write to the correct nested `assist_settings`
+  storage paths (previously results were silently dropped).
+- `localhost:11434` added to `host_permissions` — Ollama auto-detection was
+  blocked on CWS-distributed builds that enforce strict host permission lists.
 
-#### UI / Visual
+---
 
-- **Minimize UI clutter** — "Minimize clutter" toggle now reliably hides the Text Stats badge
-- **TTS highlights** — disabling TTS now immediately clears stale highlights from the page
-- **Canvas white-text inheritance** — added explicit `color: #333` to root panel elements in Study Path Generator, Assignment Breakdown, Citation Analyzer, and Summarization panels; prevents invisible text on dark-themed pages (Canvas LMS, e2e test harness)
-- **Translation modal** — language dropdowns and result text now render with correct `#333` color on Canvas
-- **Multi-Document Compare** — result text and remove button now render correctly on Canvas
+## [0.9.0] - 2026-05-15
 
-#### STT (Speech-to-Text)
+> Final beta — pre-launch security hardening, accessibility audit, licence
+> change, and quality pass before GAAD public release.
+>
+> Note: the project version jumped from 0.1.2 to 0.9.0 to signal "release
+> candidate" status before the planned v1.0.0 stable release.
 
-- **Mic button scroll tracking** — button now correctly follows its text field when the page scrolls, using document-level capture phase listeners (fixes Canvas quiz panels and non-standard overflow containers)
+### Added
 
-#### Multi-Document Compare
+- **EUPL-1.2 licence** replacing MIT — legally clearer for European educational
+  deployment and grant applications.
+- **VPAT 2.5** voluntary product accessibility template published in the repo.
+- Community health files: `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`.
+- **All fonts bundled locally** (Lexend, OpenDyslexic, Atkinson Hyperlegible,
+  Andika, Comic Neue) — eliminates Google Fonts network requests for full GDPR
+  compliance.
+- **Production minification** via Vite — bundle size reduced from 27 MB to 11 MB;
+  source maps excluded from production builds.
+- **Reading Scope selector** — choose Paragraph, Section, or Whole Page per TTS
+  session without changing global settings.
+- **Word Highlight Sync Mode** — Boundary (speech boundary events) or Timer
+  (fixed cadence fallback) to match your voice engine.
+- **Word Highlight Speed slider** — adjustable 0.5×–4× (default 2×).
+- **Moodle Helper toggles** (TTS, Reading Aids, Citation Capture, Forum Support)
+  — fully wired with JavaScript handlers in the popup.
+- **Google Classroom Helper toggles** (TTS, Reading Aids, Citation Capture,
+  Google Docs Integration) — fully wired.
+- LMS Helper settings included in all 4 base user profiles by default.
+- Reading Guide **White** colour option.
+- **Shortcut `<kbd>` badges** injected next to popup labels (Alt on Windows,
+  ⌥ on Mac); platform-aware.
+- 997 unit tests passing across 28 test suites; Pa11y WCAG2AA clean.
 
-- **Drag rewritten with Pointer Events API** — `setPointerCapture` replaces the unreliable `mousedown`+`document.mousemove` pattern; drag is now reliable with no listener leaks
-- **Compare button now functional** — fixed `ReferenceError` on `mdc_isLoading`/`mdc_comparisonResult` (variables were referenced but not declared, silently swallowed by event handler try/catch)
-- **Panel defaults to top-right** — improved initial positioning
+### Changed
 
-#### Translation
+- Text Statistics feature defaults to OFF on first install; state persists
+  across popup open/close sessions.
+- Study Path Generator: **Copy** and **Read All** TTS buttons added.
+- Multi-Document Compare: **Read All** TTS button added.
+- Emotional TTS feature removed.
+- STT engine dropdown label clarified: "Web Speech API (Browser Built-in)".
+- Shortcut presets expanded from 6 to 14 keys across all 3 presets
+  (Default, Minimal, One-Handed).
 
-- **Language pair memory** — From/To language dropdowns now remember the last used pair across sessions
+### Fixed
 
-#### Text Customization Sync
+- **XSS** — custom vocabulary words rendered unsanitised in `popup.js` inner
+  HTML; wrapped with `sanitizeText()`.
+- **Regex injection** — annotation sidebar search query used HTML-escaped but
+  not regex-escaped input; `.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` added.
+- `innerHTML +=` orphan node bug in `cognitiveStateMonitor.js` replaced with
+  `insertAdjacentHTML`.
+- `Alt+N` sticky note shortcut was unregistered; now wired correctly.
+- `reloadShortcuts()` was a no-op — now correctly snapshots callbacks and
+  re-registers.
+- Shortcut changes now auto-reload without requiring extension restart.
+- `applyShortcutPreset()` called an undefined function; fixed to use
+  `loadShortcuts()` + merge + `saveShortcuts()`.
+- "Read Entire Page" silently crashed with `ReferenceError` — resolved.
+- SPA navigation: all global event listeners tracked and cleaned up on
+  Canvas page navigation (MutationObserver + popstate); eliminates duplicate
+  TTS playback after navigation.
+- OCR, Translation, and Citation message handlers now race against a 25-second
+  timeout — prevents silent UI hangs.
+- WCAG AA contrast failures: STT offline badge (#059669 → #00875d); citation
+  count badge (#f59e0b → #a76900).
+- Hidden file input for profile import given `aria-label` for screen readers.
+- Socratic Tutor overlay z-index was covering the panel — resolved.
+- TTS watchdog now correctly cancels on pause — word highlight no longer
+  freezes on pause.
 
-- **Sync toggle defaults to OFF** — text customization now only affects the current window by default (opt-in to broadcast)
-- **Toggle ON immediately applies** — enabling sync pushes current customization to all open tabs
-- **Toggle OFF cleanly clears** — disabling sync removes customization from all other tabs
-- **Storage race condition fixed** — now uses `chrome.tabs.sendMessage` instead of `chrome.storage.local` (which is shared across all tabs, defeating per-window intent)
+### Security
+
+- `DOMPurify` updated 3.3.1 → 3.4.2 (addresses a production XSS vector).
+- 12 npm audit vulnerabilities resolved (`npm audit fix`).
+
+---
+
+## [0.1.2] - 2026-04-19
+
+> CWS resubmission following Phase 2 AI overhaul and multi-provider expansion.
+
+### Added
+
+- **Browser AI (WebLLM)** — AI models run entirely in the browser via WebGPU;
+  zero installation required. 8 models available (0.6 GB–6 GB).
+- **Inline AI mode switcher** in popup — switch Off / Cloud / Browser AI /
+  Local AI with one click, no wizard redirect needed.
+- **AI Setup Wizard** — step-by-step guided setup for all AI modes with
+  hardware detection and model recommendations.
+- **Model registry** (`model-registry.js`) — centralised catalogue with
+  per-task routing defaults.
+- **Multi-provider cloud AI routing** — Anthropic (Claude), OpenAI (GPT),
+  Google (Gemini), and Perplexity all supported from a single provider selector
+  with dynamic model lists.
+- **Persistent AI status bars** on all 8 AI feature panels — shows current
+  mode, availability, and last result at a glance.
+- **Shared AI routing client** (`ai-feature-client.js`) — single source of
+  truth for mode detection, availability checking, and generation; eliminates
+  per-feature `getCurrentModel()` inconsistencies.
+- **Multi-Document Compare** — analyse and contrast multiple text sources
+  side-by-side.
+- **Google Docs Speech-to-Text** — microphone button now appears inside
+  Google Docs' custom rich editor.
+- **Text customisation sync** — push font/spacing settings to all open tabs
+  simultaneously (opt-in toggle).
+- **CI pipeline** — GitHub Actions with caching and redundant-run cancellation.
+- Default Ollama model changed to `qwen3:8b-q4_K_M` for superior JSON
+  compliance and instruction following.
+- Z-index scale system (`src/utils/z-index.js`) prevents UI stacking conflicts
+  with LMS page elements.
+
+### Changed
+
+- All 8 AI features migrated to shared routing client.
+- Local AI model picker redesigned with live Ollama detection and dropdown.
+
+### Fixed
+
+- Knowledge graph local AI pipeline now works on first run without reload.
+- **API key encryption** — keys now encrypted with AES-256-GCM in
+  `secure-key-storage.js`; previously stored as plain text.
+- STT microphone button positioning — was off-screen on some Canvas layouts.
+- STT enabled on Google Classroom — fixed iframe injection and storage mismatch.
+- Multi-document compare drag rewritten with Pointer Events API and
+  `setPointerCapture` — eliminates listener leaks and unreliable drag.
+- Text customisation sync storage race condition — now uses
+  `chrome.tabs.sendMessage` instead of shared `chrome.storage.local`.
+- Canvas white-text inheritance — added `color: #333` to AI panel roots so
+  text is readable on dark-themed Canvas pages.
+- SPA navigation pre-audit: all async handlers given explicit timeouts;
+  z-index conflicts resolved across Canvas, Moodle, and Classroom.
 
 ---
 
 ## [0.1.1] - 2026-02-11
 
-### ✨ Added
+> Phase 2 — 11 new features built on the TTS/STT foundation; first CWS
+> submission attempt.
 
-#### AI Mode Selection (4 Modes)
+### Added
 
-- **Off Mode** - Disable all AI features
-- **Local AI Mode** - Use Ollama for on-device processing
-- **Cloud AI Mode** - Use Anthropic Claude API
-- **Gemini Nano Mode (NEW)** - Chrome's built-in AI via Prompt API
-- Radio toggle UI for seamless mode switching
-- Per-mode configuration containers with dedicated settings
+- **Citation Management** — Harvard Style (Cite Them Right, 13th ed.)
+  generator for websites, books, journals, videos, and social media. Includes
+  bibliography manager, CRAAP test evaluation, and BibTeX/RIS/JSON/CSV export.
+- **Online citation verification** via CrossRef and Semantic Scholar APIs.
+- **Knowledge Graph** — interactive concept-connection visualisation from
+  selected text.
+- **Socratic Tutor** — guided learning through AI questions rather than direct
+  answers.
+- **Study Path Generator** — personalised learning sequences for any topic.
+- **Assignment Breakdown** — decomposes assignment instructions into
+  step-by-step checklists.
+- **Text Simplification** — three complexity levels; trailing AI conversational
+  artifacts stripped automatically.
+- **Summarization** — brief, detailed, bullet points, or ELI5 modes.
+- **Translation** — 35+ languages via MyMemory (default) and LibreTranslate
+  (fallback); rate-limited.
+- **Highlight Menu** — contextual toolbar on text selection with Read Aloud,
+  Dictionary, Translate, AI Summarize, and more.
+- **Text Statistics** — word count, characters, sentences, reading time
+  (Ctrl+Shift+W).
+- **Discovery Quiz** — recommends features based on learning style and needs.
+- **User Profiles system** — save, load, export, and import accessibility
+  configurations. 9 neurodivergent profiles (ADHD, Autism, Dyslexia, Anxiety,
+  Motor, Low Vision, Cognitive Overload, Sensory, General Learning).
+- **7 Speech-to-Text profiles** with customised timing, UI, and feedback.
+- **Drag-and-drop section reordering** in popup (Organise Mode).
+- **Keyboard shortcut presets** — Default, Minimal, One-Handed.
+- **Feature maturity badges** (Alpha, Beta, Experimental) displayed in popup.
+- Optional `<all_urls>` permission flow — single-click "Enable Everywhere" for
+  non-LMS sites.
+- DOMPurify XSS protection on all user-facing inputs.
+- **Gemini Nano** (Chrome built-in AI via Prompt API) added as a fourth AI mode.
+- Chrome Web Store compliance improvements.
 
-#### Gemini Nano Integration
+### Removed
 
-- Client for Chrome Prompt API (`window.ai`)
-- Availability checking and status reporting
-- On-device AI processing (no external API calls)
-- Setup instructions for Chrome 128+ feature flag
-- Status badge showing real-time availability
+- **Stargardt Vision Mode** removed — 11 experimental files deleted (eye
+  tracking, APVUI rendering, scotoma profiling, calibration wizard). Feature
+  had low adoption and introduced significant maintenance overhead.
+- NCAD branding references removed from codebase.
 
-#### Google AI Models Support
+### Fixed
 
-- Gemini 1.5 Flash (fast & economical)
-- Gemini 1.5 Pro (balanced, recommended)
-- Gemini 2.0 Flash Experimental (latest features)
+- Content script injection for non-LMS sites when `<all_urls>` granted.
+- `web_accessible_resources` updated for Vite-bundled asset paths.
+- Various keyboard shortcut layout conflicts.
 
-#### Chrome Web Store (CWS) Compliance
+### Security
 
-- Optional permissions system (user-granted `<all_urls>`)
-- Improved permission flow for better user experience
-- GDPR compliance section in privacy policy
-- CWS screenshot capture automation tool
-
-#### UI/UX Improvements
-
-- Minimize UI clutter toggle in header
-- Accessibility feature for sensory sensitivities
-- Dark mode styling for AI mode selector
-- Status badges for AI modes (Local AI / Cloud AI / Gemini)
-- Improved keyboard shortcut layout
-
-### 🗑️ Removed
-
-#### Stargardt Vision Mode (Complete Removal)
-
-- Removed all 11 Stargardt feature files
-  - `stargardt.js` - Main feature controller
-  - `apvui-engine.js` - APVUI rendering engine
-  - `calibration-ui.js` - Calibration wizard
-  - `content-remapper.js` - DOM remapping logic
-  - `eye-tracking-controller.js` - Eye tracking integration
-  - `gaze-tracker.js` - Gaze tracking implementation
-  - `webgazer-loader.js` - WebGazer library loader
-  - `light-adapt.js` - Light adaptation system
-  - `prl-trainer.js` - Preferred retinal locus training
-  - `scotoma-profile.js` - Scotoma profiling
-  - `setup-wizard.js` - Setup wizard UI
-- Removed all NCAD branding references from codebase
-- Deleted old build directories (`AssistLLM/`, `AssistV2a/`)
-
-### 🔧 Fixed
-
-#### Content Script Injection
-
-- Automatic injection for non-LMS sites when `<all_urls>` permission granted
-- Service worker listener for `chrome.tabs.onUpdated`
-- Permission grant handler for mass tab injection
-- Fixed `web_accessible_resources` for Vite bundled assets
-- Proper handling of bundled paths (`assets/*.js`, `assets/*.css`)
-
-#### Extension Errors
-
-- Resolved various runtime errors
-- Fixed keyboard shortcut layout conflicts
-- Improved event handler reliability
-
-### 📄 Documentation
-
-#### Added Documentation Files
-
-- `AI_PROMPTS_REFERENCE.md` - Complete AI prompt library
-  - All prompts for Summarization, Assignment Breakdown, Text Simplification, Socratic Tutor
-  - Local vs Cloud model prompt differences
-  - Benchmark-optimized model defaults
-  - Prompt engineering best practices
-
-- `PERFORMANCE_ANALYSIS.md` - Performance audit report
-  - 3 critical performance bottlenecks identified
-  - Load testing scenarios and recommendations
-  - Security assessment (all checks passed ✅)
-  - Priority fixes list with implementation guidance
-
-#### Updated Documentation
-
-- Privacy policy updated with GDPR compliance section
-- Updated for optional permissions model
-
-### ⚙️ Configuration
-
-- Updated `.gitignore` for cleaner repository
-- Storage API additions for AI mode state tracking
-  - `llmEnabled` - Local AI mode status
-  - `cloudModeEnabled` - Cloud AI mode status
-  - `geminiEnabled` - Gemini Nano mode status
-
-### 🔒 Security
-
-- Improved permission model (optional vs required)
-- GDPR compliance documentation
-- No security vulnerabilities introduced
+- Optional permissions model — `<all_urls>` is user-granted on demand, not
+  requested upfront.
+- GDPR compliance section added to privacy policy.
 
 ---
 
 ## [0.1.0] - 2025-11-28
 
-### Initial Release
+> Initial release — TTS/STT foundation with Canvas LMS integration.
 
-#### Core Features
+### Added
 
-- Text-to-Speech with synchronized highlighting
-- Speech-to-Text with 60+ voice commands
-- Dyslexia-Optimized Reading (Bionic, Syllable, Grammar modes)
-- Multi-Platform LMS Integration (Canvas, Moodle, Google Classroom)
-- OCR + Screenshot Tool
-- Reading Mode with distraction-free view
-- Dictionary Lookup
-- Translation (35+ languages)
-- Citation Management System
-- Annotations & Sticky Notes
-- Canvas Quiz Helper
-- User Profiles (9 neurodivergent presets)
-- Text Customization (11 fonts, size, spacing, colors)
-- Reading Guide and Focus Mode
-- Screen Overlays and True Dark Mode
-- Pomodoro Timer
-- Full Keyboard Shortcuts (14 customizable)
-- Consistent Help button (WCAG 2.2 compliant)
-
-#### Testing Infrastructure
-
-- 979 unit tests passing
-- 356 STT-specific tests
-- 74+ E2E tests
-- 43 manual test cases documented
-
-#### Documentation
-
-- Complete setup guide
-- Testing guide with 43 test cases
-- Development standards (CLAUDE.md)
-- Keyboard shortcuts reference
-- Voice commands reference
-- STT user guide
-- Citation system guide
-
----
-
-## Release Notes
-
-### Version 0.1.1 Summary
-
-This release introduces **flexible AI integration** with three different modes (Local, Cloud, and Chrome's built-in Gemini Nano), improves **Chrome Web Store compliance** with optional permissions, and removes legacy features (Stargardt mode) and branding references (NCAD). The extension now offers users more choice in how they process AI features while maintaining privacy and performance.
-
-Key highlights:
-
-- 🤖 **3 AI modes** to choose from based on privacy/performance needs
-- 💎 **Gemini Nano** integration for on-device AI (no API calls)
-- ✅ **CWS compliance** improvements for smoother distribution
-- 🧹 **Code cleanup** with removal of experimental features
-- 📚 **Better documentation** with prompt reference and performance analysis
-
-### Upgrade Notes
-
-**From 0.1.0 to 0.1.1:**
-
-- No breaking changes
-- Stargardt mode removed (experimental feature with low adoption)
-- New AI mode selection in Advanced Options → AI Assist
-- Optional permissions now requested on-demand instead of upfront
-- No data migration required
-
-### Known Issues
-
-- E2E tests need selector updates (74+ currently passing)
-- Gemini Nano requires Chrome 128+ with feature flag enabled
-- Performance bottlenecks identified in PERFORMANCE_ANALYSIS.md (non-critical)
+- **Text-to-Speech** with synchronised word-by-word highlighting. Customisable
+  rate (0.5×–2.0×), pitch, volume, and 8 highlight colours.
+- **Speech-to-Text** using Web Speech API. 60+ voice commands for editing,
+  formatting, and navigation. Smart auto-punctuation (Automatic / Assisted /
+  Manual). Custom vocabulary with domain presets. Confidence feedback with
+  colour-coded accuracy indicators.
+- **Reading Mode** — distraction-free view powered by Mozilla Readability with
+  full TTS integration (Alt+R).
+- **Dyslexia-Optimised Reading Modes** — Bionic Reading, Syllable Colours,
+  Grammar Colours (Alt+Y).
+- **OCR & Screenshot Tool** — extract text from images and PDFs using
+  Tesseract.js offline (100+ languages, Alt+O).
+- **Focus Mode** — dims surrounding content, centres reading area (Alt+F).
+- **Reading Guide** — horizontal cursor-tracking line (Alt+G).
+- **Screen Colour Overlays** — 9 comfort filters (Alt+Shift+O).
+- **Reading Progress Bar** — scroll position indicator (top or bottom).
+- **Text Customisation** — 11 fonts including OpenDyslexic, Lexend, Atkinson
+  Hyperlegible. Line height, letter, word, and paragraph spacing. WCAG 2.2
+  SC 1.4.12 compliant.
+- **Reduced Motion** — disables all animations; respects
+  `prefers-reduced-motion` (WCAG 2.1 SC 2.3.3).
+- **Custom Cursor & Magnifying Lens** — multiple cursor styles; floating
+  1.5×–4× magnification window.
+- **Dictionary Lookup** — inline definitions via Free Dictionary API
+  (Alt+Shift+D).
+- **Sticky Notes & Annotations** — per-URL floating notes in IndexedDB with
+  tag/export/sidebar (Alt+N).
+- **Pomodoro Timer** — configurable work/break intervals with ADHD-optimised
+  defaults.
+- **Media Control** — blocks autoplay video and audio.
+- **Canvas LMS integration** — content script auto-injected on
+  `*.instructure.com` / `*.canvas.com`; Canvas Quiz Helper with TTS and
+  keyboard navigation.
+- Moodle and Google Classroom host permission support.
+- **14 customisable keyboard shortcuts** with Chrome-conflict detection.
+- Manifest V3 architecture with Vite + `@crxjs/vite-plugin` build pipeline.
+- Jest unit testing (979 tests) + Playwright E2E infrastructure.
+- WCAG 2.2 AA compliance throughout.
 
 ---
 
-**Full Changelog:** https://github.com/MarJone/AssisT/compare/v0.1.0...v0.1.1
+## Historical Development Checkpoints
+
+The following internal tags exist in the repository from the Sprint-based
+pre-release development phase (October–November 2025). They are not
+versioned releases but are preserved for history and rollback reference.
+
+| Tag                                | Description                                   |
+| ---------------------------------- | --------------------------------------------- |
+| `Sprint2-Foundation-v1.0`          | Initial popup and TTS controller              |
+| `Sprint3-Complete-v1.0`            | Focus Mode, Text Customisation, Reading Guide |
+| `Sprint4-Canvas-Foundation-v1.0`   | Canvas LMS integration                        |
+| `Sprint5-STT-Complete-v1.0`        | Speech-to-Text with Web Speech API            |
+| `Sprint5.1-UI-Cleanup-v1.0`        | Post-STT UI polish                            |
+| `Sprint6-ReadPage-Simple-v1.0`     | Read Entire Page feature                      |
+| `Sprint7-Canvas-Profiles-Complete` | User Profiles system                          |
+| `Sprint8-Testing-Complete`         | Playwright E2E infrastructure                 |
+| `MVP-TTS-Stable-v1.0`              | Stable TTS milestone                          |
+| `Cleanup-Complete-v1.0`            | Pre-Phase 2 cleanup                           |
+| `v0.1.0-working-baseline`          | Webpack-era baseline                          |
+| `v0.2.0-stable-before-canvas`      | Pre-Canvas integration checkpoint             |
+| `v0.2.1-stable-before-design`      | Pre-UI overhaul checkpoint                    |
+
+---
+
+[Unreleased]: https://github.com/fiavaion/AssisT/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/fiavaion/AssisT/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/fiavaion/AssisT/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/fiavaion/AssisT/compare/v0.1.2...v0.9.0
+[0.1.2]: https://github.com/fiavaion/AssisT/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/fiavaion/AssisT/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/fiavaion/AssisT/releases/tag/v0.1.0

@@ -258,6 +258,12 @@
             <p>
               Models run entirely on your device using your GPU. They download once and are cached.
             </p>
+            <p class="helper-text" style="margin-top: var(--space-xs)">
+              ⚠️ <strong>Performance note:</strong> Browser AI uses WebGPU which is significantly
+              slower than a native GPU runtime. Responses may take 30–90 seconds. For faster
+              results, use <strong>Local AI (Ollama)</strong> — it runs the same models at full
+              speed using your GPU directly.
+            </p>
 
             <div class="form-group">
               <label class="form-label" for="webllm-model-select">Model</label>
@@ -300,6 +306,29 @@
               Download model now
             </button>
             <span class="helper-text">Or skip — it will download automatically on first use.</span>
+
+            <div
+              style="
+                margin-top: var(--space-md);
+                padding-top: var(--space-sm);
+                border-top: 1px solid var(--color-border, #e5e7eb);
+              "
+            >
+              <button
+                id="btn-clear-webllm-cache"
+                class="btn btn-ghost btn-small"
+                type="button"
+                style="color: var(--color-danger, #dc2626); font-size: 0.8rem"
+              >
+                🗑 Remove all downloaded models
+              </button>
+              <p
+                class="helper-text"
+                id="clear-cache-status"
+                aria-live="polite"
+                style="margin-top: var(--space-xs); font-size: 0.75rem"
+              ></p>
+            </div>
 
             <details style="margin-top: var(--space-md)">
               <summary class="helper-link" style="cursor: pointer">
