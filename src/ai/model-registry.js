@@ -60,25 +60,16 @@ const OPENAI_MODELS = {
 };
 
 const GOOGLE_MODELS = {
-  'gemini-3.1-pro-preview': {
-    id: 'gemini-3.1-pro-preview',
-    name: 'Gemini 3.1 Pro (Most Capable)',
-    description: 'Most capable — complex tasks',
+  'gemini-2.5-flash': {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash (Latest)',
+    description: 'Free — newest flash model',
+    free: true,
   },
   'gemini-2.5-pro': {
     id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    description: 'Highly capable',
-  },
-  'gemini-2.0-flash': {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash (Recommended)',
-    description: 'Best for everyday tasks',
-  },
-  'gemini-2.0-flash-lite': {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite (Fast)',
-    description: 'Fastest, most economical',
+    name: 'Gemini 2.5 Pro (Most Capable)',
+    description: 'Most capable model',
   },
 };
 
@@ -280,17 +271,17 @@ export const REGISTRY = {
   },
   google: {
     models: GOOGLE_MODELS,
-    defaultModel: 'gemini-2.0-flash',
+    defaultModel: 'gemini-2.5-flash',
     featureDefaults: {
-      summarization: 'gemini-2.0-flash',
-      textSimplification: 'gemini-2.0-flash',
-      assignmentBreakdown: 'gemini-2.0-flash',
-      citationAnalyzer: 'gemini-2.0-flash',
-      socraticTutor: 'gemini-3.1-pro-preview',
-      imageUnderstanding: 'gemini-2.0-flash',
-      studyPathGenerator: 'gemini-3.1-pro-preview',
-      multiDocCompare: 'gemini-3.1-pro-preview',
-      knowledgeGraph: 'gemini-2.0-flash',
+      summarization: 'gemini-2.5-flash',
+      textSimplification: 'gemini-2.5-flash',
+      assignmentBreakdown: 'gemini-2.5-flash',
+      citationAnalyzer: 'gemini-2.5-flash',
+      socraticTutor: 'gemini-2.5-pro',
+      imageUnderstanding: 'gemini-2.5-flash',
+      studyPathGenerator: 'gemini-2.5-pro',
+      multiDocCompare: 'gemini-2.5-pro',
+      knowledgeGraph: 'gemini-2.5-flash',
     },
   },
   perplexity: {

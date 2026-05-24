@@ -212,7 +212,7 @@
               >
                 <option value="anthropic">Anthropic (Claude)</option>
                 <option value="openai">OpenAI (GPT-5.5)</option>
-                <option value="google">Google (Gemini 3.1)</option>
+                <option value="google">Google (Gemini)</option>
                 <option value="perplexity">Perplexity</option>
               </select>
               <span class="helper-text" id="provider-hint">Choose your preferred AI provider</span>
@@ -245,6 +245,20 @@
                 </a>
               </span>
               <div id="api-key-status" aria-live="polite" aria-atomic="true"></div>
+            </div>
+
+            <div class="form-group" id="cloud-model-group" hidden>
+              <label class="form-label" for="cloud-model-select">Model</label>
+              <select
+                class="form-select"
+                id="cloud-model-select"
+                aria-describedby="cloud-model-hint"
+              >
+                <!-- Populated by renderCloudModelOptions() when provider changes -->
+              </select>
+              <span class="helper-text" id="cloud-model-hint">
+                Select the model to use with your API key.
+              </span>
             </div>
 
             <button id="btn-verify-key" class="btn btn-secondary btn-small" type="button">
