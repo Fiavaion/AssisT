@@ -423,6 +423,7 @@ function prefillCloudPanel() {
     select.value = suggested;
   }
   updateApiKeyLink(suggested);
+  renderCloudModelOptions(suggested);
 }
 
 function updateApiKeyLink(provider) {
@@ -436,6 +437,36 @@ function updateApiKeyLink(provider) {
   if (link) {
     link.href = links[provider] || '#';
   }
+  renderCloudModelOptions(provider);
+}
+
+function renderCloudModelOptions(provider) {
+  const group = document.getElementById('cloud-model-group');
+  const select = document.getElementById('cloud-model-select');
+  if (!group || !select) {
+    return;
+  }
+
+  if (provider !== 'google') {
+    group.hidden = true;
+    return;
+  }
+
+  const GOOGLE_MODEL_OPTIONS = [
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended — Free)' },
+    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Free)' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Most Capable)' },
+  ];
+  select.innerHTML = GOOGLE_MODEL_OPTIONS.map(
+    m => `<option value="${m.id}">${m.name}</option>`
+  ).join('');
+
+  const saved = state.cloudModel || 'gemini-2.5-flash';
+  if (select.querySelector(`option[value="${saved}"]`)) {
+    select.value = saved;
+  }
+
+  group.hidden = false;
 }
 
 // OLLAMA_MODEL_CATALOG imported from ./ollama-catalog.js
@@ -1045,19 +1076,20 @@ function runAITest() {
       });
     }, timeoutMs);
 
-    chrome.runtime.sendMessage(
-      { action, prompt: TEST_PROMPT, feature: 'summarization', maxTokens: 150 },
-      response => {
-        clearTimeout(timer);
-        if (chrome.runtime.lastError) {
-          resolve({ success: false, error: chrome.runtime.lastError.message });
-        } else if (response?.text || response?.content || response?.data) {
-          resolve({ success: true, text: response.text || response.content || response.data });
-        } else {
-          resolve({ success: false, error: response?.error || 'Empty response from AI' });
-        }
+    const testOptions = { feature: 'summarization', maxTokens: 150 };
+    if (state.cloudModel) {
+      testOptions.model = state.cloudModel;
+    }
+    chrome.runtime.sendMessage({ action, prompt: TEST_PROMPT, options: testOptions }, response => {
+      clearTimeout(timer);
+      if (chrome.runtime.lastError) {
+        resolve({ success: false, error: chrome.runtime.lastError.message });
+      } else if (response?.text || response?.content || response?.data) {
+        resolve({ success: true, text: response.text || response.content || response.data });
+      } else {
+        resolve({ success: false, error: response?.error || 'Empty response from AI' });
       }
-    );
+    });
   });
 }
 
@@ -1149,13 +1181,20 @@ async function saveSettings() {
       settings.aiProvider = providerEl.value;
       settings.cloudProvider = providerEl.value; // cloud-router.js reads this key
     }
+    const modelEl = document.getElementById('cloud-model-select');
+    if (modelEl?.value) {
+      settings.cloudModel = modelEl.value;
+      state.cloudModel = modelEl.value;
+    }
     if (keyEl?.value?.trim()) {
       // Save via service worker so it uses encrypted storage (secure_apikey_{provider})
       // ai-setup is a web_accessible_resource and cannot import secure-key-storage directly
-      chrome.runtime.sendMessage({
-        action: 'SAVE_API_KEY',
-        provider: settings.aiProvider,
-        apiKey: keyEl.value.trim(),
+      // MUST await the response — key must be written before runAITest() reads it
+      await new Promise(resolve => {
+        chrome.runtime.sendMessage(
+          { action: 'SAVE_API_KEY', provider: settings.aiProvider, apiKey: keyEl.value.trim() },
+          resolve
+        );
       });
     }
   }

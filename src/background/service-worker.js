@@ -122,20 +122,30 @@ function validateURL(url, options = {}) {
  * @returns {string}
  */
 function sanitizeError(err) {
-  const msg = err?.message ?? '';
+  const msg = err?.message ?? String(err) ?? 'Unknown error';
+  console.error('[AssisT] sanitizeError — full error:', err);
   if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-    return 'Network error';
+    return 'Network error — check your internet connection';
   }
-  if (msg.includes('timeout') || msg.includes('timed out')) {
-    return 'Request timed out';
+  if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('AbortError')) {
+    return 'Request timed out — try again';
   }
-  if (msg.includes('Ollama') || msg.includes('localhost:11434')) {
-    return 'Local AI service error';
+  if (msg.includes('RESOURCE_EXHAUSTED')) {
+    return 'Gemini API quota unavailable — your API key does not have active quota. Check your plan at console.cloud.google.com.';
   }
-  if (msg.includes('API key') || msg.includes('Unauthorized') || msg.includes('401')) {
-    return 'API key error';
+  if (msg.includes('quota') || msg.includes('rate') || msg.includes('429')) {
+    return 'API rate limit reached — wait a moment then try again';
   }
-  return 'An error occurred';
+  if (
+    msg.includes('API key') ||
+    msg.includes('Unauthorized') ||
+    msg.includes('401') ||
+    msg.includes('403') ||
+    msg.includes('INVALID_ARGUMENT')
+  ) {
+    return `API key error — ${msg}`;
+  }
+  return msg;
 }
 
 // Cloud AI imports

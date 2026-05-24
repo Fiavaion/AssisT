@@ -34,49 +34,32 @@ export async function geminiGenerate(prompt, options = {}) {
     );
   }
 
-  const modelId = opts.model || 'gemini-2.0-flash';
-  // Gemini API uses models/{id}:generateContent format
-  const modelPath = modelId.startsWith('models/') ? modelId : `models/${modelId}`;
-  const url = `${GEMINI_API_BASE}/${modelPath}:generateContent`;
+  const modelId = opts.model || 'gemini-2.5-flash';
+  const url = `${GEMINI_API_BASE}/models/${modelId}:generateContent?key=${apiKey}`;
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), opts.timeout);
-
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: opts.maxTokens,
-          temperature: opts.temperature,
-        },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: opts.maxTokens, temperature: opts.temperature },
       }),
-      signal: controller.signal,
-      credentials: 'omit',
-      cache: 'no-store',
+      signal: AbortSignal.timeout(opts.timeout),
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error?.message || `Gemini API error: ${response.status} ${response.statusText}`
-      );
+      const apiMessage =
+        errorData.error?.message || `Gemini API error: ${response.status} ${response.statusText}`;
+      console.error('[GeminiClient] API error:', response.status, errorData?.error?.message);
+      if (response.status === 429) {
+        throw new Error(`Rate limited. ${apiMessage}`);
+      }
+      throw new Error(apiMessage);
     }
 
     const data = await response.json();
-
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const usage = {
       inputTokens: data.usageMetadata?.promptTokenCount || 0,
@@ -84,24 +67,25 @@ export async function geminiGenerate(prompt, options = {}) {
       totalTokens: data.usageMetadata?.totalTokenCount || 0,
     };
 
-    console.log(`[GeminiClient] ${modelId} response: ${usage.totalTokens} tokens`);
+    console.log(
+      `[GeminiClient] ${modelId} response: ${usage.totalTokens} tokens, content length: ${content.length}`
+    );
 
     return { content, usage };
   } catch (error) {
+    console.error('[GeminiClient] error:', error.message);
+
     if (error.name === 'AbortError') {
       throw new Error('Gemini request timed out. Try again or use a faster model.');
     }
 
-    if (error.message.includes('429')) {
-      throw new Error('Rate limited. Please wait a moment before trying again.');
+    if (error.message.startsWith('Rate limited')) {
+      throw error; // Don't retry — wait for the caller to surface the message
     }
 
     if (opts._retryCount < opts.maxRetries && !error.message.includes('API key')) {
       console.log(`[GeminiClient] Retrying... (${(opts._retryCount || 0) + 1}/${opts.maxRetries})`);
-      return geminiGenerate(prompt, {
-        ...opts,
-        _retryCount: (opts._retryCount || 0) + 1,
-      });
+      return geminiGenerate(prompt, { ...opts, _retryCount: (opts._retryCount || 0) + 1 });
     }
 
     throw error;

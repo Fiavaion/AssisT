@@ -52,6 +52,11 @@ scripts/push.sh
 *~
 .DS_Store
 
+# YouTube automation secrets & output
+GAAD_launch/tools/client_secrets.json
+GAAD_launch/tools/token.json
+GAAD_launch/tools/output/
+
 # Logs
 logs/
 *.log

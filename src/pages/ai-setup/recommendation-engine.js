@@ -77,7 +77,7 @@ export function recommend(assessment) {
   return {
     recommended: 'cloud',
     reasoning:
-      "Cloud AI works on any device and gives you the most powerful models. You'll need a free API key from Anthropic, Google, OpenAI, or Perplexity.",
+      "Cloud AI works on any device and gives you the most powerful models. You'll need a free API key from Anthropic or Google, or a paid key from OpenAI or Perplexity.",
     alternatives: ['local', 'webllm'],
     details: {
       suggestedProvider: 'anthropic',
@@ -112,7 +112,7 @@ export function getModeInfo(mode) {
         'No GPU required',
         'Fast responses',
       ],
-      cons: ['Requires API key (free tier available)', 'Sends text to cloud provider'],
+      cons: ['Requires API key (free options available)', 'Sends text to cloud provider'],
     },
     webllm: {
       icon: '🌐',
