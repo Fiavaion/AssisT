@@ -3304,10 +3304,6 @@ body.dark-mode .ai-panel-key-input {
   color: #9ca3af;
 }
 
-.visibility-toggle[aria-pressed='false'] .visibility-icon::after {
-  content: '👁️‍🗨️';
-}
-
 .organize-mode .visibility-toggle {
   display: flex;
 }

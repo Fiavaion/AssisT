@@ -48,6 +48,9 @@ let currentModal = null;
 /** @type {Object|null} Currently editing annotation */
 let currentEditingAnnotation = null;
 
+/** @type {Range|null} Cloned range from selection — used directly for new annotation highlight, bypasses XPath recreation */
+let pendingRange = null;
+
 // ============================================================
 // INITIALIZATION
 // ============================================================
@@ -134,6 +137,7 @@ export async function createInlineAnnotation({
   comment = '',
   color = 'yellow',
   tags = [],
+  preInsertedSpan = null,
 }) {
   try {
     const annotationData = {
@@ -143,15 +147,22 @@ export async function createInlineAnnotation({
       comment,
       color,
       tags: tags || [],
-      position, // { startOffset, endOffset, containerXPath }
+      position,
     };
 
-    // Save to storage
     const savedAnnotation = await storageAdapter.create(annotationData);
     console.log('[InlineAnnotations] Created annotation:', savedAnnotation.id);
 
-    // Render on page
-    renderAnnotation(savedAnnotation);
+    if (preInsertedSpan) {
+      // Span already in DOM — just wire it up with the real ID
+      preInsertedSpan.dataset.annotationId = String(savedAnnotation.id);
+      preInsertedSpan.setAttribute('aria-label', `Annotation: ${comment || 'No comment'}`);
+      attachAnnotationListeners(preInsertedSpan, savedAnnotation);
+      activeAnnotations.set(savedAnnotation.id, [preInsertedSpan]);
+    } else {
+      // Programmatic call (no modal) — fall back to XPath-based rendering
+      renderAnnotation(savedAnnotation);
+    }
 
     return savedAnnotation;
   } catch (error) {
@@ -165,7 +176,7 @@ export async function createInlineAnnotation({
 // ============================================================
 
 /**
- * Render an annotation on the page
+ * Render an annotation on the page (used for annotations loaded from storage on page load)
  * @param {Object} annotation - Annotation data from storage
  */
 function renderAnnotation(annotation) {
@@ -175,7 +186,6 @@ function renderAnnotation(annotation) {
   }
 
   try {
-    // Find the text node(s) to highlight using position data
     const range = recreateRange(annotation.position);
     if (!range) {
       console.warn('[InlineAnnotations] Could not recreate range for annotation:', annotation.id);
@@ -252,6 +262,40 @@ function recreateRange(position) {
   } catch (error) {
     console.error('[InlineAnnotations] Error recreating range:', error);
     return null;
+  }
+}
+
+/**
+ * Insert a highlight span synchronously from a live Range.
+ * Must be called before any await so the Range is guaranteed valid.
+ * Returns the span on success, null if insertion failed.
+ */
+function insertHighlightSpan(range, color, comment) {
+  if (!range) {
+    return null;
+  }
+
+  const span = document.createElement('span');
+  span.className = 'assist-inline-annotation';
+  span.setAttribute('role', 'mark');
+  span.setAttribute('tabindex', '0');
+  // Placeholder label — replaced with real ID after storage write
+  span.setAttribute('aria-label', `Annotation: ${comment || 'No comment'}`);
+  applyAnnotationColor(span, color);
+
+  try {
+    range.surroundContents(span);
+    return span;
+  } catch {
+    try {
+      const fragment = range.extractContents();
+      span.appendChild(fragment);
+      range.insertNode(span);
+      return span;
+    } catch (e) {
+      console.warn('[InlineAnnotations] insertHighlightSpan failed:', e);
+      return null;
+    }
   }
 }
 
@@ -397,13 +441,19 @@ function createTooltip(annotation, target) {
  * @param {string} selectedText - Selected text (for new annotations)
  * @param {Object} position - Position data (for new annotations)
  */
-export function openAnnotationModal(annotation = null, selectedText = '', position = null) {
+export function openAnnotationModal(
+  annotation = null,
+  selectedText = '',
+  position = null,
+  savedRange = null
+) {
   // Close existing modal
   if (currentModal) {
     currentModal.remove();
   }
 
   currentEditingAnnotation = annotation;
+  pendingRange = savedRange;
 
   // Create modal
   const modal = document.createElement('div');
@@ -464,7 +514,7 @@ export function openAnnotationModal(annotation = null, selectedText = '', positi
   attachInteractiveHandler(closeBtn, 'Annotation Modal Close', () => closeAnnotationModal());
   attachInteractiveHandler(cancelBtn, 'Annotation Modal Cancel', () => closeAnnotationModal());
   attachInteractiveHandler(saveBtn, 'Annotation Modal Save', () =>
-    saveAnnotationFromModal(selectedText, position, tagInput)
+    saveAnnotationFromModal(selectedText, position, tagInput, selectedColor)
   );
 
   if (deleteBtn) {
@@ -487,12 +537,14 @@ export function openAnnotationModal(annotation = null, selectedText = '', positi
     }
   });
 
-  // Color picker handlers
+  // Color picker handlers — track in closure var, not DOM class (DOM query unreliable on mousedown)
+  let selectedColor = annotation?.color || 'yellow';
   const colorOptions = modal.querySelectorAll('.assist-annotation-color-option');
   colorOptions.forEach(option => {
     attachInteractiveHandler(option, 'Annotation Color', () => {
       colorOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
+      selectedColor = option.dataset.color;
     });
   });
 
@@ -546,6 +598,7 @@ function closeAnnotationModal() {
     currentModal = null;
   }
   currentEditingAnnotation = null;
+  pendingRange = null;
   console.log('[InlineAnnotations] Modal closed');
 }
 
@@ -555,22 +608,19 @@ function closeAnnotationModal() {
  * @param {Object} position - Position data (for new annotations)
  * @param {Object} tagInput - Tag input API object
  */
-async function saveAnnotationFromModal(selectedText, position, tagInput) {
+async function saveAnnotationFromModal(selectedText, position, tagInput, color = 'yellow') {
   const textarea = currentModal.querySelector('#annotation-comment');
-  const selectedColorOption = currentModal.querySelector(
-    '.assist-annotation-color-option.selected'
-  );
-
   const comment = textarea.value.trim();
-  const color = selectedColorOption?.dataset.color || 'yellow';
   const tags = tagInput.getTags();
+
+  // Grab and clear pendingRange NOW — synchronously, before any await.
+  // The Range must be used immediately; it can become invalid after async DOM mutations.
+  const rangeSnapshot = pendingRange;
+  pendingRange = null;
 
   try {
     if (currentEditingAnnotation) {
-      // Update existing annotation
       await storageAdapter.update(currentEditingAnnotation.id, { comment, color, tags });
-
-      // Update UI
       const elements = activeAnnotations.get(currentEditingAnnotation.id);
       if (elements) {
         elements.forEach(el => {
@@ -578,11 +628,18 @@ async function saveAnnotationFromModal(selectedText, position, tagInput) {
           el.setAttribute('aria-label', `Annotation: ${comment || 'No comment'}`);
         });
       }
-
       console.log('[InlineAnnotations] Updated annotation:', currentEditingAnnotation.id);
     } else {
-      // Create new annotation
-      await createInlineAnnotation({ selectedText, position, comment, color, tags });
+      // Insert highlight span SYNCHRONOUSLY before the storage await
+      const span = insertHighlightSpan(rangeSnapshot, color, comment);
+      await createInlineAnnotation({
+        selectedText,
+        position,
+        comment,
+        color,
+        tags,
+        preInsertedSpan: span,
+      });
       console.log('[InlineAnnotations] Created new annotation');
     }
 

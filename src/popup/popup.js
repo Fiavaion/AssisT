@@ -109,8 +109,8 @@ class OrganizeMode {
     };
 
     // Use capture phase to ensure we handle the event before it reaches other listeners
+    // mousedown only — registering click too would fire the handler twice per press
     element.addEventListener('mousedown', wrappedHandler, true);
-    element.addEventListener('click', wrappedHandler, true);
 
     // Visual feedback
     element.addEventListener('mouseenter', () => {
@@ -123,7 +123,6 @@ class OrganizeMode {
     // Return cleanup function
     const cleanup = () => {
       element.removeEventListener('mousedown', wrappedHandler, true);
-      element.removeEventListener('click', wrappedHandler, true);
     };
 
     this.controlCleanupFns.push(cleanup);
@@ -176,6 +175,14 @@ class OrganizeMode {
     document.getElementById('btn-organize').classList.remove('active');
     document.getElementById('organize-banner').classList.add('hidden');
 
+    // Restore accordion header mousedown handlers overridden during injectOrganizeControls
+    document.querySelectorAll('.accordion-header').forEach(header => {
+      if ('_savedMousedown' in header) {
+        header.onmousedown = header._savedMousedown;
+        delete header._savedMousedown;
+      }
+    });
+
     // Clean up control handlers
     this.controlCleanupFns.forEach(cleanup => cleanup());
     this.controlCleanupFns = [];
@@ -225,15 +232,19 @@ class OrganizeMode {
       visibilityToggle.innerHTML = sanitizeHTML(
         `<span class="visibility-icon">${isVisible ? '👁️' : '👁️‍🗨️'}</span>`
       );
-      console.log(
-        '[OrganizeMode] Visibility toggle created for section:',
-        sectionId,
-        visibilityToggle
-      );
-      this.attachOrganizeControlHandler(visibilityToggle, 'Visibility Toggle', () => {
-        console.log('[OrganizeMode] Visibility toggle clicked for section:', sectionId);
+      // Use mousedown with stopPropagation so:
+      // - the handler fires at target phase before any parent handlers run
+      // - stopPropagation prevents the event reaching the accordion header
+      // - the button's own opacity state never interferes with event dispatch
+      const visibilityMousedownHandler = e => {
+        e.preventDefault();
+        e.stopPropagation();
         this.toggleSectionVisibility(sectionId, visibilityToggle);
-      });
+      };
+      visibilityToggle.addEventListener('mousedown', visibilityMousedownHandler);
+      this.controlCleanupFns.push(() =>
+        visibilityToggle.removeEventListener('mousedown', visibilityMousedownHandler)
+      );
 
       // Create edit title button
       const editTitleBtn = document.createElement('button');
@@ -289,6 +300,21 @@ class OrganizeMode {
       header.insertBefore(visibilityToggle, header.querySelector('.accordion-icon'));
       header.insertBefore(moveButtons, header.querySelector('.accordion-icon'));
 
+      // Override the accordion header's mousedown handler so that:
+      // 1. Clicks on .drag-handle reach SortableJS (it listens on .popup-main via bubble)
+      // 2. Clicks on organize controls (.visibility-toggle etc.) don't call the accordion
+      //    handler's e.preventDefault(), which would suppress their click events
+      const savedMousedown = header.onmousedown;
+      header._savedMousedown = savedMousedown;
+      header.onmousedown = e => {
+        if (e.target.closest('.drag-handle, .visibility-toggle, .edit-title-btn, .move-buttons')) {
+          return; // let SortableJS or the control's own handler take over
+        }
+        if (savedMousedown) {
+          savedMousedown.call(header, e);
+        }
+      };
+
       // Apply hidden state if section was hidden
       if (!isVisible) {
         section.classList.add('hidden-by-user');
@@ -308,6 +334,7 @@ class OrganizeMode {
     // Section-level sortable
     this.sectionSortable = new Sortable(main, {
       handle: '.drag-handle',
+      draggable: '.accordion-section',
       animation: 200,
       ghostClass: 'section-ghost',
       chosenClass: 'section-chosen',
@@ -2854,7 +2881,6 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-stt">
                   <span>Speech-to-Text</span>
-                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 

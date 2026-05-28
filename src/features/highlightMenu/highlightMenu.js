@@ -733,8 +733,9 @@ function highlightMenu_handleAnnotate() {
 
     // Get position data from current selection
     if (highlightMenu_selectionRange) {
-      const position = getPositionFromRange(highlightMenu_selectionRange);
-      openAnnotationModal(null, highlightMenu_selectedText, position);
+      const clonedRange = highlightMenu_selectionRange.cloneRange();
+      const position = getPositionFromRange(clonedRange);
+      openAnnotationModal(null, highlightMenu_selectedText, position, clonedRange);
     } else {
       console.warn('[HighlightMenu] No selection range available');
       alert('Please select text again to annotate.');
