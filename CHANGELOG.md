@@ -20,6 +20,38 @@ For download links and full release notes see the
 
 ---
 
+## [0.9.3] - 2026-05-28
+
+### Fixed
+
+- **Gemini AI model** — replaced retired `gemini-1.5-flash` (404) with
+  `gemini-2.5-flash` as the default Gemini model. Fixed a 429 rate-limit retry
+  loop where the retry guard never fired because the thrown error message
+  contained quota text rather than the status code string.
+- **Annotation highlight race condition** — the DOM `Range` was becoming invalid
+  after `await storageAdapter.create()`, causing highlights to silently fail.
+  The highlight span is now inserted synchronously before the storage write;
+  the annotation record is then wired to the pre-inserted span on save.
+- **Organize Mode drag & drop** — sections are now correctly identified with the
+  `draggable: '.accordion-section'` SortableJS selector; drag handles were
+  previously targeting the wrong ancestor.
+- **Organize Mode visibility toggles** — accordion header `mousedown` handlers
+  were calling `preventDefault()` and suppressing visibility-toggle clicks.
+  The header handler now defers to control elements; cleanup restores the
+  original handler on Organize Mode exit.
+- **Double-fire on OrganizeMode controls** — removed duplicate `click` listener
+  alongside `mousedown` that caused handlers to fire twice per button press.
+- **STT Beta label removed** — Speech-to-Text has graduated from beta; the
+  "Beta" badge has been removed from both the popup feature list and the main
+  STT toggle.
+
+### CI
+
+- GitHub release publish now triggers an automatic Cloudflare Pages rebuild of
+  the Fiavaion website via repository dispatch.
+
+---
+
 ## [0.9.2] - 2026-05-23
 
 ### Added

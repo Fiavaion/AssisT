@@ -1,101 +1,117 @@
-# Phase 2 Session 122 - GAAD Launch Day Prep
+﻿# Phase 2 Session 122 - GAAD Launch Day Prep
 
 **Date**: 2026-05-20
 **Duration**: ~2 hours
 **Phase**: Pre-Launch Polish — v0.9.0 GAAD Public Beta
-**Progress**: 100% (launch logistics session)
+**Progress**: 100% (launch content/materials session)
 **Session Number**: 122
 
 ---
 
 ## Session Overview
 
-**Goal**: GAAD launch day preparation — find live event placements, publish feature guide, clean up extension-facing content
-**Status**: ✅ Complete
+**Goal**: Prepare all GAAD launch day content — clean the showcase HTML of GATHER references, rewrite all 35 how-to video scripts to be web-first rather than LMS-specific
+**Status**: Complete
 
 ---
 
 ## Accomplishments
 
 ### Features Completed
-- [x] Feature guide published to fiavaion.com/products/assist/feature-guide.html
-- [x] Submitted AssisT to Accessible Web GAAD 2026 Live Audit Marathon
-- [x] Cold outreach emails drafted for HS Bremen, Funka Foundation, GAAD Austria
-- [x] Beta/alpha/new badges removed from feature guide
-- [x] Emotional TTS removed from feature guide and CHANGELOG
-- [x] Stale memory corrected — AssisT confirmed live on CWS, branch confirmed as main
+- [x] AssisT_GAAD.html — created from AssisT for GATHER 2026.html, all GATHER/AHEAD/AONTAS references purged
+- [x] 22 how-to video scripts rewritten — all Canvas/LMS/Moodle/Classroom references removed
+- [x] 6 launch-day video priority set — confirmed recording order for GAAD May 21
+- [x] Scripts 01 and 02 updated to cover AI Setup wizard and first-popup notifications accurately
 
-### Files Modified
-- `docs/feature-guide.html` — removed beta/alpha/new nav badges, removed emotional TTS nav item + panel + PANEL_META entry, cleaned status labels from desc strings
-- `CHANGELOG.md` — removed Emotional TTS from AI features list
-- `C:\Users\jones\AIprojects\Fiavaion\website\public\products\assist\feature-guide.html` — new file (copied from AssisT docs/)
+### Files Modified (GAAD_launch — Desktop + AssisT project, both locations)
 
-### Commits
-- `71df782` — fix(docs): remove emotional TTS from changelog AI features list
-- Fiavaion website: 3 commits pushed — initial feature guide, badge removal, emotional TTS removal
+New file:
+- GAAD_launch/AssisT_GAAD.html — 1.35 MB (stripped from 3.1 MB GATHER version)
+
+Scripts rewritten (22 files):
+- tools/scripts/01_install.md — extended to cover 7-step AI Setup wizard
+- tools/scripts/02_first-setup.md — rewritten: Enable Everywhere, local files, Discover Your Tools, AI mode selector
+- tools/scripts/03_read-aloud.md — Canvas removed; any page framing
+- tools/scripts/04_reading-mode.md — Canvas removed; general web tool framing
+- tools/scripts/05_dyslexia-mode.md — "entire Canvas page" removed
+- tools/scripts/06_ocr.md — "without leaving Canvas" removed
+- tools/scripts/07_speech-to-text.md — Canvas text fields generalised
+- tools/scripts/08_quick-actions-menu.md — "Canvas page" generalised; outro fixed
+- tools/scripts/09_dictionary.md — "without leaving Canvas" removed
+- tools/scripts/10_translation.md — "Canvas pages" generalised
+- tools/scripts/11_text-customisation.md — "Canvas page layout" generalised
+- tools/scripts/13_reading-progress.md — "long Canvas pages" generalised
+- tools/scripts/14_speed-read-rsvp.md — outro fixed
+- tools/scripts/15_annotations.md — "on Canvas" generalised; outro fixed
+- tools/scripts/16_sticky-notes.md — "any Canvas page" generalised
+- tools/scripts/17_custom-cursor.md — "not just Canvas" removed
+- tools/scripts/22_pomodoro-timer.md — "sits on top of Canvas" generalised
+- tools/scripts/23_simplified-interface.md — generalised; outro fixed
+- tools/scripts/24_citations.md — generalised; outro now points to AI Summarisation (skips deferred 25/26/27)
+- tools/scripts/28_ai-summarisation.md — "text on Canvas" removed; "WebLLM" renamed "Browser AI"
+- tools/scripts/30_ai-assignment-breakdown.md — "on Canvas" removed
+- tools/scripts/35_ai-multi-doc-compare.md — closing generalised to "any website"
+
+Scripts left untouched (already clean): 12, 18, 19, 20, 21, 29, 31, 32, 33, 34
+Scripts deferred (LMS-specific): 25 (Canvas LMS), 26 (Moodle LMS), 27 (Google Classroom)
+
+No code commits this session — content/materials work only
 
 ---
 
 ## Decisions Made
 
-**Decision**: Publish feature guide as static file in Fiavaion website `public/` rather than as an Astro page
-- **Reason**: Feature guide is a self-contained visual experience with its own nav, dark theme, and layout — wrapping it in the Astro site shell would clash
-- **Impact**: Served at `/products/assist/feature-guide.html` as a standalone page with no site chrome
-- **Alternatives**: Rejected Astro page wrapper (layout conflict), rejected htmlpreview.github.io (external dependency)
+Decision: Position AssisT as a general web accessibility tool; LMS support is a compatibility layer
+- Reason: GAAD audience is broad. Leading with Canvas/Moodle shrinks perceived audience
+- Impact: 22 scripts reframed. LMS videos 25/26/27 deferred until dedicated LMS functionality warrants its own set
+- Alternatives: Rejected keeping Canvas as primary demo environment
 
-**Decision**: Submit feature guide URL (not CWS link) to Accessible Web audit form
-- **Reason**: Specialists need something openable in a browser without installation; feature guide works immediately; CWS requires install + Canvas/all-sites setup
-- **Impact**: Specialists can audit nav keyboard flow, heading hierarchy, dark-theme contrast, screen reader announcements on panel switching
-- **Alternatives**: CWS link noted in description as supporting context
+Decision: 6 launch-day videos — 01, 02, 03, 04, 05, 28
+- Reason: Covers full onboarding arc plus one AI feature. Realistic to record in a single day
+- Impact: Remaining 29 videos publish post-GAAD at 1-2/day cadence
 
-**Decision**: Remove Emotional TTS entirely
-- **Reason**: Feature was documented but never implemented in src/ — listing it misrepresents the extension's capabilities
-- **Impact**: 8 AI features listed everywhere instead of 9; no code removal needed (never shipped)
-
----
-
-## GAAD Launch Placements Secured
-
-- **Accessible Web Live Audit Marathon** (May 21, full-day livestream) — submitted, confirmed
-  - URL: fiavaion.com/products/assist/feature-guide.html
-  - Specialists will audit live on stream if selected
-- **Cold emails drafted** for:
-  - Ramona Kaufmann, IDT Hochschule Bremen — ramona.kaufmann@hs-bremen.de (AuDHSPersonas session, direct fit)
-  - Funka Foundation — contact@funka.com (May 22 webinar)
-  - Julia Undeutsch, GAAD Austria — hello@gaad.at (CfP closed but late-pitch)
+Decision: Scripts 25, 26, 27 deferred
+- Reason: Current LMS integration is a compatibility layer — not enough differentiated functionality
+- Impact: Outro chain: video 24 points to 28 (AI Summarisation), skipping LMS trilogy
 
 ---
 
 ## Technical Insights
 
-- AssisT IS live on the Chrome Web Store — CWS ID: `dkekfjomoacmhbkekjkngmpbdlljjfhi`
-  - Memory was stale on this; corrected
-- `docs/` is in `.gitignore` in the AssisT repo — feature guide lives only in Fiavaion website public/
-- Cloudflare Pages deploys automatically on push to `Fiavaion/fiavaion-website` main branch (~1-2 min)
-- GAAD Austria call for papers closed; Equalize Digital is WordPress-focused — both low priority
+- AssisT_GAAD.html size reduction: Removing embedded AHEAD logo (base64 PNG ~900KB) dropped file from 3.1 MB to 1.35 MB
+- Gemini free API tier: 15 RPM / 1,000,000 TPM / 1,500 RPD. RPM is the practical limit. Free tier = no FERPA guarantee on personal keys
+- AI Setup wizard is 7 steps: Welcome, System Scan, Our Recommendation, Configure Your AI, How You Prefer AI, Test Your AI, Suggested Features, Done
+- Enable Everywhere: Yellow notification, auto-appears on install, button label is "Enable Everywhere", tab reload required after grant
 
 ---
 
-## Next Session
+## Next Session — GAAD Launch Day (May 21)
 
-**Status**: Complete
-**Next Task**: GAAD launch day — Thursday 21 May 2026
+Status: Complete — ready to record
 
-**GAAD launch day checklist:**
-- Post Show HN (account: Fiavaion)
-- Mastodon + Bluesky thread
-- LinkedIn launch post
-- Reddit sequential (r/chrome_extensions, r/Accessibility, r/InstructionalDesign + others)
-- Product Hunt goes live (scheduled 8:01am Irish time)
-- Watch Accessible Web Live Audit Marathon — be ready to engage if AssisT selected
+Recording order:
+1. 01_install.md — Install + AI Setup wizard
+2. 02_first-setup.md — Enable Everywhere, Discover Your Tools, AI mode selector
+3. 03_read-aloud.md — Read Aloud on any webpage
+4. 04_reading-mode.md — demo on cluttered news page (Daily Mail recommended)
+5. 05_dyslexia-mode.md — GAAD flagship
+6. 28_ai-summarisation.md — AI differentiation
 
-**Outstanding pre-launch items:**
-- Reddit account warming (u/Hefty-Vacation-4392) — 3-5 genuine comments in target subs
-- Product Hunt gallery screenshots (3+) + demo video on YouTube
-- `git tag v0.9.0` + GitHub release
+GAAD launch sequence:
+- 06:00 Show HN
+- 08:00 Mastodon + Bluesky
+- 10:00 LinkedIn
+- 12:00 Reddit
+- 20:01 Product Hunt
 
-**Blockers**: None
+Outstanding pre-launch:
+- Push Fiavaion website repo (2 commits ahead)
+- CWS promo tile (440x280)
+- CWS submission
+- git tag v0.9.0 + GitHub release
+
+Blockers: None
 
 ---
 
-**Session Complete**: 2026-05-20
+Session Complete: 2026-05-20
