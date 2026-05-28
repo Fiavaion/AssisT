@@ -49,7 +49,7 @@ jobs:
 
       - name: Create ZIP for Chrome Web Store
         run: |
-          cd Output
+          cd .vite
           zip -r ../AssisT-v${{ steps.get_version.outputs.version }}.zip .
           cd ..
           echo "ZIP created: AssisT-v${{ steps.get_version.outputs.version }}.zip"

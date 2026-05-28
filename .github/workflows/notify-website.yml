@@ -8,6 +8,8 @@ jobs:
   trigger-website-rebuild:
     name: Trigger website rebuild
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Dispatch rebuild to Fiavaion website repo
         uses: peter-evans/repository-dispatch@v3
