@@ -20,7 +20,33 @@ For download links and full release notes see the
 
 ---
 
-## [0.9.3] - 2026-05-28
+## [0.9.3] - 2026-05-29
+
+### Added
+
+- **Cross-browser API abstraction** (`src/core/browser-api.js`) — thin wrapper
+  around `webextension-polyfill` providing a unified `browser.*` API across
+  Chrome, Firefox, and Safari Web Extensions. New code uses `browser.*`;
+  existing `chrome.*` calls migrate progressively toward the Firefox port.
+- **`@fiavaion/lms-adapter` package scaffold** (`packages/lms-adapter/`) —
+  standalone package for LMS detection, course/assignment context extraction,
+  and SPA navigation support (Canvas, Moodle, Google Classroom). Public API is
+  stable; full extraction from `src/features/lms/` is an NLnet deliverable.
+- **`@fiavaion/local-ai-router` package scaffold** (`packages/local-ai-router/`)
+  — four-mode local AI routing library (Ollama → WebLLM → Chrome Prompt API →
+  cloud fallback) extracted from AssisT's AI layer. Functional at this stage;
+  WebLLM engine lifecycle extraction completes with v1.0.
+- **Pluggable prompt registry** (`src/ai/prompts/registry.js`) — centralised
+  store for feature prompts keyed by feature × discipline × user profile.
+  Allows institutions to swap discipline-adapted prompts without touching
+  feature code. NLnet deliverable; feature modules migrate progressively.
+- **Firefox build target** — `BROWSER=firefox vite build` now produces a
+  `.vite-firefox/` build using `manifest.firefox.json` (falls back to Chrome
+  manifest while the Firefox port is in progress). Build-time flags
+  `__BROWSER_TARGET__` and `__IS_FIREFOX__` let content scripts disable
+  Chrome-only APIs gracefully on Firefox.
+- `build:firefox` npm script and `cross-env` dependency for cross-platform env
+  variable support in build commands.
 
 ### Fixed
 
@@ -49,6 +75,10 @@ For download links and full release notes see the
 
 - GitHub release publish now triggers an automatic Cloudflare Pages rebuild of
   the Fiavaion website via repository dispatch.
+- `deploy.yml` corrected ZIP source directory from `Output/` to `.vite/` —
+  fixes CWS automated deploy failure.
+- `notify-website.yml` opts into Node 24 ahead of GitHub's June 2 forced
+  Node 20 deprecation.
 
 ---
 

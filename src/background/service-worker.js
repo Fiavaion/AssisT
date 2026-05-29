@@ -4,6 +4,7 @@
  * Universal accessibility extension for all websites
  */
 
+import browser from '../core/browser-api.js';
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
 import { checkGeminiAvailability, generateText as geminiGenerateText } from '../ai/nano-client.js';
@@ -32,7 +33,7 @@ function isValidSender(sender) {
   // (sender.tab present). The extension deliberately supports All Sites Mode
   // via optional <all_urls> permission, so origin is not further restricted here —
   // only code from our own bundle runs as a content script.
-  return sender.id === chrome.runtime.id;
+  return sender.id === browser.runtime.id;
 }
 
 /**
@@ -78,7 +79,7 @@ function validateURL(url, options = {}) {
       return { valid: false, error: 'Extension URLs not allowed' };
     }
     // Only allow URLs from this extension
-    if (parsed.hostname !== chrome.runtime.id) {
+    if (parsed.hostname !== browser.runtime.id) {
       return { valid: false, error: 'External extension URLs not allowed' };
     }
     return { valid: true };

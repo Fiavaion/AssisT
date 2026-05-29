@@ -1,0 +1,50 @@
+{
+  "name": "@fiavaion/lms-adapter",
+  "version": "0.1.0-extraction",
+  "description": "Adapter layer for Canvas LMS, Moodle, and Google Classroom — LMS detection, course context extraction, and SPA navigation support for browser extensions and web tools.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "types": "./types/index.d.ts"
+    }
+  },
+  "types": "types/index.d.ts",
+  "files": [
+    "src/",
+    "types/"
+  ],
+  "keywords": [
+    "canvas",
+    "moodle",
+    "google-classroom",
+    "lms",
+    "edtech",
+    "browser-extension",
+    "accessibility"
+  ],
+  "author": "Fiavaion",
+  "license": "EUPL-1.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Fiavaion/assist",
+    "directory": "packages/lms-adapter"
+  },
+  "homepage": "https://fiavaion.com",
+  "peerDependencies": {
+    "webextension-polyfill": ">=0.10.0"
+  },
+  "peerDependenciesMeta": {
+    "webextension-polyfill": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}

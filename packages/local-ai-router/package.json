@@ -1,0 +1,50 @@
+{
+  "name": "@fiavaion/local-ai-router",
+  "version": "0.1.0-extraction",
+  "description": "Four-mode local AI routing for browser extensions — Ollama, WebLLM, Chrome Prompt API, and cloud fallback with graceful auto-degradation.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "types": "./types/index.d.ts"
+    }
+  },
+  "types": "types/index.d.ts",
+  "files": [
+    "src/",
+    "types/"
+  ],
+  "keywords": [
+    "ollama",
+    "webllm",
+    "local-llm",
+    "ai-router",
+    "browser-extension",
+    "privacy-first",
+    "offline-ai"
+  ],
+  "author": "Fiavaion",
+  "license": "EUPL-1.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Fiavaion/assist",
+    "directory": "packages/local-ai-router"
+  },
+  "homepage": "https://fiavaion.com",
+  "peerDependencies": {
+    "@mlc-ai/web-llm": ">=0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@mlc-ai/web-llm": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}
