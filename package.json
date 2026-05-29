@@ -16,6 +16,7 @@
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.{js,css,html}\"",
     "build": "vite build && node scripts/inject-popup-scripts.js",
+    "build:firefox": "cross-env BROWSER=firefox vite build && node scripts/inject-popup-scripts.js --outDir .vite-firefox",
     "dev": "vite build --watch",
     "postbuild": "node scripts/inject-popup-scripts.js",
     "prepare": "husky",
@@ -51,6 +52,7 @@
     "archiver": "^8.0.0",
     "babel-jest": "^30.2.0",
     "chrome-webstore-upload": "^6.0.0",
+    "cross-env": "^7.0.3",
     "dotenv": "^17.4.2",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^9.1.0",
@@ -78,7 +80,8 @@
     "open-graph-scraper": "^6.4.0",
     "pdfjs-dist": "^5.4.394",
     "sortablejs": "^1.15.6",
-    "tesseract.js": "^5.0.0"
+    "tesseract.js": "^5.0.0",
+    "webextension-polyfill": "^0.12.0"
   },
   "lint-staged": {
     "src/**/*.js": [
