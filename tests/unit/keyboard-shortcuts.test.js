@@ -18,9 +18,11 @@ import {
 
 describe('Keyboard Shortcuts', () => {
   describe('Configuration', () => {
-    test('DEFAULT_SHORTCUTS should contain 14 shortcuts', () => {
+    test('DEFAULT_SHORTCUTS should contain 15 shortcuts', () => {
+      // 14 original + citation_save (Alt+C) added with the citation manager.
       const count = Object.keys(DEFAULT_SHORTCUTS).length;
-      expect(count).toBe(14);
+      expect(count).toBe(15);
+      expect(DEFAULT_SHORTCUTS).toHaveProperty('citation_save');
     });
 
     test('All default shortcuts should have labels', () => {
