@@ -19,6 +19,8 @@
 import { MESSAGE_TYPES } from '../config/constants.js';
 import { sanitizeHTML } from '../utils/sanitize.js';
 import { attachInteractiveHandler, attachDelegatedHandler } from '../utils/event-handlers.js';
+import { normalizeCitation } from '../features/citations/citation-types.js';
+import { formatReference } from '../features/citations/citation-styles/index.js';
 
 /**
  * Citation Manager Panel Component
@@ -46,6 +48,7 @@ export class CitationManagerPanel {
     this.selectedProject = null;
     this.isLoading = false;
     this.isExpanded = false;
+    this.loadError = false;
 
     // Keyboard navigation
     this.focusedIndex = -1;
@@ -78,19 +81,22 @@ export class CitationManagerPanel {
       });
 
       if (response && response.success) {
-        this.citations = response.citations || [];
+        this.loadError = false;
+        this.citations = (response.citations || []).map(normalizeCitation);
         this.projects = response.projects || [];
         this.applyFilters();
         this.renderCitationList();
         this.updateStats();
       } else {
         console.log('[CitationPanel] No citations response, initializing empty');
+        this.loadError = false;
         this.citations = [];
         this.projects = [];
         this.renderEmptyState();
       }
     } catch (error) {
       console.log('[CitationPanel] Failed to load citations:', error.message);
+      this.loadError = true;
       this.citations = [];
       this.projects = [];
       this.renderEmptyState();
@@ -108,21 +114,23 @@ export class CitationManagerPanel {
 
     // Filter by view
     switch (this.currentView) {
-      case 'recent':
+      case 'recent': {
         // Last 7 days
         const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        filtered = filtered.filter(c => new Date(c.savedAt).getTime() > weekAgo);
+        filtered = filtered.filter(c => new Date(c.createdAt).getTime() > weekAgo);
         // Sort by date descending
-        filtered.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
+      }
 
-      case 'projects':
+      case 'projects': {
         if (this.selectedProject) {
           filtered = filtered.filter(
             c => c.projectId === this.selectedProject || c.projects?.includes(this.selectedProject)
           );
         }
         break;
+      }
 
       default:
         // 'all' - no additional filtering
@@ -661,7 +669,7 @@ export class CitationManagerPanel {
     const viewTabs = this.container.querySelectorAll('.view-tab');
     viewTabs.forEach(tab => {
       attachInteractiveHandler(tab, 'View Tab', e => {
-        this.setView(e.target.dataset.view);
+        this.setView(e.currentTarget.dataset.view);
       });
 
       tab.addEventListener('keydown', e => {
@@ -755,7 +763,7 @@ export class CitationManagerPanel {
     }
 
     tabsArray[newIndex].focus();
-    tabsArray[newIndex].click();
+    this.setView(tabsArray[newIndex].dataset.view);
   }
 
   /**
@@ -967,16 +975,16 @@ export class CitationManagerPanel {
     const faviconUrl = citation.favicon || this.getFaviconFromUrl(citation.url);
     const authors =
       citation.authors?.length > 0 ? citation.authors.slice(0, 2).join(', ') : 'Unknown author';
-    const date = citation.savedAt ? this.formatDate(citation.savedAt) : '';
+    const date = citation.createdAt ? this.formatDate(citation.createdAt) : '';
 
     return `
       <div class="citation-card"
            data-id="${citation.id}"
            role="listitem"
            tabindex="${index === this.focusedIndex ? '0' : '-1'}"
-           aria-label="${citation.title || 'Untitled citation'}">
+           aria-label="${this.escapeHtml(citation.title || 'Untitled citation')}">
         <img class="citation-favicon"
-             src="${faviconUrl}"
+             src="${this.escapeHtml(faviconUrl)}"
              alt=""
         />
         <div class="citation-info">
@@ -1004,20 +1012,38 @@ export class CitationManagerPanel {
       return;
     }
 
-    const message = this.searchQuery
-      ? 'No citations match your search'
-      : this.currentView === 'recent'
-        ? 'No citations from the past week'
-        : this.currentView === 'projects' && this.selectedProject
-          ? 'No citations in this project'
-          : 'No citations saved yet';
+    let message;
+    let icon;
+    let showSaveBtn;
+
+    if (this.loadError) {
+      message = "Can't read citations on this page — open a normal web page to view your library.";
+      icon = '🚫';
+      showSaveBtn = false;
+    } else if (this.searchQuery) {
+      message = 'No citations match your search';
+      icon = '📚';
+      showSaveBtn = false;
+    } else if (this.currentView === 'recent') {
+      message = 'No citations from the past week';
+      icon = '📚';
+      showSaveBtn = true;
+    } else if (this.currentView === 'projects' && this.selectedProject) {
+      message = 'No citations in this project';
+      icon = '📚';
+      showSaveBtn = true;
+    } else {
+      message = 'No citations saved yet';
+      icon = '📚';
+      showSaveBtn = true;
+    }
 
     list.innerHTML = sanitizeHTML(`
       <div class="citation-empty-state">
-        <div class="citation-empty-icon">📚</div>
+        <div class="citation-empty-icon">${icon}</div>
         <div class="citation-empty-text">${message}</div>
         ${
-          !this.searchQuery
+          showSaveBtn
             ? `
           <button class="citation-empty-action" data-action="save-first">
             Save Current Page
@@ -1131,7 +1157,7 @@ export class CitationManagerPanel {
    * Handle citation card actions
    */
   async handleCitationAction(action, citationId) {
-    const citation = this.citations.find(c => c.id === citationId);
+    const citation = this.citations.find(c => String(c.id) === String(citationId));
     if (!citation) {
       return;
     }
@@ -1165,31 +1191,15 @@ export class CitationManagerPanel {
   }
 
   /**
-   * Format citation for clipboard (Harvard style)
+   * Format citation for clipboard (Harvard style via shared formatter)
    */
   formatCitation(citation) {
-    const authors =
-      citation.authors?.length > 0
-        ? citation.authors.join(', ')
-        : citation.siteName || 'Unknown Author';
-
-    const year = citation.publicationDate
-      ? new Date(citation.publicationDate).getFullYear()
-      : new Date(citation.savedAt).getFullYear();
-
-    const title = citation.title || 'Untitled';
-    const url = citation.url || '';
-    const accessed = new Date().toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-
-    return `${authors} (${year}). ${title}. Available at: ${url} (Accessed: ${accessed}).`;
+    return formatReference(normalizeCitation(citation));
   }
 
   /**
-   * Get favicon URL from page URL
+   * Get favicon URL from page URL.
+   * Only http/https origins are permitted — javascript: and data: URLs are rejected.
    */
   getFaviconFromUrl(url) {
     if (!url) {
@@ -1197,6 +1207,9 @@ export class CitationManagerPanel {
     }
     try {
       const urlObj = new URL(url);
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        return '';
+      }
       return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`;
     } catch {
       return '';

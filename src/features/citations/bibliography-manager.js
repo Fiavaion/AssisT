@@ -26,6 +26,8 @@ import { SourceEvaluator, openCraapTest } from './source-evaluator.js';
 import { exportCitations, importCitations, createBackup } from './citation-export.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { trapFocus } from './citation-focus-trap.js';
+import { isAnalyserAvailable, analyseCitation } from './citation-ai-analyser.js';
 
 /**
  * Bibliography Manager class
@@ -40,6 +42,7 @@ class BibliographyManager {
     this.sortBy = 'createdAt';
     this.sortOrder = 'desc';
     this.minQualityScore = 0;
+    this._releaseFocusTrap = null;
   }
 
   /**
@@ -60,19 +63,23 @@ class BibliographyManager {
     // Render initial content
     this.renderCitationList();
 
-    // Focus search input
-    setTimeout(() => {
-      const searchInput = this.modal.querySelector('#bib-search');
-      if (searchInput) {
-        searchInput.focus();
-      }
-    }, 100);
+    // Mount focus trap (WCAG 2.2 SC 2.1.2 / 2.4.3).
+    // ESC is handled exclusively via onEscape so we never leak a document keydown listener.
+    const searchInput = this.modal.querySelector('#bib-search');
+    this._releaseFocusTrap = trapFocus(this.modal, {
+      onEscape: () => this.close(),
+      initialFocus: searchInput || undefined,
+    });
   }
 
   /**
    * Close the modal
    */
   close() {
+    if (this._releaseFocusTrap) {
+      this._releaseFocusTrap();
+      this._releaseFocusTrap = null;
+    }
     if (this.modal) {
       this.modal.remove();
       this.modal = null;
@@ -198,14 +205,8 @@ class BibliographyManager {
       }
     });
 
-    // ESC to close
-    const handleEsc = e => {
-      if (e.key === 'Escape') {
-        this.close();
-        document.removeEventListener('keydown', handleEsc);
-      }
-    };
-    document.addEventListener('keydown', handleEsc);
+    // NOTE: ESC is handled exclusively by the trapFocus onEscape callback (mounted in open()).
+    // A document-level keydown listener is intentionally NOT added here.
 
     // Search input
     const searchInput = overlay.querySelector('#bib-search');
@@ -423,7 +424,18 @@ class BibliographyManager {
           <button class="bib-action-btn bib-evaluate-btn" title="Evaluate source quality">📊 Evaluate</button>
           <button class="bib-action-btn bib-copy-btn" title="Copy reference">📋 Copy</button>
           <button class="bib-action-btn bib-delete-btn" title="Delete citation">🗑️ Delete</button>
+          <button
+            class="bib-action-btn bib-ai-analyse-btn"
+            title="Analyse this source with AI (optional)"
+            aria-label="Analyse citation with AI"
+            style="display:none;"
+          >🤖 Analyse with AI</button>
         </div>
+        ${
+          citation.extra?.aiAnalysis
+            ? this.renderSavedAIBlock(citation.extra.aiAnalysis)
+            : '<div class="bib-ai-result" aria-live="polite" style="display:none;"></div>'
+        }
         ${
           citation.tags?.length
             ? `
@@ -540,6 +552,119 @@ class BibliographyManager {
           this.citations = await CitationStorage.getAll();
           this.filterAndRender();
           showSuccessToast('Citation deleted');
+        }
+      });
+    });
+
+    // AI Analyse button — wire handlers then gate visibility on isAnalyserAvailable()
+    this.attachAIAnalyseListeners(container);
+  }
+
+  /**
+   * Wire "Analyse with AI" buttons in the given container.
+   * Shows each button only when isAnalyserAvailable() resolves true.
+   * Strictly additive: heuristic credibility badge is untouched.
+   */
+  attachAIAnalyseListeners(container) {
+    container.querySelectorAll('.bib-ai-analyse-btn').forEach(btn => {
+      const card = btn.closest('.bib-card');
+      if (!card) {
+        return;
+      }
+
+      // Gate: only show if AI is available. Runs async, no spinner needed for this check.
+      isAnalyserAvailable().then(ok => {
+        if (ok) {
+          btn.style.display = '';
+        }
+      });
+
+      attachInteractiveHandler(btn, 'Analyse Citation with AI', async () => {
+        const citation = this.citations.find(c => String(c.id) === card.dataset.id);
+        if (!citation) {
+          return;
+        }
+
+        // Busy state
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        const originalLabel = btn.textContent;
+        btn.textContent = 'Analysing…';
+
+        // Find (or create) the result container for this card
+        let resultEl = card.querySelector('.bib-ai-result');
+        if (!resultEl) {
+          resultEl = document.createElement('div');
+          resultEl.className = 'bib-ai-result';
+          resultEl.setAttribute('aria-live', 'polite');
+          card.appendChild(resultEl);
+        }
+        resultEl.style.display = '';
+
+        try {
+          const result = await analyseCitation(citation);
+
+          if (!result.available) {
+            // AI unavailable at call time — show inline note, keep heuristic badge
+            resultEl.textContent = 'AI analysis unavailable — using built-in checks.';
+            resultEl.className = 'bib-ai-result bib-ai-unavailable';
+          } else {
+            // Build result block via DOM (no raw innerHTML with user data)
+            const chip = document.createElement('span');
+            chip.className = 'bib-ai-chip';
+            const CHIP_COLORS = {
+              high: '#2e7d32',
+              medium: '#a76900',
+              low: '#c62828',
+              unknown: '#555555',
+            };
+            const CHIP_LABELS = { high: 'High', medium: 'Medium', low: 'Low', unknown: 'Unknown' };
+            const signal = result.signal || 'unknown';
+            chip.style.background = CHIP_COLORS[signal] || CHIP_COLORS.unknown;
+            chip.setAttribute(
+              'aria-label',
+              `AI credibility signal: ${CHIP_LABELS[signal] || 'Unknown'}`
+            );
+            chip.textContent = `AI: ${CHIP_LABELS[signal] || 'Unknown'}`;
+
+            const summaryEl = document.createElement('p');
+            summaryEl.className = 'bib-ai-summary';
+            summaryEl.textContent = result.summary || '';
+
+            resultEl.className = 'bib-ai-result';
+            resultEl.innerHTML = '';
+            resultEl.appendChild(chip);
+            resultEl.appendChild(summaryEl);
+
+            if (Array.isArray(result.considerations) && result.considerations.length > 0) {
+              const ul = document.createElement('ul');
+              ul.className = 'bib-ai-considerations';
+              result.considerations.forEach(point => {
+                const li = document.createElement('li');
+                li.textContent = point;
+                ul.appendChild(li);
+              });
+              resultEl.appendChild(ul);
+            }
+
+            // Persist to storage
+            const existingExtra = citation.extra || {};
+            await CitationStorage.update(String(citation.id), {
+              extra: { ...existingExtra, aiAnalysis: result },
+            });
+
+            // Update in-memory citation so re-renders show saved block
+            citation.extra = { ...existingExtra, aiAnalysis: result };
+          }
+        } catch (err) {
+          resultEl.textContent = 'AI analysis failed — please try again.';
+          resultEl.className = 'bib-ai-result bib-ai-unavailable';
+          // Log for debugging; do not surface raw error text to the UI
+          console.error('[AssisT] Citation AI analyse error:', err);
+        } finally {
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+          btn.textContent = originalLabel;
         }
       });
     });
@@ -738,6 +863,51 @@ class BibliographyManager {
     });
 
     document.body.appendChild(overlay);
+  }
+
+  /**
+   * Render the colour+text signal chip for an AI analysis result.
+   * Colour is never the ONLY differentiator — the text label is always present (WCAG 1.4.1).
+   * @param {string} signal - 'high' | 'medium' | 'low' | 'unknown'
+   * @returns {string} HTML string (safe: no user data)
+   */
+  renderAISignalChip(signal) {
+    const MAP = {
+      high: { color: '#2e7d32', label: 'High' },
+      medium: { color: '#a76900', label: 'Medium' },
+      low: { color: '#c62828', label: 'Low' },
+      unknown: { color: '#555555', label: 'Unknown' },
+    };
+    const { color, label } = MAP[signal] || MAP.unknown;
+    return (
+      `<span class="bib-ai-chip" style="background:${color};" aria-label="AI credibility signal: ${label}">` +
+      `AI: ${label}` +
+      `</span>`
+    );
+  }
+
+  /**
+   * Render a saved AI analysis block from citation.extra.aiAnalysis.
+   * ALL dynamic strings are passed through escapeHTML — never raw innerHTML.
+   * @param {{signal:string, summary:string, considerations:string[]}} aiAnalysis
+   * @returns {string} HTML string
+   */
+  renderSavedAIBlock(aiAnalysis) {
+    if (!aiAnalysis || !aiAnalysis.signal) {
+      return '';
+    }
+    const chip = this.renderAISignalChip(aiAnalysis.signal);
+    const summary = this.escapeHTML(aiAnalysis.summary || '');
+    const items = Array.isArray(aiAnalysis.considerations) ? aiAnalysis.considerations : [];
+    const listItems = items.map(c => `<li>${this.escapeHTML(c)}</li>`).join('');
+    const listHTML = listItems ? `<ul class="bib-ai-considerations">${listItems}</ul>` : '';
+    return (
+      `<div class="bib-ai-result" aria-live="polite">` +
+      `${chip}` +
+      `<p class="bib-ai-summary">${summary}</p>` +
+      `${listHTML}` +
+      `</div>`
+    );
   }
 
   /**
@@ -1310,6 +1480,65 @@ class BibliographyManager {
         background: #2196f3;
         color: white;
         border-color: #2196f3;
+      }
+
+      /* AI analysis — additive block, never replaces heuristic badge */
+      .bib-ai-analyse-btn {
+        border-color: #6200ea;
+        color: #6200ea;
+      }
+
+      .bib-ai-analyse-btn:hover {
+        background: #ede7f6;
+        border-color: #6200ea;
+      }
+
+      .bib-ai-analyse-btn:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      .bib-ai-result {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: #f3e5f5;
+        border-left: 3px solid #6200ea;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+
+      .bib-ai-result.bib-ai-unavailable {
+        background: #f5f5f5;
+        border-left-color: #9e9e9e;
+        color: #555;
+        font-style: italic;
+      }
+
+      .bib-ai-chip {
+        display: inline-block;
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-bottom: 6px;
+      }
+
+      .bib-ai-summary {
+        margin: 0 0 6px 0;
+        line-height: 1.5;
+        color: #333;
+      }
+
+      .bib-ai-considerations {
+        margin: 0;
+        padding-left: 18px;
+        color: #444;
+        line-height: 1.6;
+      }
+
+      .bib-ai-considerations li {
+        margin-bottom: 2px;
       }
     `;
     document.head.appendChild(style);

@@ -47,6 +47,7 @@ export const DEFAULT_SHORTCUTS = {
   // Writing Tools
   sticky_note_create: 'Alt+N',
   translation_toggle: 'Alt+T',
+  citation_save: 'Alt+C',
 
   // Display Modes
   focus_mode_toggle: 'Alt+F',
@@ -76,6 +77,7 @@ export const SHORTCUT_LABELS = {
   // Writing Tools
   sticky_note_create: 'Sticky Notes: Create New Note',
   translation_toggle: 'Translation: Toggle',
+  citation_save: 'Citations: Save Selected Text',
 
   // Display Modes
   focus_mode_toggle: 'Focus Mode: Toggle',

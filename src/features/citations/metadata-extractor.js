@@ -19,12 +19,69 @@
  */
 export function extractMetadata(doc = document) {
   return {
+    highwire: extractHighwire(doc),
     openGraph: extractOpenGraph(doc),
     dublinCore: extractDublinCore(doc),
     jsonLD: extractJSONLD(doc),
     coins: extractCOinS(doc),
     html: extractHTMLMeta(doc),
     doi: extractDOI(doc),
+  };
+}
+
+/**
+ * Extract Highwire Press / Google Scholar citation_* meta tags.
+ * This is the dominant metadata standard for academic sources (journals, arXiv, PubMed,
+ * institutional repositories) — and the one the old extractor ignored. citation_author
+ * repeats once per author.
+ * @param {Document} doc
+ * @returns {Object|null}
+ */
+function extractHighwire(doc) {
+  const get = name =>
+    doc.querySelector(`meta[name="${name}"]`)?.getAttribute('content')?.trim() || '';
+  const getAll = name =>
+    Array.from(doc.querySelectorAll(`meta[name="${name}"]`))
+      .map(m => m.getAttribute('content')?.trim())
+      .filter(Boolean);
+
+  const title = get('citation_title');
+  const authors = getAll('citation_author');
+  const journal = get('citation_journal_title') || get('citation_conference_title');
+  const date =
+    get('citation_publication_date') || get('citation_date') || get('citation_online_date');
+  const doi = get('citation_doi');
+  const publisher = get('citation_publisher');
+  const volume = get('citation_volume');
+  const issue = get('citation_issue');
+  const firstpage = get('citation_firstpage');
+  const lastpage = get('citation_lastpage');
+  const isbn = get('citation_isbn');
+  const issn = get('citation_issn');
+
+  // Only return an object if at least one meaningful field was found.
+  if (!title && authors.length === 0 && !journal && !doi && !date) {
+    return null;
+  }
+
+  let pages = '';
+  if (firstpage) {
+    pages = lastpage ? `${firstpage}-${lastpage}` : firstpage;
+  }
+
+  return {
+    title,
+    authors,
+    journal,
+    // Highwire dates are often YYYY/MM/DD; normalise the separator for ISO-ish parsing.
+    date: date.replace(/\//g, '-'),
+    doi: doi.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, ''),
+    publisher,
+    volume,
+    issue,
+    pages,
+    isbn,
+    issn,
   };
 }
 
@@ -162,7 +219,11 @@ function extractCOinS(doc) {
  */
 function extractHTMLMeta(doc) {
   const html = {
-    title: doc.title || doc.querySelector('title')?.textContent || '',
+    title:
+      doc.title ||
+      doc.querySelector('title')?.textContent?.trim() ||
+      doc.querySelector('h1')?.textContent?.trim() ||
+      '',
     description: doc.querySelector('meta[name="description"]')?.content || '',
     author: doc.querySelector('meta[name="author"]')?.content || '',
     keywords: doc.querySelector('meta[name="keywords"]')?.content || '',
@@ -215,6 +276,8 @@ function extractDOI(doc) {
  * @returns {Partial<CitationMetadata>}
  */
 export function mergeMetadata(metadata, url = window.location.href) {
+  const hw = metadata.highwire || {};
+
   const citation = {
     url,
     title: '',
@@ -222,11 +285,12 @@ export function mergeMetadata(metadata, url = window.location.href) {
     publicationDate: '',
     publisher: '',
     siteName: '',
-    doi: metadata.doi || '',
+    doi: hw.doi || metadata.doi || '',
   };
 
-  // Extract title (priority order)
+  // Extract title (priority order — Highwire citation_title wins for academic pages)
   citation.title =
+    hw.title ||
     metadata.jsonLD?.headline ||
     metadata.jsonLD?.name ||
     metadata.openGraph?.ogTitle ||
@@ -235,8 +299,19 @@ export function mergeMetadata(metadata, url = window.location.href) {
     metadata.html?.title ||
     '';
 
+  // Guarantee a non-empty title so a save never fails validation. Fall back to the page
+  // hostname, then a generic placeholder the user can edit.
+  if (!citation.title) {
+    try {
+      citation.title = new URL(url).hostname || 'Untitled page';
+    } catch {
+      citation.title = 'Untitled page';
+    }
+  }
+
   // Extract authors
   const authorSources = [
+    hw.authors && hw.authors.length > 0 ? hw.authors : null,
     metadata.jsonLD?.author?.name,
     metadata.jsonLD?.author,
     metadata.openGraph?.articleAuthor || metadata.openGraph?.ogArticleAuthor,
@@ -263,6 +338,7 @@ export function mergeMetadata(metadata, url = window.location.href) {
 
   // Extract publication date
   citation.publicationDate =
+    hw.date ||
     metadata.jsonLD?.datePublished ||
     metadata.openGraph?.articlePublishedTime ||
     metadata.openGraph?.ogArticlePublishedTime ||
@@ -270,20 +346,57 @@ export function mergeMetadata(metadata, url = window.location.href) {
     metadata.coins?.date ||
     '';
 
-  // Extract publisher/site name
+  // Extract publisher
   citation.publisher =
+    hw.publisher ||
     metadata.jsonLD?.publisher?.name ||
     metadata.dublinCore?.dcPublisher ||
     metadata.coins?.publisher ||
     '';
 
+  // Site/container name — Highwire journal title is the container for academic articles.
   citation.siteName =
+    hw.journal ||
     metadata.openGraph?.ogSiteName ||
     metadata.jsonLD?.publisher?.name ||
-    new URL(url).hostname ||
-    '';
+    safeHostname(url);
+
+  // Carry journal article fields through (normalizeCitation moves these into extra.*).
+  if (hw.volume) {
+    citation.volume = hw.volume;
+  }
+  if (hw.issue) {
+    citation.issue = hw.issue;
+  }
+  if (hw.pages) {
+    citation.pages = hw.pages;
+  }
+  if (hw.isbn) {
+    citation.isbn = hw.isbn;
+  }
+  if (hw.issn) {
+    citation.issn = hw.issn;
+  }
+
+  // Infer an academic type when Highwire identifies a journal/conference container.
+  if (hw.journal) {
+    citation.type = 'journal';
+  }
 
   return citation;
+}
+
+/**
+ * Hostname for a URL, or '' if it cannot be parsed.
+ * @param {string} url
+ * @returns {string}
+ */
+function safeHostname(url) {
+  try {
+    return new URL(url).hostname || '';
+  } catch {
+    return '';
+  }
 }
 
 /**

@@ -237,7 +237,7 @@ function setupContextMenus() {
     chrome.contextMenus.create({
       id: 'save-citation',
       title: 'Save Citation',
-      contexts: ['page', 'link'],
+      contexts: ['page', 'link', 'selection'],
     });
 
     // Create context menu for image description (AI Vision)
@@ -318,6 +318,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     try {
       const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'SAVE_CITATION',
+        selectedText: info.selectionText || '',
       });
 
       if (response && response.success) {

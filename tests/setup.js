@@ -6,6 +6,14 @@
  * Note: This file uses CommonJS to ensure jest globals are available
  */
 
+// jsdom's environment does not expose Node's global structuredClone, which fake-indexeddb
+// (used by the Dexie-backed storage tests) requires. Provide a real, structured clone via the
+// v8 serializer (handles Dates/arrays/nested objects, unlike a JSON round-trip).
+if (typeof global.structuredClone !== 'function') {
+  const v8 = require('node:v8');
+  global.structuredClone = val => v8.deserialize(v8.serialize(val));
+}
+
 // DOMPurify requires window to be set — make it available for sanitize.js in jsdom
 const DOMPurify = require('dompurify');
 global.window.DOMPurify = DOMPurify;

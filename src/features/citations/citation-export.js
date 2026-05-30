@@ -8,12 +8,14 @@
  * - RIS (Zotero/EndNote)
  *
  * @module features/citations/citation-export
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import { CitationStorage } from './citation-storage.js';
 import { formatBibliography } from './citation-formatter.js';
 import { showSuccessToast, showErrorToast } from './citation-ui.js';
+import { normalizeCitation, getBibTeXType, getRISType } from './citation-types.js';
+import { extractYear } from './citation-model.js';
 
 /**
  * Export citations as JSON
@@ -21,12 +23,13 @@ import { showSuccessToast, showErrorToast } from './citation-ui.js';
  * @returns {string} JSON string
  */
 function exportAsJSON(citations) {
+  const items = (citations || []).map(normalizeCitation);
   const exportData = {
     version: '1.0',
     exportedAt: new Date().toISOString(),
     source: 'AssisT Extension',
-    count: citations.length,
-    citations: citations.map(c => ({
+    count: items.length,
+    citations: items.map(c => ({
       ...c,
       // Remove internal IDs that may conflict on import
       _exportedId: c.id,
@@ -42,6 +45,8 @@ function exportAsJSON(citations) {
  * @returns {string} CSV string
  */
 function exportAsCSV(citations) {
+  const items = (citations || []).map(normalizeCitation);
+
   const headers = [
     'Title',
     'Authors',
@@ -70,21 +75,21 @@ function exportAsCSV(citations) {
     return str;
   };
 
-  const rows = citations.map(c => [
+  const rows = items.map(c => [
     escapeCSV(c.title),
-    escapeCSV(c.authors?.join('; ')),
-    escapeCSV(c.year || ''),
+    escapeCSV(c.authors.join('; ')),
+    escapeCSV(extractYear(c.publicationDate)),
     escapeCSV(c.type),
     escapeCSV(c.url),
-    escapeCSV(c.doi || ''),
-    escapeCSV(c.publisher || ''),
-    escapeCSV(c.journal || ''),
-    escapeCSV(c.volume || ''),
-    escapeCSV(c.issue || ''),
-    escapeCSV(c.pages || ''),
-    escapeCSV(c.accessDate || ''),
-    escapeCSV(c.tags?.join(', ') || ''),
-    escapeCSV(c.notes || ''),
+    escapeCSV(c.doi),
+    escapeCSV(c.publisher),
+    escapeCSV(c.siteName),
+    escapeCSV(c.extra.volume),
+    escapeCSV(c.extra.issue),
+    escapeCSV(c.extra.pages),
+    escapeCSV(c.accessDate),
+    escapeCSV(c.tags.join(', ')),
+    escapeCSV(c.notes),
   ]);
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -96,20 +101,7 @@ function exportAsCSV(citations) {
  * @returns {string} BibTeX string
  */
 function exportAsBibTeX(citations) {
-  const typeMappings = {
-    'journal-article': 'article',
-    journal: 'article',
-    book: 'book',
-    'book-chapter': 'inbook',
-    thesis: 'phdthesis',
-    'conference-paper': 'inproceedings',
-    report: 'techreport',
-    website: 'misc',
-    webpage: 'misc',
-    video: 'misc',
-    'social-media': 'misc',
-    unknown: 'misc',
-  };
+  const items = (citations || []).map(normalizeCitation);
 
   const escapeBibTeX = str => {
     if (!str) {
@@ -124,7 +116,10 @@ function exportAsBibTeX(citations) {
     }
     return authors
       .map(author => {
-        // Convert "First Last" to "Last, First"
+        // If already "Last, First" form, keep it; otherwise convert "First Last" -> "Last, First"
+        if (author.includes(',')) {
+          return author.trim();
+        }
         const parts = author.trim().split(' ');
         if (parts.length >= 2) {
           const last = parts.pop();
@@ -136,8 +131,13 @@ function exportAsBibTeX(citations) {
   };
 
   const generateKey = citation => {
-    const author = citation.authors?.[0]?.split(' ').pop()?.toLowerCase() || 'anon';
-    const year = citation.year || 'nd';
+    const author =
+      citation.authors[0]
+        ?.split(/[,\s]+/)
+        .filter(Boolean)
+        .pop()
+        ?.toLowerCase() || 'anon';
+    const year = extractYear(citation.publicationDate) || 'nd';
     const titleWord =
       citation.title
         ?.split(' ')[0]
@@ -146,35 +146,36 @@ function exportAsBibTeX(citations) {
     return `${author}${year}${titleWord}`;
   };
 
-  return citations
+  return items
     .map(c => {
-      const type = typeMappings[c.type] || 'misc';
+      const type = getBibTeXType(c);
       const key = generateKey(c);
+      const year = extractYear(c.publicationDate);
       const fields = [];
 
-      if (c.authors?.length) {
+      if (c.authors.length > 0) {
         fields.push(`  author = {${formatAuthorBibTeX(c.authors)}}`);
       }
       if (c.title) {
         fields.push(`  title = {${escapeBibTeX(c.title)}}`);
       }
-      if (c.year) {
-        fields.push(`  year = {${c.year}}`);
+      if (year) {
+        fields.push(`  year = {${year}}`);
       }
-      if (c.journal) {
-        fields.push(`  journal = {${escapeBibTeX(c.journal)}}`);
+      if (c.siteName) {
+        fields.push(`  journal = {${escapeBibTeX(c.siteName)}}`);
       }
       if (c.publisher) {
         fields.push(`  publisher = {${escapeBibTeX(c.publisher)}}`);
       }
-      if (c.volume) {
-        fields.push(`  volume = {${c.volume}}`);
+      if (c.extra.volume) {
+        fields.push(`  volume = {${c.extra.volume}}`);
       }
-      if (c.issue) {
-        fields.push(`  number = {${c.issue}}`);
+      if (c.extra.issue) {
+        fields.push(`  number = {${c.extra.issue}}`);
       }
-      if (c.pages) {
-        fields.push(`  pages = {${c.pages}}`);
+      if (c.extra.pages) {
+        fields.push(`  pages = {${c.extra.pages}}`);
       }
       if (c.doi) {
         fields.push(`  doi = {${c.doi}}`);
@@ -197,39 +198,30 @@ function exportAsBibTeX(citations) {
  * @returns {string} RIS string
  */
 function exportAsRIS(citations) {
-  const typeMappings = {
-    'journal-article': 'JOUR',
-    journal: 'JOUR',
-    book: 'BOOK',
-    'book-chapter': 'CHAP',
-    thesis: 'THES',
-    'conference-paper': 'CONF',
-    report: 'RPRT',
-    website: 'ELEC',
-    webpage: 'ELEC',
-    video: 'VIDEO',
-    'social-media': 'ELEC',
-    'news-article': 'NEWS',
-    unknown: 'GEN',
-  };
+  const items = (citations || []).map(normalizeCitation);
 
-  return citations
+  return items
     .map(c => {
       const lines = [];
-      const type = typeMappings[c.type] || 'GEN';
+      const type = getRISType(c);
+      const year = extractYear(c.publicationDate);
 
       lines.push(`TY  - ${type}`);
 
       // Authors (AU tag for each author)
-      if (c.authors?.length) {
+      if (c.authors.length > 0) {
         c.authors.forEach(author => {
-          // Convert to "Last, First" format for RIS
-          const parts = author.trim().split(' ');
-          if (parts.length >= 2) {
-            const last = parts.pop();
-            lines.push(`AU  - ${last}, ${parts.join(' ')}`);
+          // If already "Last, First", emit as-is; otherwise convert
+          if (author.includes(',')) {
+            lines.push(`AU  - ${author.trim()}`);
           } else {
-            lines.push(`AU  - ${author}`);
+            const parts = author.trim().split(' ');
+            if (parts.length >= 2) {
+              const last = parts.pop();
+              lines.push(`AU  - ${last}, ${parts.join(' ')}`);
+            } else {
+              lines.push(`AU  - ${author}`);
+            }
           }
         });
       }
@@ -240,22 +232,24 @@ function exportAsRIS(citations) {
       }
 
       // Publication year
-      if (c.year) {
-        lines.push(`PY  - ${c.year}`);
+      if (year) {
+        lines.push(`PY  - ${year}`);
       }
 
       // Full publication date
       if (c.publicationDate) {
         const date = new Date(c.publicationDate);
-        lines.push(
-          `DA  - ${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`
-        );
+        if (!isNaN(date.getTime())) {
+          lines.push(
+            `DA  - ${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`
+          );
+        }
       }
 
-      // Journal name
-      if (c.journal) {
-        lines.push(`JO  - ${c.journal}`);
-        lines.push(`T2  - ${c.journal}`);
+      // Journal / container / site name
+      if (c.siteName) {
+        lines.push(`JO  - ${c.siteName}`);
+        lines.push(`T2  - ${c.siteName}`);
       }
 
       // Publisher
@@ -264,23 +258,23 @@ function exportAsRIS(citations) {
       }
 
       // Volume
-      if (c.volume) {
-        lines.push(`VL  - ${c.volume}`);
+      if (c.extra.volume) {
+        lines.push(`VL  - ${c.extra.volume}`);
       }
 
       // Issue
-      if (c.issue) {
-        lines.push(`IS  - ${c.issue}`);
+      if (c.extra.issue) {
+        lines.push(`IS  - ${c.extra.issue}`);
       }
 
       // Pages
-      if (c.pages) {
-        const pageParts = c.pages.split('-');
+      if (c.extra.pages) {
+        const pageParts = c.extra.pages.split('-');
         if (pageParts.length === 2) {
           lines.push(`SP  - ${pageParts[0].trim()}`);
           lines.push(`EP  - ${pageParts[1].trim()}`);
         } else {
-          lines.push(`SP  - ${c.pages}`);
+          lines.push(`SP  - ${c.extra.pages}`);
         }
       }
 
@@ -305,18 +299,18 @@ function exportAsRIS(citations) {
       }
 
       // Tags as keywords
-      if (c.tags?.length) {
+      if (c.tags.length > 0) {
         c.tags.forEach(tag => {
           lines.push(`KW  - ${tag}`);
         });
       }
 
-      // ISBN
+      // ISBN (preserved from raw citation in case present)
       if (c.isbn) {
         lines.push(`SN  - ${c.isbn}`);
       }
 
-      // End of record
+      // End of record — trailing space required by RIS spec
       lines.push('ER  - ');
 
       return lines.join('\n');
@@ -373,7 +367,7 @@ function parseRIS(risContent) {
           citation.type = typeMappings[trimmedValue] || 'unknown';
           break;
         case 'AU':
-        case 'A1':
+        case 'A1': {
           // Convert "Last, First" to "First Last"
           const parts = trimmedValue.split(',');
           if (parts.length >= 2) {
@@ -382,6 +376,7 @@ function parseRIS(risContent) {
             citation.authors.push(trimmedValue);
           }
           break;
+        }
         case 'TI':
         case 'T1':
           citation.title = trimmedValue;
@@ -424,6 +419,8 @@ function parseRIS(risContent) {
           break;
         case 'SN':
           citation.isbn = trimmedValue;
+          break;
+        default:
           break;
       }
     }
@@ -534,6 +531,8 @@ function parseBibTeX(bibtexContent) {
         case 'keywords':
           citation.tags = cleanValue.split(',').map(t => t.trim());
           break;
+        default:
+          break;
       }
     }
 
@@ -546,12 +545,25 @@ function parseBibTeX(bibtexContent) {
 }
 
 /**
- * Download file helper
+ * Download file helper — safe in MV3 popup context.
+ * Throws a clear Error if document/URL.createObjectURL is unavailable
+ * (e.g. called from a service-worker context).
  * @param {string} content - File content
  * @param {string} filename - Filename
  * @param {string} mimeType - MIME type
  */
 function downloadFile(content, filename, mimeType) {
+  if (
+    typeof document === 'undefined' ||
+    typeof URL === 'undefined' ||
+    typeof URL.createObjectURL !== 'function'
+  ) {
+    console.warn('[CitationExport] downloadFile: document or URL.createObjectURL not available');
+    throw new Error(
+      'downloadFile requires a document context (popup) — cannot run in a service worker'
+    );
+  }
+
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -704,11 +716,19 @@ async function createBackup() {
 }
 
 /**
- * Restore from backup file
+ * Restore from backup file.
+ *
+ * The MV3 popup context does not support `confirm()` — it always returns false,
+ * silently cancelling restores. Instead, the CALLER opts in to replacement via
+ * the `replace` option (default: false = non-destructive merge).
+ *
  * @param {File} file - Backup file
- * @returns {Promise<Object>} Restore result
+ * @param {{ replace?: boolean }} [options={}]
+ *   replace=false  → merge backup items into existing store (non-destructive)
+ *   replace=true   → clear existing citations first, then restore
+ * @returns {Promise<Object>} Restore result: { restored, backupDate } or { cancelled: true }
  */
-async function restoreFromBackup(file) {
+async function restoreFromBackup(file, { replace = false } = {}) {
   try {
     const content = await file.text();
     const backup = JSON.parse(content);
@@ -717,19 +737,10 @@ async function restoreFromBackup(file) {
       throw new Error('Invalid backup file format');
     }
 
-    // Confirm restore
-    const existingCount = (await CitationStorage.getAll()).length;
-    if (existingCount > 0) {
-      const confirmed = confirm(
-        `This will replace ${existingCount} existing citations with ${backup.data.count} from the backup. Continue?`
-      );
-      if (!confirmed) {
-        return { cancelled: true };
-      }
+    if (replace) {
+      // Caller has already confirmed — clear existing store before restoring.
+      await CitationStorage.clear();
     }
-
-    // Clear existing and restore
-    await CitationStorage.clear();
 
     let restored = 0;
     for (const citation of backup.data.citations) {
