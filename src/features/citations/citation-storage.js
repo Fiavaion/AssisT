@@ -52,7 +52,10 @@ export const CitationStorage = {
       throw new Error(`Invalid citation: ${validation.errors.join(', ')}`);
     }
 
-    const id = await db.citations.add(citation);
+    // Let Dexie assign the numeric auto-increment key. The model's UUID `id` would otherwise
+    // be used as an inbound key, breaking the Number(id) lookups in get/update/delete.
+    const { id: _modelId, ...record } = citation;
+    const id = await db.citations.add(record);
     return String(id);
   },
 

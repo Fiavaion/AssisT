@@ -10,6 +10,8 @@
  * Zero-Barrier Accessibility: Completely free, no signup required
  */
 
+import { normalizeType } from './citation-types.js';
+
 const CROSSREF_API_BASE = 'https://api.crossref.org/works/';
 const USER_AGENT = 'AssisT-Extension/0.1.0 (mailto:noreply@example.com)';
 
@@ -61,17 +63,25 @@ function parseCrossRefResponse(data) {
     return null;
   }
 
+  // Preserve the fine-grained CrossRef type as a sub-type; the canonical type is derived
+  // from it. Journal/book metadata is stored on siteName + extra.* so it survives
+  // createCitation (the data model only persists siteName + extra, not flat journal fields).
+  const subtype = mapCrossRefType(message.type);
+  const containerTitle = message['container-title']?.[0] || '';
   const metadata = {
     title: message.title?.[0] || '',
     authors: [],
     publicationDate: '',
     publisher: message.publisher || '',
     doi: message.DOI || '',
-    type: mapCrossRefType(message.type),
-    containerTitle: message['container-title']?.[0] || '', // Journal/book title
-    volume: message.volume || '',
-    issue: message.issue || '',
-    page: message.page || '',
+    type: normalizeType(subtype),
+    siteName: containerTitle, // journal/book/container title
+    extra: {
+      subtype,
+      volume: message.volume || '',
+      issue: message.issue || '',
+      pages: message.page || '',
+    },
     issn: message.ISSN?.[0] || '',
     isbn: message.ISBN?.[0] || '',
     url: message.URL || `https://doi.org/${message.DOI}`,
@@ -171,14 +181,24 @@ export async function enrichMetadataWithDOI(existingMetadata, doi) {
     return existingMetadata;
   }
 
-  // Merge with priority: existing > CrossRef
+  // Merge with priority: existing user data wins, EXCEPT where the page-derived value is a
+  // generic fallback — then CrossRef's richer value is used (type, container, journal fields).
+  const existingType = String(existingMetadata.type || '').toLowerCase();
+  const existingTypeIsGeneric = ['', 'website', 'webpage', 'other', 'pdf'].includes(existingType);
+
   return {
     ...crossrefData,
     ...existingMetadata,
-    // Special handling: merge authors if existing is generic
+    // Prefer CrossRef's specific type when the page only had a generic guess.
+    type: existingTypeIsGeneric ? crossrefData.type : existingMetadata.type,
+    // Keep the user's container name if set, else CrossRef's.
+    siteName: existingMetadata.siteName || crossrefData.siteName || '',
+    // Merge journal metadata (volume/issue/pages/subtype) — existing values win per key.
+    extra: { ...(crossrefData.extra || {}), ...(existingMetadata.extra || {}) },
+    // Fill in authors when the page only found a placeholder.
     authors:
       existingMetadata.authors?.[0] === 'Anon.' ? crossrefData.authors : existingMetadata.authors,
-    // Always keep the DOI
+    // Always keep the DOI.
     doi: doi,
   };
 }

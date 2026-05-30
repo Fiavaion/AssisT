@@ -16,7 +16,9 @@
  */
 
 import { CitationStorage } from './citation-storage.js';
+import { getSourceTypeWeight } from './citation-types.js';
 import { attachInteractiveHandler, attachQuietHandler } from '../../utils/event-handlers.js';
+import { trapFocus } from './citation-focus-trap.js';
 
 /**
  * CRAAP Test Categories with scoring weights
@@ -149,8 +151,13 @@ class SourceEvaluator {
       indicators.isRecentSource = currentYear - year <= 5;
     }
 
-    // Author check
-    if (citation.authors && citation.authors.length > 0 && citation.authors[0] !== 'Unknown') {
+    // Author check (a placeholder author does not count as a real author)
+    const placeholderAuthors = ['Unknown', 'Anon.', 'Anon', 'Anonymous'];
+    if (
+      citation.authors &&
+      citation.authors.length > 0 &&
+      !placeholderAuthors.includes(citation.authors[0])
+    ) {
       indicators.hasAuthor = true;
     }
 
@@ -159,8 +166,9 @@ class SourceEvaluator {
       indicators.hasPublisher = true;
     }
 
-    // Source type score
-    indicators.sourceTypeScore = SourceTypeWeights[citation.type] || SourceTypeWeights.unknown;
+    // Source type score — uses the canonical type vocabulary + preserved sub-type
+    // (see citation-types.js) so journal-articles/reports/chapters keep their true weight.
+    indicators.sourceTypeScore = getSourceTypeWeight(citation);
 
     // Domain score (academic domains get higher scores)
     if (citation.url) {
@@ -494,6 +502,7 @@ class CraapTestModal {
     this.citation = citation;
     this.onSave = onSave;
     this.modal = null;
+    this._releaseFocusTrap = null;
     this.scores = {
       currency: 50,
       relevance: 50,
@@ -510,12 +519,18 @@ class CraapTestModal {
     this.modal = this.createModal();
     document.body.appendChild(this.modal);
     this.applyStyles();
+    // Trap focus inside modal; Escape routes through onEscape which calls close().
+    this._releaseFocusTrap = trapFocus(this.modal, { onEscape: () => this.close() });
   }
 
   /**
    * Close the modal
    */
   close() {
+    if (this._releaseFocusTrap) {
+      this._releaseFocusTrap();
+      this._releaseFocusTrap = null;
+    }
     if (this.modal) {
       this.modal.remove();
       this.modal = null;
@@ -622,12 +637,8 @@ class CraapTestModal {
       { enableVisualFeedback: false }
     );
 
-    // ESC key
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && this.modal) {
-        this.close();
-      }
-    });
+    // ESC is handled by trapFocus onEscape (set in open()).
+    // The previous document-level keydown listener has been removed to fix the leak.
 
     // Sliders (keep input event listeners as-is)
     const categories = Object.values(CRAAPCategories);
