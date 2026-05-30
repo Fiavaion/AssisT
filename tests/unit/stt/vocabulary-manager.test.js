@@ -164,14 +164,14 @@ describe('VocabularyManager', () => {
       manager.trackCorrection('algorythm', 'algorithm');
 
       expect(manager.correctionTracker.has('algorithm')).toBe(true);
-      expect(manager.correctionTracker.get('algorithm')).toBe(1);
+      expect(manager.correctionTracker.get('algorithm').count).toBe(1);
     });
 
     test('should increment count for repeated corrections', () => {
       manager.trackCorrection('algorythm', 'algorithm');
       manager.trackCorrection('algorythm', 'algorithm');
 
-      expect(manager.correctionTracker.get('algorithm')).toBe(2);
+      expect(manager.correctionTracker.get('algorithm').count).toBe(2);
     });
 
     test('should not track when auto-learn disabled', () => {
