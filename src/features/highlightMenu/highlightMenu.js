@@ -37,6 +37,7 @@ const highlightMenu_settings = {
   showDictionary: true,
   showTranslate: true,
   showAnnotate: true,
+  showSaveCitation: true, // Save selected text as citation
   showSummarize: true, // AI summarization (LLM Edition)
   showSimplify: true, // AI text simplification (LLM Edition)
   showBreakdown: true, // AI assignment breakdown (LLM Edition)
@@ -327,6 +328,15 @@ function highlightMenu_createToolbar() {
       label: 'Annotate',
       fullLabel: 'Add Annotation',
       handler: highlightMenu_handleAnnotate,
+      index: buttonIndex++,
+    });
+  }
+  if (highlightMenu_settings.showSaveCitation) {
+    allButtons.push({
+      icon: '📌',
+      label: 'Cite',
+      fullLabel: 'Save as Citation',
+      handler: highlightMenu_handleSaveCitation,
       index: buttonIndex++,
     });
   }
@@ -743,6 +753,28 @@ function highlightMenu_handleAnnotate() {
   } else {
     console.warn('[HighlightMenu] Inline Annotations feature not loaded');
     alert('Annotations feature not available. Please reload the page.');
+  }
+
+  highlightMenu_hide();
+}
+
+/**
+ * Handles Save Citation action — saves selected text + page metadata to citation manager
+ */
+function highlightMenu_handleSaveCitation() {
+  console.log('[HighlightMenu] Save Citation action triggered');
+
+  if (window.assistFeatures?.citation) {
+    window.assistFeatures.citation
+      .saveCitationFromCurrentPage(highlightMenu_selectedText)
+      .catch(err => {
+        if (!err.message?.includes('cancelled')) {
+          console.error('[HighlightMenu] Citation save error:', err);
+        }
+      });
+  } else {
+    console.warn('[HighlightMenu] Citation feature not loaded');
+    alert('Citation feature not available. Please reload the page.');
   }
 
   highlightMenu_hide();
