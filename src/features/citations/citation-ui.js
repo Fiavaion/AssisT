@@ -488,15 +488,15 @@ function createCitationModal(citationData, onClose) {
           </div>
 
           <div class="form-group">
-            <label for="citation-authors">Authors * (comma-separated)</label>
+            <label for="citation-authors">Authors * (one per author, separated by semicolons)</label>
             <input
               type="text"
               id="citation-authors"
               name="authors"
-              value="${escapeHTML((data.authors || []).join(', '))}"
+              value="${escapeHTML((data.authors || []).join('; '))}"
               required
               aria-required="true"
-              placeholder="Smith, John, Doe, Jane"
+              placeholder="Piwowar, Heather A.; Day, Roger S."
             />
           </div>
 
@@ -653,24 +653,34 @@ function createCitationModal(citationData, onClose) {
  * @returns {Object}
  */
 function getFormData(form) {
-  const formData = new FormData(form);
-  const data = {};
+  // Read by element id, NOT via FormData/name. DOMPurify's DOM-clobbering protection strips
+  // `name="title"` from the sanitised modal markup (it collides with document.title/form.title),
+  // so a name-based FormData read silently drops the title and validation fails even when the
+  // field is filled. Ids (citation-*) are not clobbering names and are preserved.
+  const value = id => {
+    const el = form.querySelector(`#${id}`);
+    return el ? el.value.trim() : '';
+  };
+  const splitList = (str, sep) =>
+    str
+      .split(sep)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
 
-  for (const [key, value] of formData.entries()) {
-    if (key === 'authors' || key === 'tags') {
-      data[key] = value
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-    } else {
-      data[key] = value;
-    }
-  }
-
-  // Add timestamps
-  data.accessDate = new Date().toISOString().split('T')[0];
-
-  return data;
+  return {
+    title: value('citation-title'),
+    // Authors are semicolon-separated so "Last, First" names (CrossRef/Highwire) aren't split
+    // on the comma inside a single name.
+    authors: splitList(value('citation-authors'), ';'),
+    publicationDate: value('citation-date'),
+    type: value('citation-type'),
+    publisher: value('citation-publisher'),
+    url: value('citation-url'),
+    doi: value('citation-doi'),
+    tags: splitList(value('citation-tags'), ','),
+    notes: value('citation-notes'),
+    accessDate: new Date().toISOString().split('T')[0],
+  };
 }
 
 /**
