@@ -24,6 +24,21 @@ For download links and full release notes see the
 
 ### Added
 
+- **Citation Manager overhaul** — full rebuild of the citation feature:
+  - `citation-types.js` keystone module with 12 source types and typed field
+    definitions shared across all formatters.
+  - Four citation styles: APA 7th, MLA 9th, Chicago 17th, Harvard — each in its
+    own dedicated module with field-level formatting logic.
+  - One-click save tray — floating panel for quick project assignment without
+    opening the full manager.
+  - AI citation analyser (`citation-ai-analyser.js`) — optional AI pass that
+    evaluates source quality, relevance, and academic rigour.
+  - Focus trap (`citation-focus-trap.js`) — WCAG 2.1 compliant keyboard
+    containment for all citation modals.
+  - Highwire `citation_*` meta-tag extraction in `metadata-extractor.js` with a
+    non-empty title fallback chain.
+  - 210 unit + E2E tests covering all formatters, storage, save tray, AI
+    analyser, and UI interactions.
 - **Cross-browser API abstraction** (`src/core/browser-api.js`) — thin wrapper
   around `webextension-polyfill` providing a unified `browser.*` API across
   Chrome, Firefox, and Safari Web Extensions. New code uses `browser.*`;
@@ -70,6 +85,13 @@ For download links and full release notes see the
 - **STT Beta label removed** — Speech-to-Text has graduated from beta; the
   "Beta" badge has been removed from both the popup feature list and the main
   STT toggle.
+- **Citation Manager marked Alpha** — feature is functional but the UI and
+  style output will continue to evolve; labelled Alpha in the popup to set
+  expectations.
+- **DOMPurify name-clobber fix** — edit modal was silently dropping the
+  citation title on save because DOMPurify's sanitised output clobbered the
+  `name` property used to read the field value. Fixed by reading `textContent`
+  after sanitisation.
 
 ### CI
 
