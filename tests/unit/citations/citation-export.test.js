@@ -196,8 +196,10 @@ describe('Citation Export Module', () => {
     test('should include multiple authors as separate AU entries', () => {
       const result = exportAsRIS([mockCitations[0]]);
 
-      expect(result).toContain('AU  - John, Smith');
-      expect(result).toContain('AU  - Jane, Doe');
+      // RIS authors use "Family, Given" — the source data is already in that form and must be
+      // preserved verbatim (the previous exporter incorrectly re-reversed it to "Given, Family").
+      expect(result).toContain('AU  - Smith, John');
+      expect(result).toContain('AU  - Doe, Jane');
     });
 
     test('should include DOI', () => {

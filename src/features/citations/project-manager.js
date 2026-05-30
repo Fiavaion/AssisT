@@ -18,6 +18,7 @@ import { formatInText } from './citation-formatter.js';
 import { showSuccessToast, showErrorToast } from './citation-ui.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler, attachQuietHandler } from '../../utils/event-handlers.js';
+import { trapFocus } from './citation-focus-trap.js';
 
 /**
  * Citation status for Kanban columns
@@ -39,6 +40,7 @@ class ProjectManager {
     this.currentProject = null;
     this.citations = [];
     this.draggedCitation = null;
+    this._releaseFocusTrap = null;
   }
 
   /**
@@ -60,19 +62,18 @@ class ProjectManager {
     this.renderProjectList();
     this.renderKanban();
 
-    // Focus
-    setTimeout(() => {
-      const firstProject = this.modal.querySelector('.proj-item');
-      if (firstProject) {
-        firstProject.focus();
-      }
-    }, 100);
+    // Trap focus inside modal; Escape routes through onEscape which calls close().
+    this._releaseFocusTrap = trapFocus(this.modal, { onEscape: () => this.close() });
   }
 
   /**
    * Close the modal
    */
   close() {
+    if (this._releaseFocusTrap) {
+      this._releaseFocusTrap();
+      this._releaseFocusTrap = null;
+    }
     if (this.modal) {
       this.modal.remove();
       this.modal = null;
@@ -194,14 +195,8 @@ class ProjectManager {
       }
     });
 
-    // ESC to close
-    const handleEsc = e => {
-      if (e.key === 'Escape') {
-        this.close();
-        document.removeEventListener('keydown', handleEsc);
-      }
-    };
-    document.addEventListener('keydown', handleEsc);
+    // ESC is handled by trapFocus onEscape (set in open()).
+    // No document-level keydown listener needed here.
 
     // New project button
     const newBtn = overlay.querySelector('.proj-new-btn');

@@ -73,6 +73,7 @@ export function sanitizeHTML(dirtyHTML, config = {}) {
       'select',
       'option',
       'textarea',
+      'form',
       'svg',
       'g',
       'defs',

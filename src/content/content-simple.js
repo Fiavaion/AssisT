@@ -1050,6 +1050,14 @@ registerShortcut('highlight_menu_toggle', () =>
   _toggleStorageSetting('highlightMenu', 'enabled', 'Highlight Menu')
 );
 
+registerShortcut('citation_save', () => {
+  const selection = window.getSelection();
+  const selectedText = selection ? selection.toString().trim() : '';
+  if (window.assistFeatures?.citation) {
+    window.assistFeatures.citation.saveCitationFromCurrentPage(selectedText).catch(() => {});
+  }
+});
+
 // Initialize the Dyslexia Mode feature module
 dyslexia_initialize();
 
@@ -1293,19 +1301,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Extract and save citation for current page
       console.log('[AssisT] Triggering citation save from popup button');
       if (window.assistFeatures && window.assistFeatures.citation) {
-        // BUG-2 fix: race sendResponse against 25s timeout
-        const citationTimeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Citation save timed out')), 25000)
-        );
+        // Race save against 25s timeout; clear timer when race settles to avoid unhandled rejection
+        let _citationTimerId;
+        const citationTimeout = new Promise((_, reject) => {
+          _citationTimerId = setTimeout(() => reject(new Error('Citation save timed out')), 25000);
+        });
         Promise.race([
-          window.assistFeatures.citation.saveCitationFromCurrentPage(),
+          window.assistFeatures.citation.saveCitationFromCurrentPage(message.selectedText || ''),
           citationTimeout,
         ])
           .then(citation => {
+            clearTimeout(_citationTimerId);
             console.log('[AssisT] Citation saved successfully:', citation);
             sendResponse({ success: true, citation });
           })
           .catch(error => {
+            clearTimeout(_citationTimerId);
             console.error('[AssisT] Citation save error:', error);
             sendResponse({ success: false, error: error.message });
           });
