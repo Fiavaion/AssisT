@@ -61,7 +61,6 @@ export async function migrateAnnotations(fromMode, toMode, options = {}) {
     const sourceAdapter = getStorageAdapter(fromMode);
     const targetAdapter = getStorageAdapter(toMode);
 
-    // Step 1: Export from source
     if (onProgress) {
       onProgress({
         status: 'exporting',
@@ -95,10 +94,8 @@ export async function migrateAnnotations(fromMode, toMode, options = {}) {
       };
     }
 
-    // Step 2: Clear target storage (ensure clean slate)
     await targetAdapter.clear();
 
-    // Step 3: Import to target
     if (onProgress) {
       onProgress({
         status: 'importing',
@@ -113,7 +110,6 @@ export async function migrateAnnotations(fromMode, toMode, options = {}) {
 
     await targetAdapter.import(annotationsWithoutIds);
 
-    // Step 4: Verify migration
     if (onProgress) {
       onProgress({
         status: 'verifying',
@@ -131,15 +127,12 @@ export async function migrateAnnotations(fromMode, toMode, options = {}) {
       );
     }
 
-    // Step 5: Clear source storage (if enabled)
     if (clearSource) {
       await sourceAdapter.clear();
     }
 
-    // Step 6: Update settings to new storage mode
     await settingsManager.updateSetting('annotations.storageMode', toMode);
 
-    // Step 7: Complete
     if (onProgress) {
       onProgress({
         status: 'complete',

@@ -2263,7 +2263,6 @@ class PopupController {
 
       this.setupMediaControl();
 
-      // DARK MODE FEATURE REMOVED
       // Extension UI dark mode button (in header) remains functional
 
       this.setupSimplify();
@@ -9727,7 +9726,6 @@ class PopupController {
 
     this.setupAIAssist();
 
-    // DARK MODE FEATURE REMOVED
     // Extension UI dark mode button (in header) remains functional
   }
 

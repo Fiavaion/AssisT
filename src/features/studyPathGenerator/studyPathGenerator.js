@@ -537,19 +537,16 @@ Rules:
 
       let rawData = aiResult.text || '';
 
-      // Step 1: Strip markdown code fences if present (```json ... ```)
       const codeBlockMatch = rawData.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         rawData = codeBlockMatch[1].trim();
         console.log('[StudyPathGenerator] Stripped code block');
       }
 
-      // Step 2: Find start of JSON object
       const startIdx = rawData.indexOf('{');
       if (startIdx !== -1) {
         rawData = rawData.slice(startIdx);
 
-        // Step 3: Try complete {..} match first (most reliable)
         let parsed = null;
         const completeMatch = rawData.match(/\{[\s\S]*\}/);
         if (completeMatch) {
@@ -560,7 +557,6 @@ Rules:
           }
         }
 
-        // Step 4: If complete match failed, try raw from {
         if (!parsed) {
           try {
             parsed = JSON.parse(rawData);

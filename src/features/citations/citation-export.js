@@ -278,12 +278,10 @@ function exportAsRIS(citations) {
         }
       }
 
-      // DOI
       if (c.doi) {
         lines.push(`DO  - ${c.doi}`);
       }
 
-      // URL
       if (c.url) {
         lines.push(`UR  - ${c.url}`);
       }
