@@ -31,18 +31,10 @@ import { sanitizeHTML } from '../../utils/sanitize.js';
 import { Z } from '../../utils/z-index.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let translationUI_modal = null;
 let translationUI_recentLanguages = [];
 let translationUI_currentSourceLang = 'auto';
 let translationUI_currentTargetLang = 'en';
-
-// ============================================================================
-// LANGUAGE LIST (30+ languages with flag emojis)
-// ============================================================================
 
 const LANGUAGES = [
   { code: 'auto', name: 'Auto-detect', emoji: '🌐' },
@@ -85,10 +77,6 @@ const LANGUAGES = [
   { code: 'sl', name: 'Slovenian', emoji: '🇸🇮' },
 ];
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 /**
  * Initializes the translation UI feature
  * Loads recent languages from Chrome storage
@@ -124,10 +112,6 @@ async function translationUI_init() {
     console.error('[TranslationUI] Initialization failed:', error);
   }
 }
-
-// ============================================================================
-// MODAL UI
-// ============================================================================
 
 /**
  * Creates the translation modal DOM structure
@@ -601,10 +585,6 @@ function translationUI_handleKeydown(event) {
   }
 }
 
-// ============================================================================
-// TRANSLATION LOGIC
-// ============================================================================
-
 /**
  * Handles translate button click
  *
@@ -713,10 +693,6 @@ async function translationUI_addToRecentLanguages(langCode) {
   }
 }
 
-// ============================================================================
-// TTS INTEGRATION
-// ============================================================================
-
 /**
  * Speaks text using TTS with specified language
  *
@@ -748,10 +724,6 @@ function translationUI_speakText(text, langCode) {
   }
 }
 
-// ============================================================================
-// CLIPBOARD
-// ============================================================================
-
 /**
  * Copies text to clipboard
  *
@@ -781,10 +753,6 @@ async function translationUI_copyToClipboard(text) {
     alert('Failed to copy text');
   }
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {

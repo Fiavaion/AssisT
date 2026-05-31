@@ -27,10 +27,6 @@ import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let dictionary_modal = null;
 const dictionary_cache = new Map(); // LRU cache for lookups
 const dictionary_cacheMaxSize = 100;
@@ -41,10 +37,6 @@ const dictionary_settings = {
   cacheSize: 100,
   autoLookupOnDoubleClick: false,
 };
-
-// ============================================================================
-// API INTEGRATION
-// ============================================================================
 
 /**
  * Fetches word definition from Free Dictionary API
@@ -106,10 +98,6 @@ function dictionary_addToCache(word, data) {
   dictionary_cache.set(word, data);
   console.log(`[Dictionary] Cached: ${word} (${dictionary_cache.size}/${dictionary_cacheMaxSize})`);
 }
-
-// ============================================================================
-// MODAL UI
-// ============================================================================
 
 /**
  * Creates the dictionary modal element
@@ -400,10 +388,6 @@ function dictionary_addModalEventListeners(modal, _data) {
   });
 }
 
-// ============================================================================
-// MODAL ACTIONS
-// ============================================================================
-
 /**
  * Shows the dictionary modal with word definition
  *
@@ -581,15 +565,8 @@ function dictionary_playAudio(audioUrl) {
   console.log('[Dictionary] Playing audio');
 }
 
-// ============================================================================
-// KEYBOARD SHORTCUT
-// ============================================================================
 // Keyboard shortcut is now dynamically registered via shortcuts manager
 // See initialization code in dictionary_init()
-
-// ============================================================================
-// INITIALIZATION & CLEANUP
-// ============================================================================
 
 /**
  * Initializes the dictionary feature
@@ -641,10 +618,6 @@ function dictionary_cleanup() {
   dictionary_hide();
   // Shortcut unregistration is handled automatically by shortcuts manager
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {

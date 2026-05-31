@@ -5,20 +5,12 @@
 
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// Initialization
-// ============================================================================
-
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
   bindCloseButton();
   logDemoLoaded();
 }
-
-// ============================================================================
-// Event Handlers
-// ============================================================================
 
 /**
  * Close demo button - returns to previous page or closes tab
@@ -48,10 +40,6 @@ function logDemoLoaded() {
   console.log('  - Annotations: Highlight text to add notes');
   console.log('  - Citations: Right-click to save this page as a source');
 }
-
-// ============================================================================
-// AssisT Integration Helpers
-// ============================================================================
 
 /**
  * Check if AssisT content script is available

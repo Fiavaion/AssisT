@@ -49,9 +49,6 @@
  * @see {@link https://github.com/anthropics/claude-code} - Built with Claude Code
  */
 
-// ============================================================
-// MODULE IMPORTS
-// ============================================================
 import DOMPurify from 'dompurify';
 import { showToast } from '../core/ui/toast.js';
 import {
@@ -110,9 +107,6 @@ import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-init
 import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
 import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
 
-// ============================================================
-// TTS CORE - STATE & CONFIGURATION
-// ============================================================
 // This section manages the core TTS state and configuration.
 // TTS is the foundation service provided by the orchestrator to all feature modules.
 
@@ -190,10 +184,6 @@ function validateSettings(settingsObj) {
   return true;
 }
 
-// ============================================================
-// TTS CORE - VOICE MANAGEMENT
-// ============================================================
-
 // Initialize speech synthesis
 const synth = window.speechSynthesis;
 
@@ -255,9 +245,6 @@ if (synth.getVoices().length > 0) {
 }
 synth.addEventListener('voiceschanged', loadVoices);
 
-// ============================================================
-// SPA NAVIGATION - CLEANUP & RE-INIT
-// ============================================================
 // Store listener references so they can be removed on SPA navigation
 
 let _clickHandler = null;
@@ -297,9 +284,6 @@ function cleanupContentScript() {
   console.log('[AssisT] Content script cleaned up for SPA navigation');
 }
 
-// ============================================================
-// TTS CORE - CHROME STORAGE INTEGRATION
-// ============================================================
 // Load and persist TTS settings from Chrome storage
 
 // Initial settings load
@@ -478,10 +462,6 @@ chrome.storage.onChanged.addListener(_storageHandler);
 // ✂️ EXTRACTED: cleanupWordByWord() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
 
 // ✂️ EXTRACTED: removeElementHighlight() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
-
-// ============================================================
-// TTS CORE - MAIN ENGINE
-// ============================================================
 
 /**
  * Read text aloud using TTS with synchronized highlighting
@@ -716,9 +696,6 @@ function readText(text, element, leaves) {
   }, 100); // 100ms delay for Chrome to settle after cancel
 }
 
-// ============================================================
-// FEATURE MODULE INITIALIZATION
-// ============================================================
 // Initialize feature modules with TTS dependencies (Dependency Injection)
 
 /**
@@ -738,10 +715,8 @@ if (typeof readText !== 'function') {
 // update initializeCanvasModule() in canvas.js accordingly
 initializeCanvasModule(readText, settings);
 
-// ============================================================
 // CHUNKED READING — splits long texts for Chrome's SpeechSynthesis
 // Chrome silently fails for utterances > ~4000 chars with network voices.
-// ============================================================
 
 const MAX_UTTERANCE_CHARS = 3500;
 
@@ -807,9 +782,6 @@ function readChunked(resolved) {
   _drainQueue();
 }
 
-// ============================================================
-// USER INTERACTION - CLICK HANDLER
-// ============================================================
 // Main click detection for reading text on click
 
 // Click handler - Detects clicks on readable elements and triggers TTS
@@ -856,9 +828,6 @@ _clickHandler = e => {
 };
 document.addEventListener('click', _clickHandler, true);
 
-// ============================================================
-// USER INTERACTION - KEYBOARD SHORTCUTS
-// ============================================================
 // Keyboard controls for TTS playback (Space, +, -)
 
 // Keyboard shortcuts - Space (pause/resume), +/- (speed control)
@@ -957,9 +926,6 @@ _keydownHandler = e => {
 };
 document.addEventListener('keydown', _keydownHandler, true); // Use capture phase for better priority
 
-// ============================================================
-// KEYBOARD SHORTCUTS REGISTRATION
-// ============================================================
 // Register dynamic keyboard shortcuts from shortcuts manager
 registerShortcut('ocr_activate', () => {
   console.log('[AssisT] OCR keyboard shortcut triggered');
@@ -1064,9 +1030,6 @@ dyslexia_initialize();
 // Initialize the Citation feature module
 initCitation();
 
-// ============================================================
-// MESSAGE LISTENER FOR POPUP COMMANDS
-// ============================================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // SECURITY: Validate sender is from this extension
   if (sender.id !== chrome.runtime.id) {
@@ -1582,10 +1545,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // Keep message channel open for async response
 });
 
-// ============================================================================
-// EXPOSE FUNCTIONS FOR FEATURE INTEGRATION
-// ============================================================================
-
 // Expose readText function for Highlight Menu TTS integration
 window.readText = readText;
 
@@ -1596,9 +1555,6 @@ if (typeof showToast !== 'undefined') {
 
 console.log('[AssisT] Ready! Click any paragraph to read it.');
 
-// ============================================================
-// SPA NAVIGATION DETECTION
-// ============================================================
 // Canvas and Moodle are SPAs — detect navigation via title changes
 // and popstate so we can clean up + re-register listeners.
 let _lastUrl = location.href;

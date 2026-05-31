@@ -19,10 +19,6 @@ import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML as _sanitizeHTML, sanitizeURL } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let imageUI_panel = null;
 let imageUI_currentImage = null;
 let imageUI_currentDescription = '';
@@ -41,10 +37,6 @@ const imageUI_ttsSettings = {
   pitch: 1.0,
   volume: 1.0,
 };
-
-// ============================================================================
-// IMAGE CAPTURE
-// ============================================================================
 
 /**
  * Convert image element to base64
@@ -166,10 +158,6 @@ async function imageUI_captureFromUrl(url) {
     img.src = url;
   });
 }
-
-// ============================================================================
-// VISION MODEL COMMUNICATION
-// ============================================================================
 
 /**
  * Get the current AI mode from storage.
@@ -294,10 +282,6 @@ async function imageUI_describe(base64Image, prompt) {
   throw new Error(response?.error || 'Vision request failed');
 }
 
-// ============================================================================
-// DESCRIPTION PROMPTS
-// ============================================================================
-
 const DESCRIPTION_PROMPTS = {
   brief: `Describe this image in 1-2 sentences. Focus on the main subject and key details.`,
 
@@ -329,10 +313,6 @@ Format the extracted text clearly.`,
 - Explain any relationships or data shown
 - Summarize the main takeaway`,
 };
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Create the image description panel
@@ -720,10 +700,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Show the image panel
  */
@@ -805,10 +781,6 @@ function imageUI_describeImage(img) {
   imageUI_analyze(img);
 }
 
-// ============================================================================
-// CONTEXT MENU INTEGRATION
-// ============================================================================
-
 /**
  * Add context menu listener for images
  */
@@ -858,10 +830,6 @@ function imageUI_setupContextMenu() {
     return false;
   });
 }
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
 
 function imageUI_init() {
   console.log('[ImageUnderstanding] Initializing...');
@@ -985,9 +953,5 @@ async function imageUI_loadTTSSettings() {
 if (typeof window !== 'undefined') {
   imageUI_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export { imageUI_analyze, imageUI_describeImage, imageUI_show, imageUI_hide, imageUI_settings };

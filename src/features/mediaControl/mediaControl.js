@@ -20,10 +20,6 @@
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /** @type {boolean} Tracks whether media control is currently enabled */
 let mediaControl_enabled = false;
 
@@ -38,10 +34,6 @@ let mediaControl_processed = new WeakSet();
 
 /** @type {HTMLStyleElement|null} Style element for visual indicators */
 let mediaControl_styleElement = null;
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Injects CSS for visual indicators on blocked media.
@@ -248,10 +240,6 @@ function mediaControl_clearBlockedState() {
   console.log('[MediaControl] Cleared blocked state from', blockedElements.length, 'elements');
 }
 
-// ============================================================
-// CONTROL FUNCTIONS
-// ============================================================
-
 /**
  * Enables the media control feature.
  *
@@ -281,10 +269,6 @@ function mediaControl_disable() {
   showToast('Auto-play Blocking disabled');
   console.log('[MediaControl] Disabled');
 }
-
-// ============================================================
-// STORAGE & PERSISTENCE
-// ============================================================
 
 /** @type {Object} Default settings for media control */
 const DEFAULT_SETTINGS = {
@@ -323,10 +307,6 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 export { mediaControl_enable };
 export { mediaControl_disable };

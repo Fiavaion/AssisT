@@ -32,10 +32,6 @@ import { getExistingTags } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler, attachAccessibleHandler } from '../../utils/event-handlers.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /** @type {BaseStorageAdapter} Current storage adapter instance */
 let storageAdapter = null;
 
@@ -74,10 +70,6 @@ let activeFilters = {
 
 /** @type {Array<string>} Available tags from storage */
 let availableTags = [];
-
-// ============================================================
-// INITIALIZATION
-// ============================================================
 
 /**
  * Initialize the annotation sidebar system
@@ -176,10 +168,6 @@ function handleAnnotationChange(event) {
     loadAnnotations();
   }
 }
-
-// ============================================================
-// SIDEBAR CREATION
-// ============================================================
 
 /**
  * Create the sidebar DOM element
@@ -309,10 +297,6 @@ function createSidebar() {
   console.log('[AnnotationSidebar] Sidebar element created');
 }
 
-// ============================================================
-// SIDEBAR TOGGLE
-// ============================================================
-
 /**
  * Toggle sidebar open/closed
  */
@@ -372,10 +356,6 @@ function closeSidebar() {
   console.log('[AnnotationSidebar] Sidebar closed');
 }
 
-// ============================================================
-// ANNOTATION LOADING
-// ============================================================
-
 /**
  * Load all annotations from storage (for search functionality)
  */
@@ -413,10 +393,6 @@ async function loadAnnotations() {
     renderError();
   }
 }
-
-// ============================================================
-// FILTER FUNCTIONALITY
-// ============================================================
 
 /**
  * Load available tags from storage
@@ -883,10 +859,6 @@ function renderFilteredAnnotations() {
   });
 }
 
-// ============================================================
-// SEARCH FUNCTIONALITY
-// ============================================================
-
 /**
  * Handle search input with debouncing
  * @param {Event} event - Input event
@@ -1341,10 +1313,6 @@ function renderError() {
   `);
 }
 
-// ============================================================
-// ANNOTATION NAVIGATION
-// ============================================================
-
 /**
  * Scroll to annotation and highlight it temporarily
  * @param {number} annotationId - Annotation ID
@@ -1401,10 +1369,6 @@ function highlightTemporarily(element) {
     element.classList.remove('assist-annotation-pulse');
   }, 2000);
 }
-
-// ============================================================
-// EXPORT FUNCTIONALITY
-// ============================================================
 
 /**
  * Handle export button click - show dropdown menu
@@ -1571,10 +1535,6 @@ async function showToast(message, duration = 3000, options = {}) {
     toast.remove();
   }, duration);
 }
-
-// ============================================================
-// STYLES (INJECTED INTO PAGE)
-// ============================================================
 
 /**
  * Inject sidebar CSS into page
@@ -2193,10 +2153,6 @@ function injectStyles() {
 
   document.head.appendChild(style);
 }
-
-// ============================================================
-// AUTO-INITIALIZATION
-// ============================================================
 
 // Self-initialize when script loads
 if (document.readyState === 'loading') {

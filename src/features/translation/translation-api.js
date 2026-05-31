@@ -21,10 +21,6 @@
  * @module features/translation
  */
 
-// ============================================================================
-// API CONFIGURATION
-// ============================================================================
-
 const API_CONFIG = {
   mymemory: {
     baseUrl: 'https://api.mymemory.translated.net',
@@ -36,10 +32,6 @@ const API_CONFIG = {
   },
 };
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let translation_settings = {
   cacheEnabled: true,
   cacheDuration: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
@@ -49,10 +41,6 @@ let translation_settings = {
 let translation_cache = {}; // In-memory cache (synced to storage)
 let translation_supportedLanguages = null; // Cached language list
 let translation_isInitialized = false;
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
 
 /**
  * Initializes the translation feature
@@ -117,10 +105,6 @@ function translation_getApiConfig() {
     settings: translation_settings,
   };
 }
-
-// ============================================================================
-// CACHING
-// ============================================================================
 
 /**
  * Generates a cache key from text and target language
@@ -269,10 +253,6 @@ function translation_getCacheStats() {
   };
 }
 
-// ============================================================================
-// LANGUAGE DETECTION
-// ============================================================================
-
 /**
  * Detects the language of the given text using LibreTranslate
  *
@@ -316,10 +296,6 @@ async function translation_detectLanguage(text) {
     throw new Error(`Language detection failed: ${error.message}`);
   }
 }
-
-// ============================================================================
-// SUPPORTED LANGUAGES
-// ============================================================================
 
 /**
  * Gets supported languages from LibreTranslate
@@ -379,10 +355,6 @@ async function translation_getSupportedLanguages() {
     return fallbackLanguages;
   }
 }
-
-// ============================================================================
-// TRANSLATION - MYMEMORY (FREE, NO API KEY)
-// ============================================================================
 
 /**
  * Translates text using MyMemory Translation API (completely free, no API key required)
@@ -544,10 +516,6 @@ function translation_splitTextIntoChunks(text, maxChunkSize) {
   return chunks;
 }
 
-// ============================================================================
-// MAIN TRANSLATION FUNCTION
-// ============================================================================
-
 /**
  * Translates text using MyMemory (free, no API key required)
  *
@@ -616,10 +584,6 @@ async function translation_translate(text, targetLang, sourceLang = 'en') {
   }
 }
 
-// ============================================================================
-// SETTINGS MANAGEMENT
-// ============================================================================
-
 /**
  * Updates translation settings
  *
@@ -652,10 +616,6 @@ chrome.storage.onChanged.addListener(changes => {
     console.log('[Translation] Settings updated from storage');
   }
 });
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {

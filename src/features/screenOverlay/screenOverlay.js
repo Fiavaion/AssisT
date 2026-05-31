@@ -15,10 +15,6 @@
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /** @type {boolean} Tracks whether screen overlay is currently enabled */
 let screenOverlay_enabled = false;
 
@@ -30,10 +26,6 @@ const screenOverlay_settings = {
   color: '#FFE4C4', // Warm sepia (default from popup)
   opacity: 0.3,
 };
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Detects if the page uses a dark theme by analyzing background colors.
@@ -355,10 +347,6 @@ function screenOverlay_remove() {
   console.log('[ScreenOverlay] Removed');
 }
 
-// ============================================================
-// CONTROL FUNCTIONS
-// ============================================================
-
 /**
  * Enables the screen overlay feature.
  * @function screenOverlay_enable
@@ -382,10 +370,6 @@ function screenOverlay_disable() {
   showToast('Screen Overlay disabled');
   console.log('[ScreenOverlay] Disabled');
 }
-
-// ============================================================
-// STORAGE & PERSISTENCE
-// ============================================================
 
 /** @type {Object} Default settings for screen overlay */
 const DEFAULT_SETTINGS = {
@@ -447,10 +431,6 @@ initFeatureSettings(
   settings => applySettings(settings, false)
 );
 console.log('[ScreenOverlay] Module initialization complete');
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 export { screenOverlay_create };
 export { screenOverlay_update };

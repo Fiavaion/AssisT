@@ -18,10 +18,6 @@ import { STTController } from '../../engines/stt/stt-controller-facade.js';
 import { MicrophoneButton } from '../../ui/components/microphone-button.js';
 import { AmbientDetector } from '../../engines/stt/ambient-detector.js';
 
-// ============================================================
-// STT STATE MANAGEMENT
-// ============================================================
-
 /**
  * Master enable/disable flag for STT feature
  * @type {boolean}
@@ -78,15 +74,8 @@ const stt_settings = {
   floatingButton: true,
 };
 
-// ============================================================
-// MODULE INITIALIZATION
-// ============================================================
 // STTController and MicrophoneButton are now statically imported
 // at the top of this file, so they're automatically bundled by Vite
-
-// ============================================================
-// INITIALIZATION AND CLEANUP
-// ============================================================
 
 /**
  * Initializes the STT feature
@@ -273,10 +262,6 @@ function stt_cleanup() {
   console.log('[STT] Cleanup complete');
 }
 
-// ============================================================
-// EVENT LISTENERS
-// ============================================================
-
 /**
  * Sets up event listeners for text field interactions
  *
@@ -386,10 +371,6 @@ function stt_setupFieldListeners() {
   );
 }
 
-// ============================================================
-// CHROME STORAGE INTEGRATION (Self-Initializing)
-// ============================================================
-
 /** @type {Object} Default settings for STT */
 const DEFAULT_SETTINGS = {
   enabled: false,
@@ -480,10 +461,6 @@ initFeatureSettings(
 // no-ops when STT is off but immediately active once toggled on.
 stt_setupFieldListeners();
 
-// ============================================================
-// EXPOSE STT FOR CONTENT SCRIPT INTEGRATION (S.7)
-// ============================================================
-
 /**
  * Expose STT controller through window.assistFeatures for content script access
  * This enables profile switching and other commands from popup
@@ -509,10 +486,6 @@ if (typeof window !== 'undefined') {
   };
   console.log('[STT] Exposed to window.assistFeatures');
 }
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 /**
  * Export all STT functions for external use

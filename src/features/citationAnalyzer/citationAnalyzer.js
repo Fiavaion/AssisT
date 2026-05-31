@@ -32,10 +32,6 @@ import {
   setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let citation_panel = null;
 let citation_isLoading = false;
 let citation_currentText = '';
@@ -48,10 +44,6 @@ const citation_settings = {
   autoDetectLinks: true,
   verifyOnline: false,
 };
-
-// ============================================================================
-// LLM BRIDGE COMMUNICATION
-// ============================================================================
 
 /**
  * Analyze citation/source using AI
@@ -190,10 +182,6 @@ Output ONLY the JSON object, starting with { and ending with }.`;
   }
 }
 
-// ============================================================================
-// FALLBACK ANALYSIS (No LLM)
-// ============================================================================
-
 /**
  * Basic source analysis when LLM is unavailable
  * Uses heuristics and pattern matching
@@ -201,9 +189,6 @@ Output ONLY the JSON object, starting with { and ending with }.`;
  * @param {Object} context - Additional context
  * @returns {Object} Basic analysis results
  */
-// ============================================================================
-// ONLINE VERIFICATION (CrossRef + Semantic Scholar)
-// ============================================================================
 
 const CITATION_DOI_REGEX = /\b(10\.\d{4,}\/[^\s"'<>&,;()\[\]{}]+)/i;
 
@@ -601,10 +586,6 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     isFallback: true,
   };
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Create the analysis panel UI
@@ -1319,10 +1300,6 @@ async function citation_renderResults(analysis, isAI, _isCloud = false, _modelNa
   `);
 }
 
-// ============================================================================
-// CORE FUNCTIONS
-// ============================================================================
-
 /**
  * Show the citation analysis panel
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
@@ -1583,10 +1560,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============================================================================
-// API KEY WARNING
-// ============================================================================
-
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
@@ -1669,10 +1642,6 @@ function citation_showEmptyState() {
   `);
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Main entry point for citation analysis
  * @param {string} text - Text to analyze
@@ -1696,10 +1665,6 @@ async function citation_start(text, selectionRect = null) {
 
   citation_runAnalysis(text, context);
 }
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
 
 /**
  * Initialize the citation analyzer feature
@@ -1743,9 +1708,5 @@ function citation_init() {
 if (typeof window !== 'undefined') {
   citation_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export { citation_start, citation_show, citation_hide, citation_runAnalysis, citation_settings };

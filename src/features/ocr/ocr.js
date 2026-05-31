@@ -24,18 +24,10 @@ import { sanitizeHTML } from '../../utils/sanitize.js';
 import { Z } from '../../utils/z-index.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let ocr_tesseractInstance = null;
 let ocr_isInitialized = false;
 let ocr_isLoading = false;
 let ocr_loadingPromise = null;
-
-// ============================================================================
-// LAZY LOADING
-// ============================================================================
 
 /**
  * Lazy loads Tesseract.js library
@@ -104,10 +96,6 @@ function ocr_getLoadingState() {
   };
 }
 
-// ============================================================================
-// INITIALIZATION & CLEANUP
-// ============================================================================
-
 /**
  * Initializes the OCR feature
  * Called when the extension loads to set up event listeners
@@ -154,10 +142,6 @@ function ocr_cleanup() {
   ocr_isLoading = false;
   ocr_loadingPromise = null;
 }
-
-// ============================================================================
-// SCREENSHOT CAPTURE
-// ============================================================================
 
 /**
  * Detects if the current page is a PDF
@@ -953,10 +937,6 @@ async function ocr_showScreenshotUI() {
   });
 }
 
-// ============================================================================
-// OCR ENGINE INTEGRATION
-// ============================================================================
-
 /**
  * Performs OCR on an image
  *
@@ -1387,14 +1367,6 @@ async function ocr_performOCR(options = {}) {
     return null;
   }
 }
-
-// ============================================================================
-// RESULT MODAL UI
-// ============================================================================
-
-// ============================================================================
-// MEDIA PLAYER STATE
-// ============================================================================
 
 const ocrMediaPlayer = {
   chunks: [],
@@ -2180,10 +2152,6 @@ function ocr_saveAsFile(text) {
 }
 
 // Old ocr_readAloud and ocr_stopAudio functions removed - replaced by media player system
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {

@@ -13,10 +13,6 @@ import { showToast } from '../../core/ui/toast.js';
 import { focusMode_disable, focusMode_getEnabled } from '../focusMode/focusMode.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// MODULE STATE
-// ============================================================
-
 /** @type {boolean} - Whether the reading guide is currently enabled */
 let readingGuide_enabled = false;
 
@@ -35,10 +31,6 @@ const readingGuide_settings = {
   lineThickness: 3,
   lineOpacity: 0.7,
 };
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Creates the reading guide line element and appends it to the DOM.
@@ -161,10 +153,6 @@ function readingGuide_disable() {
   showToast('Reading Guide disabled');
 }
 
-// ============================================================
-// EVENT HANDLERS
-// ============================================================
-
 /**
  * Handles mousemove events to update the reading guide line position.
  *
@@ -179,10 +167,6 @@ function readingGuide_handleMouseMove(event) {
     readingGuide_updatePosition(event.clientY);
   }
 }
-
-// ============================================================
-// INITIALIZATION & STORAGE LISTENERS
-// ============================================================
 
 /** @type {Object} Default settings for reading guide */
 const DEFAULT_SETTINGS = {
@@ -233,10 +217,6 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 /**
  * Returns whether Reading Guide is currently enabled

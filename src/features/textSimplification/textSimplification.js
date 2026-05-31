@@ -32,10 +32,6 @@ import {
   setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let simplification_panel = null;
 let simplification_isLoading = false;
 let simplification_currentText = '';
@@ -47,10 +43,6 @@ const simplification_settings = {
   showInHighlightMenu: true,
   showTermDefinitions: true,
 };
-
-// ============================================================================
-// LLM BRIDGE COMMUNICATION
-// ============================================================================
 
 // Mode detection and availability checking delegated to shared/ai-feature-client.js
 
@@ -305,10 +297,6 @@ IMPROVED VERSION:`,
     throw error;
   }
 }
-
-// ============================================================================
-// FALLBACK SIMPLIFICATION (No LLM)
-// ============================================================================
 
 /**
  * Common word replacements for simpler alternatives
@@ -581,10 +569,6 @@ function simplification_fallback(text, level = 'moderate') {
 
   return result;
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Creates the floating simplification panel
@@ -1043,10 +1027,6 @@ function simplification_makeDraggable(panel) {
   });
 }
 
-// ============================================================================
-// CORE FUNCTIONS
-// ============================================================================
-
 /**
  * Show the simplification panel
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
@@ -1278,10 +1258,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============================================================================
-// API KEY WARNING
-// ============================================================================
-
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
@@ -1364,10 +1340,6 @@ function simplification_showEmptyState() {
   `);
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Main entry point for text simplification
  * @param {string} text - Text to simplify
@@ -1384,10 +1356,6 @@ async function simplification_start(text, selectionRect = null) {
 
   simplification_simplify(text, simplification_settings.defaultLevel);
 }
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
 
 /**
  * Initialize the text simplification feature
@@ -1432,10 +1400,6 @@ function simplification_init() {
 if (typeof window !== 'undefined') {
   simplification_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export {
   simplification_start,

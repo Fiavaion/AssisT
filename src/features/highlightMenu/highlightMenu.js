@@ -21,10 +21,6 @@
 
 import { attachQuietHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let highlightMenu_toolbar = null;
 let highlightMenu_selectedText = '';
 let highlightMenu_selectionRange = null;
@@ -53,10 +49,6 @@ const highlightMenu_settings = {
   cloudModeEnabled: false, // Cloud AI enabled
   webllmEnabled: false, // Browser AI (WebLLM) enabled
 };
-
-// ============================================================================
-// TEXT SELECTION DETECTION
-// ============================================================================
 
 /**
  * Handles text selection (mouseup event)
@@ -101,10 +93,6 @@ function highlightMenu_handleSelection(_event) {
     }, highlightMenu_settings.autoHideDelay);
   }
 }
-
-// ============================================================================
-// TOOLBAR UI
-// ============================================================================
 
 /**
  * Creates the floating toolbar element with multi-row grid layout
@@ -666,10 +654,6 @@ function highlightMenu_handleKeyboardNav(event) {
   }
 }
 
-// ============================================================================
-// ACTION HANDLERS
-// ============================================================================
-
 /**
  * Handles TTS action
  */
@@ -985,10 +969,6 @@ function highlightMenu_handleStudyPath() {
   highlightMenu_hide();
 }
 
-// ============================================================================
-// INITIALIZATION & CLEANUP
-// ============================================================================
-
 /**
  * Initializes the highlight menu feature
  */
@@ -1143,10 +1123,6 @@ function highlightMenu_cleanup() {
   document.removeEventListener('mouseup', highlightMenu_handleSelection);
   document.removeEventListener('keydown', highlightMenu_handleKeyboardNav);
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {

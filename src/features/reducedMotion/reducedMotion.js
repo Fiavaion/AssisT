@@ -17,19 +17,11 @@
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /** @type {boolean} Tracks whether reduced motion is currently enabled */
 let reducedMotion_enabled = false;
 
 /** @type {HTMLStyleElement|null} Reference to the injected style element */
 let reducedMotion_styleElement = null;
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Generates CSS to disable all animations and transitions.
@@ -126,10 +118,6 @@ function reducedMotion_remove() {
   }
 }
 
-// ============================================================
-// CONTROL FUNCTIONS
-// ============================================================
-
 /**
  * Enables the reduced motion feature.
  *
@@ -171,10 +159,6 @@ function reducedMotion_disable() {
 function reducedMotion_systemPreference() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
-
-// ============================================================
-// STORAGE & PERSISTENCE
-// ============================================================
 
 /** @type {Object} Default settings for reduced motion */
 const DEFAULT_SETTINGS = {
@@ -222,10 +206,6 @@ initFeatureSettings(
   settings => applySettings(settings, false)
 );
 
-// ============================================================
-// SYSTEM PREFERENCE LISTENER
-// ============================================================
-
 // Listen for changes to system reduced motion preference
 const reducedMotionMediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 reducedMotionMediaQuery.addEventListener('change', () => {
@@ -237,10 +217,6 @@ reducedMotionMediaQuery.addEventListener('change', () => {
     }
   });
 });
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 export { reducedMotion_enable };
 export { reducedMotion_disable };

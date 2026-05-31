@@ -17,10 +17,6 @@ import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 // Note: sanitizeHTML removed - all HTML content is extension-controlled
 // (hardcoded in questions.js, no user input) - safe for Chrome Web Store
 
-// ============================================================================
-// State Management
-// ============================================================================
-
 const state = {
   currentScreen: 'welcome',
   currentQuestion: 0,
@@ -34,10 +30,6 @@ const state = {
   scores: {},
   recommendedPreset: null, // Best matching preset
 };
-
-// ============================================================================
-// DOM Elements
-// ============================================================================
 
 const elements = {
   progressFill: null,
@@ -66,10 +58,6 @@ const elements = {
   btnApplyPreset: null,
   recommendationsDivider: null,
 };
-
-// ============================================================================
-// Initialization
-// ============================================================================
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -230,10 +218,6 @@ function bindEvents() {
   document.addEventListener('keydown', handleKeyboard);
 }
 
-// ============================================================================
-// Screen Navigation
-// ============================================================================
-
 function showScreen(screenName) {
   Object.entries(elements.screens).forEach(([name, element]) => {
     if (element) {
@@ -278,10 +262,6 @@ function updateProgress() {
   }
 }
 
-// ============================================================================
-// Quiz Mode Selection
-// ============================================================================
-
 function selectQuizMode(mode) {
   state.quizMode = mode;
 
@@ -294,10 +274,6 @@ function selectQuizMode(mode) {
 
   console.log('[Discovery] Quiz mode set to:', mode);
 }
-
-// ============================================================================
-// Quiz Flow
-// ============================================================================
 
 function startQuiz() {
   state.currentQuestion = 0;
@@ -359,10 +335,6 @@ function skipAll() {
   // Close the tab and return to normal browsing
   window.close();
 }
-
-// ============================================================================
-// Question Rendering
-// ============================================================================
 
 function renderQuestion() {
   const question = state.activeQuestions[state.currentQuestion];
@@ -491,10 +463,6 @@ function renderSubQuestions(question) {
   });
 }
 
-// ============================================================================
-// Tell Me More
-// ============================================================================
-
 function toggleTellMeMore() {
   const isExpanded = elements.btnTellMore?.getAttribute('aria-expanded') === 'true';
 
@@ -525,10 +493,6 @@ function collapseTellMeMore() {
   }
 }
 
-// ============================================================================
-// Navigation
-// ============================================================================
-
 function updateNavigationButtons() {
   const currentQ = state.activeQuestions[state.currentQuestion];
   const hasAnswer = state.responses.primary[currentQ?.id] !== undefined;
@@ -554,10 +518,6 @@ function updateNavigationButtons() {
     }
   }
 }
-
-// ============================================================================
-// Results Rendering
-// ============================================================================
 
 function renderResults() {
   if (!elements.recommendationsContainer) {
@@ -697,10 +657,6 @@ function renderRecommendationCard(rec) {
   `;
 }
 
-// ============================================================================
-// Actions
-// ============================================================================
-
 async function applyAndClose() {
   // Gather enabled features from toggles
   const enabledFeatures = [];
@@ -788,10 +744,6 @@ function showSuccessMessage(message) {
   document.body.appendChild(toast);
 }
 
-// ============================================================================
-// Keyboard Navigation
-// ============================================================================
-
 function handleKeyboard(e) {
   // Only handle in questions screen
   if (state.currentScreen !== 'questions') {
@@ -842,9 +794,5 @@ function handleKeyboard(e) {
       break;
   }
 }
-
-// ============================================================================
-// Export for testing
-// ============================================================================
 
 export { state, startQuiz, goNext, goBack, selectOption, finishQuiz };

@@ -16,10 +16,6 @@
 // Import utilities if needed
 // import { showToast } from '../../core/ui/toast.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /**
  * Feature enabled flag
  * @type {boolean}
@@ -43,10 +39,6 @@ let featureName_settings = {
  * @type {any}
  */
 // let featureName_state = null; // Uncomment when you need state
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Initialize [FeatureName] feature
@@ -137,10 +129,6 @@ function featureName_applySettings(newSettings) {
   // featureName_updateUI();
 }
 
-// ============================================================
-// FEATURE-SPECIFIC FUNCTIONS
-// ============================================================
-
 /**
  * Example: Handle click events
  * @param {MouseEvent} _e - Click event
@@ -181,10 +169,6 @@ function _featureName_removeUI() {
   console.log('[FeatureName] Removing UI');
 }
 */
-
-// ============================================================
-// CHROME STORAGE INTEGRATION
-// ============================================================
 
 /**
  * Load initial settings from Chrome storage
@@ -253,10 +237,6 @@ chrome.storage.onChanged.addListener(changes => {
   }
 });
 
-// ============================================================
-// EXPORTS
-// ============================================================
-
 /**
  * Export functions that other modules might need
  * (Usually not needed for self-contained features)
@@ -266,10 +246,6 @@ export {
   featureName_cleanup,
   // Add other exports if needed
 };
-
-// ============================================================
-// USAGE INSTRUCTIONS
-// ============================================================
 
 /*
 To use this template:

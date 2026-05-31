@@ -29,17 +29,9 @@
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { Z } from '../../utils/z-index.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let fullPageTranslate_isTranslated = false;
 let fullPageTranslate_progressModal = null;
 let fullPageTranslate_revertButton = null;
-
-// ============================================================================
-// PROGRESS MODAL
-// ============================================================================
 
 /**
  * Creates the progress modal for full-page translation
@@ -156,10 +148,6 @@ function fullPageTranslate_hideProgressModal() {
   }
 }
 
-// ============================================================================
-// REVERT BUTTON
-// ============================================================================
-
 /**
  * Creates the revert button (floating action button)
  *
@@ -233,10 +221,6 @@ function fullPageTranslate_hideRevertButton() {
   }
 }
 
-// ============================================================================
-// DOM TRAVERSAL
-// ============================================================================
-
 /**
  * Gets all translatable text nodes in the document
  * Skips script, style, code, and interactive elements
@@ -309,10 +293,6 @@ function fullPageTranslate_getTextNodes() {
   console.log(`[FullPageTranslate] Found ${textNodes.length} text nodes`);
   return textNodes;
 }
-
-// ============================================================================
-// BATCH TRANSLATION
-// ============================================================================
 
 /**
  * Translates an array of text nodes in batches
@@ -389,10 +369,6 @@ async function fullPageTranslate_translateNodes(textNodes, targetLang, sourceLan
   console.log('[FullPageTranslate] Translation complete');
 }
 
-// ============================================================================
-// MAIN TRANSLATION FUNCTION
-// ============================================================================
-
 /**
  * Translates the entire page to target language
  *
@@ -455,10 +431,6 @@ async function fullPageTranslate_translate(targetLang = 'en', sourceLang = 'auto
   }
 }
 
-// ============================================================================
-// REVERT FUNCTION
-// ============================================================================
-
 /**
  * Reverts the page to original language
  *
@@ -505,10 +477,6 @@ function fullPageTranslate_revert() {
 
   console.log('[FullPageTranslate] Revert complete');
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {

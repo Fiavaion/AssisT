@@ -18,10 +18,8 @@
 
 import { italic, dateParts, parseAuthor, safe, isHttpUrl } from './shared.js';
 
-// ---------------------------------------------------------------------------
 // MLA abbreviated months
 // Index 0 = January … 11 = December
-// ---------------------------------------------------------------------------
 const MLA_MONTHS = [
   'Jan.',
   'Feb.',
@@ -115,10 +113,6 @@ function accessedClause(citation) {
   return d ? ` Accessed ${d}.` : '';
 }
 
-// ---------------------------------------------------------------------------
-// In-text citation
-// ---------------------------------------------------------------------------
-
 /**
  * MLA in-text citation: (Family) / (Family and Family) / (Family et al.).
  * Appends page numbers when extra.pages is present.
@@ -144,10 +138,6 @@ export function formatInText(citation, options = {}) {
   }
   return `(${fam(0)} et al.${suffix})`;
 }
-
-// ---------------------------------------------------------------------------
-// Reference-list entry helpers
-// ---------------------------------------------------------------------------
 
 function website(c, html) {
   const authors = formatAuthors(c.authors);
@@ -233,10 +223,6 @@ function social(c, html) {
   const url = isHttpUrl(c.url) ? ` ${safe(c.url)}.` : '';
   return `${authors} ${title}${platformSegment}${dateSegment}${url}`;
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 /**
  * Full MLA 9 reference-list entry.

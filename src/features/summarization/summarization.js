@@ -31,10 +31,6 @@ import {
   setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let summarization_panel = null;
 let summarization_isLoading = false;
 let summarization_currentText = '';
@@ -46,14 +42,8 @@ const summarization_settings = {
   showInHighlightMenu: true,
 };
 
-// ============================================================================
 // LLM BRIDGE COMMUNICATION
 // (Routing delegated to shared/ai-feature-client.js)
-// ============================================================================
-
-// ============================================================================
-// FALLBACK SUMMARIZATION (No LLM)
-// ============================================================================
 
 /**
  * Generate a basic extractive summary when LLM is unavailable
@@ -208,10 +198,6 @@ function summarization_fallback(text, level = 'brief') {
 
   return topSentences.map(s => s.sentence).join(' ');
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Creates the floating summary panel
@@ -665,10 +651,6 @@ function summarization_makeDraggable(panel) {
   });
 }
 
-// ============================================================================
-// CORE FUNCTIONS
-// ============================================================================
-
 /**
  * Show the summarization panel
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
@@ -913,10 +895,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============================================================================
-// API KEY WARNING
-// ============================================================================
-
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
@@ -999,10 +977,6 @@ function summarization_showEmptyState() {
   `);
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Main entry point for summarization
  * @param {string} text - Text to summarize
@@ -1020,10 +994,6 @@ function summarization_start(text, selectionRect = null) {
   // Start summarization
   summarization_summarize(text, summarization_settings.defaultLevel);
 }
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
 
 /**
  * Initialize the summarization feature
@@ -1068,10 +1038,6 @@ function summarization_init() {
 if (typeof window !== 'undefined') {
   summarization_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export {
   summarization_start,

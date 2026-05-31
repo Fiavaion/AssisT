@@ -19,10 +19,6 @@
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================
-// CONSTANTS
-// ============================================================
-
 /**
  * Tag color palette
  * Colors cycle based on tag name hash for consistency
@@ -37,10 +33,6 @@ const TAG_COLORS = [
 
 /** Storage key for tag list */
 const TAG_STORAGE_KEY = 'assist_annotation_tags';
-
-// ============================================================
-// TAG STORAGE (PERSISTENCE)
-// ============================================================
 
 /**
  * Get existing tags from storage
@@ -105,10 +97,6 @@ export async function deleteTag(tagName) {
   }
 }
 
-// ============================================================
-// TAG COLOR ASSIGNMENT
-// ============================================================
-
 /**
  * Get color theme for a tag based on its name hash
  * @param {string} tagName - Tag name
@@ -126,10 +114,6 @@ export function getTagColor(tagName) {
   const index = Math.abs(hash) % TAG_COLORS.length;
   return TAG_COLORS[index];
 }
-
-// ============================================================
-// TAG INPUT UI (WITH AUTOCOMPLETE)
-// ============================================================
 
 /**
  * Create a tag input component with autocomplete
@@ -176,10 +160,6 @@ export function createTagInput(container, initialTags = [], onChange = null) {
 
   // Render initial tags
   renderTags();
-
-  // ============================================================
-  // EVENT HANDLERS
-  // ============================================================
 
   /**
    * Render tag pills in display container
@@ -306,10 +286,6 @@ export function createTagInput(container, initialTags = [], onChange = null) {
     dropdown.style.display = 'none';
   }
 
-  // ============================================================
-  // INPUT EVENT LISTENERS
-  // ============================================================
-
   // Handle input changes (trigger autocomplete)
   input.addEventListener('input', e => {
     const value = e.target.value;
@@ -381,10 +357,6 @@ export function createTagInput(container, initialTags = [], onChange = null) {
     }, 200);
   });
 
-  // ============================================================
-  // PUBLIC API
-  // ============================================================
-
   return {
     /**
      * Get current tags
@@ -416,10 +388,6 @@ export function createTagInput(container, initialTags = [], onChange = null) {
     },
   };
 }
-
-// ============================================================
-// TAG PILL RENDERING
-// ============================================================
 
 /**
  * Create a tag pill element
@@ -486,10 +454,6 @@ export function renderTagPills(tags, container) {
   });
 }
 
-// ============================================================
-// TAG FILTERING
-// ============================================================
-
 /**
  * Filter annotations by tag
  * @param {Array<Object>} annotations - Array of annotation objects
@@ -538,10 +502,6 @@ export function getTagFrequency(annotations) {
 
   return frequency;
 }
-
-// ============================================================
-// STYLES (INJECTED INTO PAGE)
-// ============================================================
 
 /**
  * Inject tag manager CSS into page
@@ -688,10 +648,6 @@ export function injectTagStyles() {
 
   document.head.appendChild(style);
 }
-
-// ============================================================
-// AUTO-INITIALIZATION
-// ============================================================
 
 // Inject styles when module loads
 if (typeof document !== 'undefined') {

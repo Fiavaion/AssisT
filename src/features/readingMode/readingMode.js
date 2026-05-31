@@ -24,10 +24,6 @@ import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachQuietHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let readingMode_isActive = false;
 let readingMode_overlay = null;
 let readingMode_originalContent = null;
@@ -39,10 +35,6 @@ const readingMode_settings = {
   lineHeight: '1.6',
   maxWidth: '800px',
 };
-
-// ============================================================================
-// CONTENT EXTRACTION
-// ============================================================================
 
 /**
  * Extracts article content using @mozilla/readability
@@ -77,10 +69,6 @@ async function readingMode_extractContent() {
     return null;
   }
 }
-
-// ============================================================================
-// OVERLAY UI
-// ============================================================================
 
 /**
  * Creates the reading mode overlay
@@ -277,10 +265,6 @@ function readingMode_toggle() {
   }
 }
 
-// ============================================================================
-// KEYBOARD SHORTCUTS
-// ============================================================================
-
 /**
  * Handles Escape key for exiting reading mode
  * (Only used when reading mode is active)
@@ -294,10 +278,6 @@ function readingMode_handleKeyboard(event) {
     readingMode_exit();
   }
 }
-
-// ============================================================================
-// INITIALIZATION & CLEANUP
-// ============================================================================
 
 /**
  * Initializes the reading mode feature
@@ -374,10 +354,6 @@ function readingMode_cleanup() {
   readingMode_exit();
   document.removeEventListener('keydown', readingMode_handleKeyboard);
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {

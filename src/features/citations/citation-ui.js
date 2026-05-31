@@ -18,10 +18,6 @@ import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { UI_TYPE_OPTIONS, normalizeType } from './citation-types.js';
 import { trapFocus } from './citation-focus-trap.js';
 
-// ---------------------------------------------------------------------------
-// Shared modal stylesheet (injected once, guards against duplicate injection)
-// ---------------------------------------------------------------------------
-
 /**
  * Inject the shared citation modal stylesheet into <head> once.
  * Guards by id="citation-modal-styles".
@@ -301,10 +297,6 @@ function injectModalStyles() {
   document.head.appendChild(style);
 }
 
-// ---------------------------------------------------------------------------
-// Toast notifications
-// ---------------------------------------------------------------------------
-
 /**
  * Show success toast notification
  * @param {string} message - Success message
@@ -392,10 +384,6 @@ function createToast(message, type) {
 
   return toast;
 }
-
-// ---------------------------------------------------------------------------
-// Citation edit modal
-// ---------------------------------------------------------------------------
 
 /**
  * Show citation edit modal.
@@ -642,10 +630,6 @@ function createCitationModal(citationData, onClose) {
 
   return overlay;
 }
-
-// ---------------------------------------------------------------------------
-// Form helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Get form data as citation object

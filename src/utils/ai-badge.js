@@ -15,10 +15,6 @@
  * @module utils/ai-badge
  */
 
-// ============================================================================
-// PROVIDER & MODEL DISPLAY NAMES
-// ============================================================================
-
 const PROVIDER_NAMES = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
@@ -98,10 +94,6 @@ function getWebLLMModelName(modelKey) {
   return names[modelKey] || modelKey;
 }
 
-// ============================================================================
-// BADGE INFO
-// ============================================================================
-
 /**
  * Read the current AI settings from storage and return badge display info.
  *
@@ -143,10 +135,6 @@ export async function getAIBadgeInfo() {
   }
 }
 
-// ============================================================================
-// BADGE RENDERING
-// ============================================================================
-
 /**
  * Generate consistent badge HTML for the current AI mode.
  *
@@ -179,10 +167,6 @@ export async function getAndRenderAIBadge() {
   const info = await getAIBadgeInfo();
   return renderAIBadge(info.mode, info.label);
 }
-
-// ============================================================================
-// STYLES
-// ============================================================================
 
 /**
  * Inject shared AI badge CSS into the document (idempotent — safe to call multiple times).

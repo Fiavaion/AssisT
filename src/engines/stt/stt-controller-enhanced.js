@@ -616,10 +616,6 @@ export class STTControllerEnhanced {
     console.log(`[STT Enhanced] Inserted: "${text}"`);
   }
 
-  // ==========================================
-  // Engine Management (Phase 2.8 - S.8)
-  // ==========================================
-
   /**
    * Get current active engine type
    * @returns {string|null}
@@ -700,10 +696,6 @@ export class STTControllerEnhanced {
     return this.engineManager?.getMetrics() || {};
   }
 
-  // ==========================================
-  // Vocabulary Management (inherited)
-  // ==========================================
-
   async initializeVocabulary(options = {}) {
     try {
       this.vocabularyManager = new VocabularyManager({
@@ -723,10 +715,6 @@ export class STTControllerEnhanced {
     }
   }
 
-  // ==========================================
-  // Auto-Punctuation Management (inherited)
-  // ==========================================
-
   initializeAutoPunctuation(options = {}) {
     try {
       this.autoPunctuator = new AutoPunctuator({
@@ -740,10 +728,6 @@ export class STTControllerEnhanced {
     }
   }
 
-  // ==========================================
-  // Confidence Feedback Management (inherited)
-  // ==========================================
-
   initializeConfidenceFeedback(options = {}) {
     try {
       this.confidenceFeedback = new ConfidenceFeedback({
@@ -756,10 +740,6 @@ export class STTControllerEnhanced {
       console.error('[STT Enhanced] Failed to initialize confidence feedback:', error);
     }
   }
-
-  // ==========================================
-  // Settings and Status
-  // ==========================================
 
   /**
    * Update settings

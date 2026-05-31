@@ -646,9 +646,6 @@ export class TextStatsUI {
 // Export singleton instance
 export const textStatsUI = new TextStatsUI();
 
-// ============================================================
-// AUTO-INITIALIZATION
-// ============================================================
 // Initialize on page load
 (async function initializeTextStatsModule() {
   try {

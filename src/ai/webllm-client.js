@@ -15,10 +15,6 @@
 import { CreateMLCEngine } from '@mlc-ai/web-llm';
 import { REGISTRY } from './model-registry.js';
 
-// ========================================
-// MODEL CONFIGURATIONS
-// ========================================
-
 /**
  * WebLLM model configs — sourced from model-registry.js (single source of truth).
  * Re-exported for backward compatibility with any code importing MODEL_CONFIGS directly.
@@ -33,10 +29,6 @@ const DEFAULT_CONFIG = {
   timeout: 120000, // 2 minutes for first load
   cacheTTL: 300000, // 5 minutes
 };
-
-// ========================================
-// HARDWARE DETECTION
-// ========================================
 
 /**
  * Check WebGPU availability and hardware capability
@@ -128,10 +120,6 @@ export async function checkModelCompatibility(modelKey) {
 
   return { capable: true };
 }
-
-// ========================================
-// WEBLLM CLIENT CLASS
-// ========================================
 
 /**
  * WebLLM Client Class
@@ -340,10 +328,6 @@ export class WebLLMClient {
     }
   }
 }
-
-// ========================================
-// SINGLETON AND EXPORTS
-// ========================================
 
 // Singleton instance (lives in service worker)
 let clientInstance = null;

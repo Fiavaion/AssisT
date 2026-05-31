@@ -26,10 +26,6 @@ import {
   setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let tutor_panel = null;
 let tutor_currentText = '';
 let tutor_currentQuestions = null;
@@ -40,10 +36,6 @@ const tutor_settings = {
   questionCount: 4,
   includeHints: true,
 };
-
-// ============================================================================
-// LLM BRIDGE COMMUNICATION
-// ============================================================================
 
 /**
  * Generate Socratic questions using AI
@@ -124,10 +116,6 @@ RULES:
   }
 }
 
-// ============================================================================
-// HINT FALLBACKS BY QUESTION TYPE
-// ============================================================================
-
 /**
  * Return a type-specific hint when the LLM omits one
  */
@@ -163,10 +151,6 @@ function isUsefulHint(hint) {
   }
   return true;
 }
-
-// ============================================================================
-// FALLBACK (No LLM)
-// ============================================================================
 
 /**
  * Generate basic Socratic questions when LLM is unavailable
@@ -213,10 +197,6 @@ function tutor_fallback(text) {
       'Take a moment to reflect: Why might this information be important to understand?',
   };
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 // CSS for Socratic Tutor panel (injected separately to avoid sanitization stripping)
 const TUTOR_PANEL_CSS = `
@@ -686,10 +666,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Show the tutor panel
  */
@@ -940,10 +916,6 @@ async function tutor_start(text) {
   await tutor_analyze(text);
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 function tutor_init() {
   console.log('[SocraticTutor] Initializing...');
   injectAIBadgeStyles();
@@ -968,9 +940,5 @@ function tutor_init() {
 if (typeof window !== 'undefined') {
   tutor_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export { tutor_start, tutor_show, tutor_hide, tutor_analyze, tutor_settings };

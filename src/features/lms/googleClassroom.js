@@ -22,10 +22,6 @@
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /**
  * Flag indicating whether Google Classroom integration is enabled
  * @type {boolean}
@@ -43,10 +39,6 @@ let googleClassroom_fabElement = null;
  * @type {Object|null}
  */
 let GoogleClassroomAdapter = null;
-
-// ============================================================
-// ADAPTER LOADING
-// ============================================================
 
 /**
  * Dynamically loads the Google Classroom Adapter module
@@ -71,10 +63,6 @@ async function googleClassroom_loadAdapter() {
   }
   return GoogleClassroomAdapter;
 }
-
-// ============================================================
-// INITIALIZATION
-// ============================================================
 
 /**
  * Initializes Google Classroom integration based on current page type
@@ -120,10 +108,6 @@ async function googleClassroom_initialize() {
     googleClassroom_initializeClassworkReader();
   }
 }
-
-// ============================================================
-// FEATURE INITIALIZATION
-// ============================================================
 
 /**
  * Initializes the Assignment Reader feature
@@ -230,10 +214,6 @@ async function googleClassroom_initializeClassworkReader() {
   console.log('[GoogleClassroom] Classwork Reader initialized');
 }
 
-// ============================================================
-// TTS READING FUNCTIONS
-// ============================================================
-
 /**
  * Reads Google Classroom content using TTS
  *
@@ -337,10 +317,6 @@ function googleClassroom_readClasswork(items) {
   }
 }
 
-// ============================================================
-// UI CLEANUP
-// ============================================================
-
 /**
  * Removes the Google Classroom FAB from the DOM
  *
@@ -355,10 +331,6 @@ function googleClassroom_removeFAB() {
     googleClassroom_fabElement = null;
   }
 }
-
-// ============================================================
-// SETTINGS MANAGEMENT
-// ============================================================
 
 /**
  * Loads Google Classroom integration settings from Chrome Storage
@@ -416,10 +388,6 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 /**
  * Export all functions for testing and potential external use

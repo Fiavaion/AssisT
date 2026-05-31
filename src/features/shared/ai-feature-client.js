@@ -17,10 +17,6 @@
 
 import { REGISTRY, getFeatureDefault } from '../../ai/model-registry.js';
 
-// ============================================================================
-// WEBLLM MODEL KEY SET (built from the registry — single source of truth)
-// ============================================================================
-
 const WEBLLM_KEYS = new Set(Object.keys(REGISTRY.webllm.models));
 
 /**
@@ -32,10 +28,6 @@ const WEBLLM_KEYS = new Set(Object.keys(REGISTRY.webllm.models));
 export function isWebLLMModel(modelKey) {
   return WEBLLM_KEYS.has(modelKey);
 }
-
-// ============================================================================
-// MODE DETECTION
-// ============================================================================
 
 /**
  * @typedef {Object} AIMode
@@ -176,10 +168,6 @@ export async function getAIMode(featureName = 'summarization') {
     };
   }
 }
-
-// ============================================================================
-// AVAILABILITY CHECKING
-// ============================================================================
 
 /**
  * @typedef {Object} AIAvailability
@@ -338,10 +326,6 @@ export async function checkAIAvailable(modeInfo) {
   };
 }
 
-// ============================================================================
-// UNIFIED GENERATION
-// ============================================================================
-
 /**
  * @typedef {Object} GenerateOptions
  * @property {number}  [maxTokens=800]   - Maximum tokens to generate
@@ -471,10 +455,6 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
   throw new Error('AI is disabled or mode is unknown');
 }
 
-// ============================================================================
-// STATUS BAR MESSAGES
-// ============================================================================
-
 /**
  * Get a mode-aware success status message for feature status bars.
  *
@@ -507,10 +487,6 @@ export function getSuccessStatusMessage(modeInfo, actionVerb) {
 export function getUnavailableStatusMessage(availability) {
   return `⚠️ ${availability.reason}`;
 }
-
-// ============================================================================
-// STATUS BAR UTILITY
-// ============================================================================
 
 /**
  * Set a status bar element to reflect AI unavailability.

@@ -20,10 +20,6 @@
  * @module utils/keyboard-shortcuts
  */
 
-// ============================================================================
-// DEFAULT SHORTCUTS CONFIGURATION
-// ============================================================================
-
 /**
  * Default keyboard shortcuts for all features
  * Format: { featureName: 'Modifier+Key' }
@@ -238,10 +234,6 @@ export const CHROME_SHORTCUT_DESCRIPTIONS = {
   'Ctrl+D': 'Bookmark current page',
 };
 
-// ============================================================================
-// VALIDATION FUNCTIONS
-// ============================================================================
-
 /**
  * Parses a keyboard shortcut string into components
  *
@@ -412,10 +404,6 @@ export function validateShortcut(shortcut, currentShortcuts = {}, excludeKey = n
   };
 }
 
-// ============================================================================
-// STORAGE FUNCTIONS
-// ============================================================================
-
 /**
  * Loads shortcuts from chrome.storage.local
  * Falls back to default shortcuts if none exist
@@ -471,10 +459,6 @@ export async function resetShortcuts() {
   await saveShortcuts(defaults);
   return defaults;
 }
-
-// ============================================================================
-// EVENT HANDLING
-// ============================================================================
 
 /**
  * Converts a keyboard event to a shortcut string
@@ -546,10 +530,6 @@ export function createShortcutHandler(shortcut, callback) {
     }
   };
 }
-
-// ============================================================================
-// SHORTCUT REGISTRATION SYSTEM
-// ============================================================================
 
 /**
  * Global registry of active shortcut handlers
@@ -654,10 +634,6 @@ export async function reloadShortcuts() {
 
   console.log(`[Keyboard Shortcuts] Reloaded ${callbacks.size} shortcuts`);
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export default {
   DEFAULT_SHORTCUTS,

@@ -43,10 +43,6 @@ import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 import { Z } from '../../utils/z-index.js';
 import { showToast } from '../../core/ui/toast.js';
 
-// ============================================================
-// MODULE STATE
-// ============================================================
-
 /**
  * Whether the reading progress bar is currently enabled
  * @type {boolean}
@@ -112,10 +108,6 @@ const progress_settings = {
   smoothScroll: true,
   hideOnComplete: false,
 };
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Calculates the current scroll percentage of the document.
@@ -474,10 +466,6 @@ function progress_updateStyle() {
   }
 }
 
-// ============================================================
-// EVENT HANDLERS
-// ============================================================
-
 /**
  * Handles scroll events with throttling for performance.
  *
@@ -521,10 +509,6 @@ function progress_handleResize() {
     progress_updateProgress();
   }
 }
-
-// ============================================================
-// INITIALIZATION & STORAGE LISTENERS
-// ============================================================
 
 /**
  * Default settings for reading progress bar
@@ -602,10 +586,6 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 /**
  * Returns the current settings object

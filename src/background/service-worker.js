@@ -18,10 +18,6 @@ self.addEventListener('error', event => {
   console.error('[AssisT SW] Uncaught error:', event.message, event.filename, event.lineno);
 });
 
-// ========================================
-// SECURITY UTILITIES
-// ========================================
-
 /**
  * Validate that a message sender is from this extension
  * @param {chrome.runtime.MessageSender} sender - Message sender object
@@ -219,10 +215,6 @@ function sendToOffscreen(action, payload = {}) {
     }
   });
 }
-
-// ========================================
-// CONTEXT MENU SETUP (runs on every service worker start)
-// ========================================
 
 /**
  * Create context menus for AssisT features
@@ -786,10 +778,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
-  // ========================================
-  // LOCAL LLM MESSAGE HANDLERS
-  // ========================================
-
   // Check if local LLM (Ollama) is available
   if (message.action === 'LOCAL_LLM_CHECK') {
     checkOllamaAvailability()
@@ -983,10 +971,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // ========================================
-  // CLOUD LLM MESSAGE HANDLERS (Multi-Provider)
-  // ========================================
-
   // Check if cloud mode is available
   if (message.action === 'CLOUD_LLM_CHECK') {
     checkCloudAvailability()
@@ -1058,10 +1042,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // ========================================
-  // BENCHMARK MESSAGE HANDLERS
-  // ========================================
-
   // Run a single benchmark test
   if (message.action === 'BENCHMARK_RUN_TEST') {
     runBenchmarkTest(message)
@@ -1112,9 +1092,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
-  // ========================================
-  // WEBLLM MESSAGE HANDLERS (via Offscreen Document)
-  // ========================================
   // WebGPU is unavailable in service workers. All model operations are
   // forwarded to src/pages/webllm-offscreen/offscreen.html which has
   // full DOM + WebGPU access. Responses return via WEBLLM_OFFSCREEN_RESPONSE.
@@ -1338,10 +1315,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true; // Keep message channel open for async response
 });
-
-// ========================================
-// LOCAL LLM HELPER FUNCTIONS
-// ========================================
 
 const OLLAMA_BASE_URL = 'http://localhost:11434';
 
@@ -1803,10 +1776,6 @@ function getTierFallbackModels() {
   return tierConfig.fallback;
 }
 
-// ============================================================================
-// BENCHMARK TEST RUNNER
-// ============================================================================
-
 /**
  * Benchmark prompts for each feature
  */
@@ -2166,10 +2135,6 @@ chrome.tabs.onActivated.addListener(async activeInfo => {
   }
 });
 
-// ========================================
-// AUTOMATIC CONTENT SCRIPT INJECTION
-// ========================================
-
 // LMS domains where content script is auto-injected via manifest
 const LMS_DOMAINS = [
   'instructure.com',
@@ -2320,10 +2285,6 @@ chrome.action.onClicked.addListener(async tab => {
     type: 'TOGGLE_ASSIST_PANEL',
   });
 });
-
-// ========================================
-// PERMISSION HANDLING
-// ========================================
 
 /**
  * Permission Change Handlers

@@ -328,10 +328,6 @@ export class VocabularyManager {
     }
   }
 
-  // ==========================================
-  // CRUD Operations
-  // ==========================================
-
   /**
    * Add a word to vocabulary
    * @param {string} word - The word or phrase
@@ -546,10 +542,6 @@ export class VocabularyManager {
     console.log(`[VocabularyManager] Cleared vocabulary${category ? ` (${category})` : ''}`);
   }
 
-  // ==========================================
-  // Preset Vocabulary
-  // ==========================================
-
   /**
    * Load a vocabulary preset
    * @param {string} preset - Preset name from VocabularyPresets
@@ -648,10 +640,6 @@ export class VocabularyManager {
     }
   }
 
-  // ==========================================
-  // Import/Export
-  // ==========================================
-
   /**
    * Import vocabulary from text file (one word per line)
    * @param {string} content - File content
@@ -745,10 +733,6 @@ export class VocabularyManager {
     );
   }
 
-  // ==========================================
-  // Auto-Learning
-  // ==========================================
-
   /**
    * Track a correction for auto-learning.
    * Each unique (word → target) pair accumulates a count. If the user corrects
@@ -840,10 +824,6 @@ export class VocabularyManager {
   async getAutoLearnedWords() {
     return this.db.vocabulary.filter(entry => entry.autoLearned === true).toArray();
   }
-
-  // ==========================================
-  // Vocabulary Matching (for STT integration)
-  // ==========================================
 
   /**
    * Get all enabled vocabulary words (for STT grammar)
@@ -963,10 +943,6 @@ export class VocabularyManager {
     this.cachedVocabulary = null;
     this.cacheExpiry = null;
   }
-
-  // ==========================================
-  // Statistics
-  // ==========================================
 
   /**
    * Get vocabulary statistics

@@ -29,10 +29,6 @@ import { createTagInput } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /** @type {BaseStorageAdapter} Current storage adapter instance */
 let storageAdapter = null;
 
@@ -50,10 +46,6 @@ let currentEditingAnnotation = null;
 
 /** @type {Range|null} Cloned range from selection — used directly for new annotation highlight, bypasses XPath recreation */
 let pendingRange = null;
-
-// ============================================================
-// INITIALIZATION
-// ============================================================
 
 /**
  * Initialize the inline annotations system
@@ -117,10 +109,6 @@ async function loadAnnotationsForCurrentPage() {
   }
 }
 
-// ============================================================
-// ANNOTATION CREATION
-// ============================================================
-
 /**
  * Create a new inline annotation from text selection
  * @param {Object} options - Annotation options
@@ -170,10 +158,6 @@ export async function createInlineAnnotation({
     throw error;
   }
 }
-
-// ============================================================
-// ANNOTATION RENDERING
-// ============================================================
 
 /**
  * Render an annotation on the page (used for annotations loaded from storage on page load)
@@ -430,10 +414,6 @@ function createTooltip(annotation, target) {
 
   return tooltip;
 }
-
-// ============================================================
-// ANNOTATION MODAL
-// ============================================================
 
 /**
  * Open annotation modal for creating/editing
@@ -701,10 +681,6 @@ async function deleteAnnotation(annotationId) {
   }
 }
 
-// ============================================================
-// UTILITY FUNCTIONS
-// ============================================================
-
 /**
  * Get element by XPath
  * @param {string} xpath - XPath expression
@@ -805,10 +781,6 @@ export function getPositionFromRange(range) {
   };
 }
 
-// ============================================================
-// STORAGE CHANGE HANDLER
-// ============================================================
-
 /**
  * Handle storage changes (storage mode switch)
  * @param {Object} changes - Changed keys
@@ -836,10 +808,6 @@ function handleStorageChange(changes) {
     loadAnnotationsForCurrentPage();
   }
 }
-
-// ============================================================
-// STYLES (INJECTED INTO PAGE)
-// ============================================================
 
 /**
  * Inject annotation CSS into page
@@ -1130,10 +1098,6 @@ function injectStyles() {
 
   document.head.appendChild(style);
 }
-
-// ============================================================
-// AUTO-INITIALIZATION
-// ============================================================
 
 // Self-initialize when script loads
 if (document.readyState === 'loading') {

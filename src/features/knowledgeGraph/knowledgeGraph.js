@@ -34,10 +34,6 @@ import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
 import * as d3Drag from 'd3-drag';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let graph_panel = null;
 let graph_data = null;
 let graph_svg = null;
@@ -77,10 +73,6 @@ const RELATION_TYPES = {
   leads_to: { color: '#FF9800', dash: '' },
   defined_by: { color: '#9C27B0', dash: '5,10' },
 };
-
-// ============================================================================
-// LLM INTEGRATION
-// ============================================================================
 
 // System prompt for cloud models — constrains Claude to output-only JSON
 const GRAPH_CLOUD_SYSTEM_PROMPT = `You are a knowledge graph extractor for educational content. Your sole task is to return a raw JSON object. STRICT OUTPUT RULES: Start your response with { and end with }. Never write any preamble, explanation, label, or markdown. Never write phrases like "Here is the knowledge graph:" or wrap the JSON in code blocks.`;
@@ -470,10 +462,6 @@ function graph_validateAndEnhance(data) {
   return { nodes, edges };
 }
 
-// ============================================================================
-// D3.js FORCE SIMULATION
-// ============================================================================
-
 /**
  * Initialize D3 force simulation
  */
@@ -551,10 +539,6 @@ function graph_updatePositions() {
   // Update node positions
   graph_container.selectAll('.kg-node').attr('transform', d => `translate(${d.x},${d.y})`);
 }
-
-// ============================================================================
-// D3.js RENDERING
-// ============================================================================
 
 /**
  * Render the graph using D3 data binding
@@ -737,10 +721,6 @@ function graph_addDragBehavior(nodeGroups) {
   nodeGroups.call(drag);
 }
 
-// ============================================================================
-// D3.js ZOOM BEHAVIOR (Mouse-Centered)
-// ============================================================================
-
 /**
  * Initialize D3 zoom behavior
  * D3 zoom automatically centers on mouse position
@@ -786,10 +766,6 @@ function graph_resetView() {
   }
   graph_svg.transition().duration(500).call(graph_zoomBehavior.transform, d3Zoom.zoomIdentity);
 }
-
-// ============================================================================
-// VIEWPORT-AWARE TOOLTIP (External to panel to avoid transform containment)
-// ============================================================================
 
 /**
  * Create or get the external tooltip element
@@ -899,10 +875,6 @@ function graph_hideTooltip() {
     graph_tooltip.style.display = 'none';
   }
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 // CSS for Knowledge Graph panel (injected separately to avoid sanitization stripping)
 const GRAPH_PANEL_CSS = `
@@ -1281,10 +1253,6 @@ function graph_export() {
   img.src = URL.createObjectURL(svgBlob);
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Show the graph panel
  */
@@ -1520,10 +1488,6 @@ function graph_start(text) {
   graph_build(text);
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 function graph_init() {
   console.log('[KnowledgeGraph] Initializing with D3.js...');
   injectAIBadgeStyles();
@@ -1555,9 +1519,5 @@ function graph_init() {
 if (typeof window !== 'undefined') {
   graph_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export { graph_show, graph_hide, graph_build, graph_start, graph_settings };

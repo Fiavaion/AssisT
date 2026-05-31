@@ -17,15 +17,7 @@ import { perplexityGenerate, fetchPerplexityModels } from './perplexity-client.j
 import { getSecureAPIKey } from '../core/storage/secure-key-storage.js';
 import { resolveModel, getHardcodedFallbackModels } from './model-registry.js';
 
-// ============================================================================
-// CACHE VERSION — bump this when model IDs or names change to force refresh
-// ============================================================================
-
 const MODELS_CACHE_VERSION = 2;
-
-// ============================================================================
-// PROVIDER REGISTRY
-// ============================================================================
 
 const PROVIDERS = {
   anthropic: {
@@ -49,10 +41,6 @@ const PROVIDERS = {
     name: 'Perplexity',
   },
 };
-
-// ============================================================================
-// GENERATION
-// ============================================================================
 
 /**
  * Generate text using the user's selected cloud provider
@@ -99,10 +87,6 @@ export async function checkCloudAvailability() {
     reason: hasKey ? null : 'API key not configured',
   };
 }
-
-// ============================================================================
-// MODEL FETCHING
-// ============================================================================
 
 /**
  * Fetch available models for a specific provider
@@ -174,10 +158,6 @@ export async function getCachedModels(provider) {
     return null;
   }
 }
-
-// ============================================================================
-// INTERNAL HELPERS
-// ============================================================================
 
 /**
  * Get the active cloud provider from storage
@@ -257,10 +237,6 @@ function getHardcodedFallback(provider) {
   const models = getHardcodedFallbackModels(provider);
   return models.length > 0 ? models : getHardcodedFallbackModels('anthropic');
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export default {
   cloudGenerate,

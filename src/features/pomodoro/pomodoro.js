@@ -33,10 +33,6 @@ import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /**
  * Whether Pomodoro Timer is currently enabled
  * @type {boolean}
@@ -122,10 +118,6 @@ let pomodoro_isDragging = false;
  */
 const pomodoro_dragOffset = { x: 0, y: 0 };
 
-// ============================================================
-// SETTINGS
-// ============================================================
-
 /**
  * Pomodoro Timer configuration settings
  * @type {Object}
@@ -167,10 +159,6 @@ const DEFAULT_SETTINGS = {
   playSound: true,
   position: 'bottom-left',
 };
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Inject CSS styles for the Pomodoro widget
@@ -1165,10 +1153,6 @@ function pomodoro_getState() {
   };
 }
 
-// ============================================================
-// INITIALIZATION & STORAGE LISTENERS
-// ============================================================
-
 /**
  * Apply settings from storage to the module state
  * @param {Object} settings - Settings object from storage
@@ -1219,10 +1203,6 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 /**
  * Public API for the Pomodoro Timer feature module

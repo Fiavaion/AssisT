@@ -25,19 +25,11 @@
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /** @type {boolean} Tracks whether simplified interface is currently enabled */
 let simplify_enabled = false;
 
 /** @type {HTMLStyleElement|null} Reference to the injected style element */
 let simplify_styleElement = null;
-
-// ============================================================
-// SETTINGS
-// ============================================================
 
 /** @type {Object} Current settings for simplified interface */
 let simplify_settings = {
@@ -57,10 +49,6 @@ let simplify_settings = {
 /** @type {Object} Default settings (frozen copy) */
 const DEFAULT_SETTINGS = Object.freeze({ ...simplify_settings });
 
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
-
 /**
  * Generates CSS rules to hide elements based on current settings.
  *
@@ -78,9 +66,6 @@ function simplify_generateCSS() {
     /* Reduces visual clutter for cognitive accessibility */
   `;
 
-  // ============================================================
-  // ADVERTISEMENTS (All intensity levels)
-  // ============================================================
   if (simplify_settings.hideAds) {
     css += `
     /* Advertisement Removal */
@@ -115,9 +100,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // POPUPS & OVERLAYS (All intensity levels)
-  // ============================================================
   if (simplify_settings.hidePopups) {
     css += `
     /* Pop-up and Overlay Removal */
@@ -147,9 +129,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // SOCIAL BUTTONS (All intensity levels)
-  // ============================================================
   if (simplify_settings.hideSocialButtons) {
     css += `
     /* Social Media Button Removal */
@@ -176,9 +155,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // ANIMATIONS (All intensity levels)
-  // ============================================================
   if (simplify_settings.hideAnimations) {
     css += `
     /* Decorative Animation Removal */
@@ -199,9 +175,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // MODERATE & AGGRESSIVE: Sidebars
-  // ============================================================
   if (simplify_settings.hideSidebars && (intensity === 'moderate' || intensity === 'aggressive')) {
     css += `
     /* Sidebar Removal */
@@ -219,9 +192,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // MODERATE & AGGRESSIVE: Comments
-  // ============================================================
   if (simplify_settings.hideComments && (intensity === 'moderate' || intensity === 'aggressive')) {
     css += `
     /* Comment Section Removal */
@@ -241,9 +211,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // MODERATE & AGGRESSIVE: Related Content
-  // ============================================================
   if (simplify_settings.hideRelated && (intensity === 'moderate' || intensity === 'aggressive')) {
     css += `
     /* Related Content Removal */
@@ -265,9 +232,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // AGGRESSIVE: Footers
-  // ============================================================
   if (simplify_settings.hideFooters && intensity === 'aggressive') {
     css += `
     /* Footer Removal (aggressive mode only) */
@@ -280,9 +244,6 @@ function simplify_generateCSS() {
     `;
   }
 
-  // ============================================================
-  // FOCUS MAIN CONTENT (Disabled by default - too aggressive)
-  // ============================================================
   // Note: focusMainContent is intentionally minimal to avoid breaking page layouts.
   // The previous implementation with box-shadow and opacity dimming caused issues
   // on many websites by affecting navigation and other essential elements.
@@ -342,10 +303,6 @@ function simplify_remove() {
     console.log('[Simplify] CSS removed');
   }
 }
-
-// ============================================================
-// CONTROL FUNCTIONS
-// ============================================================
 
 /**
  * Enables the simplified interface feature.
@@ -413,10 +370,6 @@ function simplify_getSettings() {
   return Object.freeze({ ...simplify_settings });
 }
 
-// ============================================================
-// STORAGE & PERSISTENCE
-// ============================================================
-
 /**
  * Applies settings from storage to the module state.
  *
@@ -467,9 +420,5 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 export { simplify_enable, simplify_disable, simplify_setIntensity, simplify_getSettings };

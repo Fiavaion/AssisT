@@ -6,19 +6,11 @@
 
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let enabled = false;
 let settings = null;
 let cursorOverlay = null;
 let mouseMoveHandler = null;
 let cursorHideStyle = null;
-
-// ============================================================================
-// DEFAULT SETTINGS
-// ============================================================================
 
 const DEFAULT_SETTINGS = {
   enabled: false,
@@ -26,10 +18,6 @@ const DEFAULT_SETTINGS = {
   style: 'crosshair',
   color: '#ff0000',
 };
-
-// ============================================================================
-// CORE FUNCTIONS
-// ============================================================================
 
 /**
  * Apply cursor style to the overlay element
@@ -342,10 +330,6 @@ function cleanup() {
   enabled = false;
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 // Initialize feature settings with storage utility
 initFeatureSettings(
   'customCursor',
@@ -355,9 +339,5 @@ initFeatureSettings(
 );
 
 console.log('[CustomCursor] Module loaded');
-
-// ============================================================================
-// PUBLIC API
-// ============================================================================
 
 export { applySettings, cleanup, DEFAULT_SETTINGS };

@@ -33,10 +33,6 @@ import {
   setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let breakdown_panel = null;
 let breakdown_isLoading = false;
 let breakdown_currentText = '';
@@ -49,10 +45,6 @@ const breakdown_settings = {
   includeTimeEstimates: true,
   includeStudyTips: true,
 };
-
-// ============================================================================
-// LLM BRIDGE COMMUNICATION
-// ============================================================================
 
 /**
  * Sleep helper for retry delays
@@ -211,10 +203,6 @@ RULES:
     throw error;
   }
 }
-
-// ============================================================================
-// FALLBACK BREAKDOWN (No LLM)
-// ============================================================================
 
 /**
  * Keywords that often indicate tasks or requirements
@@ -451,10 +439,6 @@ function breakdown_fallback(text) {
       'Start with the first step and work through systematically. Take breaks between major sections.',
   };
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Creates the floating breakdown panel
@@ -1208,10 +1192,6 @@ function breakdown_toggleTask(step) {
   }
 }
 
-// ============================================================================
-// CORE FUNCTIONS
-// ============================================================================
-
 /**
  * Show the breakdown panel
  * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
@@ -1507,10 +1487,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============================================================================
-// API KEY WARNING
-// ============================================================================
-
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
@@ -1593,10 +1569,6 @@ function breakdown_showEmptyState() {
   `);
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Main entry point for assignment breakdown
  * @param {string} text - Assignment text to analyze
@@ -1614,10 +1586,6 @@ async function breakdown_start(text, selectionRect = null) {
   // Start analysis
   breakdown_analyze(text);
 }
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
 
 /**
  * Initialize the assignment breakdown feature
@@ -1663,9 +1631,5 @@ function breakdown_init() {
 if (typeof window !== 'undefined') {
   breakdown_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export { breakdown_start, breakdown_show, breakdown_hide, breakdown_analyze, breakdown_settings };

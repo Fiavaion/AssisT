@@ -38,10 +38,6 @@ import { showToast } from '../../core/ui/toast.js';
 import { readingGuide_disable, readingGuide_getEnabled } from '../readingGuide/readingGuide.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// MODULE STATE
-// ============================================================
-
 /**
  * Whether focus mode is currently enabled
  * @type {boolean}
@@ -69,10 +65,6 @@ const focusMode_settings = {
   boxHeight: 100,
   overlayOpacity: 0.7,
 };
-
-// ============================================================
-// CORE FUNCTIONS
-// ============================================================
 
 /**
  * Creates the focus mode window element with box-shadow overlay.
@@ -261,10 +253,6 @@ function focusMode_disable() {
   showToast('Focus Mode disabled');
 }
 
-// ============================================================
-// EVENT HANDLERS
-// ============================================================
-
 /**
  * Handles mousemove events to update the focus window position.
  *
@@ -282,10 +270,6 @@ function focusMode_handleMouseMove(event) {
     focusMode_updatePosition(event.clientX, event.clientY);
   }
 }
-
-// ============================================================
-// INITIALIZATION & STORAGE LISTENERS
-// ============================================================
 
 /** @type {Object} Default settings for focus mode */
 const DEFAULT_SETTINGS = {
@@ -336,10 +320,6 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 /**
  * Returns whether Focus Mode is currently enabled

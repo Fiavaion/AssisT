@@ -1094,10 +1094,6 @@ export class STTController {
     console.log('[STT] Controller destroyed');
   }
 
-  // ==========================================
-  // Vocabulary Management (Phase 2.7 - S.5)
-  // ==========================================
-
   /**
    * Initialize vocabulary manager
    * @param {Object} options - Vocabulary options
@@ -1246,10 +1242,6 @@ export class STTController {
     }
   }
 
-  // ==========================================
-  // Auto-Punctuation Management (Phase 2.7 - S.3)
-  // ==========================================
-
   /**
    * Initialize auto-punctuation engine
    * @param {Object} options - Auto-punctuation options
@@ -1355,10 +1347,6 @@ export class STTController {
   getAutoPunctuationConfig() {
     return this.autoPunctuator ? this.autoPunctuator.getConfig() : AUTO_PUNCT_CONFIG;
   }
-
-  // ==========================================
-  // Confidence Feedback Management (Phase 2.7 - S.4)
-  // ==========================================
 
   /**
    * Initialize confidence feedback engine

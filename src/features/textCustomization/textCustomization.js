@@ -19,10 +19,6 @@
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================
-// MODULE STATE
-// ============================================================
-
 /**
  * Flag indicating if text customization is currently enabled
  * @type {boolean}
@@ -64,10 +60,6 @@ const textCustomization_fontMap = {
   arial: 'Arial, Helvetica, sans-serif',
 };
 
-// ============================================================
-// FONT LOADING FUNCTIONS
-// ============================================================
-
 function textCustomization_loadLexend() {
   if (!document.getElementById('assist-lexend-font')) {
     const style = document.createElement('style');
@@ -94,10 +86,6 @@ function textCustomization_loadOpenDyslexic() {
     document.head.appendChild(style);
   }
 }
-
-// ============================================================
-// CSS GENERATION
-// ============================================================
 
 /**
  * Generates CSS rules for text customization based on current settings
@@ -145,10 +133,6 @@ function textCustomization_generateCSS() {
   `;
 }
 
-// ============================================================
-// PUBLIC API
-// ============================================================
-
 /**
  * Applies text customization to the current page
  *
@@ -191,10 +175,6 @@ function textCustomization_remove() {
   }
   console.log('[TextCustomization] Removed');
 }
-
-// ============================================================
-// CHROME STORAGE INTEGRATION
-// ============================================================
 
 /** @type {Object} Default settings for text customization */
 const DEFAULT_SETTINGS = {
@@ -265,10 +245,6 @@ window.assistFeatures.textCustomization = {
   applySettings: settings => applySettings({ ...DEFAULT_SETTINGS, ...settings }, false),
   remove: () => textCustomization_remove(),
 };
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 export {
   textCustomization_loadLexend,

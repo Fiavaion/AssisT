@@ -25,10 +25,6 @@
  * @module core/storage/secure-key-storage
  */
 
-// ============================================================================
-// CONFIGURATION CONSTANTS
-// ============================================================================
-
 const PBKDF2_ITERATIONS = 100000; // OWASP recommended minimum
 const SALT_LENGTH = 16; // 128 bits
 const IV_LENGTH = 12; // 96 bits for AES-GCM
@@ -45,10 +41,6 @@ const STATIC_ENTROPY_KEY = 'assist_static_entropy'; // Dynamically generated on 
 // Default rotation interval (90 days in milliseconds)
 const DEFAULT_ROTATION_INTERVAL_DAYS = 90;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-// ============================================================================
-// INTERNAL ENCRYPTION UTILITIES
-// ============================================================================
 
 /**
  * Get or create a unique machine identifier
@@ -218,10 +210,6 @@ async function decrypt(encryptedData, secret = null) {
 
   return new TextDecoder().decode(decrypted);
 }
-
-// ============================================================================
-// USER PASSWORD MANAGEMENT
-// ============================================================================
 
 /**
  * Check if user has set a password for encryption
@@ -424,10 +412,6 @@ async function getAllDecryptedKeys() {
   return keys;
 }
 
-// ============================================================================
-// KEY ROTATION MANAGEMENT
-// ============================================================================
-
 /**
  * Get key rotation settings
  * @returns {Promise<{enabled: boolean, intervalDays: number, lastRotation: number|null}>}
@@ -543,10 +527,6 @@ export async function autoRotateIfNeeded() {
   const result = await rotateKeys();
   return { rotated: result.success, keysRotated: result.keysRotated };
 }
-
-// ============================================================================
-// API KEY STORAGE OPERATIONS
-// ============================================================================
 
 /**
  * Save an API key securely
@@ -672,10 +652,6 @@ export async function listSecureAPIKeys() {
     return [];
   }
 }
-
-// ============================================================================
-// VALIDATION & TESTING
-// ============================================================================
 
 /**
  * Validate API key format for a specific provider
@@ -829,10 +805,6 @@ async function testPerplexityAPI(apiKey) {
   return { success: false, message: `Error: ${response.status}` };
 }
 
-// ============================================================================
-// MIGRATION
-// ============================================================================
-
 /**
  * Migrate from legacy plain-text or CryptoJS storage
  * @returns {Promise<{migrated: number, errors: number}>}
@@ -869,10 +841,6 @@ export async function migrateLegacyKeys() {
 
   return stats;
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export default {
   // Core operations

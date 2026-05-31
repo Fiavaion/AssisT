@@ -6,10 +6,6 @@
 
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let enabled = false;
 let settings = null;
 let lensContainer = null;
@@ -23,10 +19,6 @@ let animationFrame = null;
 let currentX = 0;
 let currentY = 0;
 
-// ============================================================================
-// DEFAULT SETTINGS
-// ============================================================================
-
 const DEFAULT_SETTINGS = {
   enabled: false,
   scale: 2.0,
@@ -36,10 +28,6 @@ const DEFAULT_SETTINGS = {
   offsetDir: 'right',
   lock: false,
 };
-
-// ============================================================================
-// CORE FUNCTIONS
-// ============================================================================
 
 /**
  * Initialize magnifying lens
@@ -414,10 +402,6 @@ function cleanup() {
   enabled = false;
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 // Initialize feature settings with storage utility
 initFeatureSettings(
   'magnifyingLens',
@@ -427,9 +411,5 @@ initFeatureSettings(
 );
 
 console.log('[MagnifyingLens] Module loaded');
-
-// ============================================================================
-// PUBLIC API
-// ============================================================================
 
 export { applySettings, cleanup, DEFAULT_SETTINGS };

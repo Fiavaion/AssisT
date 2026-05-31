@@ -26,10 +26,6 @@ import {
   setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
-// ============================================================================
-// CSS STYLES (injected separately to avoid innerHTML overwriting)
-// ============================================================================
-
 const SPG_PANEL_CSS = `
   #assist-spg-panel {
     position: fixed;
@@ -426,10 +422,6 @@ function spg_injectStyles() {
   document.head.appendChild(styleEl);
 }
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let spg_panel = null;
 let spg_isLoading = false;
 let spg_currentPath = null;
@@ -440,10 +432,6 @@ const spg_settings = {
   difficultyPreference: 'balanced', // easy-first, hard-first, balanced
   includeReview: true,
 };
-
-// ============================================================================
-// AI STUDY PATH GENERATION
-// ============================================================================
 
 /**
  * Generate study path from content
@@ -822,10 +810,6 @@ function spg_heuristicGenerate(text) {
   };
 }
 
-// ============================================================================
-// PROGRESS TRACKING
-// ============================================================================
-
 /**
  * Mark topic as completed
  * @param {number} topicId - Topic ID
@@ -887,10 +871,6 @@ async function spg_loadProgress() {
     console.warn('[StudyPathGenerator] Could not load progress:', e);
   }
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Create the study path panel
@@ -1289,10 +1269,6 @@ function spg_updateLoadingState(loading) {
   }
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Show the study path generator
  * @param {string} text - Optional initial content
@@ -1361,10 +1337,6 @@ function spg_handleKeydown(e) {
   }
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 /**
  * Initialize study path generator
  */
@@ -1395,9 +1367,5 @@ function spg_init() {
 if (typeof window !== 'undefined') {
   spg_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export { spg_show, spg_hide, spg_generatePath, spg_settings };

@@ -26,10 +26,6 @@ import { showToast } from '../../core/ui/toast.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let struggle_isTracking = false;
 let struggle_panel = null;
 let struggle_currentStruggleScore = 0;
@@ -93,10 +89,6 @@ const SENSITIVITY_THRESHOLDS = {
     progressThreshold: 0.2,
   },
 };
-
-// ============================================================================
-// DETECTION ALGORITHMS
-// ============================================================================
 
 /**
  * Calculate struggle score based on all signals
@@ -320,10 +312,6 @@ function struggle_addDifficultConcept(element) {
   }
 }
 
-// ============================================================================
-// SCORE MONITORING
-// ============================================================================
-
 /**
  * Update struggle score and check for intervention
  */
@@ -371,10 +359,6 @@ function struggle_offerAssistance(_score) {
 
   struggle_showAssistancePanel(message, action);
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Create assistance panel
@@ -654,10 +638,6 @@ function struggle_showReview() {
   showToast?.(`Concepts to review: ${concepts}`);
 }
 
-// ============================================================================
-// EVENT LISTENERS
-// ============================================================================
-
 function struggle_setupListeners() {
   // Scroll tracking
   let scrollTimeout = null;
@@ -710,10 +690,6 @@ function struggle_setupListeners() {
     };
   }
 }
-
-// ============================================================================
-// PUBLIC API
-// ============================================================================
 
 /**
  * Start struggle detection tracking
@@ -774,10 +750,6 @@ function struggle_reset() {
   console.log('[StruggleDetection] Tracking reset');
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 function struggle_init() {
   console.log('[StruggleDetection] Initializing...');
 
@@ -828,10 +800,6 @@ function struggle_init() {
 if (typeof window !== 'undefined') {
   struggle_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export {
   struggle_startTracking,

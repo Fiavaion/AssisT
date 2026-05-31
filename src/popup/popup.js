@@ -1221,10 +1221,6 @@ class PopupController {
     toggleSection('reduced-motion-section', 'show_reduced_motion'); // Reduced Motion
     toggleSection('media-control-section', 'show_media_control'); // Media Control
 
-    // =========================================================================
-    // ACCORDION AUTO-HIDE: Hide accordion sections with no visible features
-    // =========================================================================
-
     // Helper to check if a feature is visible (uses same logic as toggleSection)
     const isFeatureVisible = (visibilityKey, defaultValue = true) => {
       return visibility[visibilityKey] !== undefined ? visibility[visibilityKey] : defaultValue;
@@ -1394,9 +1390,6 @@ class PopupController {
       const optionsContainer = document.getElementById('options-container');
       const ocrOptionsContainer = document.getElementById('ocr-options-container');
 
-      // ============================================================
-      // OCR ENABLE/DISABLE
-      // ============================================================
       const ocrEnabled = document.getElementById('ocr-enabled');
       if (ocrEnabled) {
         // Initialize OCR settings if they don't exist
@@ -1456,9 +1449,6 @@ class PopupController {
         this.sendCommandToTab(e.target.checked ? 'enable' : 'disable');
       });
 
-      // ============================================================
-      // SPRINT 6 FEATURE: READ ENTIRE PAGE
-      // ============================================================
       const btnReadPage = document.getElementById('btn-read-page');
       this.attachInteractiveHandler(btnReadPage, 'Read Page Button', () => {
         console.log('[Popup] Read Page button clicked');
@@ -1466,9 +1456,6 @@ class PopupController {
         this.updateStatus('Reading page...', 'speaking');
       });
 
-      // ============================================================
-      // OCR FEATURE: TRIGGER OCR CAPTURE
-      // ============================================================
       const btnTriggerOCR = document.getElementById('btn-trigger-ocr');
       if (btnTriggerOCR) {
         this.attachInteractiveHandler(btnTriggerOCR, 'OCR Trigger Button', async () => {
@@ -1493,9 +1480,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // OCR SETTINGS: AUTO-ACTIVATE READING MODE
-      // ============================================================
       const ocrAutoReadingMode = document.getElementById('ocr-auto-reading-mode');
       if (ocrAutoReadingMode) {
         // Initialize OCR settings if they don't exist
@@ -1518,9 +1502,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // OCR SETTINGS: UPSCALE FACTOR SLIDER
-      // ============================================================
       const ocrUpscaleSlider = document.getElementById('ocr-upscale-factor');
       const ocrUpscaleLabel = document.getElementById('ocr-upscale-label');
       if (ocrUpscaleSlider && ocrUpscaleLabel) {
@@ -1565,9 +1546,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // OCR SETTINGS: LANGUAGE SELECTION
-      // ============================================================
       const ocrLanguageSelect = document.getElementById('ocr-language');
       if (ocrLanguageSelect) {
         // Initialize default if not set
@@ -1593,9 +1571,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // OCR SETTINGS: CONFIDENCE THRESHOLD SLIDER
-      // ============================================================
       const ocrConfidenceSlider = document.getElementById('ocr-confidence-threshold');
       const ocrConfidenceLabel = document.getElementById('ocr-confidence-label');
       if (ocrConfidenceSlider && ocrConfidenceLabel) {
@@ -1626,9 +1601,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // OCR SETTINGS: AUTO-TTS TOGGLE
-      // ============================================================
       const ocrAutoTTS = document.getElementById('ocr-auto-tts');
       if (ocrAutoTTS) {
         // Initialize OCR settings if they don't exist
@@ -1654,9 +1626,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // HIGHLIGHT MENU ENABLE/DISABLE
-      // ============================================================
       const highlightMenuEnabled = document.getElementById('highlight-menu-enabled');
       const highlightMenuOptionsContainer = document.getElementById(
         'highlight-menu-options-container'
@@ -1703,9 +1672,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // HIGHLIGHT MENU SETTINGS: BUTTON TOGGLES
-      // ============================================================
       const buttonToggles = [
         { id: 'highlight-menu-show-tts', key: 'showTTS' },
         { id: 'highlight-menu-show-dictionary', key: 'showDictionary' },
@@ -1739,9 +1705,6 @@ class PopupController {
         }
       });
 
-      // ============================================================
-      // HIGHLIGHT MENU SETTINGS: AUTO-HIDE DELAY SLIDER
-      // ============================================================
       const highlightMenuDelaySlider = document.getElementById('highlight-menu-auto-hide-delay');
       const highlightMenuDelayLabel = document.getElementById('highlight-menu-delay-label');
 
@@ -1768,9 +1731,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // TRANSLATION: TRANSLATE PAGE BUTTON
-      // ============================================================
       const btnTranslatePage = document.getElementById('btn-translate-page');
       const targetLanguageSelect = document.getElementById('translation-target-language');
 
@@ -1814,9 +1774,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // TRANSLATION: PROVIDER SELECTION & API KEYS
-      // ============================================================
       const providerSelect = document.getElementById('translation-provider');
       const deeplKeySection = document.getElementById('deepl-key-section');
       const azureKeySection = document.getElementById('azure-key-section');
@@ -1993,9 +1950,6 @@ class PopupController {
         }
       }
 
-      // ============================================================
-      // CITATION: ENABLE/DISABLE TOGGLE
-      // ============================================================
       const citationEnabled = document.getElementById('citation-enabled');
       const citationOptionsContainer = document.getElementById('citation-options-container');
 
@@ -2029,9 +1983,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // CITATION: VERIFY ONLINE TOGGLE
-      // ============================================================
       const citationVerifyOnline = document.getElementById('citation-verify-online');
       if (citationVerifyOnline) {
         citationVerifyOnline.checked = this.settings.citation?.verifyOnline === true;
@@ -2050,9 +2001,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // CITATION: SAVE CITATION BUTTON
-      // ============================================================
       const btnSaveCitation = document.getElementById('btn-save-citation');
 
       if (btnSaveCitation) {
@@ -2084,9 +2032,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // CITATION: CITATION MANAGER BUTTON
-      // ============================================================
       const btnCitationManager = document.getElementById('btn-citation-manager');
 
       if (btnCitationManager) {
@@ -2111,9 +2056,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // CITATION: PROJECTS BUTTON
-      // ============================================================
       const btnCitationProjects = document.getElementById('btn-citation-projects');
 
       if (btnCitationProjects) {
@@ -2136,9 +2078,6 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // CITATION: EXPAND/COLLAPSE PANEL
-      // ============================================================
       this.setupCitationPanel();
 
       // Voice selection
@@ -2308,109 +2247,47 @@ class PopupController {
         });
       }
 
-      // ============================================================
-      // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
-      // ============================================================
       this.setupTextCustomization();
 
-      // ============================================================
-      // SPRINT 3 FEATURE: READING GUIDE
-      // ============================================================
       this.setupReadingGuide();
 
-      // ============================================================
-      // CUSTOM CURSOR (Extracted from Stargardt)
-      // ============================================================
       this.setupCustomCursor();
 
-      // ============================================================
-      // MAGNIFYING LENS (Extracted from Stargardt)
-      // ============================================================
       this.setupMagnifyingLens();
 
-      // ============================================================
-      // SPRINT 3 FEATURE: FOCUS MODE
-      // ============================================================
       this.setupFocusMode();
 
-      // ============================================================
-      // SPRINT 6 FEATURE: SCREEN COLOR OVERLAY
-      // ============================================================
       this.setupScreenOverlay();
 
-      // ============================================================
-      // NEURODIVERGENT PROFILE FEATURE: REDUCED MOTION
-      // ============================================================
       this.setupReducedMotion();
 
-      // ============================================================
-      // NEURODIVERGENT PROFILE FEATURE: AUTO-PLAY BLOCKING
-      // ============================================================
       this.setupMediaControl();
 
-      // ============================================================
       // DARK MODE FEATURE REMOVED
       // Extension UI dark mode button (in header) remains functional
-      // ============================================================
 
-      // ============================================================
-      // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
-      // ============================================================
       this.setupSimplify();
 
-      // ============================================================
-      // NEURODIVERGENT PROFILE FEATURE: READING PROGRESS
-      // ============================================================
       this.setupReadingProgress();
 
-      // ============================================================
-      // NEURODIVERGENT PROFILE FEATURE: POMODORO TIMER
-      // ============================================================
       this.setupPomodoro();
 
-      // ============================================================
-      // STARGARDT MODULE: CENTRAL VISION SUPPORT
-      // ============================================================
       this.setupStargardt();
 
-      // ============================================================
-      // SPRINT 4 FEATURE: CANVAS INTEGRATION
-      // ============================================================
       this.setupCanvasIntegration();
 
-      // ============================================================
-      // MOODLE INTEGRATION
-      // ============================================================
       this.setupMoodleIntegration();
 
-      // ============================================================
-      // GOOGLE CLASSROOM INTEGRATION
-      // ============================================================
       this.setupGoogleClassroomIntegration();
 
-      // ============================================================
-      // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
-      // ============================================================
       this.setupSTT();
 
-      // ============================================================
-      // PHASE 2 FEATURE 3: READING MODE
-      // ============================================================
       this.setupReadingMode();
 
-      // ============================================================
-      // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
-      // ============================================================
       this.setupDyslexiaMode();
 
-      // ============================================================
-      // PHASE 2.2 FEATURE: ANNOTATIONS & STICKY NOTES
-      // ============================================================
       this.setupAnnotations();
 
-      // ============================================================
-      // LOCAL LLM INTEGRATION (AssisT LLM Edition)
-      // ============================================================
       this.setupLocalLLM();
 
       // Settings link
@@ -4669,10 +4546,6 @@ class PopupController {
       });
     }
 
-    // ============================================================
-    // LOAD ANNOTATION SETTINGS
-    // ============================================================
-
     // Initialize annotation settings if they don't exist
     if (!this.settings.annotations) {
       this.settings.annotations = {
@@ -4739,10 +4612,6 @@ class PopupController {
         console.log('[Popup] Annotation sidebar auto-open:', e.target.checked);
       });
     }
-
-    // ============================================================
-    // LOAD TRANSLATION SETTINGS
-    // ============================================================
 
     // Load translation visibility toggle
     loadCheckbox('show-translation', 'show_translation');
@@ -5709,9 +5578,6 @@ class PopupController {
     }
   }
 
-  // ============================================================
-  // SPRINT 3 FEATURE: TEXT CUSTOMIZATION
-  // ============================================================
   setupTextCustomization() {
     // Initialize textCustomization settings if they don't exist
     if (!this.settings.textCustomization) {
@@ -5930,9 +5796,6 @@ class PopupController {
     }
   }
 
-  // ============================================================
-  // SPRINT 3 FEATURE: READING GUIDE
-  // ============================================================
   setupReadingGuide() {
     // Initialize readingGuide settings if they don't exist
     if (!this.settings.readingGuide) {
@@ -6010,9 +5873,6 @@ class PopupController {
     console.log('[Popup] Reading Guide initialized');
   }
 
-  // ============================================================
-  // CUSTOM CURSOR (Extracted from Stargardt)
-  // ============================================================
   setupCustomCursor() {
     // Initialize customCursor settings if they don't exist
     if (!this.settings.customCursor) {
@@ -6086,9 +5946,6 @@ class PopupController {
     console.log('[Popup] Custom Cursor initialized');
   }
 
-  // ============================================================
-  // MAGNIFYING LENS (Extracted from Stargardt)
-  // ============================================================
   setupMagnifyingLens() {
     // Initialize magnifyingLens settings if they don't exist
     if (!this.settings.magnifyingLens) {
@@ -6213,9 +6070,6 @@ class PopupController {
     console.log('[Popup] Magnifying Lens initialized');
   }
 
-  // ============================================================
-  // SPRINT 3 FEATURE: FOCUS MODE
-  // ============================================================
   setupFocusMode() {
     if (!this.settings.focusMode) {
       this.settings.focusMode = {
@@ -6289,9 +6143,6 @@ class PopupController {
     console.log('[Popup] Focus Mode initialized');
   }
 
-  // ============================================================
-  // SPRINT 6 FEATURE: SCREEN COLOR OVERLAY
-  // ============================================================
   setupScreenOverlay() {
     if (!this.settings.screenOverlay) {
       this.settings.screenOverlay = {
@@ -6349,9 +6200,6 @@ class PopupController {
     console.log('[Popup] Screen Overlay initialized');
   }
 
-  // ============================================================
-  // NEURODIVERGENT PROFILE FEATURE: REDUCED MOTION
-  // ============================================================
   setupReducedMotion() {
     if (!this.settings.reducedMotion) {
       this.settings.reducedMotion = {
@@ -6397,9 +6245,6 @@ class PopupController {
     console.log('[Popup] Reduced Motion initialized');
   }
 
-  // ============================================================
-  // NEURODIVERGENT PROFILE FEATURE: AUTO-PLAY BLOCKING
-  // ============================================================
   setupMediaControl() {
     if (!this.settings.mediaControl) {
       this.settings.mediaControl = {
@@ -6435,15 +6280,9 @@ class PopupController {
     console.log('[Popup] Media Control initialized');
   }
 
-  // ============================================================
-  // NEURODIVERGENT PROFILE FEATURE: DARK MODE
-  // ============================================================
   // REMOVED - Web page dark mode feature removed
   // Extension UI dark mode button (in header) remains functional
 
-  // ============================================================
-  // NEURODIVERGENT PROFILE FEATURE: SIMPLIFIED INTERFACE
-  // ============================================================
   setupSimplify() {
     if (!this.settings.simplify) {
       this.settings.simplify = {
@@ -6505,9 +6344,6 @@ class PopupController {
     console.log('[Popup] Simplified Interface initialized');
   }
 
-  // ============================================================
-  // NEURODIVERGENT PROFILE FEATURE: READING PROGRESS
-  // ============================================================
   setupReadingProgress() {
     if (!this.settings.readingProgress) {
       this.settings.readingProgress = {
@@ -6573,9 +6409,6 @@ class PopupController {
     console.log('[Popup] Reading Progress initialized');
   }
 
-  // ============================================================
-  // NEURODIVERGENT PROFILE FEATURE: POMODORO TIMER
-  // ============================================================
   setupPomodoro() {
     if (!this.settings.pomodoro) {
       this.settings.pomodoro = {
@@ -6679,9 +6512,6 @@ class PopupController {
     console.log('[Popup] Pomodoro Timer initialized');
   }
 
-  // ============================================================
-  // STARGARDT MODULE: CENTRAL VISION SUPPORT
-  // ============================================================
   setupStargardt() {
     if (!this.settings.stargardt) {
       this.settings.stargardt = {
@@ -7091,9 +6921,6 @@ class PopupController {
     console.log('[Popup] Stargardt Central Vision Support initialized');
   }
 
-  // ============================================================
-  // SPRINT 4 FEATURE: CANVAS INTEGRATION
-  // ============================================================
   setupCanvasIntegration() {
     // Initialize canvasIntegration settings if they don't exist
     if (!this.settings.canvasIntegration) {
@@ -7143,10 +6970,6 @@ class PopupController {
       this.settings.canvasIntegration.assignmentReader = e.target.checked;
       this.saveSettings();
     });
-
-    // ============================================================
-    // SPRINT 7 FEATURE: CANVAS QUIZ HELPER
-    // ============================================================
 
     // Initialize quizHelper settings if they don't exist
     if (!this.settings.canvasIntegration.quizHelper) {
@@ -7250,9 +7073,6 @@ class PopupController {
     console.log('[Popup] Canvas Integration initialized', this.settings.canvasIntegration);
   }
 
-  // ============================================================
-  // MOODLE INTEGRATION
-  // ============================================================
   setupMoodleIntegration() {
     if (!this.settings.moodleIntegration) {
       this.settings.moodleIntegration = {
@@ -7333,9 +7153,6 @@ class PopupController {
     console.log('[Popup] Moodle Integration initialized', this.settings.moodleIntegration);
   }
 
-  // ============================================================
-  // GOOGLE CLASSROOM INTEGRATION
-  // ============================================================
   setupGoogleClassroomIntegration() {
     if (!this.settings.googleClassroomIntegration) {
       this.settings.googleClassroomIntegration = {
@@ -7413,9 +7230,6 @@ class PopupController {
     );
   }
 
-  // ============================================================
-  // SPRINT 5 FEATURE: SPEECH-TO-TEXT (STT)
-  // ============================================================
   setupSTT() {
     if (!this.settings.stt) {
       this.settings.stt = {
@@ -8569,9 +8383,6 @@ class PopupController {
     }
   }
 
-  // ============================================================
-  // PHASE 2 FEATURE 3: READING MODE
-  // ============================================================
   setupReadingMode() {
     // Initialize readingMode settings if they don't exist
     if (!this.settings.readingMode) {
@@ -8646,9 +8457,6 @@ class PopupController {
     console.log('[Popup] Reading Mode initialized');
   }
 
-  // ============================================================
-  // SPRINT 9 FEATURE: DYSLEXIA-OPTIMIZED READING MODE
-  // ============================================================
   setupDyslexiaMode() {
     if (!this.settings.dyslexiaMode) {
       this.settings.dyslexiaMode = {
@@ -8730,9 +8538,6 @@ class PopupController {
 
     console.log('[Popup] Dyslexia Mode initialized');
 
-    // ============================================================
-    // ANNOTATIONS: MIGRATION MODAL CLOSE BUTTON
-    // ============================================================
     // Note: Storage mode migration event listener is attached in loadModalSettings()
     // after the Advanced Options modal is created (the dropdown doesn't exist here)
 
@@ -8744,10 +8549,6 @@ class PopupController {
       });
     }
   }
-
-  // ============================================================
-  // SPRINT 7 FEATURE: USER PROFILES
-  // ============================================================
 
   async setupUserProfiles() {
     console.log('[Popup] Setting up User Profiles...');
@@ -8882,9 +8683,6 @@ class PopupController {
           googleClassroomIntegration: { enabled: false },
         },
       },
-      // ============================================================
-      // NEURODIVERGENT-FOCUSED PROFILES (Phase 2.6 + S.7 STT)
-      // ============================================================
       'ADHD Focus': {
         name: 'ADHD Focus',
         description: 'Structured intervals, reduced distractions, and clear visual progress',
@@ -9533,10 +9331,6 @@ class PopupController {
     }
   }
 
-  // ============================================================
-  // ANNOTATIONS STORAGE MIGRATION
-  // ============================================================
-
   /**
    * Handle storage mode migration for annotations
    * @param {string} fromMode - Source storage mode
@@ -9719,9 +9513,6 @@ class PopupController {
     }
   }
 
-  // ============================================================
-  // ANNOTATIONS: STICKY NOTES
-  // ============================================================
   setupAnnotations() {
     // Initialize settings if not present
     if (!this.settings.annotations) {
@@ -9810,9 +9601,6 @@ class PopupController {
     console.log('[Popup] Annotations initialized');
   }
 
-  // ============================================================
-  // CITATION: QUICK VIEW PANEL
-  // ============================================================
   setupCitationPanel() {
     const expandBtn = document.getElementById('btn-expand-citations');
     const panelContainer = document.getElementById('citation-manager-panel');
@@ -9890,10 +9678,6 @@ class PopupController {
     }
   }
 
-  // ============================================================
-  // LOCAL LLM INTEGRATION
-  // ============================================================
-
   setupLocalLLM() {
     // Initialize localLLM settings if they don't exist
     if (!this.settings.localLLM) {
@@ -9941,15 +9725,10 @@ class PopupController {
       };
     }
 
-    // ========================================
-    // UNIFIED AI ASSIST SETUP
-    // ========================================
     this.setupAIAssist();
 
-    // ========================================
     // DARK MODE FEATURE REMOVED
     // Extension UI dark mode button (in header) remains functional
-    // ========================================
   }
 
   /**

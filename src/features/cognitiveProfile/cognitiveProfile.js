@@ -19,10 +19,6 @@ import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let profile_data = null;
 let profile_panel = null;
 
@@ -104,10 +100,6 @@ const DEFAULT_PROFILE = {
   },
 };
 
-// ============================================================================
-// STORAGE
-// ============================================================================
-
 const STORAGE_KEY = 'assist_cognitive_profile';
 
 /**
@@ -163,10 +155,6 @@ async function profile_save() {
     console.error('[CognitiveProfile] Failed to save profile:', error);
   }
 }
-
-// ============================================================================
-// INTERACTION TRACKING
-// ============================================================================
 
 /**
  * Track a feature interaction
@@ -294,10 +282,6 @@ function profile_updateStreak() {
   }
 }
 
-// ============================================================================
-// PROFILE ANALYSIS
-// ============================================================================
-
 /**
  * Get the dominant learning style
  * @returns {string}
@@ -385,10 +369,6 @@ function profile_getPromptModifiers() {
 
   return modifiers;
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Create the profile panel
@@ -750,10 +730,6 @@ function profile_renderContent() {
   `);
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Show the profile panel
  */
@@ -813,10 +789,6 @@ async function profile_updatePreference(category, key, value) {
   await profile_save();
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 async function profile_init() {
   console.log('[CognitiveProfile] Initializing...');
 
@@ -849,10 +821,6 @@ async function profile_init() {
 if (typeof window !== 'undefined') {
   profile_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export {
   profile_show,

@@ -210,10 +210,6 @@ export function initializeCanvasModule(readText, settings) {
   console.log('[Canvas] Module initialized with dependencies');
 }
 
-// ============================================================
-// QUIZ HELPER FEATURE (Canvas-specific)
-// ============================================================
-
 /**
  * Quiz Helper State Variables
  */

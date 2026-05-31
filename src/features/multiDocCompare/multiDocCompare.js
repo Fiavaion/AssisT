@@ -24,10 +24,6 @@ import {
   setAIStatusBar,
 } from '../shared/ai-feature-client.js';
 
-// ============================================================================
-// STATE MANAGEMENT
-// ============================================================================
-
 let mdc_panel = null;
 let mdc_documents = [];
 let mdc_dragCleanup = null; // Cleanup fn for drag listeners when panel is closed
@@ -40,10 +36,6 @@ const mdc_settings = {
   maxDocuments: 5,
   minTextLength: 50,
 };
-
-// ============================================================================
-// CSS STYLES (Injected to document.head to avoid innerHTML stripping)
-// ============================================================================
 
 const MDC_PANEL_CSS = `
   #assist-mdc-panel {
@@ -392,10 +384,6 @@ function mdc_injectStyles() {
   document.head.appendChild(styleEl);
 }
 
-// ============================================================================
-// DOCUMENT MANAGEMENT
-// ============================================================================
-
 /**
  * Add a document/text selection for comparison
  * @param {string} text - Text content
@@ -454,10 +442,6 @@ function mdc_clearDocuments() {
     mdc_clearResults();
   }
 }
-
-// ============================================================================
-// AI COMPARISON
-// ============================================================================
 
 /**
  * Compare documents using AI
@@ -640,10 +624,6 @@ function mdc_heuristicCompare() {
     isHeuristic: true,
   };
 }
-
-// ============================================================================
-// UI COMPONENTS
-// ============================================================================
 
 /**
  * Create the comparison panel
@@ -1073,10 +1053,6 @@ function mdc_updateLoadingState(loading) {
   }
 }
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
 /**
  * Show the comparison panel
  * @param {string} initialText - Optional initial text to add
@@ -1229,10 +1205,6 @@ function mdc_handleKeydown(e) {
   }
 }
 
-// ============================================================================
-// API KEY WARNING
-// ============================================================================
-
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
@@ -1316,10 +1288,6 @@ function mdc_showEmptyState() {
   }
 }
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
 /**
  * Initialize multi-document comparison
  */
@@ -1349,9 +1317,5 @@ function mdc_init() {
 if (typeof window !== 'undefined') {
   mdc_init();
 }
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 export { mdc_show, mdc_hide, mdc_addDocument, mdc_compareDocuments, mdc_settings };

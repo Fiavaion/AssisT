@@ -27,10 +27,6 @@ import { sanitizeHTML } from '../../utils/sanitize.js';
 import { attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
 
-// ============================================================
-// STATE MANAGEMENT
-// ============================================================
-
 /** @type {BaseStorageAdapter} Current storage adapter instance */
 let storageAdapter = null;
 
@@ -69,10 +65,6 @@ const noteSizeMap = {
   medium: { width: 200, height: 200 },
   large: { width: 300, height: 250 },
 };
-
-// ============================================================
-// INITIALIZATION
-// ============================================================
 
 /**
  * Initialize the sticky note system
@@ -238,10 +230,6 @@ async function loadNotesForCurrentPage() {
     console.error('[StickyNotes] Error loading notes:', error);
   }
 }
-
-// ============================================================
-// STICKY NOTE CREATION & RENDERING
-// ============================================================
 
 /**
  * Create a new sticky note
@@ -569,10 +557,6 @@ function handleFormattingShortcuts(e) {
   }
 }
 
-// ============================================================
-// TTS (TEXT-TO-SPEECH) FUNCTIONALITY
-// ============================================================
-
 /** @type {SpeechSynthesisUtterance|null} Current TTS utterance */
 let currentUtterance = null;
 
@@ -670,10 +654,6 @@ function speakNoteContent(noteId, button) {
   window.speechSynthesis.speak(currentUtterance);
   console.log('[StickyNotes] TTS started for note:', noteId);
 }
-
-// ============================================================
-// STT (SPEECH-TO-TEXT) FUNCTIONALITY
-// ============================================================
 
 /** @type {SpeechRecognition|null} Current STT recognition instance */
 let currentRecognition = null;
@@ -912,10 +892,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============================================================
-// COLOR PICKER FUNCTIONALITY
-// ============================================================
-
 /**
  * Toggle color picker dropdown for a sticky note
  * @param {number} noteId - Note ID
@@ -1007,10 +983,6 @@ async function changeNoteColor(noteId, color) {
     console.error('[StickyNotes] Error changing color:', error);
   }
 }
-
-// ============================================================
-// DRAG & DROP FUNCTIONALITY
-// ============================================================
 
 /**
  * Attach drag event listeners to a sticky note
@@ -1134,10 +1106,6 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
   });
 }
 
-// ============================================================
-// RESIZE FUNCTIONALITY
-// ============================================================
-
 /**
  * Attach resize event listeners to a sticky note
  * @param {HTMLElement} noteElement - Note element
@@ -1249,10 +1217,6 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
   });
 }
 
-// ============================================================
-// PERSISTENCE (STORAGE)
-// ============================================================
-
 /**
  * Save note position to storage
  * @param {number} noteId - Note ID
@@ -1318,10 +1282,6 @@ async function deleteStickyNote(noteId) {
     console.error('[StickyNotes] Error deleting note:', error);
   }
 }
-
-// ============================================================
-// TAG EDITING MODAL
-// ============================================================
 
 /**
  * Open modal to edit tags for a note
@@ -1417,10 +1377,6 @@ function openTagEditModal(noteId, currentTags = []) {
 
   console.log('[StickyNotes] Tag edit modal opened');
 }
-
-// ============================================================
-// MESSAGE HANDLERS
-// ============================================================
 
 /**
  * Handle messages from popup or background script
@@ -1580,10 +1536,6 @@ function handleStorageChange(changes) {
     }
   }
 }
-
-// ============================================================
-// STYLES (INJECTED INTO PAGE)
-// ============================================================
 
 /**
  * Inject sticky note CSS into page
@@ -2058,10 +2010,6 @@ function injectStyles() {
 
   document.head.appendChild(style);
 }
-
-// ============================================================
-// AUTO-INITIALIZATION
-// ============================================================
 
 // Self-initialize when script loads
 if (document.readyState === 'loading') {
