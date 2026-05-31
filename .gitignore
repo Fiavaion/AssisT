@@ -131,3 +131,13 @@ CONTACT.private.md
 # "submitted" folder can be added after the proposal lands.
 docs/funding/
 CWS_SUBMISSION_CHECKLIST.md
+
+# === Promo / launch / marketing (never in the code repo) ===
+# Launch decks, conference slides, narration scripts, cost analyses,
+# personal media, third-party logos, video-upload + OAuth tooling.
+GAAD_launch/
+assist-tutorials/
+
+# === Accidental temp / scratch files ===
+*tmp*js_ref*.txt
+*tmp*html_ids*.txt
