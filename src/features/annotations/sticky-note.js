@@ -77,29 +77,17 @@ async function initializeStickyNotes() {
   console.log('[StickyNotes] Initializing...');
 
   try {
-    // Load annotation settings
     await loadAnnotationSettings();
-
-    // Load TTS settings from extension
     await loadTTSSettings();
-
-    // Load storage mode from settings
     await loadStorageMode();
 
-    // Initialize storage adapter
     storageAdapter = getStorageAdapter(storageMode);
     console.log(`[StickyNotes] Using storage mode: ${storageMode}`);
 
-    // Load existing notes for current page
     await loadNotesForCurrentPage();
 
-    // Listen for messages from popup
     chrome.runtime.onMessage.addListener(handleMessage);
-
-    // Listen for storage mode changes
     chrome.storage.local.onChanged.addListener(handleStorageChange);
-
-    // Register Alt+N keyboard shortcut for creating sticky notes
     await registerStickyNoteShortcut();
 
     console.log('[StickyNotes] Initialized successfully with settings:', annotationSettings);
@@ -157,7 +145,6 @@ async function loadTTSSettings() {
         ttsSettings.pitch = tts.pitch || 1.0;
         ttsSettings.volume = tts.volume || 1.0;
 
-        // Load voice - voices should be available now
         if (tts.voice && tts.voice !== 'default') {
           const voices = window.speechSynthesis.getVoices();
           const voice = voices.find(v => v.name === tts.voice);
@@ -191,7 +178,6 @@ function ensureVoicesLoaded() {
     if (voices.length > 0) {
       resolve(voices);
     } else {
-      // Wait for voices to load
       const onVoicesChanged = () => {
         const loadedVoices = window.speechSynthesis.getVoices();
         if (loadedVoices.length > 0) {
@@ -220,7 +206,6 @@ async function loadNotesForCurrentPage() {
 
     console.log(`[StickyNotes] Loaded ${notes.length} notes for current page`);
 
-    // Render each note
     for (const note of notes) {
       if (note.type === 'note') {
         renderStickyNote(note);
@@ -243,10 +228,7 @@ async function loadNotesForCurrentPage() {
  */
 export async function createStickyNote({ x, y, content = '', color = null, tags = [] }) {
   try {
-    // Use default color from settings if not provided
     const noteColor = color || annotationSettings.defaultColor || 'yellow';
-
-    // Get size dimensions from settings
     const sizeName = annotationSettings.defaultNoteSize || 'medium';
     const sizeDimensions = noteSizeMap[sizeName] || noteSizeMap.medium;
 
@@ -262,7 +244,6 @@ export async function createStickyNote({ x, y, content = '', color = null, tags 
       tags: tags || [],
     };
 
-    // Save to storage
     const savedNote = await storageAdapter.create(noteData);
     console.log('[StickyNotes] Created note:', savedNote.id, {
       color: noteColor,
@@ -271,7 +252,6 @@ export async function createStickyNote({ x, y, content = '', color = null, tags 
       tags: tags,
     });
 
-    // Render on page
     renderStickyNote(savedNote);
 
     return savedNote;
@@ -286,12 +266,10 @@ export async function createStickyNote({ x, y, content = '', color = null, tags 
  * @param {Object} note - Note data from storage
  */
 function renderStickyNote(note) {
-  // Don't render duplicates
   if (activeNotes.has(note.id)) {
     return;
   }
 
-  // Create sticky note container
   const noteElement = document.createElement('div');
   noteElement.className = 'assist-sticky-note';
   noteElement.dataset.noteId = note.id;
@@ -303,17 +281,14 @@ function renderStickyNote(note) {
   noteElement.setAttribute('aria-label', 'Sticky note');
   noteElement.setAttribute('tabindex', '0');
 
-  // Apply color theme
   applyNoteColor(noteElement, note.color);
 
-  // Create header (drag handle)
   const header = document.createElement('div');
   header.className = 'assist-sticky-note-header';
   header.setAttribute('role', 'button');
   header.setAttribute('aria-label', 'Drag to move note');
   header.setAttribute('tabindex', '0');
 
-  // Color picker button
   const colorBtn = document.createElement('button');
   colorBtn.className = 'assist-sticky-note-color-btn';
   colorBtn.innerHTML = sanitizeHTML('🎨');
@@ -323,7 +298,6 @@ function renderStickyNote(note) {
     toggleColorPicker(note.id, colorBtn);
   });
 
-  // Delete button
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'assist-sticky-note-delete';
   deleteBtn.innerHTML = sanitizeHTML('×');
@@ -336,10 +310,8 @@ function renderStickyNote(note) {
   header.appendChild(colorBtn);
   header.appendChild(deleteBtn);
 
-  // Create rich text toolbar
   const toolbar = createRichTextToolbar(note.id);
 
-  // Create content area (contentEditable with HTML support)
   const content = document.createElement('div');
   content.className = 'assist-sticky-note-content';
   content.contentEditable = 'true';
@@ -348,38 +320,31 @@ function renderStickyNote(note) {
   content.setAttribute('aria-label', 'Note content');
   content.setAttribute('aria-multiline', 'true');
 
-  // Save content on blur (now saves HTML)
   content.addEventListener('blur', () => {
     saveNoteContent(note.id, content.innerHTML);
   });
 
-  // Handle keyboard shortcuts for formatting
   content.addEventListener('keydown', e => {
     handleFormattingShortcuts(e);
   });
 
-  // Show/hide toolbar on focus/blur
   content.addEventListener('focus', () => {
     toolbar.classList.add('visible');
   });
 
-  // Create tags container
   const tagsContainer = document.createElement('div');
   tagsContainer.className = 'assist-sticky-note-tags';
   tagsContainer.setAttribute('role', 'group');
   tagsContainer.setAttribute('aria-label', 'Note tags');
 
-  // Render tags if any
   if (note.tags && note.tags.length > 0) {
     renderTagPills(note.tags, tagsContainer);
   }
 
-  // Add click handler to edit tags
   attachInteractiveHandler(tagsContainer, 'Sticky Note Tags', () => {
     openTagEditModal(note.id, note.tags || []);
   });
 
-  // Create resize handle
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'assist-sticky-note-resize-handle';
   resizeHandle.setAttribute('role', 'button');
@@ -387,23 +352,16 @@ function renderStickyNote(note) {
   resizeHandle.setAttribute('title', 'Drag to resize');
   resizeHandle.setAttribute('tabindex', '0');
 
-  // Assemble note
   noteElement.appendChild(header);
   noteElement.appendChild(toolbar);
   noteElement.appendChild(content);
   noteElement.appendChild(tagsContainer);
   noteElement.appendChild(resizeHandle);
 
-  // Add drag event listeners
   attachDragListeners(noteElement, header, note.id);
-
-  // Add resize event listeners
   attachResizeListeners(noteElement, resizeHandle, note.id);
 
-  // Add to DOM
   document.body.appendChild(noteElement);
-
-  // Track active note
   activeNotes.set(note.id, noteElement);
 
   console.log('[StickyNotes] Rendered note:', note.id);
@@ -439,7 +397,6 @@ function createRichTextToolbar(noteId) {
   toolbar.setAttribute('role', 'toolbar');
   toolbar.setAttribute('aria-label', 'Text formatting');
 
-  // Formatting buttons
   const buttons = [
     { command: 'bold', icon: '<b>B</b>', title: 'Bold (Ctrl+B)', ariaLabel: 'Bold' },
     { command: 'italic', icon: '<i>I</i>', title: 'Italic (Ctrl+I)', ariaLabel: 'Italic' },
@@ -472,7 +429,6 @@ function createRichTextToolbar(noteId) {
     button.setAttribute('type', 'button');
     button.dataset.command = btn.command;
 
-    // Attach handler (mousedown prevents blur on content area)
     attachInteractiveHandler(button, `Format ${btn.command}`, () => {
       executeFormatCommand(btn.command);
     });
@@ -480,13 +436,11 @@ function createRichTextToolbar(noteId) {
     toolbar.appendChild(button);
   });
 
-  // Add separator
   const separator = document.createElement('span');
   separator.className = 'assist-toolbar-separator';
   separator.setAttribute('aria-hidden', 'true');
   toolbar.appendChild(separator);
 
-  // Add TTS (Read Aloud) button
   const ttsBtn = document.createElement('button');
   ttsBtn.className = 'assist-toolbar-btn assist-toolbar-btn-tts';
   ttsBtn.innerHTML = sanitizeHTML('🔊');
@@ -501,7 +455,6 @@ function createRichTextToolbar(noteId) {
 
   toolbar.appendChild(ttsBtn);
 
-  // Add STT (Voice Input) button
   const sttBtn = document.createElement('button');
   sttBtn.className = 'assist-toolbar-btn assist-toolbar-btn-stt';
   sttBtn.innerHTML = sanitizeHTML('🎤');
@@ -536,7 +489,6 @@ function executeFormatCommand(command) {
  * @param {KeyboardEvent} e - Keyboard event
  */
 function handleFormattingShortcuts(e) {
-  // Check for Ctrl/Cmd + key combinations
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const modKey = isMac ? e.metaKey : e.ctrlKey;
 
@@ -569,7 +521,6 @@ let speakingNoteId = null;
  * @param {HTMLElement} button - TTS button element
  */
 function speakNoteContent(noteId, button) {
-  // Check if already speaking this note - stop if so
   if (speakingNoteId === noteId && window.speechSynthesis.speaking) {
     window.speechSynthesis.cancel();
     speakingNoteId = null;
@@ -580,10 +531,8 @@ function speakNoteContent(noteId, button) {
     return;
   }
 
-  // Cancel any ongoing speech
   if (window.speechSynthesis.speaking) {
     window.speechSynthesis.cancel();
-    // Reset previous button state
     document.querySelectorAll('.assist-toolbar-btn-tts.assist-toolbar-btn-active').forEach(btn => {
       btn.classList.remove('assist-toolbar-btn-active');
       btn.innerHTML = sanitizeHTML('🔊');
@@ -591,7 +540,6 @@ function speakNoteContent(noteId, button) {
     });
   }
 
-  // Get note content
   const noteElement = activeNotes.get(noteId);
   if (!noteElement) {
     console.error('[StickyNotes] Note not found:', noteId);
@@ -604,14 +552,12 @@ function speakNoteContent(noteId, button) {
     return;
   }
 
-  // Get text content (strips HTML)
   const text = contentElement.textContent.trim();
   if (!text) {
     console.log('[StickyNotes] Note is empty, nothing to read');
     return;
   }
 
-  // Create utterance with extension TTS settings
   currentUtterance = new SpeechSynthesisUtterance(text);
   currentUtterance.rate = ttsSettings.rate;
   currentUtterance.pitch = ttsSettings.pitch;
@@ -621,7 +567,6 @@ function speakNoteContent(noteId, button) {
   }
   speakingNoteId = noteId;
 
-  // Update button state
   button.classList.add('assist-toolbar-btn-active');
   button.innerHTML = sanitizeHTML('⏹️');
   button.title = 'Stop reading';
@@ -633,7 +578,6 @@ function speakNoteContent(noteId, button) {
     voice: currentUtterance.voice?.name || 'default',
   });
 
-  // Event handlers
   currentUtterance.onend = () => {
     speakingNoteId = null;
     button.classList.remove('assist-toolbar-btn-active');
@@ -650,7 +594,6 @@ function speakNoteContent(noteId, button) {
     button.title = 'Read note aloud';
   };
 
-  // Start speaking
   window.speechSynthesis.speak(currentUtterance);
   console.log('[StickyNotes] TTS started for note:', noteId);
 }
@@ -667,16 +610,13 @@ let recordingNoteId = null;
  * @param {HTMLElement} button - STT button element
  */
 function startNoteDictation(noteId, button) {
-  // Check if already recording this note - stop if so
   if (recordingNoteId === noteId && currentRecognition) {
     currentRecognition.stop();
     return;
   }
 
-  // Stop any ongoing recognition
   if (currentRecognition) {
     currentRecognition.stop();
-    // Reset previous button state
     document.querySelectorAll('.assist-toolbar-btn-stt.assist-toolbar-btn-active').forEach(btn => {
       btn.classList.remove('assist-toolbar-btn-active');
       btn.innerHTML = sanitizeHTML('🎤');
@@ -684,7 +624,6 @@ function startNoteDictation(noteId, button) {
     });
   }
 
-  // Check for Speech Recognition support
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     console.error('[StickyNotes] Speech Recognition not supported');
@@ -692,7 +631,6 @@ function startNoteDictation(noteId, button) {
     return;
   }
 
-  // Get note element
   const noteElement = activeNotes.get(noteId);
   if (!noteElement) {
     console.error('[StickyNotes] Note not found:', noteId);
@@ -705,7 +643,6 @@ function startNoteDictation(noteId, button) {
     return;
   }
 
-  // Create recognition instance
   currentRecognition = new SpeechRecognition();
   currentRecognition.continuous = true;
   currentRecognition.interimResults = true;
@@ -713,12 +650,10 @@ function startNoteDictation(noteId, button) {
 
   recordingNoteId = noteId;
 
-  // Update button state
   button.classList.add('assist-toolbar-btn-active');
   button.innerHTML = sanitizeHTML('⏹️');
   button.title = 'Stop recording';
 
-  // Track interim vs final results
   let finalTranscript = '';
 
   currentRecognition.onresult = event => {
@@ -733,18 +668,15 @@ function startNoteDictation(noteId, button) {
       }
     }
 
-    // Show interim results in a subtle way (we could add visual feedback here)
     console.log('[StickyNotes] STT interim:', interimTranscript);
     console.log('[StickyNotes] STT final:', finalTranscript);
   };
 
   currentRecognition.onend = () => {
-    // Append final transcript to note content
     if (finalTranscript.trim()) {
       appendToNoteContent(noteId, contentElement, finalTranscript.trim());
     }
 
-    // Reset state
     recordingNoteId = null;
     currentRecognition = null;
     button.classList.remove('assist-toolbar-btn-active');
@@ -756,14 +688,12 @@ function startNoteDictation(noteId, button) {
   currentRecognition.onerror = event => {
     console.error('[StickyNotes] STT error:', event.error);
 
-    // Handle specific errors
     if (event.error === 'not-allowed') {
       alert('Microphone access denied. Please allow microphone access in your browser settings.');
     } else if (event.error !== 'aborted') {
       console.error('[StickyNotes] Speech recognition error:', event.error);
     }
 
-    // Reset state
     recordingNoteId = null;
     currentRecognition = null;
     button.classList.remove('assist-toolbar-btn-active');
@@ -771,7 +701,6 @@ function startNoteDictation(noteId, button) {
     button.title = 'Voice input';
   };
 
-  // Start recognition
   try {
     currentRecognition.start();
     console.log('[StickyNotes] STT started for note:', noteId);
@@ -793,22 +722,16 @@ function startNoteDictation(noteId, button) {
  * @param {string} text - Text to append
  */
 function appendToNoteContent(noteId, contentElement, text) {
-  // Get current content (as text to check if empty)
   const currentText = contentElement.textContent.trim();
 
   if (currentText) {
-    // Note has content - detect formatting and match it
     const formatting = detectTextFormatting(contentElement);
     const formattedText = applyFormatting(escapeHtml(text), formatting);
-
-    // Add a line break then the new text
     contentElement.innerHTML += sanitizeHTML('<br>' + formattedText);
   } else {
-    // Note is empty - just set the text (plain, user can format later)
     contentElement.innerHTML = sanitizeHTML(escapeHtml(text));
   }
 
-  // Save the updated content
   saveNoteContent(noteId, contentElement.innerHTML);
   console.log('[StickyNotes] Appended dictated text to note:', noteId);
 }
@@ -821,15 +744,11 @@ function appendToNoteContent(noteId, contentElement, text) {
 function detectTextFormatting(contentElement) {
   const formatting = { bold: false, italic: false, underline: false };
 
-  // Try to detect formatting from the last text node
   const innerHTML = contentElement.innerHTML;
 
-  // Check if content ends with formatting tags (simplified detection)
-  // Look at what tags are active at the end of the content
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = sanitizeHTML(innerHTML);
 
-  // Walk backwards to find the last text node and its parent formatting
   const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
   let lastTextNode = null;
   let node;
@@ -898,21 +817,18 @@ function escapeHtml(text) {
  * @param {HTMLElement} colorBtn - Color button element
  */
 function toggleColorPicker(noteId, colorBtn) {
-  // Check if picker already exists
   const existingPicker = document.getElementById(`color-picker-${noteId}`);
   if (existingPicker) {
     existingPicker.remove();
     return;
   }
 
-  // Create color picker dropdown
   const picker = document.createElement('div');
   picker.id = `color-picker-${noteId}`;
   picker.className = 'assist-color-picker';
   picker.setAttribute('role', 'menu');
   picker.setAttribute('aria-label', 'Choose note color');
 
-  // Define available colors
   const colors = [
     { name: 'yellow', label: 'Yellow', emoji: '💛' },
     { name: 'blue', label: 'Blue', emoji: '💙' },
@@ -921,7 +837,6 @@ function toggleColorPicker(noteId, colorBtn) {
     { name: 'purple', label: 'Purple', emoji: '💜' },
   ];
 
-  // Create color option buttons
   colors.forEach(color => {
     const option = document.createElement('button');
     option.className = 'assist-color-option';
@@ -938,16 +853,13 @@ function toggleColorPicker(noteId, colorBtn) {
     picker.appendChild(option);
   });
 
-  // Position picker below the color button
   const rect = colorBtn.getBoundingClientRect();
   picker.style.position = 'fixed';
   picker.style.top = `${rect.bottom + 5}px`;
   picker.style.left = `${rect.left}px`;
 
-  // Add to body
   document.body.appendChild(picker);
 
-  // Close picker when clicking outside
   const closeHandler = e => {
     if (!picker.contains(e.target) && e.target !== colorBtn) {
       picker.remove();
@@ -969,10 +881,8 @@ function toggleColorPicker(noteId, colorBtn) {
  */
 async function changeNoteColor(noteId, color) {
   try {
-    // Update in storage
     await storageAdapter.update(noteId, { color });
 
-    // Update in DOM
     const noteElement = activeNotes.get(noteId);
     if (noteElement) {
       applyNoteColor(noteElement, color);
@@ -994,21 +904,17 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
   let startX, startY, initialLeft, initialTop;
 
   const onMouseDown = e => {
-    // Only drag from header, not from content area
     if (e.target !== dragHandle && !dragHandle.contains(e.target)) {
       return;
     }
 
-    // Prevent text selection during drag
     e.preventDefault();
 
-    // Record initial positions
     startX = e.clientX;
     startY = e.clientY;
     initialLeft = noteElement.offsetLeft;
     initialTop = noteElement.offsetTop;
 
-    // Set drag state
     dragState = {
       noteId,
       noteElement,
@@ -1018,10 +924,7 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
       initialTop,
     };
 
-    // Add dragging class
     noteElement.classList.add('assist-dragging');
-
-    // Attach move and up listeners to document
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
 
@@ -1033,13 +936,11 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
       return;
     }
 
-    // Calculate new position
     const deltaX = e.clientX - dragState.startX;
     const deltaY = e.clientY - dragState.startY;
     const newLeft = dragState.initialLeft + deltaX;
     const newTop = dragState.initialTop + deltaY;
 
-    // Update position (constrain to viewport)
     const maxX = window.innerWidth - noteElement.offsetWidth;
     const maxY = window.innerHeight - noteElement.offsetHeight;
 
@@ -1052,15 +953,12 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
       return;
     }
 
-    // Remove dragging class
     noteElement.classList.remove('assist-dragging');
 
-    // Save new position to storage
     const newX = parseInt(noteElement.style.left, 10);
     const newY = parseInt(noteElement.style.top, 10);
     saveNotePosition(noteId, newX, newY);
 
-    // Clean up
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     dragState = null;
@@ -1068,10 +966,8 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
     console.log('[StickyNotes] Drag ended:', noteId, { x: newX, y: newY });
   };
 
-  // Attach mousedown listener to header
   dragHandle.addEventListener('mousedown', onMouseDown);
 
-  // Keyboard accessibility: Arrow keys to move
   noteElement.addEventListener('keydown', e => {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       return;
@@ -1101,7 +997,6 @@ function attachDragListeners(noteElement, dragHandle, noteId) {
     noteElement.style.left = `${newLeft}px`;
     noteElement.style.top = `${newTop}px`;
 
-    // Save position (debounced)
     saveNotePosition(noteId, newLeft, newTop);
   });
 }
@@ -1117,17 +1012,14 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
   let resizeState = null;
 
   const onMouseDown = e => {
-    // Prevent text selection during resize
     e.preventDefault();
     e.stopPropagation();
 
-    // Record initial positions and dimensions
     startX = e.clientX;
     startY = e.clientY;
     initialWidth = noteElement.offsetWidth;
     initialHeight = noteElement.offsetHeight;
 
-    // Set resize state
     resizeState = {
       noteId,
       noteElement,
@@ -1137,10 +1029,7 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
       initialHeight,
     };
 
-    // Add resizing class
     noteElement.classList.add('assist-resizing');
-
-    // Attach move and up listeners to document
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
 
@@ -1152,13 +1041,11 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
       return;
     }
 
-    // Calculate new dimensions
     const deltaX = e.clientX - resizeState.startX;
     const deltaY = e.clientY - resizeState.startY;
     const newWidth = Math.max(150, resizeState.initialWidth + deltaX); // Min width 150px
     const newHeight = Math.max(100, resizeState.initialHeight + deltaY); // Min height 100px
 
-    // Apply new dimensions
     noteElement.style.width = `${newWidth}px`;
     noteElement.style.height = `${newHeight}px`;
   };
@@ -1168,15 +1055,12 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
       return;
     }
 
-    // Remove resizing class
     noteElement.classList.remove('assist-resizing');
 
-    // Save new dimensions to storage
     const newWidth = parseInt(noteElement.style.width, 10);
     const newHeight = parseInt(noteElement.style.height, 10);
     saveNoteDimensions(noteId, newWidth, newHeight);
 
-    // Clean up
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     resizeState = null;
@@ -1184,10 +1068,8 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
     console.log('[StickyNotes] Resize ended:', noteId, { width: newWidth, height: newHeight });
   };
 
-  // Attach mousedown listener to resize handle
   resizeHandle.addEventListener('mousedown', onMouseDown);
 
-  // Keyboard accessibility: +/- keys to resize
   resizeHandle.addEventListener('keydown', e => {
     if (!['+', '=', '-', '_'].includes(e.key)) {
       return;
@@ -1200,11 +1082,9 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
     let newHeight = parseInt(noteElement.style.height, 10);
 
     if (e.key === '+' || e.key === '=') {
-      // Increase size
       newWidth += step;
       newHeight += step;
     } else if (e.key === '-' || e.key === '_') {
-      // Decrease size
       newWidth = Math.max(150, newWidth - step);
       newHeight = Math.max(100, newHeight - step);
     }
@@ -1212,7 +1092,6 @@ function attachResizeListeners(noteElement, resizeHandle, noteId) {
     noteElement.style.width = `${newWidth}px`;
     noteElement.style.height = `${newHeight}px`;
 
-    // Save dimensions
     saveNoteDimensions(noteId, newWidth, newHeight);
   });
 }
@@ -1267,10 +1146,8 @@ async function saveNoteContent(noteId, content) {
  */
 async function deleteStickyNote(noteId) {
   try {
-    // Remove from storage
     await storageAdapter.delete(noteId);
 
-    // Remove from DOM
     const noteElement = activeNotes.get(noteId);
     if (noteElement) {
       noteElement.remove();
@@ -1289,13 +1166,11 @@ async function deleteStickyNote(noteId) {
  * @param {Array<string>} currentTags - Current tags
  */
 function openTagEditModal(noteId, currentTags = []) {
-  // Close existing modal
   const existingModal = document.getElementById('assist-tag-edit-modal');
   if (existingModal) {
     existingModal.remove();
   }
 
-  // Create modal
   const modal = document.createElement('div');
   modal.id = 'assist-tag-edit-modal';
   modal.className = 'assist-tag-edit-modal-overlay';
@@ -1321,12 +1196,10 @@ function openTagEditModal(noteId, currentTags = []) {
     </div>
   `);
 
-  // Attach event listeners
   const closeBtn = modal.querySelector('.assist-tag-edit-modal-close');
   const cancelBtn = modal.querySelector('.assist-tag-edit-btn-cancel');
   const saveBtn = modal.querySelector('.assist-tag-edit-btn-save');
 
-  // Create tag input
   const tagInputContainer = modal.querySelector('#tag-input-container');
   const tagInput = createTagInput(tagInputContainer, currentTags);
 
@@ -1336,10 +1209,8 @@ function openTagEditModal(noteId, currentTags = []) {
   attachInteractiveHandler(saveBtn, 'Tag Modal Save', async () => {
     const newTags = tagInput.getTags();
     try {
-      // Update note with new tags
       await storageAdapter.update(noteId, { tags: newTags });
 
-      // Update UI
       const noteElement = activeNotes.get(noteId);
       if (noteElement) {
         const tagsContainer = noteElement.querySelector('.assist-sticky-note-tags');
@@ -1359,14 +1230,12 @@ function openTagEditModal(noteId, currentTags = []) {
     }
   });
 
-  // Close on overlay click
   attachInteractiveHandler(modal, 'Sticky Note Delete Modal Backdrop', e => {
     if (e.target === modal) {
       modal.remove();
     }
   });
 
-  // Keyboard navigation
   modal.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       modal.remove();
@@ -1393,7 +1262,6 @@ async function registerStickyNoteShortcut() {
   await registerShortcut('sticky_note_create', async () => {
     console.log('[StickyNotes] Alt+N shortcut triggered');
 
-    // Check annotations enabled flag from assist_settings
     const result = await chrome.storage.local.get('assist_settings');
     const annotationsEnabled = result.assist_settings?.annotations?.enabled;
 
@@ -1402,7 +1270,6 @@ async function registerStickyNoteShortcut() {
       return;
     }
 
-    // Create note centred in the viewport
     const x = window.innerWidth / 2 - 100;
     const y = window.innerHeight / 2 - 100;
 
@@ -1425,11 +1292,8 @@ function handleMessage(message, sender, sendResponse) {
   }
 
   if (message.action === 'createStickyNote') {
-    // Create note at specified position or center of viewport
     const x = message.x || window.innerWidth / 2 - 100;
     const y = message.y || window.innerHeight / 2 - 100;
-
-    // Use provided color or fall back to settings (which will handle default)
     const color = message.color || null;
 
     createStickyNote({ x, y, content: message.content || '', color })
@@ -1477,22 +1341,18 @@ function handleStorageChange(changes) {
     const newMode = changes.annotationStorageMode.newValue;
     console.log(`[StickyNotes] Storage mode changed to: ${newMode}`);
 
-    // Reload with new adapter
     storageMode = newMode;
     storageAdapter = getStorageAdapter(storageMode);
 
-    // Clear existing notes and reload
     activeNotes.forEach(noteElement => noteElement.remove());
     activeNotes.clear();
     loadNotesForCurrentPage();
   }
 
-  // Reload annotation settings if they changed
   if (changes.annotations) {
     const newSettings = changes.annotations.newValue;
     console.log('[StickyNotes] Annotation settings changed:', newSettings);
 
-    // Update global annotation settings
     if (newSettings) {
       annotationSettings = {
         defaultColor: newSettings.defaultColor || 'yellow',
@@ -1506,7 +1366,6 @@ function handleStorageChange(changes) {
     }
   }
 
-  // Reload TTS settings if they changed (e.g., user changed voice in popup)
   if (changes.assist_settings) {
     const newSettings = changes.assist_settings.newValue;
     const tts = newSettings?.tts;
@@ -1515,7 +1374,6 @@ function handleStorageChange(changes) {
       ttsSettings.pitch = tts.pitch || 1.0;
       ttsSettings.volume = tts.volume || 1.0;
 
-      // Update voice if changed
       if (tts.voice && tts.voice !== 'default') {
         const voices = window.speechSynthesis.getVoices();
         const voice = voices.find(v => v.name === tts.voice);

@@ -64,10 +64,8 @@ function breakdown_sleep(ms) {
 async function breakdown_generate(text, modeInfo, retryCount = 0) {
   const MAX_RETRIES = 2; // Max 2 retries (3 total attempts)
   const BASE_DELAY = 1000; // 1 second base delay
-  // Truncate very long input text to avoid token overflow
   const truncatedText = text.length > 3000 ? text.substring(0, 3000) + '...' : text;
 
-  // Token limits per mode
   const maxTokens = modeInfo.isLocal ? 800 : 1000;
 
   // Strict prompt with explicit length constraints to prevent truncation
@@ -274,7 +272,6 @@ function breakdown_extractTasks(text) {
     }
   }
 
-  // If no tasks found, split by common list patterns
   if (tasks.length === 0) {
     const listItems = text.match(/(?:^|\n)\s*(?:\d+[\.\)]|\-|\•|\*)\s*[^\n]+/g);
     if (listItems) {
@@ -287,7 +284,6 @@ function breakdown_extractTasks(text) {
     }
   }
 
-  // If still no tasks, just split into paragraphs
   if (tasks.length === 0) {
     const paragraphs = text.split(/\n\n+/);
     for (const para of paragraphs.slice(0, 5)) {
@@ -419,7 +415,6 @@ function breakdown_fallback(text) {
   const deadline = breakdown_extractDeadline(text);
   const wordCount = breakdown_extractWordCount(text);
 
-  // Generate title from first significant words
   const firstSentence = text.match(/^[^.!?]+/)?.[0] || text.substring(0, 50);
   const title = firstSentence.length > 60 ? firstSentence.substring(0, 57) + '...' : firstSentence;
 
@@ -475,10 +470,8 @@ async function breakdown_createPanel() {
     </div>
   `);
 
-  // Inject styles
   breakdown_injectStyles();
 
-  // Add event listeners
   const closeBtn = panel.querySelector('.assist-breakdown-close');
   attachInteractiveHandler(closeBtn, 'Assignment Breakdown Close Button', breakdown_hide);
 
@@ -495,15 +488,11 @@ async function breakdown_createPanel() {
     }
   });
 
-  // Make panel draggable
   breakdown_makeDraggable(panel);
 
   return panel;
 }
 
-/**
- * Injects CSS styles for the breakdown panel
- */
 function breakdown_injectStyles() {
   if (document.getElementById('assist-breakdown-styles')) {
     return;
@@ -1101,7 +1090,6 @@ async function breakdown_renderResult(result, isAI, _isCloud = false, _modelName
     </div>
   `;
 
-  // Tasks section
   if (result.tasks && result.tasks.length > 0) {
     html += `
       <div class="assist-breakdown-tasks">
@@ -1136,7 +1124,6 @@ async function breakdown_renderResult(result, isAI, _isCloud = false, _modelName
     html += '</div>';
   }
 
-  // Requirements section
   if (result.keyRequirements && result.keyRequirements.length > 0) {
     html += `
       <div class="assist-breakdown-requirements">
@@ -1150,7 +1137,6 @@ async function breakdown_renderResult(result, isAI, _isCloud = false, _modelName
     html += '</div>';
   }
 
-  // Tips section
   if (result.overallTips) {
     html += `
       <div class="assist-breakdown-tips">
@@ -1184,7 +1170,6 @@ function breakdown_toggleTask(step) {
     breakdown_checkedItems.add(step);
   }
 
-  // Re-render with current result
   if (breakdown_currentResult) {
     const statusBar = breakdown_panel?.querySelector('.assist-breakdown-status');
     const isAI = statusBar?.classList.contains('success');
@@ -1201,13 +1186,11 @@ async function breakdown_show(selectionRect = null) {
     breakdown_panel.remove();
   }
 
-  // Reset checked items for new breakdown
   breakdown_checkedItems.clear();
 
   breakdown_panel = await breakdown_createPanel();
   document.body.appendChild(breakdown_panel);
 
-  // Position near selection if available
   if (selectionRect) {
     const panelRect = breakdown_panel.getBoundingClientRect();
     let left = selectionRect.right + 10;
@@ -1219,7 +1202,6 @@ async function breakdown_show(selectionRect = null) {
     }
 
     // Vertical bounds: ensure panel stays within viewport
-    // Check bottom edge
     if (top + panelRect.height > window.innerHeight - 20) {
       top = window.innerHeight - panelRect.height - 20;
     }
@@ -1234,10 +1216,7 @@ async function breakdown_show(selectionRect = null) {
     breakdown_panel.style.right = 'auto';
   }
 
-  // Add keyboard listener for Escape
   document.addEventListener('keydown', breakdown_handleKeydown);
-
-  // Focus the panel for accessibility
   breakdown_panel.focus();
 }
 
@@ -1276,7 +1255,6 @@ async function breakdown_analyze(text) {
   breakdown_currentText = text;
   breakdown_isLoading = true;
 
-  // Show loading state
   const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
   const statusBar = breakdown_panel?.querySelector('.assist-breakdown-status');
   const actionBtns = breakdown_panel?.querySelectorAll('.assist-breakdown-btn');
@@ -1290,12 +1268,10 @@ async function breakdown_analyze(text) {
     `);
   }
 
-  // Disable action buttons
   actionBtns?.forEach(btn => {
     btn.disabled = true;
   });
 
-  // Get AI mode and check availability
   const modeInfo = await getAIMode('assignmentBreakdown');
   const availability = await checkAIAvailable(modeInfo);
 
@@ -1312,14 +1288,12 @@ async function breakdown_analyze(text) {
         breakdown_showApiKeyWarning();
         return;
       }
-      // Fall back to rule-based breakdown
       result = breakdown_fallback(text);
 
       if (statusBar) {
         setAIStatusBar(statusBar, availability, 'assist-breakdown-status');
       }
     } else {
-      // Use AI breakdown
       const response = await breakdown_generate(text, modeInfo);
       result = response.breakdown;
       isAI = true;
@@ -1335,7 +1309,6 @@ async function breakdown_analyze(text) {
   } catch (error) {
     console.error('[AssignmentBreakdown] Error:', error);
 
-    // Fall back to rule-based breakdown
     const fallbackResult = breakdown_fallback(text);
     breakdown_currentResult = fallbackResult;
     breakdown_renderResult(fallbackResult, false);
@@ -1372,7 +1345,6 @@ async function breakdown_analyze(text) {
   } finally {
     breakdown_isLoading = false;
 
-    // Re-enable action buttons
     actionBtns?.forEach(btn => {
       btn.disabled = false;
     });
@@ -1388,7 +1360,6 @@ async function breakdown_copy() {
     return;
   }
 
-  // Format as markdown checklist
   let text = `# ${breakdown_currentResult.title}\n\n`;
   text += `${breakdown_currentResult.summary}\n\n`;
 
@@ -1442,7 +1413,6 @@ function breakdown_speak() {
     return;
   }
 
-  // Format for speech
   let text = `Assignment: ${breakdown_currentResult.title}. `;
   text += `${breakdown_currentResult.summary}. `;
 
@@ -1462,12 +1432,10 @@ function breakdown_speak() {
     text += `Study tip: ${breakdown_currentResult.overallTips}`;
   }
 
-  // Use the global readText function if available
   if (typeof window.readText === 'function') {
     const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
     window.readText(text, contentArea || document.body);
   } else {
-    // Fallback to browser TTS
     const utterance = new SpeechSynthesisUtterance(text);
     window.speechSynthesis.speak(utterance);
   }
@@ -1530,7 +1498,6 @@ function breakdown_showApiKeyWarning() {
     </div>
   `);
 
-  // Attach handlers for buttons
   const openSettingsBtn = contentArea.querySelector('.breakdown-open-settings');
   if (openSettingsBtn) {
     attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
@@ -1580,10 +1547,7 @@ async function breakdown_start(text, selectionRect = null) {
     return;
   }
 
-  // Show the panel
   await breakdown_show(selectionRect);
-
-  // Start analysis
   breakdown_analyze(text);
 }
 

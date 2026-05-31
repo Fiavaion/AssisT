@@ -44,14 +44,6 @@ const simplification_settings = {
   showTermDefinitions: true,
 };
 
-// Mode detection and availability checking delegated to shared/ai-feature-client.js
-
-/**
- * Generate simplified text using local LLM
- * @param {string} text - Text to simplify
- * @param {string} level - Simplification level: 'basic' | 'moderate' | 'academic'
- * @returns {Promise<string>} The simplified text
- */
 async function simplification_generate(text, level = 'moderate', modelKey = 'local') {
   const isWebLLM =
     modelKey.startsWith('llama-') ||
@@ -180,7 +172,6 @@ ${text}
 IMPROVED VERSION:`,
   };
 
-  // Select prompt based on model type
   const promptSet = isCloud ? cloudPrompts : localPrompts;
   const prompt = promptSet[level] || promptSet.moderate;
   // Cloud: 1200-1500 tokens (API has no sendMessage timeout).
@@ -215,7 +206,6 @@ IMPROVED VERSION:`,
         options: { maxTokens, temperature: 0.3 },
       });
     } else if (isCloud) {
-      // Use cloud model (Claude API)
       response = await chrome.runtime.sendMessage({
         action: 'CLOUD_LLM_GENERATE',
         prompt,
@@ -227,7 +217,6 @@ IMPROVED VERSION:`,
         },
       });
     } else {
-      // Use local model (Ollama) - standard processing
       console.log('[TextSimplification] Sending to Ollama:', {
         action: 'LOCAL_LLM_GENERATE',
         taskType: 'textSimplification',
@@ -298,9 +287,6 @@ IMPROVED VERSION:`,
   }
 }
 
-/**
- * Common word replacements for simpler alternatives
- */
 const simplification_wordReplacements = {
   // Academic -> Simple
   utilize: 'use',
@@ -366,25 +352,14 @@ const simplification_wordReplacements = {
   ergo: 'therefore',
 };
 
-/**
- * Split text into sentences
- * @param {string} text - Text to split
- * @returns {string[]} Array of sentences
- */
 function simplification_splitSentences(text) {
   // Match sentences ending with . ! ? followed by space and capital letter or end of string
   return text.match(/[^.!?]*[.!?]+(\s|$)/g) || [text];
 }
 
-/**
- * Simplify a single sentence using word replacements
- * @param {string} sentence - Sentence to simplify
- * @returns {string} Simplified sentence
- */
 function simplification_simplifySentence(sentence) {
   let simplified = sentence;
 
-  // Replace complex words with simpler alternatives
   for (const [complex, simple] of Object.entries(simplification_wordReplacements)) {
     const escapedComplex = complex.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`\\b${escapedComplex}\\b`, 'gi');
@@ -400,19 +375,12 @@ function simplification_simplifySentence(sentence) {
   return simplified;
 }
 
-/**
- * Break long sentences into shorter ones
- * @param {string} sentence - Sentence to break
- * @returns {string} Sentence with breaks where possible
- */
 function simplification_breakLongSentence(sentence) {
-  // If sentence is short enough, return as-is
   const words = sentence.split(/\s+/);
   if (words.length <= 15) {
     return sentence;
   }
 
-  // Try to break at conjunctions and commas
   const breakPoints = [
     /,\s*(and|but|or|yet|so|however|therefore|thus|moreover|furthermore|additionally)\s+/gi,
     /;\s*/g,
@@ -441,11 +409,6 @@ function simplification_breakLongSentence(sentence) {
   return result;
 }
 
-/**
- * Add simple definitions for common technical terms
- * @param {string} text - Text to annotate
- * @returns {string} Text with inline definitions
- */
 function simplification_addDefinitions(text) {
   const termDefinitions = {
     // General academic terms
@@ -537,30 +500,20 @@ function simplification_addDefinitions(text) {
   return result;
 }
 
-/**
- * Generate simplified text using rule-based approach when LLM is unavailable
- * @param {string} text - Text to simplify
- * @param {string} level - Simplification level
- * @returns {string} Simplified text
- */
 function simplification_fallback(text, level = 'moderate') {
   let result = text;
 
-  // Step 1: Replace complex words
   result = simplification_simplifySentence(result);
 
-  // Step 2: Break long sentences (for basic and moderate levels)
   if (level === 'basic' || level === 'moderate') {
     const sentences = simplification_splitSentences(result);
     result = sentences.map(s => simplification_breakLongSentence(s.trim())).join(' ');
   }
 
-  // Step 3: Add definitions for technical terms (if enabled)
   if (simplification_settings.showTermDefinitions) {
     result = simplification_addDefinitions(result);
   }
 
-  // Step 4: Clean up extra spaces and formatting
   result = result
     .replace(/\s+/g, ' ')
     .replace(/\.\s+\./g, '.')
@@ -570,10 +523,6 @@ function simplification_fallback(text, level = 'moderate') {
   return result;
 }
 
-/**
- * Creates the floating simplification panel
- * @returns {HTMLElement} Panel element
- */
 async function simplification_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-simplification-panel';
@@ -610,10 +559,8 @@ async function simplification_createPanel() {
     </div>
   `);
 
-  // Inject styles
   simplification_injectStyles();
 
-  // Add event listeners
   const closeBtn = panel.querySelector('.assist-simplify-close');
   attachInteractiveHandler(closeBtn, 'Text Simplification Close Button', simplification_hide);
 
@@ -639,15 +586,11 @@ async function simplification_createPanel() {
     }
   });
 
-  // Make panel draggable
   simplification_makeDraggable(panel);
 
   return panel;
 }
 
-/**
- * Injects CSS styles for the simplification panel
- */
 function simplification_injectStyles() {
   if (document.getElementById('assist-simplification-styles')) {
     return;
@@ -977,10 +920,6 @@ function simplification_injectStyles() {
   document.head.appendChild(style);
 }
 
-/**
- * Make the panel draggable
- * @param {HTMLElement} panel - Panel element
- */
 function simplification_makeDraggable(panel) {
   const header = panel.querySelector('.assist-simplify-header');
   let isDragging = false;
@@ -1027,10 +966,6 @@ function simplification_makeDraggable(panel) {
   });
 }
 
-/**
- * Show the simplification panel
- * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
- */
 async function simplification_show(selectionRect = null) {
   if (simplification_panel) {
     simplification_panel.remove();
@@ -1039,7 +974,6 @@ async function simplification_show(selectionRect = null) {
   simplification_panel = await simplification_createPanel();
   document.body.appendChild(simplification_panel);
 
-  // Position near selection if available
   if (selectionRect) {
     const panelRect = simplification_panel.getBoundingClientRect();
     let left = selectionRect.right + 10;
@@ -1051,7 +985,6 @@ async function simplification_show(selectionRect = null) {
     }
 
     // Vertical bounds: ensure panel stays within viewport
-    // Check bottom edge
     if (top + panelRect.height > window.innerHeight - 20) {
       top = window.innerHeight - panelRect.height - 20;
     }
@@ -1066,16 +999,10 @@ async function simplification_show(selectionRect = null) {
     simplification_panel.style.right = 'auto';
   }
 
-  // Add keyboard listener for Escape
   document.addEventListener('keydown', simplification_handleKeydown);
-
-  // Focus the panel for accessibility
   simplification_panel.focus();
 }
 
-/**
- * Hide the simplification panel
- */
 function simplification_hide() {
   if (simplification_panel) {
     simplification_panel.remove();
@@ -1086,22 +1013,12 @@ function simplification_hide() {
   simplification_isLoading = false;
 }
 
-/**
- * Handle keyboard events
- * @param {KeyboardEvent} e - Keyboard event
- */
 function simplification_handleKeydown(e) {
   if (e.key === 'Escape') {
     simplification_hide();
   }
 }
 
-/**
- * Simplify text and update panel
- * @param {string} text - Text to simplify
- * @param {string} level - Simplification level
- * @param {string} modelKey - Model key to use ('local', 'haiku-4.5', 'sonnet-4.5', 'opus-4.5')
- */
 async function simplification_simplify(text, level = 'moderate') {
   if (simplification_isLoading || !text || text.trim().length === 0) {
     return;
@@ -1162,8 +1079,6 @@ async function simplification_simplify(text, level = 'moderate') {
       return;
     }
 
-    // Delegate to existing simplification_generate() which has carefully crafted
-    // local vs cloud prompt sets — pass the resolved modelKey from modeInfo
     const result = await simplification_generate(text, level, modeInfo.modelKey);
     simplified = result.simplified;
     isAI = true;
@@ -1209,9 +1124,6 @@ async function simplification_simplify(text, level = 'moderate') {
   }
 }
 
-/**
- * Copy the current simplified text to clipboard
- */
 async function simplification_copy() {
   if (!simplification_currentResult) {
     showToast('No simplified text to copy');
@@ -1227,40 +1139,27 @@ async function simplification_copy() {
   }
 }
 
-/**
- * Read the current simplified text using TTS
- */
 function simplification_speak() {
   if (!simplification_currentResult) {
     showToast('No simplified text to read');
     return;
   }
 
-  // Use the global readText function if available
   if (typeof window.readText === 'function') {
     const contentArea = simplification_panel?.querySelector('.assist-simplify-content');
     window.readText(simplification_currentResult, contentArea || document.body);
   } else {
-    // Fallback to browser TTS
     const utterance = new SpeechSynthesisUtterance(simplification_currentResult);
     window.speechSynthesis.speak(utterance);
   }
 }
 
-/**
- * Escape HTML to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-/**
- * Show API key warning when cloud mode is enabled but no key is configured
- */
 function simplification_showApiKeyWarning() {
   const contentArea = simplification_panel?.querySelector('.assist-simplify-content');
   if (!contentArea) {
@@ -1301,7 +1200,6 @@ function simplification_showApiKeyWarning() {
     </div>
   `);
 
-  // Attach handlers for buttons
   const openSettingsBtn = contentArea.querySelector('.simplify-open-settings');
   if (openSettingsBtn) {
     attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
@@ -1322,9 +1220,6 @@ function simplification_showApiKeyWarning() {
   }
 }
 
-/**
- * Show the empty state
- */
 function simplification_showEmptyState() {
   const contentArea = simplification_panel?.querySelector('.assist-simplify-content');
   if (!contentArea) {
@@ -1340,31 +1235,21 @@ function simplification_showEmptyState() {
   `);
 }
 
-/**
- * Main entry point for text simplification
- * @param {string} text - Text to simplify
- * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
- */
 async function simplification_start(text, selectionRect = null) {
   if (!text || text.trim().length === 0) {
     showToast('No text to simplify');
     return;
   }
 
-  // Show the panel
   await simplification_show(selectionRect);
 
   simplification_simplify(text, simplification_settings.defaultLevel);
 }
 
-/**
- * Initialize the text simplification feature
- */
 function simplification_init() {
   console.log('[TextSimplification] Initializing...');
   injectAIBadgeStyles();
 
-  // Register feature
   if (!window.assistFeatures) {
     window.assistFeatures = {};
   }
@@ -1377,7 +1262,6 @@ function simplification_init() {
     settings: simplification_settings,
   };
 
-  // Load settings from storage
   chrome.storage.local.get(['textSimplificationSettings'], result => {
     if (result.textSimplificationSettings) {
       Object.assign(simplification_settings, result.textSimplificationSettings);
@@ -1385,7 +1269,6 @@ function simplification_init() {
     }
   });
 
-  // Listen for settings updates
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.textSimplificationSettings) {
       Object.assign(simplification_settings, changes.textSimplificationSettings.newValue);

@@ -109,7 +109,6 @@ async function getCachedWebLLMModels() {
   });
 }
 
-// ─── State ────────────────────────────────────────────────────────────────────
 const state = {
   step: 0,
   assessment: null,
@@ -121,7 +120,6 @@ const state = {
   taskModels: {}, // per-task WebLLM model overrides
 };
 
-// ─── Wizard Steps ─────────────────────────────────────────────────────────────
 const STEPS = [
   { id: 'screen-welcome', name: 'Welcome' },
   { id: 'screen-scan', name: 'System Scan' },
@@ -134,7 +132,6 @@ const STEPS = [
 ];
 const TOTAL_STEPS = STEPS.length - 1; // Welcome is step 0, not counted
 
-// ─── All Features (for recommendation engine) ─────────────────────────────────
 const ALL_FEATURES = [
   {
     key: 'summarization',
@@ -186,11 +183,9 @@ const ALL_FEATURES = [
   },
 ];
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
 function showScreen(index) {
   state.step = index;
 
-  // Progress bar (step 0 = 0%, step 7 = 100%)
   const fill = document.getElementById('progress-fill');
   const bar = document.getElementById('setup-progress-bar');
   const pct = index === 0 ? 0 : Math.round((index / TOTAL_STEPS) * 100);
@@ -201,7 +196,6 @@ function showScreen(index) {
     bar.setAttribute('aria-valuenow', index);
   }
 
-  // Step label
   const labelEl = document.getElementById('step-label');
   const nameEl = document.getElementById('step-name');
   if (labelEl) {
@@ -211,7 +205,6 @@ function showScreen(index) {
     nameEl.textContent = STEPS[index]?.name || '';
   }
 
-  // Show/hide screens
   STEPS.forEach((step, i) => {
     const el = document.getElementById(step.id);
     if (el) {
@@ -219,7 +212,6 @@ function showScreen(index) {
     }
   });
 
-  // Screen-specific initialisation
   const inits = {
     1: initScan,
     2: initRecommend,
@@ -240,14 +232,12 @@ const skipToEnd = () => {
   showScreen(STEPS.length - 1);
 };
 
-// ─── Step 1: System Scan ──────────────────────────────────────────────────────
 async function initScan() {
   const nextBtn = document.getElementById('btn-scan-next');
   if (nextBtn) {
     nextBtn.disabled = true;
   }
 
-  // Reset to scanning state
   ['webgpu', 'memory', 'ollama', 'nano'].forEach(id => {
     setScanItem(id, 'Checking…', '<span class="scanning-pulse" aria-hidden="true"></span>');
   });
@@ -317,7 +307,6 @@ function setScanItem(id, value, status) {
   }
 }
 
-// ─── Step 2: AI Recommendation ────────────────────────────────────────────────
 function initRecommend() {
   if (!state.assessment) {
     return;
@@ -332,7 +321,6 @@ function initRecommend() {
   }
   container.innerHTML = '';
 
-  // Deduplicated list: recommended first, then alternatives, then 'off'
   const modes = [
     state.recommendation.recommended,
     ...state.recommendation.alternatives,
@@ -379,9 +367,7 @@ function initRecommend() {
   });
 }
 
-// ─── Step 3: Guided Setup ─────────────────────────────────────────────────────
 function initSetup() {
-  // Hide all panels
   ['cloud', 'webllm', 'ollama', 'nano', 'off'].forEach(p => {
     const el = document.getElementById(`panel-${p}`);
     if (el) {
@@ -469,8 +455,6 @@ function renderCloudModelOptions(provider) {
   group.hidden = false;
 }
 
-// OLLAMA_MODEL_CATALOG imported from ./ollama-catalog.js
-
 const OLLAMA_TASKS = [
   { key: 'summarization', label: 'Summarise text' },
   { key: 'textSimplification', label: 'Simplify text' },
@@ -539,7 +523,6 @@ function renderOllamaModelCatalog(installedModels, hasOllama) {
     ? `Add models to your Ollama library. Showing models that fit your system (${ramGB} GB RAM).`
     : `Once Ollama is running, download a model. Showing models that fit your system (${ramGB} GB RAM).`;
 
-  // Clear and rebuild
   container.innerHTML = '';
 
   const header = document.createElement('div');
@@ -702,7 +685,6 @@ function renderOllamaTaskModels(installedModels) {
       </div>
     </details>`;
 
-  // Wire per-task selects — send SET_MODEL_PREFERENCE to service worker on change
   container.querySelectorAll('select[data-task]').forEach(sel => {
     sel.addEventListener('change', () => {
       if (sel.value) {
@@ -740,8 +722,6 @@ function renderNanoPanel() {
   }
 }
 
-// ─── Step 3: WebLLM Panel ─────────────────────────────────────────────────────
-
 const WEBLLM_TASKS = [
   { key: 'summarization', label: 'Summarise text' },
   { key: 'textSimplification', label: 'Simplify text' },
@@ -757,7 +737,6 @@ async function renderWebLLMPanel() {
     return;
   }
 
-  // Load previously saved model and task overrides
   const stored = await new Promise(resolve =>
     chrome.storage.local.get(['webllmModel', 'webllmTaskModels'], r => resolve(r))
   );
@@ -766,7 +745,6 @@ async function renderWebLLMPanel() {
     Object.assign(state.taskModels, stored.webllmTaskModels);
   }
 
-  // Detect cached models (best-effort, no WebLLM engine needed)
   const cachedKeys = await getCachedWebLLMModels();
 
   // Populate model select — cached models first in their own optgroup
@@ -791,7 +769,6 @@ async function renderWebLLMPanel() {
   }
   select.innerHTML = html;
 
-  // Summary line below select
   const summaryEl = document.getElementById('webllm-cache-summary');
   if (summaryEl) {
     summaryEl.textContent =
@@ -871,7 +848,6 @@ function renderTaskModels(webllmModels, cachedKeys, defaultModel) {
   });
 }
 
-// ─── Step 5: AI Test ──────────────────────────────────────────────────────────
 const TEST_PROMPT = 'Explain what a bibliography is, simply. One or two sentences.';
 
 async function initTest() {
@@ -1011,7 +987,6 @@ function runAITest() {
     });
   }
 
-  // No AI
   if (mode === 'off') {
     return Promise.resolve({
       success: true,
@@ -1019,7 +994,6 @@ function runAITest() {
     });
   }
 
-  // Gemini Nano — direct API (graceful fallback if not yet available)
   if (mode === 'gemini-nano') {
     if (window.ai?.languageModel) {
       return window.ai.languageModel
@@ -1034,7 +1008,6 @@ function runAITest() {
     });
   }
 
-  // Cloud or Local — route through service worker
   return new Promise(resolve => {
     const actionMap = { cloud: 'CLOUD_LLM_GENERATE', local: 'LOCAL_LLM_GENERATE' };
     const action = actionMap[mode];
@@ -1093,7 +1066,6 @@ function runAITest() {
   });
 }
 
-// ─── Step 6: Feature Recommendations ─────────────────────────────────────────
 function initFeatures() {
   const container = document.getElementById('feature-recs');
   if (!container) {
@@ -1103,7 +1075,6 @@ function initFeatures() {
 
   const p = state.profile;
 
-  // Score each feature against the user's profile
   const shown = ALL_FEATURES.filter(f => {
     if (f.always) {
       return true;
@@ -1120,7 +1091,6 @@ function initFeatures() {
     return true;
   });
 
-  // Default enabled
   shown.forEach(f => {
     if (state.features[f.key] === undefined) {
       state.features[f.key] = true;
@@ -1151,7 +1121,6 @@ function initFeatures() {
   });
 }
 
-// ─── Step 7: Done ─────────────────────────────────────────────────────────────
 function initDone() {
   saveSettings();
 
@@ -1162,7 +1131,6 @@ function initDone() {
   }
 }
 
-// ─── Settings Persistence ─────────────────────────────────────────────────────
 async function saveSettings() {
   const settings = {
     aiMode: state.selectedMode || 'cloud',
@@ -1173,7 +1141,6 @@ async function saveSettings() {
     onboardingComplete: true,
   };
 
-  // Cloud: persist provider + key
   if (state.selectedMode === 'cloud') {
     const providerEl = document.getElementById('cloud-provider-select');
     const keyEl = document.getElementById('api-key-input');
@@ -1199,7 +1166,6 @@ async function saveSettings() {
     }
   }
 
-  // WebLLM: persist selected model and per-task overrides
   if (state.selectedMode === 'webllm') {
     const modelEl = document.getElementById('webllm-model-select');
     if (modelEl) {
@@ -1210,7 +1176,6 @@ async function saveSettings() {
     }
   }
 
-  // Ollama: persist selected model
   if (state.selectedMode === 'local') {
     const modelEl = document.getElementById('ollama-model-select');
     if (modelEl) {
@@ -1222,7 +1187,6 @@ async function saveSettings() {
   console.log('[AISetup] Settings saved:', settings.aiMode);
 }
 
-// ─── API Key Verification (client-side format check) ──────────────────────────
 function verifyApiKey() {
   const keyEl = document.getElementById('api-key-input');
   const statusEl = document.getElementById('api-key-status');
@@ -1257,7 +1221,6 @@ function setStatus(el, type, message) {
   }
 }
 
-// ─── Ollama Recheck ────────────────────────────────────────────────────────────
 async function recheckOllama() {
   const statusEl = document.getElementById('ollama-status-display');
   if (statusEl) {
@@ -1275,7 +1238,6 @@ async function recheckOllama() {
   });
 }
 
-// ─── WebLLM Download ──────────────────────────────────────────────────────────
 function initiateModelDownload() {
   const modelEl = document.getElementById('webllm-model-select');
   const progressEl = document.getElementById('download-progress');
@@ -1285,10 +1247,8 @@ function initiateModelDownload() {
   const downloadBtn = document.getElementById('btn-download-model');
   const modelKey = modelEl?.value || 'llama-3.2-1b';
 
-  // Save selected model
   saveSettings();
 
-  // Show progress UI
   if (progressEl) {
     progressEl.hidden = false;
   }
@@ -1446,27 +1406,21 @@ async function clearWebLLMCache() {
   }
 }
 
-// ─── Button Wiring ────────────────────────────────────────────────────────────
 function wireButtons() {
-  // Step 0: Welcome
   attachAccessibleHandler($('btn-welcome-start'), 'Start Scan', () => showScreen(1));
   attachAccessibleHandler($('btn-welcome-skip'), 'Skip Setup', skipToEnd);
 
-  // Step 1: Scan
   attachAccessibleHandler($('btn-scan-next'), 'Scan Continue', nextScreen);
   attachAccessibleHandler($('btn-scan-skip'), 'Scan Skip', skipToEnd);
 
-  // Step 2: Recommendation
   attachAccessibleHandler($('btn-recommend-back'), 'Rec Back', prevScreen);
   attachAccessibleHandler($('btn-recommend-next'), 'Use This Mode', nextScreen);
   attachAccessibleHandler($('btn-recommend-skip'), 'Rec Skip', skipToEnd);
 
-  // Step 3: Setup
   attachAccessibleHandler($('btn-setup-back'), 'Setup Back', prevScreen);
   attachAccessibleHandler($('btn-setup-next'), 'Setup Continue', nextScreen);
   attachAccessibleHandler($('btn-setup-skip'), 'Setup Skip', skipToEnd);
 
-  // Cloud sub-panel
   attachAccessibleHandler($('btn-toggle-key'), 'Toggle Key Visibility', toggleKeyVisibility);
   attachAccessibleHandler($('btn-verify-key'), 'Verify API Key', verifyApiKey);
   const providerSelect = $('cloud-provider-select');
@@ -1474,7 +1428,6 @@ function wireButtons() {
     providerSelect.addEventListener('change', () => updateApiKeyLink(providerSelect.value));
   }
 
-  // WebLLM sub-panel
   attachAccessibleHandler($('btn-download-model'), 'Download Model', initiateModelDownload);
   attachAccessibleHandler(
     $('btn-clear-webllm-cache'),
@@ -1482,10 +1435,8 @@ function wireButtons() {
     clearWebLLMCache
   );
 
-  // Ollama sub-panel
   attachAccessibleHandler($('btn-recheck-ollama'), 'Recheck Ollama', recheckOllama);
 
-  // Step 4: Needs Assessment — static answer-option buttons
   document.querySelectorAll('.answer-option').forEach(btn => {
     attachAccessibleHandler(btn, `Answer ${btn.dataset.group}:${btn.dataset.value}`, () => {
       const group = btn.dataset.group;
@@ -1503,13 +1454,11 @@ function wireButtons() {
   attachAccessibleHandler($('btn-needs-next'), 'Needs Continue', nextScreen);
   attachAccessibleHandler($('btn-needs-skip'), 'Needs Skip', skipToEnd);
 
-  // Step 5: Test
   attachAccessibleHandler($('btn-test-back'), 'Test Back', prevScreen);
   attachAccessibleHandler($('btn-test-next'), 'Test Continue', nextScreen);
   attachAccessibleHandler($('btn-test-skip'), 'Test Skip', skipToEnd);
   attachAccessibleHandler($('btn-rerun-test'), 'Rerun Test', initTest);
 
-  // Step 6: Features
   attachAccessibleHandler($('btn-features-back'), 'Features Back', prevScreen);
   attachAccessibleHandler($('btn-features-skip'), 'Features Skip', skipToEnd);
   attachAccessibleHandler($('btn-features-apply'), 'Apply Features', () => {
@@ -1517,7 +1466,6 @@ function wireButtons() {
     showScreen(STEPS.length - 1);
   });
 
-  // Step 7: Done
   attachAccessibleHandler($('btn-done-open'), 'Open AssisT', () => {
     // Signal popup to open (best-effort; may not work in all contexts)
     chrome.runtime.sendMessage({ action: 'OPEN_POPUP' }, () => {
@@ -1541,7 +1489,6 @@ function toggleKeyVisibility() {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 /** Shorthand for document.getElementById */
 const $ = id => document.getElementById(id);
 
@@ -1553,9 +1500,7 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  // Restore any previously-saved settings
   const stored = await new Promise(resolve => {
     chrome.storage.local.get(['aiMode', 'userProfile', 'enabledFeatures'], resolve);
   });

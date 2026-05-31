@@ -18,9 +18,6 @@ import { AutoPunctuator, PunctuationType } from './auto-punctuation.js';
 import { ConfidenceFeedback } from './confidence-feedback.js';
 import { EngineType, EngineStatus, createEngineManager } from './engines/index.js';
 
-/**
- * Enhanced STT Controller with multi-engine support
- */
 export class STTControllerEnhanced {
   constructor(options = {}) {
     this.settings = {
@@ -33,17 +30,14 @@ export class STTControllerEnhanced {
       voiceCommands: options.voiceCommands !== undefined ? options.voiceCommands : true,
       maxAlternatives: options.maxAlternatives || 1,
       vocabularyEnabled: options.vocabularyEnabled !== undefined ? options.vocabularyEnabled : true,
-      // Auto-punctuation settings
       autoPunctuation: options.autoPunctuation !== undefined ? options.autoPunctuation : true,
       autoPunctuationMode: options.autoPunctuationMode || 'auto',
-      // Confidence feedback settings
       confidenceFeedback:
         options.confidenceFeedback !== undefined ? options.confidenceFeedback : true,
       confidenceThreshold: options.confidenceThreshold || 0.6,
       highlightLowConfidence:
         options.highlightLowConfidence !== undefined ? options.highlightLowConfidence : true,
       showAlternatives: options.showAlternatives !== undefined ? options.showAlternatives : true,
-      // Engine settings (Phase 2.8 - S.8)
       preferOffline: options.preferOffline !== undefined ? options.preferOffline : true,
       enableWhisper: options.enableWhisper !== undefined ? options.enableWhisper : true,
       enableAzure: options.enableAzure || false,
@@ -55,7 +49,6 @@ export class STTControllerEnhanced {
       ],
     };
 
-    // State
     this.engineManager = null;
     this.isRecording = false;
     this.isPaused = false;
@@ -65,35 +58,29 @@ export class STTControllerEnhanced {
     this.interimTranscript = '';
     this.finalTranscript = '';
 
-    // Initialize command parser
     this.commandParser = new CommandParser({
       enabled: this.settings.voiceCommands,
       onCommandExecuted: result => this.handleCommandExecuted(result),
       onError: error => this.onError(error),
     });
 
-    // Initialize vocabulary manager
     this.vocabularyManager = null;
     if (this.settings.vocabularyEnabled) {
       this.initializeVocabulary(options.vocabularyOptions || {});
     }
 
-    // Initialize auto-punctuator
     this.autoPunctuator = null;
     if (this.settings.autoPunctuation) {
       this.initializeAutoPunctuation(options.autoPunctuationOptions || {});
     }
 
-    // Initialize confidence feedback
     this.confidenceFeedback = null;
     if (this.settings.confidenceFeedback) {
       this.initializeConfidenceFeedback(options.confidenceFeedbackOptions || {});
     }
 
-    // Timing tracking
     this.lastResultTimestamp = 0;
 
-    // Callbacks
     this.onStart = options.onStart || (() => {});
     this.onEnd = options.onEnd || (() => {});
     this.onResult = options.onResult || (() => {});
@@ -104,13 +91,11 @@ export class STTControllerEnhanced {
     this.onConfidenceUpdate = options.onConfidenceUpdate || (() => {});
     this.onLowConfidence = options.onLowConfidence || (() => {});
     this.onStatsUpdate = options.onStatsUpdate || (() => {});
-    // Engine-specific callbacks (Phase 2.8)
     this.onEngineChange = options.onEngineChange || (() => {});
     this.onEngineFallback = options.onEngineFallback || (() => {});
     this.onModelLoadProgress = options.onModelLoadProgress || (() => {});
     this.onModelLoadComplete = options.onModelLoadComplete || (() => {});
 
-    // Punctuation command mappings
     this.punctuationCommands = {
       period: '.',
       comma: ',',
@@ -132,7 +117,6 @@ export class STTControllerEnhanced {
       'close bracket': ']',
     };
 
-    // Initialize engine manager
     this.initialize(options);
   }
 
@@ -185,7 +169,6 @@ export class STTControllerEnhanced {
         },
       });
 
-      // Initialize all engines
       const results = await this.engineManager.initializeAll();
       console.log('[STT Enhanced] Engine initialization results:', results);
 
@@ -286,10 +269,6 @@ export class STTControllerEnhanced {
     }
   }
 
-  /**
-   * Handle recognition start
-   * @private
-   */
   handleStart() {
     this.isRecording = true;
     this.isPaused = false;
@@ -297,10 +276,6 @@ export class STTControllerEnhanced {
     this.onStart();
   }
 
-  /**
-   * Handle recognition end
-   * @private
-   */
   handleEnd() {
     if (!this.isPaused) {
       this.isRecording = false;
@@ -309,21 +284,11 @@ export class STTControllerEnhanced {
     this.onEnd();
   }
 
-  /**
-   * Handle interim result
-   * @param {string} transcript
-   * @private
-   */
   handleInterimResult(transcript) {
     this.interimTranscript = transcript;
     this.onInterimResult(transcript);
   }
 
-  /**
-   * Handle engine result
-   * @param {RecognitionResult} result
-   * @private
-   */
   handleEngineResult(result) {
     const { transcript, confidence, alternatives, processingTime, engineType } = result;
 
@@ -332,7 +297,6 @@ export class STTControllerEnhanced {
         `(confidence: ${confidence?.toFixed(2)}, time: ${processingTime}ms)`
     );
 
-    // Process voice commands if enabled
     if (this.settings.voiceCommands) {
       const commandResult = this.commandParser.parse(transcript);
 
@@ -350,7 +314,6 @@ export class STTControllerEnhanced {
       }
     }
 
-    // Process as regular text
     this.processAndInsertText(transcript, {
       confidence,
       isFinal: true,
@@ -358,21 +321,13 @@ export class STTControllerEnhanced {
     });
   }
 
-  /**
-   * Process and insert text
-   * @param {string} text
-   * @param {Object} metadata
-   * @private
-   */
   processAndInsertText(text, metadata = {}) {
     let processedText = text;
 
-    // Process punctuation commands
     if (this.settings.punctuationCommands) {
       processedText = this.processPunctuationCommands(processedText);
     }
 
-    // Apply auto-punctuation
     if (this.autoPunctuator && this.autoPunctuator.isEnabled()) {
       const currentTime = Date.now();
       const punctResult = this.autoPunctuator.process(processedText, {
@@ -395,19 +350,16 @@ export class STTControllerEnhanced {
       processedText = this.capitalizeFirstWord(processedText);
     }
 
-    // Save to history
     if (this.targetElement) {
       this.commandParser.saveToHistory(this.targetElement);
     }
 
-    // Insert text
     if (this.targetElement) {
       this.insertText(this.targetElement, processedText);
     }
 
     this.lastDictation = processedText;
 
-    // Confidence feedback
     if (this.confidenceFeedback && this.confidenceFeedback.isEnabled()) {
       const result = this.confidenceFeedback.addResult({
         transcript: processedText,
@@ -432,11 +384,6 @@ export class STTControllerEnhanced {
     this.onResult(processedText, this.finalTranscript);
   }
 
-  /**
-   * Execute voice command
-   * @param {Object} commandResult
-   * @private
-   */
   executeCommand(commandResult) {
     const { type, params } = commandResult;
     console.log(`[STT Enhanced] Executing command: ${type}`, params);
@@ -470,11 +417,6 @@ export class STTControllerEnhanced {
     }
   }
 
-  /**
-   * Execute navigation command
-   * @param {Object} params
-   * @private
-   */
   executeNavigate(params) {
     // Implementation from original STT controller
     if (!this.targetElement) {
@@ -487,11 +429,6 @@ export class STTControllerEnhanced {
     });
   }
 
-  /**
-   * Execute format command
-   * @param {Object} params
-   * @private
-   */
   executeFormat(params) {
     // Implementation from original STT controller
     if (!this.targetElement) {
@@ -504,21 +441,11 @@ export class STTControllerEnhanced {
     });
   }
 
-  /**
-   * Handle command execution
-   * @param {Object} result
-   * @private
-   */
   handleCommandExecuted(result) {
     console.log(`[STT Enhanced] Command executed: ${result.message}`);
     this.onCommandExecuted(result);
   }
 
-  /**
-   * Handle error
-   * @param {Object} event
-   * @private
-   */
   handleError(event) {
     console.error('[STT Enhanced] Error:', event.error || event.message);
     this.isRecording = false;
@@ -550,12 +477,6 @@ export class STTControllerEnhanced {
     return processed.replace(/\s+/g, ' ').trim();
   }
 
-  /**
-   * Capitalize first word
-   * @param {string} text
-   * @returns {string}
-   * @private
-   */
   capitalizeFirstWord(text) {
     if (!text || text.length === 0) {
       return text;
@@ -563,12 +484,6 @@ export class STTControllerEnhanced {
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
-  /**
-   * Insert text into target element
-   * @param {HTMLElement} element
-   * @param {string} text
-   * @private
-   */
   insertText(element, text) {
     if (!element) {
       return;

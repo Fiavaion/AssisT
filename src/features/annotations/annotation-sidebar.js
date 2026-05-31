@@ -81,26 +81,16 @@ async function initializeAnnotationSidebar() {
   console.log('[AnnotationSidebar] Initializing...');
 
   try {
-    // Load storage mode from settings
     await loadStorageMode();
 
-    // Initialize storage adapter
     storageAdapter = getStorageAdapter(storageMode);
     console.log(`[AnnotationSidebar] Using storage mode: ${storageMode}`);
 
-    // Inject sidebar styles
     injectStyles();
-
-    // Create sidebar element
     createSidebar();
 
-    // Listen for toggle commands from popup
     chrome.runtime.onMessage.addListener(handleMessage);
-
-    // Listen for storage mode changes
     chrome.storage.local.onChanged.addListener(handleStorageChange);
-
-    // Listen for annotation changes (custom events from annotation modules)
     document.addEventListener('annotationChanged', handleAnnotationChange);
 
     console.log('[AnnotationSidebar] Initialized successfully');
@@ -146,11 +136,9 @@ function handleStorageChange(changes) {
     const newMode = changes.annotationStorageMode.newValue;
     console.log(`[AnnotationSidebar] Storage mode changed to: ${newMode}`);
 
-    // Reload with new adapter
     storageMode = newMode;
     storageAdapter = getStorageAdapter(storageMode);
 
-    // Refresh sidebar if open
     if (isSidebarOpen) {
       loadAnnotations();
     }
@@ -163,7 +151,6 @@ function handleStorageChange(changes) {
 function handleAnnotationChange(event) {
   console.log('[AnnotationSidebar] Annotation changed:', event.detail);
 
-  // Refresh sidebar if open
   if (isSidebarOpen) {
     loadAnnotations();
   }
@@ -264,7 +251,6 @@ function createSidebar() {
     </div>
   `);
 
-  // Attach event listeners
   const closeBtn = sidebar.querySelector('#sidebar-close-btn');
   attachInteractiveHandler(closeBtn, 'Sidebar Close', closeSidebar);
 
@@ -280,7 +266,6 @@ function createSidebar() {
   searchInput.addEventListener('input', handleSearchInput);
   attachInteractiveHandler(searchClearBtn, 'Search Clear', clearSearch);
 
-  // Keyboard support (Escape to close or clear search)
   sidebar.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (currentSearchQuery) {
@@ -316,27 +301,20 @@ async function openSidebar() {
     createSidebar();
   }
 
-  // Load available tags for filter dropdown
   await loadAvailableTags();
-
-  // Load all annotations (for search) and current page annotations
   await loadAllAnnotations();
   await loadAnnotations();
-
-  // Apply filters initially
   applyFilters();
 
-  // Slide in
   sidebarElement.style.transform = 'translateX(0)';
   isSidebarOpen = true;
 
-  // Focus the search input
   setTimeout(() => {
     const searchInput = sidebarElement.querySelector('#sidebar-search-input');
     if (searchInput) {
       searchInput.focus();
     }
-  }, 300); // Wait for animation
+  }, 300);
 
   console.log('[AnnotationSidebar] Sidebar opened');
 }
@@ -349,7 +327,6 @@ function closeSidebar() {
     return;
   }
 
-  // Slide out
   sidebarElement.style.transform = 'translateX(100%)';
   isSidebarOpen = false;
 

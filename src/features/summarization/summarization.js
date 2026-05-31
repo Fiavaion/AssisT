@@ -42,25 +42,20 @@ const summarization_settings = {
   showInHighlightMenu: true,
 };
 
-// LLM BRIDGE COMMUNICATION
-// (Routing delegated to shared/ai-feature-client.js)
-
 /**
- * Generate a basic extractive summary when LLM is unavailable
- * Uses sentence scoring based on word frequency
+ * Generate a basic extractive summary when LLM is unavailable.
+ * Uses sentence scoring based on word frequency.
  * @param {string} text - Text to summarize
  * @param {string} level - Summary level
  * @returns {string} Extractive summary
  */
 function summarization_fallback(text, level = 'brief') {
-  // Split into sentences
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
 
   if (sentences.length <= 2) {
     return text.trim();
   }
 
-  // Calculate word frequency
   const words = text.toLowerCase().match(/\b[a-z]+\b/g) || [];
   const wordFreq = {};
   const stopWords = new Set([
@@ -170,7 +165,6 @@ function summarization_fallback(text, level = 'brief') {
     }
   }
 
-  // Score sentences
   const scoredSentences = sentences.map((sentence, index) => {
     const sentenceWords = sentence.toLowerCase().match(/\b[a-z]+\b/g) || [];
     let score = 0;
@@ -187,22 +181,16 @@ function summarization_fallback(text, level = 'brief') {
     return { sentence: sentence.trim(), score, index };
   });
 
-  // Sort by score and select top sentences
   scoredSentences.sort((a, b) => b.score - a.score);
 
   const numSentences = level === 'detailed' ? 5 : level === 'moderate' ? 3 : 1;
   const topSentences = scoredSentences.slice(0, Math.min(numSentences, sentences.length));
 
-  // Sort by original order
   topSentences.sort((a, b) => a.index - b.index);
 
   return topSentences.map(s => s.sentence).join(' ');
 }
 
-/**
- * Creates the floating summary panel
- * @returns {HTMLElement} Panel element
- */
 function summarization_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-summarization-panel';
@@ -239,10 +227,8 @@ function summarization_createPanel() {
     </div>
   `);
 
-  // Inject styles
   summarization_injectStyles();
 
-  // Add event listeners
   const closeBtn = panel.querySelector('.assist-summary-close');
   attachInteractiveHandler(closeBtn, 'Summarization Close Button', summarization_hide);
 
@@ -268,15 +254,11 @@ function summarization_createPanel() {
     }
   });
 
-  // Make panel draggable
   summarization_makeDraggable(panel);
 
   return panel;
 }
 
-/**
- * Injects CSS styles for the summarization panel
- */
 function summarization_injectStyles() {
   if (document.getElementById('assist-summarization-styles')) {
     return;
@@ -601,10 +583,6 @@ function summarization_injectStyles() {
   document.head.appendChild(style);
 }
 
-/**
- * Make the panel draggable
- * @param {HTMLElement} panel - Panel element
- */
 function summarization_makeDraggable(panel) {
   const header = panel.querySelector('.assist-summary-header');
   let isDragging = false;
@@ -651,10 +629,6 @@ function summarization_makeDraggable(panel) {
   });
 }
 
-/**
- * Show the summarization panel
- * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
- */
 function summarization_show(selectionRect = null) {
   if (summarization_panel) {
     summarization_panel.remove();
@@ -690,16 +664,10 @@ function summarization_show(selectionRect = null) {
     summarization_panel.style.right = 'auto';
   }
 
-  // Add keyboard listener for Escape
   document.addEventListener('keydown', summarization_handleKeydown);
-
-  // Focus the panel for accessibility
   summarization_panel.focus();
 }
 
-/**
- * Hide the summarization panel
- */
 function summarization_hide() {
   if (summarization_panel) {
     summarization_panel.remove();
@@ -710,21 +678,12 @@ function summarization_hide() {
   summarization_isLoading = false;
 }
 
-/**
- * Handle keyboard events
- * @param {KeyboardEvent} e - Keyboard event
- */
 function summarization_handleKeydown(e) {
   if (e.key === 'Escape') {
     summarization_hide();
   }
 }
 
-/**
- * Summarize text and update panel
- * @param {string} text - Text to summarize
- * @param {string} level - Summary level
- */
 async function summarization_summarize(text, level = 'brief') {
   if (summarization_isLoading || !text || text.trim().length === 0) {
     return;
@@ -737,7 +696,6 @@ async function summarization_summarize(text, level = 'brief') {
   const statusBar = summarization_panel?.querySelector('.assist-summary-status');
   const actionBtns = summarization_panel?.querySelectorAll('.assist-summary-btn');
 
-  // Resolve mode and build the level-aware prompt
   const modeInfo = await getAIMode('summarization');
 
   if (contentArea) {
@@ -757,7 +715,6 @@ async function summarization_summarize(text, level = 'brief') {
     let summary;
     let isAI = false;
 
-    // Check availability before generating
     const availability = await checkAIAvailable(modeInfo);
 
     if (!availability.available) {
@@ -846,9 +803,6 @@ async function summarization_summarize(text, level = 'brief') {
   }
 }
 
-/**
- * Copy the current summary to clipboard
- */
 async function summarization_copy() {
   if (!summarization_currentSummary) {
     showToast('No summary to copy');
@@ -864,40 +818,27 @@ async function summarization_copy() {
   }
 }
 
-/**
- * Read the current summary using TTS
- */
 function summarization_speak() {
   if (!summarization_currentSummary) {
     showToast('No summary to read');
     return;
   }
 
-  // Use the global readText function if available
   if (typeof window.readText === 'function') {
     const contentArea = summarization_panel?.querySelector('.assist-summary-content');
     window.readText(summarization_currentSummary, contentArea || document.body);
   } else {
-    // Fallback to browser TTS
     const utterance = new SpeechSynthesisUtterance(summarization_currentSummary);
     window.speechSynthesis.speak(utterance);
   }
 }
 
-/**
- * Escape HTML to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-/**
- * Show API key warning when cloud mode is enabled but no key is configured
- */
 function summarization_showApiKeyWarning() {
   const contentArea = summarization_panel?.querySelector('.assist-summary-content');
   if (!contentArea) {
@@ -938,7 +879,6 @@ function summarization_showApiKeyWarning() {
     </div>
   `);
 
-  // Attach handlers for buttons
   const openSettingsBtn = contentArea.querySelector('.summary-open-settings');
   if (openSettingsBtn) {
     attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
@@ -959,9 +899,6 @@ function summarization_showApiKeyWarning() {
   }
 }
 
-/**
- * Show the empty state
- */
 function summarization_showEmptyState() {
   const contentArea = summarization_panel?.querySelector('.assist-summary-content');
   if (!contentArea) {
@@ -977,32 +914,20 @@ function summarization_showEmptyState() {
   `);
 }
 
-/**
- * Main entry point for summarization
- * @param {string} text - Text to summarize
- * @param {DOMRect} [selectionRect] - Optional selection rectangle for positioning
- */
 function summarization_start(text, selectionRect = null) {
   if (!text || text.trim().length === 0) {
     showToast('No text to summarize');
     return;
   }
 
-  // Show the panel
   summarization_show(selectionRect);
-
-  // Start summarization
   summarization_summarize(text, summarization_settings.defaultLevel);
 }
 
-/**
- * Initialize the summarization feature
- */
 function summarization_init() {
   console.log('[Summarization] Initializing...');
   injectAIBadgeStyles();
 
-  // Register feature
   if (!window.assistFeatures) {
     window.assistFeatures = {};
   }
@@ -1015,7 +940,6 @@ function summarization_init() {
     settings: summarization_settings,
   };
 
-  // Load settings from storage
   chrome.storage.local.get(['summarizationSettings'], result => {
     if (result.summarizationSettings) {
       Object.assign(summarization_settings, result.summarizationSettings);
@@ -1023,7 +947,6 @@ function summarization_init() {
     }
   });
 
-  // Listen for settings updates
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.summarizationSettings) {
       Object.assign(summarization_settings, changes.summarizationSettings.newValue);

@@ -105,7 +105,6 @@ function bindEvents() {
   // because it's a standalone page without competing event listeners that would cause
   // the race conditions that mousedown handlers prevent in the popup context.
 
-  // Welcome screen
   if (elements.btnStart) {
     elements.btnStart.addEventListener('click', _e => {
       console.log('[Discovery] Start Quiz button clicked');
@@ -119,7 +118,6 @@ function bindEvents() {
     console.error('[Discovery] btnStart element not found - check HTML IDs');
   }
 
-  // Question screen
   if (elements.btnBack) {
     elements.btnBack.addEventListener('click', _e => {
       console.log('[Discovery] Back button clicked');
@@ -151,7 +149,6 @@ function bindEvents() {
     });
   }
 
-  // Results screen
   if (elements.btnTryDemo) {
     elements.btnTryDemo.addEventListener('click', _e => {
       console.log('[Discovery] Try Demo button clicked');
@@ -193,7 +190,6 @@ function bindEvents() {
     });
   }
 
-  // Quiz mode selection
   elements.quizModeOptions.forEach(option => {
     option.addEventListener('click', _e => {
       const mode = option.dataset.mode;
@@ -202,7 +198,6 @@ function bindEvents() {
     });
   });
 
-  // Apply preset button
   if (elements.btnApplyPreset) {
     elements.btnApplyPreset.addEventListener('click', _e => {
       console.log('[Discovery] Apply Preset button clicked');
@@ -226,7 +221,6 @@ function showScreen(screenName) {
   });
   state.currentScreen = screenName;
 
-  // Focus management for accessibility
   const activeScreen = elements.screens[screenName];
   if (activeScreen) {
     const heading = activeScreen.querySelector('h1, h2');
@@ -237,7 +231,6 @@ function showScreen(screenName) {
 }
 
 function updateProgress() {
-  // Use activeQuestions if available, otherwise default to full quiz length
   const questionsLength = state.activeQuestions.length || QUESTIONS.length;
   const total = questionsLength + 1; // +1 for results
   let current = 0;
@@ -265,7 +258,6 @@ function updateProgress() {
 function selectQuizMode(mode) {
   state.quizMode = mode;
 
-  // Update UI
   elements.quizModeOptions.forEach(option => {
     const isSelected = option.dataset.mode === mode;
     option.classList.toggle('selected', isSelected);
@@ -278,7 +270,6 @@ function selectQuizMode(mode) {
 function startQuiz() {
   state.currentQuestion = 0;
   state.responses = { primary: {}, sub: {} };
-  // Get questions based on selected mode
   state.activeQuestions = getQuestionsForMode(state.quizMode);
   console.log(
     `[Discovery] Starting ${state.quizMode} quiz with ${state.activeQuestions.length} questions`
@@ -342,26 +333,17 @@ function renderQuestion() {
     return;
   }
 
-  // Update question number
   if (elements.questionNumber) {
     elements.questionNumber.textContent = `Question ${state.currentQuestion + 1} of ${state.activeQuestions.length}`;
   }
 
-  // Update question text
   if (elements.questionHeading) {
     elements.questionHeading.textContent = question.question;
   }
 
-  // Render options
   renderOptions(question);
-
-  // Render sub-questions
   renderSubQuestions(question);
-
-  // Update navigation buttons
   updateNavigationButtons();
-
-  // Reset tell me more
   collapseTellMeMore();
 }
 
@@ -394,7 +376,6 @@ function renderOptions(question) {
     )
     .join('');
 
-  // Bind option click events
   elements.optionsContainer.querySelectorAll('.option-item').forEach(item => {
     attachInteractiveHandler(item, 'Discovery Quiz Option', () =>
       selectOption(question.id, parseInt(item.dataset.value))
@@ -411,7 +392,6 @@ function renderOptions(question) {
 function selectOption(questionId, value) {
   state.responses.primary[questionId] = value;
 
-  // Update UI
   elements.optionsContainer?.querySelectorAll('.option-item').forEach(item => {
     const isSelected = parseInt(item.dataset.value) === value;
     item.classList.toggle('selected', isSelected);
@@ -454,7 +434,6 @@ function renderSubQuestions(question) {
     )
     .join('');
 
-  // Bind sub-question events
   elements.subQuestions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
     checkbox.addEventListener('change', e => {
       const subId = e.target.id.replace('sub-', '');
@@ -524,7 +503,6 @@ function renderResults() {
     return;
   }
 
-  // Show preset recommendation if available
   renderPresetRecommendation();
 
   if (state.recommendations.length === 0) {
@@ -542,7 +520,6 @@ function renderResults() {
     .map(rec => renderRecommendationCard(rec))
     .join('');
 
-  // Bind toggle events
   elements.recommendationsContainer.querySelectorAll('.toggle-switch input').forEach(toggle => {
     toggle.addEventListener('change', e => {
       const featureId = e.target.dataset.featureId;
@@ -553,7 +530,6 @@ function renderResults() {
     });
   });
 
-  // Bind expand/collapse events
   elements.recommendationsContainer.querySelectorAll('.expand-btn').forEach(btn => {
     attachInteractiveHandler(btn, 'Discovery Recommendation Expand Button', e => {
       const card = e.target.closest('.recommendation-card');
@@ -569,9 +545,6 @@ function renderResults() {
   });
 }
 
-/**
- * Render the preset recommendation section
- */
 function renderPresetRecommendation() {
   const preset = state.recommendedPreset;
 
