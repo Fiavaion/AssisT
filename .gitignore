@@ -100,8 +100,9 @@ test-ai-features.html
 test-page.html
 start-ollama-cors.bat
 
-# === Project Documentation (all internal) ===
-docs/
+# === Project Documentation (internal, except docs/quality which is public) ===
+docs/*
+!docs/quality/
 
 # === Legacy directories archived to ~/.claude/archive/AssisT/ ===
 # These folders were removed from the repo on 2026-04-19 pre-public-flip.
