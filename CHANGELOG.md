@@ -416,7 +416,8 @@ versioned releases but are preserved for history and rollback reference.
 
 ---
 
-[Unreleased]: https://github.com/fiavaion/AssisT/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/fiavaion/AssisT/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/fiavaion/AssisT/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/fiavaion/AssisT/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/fiavaion/AssisT/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/fiavaion/AssisT/compare/v0.1.2...v0.9.0

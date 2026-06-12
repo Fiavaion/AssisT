@@ -37,6 +37,7 @@ tmpclaude-*
 task-agent-config.json
 CLAUDE.md
 claude.md
+projectmemory.md
 
 # Development tooling (local only)
 .husky/
