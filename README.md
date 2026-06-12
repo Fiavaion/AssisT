@@ -1,6 +1,6 @@
 # AssisT — Adaptive Augmentative Tool for All Learners
 
-**Version:** 0.1.2 | **License:** EUPL-1.2 | **Platform:** Chrome Extension (Manifest V3)
+**Version:** 0.9.3 | **License:** EUPL-1.2 | **Platform:** Chrome Extension (Manifest V3)
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/assist-adaptive-augmentat/dkekfjomoacmhbkekjkngmpbdlljjfhi)
 [![WCAG 2.2 AA](https://img.shields.io/badge/WCAG-2.2%20AA-blue?style=for-the-badge)](https://www.w3.org/WAI/WCAG22/quickref/)
