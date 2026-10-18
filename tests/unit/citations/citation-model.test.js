@@ -4,14 +4,13 @@
 
 import {
   CitationType,
+  CITATION_FIELD_KEYS,
   createCitation,
   validateCitation,
-  detectCitationType,
-  parseAuthors,
   formatAuthorHarvard,
   extractYear,
-  createCitationKey,
 } from '../../../src/features/citations/citation-model.js';
+import { assessCitation } from '../../../src/features/citations/reassurance-engine.js';
 
 describe('Citation Model', () => {
   describe('createCitation', () => {
@@ -49,6 +48,60 @@ describe('Citation Model', () => {
 
       expect(citation1.id).not.toBe(citation2.id);
     });
+
+    // The capture flow's whole point: the exact words a student highlighted, where they live, and
+    // why they kept them. A hand-written field list in here dropped all three on the way in.
+    test('keeps the quote, the locator and the note a capture supplied', () => {
+      const citation = createCitation({
+        title: 'Thinking, Fast and Slow',
+        quote: 'The confidence people have in their beliefs is not a measure of quality.',
+        locator: '402',
+        notes: 'Backs up my point about overconfidence.',
+      });
+
+      expect(citation.quote).toBe(
+        'The confidence people have in their beliefs is not a measure of quality.'
+      );
+      expect(citation.locator).toBe('402');
+      expect(citation.notes).toBe('Backs up my point about overconfidence.');
+    });
+
+    test('carries every field of the schema, so nothing can be silently dropped', () => {
+      const citation = createCitation({ title: 'T' });
+      CITATION_FIELD_KEYS.forEach(key => {
+        expect(citation[key]).toBeDefined();
+      });
+    });
+
+    test('fills every schema field from the data it is given', () => {
+      // One non-empty value per field, so a field missing from the copy shows up as a failure here
+      // rather than as a lost detail in a student's library.
+      const given = {
+        type: 'book',
+        url: 'https://example.com/x',
+        title: 'A Book',
+        authors: ['Okonkwo, A.'],
+        publicationDate: '2019',
+        accessDate: '2026-01-02',
+        publisher: 'Pub House',
+        siteName: 'Example',
+        doi: '10.1234/x',
+        isbn: '978-0-14-103805-8',
+        issn: '1234-5678',
+        quote: 'Exact words.',
+        locator: 'p. 12',
+        notes: 'My reason.',
+        extra: { edition: '2nd' },
+        tags: ['memory'],
+        projectId: '3',
+      };
+
+      const citation = createCitation(given);
+
+      CITATION_FIELD_KEYS.forEach(key => {
+        expect(citation[key]).toEqual(given[key]);
+      });
+    });
   });
 
   describe('validateCitation', () => {
@@ -57,6 +110,7 @@ describe('Citation Model', () => {
         title: 'Test Title',
         authors: ['Smith, J.'],
         url: 'https://example.com',
+        publicationDate: '2019',
         accessDate: '2025-11-24',
       });
 
@@ -76,100 +130,88 @@ describe('Citation Model', () => {
       const result = validateCitation(citation);
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Title is required');
+      expect(result.problems).toEqual([
+        { field: 'title', message: expect.stringContaining('title') },
+      ]);
     });
 
-    test('should reject citation without URL', () => {
+    test('a whitespace-only title is no title', () => {
+      expect(validateCitation(createCitation({ title: '   ' })).valid).toBe(false);
+    });
+
+    // The blocker this rule was relaxed for: five of the ten source types vanished on save when a
+    // student filled the wizard in the way the wizard invites. A printed book with a title and
+    // nothing else is a source a student genuinely has, and refusing to store it lost it outright.
+    test('stores a printed book with nothing but a title', () => {
+      const citation = createCitation({ title: 'On Growth and Form', type: 'book' });
+
+      expect(validateCitation(citation).valid).toBe(true);
+    });
+
+    test('stores a thesis, chapter or other source with no link and no author', () => {
+      ['thesis', 'chapter', 'other', 'pdf'].forEach(type => {
+        const citation = createCitation({ title: 'A source', type });
+        expect(validateCitation(citation).valid).toBe(true);
+      });
+    });
+
+    test('accepts a DOI-bearing article with no URL (Zotero-style import)', () => {
       const citation = createCitation({
-        title: 'Test',
+        title: 'Working Memory',
         authors: ['Smith, J.'],
+        doi: '10.1234/x',
       });
       citation.url = '';
-
-      const result = validateCitation(citation);
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('URL is required');
+      expect(validateCitation(citation).valid).toBe(true);
     });
 
-    test('should reject citation without authors', () => {
+    test('accepts an ISBN-bearing book with no URL', () => {
       const citation = createCitation({
-        title: 'Test',
-        url: 'https://example.com',
+        title: 'A Book',
+        authors: ['Okonkwo, A.'],
+        isbn: '978-0-13-468599-1',
       });
-
-      const result = validateCitation(citation);
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('At least one author is required (use "Anon." if unknown)');
-    });
-  });
-
-  describe('detectCitationType', () => {
-    test('should detect YouTube video', () => {
-      const type = detectCitationType('https://www.youtube.com/watch?v=123', {});
-      expect(type).toBe(CitationType.VIDEO);
+      citation.url = '';
+      expect(validateCitation(citation).valid).toBe(true);
     });
 
-    test('should detect social media', () => {
-      const type1 = detectCitationType('https://twitter.com/user/status/123', {});
-      const type2 = detectCitationType('https://facebook.com/post/123', {});
-
-      expect(type1).toBe(CitationType.SOCIAL_MEDIA);
-      expect(type2).toBe(CitationType.SOCIAL_MEDIA);
+    test('a missing author, link or year is not a refusal', () => {
+      expect(
+        validateCitation(createCitation({ title: 'Test', url: 'https://example.com' })).valid
+      ).toBe(true);
+      expect(
+        validateCitation(createCitation({ title: 'Test', authors: ['Smith, J.'] })).valid
+      ).toBe(true);
     });
 
-    test('should detect PDF', () => {
-      const type = detectCitationType('https://example.com/document.pdf', {});
-      expect(type).toBe(CitationType.PDF);
+    test('never throws on a malformed record', () => {
+      expect(() => validateCitation({})).not.toThrow();
+      expect(() => validateCitation(null)).not.toThrow();
+      expect(validateCitation({ title: 'T', authors: undefined }).valid).toBe(true);
     });
 
-    test('should detect book from JSON-LD', () => {
-      const metadata = {
-        jsonLD: { '@type': 'Book' },
-      };
-      const type = detectCitationType('https://example.com', metadata);
-      expect(type).toBe(CitationType.BOOK);
+    // Relaxing the rule must not lose the advice. The missing author, year and link are demoted
+    // from refusals to the "worth a check" verdict that reassurance-engine.js already owns and the
+    // wizard's CHECK step already shows — so they are checked THERE, not restated here.
+    test('a missing author, year and link are still said, by the reassurance engine', () => {
+      const { level, reasons } = assessCitation(
+        createCitation({ title: 'A Borrowed Book', type: 'book' })
+      );
+
+      expect(level).toBe('amber');
+      expect(reasons.map(r => r.field).sort()).toEqual(['author', 'link', 'year']);
     });
 
-    test('should detect news article from JSON-LD', () => {
-      const metadata = {
-        jsonLD: { '@type': 'NewsArticle' },
-      };
-      const type = detectCitationType('https://example.com', metadata);
-      expect(type).toBe(CitationType.NEWSPAPER);
-    });
+    // The access date is the day the student opened the page, not the year the source was
+    // published: every formatter refuses it as a year and prints "no date", so a verdict that
+    // accepted it said "looks complete" about a reference the student was about to hand in
+    // undated. The publication year is now the only year assessCitation reads.
+    test('a missing publication year is flagged even when an access date was recorded', () => {
+      const withAccessDate = assessCitation(createCitation({ title: 'A Borrowed Book' }));
+      expect(withAccessDate.reasons.map(r => r.field)).toContain('year');
 
-    test('should default to website', () => {
-      const type = detectCitationType('https://example.com', {});
-      expect(type).toBe(CitationType.WEBSITE);
-    });
-  });
-
-  describe('parseAuthors', () => {
-    test('should parse single author', () => {
-      const authors = parseAuthors('Smith, John');
-      expect(authors).toEqual(['Smith, John']);
-    });
-
-    test('should parse multiple authors with semicolon', () => {
-      const authors = parseAuthors('Smith, John; Doe, Jane');
-      expect(authors).toEqual(['Smith, John', 'Doe, Jane']);
-    });
-
-    test('should parse authors with "and"', () => {
-      const authors = parseAuthors('Smith, John and Doe, Jane');
-      expect(authors).toEqual(['Smith, John', 'Doe, Jane']);
-    });
-
-    test('should handle empty string', () => {
-      const authors = parseAuthors('');
-      expect(authors).toEqual([]);
-    });
-
-    test('should handle null', () => {
-      const authors = parseAuthors(null);
-      expect(authors).toEqual([]);
+      const undated = assessCitation({ ...createCitation({ title: 'A Book' }), accessDate: '' });
+      expect(undated.reasons.map(r => r.field)).toContain('year');
     });
   });
 
@@ -222,50 +264,4 @@ describe('Citation Model', () => {
     });
   });
 
-  describe('createCitationKey', () => {
-    test('should create citation key with author and year', () => {
-      const citation = createCitation({
-        authors: ['Smith, John'],
-        publicationDate: '2025-11-24',
-        title: 'This is a test title',
-      });
-
-      const key = createCitationKey(citation);
-      expect(key).toMatch(/^Smith2025-/);
-    });
-
-    test('should handle Anon author', () => {
-      const citation = createCitation({
-        authors: [],
-        publicationDate: '2025-11-24',
-        title: 'Test',
-      });
-      citation.authors = ['Anon.'];
-
-      const key = createCitationKey(citation);
-      expect(key).toMatch(/^Anon2025-/);
-    });
-
-    test('should truncate long titles', () => {
-      const citation = createCitation({
-        authors: ['Smith, John'],
-        publicationDate: '2025-11-24',
-        title: 'This is a very long title with many words that should be truncated',
-      });
-
-      const key = createCitationKey(citation);
-      expect(key.length).toBeLessThan(50);
-    });
-
-    test('should use access date if no publication date', () => {
-      const citation = createCitation({
-        authors: ['Smith, John'],
-        accessDate: '2025-11-24',
-        title: 'Test',
-      });
-
-      const key = createCitationKey(citation);
-      expect(key).toMatch(/^Smith2025-/);
-    });
-  });
 });

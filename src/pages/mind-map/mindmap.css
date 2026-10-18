@@ -1,0 +1,1253 @@
+/*
+ * Mind map editor — the page's whole design layer.
+ *
+ * The canvas is the stage and everything else docks to it: a header, a single toolbar row, an
+ * outline dock on the left, a tabbed dock on the right, and no floating panel anywhere. The panes
+ * used to ship six stylesheets of their own, each with a light-only palette and its own font stack,
+ * bridged back to this file through a `body .mm-*` block. That is gone: the tokens below are the
+ * only palette on the page, the component stylesheets hold layout only, and the button, field and
+ * focus-ring rules here cover the components by name so there is one of each on the page.
+ *
+ * The outline is the editor (ADR 0001), so the visual work is in service of reading a tree quickly
+ * and never in place of the text: colour is always accompanied by a name, state is always
+ * accompanied by a word, and nothing depends on a hover.
+ *
+ * Accessibility budget held throughout:
+ *   - SC 1.4.3 / 1.4.11 contrast: body text ≥ 4.5:1 and control boundaries ≥ 3:1 in BOTH themes,
+ *     graded by tests/unit/pages/mind-map/theme-contrast.test.js.
+ *   - SC 1.4.12 text spacing: no fixed heights on anything holding text; rows grow with their
+ *     content and the docks scroll rather than clip.
+ *   - SC 1.4.10 reflow: below 900px the docks become sheets over the canvas, one at a time, so the
+ *     editor holds at 320px with no sideways scrolling — which is also what makes 400% zoom usable.
+ *   - SC 2.4.7 / 2.4.11 focus: one 3px ring with a 2px offset, never removed, never behind a bar.
+ *   - SC 2.5.8: every target is at least 24px on its shortest side, the dock separator
+ *     included — it draws a 6px line and takes a 24px grab area around it.
+ *   - prefers-reduced-motion and forced-colors are honoured.
+ *
+ * Theme: dark is the AssisT default and is applied either from the student's stored preference
+ * (`data-assist-mm-theme`, written by src/popup/theme.js's resolved answer) or, before that has been
+ * read, from the operating system's. The light palette is the base so nothing flashes.
+ */
+
+:root {
+  --mm-bg: #e9ece5;
+  --mm-surface: #fbfaf6;
+  --mm-sunken: #f0f1ea;
+  --mm-line: #d2d7c9;
+  --mm-line-strong: #6f7869;
+  --mm-separator: #767e6c;
+  --mm-strong: #1f2a30;
+  --mm-body: #33414a;
+  --mm-muted: #5b655c;
+  --mm-accent: #43626b;
+  --mm-accent-ink: #ffffff;
+  --mm-accent-soft: rgba(67, 98, 107, 0.12);
+  --mm-danger: #9d2117;
+  --mm-focus: #123b45;
+  --mm-grid: rgba(31, 42, 48, 0.14);
+  --mm-shadow: 0 1px 2px rgba(31, 42, 48, 0.14);
+
+  --mm-radius: 8px;
+  --mm-radius-sm: 6px;
+  --mm-radius-pill: 999px;
+  --mm-outline-width: 300px;
+  --mm-dock-width: 320px;
+
+  /*
+   * One button of the family below, drawn: one line of the page's text (1.5 × 14px) inside its 6px
+   * padding and 1px border, which is what clears the 32px `min-height` floor.
+   */
+  --mm-control-height: 35px;
+
+  /*
+   * The canvas's zoom cluster, as the page has to know it. canvas-pane.css insets and pads the
+   * cluster with these two, and the toast below is placed above the height they add up to — a row of
+   * buttons in the cluster's padding inside its 1px border, 45px in all. The offset used to be the
+   * number 66, written for a cluster of 54: the 12px gap its comment claimed was really 9.
+   */
+  --mm-zoom-inset: 12px;
+  --mm-zoom-padding: 4px;
+  --mm-zoom-height: calc(var(--mm-control-height) + 2 * var(--mm-zoom-padding) + 2px);
+
+  /* What the toast keeps clear of it, so a wrapped sentence still cannot reach the buttons. */
+  --mm-toast-gap: 12px;
+  --mm-font: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-assist-mm-theme='light']) {
+    --mm-bg: #0f1418;
+    --mm-surface: #161d22;
+    --mm-sunken: #0b1013;
+    --mm-line: #2b353b;
+    --mm-line-strong: #6f7d85;
+    --mm-separator: #8a99a1;
+    --mm-strong: #f2f5f7;
+    --mm-body: #d5dee3;
+    --mm-muted: #98a7ae;
+    --mm-accent: #7fc4d1;
+    --mm-accent-ink: #05222a;
+    --mm-accent-soft: rgba(127, 196, 209, 0.16);
+    --mm-danger: #ff9d94;
+    --mm-focus: #ffd166;
+    --mm-grid: rgba(210, 226, 233, 0.12);
+    --mm-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-assist-mm-theme='dark'] {
+  --mm-bg: #0f1418;
+  --mm-surface: #161d22;
+  --mm-sunken: #0b1013;
+  --mm-line: #2b353b;
+  --mm-line-strong: #6f7d85;
+  --mm-separator: #8a99a1;
+  --mm-strong: #f2f5f7;
+  --mm-body: #d5dee3;
+  --mm-muted: #98a7ae;
+  --mm-accent: #7fc4d1;
+  --mm-accent-ink: #05222a;
+  --mm-accent-soft: rgba(127, 196, 209, 0.16);
+  --mm-danger: #ff9d94;
+  --mm-focus: #ffd166;
+  --mm-grid: rgba(210, 226, 233, 0.12);
+  --mm-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * A class that sets `display` outranks the browser's own `[hidden] { display: none }`, because an
+ * author rule beats a user-agent rule at equal specificity. That is why the "Built from…" banner
+ * showed as an empty strip with nothing but a Dismiss button in it, and why the editor's toolbar
+ * was drawn behind the library list: both elements carry `hidden` in the markup and both were laid
+ * out as flex containers here. Stated once, for every element on the page, so no later rule can
+ * bring the defect back.
+ */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/*
+ * The app fills the viewport and nothing scrolls the page: the docks and the library scroll inside
+ * themselves, so the canvas keeps every pixel the docks do not use.
+ */
+body {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  margin: 0;
+  background: var(--mm-bg);
+  color: var(--mm-body);
+  font-family: var(--mm-font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:focus-visible {
+  outline: 3px solid var(--mm-focus);
+  outline-offset: 2px;
+}
+
+.assist-mm-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Skip link ────────────────────────────────────────────────────────────── */
+.assist-mm-skip {
+  position: absolute;
+  top: -60px;
+  left: 8px;
+  z-index: 10;
+  padding: 8px 14px;
+  border: 2px solid var(--mm-accent);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-surface);
+  color: var(--mm-accent);
+  text-decoration: none;
+}
+
+.assist-mm-skip:focus {
+  top: 8px;
+}
+
+/* ── One button family ────────────────────────────────────────────────────── */
+/*
+ * Default, primary (accent fill, at most once per view), quiet (the toolbar's dock toggles) and
+ * danger (text and border only). The component stylesheets name their buttons here rather than
+ * styling them themselves, so the page has one button, one field and one focus ring.
+ */
+.assist-mm-button,
+.assist-mm-tab,
+.mm-inspector button,
+.mm-ai button,
+.mm-read button,
+.mm-study button,
+.mm-file__button,
+.mm-canvas__zoomButton {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-surface);
+  color: var(--mm-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.assist-mm-button:hover:not(:disabled):not([aria-disabled='true']),
+.assist-mm-tab:hover,
+.mm-inspector button:hover:not(:disabled),
+.mm-ai button:hover:not(:disabled),
+.mm-read button:hover:not(:disabled),
+.mm-study button:hover:not(:disabled),
+.mm-file__button:hover,
+.mm-canvas__zoomButton:hover {
+  background: var(--mm-accent-soft);
+}
+
+/*
+ * Disabled is carried by the dashed edge as well as the colour, so it survives SC 1.4.1. The
+ * toolbar's commands say `aria-disabled` instead of `disabled` — they stay in the tab order so
+ * they can explain themselves — and have to look the same either way.
+ */
+.assist-mm-button:disabled,
+.assist-mm-button[aria-disabled='true'],
+.mm-inspector button:disabled,
+.mm-ai button:disabled,
+.mm-read button:disabled,
+.mm-study button:disabled {
+  border-style: dashed;
+  color: var(--mm-muted);
+  cursor: default;
+}
+
+.assist-mm-button--primary {
+  border-color: var(--mm-accent);
+  background: var(--mm-accent);
+  color: var(--mm-accent-ink);
+}
+
+.assist-mm-button--primary:hover:not(:disabled) {
+  background: var(--mm-accent);
+  filter: brightness(1.08);
+}
+
+/*
+ * `--delete` is not a spare name: library-view.js builds each card's actions as
+ * `assist-mm-button--${action}`, so the card's Delete button lands here and reads as the same
+ * danger control the toolbar's Delete is.
+ */
+.assist-mm-button--danger,
+.assist-mm-button--delete {
+  border-color: var(--mm-danger);
+  color: var(--mm-danger);
+}
+
+.assist-mm-button--quiet {
+  border-color: transparent;
+  background: transparent;
+}
+
+.assist-mm-button__icon {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+.assist-mm-select,
+.assist-mm-find,
+.assist-mm-library__search,
+.assist-mm-field__input,
+.mm-inspector input[type='text'],
+.mm-inspector input[type='url'],
+.mm-inspector textarea,
+.mm-inspector select,
+.mm-ai__paste,
+.mm-study__answer {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-surface);
+  color: var(--mm-body);
+  font: inherit;
+}
+
+.assist-mm-select {
+  width: auto;
+}
+
+.mm-inspector textarea,
+.mm-ai__paste,
+.mm-study__answer {
+  resize: vertical;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.assist-mm-header {
+  display: flex;
+  min-height: 48px;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--mm-line);
+  background: var(--mm-surface);
+}
+
+.assist-mm-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--mm-strong);
+  font-weight: 700;
+}
+
+.assist-mm-header__logo {
+  font-size: 1.2em;
+}
+
+/*
+ * The Beta mark beside the brand.
+ *
+ * Page tokens only, so it follows the editor into dark rather than being a second palette:
+ * `--mm-body` on `--mm-sunken` reads at 9.3:1 light and 14:1 dark, well clear of AA, and the
+ * outline is the same edge every other chip on the page uses.
+ */
+.assist-mm-header__beta {
+  padding: 0 8px;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius-pill);
+  background: var(--mm-sunken);
+  color: var(--mm-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.assist-mm-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.assist-mm-title {
+  flex: 1 1 16em;
+  min-width: 10em;
+  margin: 0;
+  color: var(--mm-strong);
+  font-size: 1.15rem;
+}
+
+/*
+ * The title reads as a heading until it is focused, and then it reads as the field it has been all
+ * along: a transparent edge that fills in on hover and focus, rather than two different controls.
+ */
+.assist-mm-title__input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--mm-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.assist-mm-title__input:hover,
+.assist-mm-title__input:focus {
+  border-color: var(--mm-line-strong);
+  background: var(--mm-sunken);
+}
+
+.assist-mm-status {
+  margin: 0;
+  color: var(--mm-muted);
+}
+
+.assist-mm-status--warn {
+  color: var(--mm-danger);
+}
+
+/* ── Banner ("Built from …") ──────────────────────────────────────────────── */
+.assist-mm-banner {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--mm-line);
+  background: var(--mm-accent-soft);
+}
+
+.assist-mm-banner__text {
+  flex: 1 1 20em;
+  margin: 0;
+  color: var(--mm-strong);
+}
+
+/* ── Main, library and editor ─────────────────────────────────────────────── */
+.assist-mm-main {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.assist-mm-library {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 16px;
+  overflow: auto;
+}
+
+.assist-mm-editor {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+.assist-mm-toolbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--mm-line);
+  background: var(--mm-surface);
+}
+
+.assist-mm-toolbar__label {
+  color: var(--mm-muted);
+}
+
+.assist-mm-toolbar__divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 24px;
+  margin: 0 2px;
+  background: var(--mm-line);
+}
+
+.assist-mm-toolbar__spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.assist-mm-toolbar__slot {
+  display: contents;
+}
+
+/* ── The trail back to the centre of the map ──────────────────────────────── */
+/*
+ * Shown only while one branch is on screen. A row of its own under the toolbar: inside
+ * `role="toolbar"` it would break what that role promises about the keyboard, and inside the canvas
+ * it would sit over the picture and, below 900px, over the zoom cluster.
+ *
+ * Every step is a real control in reading order. A long trail gives up the WIDTH of its middle
+ * steps rather than their words, and hovering or focusing one gives the width back — so the whole
+ * path is always there for a screen reader, and reachable by anyone else, without a `title`
+ * attribute, which the keyboard cannot open and assistive technology reads inconsistently.
+ */
+.assist-mm-crumbs {
+  flex: none;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--mm-line);
+  background: var(--mm-sunken);
+}
+
+.assist-mm-crumbs__trail {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  list-style: none;
+}
+
+.assist-mm-crumbs__step {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.assist-mm-crumbs__step:first-child .assist-mm-crumbs__separator {
+  display: none;
+}
+
+.assist-mm-crumbs__separator {
+  padding: 0 2px;
+  color: var(--mm-muted);
+}
+
+.assist-mm-crumb {
+  /* SC 2.5.8: a pointer target is never smaller than 24 by 24 CSS pixels. */
+  min-height: 24px;
+  max-width: 22ch;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--mm-radius-sm);
+  background: none;
+  color: var(--mm-body);
+  font: inherit;
+  text-align: left;
+}
+
+.assist-mm-crumb__label {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.assist-mm-crumb--button {
+  cursor: pointer;
+}
+
+.assist-mm-crumb--button:hover {
+  border-color: var(--mm-line-strong);
+  background: var(--mm-surface);
+}
+
+.assist-mm-crumb--button:focus-visible {
+  outline: 3px solid var(--mm-focus);
+  outline-offset: 1px;
+}
+
+/* Where the trail stops. A weight rather than a colour, so it survives a colour-blind reading. */
+.assist-mm-crumb--current {
+  color: var(--mm-strong);
+  font-weight: 600;
+}
+
+.assist-mm-crumb[data-folded='true'] {
+  max-width: 6ch;
+}
+
+.assist-mm-crumb[data-folded='true']:hover,
+.assist-mm-crumb[data-folded='true']:focus-visible {
+  max-width: 22ch;
+}
+
+/* ── The workspace: outline dock, canvas, right dock ──────────────────────── */
+.assist-mm-workspace {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .assist-mm-workspace {
+    /* The stored width is capped at half the workspace here as well as in the wiring: a window
+       narrowed between two resize events must never push the right dock off a page that cannot
+       scroll sideways. */
+    grid-template-columns:
+      minmax(240px, min(var(--mm-outline-width), 50%)) 6px minmax(0, 1fr)
+      var(--mm-dock-width);
+  }
+
+  .assist-mm-workspace[data-outline='closed'] {
+    grid-template-columns: minmax(0, 1fr) var(--mm-dock-width);
+  }
+
+  .assist-mm-workspace[data-dock='closed'] {
+    grid-template-columns: minmax(240px, min(var(--mm-outline-width), 50%)) 6px minmax(0, 1fr);
+  }
+
+  .assist-mm-workspace[data-outline='closed'][data-dock='closed'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.assist-mm-dock {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--mm-surface);
+}
+
+.assist-mm-dock--outline {
+  border-right: 1px solid var(--mm-line);
+}
+
+.assist-mm-dock--details {
+  border-left: 1px solid var(--mm-line);
+}
+
+.assist-mm-dock__head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--mm-line);
+}
+
+.assist-mm-dock__title {
+  margin: 0;
+  color: var(--mm-strong);
+  font-size: 0.95rem;
+}
+
+.assist-mm-find {
+  flex: 1 1 8em;
+  min-width: 6em;
+}
+
+/*
+ * What the find box found.
+ *
+ * A row of its own rather than a word beside the box: sharing the row would make the box itself
+ * narrower or wider as the words changed length, so the field would move under the student's hand
+ * mid-search — and below 900px this dock is a sheet 320px wide, where there is no room for both.
+ * The row is always there, empty when nothing has been searched for, so a count arriving or going
+ * shifts nothing in the outline underneath.
+ *
+ * `--mm-muted` is 5.8:1 on the dock in light and 6.9:1 in dark (SC 1.4.3), graded in
+ * tests/unit/pages/mind-map/theme-contrast.test.js. The page's own font size, not a smaller one:
+ * this is the answer to what the student just asked for, and it is read by whoever finds small
+ * text hardest.
+ */
+.assist-mm-find-status {
+  min-height: 1.25em;
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--mm-muted);
+  line-height: 1.25;
+}
+
+.assist-mm-dock__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 8px 12px 16px;
+  overflow: auto;
+}
+
+.assist-mm-dock__tabs {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--mm-line);
+}
+
+.assist-mm-tab {
+  flex: 1 1 auto;
+  justify-content: center;
+  /* The bar the selected tab wears is reserved on every tab, so choosing one shifts nothing. */
+  border-top-width: 3px;
+  border-color: transparent;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+  background: transparent;
+  color: var(--mm-muted);
+}
+
+/*
+ * The selected tab is the one with the surface under it and a bar along its top edge: a shape
+ * difference as well as a colour one, so it still reads as chosen without colour (SC 1.4.1).
+ */
+.assist-mm-tab[aria-selected='true'] {
+  margin-bottom: -1px;
+  border-color: var(--mm-line);
+  border-top-color: var(--mm-accent);
+  border-bottom-color: var(--mm-surface);
+  background: var(--mm-surface);
+  color: var(--mm-strong);
+  font-weight: 600;
+}
+
+.assist-mm-dock__panel {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+/*
+ * The line a student sees is 6px, because a fat bar between two panes is a fat bar they have to
+ * read past all day. The thing they can grab is 24px: the pseudo-element widens the target, and a
+ * pointer event on it is dispatched to the separator (SC 2.5.8). The keyboard reaches the same
+ * control through its arrows, Home and End.
+ *
+ * All of the extra width goes to the canvas side. The outline dock scrolls, so its own scrollbar
+ * sits in the last few pixels before this handle, and a grab area reaching back over it would take
+ * the one control a pointer has for a long outline.
+ */
+.assist-mm-separator {
+  position: relative;
+  background: var(--mm-separator);
+  border: 0;
+  cursor: col-resize;
+}
+
+.assist-mm-separator::after {
+  position: absolute;
+  content: '';
+  inset: 0 -18px 0 0;
+}
+
+.assist-mm-separator:hover,
+.assist-mm-separator:focus-visible {
+  background: var(--mm-accent);
+}
+
+/* ── Canvas ───────────────────────────────────────────────────────────────── */
+/*
+ * Full bleed: no border, no radius, no padding. The grid is decoration and is drawn here rather
+ * than in the pane so that it sits behind the picture; it goes entirely under forced colours,
+ * where a background pattern is noise rather than depth.
+ */
+.assist-mm-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background-color: var(--mm-bg);
+  background-image: radial-gradient(circle at 1px 1px, var(--mm-grid) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* ── Below 900px: the docks are sheets over the canvas ────────────────────── */
+@media (max-width: 899px) {
+  .assist-mm-dock {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    bottom: 0;
+    width: min(360px, 100%);
+    box-shadow: var(--mm-shadow);
+  }
+
+  .assist-mm-dock--outline {
+    left: 0;
+  }
+
+  .assist-mm-dock--details {
+    right: 0;
+  }
+
+  .assist-mm-separator {
+    display: none;
+  }
+
+  /*
+   * A sheet is 360px of a viewport that may be 320px wide, so at the narrow end it covers the
+   * canvas whole — including the zoom cluster in the bottom-right corner, which is a row of
+   * focusable buttons and would then be reachable by Tab and invisible under a panel (SC 2.4.11).
+   * It rides above the sheets instead: it is a small opaque pill, and Fit is how a student gets
+   * their map back after working in a sheet.
+   *
+   * Written through the dock rather than as a bare class on purpose. canvas-pane.css is bundled
+   * AFTER this file, so its own `z-index: 2` would win a tie on source order; the extra class
+   * settles it on specificity instead, which no bundler can reorder.
+   */
+  .assist-mm-canvas .mm-canvas__zoom {
+    z-index: 4;
+  }
+}
+
+/* ── The outline tree ─────────────────────────────────────────────────────── */
+.assist-mm-outline__hint {
+  margin: 10px 0 0;
+  color: var(--mm-muted);
+  font-size: 0.9em;
+}
+
+.assist-mm-row {
+  display: flex;
+  min-height: 24px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px 4px calc(6px + (var(--assist-mm-level, 1) - 1) * 1.15em);
+  border-radius: var(--mm-radius-sm);
+  cursor: pointer;
+}
+
+.assist-mm-item[aria-selected='true'] > .assist-mm-row {
+  background: var(--mm-accent-soft);
+  box-shadow: inset 3px 0 0 var(--mm-accent);
+}
+
+/*
+ * Which of several selected rows the Details panel edits, and the one read aloud, study mode and the
+ * AI panel start from. A heavier leading rule: a difference in size rather than in colour, so it
+ * survives a colour-blind reading (SC 1.4.1), and it is only ever on a row when more than one row is
+ * selected — one selected row has nothing to be told apart from.
+ */
+.assist-mm-item--primary > .assist-mm-row {
+  box-shadow: inset 7px 0 0 var(--mm-accent);
+}
+
+.assist-mm-item:focus-visible {
+  outline: 3px solid var(--mm-focus);
+  outline-offset: -1px;
+}
+
+.assist-mm-item:focus {
+  outline: none;
+}
+
+.assist-mm-row__swatch {
+  flex: none;
+  width: 0.75em;
+  height: 0.75em;
+  align-self: center;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: 50%;
+}
+
+.assist-mm-row__text {
+  color: var(--mm-strong);
+}
+
+.assist-mm-row__edit {
+  flex: 1 1 8em;
+  min-width: 6em;
+  padding: 2px 6px;
+  border: 1px solid var(--mm-accent);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-sunken);
+  color: var(--mm-strong);
+  font: inherit;
+}
+
+.assist-mm-row__done,
+.assist-mm-row__source,
+.assist-mm-row__count {
+  color: var(--mm-muted);
+  font-size: 0.85em;
+}
+
+.assist-mm-row__count::before {
+  content: '+';
+}
+
+/* ── The library ──────────────────────────────────────────────────────────── */
+.assist-mm-library__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.assist-mm-library__search-label {
+  color: var(--mm-muted);
+}
+
+.assist-mm-library__search {
+  flex: 1 1 14em;
+  min-width: 8em;
+}
+
+.assist-mm-library__count {
+  margin: 0 0 12px;
+  color: var(--mm-muted);
+}
+
+.assist-mm-library__error {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--mm-danger);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-surface);
+  color: var(--mm-danger);
+}
+
+.assist-mm-library__empty {
+  max-width: 40em;
+  color: var(--mm-muted);
+}
+
+.assist-mm-library__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  list-style: none;
+}
+
+.assist-mm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--mm-line);
+  border-radius: var(--mm-radius);
+  background: var(--mm-surface);
+  box-shadow: var(--mm-shadow);
+}
+
+.assist-mm-card__title {
+  margin: 0;
+  color: var(--mm-strong);
+  font-size: 1.05rem;
+}
+
+.assist-mm-card__meta {
+  margin: 0;
+  color: var(--mm-muted);
+  font-size: 0.9em;
+}
+
+.assist-mm-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 6px;
+  gap: 6px;
+}
+
+/* ── Dialogs ──────────────────────────────────────────────────────────────── */
+.assist-mm-dialog {
+  max-width: 34em;
+  padding: 20px;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius);
+  background: var(--mm-surface);
+  color: var(--mm-body);
+}
+
+.assist-mm-dialog::backdrop {
+  background: rgba(6, 10, 12, 0.6);
+}
+
+.assist-mm-dialog__title {
+  margin: 0 0 10px;
+  color: var(--mm-strong);
+  font-size: 1.15rem;
+}
+
+.assist-mm-dialog__body {
+  margin: 0 0 14px;
+}
+
+.assist-mm-dialog__hint {
+  margin: 6px 0 0;
+  color: var(--mm-danger);
+}
+
+.assist-mm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 16px;
+  gap: 8px;
+}
+
+.assist-mm-field__label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--mm-muted);
+}
+
+.assist-mm-templates {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--mm-line);
+  border-radius: var(--mm-radius-sm);
+}
+
+.assist-mm-templates__legend {
+  padding: 0 4px;
+  color: var(--mm-muted);
+}
+
+.assist-mm-templates__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.assist-mm-templates__label {
+  display: flex;
+  flex-direction: column;
+}
+
+.assist-mm-templates__name {
+  color: var(--mm-strong);
+}
+
+.assist-mm-templates__description {
+  color: var(--mm-muted);
+  font-size: 0.9em;
+}
+
+/* Open a map: the student's maps as a list of buttons. No fixed height on a row — a long title
+   wraps and the row grows with it (SC 1.4.4, SC 1.4.12). */
+.assist-mm-open__list {
+  max-height: 50vh;
+  margin: 10px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.assist-mm-open__map {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--mm-radius-sm);
+  background: transparent;
+  color: var(--mm-body);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.assist-mm-open__map:hover {
+  border-color: var(--mm-line-strong);
+  background: var(--mm-accent-soft);
+}
+
+.assist-mm-open__name {
+  color: var(--mm-strong);
+}
+
+.assist-mm-open__meta {
+  color: var(--mm-muted);
+  font-size: 0.9em;
+}
+
+/* Always in the flow, empty or not. It is a live region, and a region that appears by being
+   unhidden is a region a screen reader does not announce — every message here would have arrived
+   in silence. An empty paragraph is a few pixels; a message nobody hears is the whole point of it
+   lost. */
+.assist-mm-open__message {
+  margin: 10px 0 0;
+  color: var(--mm-muted);
+}
+
+.assist-mm-shortcuts__beta {
+  margin: 0 0 4px;
+  color: var(--mm-body);
+}
+
+/*
+ * Links on this page. Underlined as well as coloured, so the link is not carried by colour alone
+ * (SC 1.4.1); `--mm-accent` reads at 6.3:1 light and 8.7:1 dark on the dialog's surface.
+ */
+.assist-mm-link {
+  color: var(--mm-accent);
+  text-decoration: underline;
+}
+
+/* Which keys Settings cannot move. Muted, because it is context rather than a warning, but not so
+   muted that it drops below AA: `--mm-muted` reads at 4.7:1 on the dialog surface in both themes. */
+.assist-mm-shortcuts__fixed {
+  margin: 0 0 4px;
+  color: var(--mm-muted);
+}
+
+/* "(your setting)" beside a chord the student changed. Italic AND in words, never colour alone
+   (SC 1.4.1): the sentence says it, so nothing here is carried by the styling. */
+.assist-mm-shortcuts__yours {
+  color: var(--mm-muted);
+  font-style: italic;
+}
+
+/*
+ * Wide enough that the longest description takes two lines, and still fits a narrow window. The
+ * scroll padding keeps a focused control clear of the action bar below: in a short window the link
+ * in the opening paragraph sat under it when Tab reached it.
+ */
+.assist-mm-dialog.assist-mm-shortcuts {
+  max-width: min(64em, calc(100% - 2em));
+  scroll-padding-bottom: 6em;
+}
+
+/*
+ * The list is taller than most windows and opens at its title with focus on Close, so Close stays in
+ * view at the foot of the dialog as the list scrolls: focus is never on something the student cannot
+ * see (SC 2.4.11). The bar takes in the dialog's own padding at the sides and foot, and its shadow
+ * paints the surface past its lower edge (the dialog clips it), so no row peeks out beneath it where
+ * Chrome rounds the sticky position short of the edge.
+ */
+.assist-mm-shortcuts .assist-mm-dialog__actions {
+  position: sticky;
+  bottom: -20px;
+  margin: 16px -20px -20px;
+  padding: 12px 20px 20px;
+  border-top: 1px solid var(--mm-line-strong);
+  background: var(--mm-surface);
+  box-shadow: 0 8px 0 var(--mm-surface);
+}
+
+.assist-mm-shortcuts__group {
+  margin: 18px 0 6px;
+  color: var(--mm-strong);
+  font-size: 1rem;
+}
+
+/*
+ * The same two tracks in every group, so the columns line up down the dialog. Sized to the widest
+ * term, the key column took most of the width and every description wrapped onto three or four
+ * lines; now a long term wraps between its chords instead. The key column never goes narrower than
+ * its widest chord, so on a narrow window a chip cannot spill into the description.
+ */
+.assist-mm-shortcuts__list {
+  display: grid;
+  margin: 0;
+  gap: 4px 14px;
+  grid-template-columns: minmax(min-content, 1fr) minmax(0, 2fr);
+}
+
+.assist-mm-shortcuts__list dt,
+.assist-mm-shortcuts__list dd {
+  margin: 0;
+}
+
+.assist-mm-shortcuts kbd {
+  padding: 1px 6px;
+  white-space: nowrap;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: 4px;
+  background: var(--mm-sunken);
+  color: var(--mm-strong);
+  font-family: inherit;
+  font-size: 0.9em;
+}
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+/*
+ * Above the canvas's zoom cluster, never over it.
+ *
+ * The toast is centred at the foot of the page and the cluster sits in the bottom-right corner of
+ * the canvas, which reaches the foot of the page as well: a sentence long enough to fill the width
+ * was drawn straight across the zoom buttons, and at a narrow width a short one was too. So it is
+ * lifted clear of the whole cluster — the height it draws, plus the inset it is drawn at, plus the
+ * gap — from the tokens the cluster itself is built from, rather than from a number typed once and
+ * left behind by the buttons. The toast grows upwards from there, so a wrapped sentence cannot
+ * reach back down over them.
+ */
+.assist-mm-toast {
+  position: fixed;
+  bottom: calc(var(--mm-zoom-inset) + var(--mm-zoom-height) + var(--mm-toast-gap));
+  left: 50%;
+  z-index: 6;
+  max-width: min(36em, calc(100% - 32px));
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius);
+  background: var(--mm-surface);
+  box-shadow: var(--mm-shadow);
+  color: var(--mm-strong);
+  transform: translateX(-50%);
+}
+
+/* The border is the second signal only: the toast's own text says "Problem:" when it is one. */
+.assist-mm-toast[data-kind='error'] {
+  border-color: var(--mm-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .assist-mm-button,
+  .assist-mm-tab,
+  .assist-mm-card,
+  .assist-mm-dock,
+  .assist-mm-dialog,
+  .mm-inspector button,
+  .mm-ai button,
+  .mm-read button,
+  .mm-study button,
+  .mm-file__button,
+  .assist-mm-open__map,
+  .mm-canvas__zoomButton,
+  .assist-mm-crumb--button {
+    border: 1px solid CanvasText;
+  }
+
+  /* Forced colours flattens the weight, so the step the student is on is underlined instead. */
+  .assist-mm-crumb--current {
+    text-decoration: underline;
+  }
+
+  .assist-mm-tab[aria-selected='true'] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .assist-mm-item[aria-selected='true'] > .assist-mm-row {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  /* Forced colours flattens the leading rule, so the primary is outlined inside the highlight. */
+  .assist-mm-item--primary > .assist-mm-row {
+    outline: 2px solid HighlightText;
+    outline-offset: -3px;
+  }
+
+  .assist-mm-canvas {
+    background-image: none;
+  }
+
+  .assist-mm-button:disabled,
+  .assist-mm-button[aria-disabled='true'],
+  .mm-inspector button:disabled,
+  .mm-ai button:disabled,
+  .mm-read button:disabled,
+  .mm-study button:disabled {
+    color: GrayText;
+  }
+}

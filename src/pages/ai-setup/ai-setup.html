@@ -8,17 +8,34 @@
   </head>
   <body>
     <div class="setup-container">
-      <!-- Progress Bar -->
-      <div
-        class="progress-bar"
-        role="progressbar"
-        aria-valuenow="0"
-        aria-valuemin="0"
-        aria-valuemax="7"
-        aria-label="Setup progress"
-        id="setup-progress-bar"
-      >
-        <div class="progress-fill" id="progress-fill"></div>
+      <!-- SC 3.2.6: Help sits last in the header on every AssisT page, as it does in the popup. It
+           opens in a new tab so the wizard keeps its step. -->
+      <header class="page-help-bar">
+        <a
+          class="btn btn-secondary page-help"
+          href="../help/help.html"
+          target="_blank"
+          rel="noopener"
+          data-destination="help"
+          aria-label="Help (opens in a new tab)"
+          >Help</a
+        >
+      </header>
+
+      <!-- Progress Bar. In its own region so it is not page content outside every landmark: the
+           screens below are the main landmark, and the bar sits above them. -->
+      <div role="region" aria-label="Progress">
+        <div
+          class="progress-bar"
+          role="progressbar"
+          aria-valuenow="0"
+          aria-valuemin="0"
+          aria-valuemax="7"
+          aria-label="Setup progress"
+          id="setup-progress-bar"
+        >
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
       </div>
 
       <!-- Step Indicator -->
@@ -227,7 +244,7 @@
                   id="api-key-input"
                   placeholder="sk-..."
                   autocomplete="off"
-                  aria-describedby="api-key-hint api-key-status"
+                  aria-describedby="api-key-hint cloud-consent-note api-key-status"
                 />
                 <button
                   class="api-key-toggle"
@@ -244,6 +261,7 @@
                   Open provider site
                 </a>
               </span>
+              <p class="helper-text" id="cloud-consent-note" data-cloud-consent-note></p>
               <div id="api-key-status" aria-live="polite" aria-atomic="true"></div>
             </div>
 
@@ -372,6 +390,29 @@
 
             <!-- Per-task model assignment (shown when models are installed) -->
             <div id="ollama-task-models" hidden></div>
+
+            <!--
+              Shown when Ollama is reachable but AssisT has never been given permission to talk
+              to it. That is not the same as Ollama being switched off, and telling a student to
+              restart a server that is already running wastes their afternoon.
+            -->
+            <div id="ollama-permission-step" hidden>
+              <div class="info-box" role="note">
+                <p>
+                  Ollama may already be running — AssisT just does not have permission to reach it
+                  on this computer yet. Chrome asks you first, and nothing leaves your machine.
+                </p>
+              </div>
+              <button id="btn-allow-ollama" class="btn btn-primary btn-small" type="button">
+                Allow AssisT to use Ollama
+              </button>
+              <p
+                id="ollama-permission-result"
+                class="helper-text"
+                role="status"
+                aria-live="polite"
+              ></p>
+            </div>
 
             <div id="ollama-install-steps" hidden>
               <div class="info-box" role="note">
@@ -636,47 +677,7 @@
       </section>
 
       <!-- ============================================================
-           STEP 6: Feature Recommendations
-           ============================================================ -->
-      <section id="screen-features" class="screen" role="main" aria-labelledby="features-heading">
-        <div class="screen-content">
-          <h2 id="features-heading">Suggested Features</h2>
-          <p>
-            Based on your preferences, here are features that might help you. Enable the ones you
-            want.
-          </p>
-
-          <div class="feature-recs" id="feature-recs" aria-label="Suggested features">
-            <!-- Dynamically populated by ai-setup.js -->
-            <!-- Example structure:
-            <div class="feature-rec-item">
-              <div class="feature-rec-info">
-                <div class="feature-rec-name">AI Summarization</div>
-                <div class="feature-rec-desc">Summarize long texts into key points</div>
-              </div>
-              <label class="toggle" aria-label="Enable AI Summarization">
-                <input type="checkbox" checked />
-                <span class="toggle-track" aria-hidden="true"></span>
-              </label>
-            </div>
-            -->
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button id="btn-features-back" class="btn btn-secondary" type="button">
-            <span aria-hidden="true">←</span> Back
-          </button>
-          <button id="btn-features-skip" class="btn btn-ghost skip-link" type="button">Skip</button>
-          <button id="btn-features-apply" class="btn btn-primary" type="button">
-            Apply &amp; finish
-            <span aria-hidden="true">→</span>
-          </button>
-        </div>
-      </section>
-
-      <!-- ============================================================
-           STEP 7: Done
+           STEP 6: Done
            ============================================================ -->
       <section id="screen-done" class="screen" role="main" aria-labelledby="done-heading">
         <div class="screen-content" style="text-align: center">

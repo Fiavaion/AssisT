@@ -148,7 +148,7 @@ function buildGuide(typstCmd, filename) {
     });
     log(`  ✓ Created ${outputPath}`, 'green');
     return true;
-  } catch (error) {
+  } catch {
     log(`  ✗ Failed to build ${filename}`, 'red');
     return false;
   }

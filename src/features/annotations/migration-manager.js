@@ -14,7 +14,7 @@
  */
 
 import { getStorageAdapter } from './storage-adapter.js';
-import { settingsManager } from '../../core/storage/settings-manager.js';
+import { applySettingWrites } from '../../utils/setting-writes.js';
 
 /**
  * Migration progress callback
@@ -85,7 +85,9 @@ export async function migrateAnnotations(fromMode, toMode, options = {}) {
       }
 
       // Update settings even if no data
-      await settingsManager.updateSetting('annotations.storageMode', toMode);
+      await applySettingWrites([
+        { store: 'settings', path: 'annotations.storageMode', value: toMode },
+      ]);
 
       return {
         success: true,
@@ -131,7 +133,9 @@ export async function migrateAnnotations(fromMode, toMode, options = {}) {
       await sourceAdapter.clear();
     }
 
-    await settingsManager.updateSetting('annotations.storageMode', toMode);
+    await applySettingWrites([
+      { store: 'settings', path: 'annotations.storageMode', value: toMode },
+    ]);
 
     if (onProgress) {
       onProgress({

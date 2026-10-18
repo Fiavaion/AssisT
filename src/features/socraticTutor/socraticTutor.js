@@ -16,17 +16,26 @@
 import { showToast } from '../../core/ui/toast.js';
 import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
+import { getProfileAddendum } from '../companion/profile-addendum.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
 
 let tutor_panel = null;
+let tutor_releaseFocus = null;
+let tutor_returnFocus = null;
+let tutor_requestId = 0;
 let tutor_currentText = '';
 let tutor_currentQuestions = null;
 
@@ -65,11 +74,19 @@ RULES:
 - Start with { end with }`;
 
   try {
-    const aiResult = await generateWithAI(prompt, modeInfo, {
-      maxTokens,
-      temperature: 0.5,
-      feature: 'socraticTutor',
-    });
+    const profileAddendum = await getProfileAddendum();
+    const aiResult = await generateWithAI(
+      profileAddendum ? `${profileAddendum.trim()}\n\n${prompt}` : prompt,
+      modeInfo,
+      {
+        maxTokens,
+        temperature: 0.5,
+        feature: 'socraticTutor',
+        // Asked in words alone, a reasoning model (qwen3:4b, measured) thinks until the budget
+        // runs out and never writes the object. At the decoder it answers directly.
+        format: 'json',
+      }
+    );
 
     if (aiResult && aiResult.text) {
       // Parse JSON from response
@@ -103,7 +120,7 @@ RULES:
         throw new Error('Invalid JSON structure');
       } catch (parseError) {
         console.warn('[SocraticTutor] JSON parse failed:', parseError.message);
-        console.log('[SocraticTutor] Raw response:', aiResult.text.substring(0, 300));
+        debugLog('[SocraticTutor] Raw response:', aiResult.text);
         // Return fallback structure
         return { questions: tutor_fallback(text) };
       }
@@ -331,6 +348,10 @@ const TUTOR_PANEL_CSS = `
     margin: 0 auto 16px;
     animation: tutor-spin 1s linear infinite;
   }
+  @media (prefers-reduced-motion: reduce) {
+    .assist-tutor-spinner { animation: none; }
+  }
+
   @keyframes tutor-spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -347,9 +368,15 @@ const TUTOR_PANEL_CSS = `
     background: #43e97b;
     color: white;
   }
-  .assist-tutor-fallback-badge {
-    background: #ff9800;
-    color: white;
+  .assist-tutor-fallback-note {
+    margin: 0 0 12px 0;
+    padding: 8px 10px;
+    background: #fff3e0;
+    color: #8a4b00;
+    border-left: 3px solid #ff9800;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
   }
   .assist-tutor-cloud-badge {
     background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
@@ -384,9 +411,6 @@ const TUTOR_PANEL_CSS = `
   .assist-tutor-btn-secondary:hover {
     background: #e0e0e0;
   }
-  [data-assist-clickable]:hover {
-    text-decoration: underline;
-  }
   .assist-tutor-status {
     padding: 8px 20px;
     background: #f5f5f5;
@@ -403,7 +427,13 @@ const TUTOR_PANEL_CSS = `
     background: #fff3e0;
     color: #e65100;
   }
-  .assist-tutor-status[data-assist-clickable]:hover {
+  .assist-tutor-status [data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+
+  .assist-tutor-status [data-assist-clickable]:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
     text-decoration: underline;
   }
   .assist-tutor-status.success {
@@ -436,18 +466,22 @@ async function tutor_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-socratic-tutor-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Socratic Tutor');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'assist-tutor-title');
+  // Focusable so the dialog itself can hold the keyboard. Escape was bound to this panel while
+  // focus never reached it, so the key never arrived and the dialog could not be closed at all.
+  panel.setAttribute('tabindex', '-1');
 
   // HTML structure only - CSS is injected separately
   panel.innerHTML = sanitizeHTML(`
     <div class="assist-tutor-header">
-      <div class="assist-tutor-title">
+      <div class="assist-tutor-title" id="assist-tutor-title">
         <span>🎓</span>
         <span>Socratic Tutor</span>
       </div>
       <button class="assist-tutor-close" aria-label="Close">&times;</button>
     </div>
-    <div class="assist-tutor-status" id="assist-tutor-status"></div>
+    <div class="assist-tutor-status" id="assist-tutor-status" role="status"></div>
 
     <div class="assist-tutor-content">
       <div class="assist-tutor-loading">
@@ -467,21 +501,21 @@ async function tutor_createPanel() {
   `);
 
   // Close button
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('.assist-tutor-close'),
     'Socratic Tutor Close Button',
     () => tutor_hide()
   );
 
   // Copy button
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('#assist-tutor-copy'),
     'Socratic Tutor Copy Button',
     () => tutor_copyQuestions()
   );
 
   // New questions button
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('#assist-tutor-new'),
     'Socratic Tutor New Questions Button',
     async () => {
@@ -490,13 +524,6 @@ async function tutor_createPanel() {
       }
     }
   );
-
-  // Close on escape
-  panel.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      tutor_hide();
-    }
-  });
 
   return panel;
 }
@@ -540,7 +567,15 @@ async function tutor_renderResult(result, isAI, isCloud = false, modelName = '')
     ? renderAIBadge(_tutorBadgeInfo.mode, _tutorBadgeInfo.label)
     : renderAIBadge('fallback', 'Basic');
 
-  let html = `
+  let html = isAI
+    ? ''
+    : `
+    <p class="assist-tutor-fallback-note">
+      These questions come from a set kept in the extension, written without AI.
+    </p>
+  `;
+
+  html += `
     <div class="assist-tutor-topic">
       <strong>Topic:</strong> ${escapeHtml(result.topic)} ${badge}
     </div>
@@ -599,7 +634,7 @@ async function tutor_renderResult(result, isAI, isCloud = false, modelName = '')
   const hintButtons = contentArea.querySelectorAll('.assist-tutor-hint-btn');
   hintButtons.forEach(btn => {
     const index = btn.getAttribute('data-hint-index');
-    attachInteractiveHandler(btn, `Show Hint ${index}`, () => {
+    attachAccessibleHandler(btn, `Show Hint ${index}`, () => {
       const hint = document.getElementById(`hint-${index}`);
       const followup = document.getElementById(`followup-${index}`);
       if (hint) {
@@ -646,7 +681,7 @@ async function tutor_copyQuestions() {
 
   try {
     await navigator.clipboard.writeText(text);
-    showToast?.('Questions copied to clipboard!') || alert('Copied!');
+    showToast('Questions copied to clipboard!');
   } catch (e) {
     console.error('[SocraticTutor] Copy failed:', e);
   }
@@ -671,6 +706,14 @@ function escapeHtml(text) {
  */
 async function tutor_show() {
   console.log('[SocraticTutor] tutor_show() called');
+
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  tutor_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
 
   // Remove existing panel and overlay
   if (tutor_panel) {
@@ -724,6 +767,11 @@ async function tutor_show() {
   document.body.appendChild(tutor_panel);
   console.log('[SocraticTutor] Panel appended to body');
 
+  tutor_releaseFocus = trapFocus(tutor_panel, {
+    onEscape: tutor_hide,
+    initialFocus: tutor_panel.querySelector('.assist-tutor-close'),
+  });
+
   // Log computed styles for debugging
   const computedStyle = window.getComputedStyle(tutor_panel);
   console.log(
@@ -745,6 +793,15 @@ async function tutor_show() {
  */
 function tutor_hide() {
   console.log('[SocraticTutor] tutor_hide() called');
+
+  // Abandon anything in flight: its questions must not paint into a closed panel.
+  tutor_requestId += 1;
+
+  if (tutor_releaseFocus) {
+    tutor_releaseFocus();
+    tutor_releaseFocus = null;
+  }
+
   if (tutor_panel) {
     tutor_panel.remove();
     tutor_panel = null;
@@ -753,6 +810,9 @@ function tutor_hide() {
   if (overlay) {
     overlay.remove();
   }
+
+  returnFocusAfterDialog(tutor_returnFocus);
+  tutor_returnFocus = null;
 }
 
 /**
@@ -761,8 +821,7 @@ function tutor_hide() {
  */
 async function tutor_analyze(text) {
   if (!text || text.trim().length < 20) {
-    showToast?.('Please select more text for Socratic questions') ||
-      alert('Please select more text');
+    showToast('Select a little more text for Socratic questions.');
     return;
   }
 
@@ -784,9 +843,15 @@ async function tutor_analyze(text) {
     `);
   }
 
+  const requestId = ++tutor_requestId;
+
   // Get AI mode and check availability
   const modeInfo = await getAIMode('socraticTutor');
   const availability = await checkAIAvailable(modeInfo);
+
+  if (requestId !== tutor_requestId) {
+    return;
+  }
 
   try {
     let result;
@@ -794,7 +859,7 @@ async function tutor_analyze(text) {
 
     if (!availability.available) {
       if (availability.needsApiKey) {
-        tutor_showApiKeyWarning();
+        tutor_showApiKeyWarning(availability.provider);
         return;
       }
       // Show status bar and fall back to template-based questions
@@ -805,6 +870,10 @@ async function tutor_analyze(text) {
       result = tutor_fallback(text);
     } else {
       const response = await tutor_generate(text, modeInfo);
+
+      if (requestId !== tutor_requestId) {
+        return;
+      }
       result = response.questions;
       isAI = true;
     }
@@ -820,6 +889,16 @@ async function tutor_analyze(text) {
     }
   } catch (error) {
     console.error('[SocraticTutor] Error:', error);
+    if (requestId !== tutor_requestId) {
+      return;
+    }
+
+    const statusBar = tutor_panel?.querySelector('#assist-tutor-status');
+    if (statusBar) {
+      statusBar.className = 'assist-tutor-status visible error';
+      statusBar.textContent = `⚠️ ${getFailureMessage(error)}`;
+    }
+
     const fallback = tutor_fallback(text);
     tutor_currentQuestions = fallback;
     tutor_renderResult(fallback, false);
@@ -829,7 +908,7 @@ async function tutor_analyze(text) {
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
-function tutor_showApiKeyWarning() {
+function tutor_showApiKeyWarning(provider) {
   const contentArea = tutor_panel?.querySelector('.assist-tutor-content');
   if (!contentArea) {
     return;
@@ -841,7 +920,7 @@ function tutor_showApiKeyWarning() {
       <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
       <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="tutor-open-settings" style="
@@ -872,17 +951,14 @@ function tutor_showApiKeyWarning() {
   // Attach handlers for buttons
   const openSettingsBtn = contentArea.querySelector('.tutor-open-settings');
   if (openSettingsBtn) {
-    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+    attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
       chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-      alert(
-        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-      );
     });
   }
 
   const useLocalBtn = contentArea.querySelector('.tutor-use-local');
   if (useLocalBtn) {
-    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+    attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
       await chrome.storage.local.set({ aiMode: 'local' });
       console.log('[SocraticTutor] Switched to local AI mode');
       tutor_showEmptyState();

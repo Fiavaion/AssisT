@@ -7,7 +7,7 @@
  * - Lazy loading of Tesseract.js (only loads when OCR is first used)
  * - Screenshot capture (full page and region selection)
  * - PDF text extraction
- * - Multi-language support
+ * - Engine and English ship in the package; other languages download once on request (ADR 0008)
  * - Confidence threshold filtering
  * - TTS integration for extracted text
  * - Export to clipboard and TXT file
@@ -22,7 +22,39 @@
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { Z } from '../../utils/z-index.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
+import { VISION_MODEL } from '../../utils/ollama-models.js';
+import { reconstructLayout, linesFromTesseract } from './ocr-layout.js';
+import { renderMarkdownToHtml, stripMarkdownForSpeech } from './ocr-markdown.js';
+import {
+  toGrayscale,
+  normalizeContrast,
+  otsuThreshold,
+  binarize,
+  computeUpscaleFactor,
+} from './ocr-preprocess.js';
+import {
+  splitIntoUnits,
+  takeChunk,
+  adaptChunkChars,
+  combineChunks,
+  dedupeRepeatedLines,
+  stripAiCommentary,
+} from './ocr-chunk.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import {
+  getAIMode,
+  checkAIAvailable,
+  generateWithAI,
+  getUnavailableStatusMessage,
+} from '../shared/ai-feature-client.js';
+import { getPrompt } from '../../ai/prompts/registry.js';
+import { REGISTRY } from '../../ai/model-registry.js';
+import { bundledLanguagePath, ocrWorkerOptions } from './ocr-engine-files.js';
+import { prepareOcrLanguage } from './ocr-language-data.js';
+import { createDeclinedNotice } from '../../utils/consent-panel.js';
 
 let ocr_tesseractInstance = null;
 let ocr_isInitialized = false;
@@ -120,6 +152,7 @@ function ocr_init() {
     performOCR: ocr_performOCR,
     recognizeText: ocr_recognizeText,
     captureScreenshot: ocr_showScreenshotUI,
+    cleanup: ocr_cleanup,
   };
 
   console.log('[OCR] Feature ready. Use window.assistFeatures.ocr.performOCR() to start');
@@ -218,7 +251,7 @@ async function ocr_captureVisibleTab() {
  * @returns {Promise<ArrayBuffer>} PDF data as ArrayBuffer
  */
 async function ocr_fetchPDFData(pdfUrl) {
-  console.log(`[OCR] Fetching PDF data from: ${pdfUrl}`);
+  debugLog(`[OCR] Fetching PDF data from: ${pdfUrl}`);
 
   // For file:// URLs (local files), use background script to fetch
   // Content scripts can't access file:// URLs due to CORS
@@ -288,7 +321,7 @@ async function ocr_capturePDFWithPDFJS(pdfInfo) {
       pdfUrl = urlParams.get('url') || pdfInfo.url;
     }
 
-    console.log(`[OCR] Loading PDF from: ${pdfUrl}`);
+    debugLog(`[OCR] Loading PDF from: ${pdfUrl}`);
 
     // Fetch PDF data as ArrayBuffer (handles CORS issues with local files)
     const pdfData = await ocr_fetchPDFData(pdfUrl);
@@ -879,7 +912,7 @@ async function ocr_showScreenshotUI() {
 
   // Handle button clicks using shared event handler utility
   return new Promise(resolve => {
-    attachInteractiveHandler(
+    attachAccessibleHandler(
       document.getElementById('assist-ocr-visible'),
       'OCR Capture Visible',
       async () => {
@@ -896,7 +929,7 @@ async function ocr_showScreenshotUI() {
       }
     );
 
-    attachInteractiveHandler(
+    attachAccessibleHandler(
       document.getElementById('assist-ocr-fullpage'),
       'OCR Capture Full Page',
       async () => {
@@ -913,7 +946,7 @@ async function ocr_showScreenshotUI() {
       }
     );
 
-    attachInteractiveHandler(
+    attachAccessibleHandler(
       document.getElementById('assist-ocr-region'),
       'OCR Capture Region',
       async () => {
@@ -930,7 +963,7 @@ async function ocr_showScreenshotUI() {
       }
     );
 
-    attachInteractiveHandler(document.getElementById('assist-ocr-cancel'), 'OCR Cancel', () => {
+    attachAccessibleHandler(document.getElementById('assist-ocr-cancel'), 'OCR Cancel', () => {
       overlay.remove();
       resolve(null);
     });
@@ -938,11 +971,109 @@ async function ocr_showScreenshotUI() {
 }
 
 /**
+ * Reads the offline-accuracy preprocessing toggle. Default OFF (unset/false) — recognition output
+ * only changes when a user explicitly opts in (per the ADR).
+ *
+ * @returns {Promise<boolean>}
+ */
+async function ocr_offlineAccuracyEnabled() {
+  if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+    return false;
+  }
+  const result = await chrome.storage.local.get('assist_settings');
+  return result.assist_settings?.ocr?.offlineAccuracy === true;
+}
+
+/**
+ * Loads a data URL into an Image element.
+ *
+ * @param {string} dataUrl
+ * @returns {Promise<HTMLImageElement>}
+ */
+function ocr_loadImageElement(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image for preprocessing'));
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Single shared preprocessing gate, called from ocr_recognizeText — the one function every capture
+ * path (region, full-page, and each page of a multi-page PDF) funnels through before Tesseract runs.
+ * Routing preprocessing through this one call site means there is exactly one preprocessing path, not
+ * one per capture mode.
+ *
+ * Off/unset (the default) is a byte-identical passthrough: the ocr-preprocess.js pure transforms are
+ * never invoked, so recognition output is unchanged from today. When
+ * `assist_settings.ocr.offlineAccuracy` is explicitly `true`, runs grayscale → contrast normalize →
+ * Otsu binarize → adaptive upscale on the image before Tesseract sees it.
+ *
+ * Any failure anywhere in this chain (settings read, image decode, canvas unavailable, a transform
+ * throwing) falls back to the original, unmodified image — preprocessing must never be able to break
+ * OCR.
+ *
+ * @param {string} imageDataUrl
+ * @returns {Promise<string>}
+ */
+async function ocr_prepareCanvas(imageDataUrl) {
+  let enabled = false;
+  try {
+    enabled = await ocr_offlineAccuracyEnabled();
+  } catch (error) {
+    console.warn('[OCR] Could not read offline-accuracy setting, skipping preprocessing:', error);
+    return imageDataUrl;
+  }
+  if (!enabled) {
+    return imageDataUrl;
+  }
+
+  try {
+    const img = await ocr_loadImageElement(imageDataUrl);
+    const sourceCanvas = document.createElement('canvas');
+    sourceCanvas.width = img.width;
+    sourceCanvas.height = img.height;
+    const sourceCtx = sourceCanvas.getContext('2d');
+    sourceCtx.drawImage(img, 0, 0);
+    let imageData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+
+    imageData = toGrayscale(imageData);
+    imageData = normalizeContrast(imageData);
+    const threshold = otsuThreshold(imageData);
+    imageData = binarize(imageData, threshold);
+
+    const processedCanvas = document.createElement('canvas');
+    processedCanvas.width = imageData.width;
+    processedCanvas.height = imageData.height;
+    processedCanvas.getContext('2d').putImageData(imageData, 0, 0);
+
+    const scale = computeUpscaleFactor(imageData.width, imageData.height);
+    if (scale <= 1) {
+      return processedCanvas.toDataURL('image/png');
+    }
+
+    const upscaledCanvas = document.createElement('canvas');
+    upscaledCanvas.width = imageData.width * scale;
+    upscaledCanvas.height = imageData.height * scale;
+    const upscaledCtx = upscaledCanvas.getContext('2d');
+    upscaledCtx.imageSmoothingEnabled = true;
+    upscaledCtx.imageSmoothingQuality = 'high';
+    upscaledCtx.drawImage(processedCanvas, 0, 0, upscaledCanvas.width, upscaledCanvas.height);
+    return upscaledCanvas.toDataURL('image/png');
+  } catch (error) {
+    console.warn('[OCR] Preprocessing failed, falling back to unprocessed image:', error);
+    return imageDataUrl;
+  }
+}
+
+/**
  * Performs OCR on an image
  *
  * @param {string} imageDataUrl - Image data URL to process
  * @param {Object} options - OCR options
- * @param {string} options.lang - Language code (default: 'eng')
+ * @param {{code: string, langPath: string}} [options.language] - the language to read in, as
+ *   `prepareOcrLanguage` gives it (default: English, from the package)
  * @param {number} options.confidenceThreshold - Minimum confidence (0-100, default: 50)
  * @param {boolean} options.filterNoise - Remove UI clutter (default: from settings)
  * @param {number} options.upscaleFactor - Image upscaling factor for better accuracy (default: 1.5)
@@ -951,15 +1082,17 @@ async function ocr_showScreenshotUI() {
  */
 async function ocr_recognizeText(imageDataUrl, options = {}) {
   const {
-    lang = 'eng',
+    language = { code: 'eng', langPath: bundledLanguagePath('eng') },
     confidenceThreshold = 50,
     upscaleFactor = 1.5,
     skipUpscaling = false,
+    onProgress,
+    onStage,
   } = options;
 
   try {
     console.log(
-      `[OCR] Starting text recognition (lang: ${lang}, threshold: ${confidenceThreshold}%, upscale: ${skipUpscaling ? 'skipped' : upscaleFactor + 'x'})`
+      `[OCR] Starting text recognition (lang: ${language.code}, threshold: ${confidenceThreshold}%, upscale: ${skipUpscaling ? 'skipped' : upscaleFactor + 'x'})`
     );
 
     // Upscale image for better OCR accuracy (unless it's already high-quality like PDF.js renders)
@@ -970,15 +1103,25 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
       console.log('[OCR] Skipping upscaling (image already high-quality)');
     }
 
+    // Offline-accuracy preprocessing (grayscale/contrast/Otsu binarize/adaptive upscale), opt-in via
+    // assist_settings.ocr.offlineAccuracy. No-op (byte-identical passthrough) when off/unset.
+    processedImage = await ocr_prepareCanvas(processedImage);
+
     // Lazy load Tesseract
     const Tesseract = await ocr_loadTesseract();
 
-    // Create worker with improved settings
+    // Every file the worker loads comes from the extension or the prepared language (ADR 0008).
     console.log('[OCR] Creating Tesseract worker...');
-    const worker = await Tesseract.createWorker(lang, 1, {
+    const worker = await Tesseract.createWorker(language.code, 1, {
+      ...ocrWorkerOptions(language.langPath),
       logger: m => {
         if (m.status === 'recognizing text') {
+          if (typeof onProgress === 'function') {
+            onProgress(m.progress);
+          }
           console.log(`[OCR] Progress: ${Math.round(m.progress * 100)}%`);
+        } else if (m.status && typeof onStage === 'function') {
+          onStage(ocr_stageLabel(m.status));
         }
       },
     });
@@ -997,9 +1140,10 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
       preserve_interword_spaces: '1', // Better word spacing detection
     });
 
-    // Perform OCR on the upscaled image
+    // Perform OCR on the upscaled image. Request blocks so per-line/word bbox geometry is populated
+    // (Tesseract.js v5 omits it otherwise) — the layout reconstruction needs it.
     console.log('[OCR] Recognizing text...');
-    const result = await worker.recognize(processedImage);
+    const result = await worker.recognize(processedImage, {}, { blocks: true });
 
     // Terminate worker
     await worker.terminate();
@@ -1029,9 +1173,17 @@ async function ocr_recognizeText(imageDataUrl, options = {}) {
       `[OCR] Extracted ${result.data.text.length} characters (cleaned: ${filteredText.length})`
     );
 
+    // Reconstruct format-preserving Markdown from the line geometry (additive — `text` is unchanged).
+    // Drop page furniture a stitched full-page capture repeats many times (sticky sidebars, repeated
+    // tables of contents) so even the default view is cleaner; genuine content rarely repeats 3+ times.
+    const layout = reconstructLayout({ lines: linesFromTesseract(result.data) });
+    const layoutMarkdown = dedupeRepeatedLines(layout.markdown);
+
     return {
       text: filteredText,
       originalText: result.data.text,
+      layoutMarkdown,
+      layoutBlocks: layout.blocks,
       confidence: result.data.confidence,
       words: result.data.words,
       lines: result.data.lines,
@@ -1232,12 +1384,97 @@ function ocr_updateProgress(modal, currentPage, totalPages, estimatedSeconds) {
 }
 
 /**
+ * Map a Tesseract worker status to a friendly stage label.
+ * @param {string} status
+ * @returns {string}
+ */
+function ocr_stageLabel(status) {
+  const labels = {
+    'loading tesseract core': 'Loading the OCR engine…',
+    'initializing tesseract': 'Starting up…',
+    'initializing api': 'Starting up…',
+    'loading language traineddata': 'Loading language data…',
+    'recognizing text': 'Recognising text…',
+  };
+  return labels[status] || 'Preparing…';
+}
+
+/**
+ * Shows an accessible recognition-progress overlay for single-image OCR. Long pages can take a
+ * while, so this gives a live progress bar plus a rough time-remaining estimate. Returns handles to
+ * update it and close it; degrades to a no-op shape where there is no DOM (tests).
+ *
+ * @returns {{ update: (progress: number) => void, stage: (label: string) => void, close: () => void }}
+ */
+function ocr_showRecognitionProgress() {
+  if (typeof document === 'undefined' || !document.body) {
+    return { update() {}, stage() {}, close() {} };
+  }
+
+  const startTime = Date.now();
+  const overlay = document.createElement('div');
+  overlay.id = 'assist-ocr-recognition-progress';
+  overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:${Z.MODAL};display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;`;
+  const modal = document.createElement('div');
+  modal.style.cssText =
+    'background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);max-width:460px;width:90%;padding:28px;';
+  modal.innerHTML = sanitizeHTML(`
+    <h2 style="margin:0 0 8px 0;font-size:18px;font-weight:600;color:#1a1a1a;">Reading text…</h2>
+    <p id="assist-ocr-rec-stage" role="status" aria-live="polite" style="margin:0 0 16px 0;color:#475569;font-size:13px;">Preparing…</p>
+    <div role="progressbar" aria-label="OCR progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="assist-ocr-rec-track" style="background:#e2e8f0;border-radius:8px;height:10px;overflow:hidden;margin-bottom:10px;">
+      <div id="assist-ocr-rec-bar" style="background:#2c5d8a;height:100%;width:0%;transition:width 0.3s ease;"></div>
+    </div>
+    <p id="assist-ocr-rec-eta" style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">Pages with a lot of text take a little longer.</p>
+  `);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const bar = overlay.querySelector('#assist-ocr-rec-bar');
+  const track = overlay.querySelector('#assist-ocr-rec-track');
+  const stageEl = overlay.querySelector('#assist-ocr-rec-stage');
+  const etaEl = overlay.querySelector('#assist-ocr-rec-eta');
+
+  return {
+    update(progress) {
+      const pct = Math.max(0, Math.min(100, Math.round((progress || 0) * 100)));
+      if (bar) {
+        bar.style.width = `${pct}%`;
+      }
+      if (track) {
+        track.setAttribute('aria-valuenow', String(pct));
+      }
+      if (stageEl) {
+        stageEl.textContent = `Recognising text… ${pct}%`;
+      }
+      if (etaEl && progress > 0.05 && progress < 1) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const remaining = Math.ceil((elapsed * (1 - progress)) / progress);
+        etaEl.textContent =
+          remaining > 60
+            ? `About ${Math.floor(remaining / 60)}m ${remaining % 60}s remaining`
+            : `About ${remaining}s remaining`;
+      }
+    },
+    stage(label) {
+      if (stageEl) {
+        stageEl.textContent = label;
+      }
+    },
+    close() {
+      overlay.remove();
+    },
+  };
+}
+
+/**
  * Main OCR workflow - captures screenshot and performs OCR
  *
  * @param {Object} options - OCR options
  * @returns {Promise<Object>} OCR result
  */
 async function ocr_performOCR(options = {}) {
+  // Lets the page's copy of a downloaded language file go once the capture is over (ADR 0008).
+  let releaseLanguage = () => {};
   try {
     console.log('[OCR] Starting OCR workflow...');
 
@@ -1246,6 +1483,10 @@ async function ocr_performOCR(options = {}) {
     let shouldAutoActivateReadingMode = true; // Default to true
     let ocrLanguage = 'eng'; // Default language
     let ocrConfidenceThreshold = 60; // Default confidence threshold
+    let ocrUpscaleFactor = 1.5; // Default zoom/upscale for capture
+    // Off unless the student chose it: a voice starting unprompted can talk over a screen reader.
+    let shouldAutoPlay = false;
+    let savedRate;
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const result = await chrome.storage.local.get('assist_settings');
@@ -1255,9 +1496,12 @@ async function ocr_performOCR(options = {}) {
       shouldAutoActivateReadingMode = ocrSettings.autoActivateReadingMode !== false;
       ocrLanguage = ocrSettings.language || 'eng';
       ocrConfidenceThreshold = ocrSettings.confidenceThreshold ?? 60;
+      ocrUpscaleFactor = ocrSettings.upscaleFactor ?? 1.5;
+      shouldAutoPlay = ocrSettings.autoTTS === true;
+      savedRate = result.assist_settings?.tts?.rate;
 
       console.log(
-        `[OCR] Settings loaded - Language: ${ocrLanguage}, Confidence: ${ocrConfidenceThreshold}%`
+        `[OCR] Settings loaded - Language: ${ocrLanguage}, Confidence: ${ocrConfidenceThreshold}%, Zoom: ${ocrUpscaleFactor}x`
       );
     }
 
@@ -1265,6 +1509,7 @@ async function ocr_performOCR(options = {}) {
     const mergedOptions = {
       lang: ocrLanguage,
       confidenceThreshold: ocrConfidenceThreshold,
+      upscaleFactor: ocrUpscaleFactor,
       ...options, // User-provided options override settings
     };
 
@@ -1296,6 +1541,12 @@ async function ocr_performOCR(options = {}) {
       return null;
     }
 
+    // The language is ready before recognition starts: English from the package, another language
+    // downloaded once on request, or English with a note saying why (ADR 0008).
+    const prepared = await prepareOcrLanguage(mergedOptions.lang);
+    releaseLanguage = prepared.release;
+    const recognitionOptions = { ...mergedOptions, language: prepared.language };
+
     // Handle multi-page PDF (array of images) vs single image (string)
     let result;
     if (Array.isArray(imageDataUrl)) {
@@ -1309,25 +1560,27 @@ async function ocr_performOCR(options = {}) {
       const startTime = Date.now();
 
       // PDF.js already renders at 2.0x scale, so skip upscaling for PDF pages
-      const pdfOptions = { ...mergedOptions, skipUpscaling: true };
+      const pdfOptions = { ...recognitionOptions, skipUpscaling: true };
 
-      for (let i = 0; i < imageDataUrl.length; i++) {
-        console.log(`[OCR] Processing page ${i + 1}/${imageDataUrl.length}...`);
+      try {
+        for (let i = 0; i < imageDataUrl.length; i++) {
+          console.log(`[OCR] Processing page ${i + 1}/${imageDataUrl.length}...`);
 
-        // Update progress
-        const elapsed = (Date.now() - startTime) / 1000; // seconds
-        const avgTimePerPage = i > 0 ? elapsed / i : 15; // Estimate 15s for first page
-        const remainingPages = imageDataUrl.length - i;
-        const estimatedTimeRemaining = Math.ceil(avgTimePerPage * remainingPages);
+          // Update progress
+          const elapsed = (Date.now() - startTime) / 1000; // seconds
+          const avgTimePerPage = i > 0 ? elapsed / i : 15; // Estimate 15s for first page
+          const remainingPages = imageDataUrl.length - i;
+          const estimatedTimeRemaining = Math.ceil(avgTimePerPage * remainingPages);
 
-        ocr_updateProgress(progressModal, i + 1, imageDataUrl.length, estimatedTimeRemaining);
+          ocr_updateProgress(progressModal, i + 1, imageDataUrl.length, estimatedTimeRemaining);
 
-        const pageResult = await ocr_recognizeText(imageDataUrl[i], pdfOptions);
-        pageResults.push(pageResult);
+          const pageResult = await ocr_recognizeText(imageDataUrl[i], pdfOptions);
+          pageResults.push(pageResult);
+        }
+      } finally {
+        // Always remove the progress modal — a page failure must not orphan it on the page.
+        progressModal.remove();
       }
-
-      // Close progress modal
-      progressModal.remove();
 
       // Concatenate all page texts
       const combinedText = pageResults.map(r => r.text).join('\n\n--- Page Break ---\n\n');
@@ -1337,6 +1590,9 @@ async function ocr_performOCR(options = {}) {
       result = {
         text: combinedText,
         originalText: pageResults.map(r => r.originalText).join('\n\n--- Page Break ---\n\n'),
+        layoutMarkdown: pageResults
+          .map(r => r.layoutMarkdown || '')
+          .join('\n\n--- Page Break ---\n\n'),
         confidence: avgConfidence,
         pages: pageResults.length,
         pageResults: pageResults,
@@ -1346,13 +1602,33 @@ async function ocr_performOCR(options = {}) {
         `[OCR] Multi-page processing complete. Total: ${result.text.length} characters, Avg confidence: ${avgConfidence.toFixed(1)}%`
       );
     } else {
-      // Single image OCR
-      result = await ocr_recognizeText(imageDataUrl, mergedOptions);
+      // Single image OCR — show a live progress overlay (long pages can take a while).
+      const progressUI = ocr_showRecognitionProgress();
+      try {
+        result = await ocr_recognizeText(imageDataUrl, {
+          ...recognitionOptions,
+          onStage: label => progressUI.stage(label),
+          onProgress: progress => progressUI.update(progress),
+        });
+      } finally {
+        progressUI.close();
+      }
     }
 
-    // Show result modal (use first page image for multi-page PDFs)
+    if (prepared.notice) {
+      result.languageNotice = prepared.notice;
+    }
+
+    // Show result modal (use first page image for multi-page PDFs). Auto-play reads through the
+    // dialog's own player, so its pause, stop and close control it; closing stops the voice before
+    // reading mode (if it was entered for the capture) is left below. After a no to the language
+    // file, the dialog offers Allow in place, and a yes starts a new capture in that language.
     const displayImage = Array.isArray(imageDataUrl) ? imageDataUrl[0] : imageDataUrl;
-    await ocr_showResultModal(result, displayImage);
+    await ocr_showLayoutResultModal(result, displayImage, {
+      autoPlay: shouldAutoPlay,
+      rate: savedRate,
+      onLanguageAllowed: prepared.declined ? () => ocr_performOCR(options) : null,
+    });
 
     // Exit reading mode if we activated it
     if (readingModeWasActivated && window.assistFeatures?.readingMode) {
@@ -1363,8 +1639,10 @@ async function ocr_performOCR(options = {}) {
     return result;
   } catch (error) {
     console.error('[OCR] OCR workflow failed:', error);
-    alert(`OCR failed: ${error.message}`);
+    ocr_notify(`OCR failed: ${error.message}`, true);
     return null;
+  } finally {
+    releaseLanguage();
   }
 }
 
@@ -1459,544 +1737,656 @@ function ocr_splitTextIntoChunks(text, maxChunkSize = 3000) {
 }
 
 /**
+ * Map a confidence score to an accessible badge (word + icon + colour, never colour alone — SC 1.4.1).
+ * @param {number} confidence - 0–100
+ * @returns {{label: string, color: string, bg: string, icon: string}}
+ */
+function ocr_confidenceMeta(confidence) {
+  if (confidence >= 85) {
+    return { label: 'High confidence', color: '#0f5132', bg: '#d1e7dd', icon: '✓' };
+  }
+  if (confidence >= 60) {
+    return { label: 'Medium confidence', color: '#664d03', bg: '#fff3cd', icon: '◐' };
+  }
+  return { label: 'Low confidence', color: '#842029', bg: '#f8d7da', icon: '!' };
+}
+
+/** Detect image media type from base64 magic bytes (vision APIs need an accurate type). */
+function ocr_visionMediaType(base64) {
+  if (base64.startsWith('iVBORw0KGgo')) {
+    return 'image/png';
+  }
+  if (base64.startsWith('/9j/')) {
+    return 'image/jpeg';
+  }
+  if (base64.startsWith('R0lGOD')) {
+    return 'image/gif';
+  }
+  if (base64.startsWith('UklGR')) {
+    return 'image/webp';
+  }
+  return 'image/png';
+}
+
+/**
+ * High-fidelity OCR via a cloud/local vision model. Sends the captured image (not the
+ * Tesseract text) to the configured vision model with the structure-preserving `ocrLayout` prompt and
+ * returns format-preserving Markdown. Routes by the user's AI mode: cloud → Claude vision, local →
+ * a local Ollama vision model. Reuses the existing vision pipeline — no new endpoint or permission.
+ *
+ * @param {string} imageDataUrl - the captured image as a data URL
+ * @returns {Promise<string>} format-preserving Markdown
+ */
+async function ocr_visionLayout(imageDataUrl) {
+  const base64 = String(imageDataUrl || '').replace(/^data:image\/\w+;base64,/, '');
+  if (!base64) {
+    throw new Error('No image to read.');
+  }
+
+  let mode = 'off';
+  let cloudModel = REGISTRY.anthropic.defaultModel;
+  try {
+    const stored = await chrome.storage.local.get(['aiMode', 'cloudModel']);
+    mode = stored.aiMode || 'off';
+    cloudModel = stored.cloudModel || REGISTRY.anthropic.defaultModel;
+  } catch {
+    // fall through to the unsupported-mode error below
+  }
+
+  const prompt =
+    getPrompt('ocrLayout') ||
+    'Transcribe the text in this image as clean Markdown, preserving headings, paragraphs and tables. Return only the Markdown.';
+
+  if (mode === 'cloud') {
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLOUD_LLM_VISION',
+      image: base64,
+      imageMediaType: ocr_visionMediaType(base64),
+      prompt,
+      options: {
+        model: cloudModel,
+        maxTokens: 4000,
+        temperature: 0.1,
+        feature: 'ocr',
+        noCache: true,
+      },
+    });
+    if (response?.success) {
+      return response.data;
+    }
+    throw new Error(response?.error || 'Cloud vision request failed.');
+  }
+
+  if (mode === 'local') {
+    const response = await chrome.runtime.sendMessage({
+      action: 'LOCAL_LLM_VISION',
+      image: base64,
+      prompt,
+      options: { maxTokens: 1500, temperature: 0.1 },
+    });
+    if (response?.success) {
+      return response.data;
+    }
+    throw new Error(
+      response?.error || `Local vision model unavailable — run: ollama pull ${VISION_MODEL}`
+    );
+  }
+
+  throw new Error(
+    'AI vision needs Cloud (Claude) or Local (Ollama) mode — choose one in AI setup.'
+  );
+}
+
+/**
+ * New-experience OCR result modal: renders the format-preserving Markdown (B1) with a sanitized
+ * preview, an editable view, a confidence indicator, and copy/save — fully accessible (role=dialog,
+ * aria-modal, focus trap, Escape/backdrop close, keyboard-operable controls, status live region).
+ *
+ * @param {Object} result - OCR result (uses layoutMarkdown, text, confidence)
+ * @param {string} imageDataUrl - original image data URL (collapsible preview)
+ * @param {Object} [player] - read-aloud options
+ * @param {boolean} [player.autoPlay=false] - start reading the text as soon as the dialog opens
+ * @param {number} [player.rate] - the student's saved speaking rate; 1 when absent or invalid
+ * @param {Function|null} [player.onLanguageAllowed] - set when the chosen language was declined:
+ *   the dialog shows the declined notice, and a yes closes it and runs this
+ * @returns {Promise<void>} resolves when the modal closes
+ */
+async function ocr_showLayoutResultModal(
+  result,
+  imageDataUrl,
+  { autoPlay = false, rate, onLanguageAllowed = null } = {}
+) {
+  const initialRate = Number.isFinite(rate) && rate > 0 ? rate : 1.0;
+  return new Promise(resolve => {
+    const previouslyFocused = document.activeElement;
+    let releaseTrap = null;
+
+    const onKeydown = e => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+      }
+    };
+    const close = () => {
+      ocr_stopPlayback();
+      if (releaseTrap) {
+        releaseTrap();
+      }
+      document.removeEventListener('keydown', onKeydown);
+      overlay.remove();
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus();
+      }
+      resolve();
+    };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'assist-ocr-layout-modal';
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:${Z.MODAL};display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;`;
+
+    const modal = document.createElement('div');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'assist-ocr-layout-title');
+    modal.style.cssText = `background:#fff;color:#1a1a1a;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);max-width:820px;width:92%;max-height:90vh;display:flex;flex-direction:column;`;
+
+    // Header: title + confidence badge + close. This is now the only OCR result surface, so a
+    // result with no confidence score (an empty or failed recognition) drops the badge rather
+    // than claiming a made-up one.
+    const meta = ocr_confidenceMeta(result.confidence);
+    const confidenceBadge = Number.isFinite(result.confidence)
+      ? `<span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;color:${meta.color};background:${meta.bg};">
+          <span aria-hidden="true">${meta.icon}</span>${meta.label} (${result.confidence.toFixed(0)}%)
+        </span>`
+      : '';
+    const header = document.createElement('div');
+    header.style.cssText =
+      'padding:16px 20px;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;gap:12px;';
+    header.innerHTML = sanitizeHTML(`
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <h2 id="assist-ocr-layout-title" style="margin:0;font-size:18px;font-weight:600;">Extracted text</h2>
+        ${confidenceBadge}
+      </div>
+    `);
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText =
+      'background:#eee;border:none;width:36px;height:36px;border-radius:8px;font-size:22px;line-height:1;cursor:pointer;color:#333;flex-shrink:0;';
+    header.appendChild(closeBtn);
+
+    // Toolbar: view toggle + actions.
+    const toolbar = document.createElement('div');
+    toolbar.setAttribute('role', 'toolbar');
+    toolbar.setAttribute('aria-label', 'Result actions');
+    toolbar.style.cssText =
+      'display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid #f0f0f0;flex-wrap:wrap;';
+    const makeButton = label => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.style.cssText =
+        'padding:8px 14px;min-height:40px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#1a1a1a;font-size:13px;font-weight:600;cursor:pointer;';
+      return b;
+    };
+    const previewBtn = makeButton('Preview');
+    const editBtn = makeButton('Edit');
+    const copyBtn = makeButton('Copy');
+    const saveBtn = makeButton('Save');
+    const studyPathBtn = makeButton('📚 Study Path');
+    const visionBtn = makeButton('🔍 AI vision');
+    visionBtn.style.display = 'none'; // shown only for cloud/local AI modes (set below)
+    const aiBtn = makeButton('✨ AI clean-up');
+    const undoBtn = makeButton('Undo AI');
+    undoBtn.style.display = 'none';
+    previewBtn.setAttribute('aria-pressed', 'true');
+    editBtn.setAttribute('aria-pressed', 'false');
+
+    // Summarize toggle — OFF (default) keeps the text verbatim (OCR fidelity); ON lets the AI
+    // condense the page. Per-capture so the choice can be made after seeing the text.
+    const summarizeLabel = document.createElement('label');
+    summarizeLabel.style.cssText =
+      'display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#1a1a1a;cursor:pointer;margin-left:4px;';
+    const summarizeCheck = document.createElement('input');
+    summarizeCheck.type = 'checkbox';
+    summarizeCheck.id = 'assist-ocr-summarize';
+    summarizeLabel.append(summarizeCheck, document.createTextNode('Summarize'));
+
+    toolbar.append(
+      previewBtn,
+      editBtn,
+      copyBtn,
+      saveBtn,
+      studyPathBtn,
+      visionBtn,
+      aiBtn,
+      undoBtn,
+      summarizeLabel
+    );
+
+    // Body: collapsible screenshot, rendered preview, editable source.
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:20px;flex:1;overflow-y:auto;background:#fff;';
+
+    // Why this was read as English, when the chosen language's file could not be used (ADR 0008).
+    if (result.languageNotice) {
+      const note = document.createElement('p');
+      note.textContent = result.languageNotice;
+      note.style.cssText =
+        'margin:0 0 16px;padding:10px 12px;border-left:4px solid #1a56db;background:#eff6ff;color:#1a1a1a;font-size:14px;line-height:1.5;';
+      body.appendChild(note);
+    }
+    if (typeof onLanguageAllowed === 'function') {
+      const declined = createDeclinedNotice('ocrLanguages', {
+        onAllowed: () => {
+          // The yes can come long after the student closed this dialog; a capture starting then
+          // would come out of nowhere.
+          if (!overlay.isConnected) {
+            return;
+          }
+          close();
+          onLanguageAllowed();
+        },
+      });
+      declined.style.cssText = 'margin:0 0 16px;';
+      body.appendChild(declined);
+    }
+
+    if (imageDataUrl) {
+      const details = document.createElement('details');
+      details.style.cssText = 'margin-bottom:16px;';
+      const summary = document.createElement('summary');
+      summary.textContent = '📷 View screenshot';
+      summary.style.cssText = 'cursor:pointer;font-weight:600;font-size:13px;color:#475569;';
+      const shot = document.createElement('img');
+      shot.src = imageDataUrl;
+      shot.alt = 'Captured image';
+      shot.style.cssText =
+        'display:block;margin-top:12px;max-width:100%;max-height:240px;border:1px solid #e0e0e0;border-radius:8px;';
+      details.append(summary, shot);
+      body.appendChild(details);
+    }
+
+    const preview = document.createElement('div');
+    preview.setAttribute('aria-label', 'Formatted preview');
+    preview.style.cssText = 'line-height:1.6;font-size:15px;';
+    const sourceText = result.layoutMarkdown || result.text || '';
+    preview.innerHTML = sanitizeHTML(renderMarkdownToHtml(sourceText));
+
+    const editor = document.createElement('textarea');
+    editor.setAttribute('aria-label', 'Editable extracted text (Markdown)');
+    editor.value = sourceText;
+    editor.style.cssText =
+      'width:100%;min-height:340px;box-sizing:border-box;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;padding:12px;border:1px solid #cbd5e1;border-radius:8px;resize:vertical;display:none;';
+
+    body.append(preview, editor);
+
+    // Read-aloud player: play/pause, stop, and speed (reuses the shared speech engine).
+    const playerBar = document.createElement('div');
+    playerBar.style.cssText =
+      'display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid #f0f0f0;';
+    const transport = document.createElement('div');
+    transport.style.cssText = 'display:flex;align-items:center;gap:12px;';
+    const playBtn = document.createElement('button');
+    playBtn.type = 'button';
+    playBtn.textContent = '▶';
+    playBtn.setAttribute('aria-label', 'Read aloud');
+    playBtn.style.cssText =
+      'width:48px;height:48px;border-radius:50%;border:none;background:#2c5d8a;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    const stopBtn = document.createElement('button');
+    stopBtn.type = 'button';
+    stopBtn.textContent = '■';
+    stopBtn.setAttribute('aria-label', 'Stop reading');
+    stopBtn.style.cssText =
+      'width:44px;height:44px;border-radius:50%;border:none;background:#c0392b;color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    transport.append(playBtn, stopBtn);
+    const speedRow = document.createElement('div');
+    speedRow.setAttribute('role', 'group');
+    speedRow.setAttribute('aria-label', 'Reading speed');
+    speedRow.style.cssText =
+      'display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;';
+    const speedLabel = document.createElement('span');
+    speedLabel.textContent = 'Speed:';
+    speedLabel.style.cssText = 'font-size:13px;color:#475569;margin-right:4px;';
+    speedRow.appendChild(speedLabel);
+    const speedButtons = [0.5, 0.75, 1, 1.25, 1.5, 2].map(speed => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = `${speed}x`;
+      b.dataset.speed = String(speed);
+      // A saved rate between two buttons leaves none pressed rather than claiming the wrong one.
+      const active = speed === initialRate;
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      b.style.cssText = `padding:6px 12px;min-height:36px;border-radius:8px;border:1px solid #cbd5e1;cursor:pointer;font-size:13px;font-weight:600;background:${active ? '#2c5d8a' : '#f8fafc'};color:${active ? '#fff' : '#1a1a1a'};`;
+      speedRow.appendChild(b);
+      return b;
+    });
+    playerBar.append(transport, speedRow);
+
+    // Status live region.
+    const status = document.createElement('div');
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.style.cssText = 'padding:8px 20px;font-size:13px;color:#475569;min-height:20px;';
+
+    const showPreview = () => {
+      preview.innerHTML = sanitizeHTML(renderMarkdownToHtml(editor.value));
+      preview.style.display = '';
+      editor.style.display = 'none';
+      previewBtn.setAttribute('aria-pressed', 'true');
+      editBtn.setAttribute('aria-pressed', 'false');
+    };
+    const showEdit = () => {
+      preview.style.display = 'none';
+      editor.style.display = '';
+      previewBtn.setAttribute('aria-pressed', 'false');
+      editBtn.setAttribute('aria-pressed', 'true');
+      editor.focus();
+    };
+
+    attachAccessibleHandler(previewBtn, 'OCR Preview View', showPreview);
+    attachAccessibleHandler(editBtn, 'OCR Edit View', showEdit);
+    attachAccessibleHandler(copyBtn, 'OCR Copy Text', async () => {
+      try {
+        await navigator.clipboard.writeText(editor.value);
+        status.textContent = 'Copied to clipboard.';
+      } catch {
+        status.textContent = 'Copy failed — select the text and copy manually.';
+      }
+    });
+    attachAccessibleHandler(saveBtn, 'OCR Save Text', () => {
+      ocr_saveAsFile(editor.value);
+      status.textContent = 'Saved.';
+    });
+    attachAccessibleHandler(studyPathBtn, 'OCR Study Path', () => {
+      // Hand the current text (AI-corrected edits included) to the Study Path Generator.
+      const text = editor.value;
+      if (!window.assistFeatures?.studyPathGenerator) {
+        status.textContent = 'Study Path Generator is not available — enable it in settings.';
+        return;
+      }
+      close();
+      window.assistFeatures.studyPathGenerator.show(text);
+    });
+    attachAccessibleHandler(closeBtn, 'OCR Close', close);
+
+    // Read-aloud player wiring.
+    ocrMediaPlayer.rate = initialRate;
+    ocrMediaPlayer.isPlaying = false;
+    ocrMediaPlayer.isPaused = false;
+    const setPlayGlyph = playing => {
+      playBtn.textContent = playing ? '⏸' : '▶';
+      playBtn.setAttribute('aria-label', playing ? 'Pause reading' : 'Read aloud');
+    };
+    // Speak plain prose — strip Markdown so the reader never voices "hash hash hash".
+    const readingText = () => stripMarkdownForSpeech(editor.value);
+    const startReading = text => {
+      ocrMediaPlayer.fullText = text;
+      ocrMediaPlayer.chunks = ocr_splitTextIntoChunks(text);
+      ocrMediaPlayer.currentChunkIndex = 0;
+      ocr_playChunk(0, playBtn);
+      setPlayGlyph(true);
+      status.textContent = 'Reading…';
+    };
+    attachAccessibleHandler(playBtn, 'OCR Read Aloud', () => {
+      if (ocrMediaPlayer.isPlaying && !ocrMediaPlayer.isPaused) {
+        window.speechSynthesis.pause();
+        ocrMediaPlayer.isPaused = true;
+        setPlayGlyph(false);
+        status.textContent = 'Paused.';
+      } else if (ocrMediaPlayer.isPaused) {
+        window.speechSynthesis.resume();
+        ocrMediaPlayer.isPaused = false;
+        setPlayGlyph(true);
+        status.textContent = 'Reading…';
+      } else {
+        const text = readingText();
+        if (!text) {
+          status.textContent = 'Nothing to read.';
+          return;
+        }
+        startReading(text);
+      }
+    });
+    attachAccessibleHandler(stopBtn, 'OCR Stop Reading', () => {
+      ocr_stopPlayback();
+      setPlayGlyph(false);
+      status.textContent = 'Stopped.';
+    });
+    speedButtons.forEach(b => {
+      const speed = parseFloat(b.dataset.speed);
+      attachAccessibleHandler(b, `OCR speed ${speed}x`, () => {
+        ocrMediaPlayer.rate = speed;
+        speedButtons.forEach(other => {
+          const active = other === b;
+          other.setAttribute('aria-pressed', active ? 'true' : 'false');
+          other.style.background = active ? '#2c5d8a' : '#f8fafc';
+          other.style.color = active ? '#fff' : '#1a1a1a';
+        });
+        if (ocrMediaPlayer.utterance && ocrMediaPlayer.isPlaying) {
+          ocrMediaPlayer.utterance.rate = speed;
+        }
+        status.textContent = `Speed ${speed}×`;
+      });
+    });
+
+    // AI proofread: a second pass over the text using the AI configured in the extension. Optional;
+    // additive; reverts cleanly. Reuses the shared AI client (no new endpoint/permission).
+    let preAiMarkdown = null;
+    attachAccessibleHandler(aiBtn, 'OCR AI Proofread', async () => {
+      const original = editor.value;
+      if (!original.trim()) {
+        status.textContent = 'Nothing to proofread.';
+        return;
+      }
+      const summarize = summarizeCheck.checked;
+      const previousLabel = aiBtn.textContent;
+      aiBtn.disabled = true;
+      aiBtn.textContent = summarize ? 'Summarizing…' : 'Cleaning up…';
+      status.textContent = summarize ? 'Summarizing with AI…' : 'Cleaning up the text with AI…';
+      try {
+        const modeInfo = await getAIMode('summarization');
+        if (modeInfo.isOff) {
+          status.textContent = 'AI is off — turn it on in AI setup to use this.';
+          return;
+        }
+        const availability = await checkAIAvailable(modeInfo);
+        if (!availability.available) {
+          status.textContent = getUnavailableStatusMessage(availability);
+          return;
+        }
+        // Strict (default): aggressively drop non-article chrome and restore reading order, but keep
+        // the article's own sentences verbatim (no summarizing/rewording). Summarize (opt-in): condense.
+        const proofreadPromptFor =
+          part => `You are cleaning up a SECTION of text captured by OCR of a web page so it can be read aloud. The capture mixes the real content with interface text and may be jumbled.
+
+1. REMOVE everything that is not the main reading content: site name, menus, breadcrumbs, table of contents / section lists, tabs like "Article", "Talk", "Read", "View source", "View history", search, donate, "create account", "log in", language lists, edit links, appearance / text-size / colour controls and their options (e.g. "Small", "Standard", "Large", "Wide", "Automatic", "Light", "Dark"), sidebars, info-box labels, adverts, cookie or consent notices, headers and footers.
+2. ALSO REMOVE reference apparatus, which is not readable prose: numbered or bulleted citation/reference lists, footnotes, bibliographies, "doi:", "ISBN", "PMID", "PMC", "Archived from the original" and "Retrieved <date>" entries, and the "References", "Notes", "Citations", "Further reading", "External links" and "See also" sections in their entirety.
+3. KEEP the actual prose content. You MAY fix OCR errors, rejoin lines split mid-sentence, and restore reading order WITHIN this section, but do NOT summarize, shorten, paraphrase, reword, or change the meaning — keep the sentences as written.
+4. Only mark a line as a heading (with #) if it is a genuine section heading. Do NOT turn stray words or interface labels into headings.
+
+This is one section of a larger page; do not add an intro or conclusion, and do not describe what you removed. Output ONLY the cleaned content as Markdown — no preamble, no "Here is", no notes, no code fences.\n\nSection:\n${part}`;
+        const summarizePromptFor = part =>
+          `Summarize the main reading content in this SECTION of a page so it can be read aloud. Keep the key points and a logical structure (headings with #, short paragraphs). Ignore navigation and interface text (site names, menus, search, donate, log in, cookie notices, sidebars, adverts, headers, footers) AND reference apparatus (citation/reference lists, footnotes, bibliographies, "References", "Further reading", "External links", "See also"). This is one section of a larger page; do not add an intro or conclusion, and do not describe what you did. Output ONLY the Markdown — no preamble or commentary.\n\nSection:\n${part}`;
+
+        // Chunk for "Read entire page": a full page can exceed what a local model handles inside the
+        // 30s message timeout. Process model-sized pieces sequentially, sizing each from the last
+        // piece's latency, then recombine. Small captures stay a single piece.
+        const units = splitIntoUnits(original);
+        const isLocal = modeInfo.isLocal;
+        const perChunkTokens = isLocal ? 800 : 4000;
+        const adaptOpts = isLocal
+          ? { min: 600, max: 3000, targetMs: 20000 }
+          : { min: 3000, max: 8000, targetMs: 20000 };
+        let chunkChars = isLocal ? 1200 : 6000;
+
+        const cleanedParts = [];
+        let unitIndex = 0;
+        let failedChunks = 0;
+        while (unitIndex < units.length) {
+          const { chunk, next } = takeChunk(units, unitIndex, chunkChars);
+          unitIndex = next;
+          const pct = Math.round((unitIndex / units.length) * 100);
+          const verb = summarize ? 'Summarizing' : 'Cleaning up';
+          status.textContent = units.length > 0 ? `${verb} with AI… ${pct}%` : `${verb} with AI…`;
+
+          const startedAt = Date.now();
+          try {
+            const { text } = await generateWithAI(
+              summarize ? summarizePromptFor(chunk) : proofreadPromptFor(chunk),
+              modeInfo,
+              { feature: 'ocr', maxTokens: perChunkTokens, temperature: summarize ? 0.4 : 0.1 }
+            );
+            const cleaned = stripAiCommentary((text || '').trim());
+            cleanedParts.push(cleaned || chunk); // empty reply → keep the raw section
+          } catch (chunkError) {
+            failedChunks++;
+            cleanedParts.push(chunk); // keep the raw section so no content is lost
+            console.warn('[OCR] AI cleanup chunk failed, kept raw:', chunkError);
+          }
+          chunkChars = adaptChunkChars(Date.now() - startedAt, chunkChars, adaptOpts);
+        }
+
+        const combined = combineChunks(cleanedParts);
+        if (!combined) {
+          status.textContent = 'AI returned nothing — keeping the original text.';
+          return;
+        }
+        if (preAiMarkdown === null) {
+          preAiMarkdown = original; // stash the original scan so Undo always returns to it
+        }
+        editor.value = combined;
+        showPreview();
+        undoBtn.style.display = '';
+        const action = summarize ? 'AI summary' : 'AI clean-up';
+        const note =
+          failedChunks > 0
+            ? ` (${failedChunks} section${failedChunks > 1 ? 's' : ''} kept as-is)`
+            : '';
+        status.textContent = `${action} applied (${modeInfo.displayLabel || 'AI'})${note}. Review it; use Undo AI to revert.`;
+      } catch (error) {
+        status.textContent = `AI ${summarize ? 'summary' : 'clean-up'} failed: ${error.message || 'unknown error'}`;
+      } finally {
+        aiBtn.disabled = false;
+        aiBtn.textContent = previousLabel;
+      }
+    });
+    attachAccessibleHandler(undoBtn, 'OCR Undo AI Proofread', () => {
+      if (preAiMarkdown === null) {
+        return;
+      }
+      editor.value = preAiMarkdown;
+      preAiMarkdown = null;
+      showPreview();
+      undoBtn.style.display = 'none';
+      status.textContent = 'Reverted to the original text.';
+    });
+
+    // AI vision (B3): re-read the captured IMAGE with a vision model for high-fidelity layout —
+    // far better than text clean-up on busy pages, since it never sees the jumbled Tesseract output.
+    attachAccessibleHandler(visionBtn, 'OCR AI Vision', async () => {
+      const previousLabel = visionBtn.textContent;
+      visionBtn.disabled = true;
+      visionBtn.textContent = 'Reading image…';
+      status.textContent = 'Re-reading the image with AI vision…';
+      try {
+        const markdown = (await ocr_visionLayout(imageDataUrl)).trim();
+        if (!markdown) {
+          status.textContent = 'AI vision returned nothing — keeping the original text.';
+          return;
+        }
+        if (preAiMarkdown === null) {
+          preAiMarkdown = editor.value; // stash so Undo returns to the Tesseract result
+        }
+        editor.value = markdown;
+        showPreview();
+        undoBtn.style.display = '';
+        status.textContent =
+          'AI vision result applied. Compare with the original; use Undo AI to revert.';
+      } catch (error) {
+        status.textContent = `AI vision failed: ${error.message || 'unknown error'}`;
+      } finally {
+        visionBtn.disabled = false;
+        visionBtn.textContent = previousLabel;
+      }
+    });
+
+    // Gate the AI affordances on the current AI mode (ADR: absent when AI off). Text clean-up works
+    // on any AI provider; vision needs cloud (Claude) or local (Ollama).
+    chrome.storage.local
+      .get('aiMode')
+      .then(({ aiMode }) => {
+        const mode = aiMode || 'off';
+        if (mode === 'off') {
+          aiBtn.style.display = 'none';
+          summarizeLabel.style.display = 'none';
+        }
+        if (mode === 'cloud' || mode === 'local') {
+          visionBtn.style.display = '';
+        }
+      })
+      .catch(() => {});
+
+    // Backdrop click (only when the backdrop itself is clicked, not the modal contents).
+    overlay.addEventListener('mousedown', e => {
+      if (e.target === overlay) {
+        close();
+      }
+    });
+
+    modal.append(header, toolbar, playerBar, body, status);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    document.addEventListener('keydown', onKeydown);
+    releaseTrap = trapFocus(modal);
+    closeBtn.focus();
+
+    // Auto-play starts the same reading the play button does, and only when there is text to read.
+    if (autoPlay) {
+      const text = readingText();
+      if (text) {
+        startReading(text);
+      }
+    }
+  });
+}
+
+/**
  * Shows OCR result modal with extracted text and media player controls
  *
  * @param {Object} result - OCR result object
  * @param {string} imageDataUrl - Original image data URL
  */
-async function ocr_showResultModal(result, imageDataUrl) {
-  return new Promise(resolve => {
-    // Initialize media player state
-    ocrMediaPlayer.fullText = result.text;
-    ocrMediaPlayer.chunks = ocr_splitTextIntoChunks(result.text);
-    ocrMediaPlayer.currentChunkIndex = 0;
-    ocrMediaPlayer.isPlaying = false;
-    ocrMediaPlayer.isPaused = false;
-    ocrMediaPlayer.rate = 1.0;
-    // Create modal overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'assist-ocr-result-modal';
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      z-index: ${Z.MODAL};
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    `;
-
-    // Create modal content
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      max-width: 900px;
-      width: 90%;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-    `;
-
-    // Header
-    const header = document.createElement('div');
-    header.style.cssText = `
-      padding: 20px 24px;
-      border-bottom: 1px solid #e0e0e0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-radius: 12px 12px 0 0;
-    `;
-    header.innerHTML = sanitizeHTML(`
-      <div>
-        <h2 style="margin: 0; font-size: 20px; font-weight: 600;">OCR Audio Player</h2>
-        <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">
-          Confidence: ${result.confidence.toFixed(1)}% |
-          ${result.text.length.toLocaleString()} characters |
-          ${ocrMediaPlayer.chunks.length} chunk${ocrMediaPlayer.chunks.length > 1 ? 's' : ''}${result.pages ? ` | ${result.pages} page${result.pages > 1 ? 's' : ''}` : ''}
-        </p>
-      </div>
-      <button id="assist-ocr-close" style="
-        background: rgba(255,255,255,0.2);
-        border: none;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        font-size: 20px;
-        cursor: pointer;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.2s;
-      " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
-         onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
-    `);
-
-    // Content area
-    const content = document.createElement('div');
-    content.style.cssText = `
-      padding: 24px;
-      flex: 1;
-      overflow-y: auto;
-      background: #f8f9fa;
-    `;
-
-    // Image preview (collapsible)
-    const imagePreview = document.createElement('details');
-    imagePreview.style.cssText = `
-      margin-bottom: 20px;
-      background: white;
-      border-radius: 8px;
-      padding: 12px;
-    `;
-    imagePreview.innerHTML = sanitizeHTML(`
-      <summary style="cursor: pointer; font-weight: 500; color: #667eea; margin-bottom: 12px;">
-        📷 View Screenshot
-      </summary>
-    `);
-    const img = document.createElement('img');
-    img.src = imageDataUrl;
-    img.style.cssText = `
-      max-width: 100%;
-      max-height: 200px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      display: block;
-      margin: 0 auto;
-    `;
-    imagePreview.appendChild(img);
-
-    // Chunk info and navigation
-    const chunkNavigation = document.createElement('div');
-    chunkNavigation.style.cssText = `
-      background: white;
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    `;
-    chunkNavigation.innerHTML = sanitizeHTML(`
-      <div style="flex: 1;">
-        <div style="font-weight: 500; color: #333; margin-bottom: 4px;">
-          Chunk <span id="ocr-current-chunk">1</span> of <span id="ocr-total-chunks">${ocrMediaPlayer.chunks.length}</span>
-        </div>
-        <div style="font-size: 12px; color: #666;">
-          <span id="ocr-chunk-length">${ocrMediaPlayer.chunks[0].length}</span> characters
-        </div>
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button id="ocr-prev-chunk" style="
-          padding: 8px 16px;
-          background: #e0e0e0;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: background 0.2s;
-        " ${ocrMediaPlayer.chunks.length <= 1 ? 'disabled' : ''}>⏮ Previous</button>
-        <button id="ocr-next-chunk" style="
-          padding: 8px 16px;
-          background: #e0e0e0;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: background 0.2s;
-        " ${ocrMediaPlayer.chunks.length <= 1 ? 'disabled' : ''}>Next ⏭</button>
-      </div>
-    `);
-
-    // Extracted text (current chunk)
-    const textArea = document.createElement('textarea');
-    textArea.id = 'ocr-text-display';
-    textArea.value = ocrMediaPlayer.chunks[0];
-    textArea.style.cssText = `
-      width: 100%;
-      min-height: 250px;
-      padding: 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      font-size: 15px;
-      line-height: 1.6;
-      resize: vertical;
-      background: white;
-      margin-bottom: 20px;
-    `;
-
-    content.appendChild(imagePreview);
-    content.appendChild(chunkNavigation);
-    content.appendChild(textArea);
-
-    // Media Player Controls
-    const playerControls = document.createElement('div');
-    playerControls.style.cssText = `
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-    `;
-
-    // Playback controls
-    const playbackControls = document.createElement('div');
-    playbackControls.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    `;
-    playbackControls.innerHTML = sanitizeHTML(`
-      <button id="ocr-play-pause" style="
-        width: 56px;
-        height: 56px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        transition: transform 0.2s, box-shadow 0.2s;
-      " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 16px rgba(102, 126, 234, 0.5)'"
-         onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)'">▶</button>
-      <button id="ocr-stop" style="
-        width: 44px;
-        height: 44px;
-        background: #dc3545;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.2s;
-      " onmouseover="this.style.background='#c82333'"
-         onmouseout="this.style.background='#dc3545'">⏹</button>
-    `);
-
-    // Speed control
-    const speedControl = document.createElement('div');
-    speedControl.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    `;
-    speedControl.innerHTML = sanitizeHTML(`
-      <span style="font-size: 14px; color: #666; min-width: 80px;">Speed:</span>
-      <button class="speed-btn" data-speed="0.5" style="
-        padding: 6px 12px;
-        background: #f0f0f0;
-        border: 2px solid transparent;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s;
-      ">0.5x</button>
-      <button class="speed-btn" data-speed="0.75" style="
-        padding: 6px 12px;
-        background: #f0f0f0;
-        border: 2px solid transparent;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s;
-      ">0.75x</button>
-      <button class="speed-btn" data-speed="1" style="
-        padding: 6px 12px;
-        background: #667eea;
-        color: white;
-        border: 2px solid #667eea;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s;
-      ">1x</button>
-      <button class="speed-btn" data-speed="1.25" style="
-        padding: 6px 12px;
-        background: #f0f0f0;
-        border: 2px solid transparent;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s;
-      ">1.25x</button>
-      <button class="speed-btn" data-speed="1.5" style="
-        padding: 6px 12px;
-        background: #f0f0f0;
-        border: 2px solid transparent;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s;
-      ">1.5x</button>
-      <button class="speed-btn" data-speed="2" style="
-        padding: 6px 12px;
-        background: #f0f0f0;
-        border: 2px solid transparent;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s;
-      ">2x</button>
-    `);
-
-    playerControls.appendChild(playbackControls);
-    playerControls.appendChild(speedControl);
-    content.appendChild(playerControls);
-
-    // Footer with utility buttons
-    const footer = document.createElement('div');
-    footer.style.cssText = `
-      padding: 16px 24px;
-      border-top: 1px solid #e0e0e0;
-      display: flex;
-      gap: 12px;
-      justify-content: flex-end;
-      background: white;
-      border-radius: 0 0 12px 12px;
-    `;
-    footer.innerHTML = sanitizeHTML(`
-      <button id="assist-ocr-study-path" style="
-        padding: 10px 20px;
-        background: linear-gradient(135deg, #5f2c82 0%, #49a09d 100%);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: opacity 0.2s;
-      " onmouseover="this.style.opacity='0.85'"
-         onmouseout="this.style.opacity='1'">📚 Study Path</button>
-      <button id="assist-ocr-copy" style="
-        padding: 10px 20px;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: background 0.2s;
-      " onmouseover="this.style.background='#0056b3'"
-         onmouseout="this.style.background='#007bff'">📋 Copy All</button>
-      <button id="assist-ocr-save" style="
-        padding: 10px 20px;
-        background: #28a745;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: background 0.2s;
-      " onmouseover="this.style.background='#1e7e34'"
-         onmouseout="this.style.background='#28a745'">💾 Save TXT</button>
-    `);
-
-    // Assemble modal
-    modal.appendChild(header);
-    modal.appendChild(content);
-    modal.appendChild(footer);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    // Helper function to update chunk display
-    const updateChunkDisplay = () => {
-      textArea.value = ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex];
-      document.getElementById('ocr-current-chunk').textContent =
-        ocrMediaPlayer.currentChunkIndex + 1;
-      document.getElementById('ocr-chunk-length').textContent =
-        ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex].length;
-
-      // Update button states
-      const prevBtn = document.getElementById('ocr-prev-chunk');
-      const nextBtn = document.getElementById('ocr-next-chunk');
-      if (prevBtn) {
-        prevBtn.disabled = ocrMediaPlayer.currentChunkIndex === 0;
-      }
-      if (nextBtn) {
-        nextBtn.disabled = ocrMediaPlayer.currentChunkIndex === ocrMediaPlayer.chunks.length - 1;
-      }
-    };
-
-    // Play/Pause button handler
-    attachInteractiveHandler(document.getElementById('ocr-play-pause'), 'OCR Play/Pause', () => {
-      const btn = document.getElementById('ocr-play-pause');
-      if (ocrMediaPlayer.isPlaying) {
-        // Pause
-        if (ocrMediaPlayer.utterance) {
-          window.speechSynthesis.pause();
-          ocrMediaPlayer.isPaused = true;
-          btn.textContent = '▶';
-          console.log('[OCR] Paused playback');
-        }
-      } else if (ocrMediaPlayer.isPaused) {
-        // Resume
-        window.speechSynthesis.resume();
-        ocrMediaPlayer.isPaused = false;
-        btn.textContent = '⏸';
-        console.log('[OCR] Resumed playback');
-      } else {
-        // Start playing current chunk
-        ocr_playChunk(ocrMediaPlayer.currentChunkIndex, btn);
-      }
-    });
-
-    // Stop button handler
-    attachInteractiveHandler(document.getElementById('ocr-stop'), 'OCR Stop', () => {
-      ocr_stopPlayback();
-      const btn = document.getElementById('ocr-play-pause');
-      btn.textContent = '▶';
-    });
-
-    // Chunk navigation
-    const prevChunkBtn = document.getElementById('ocr-prev-chunk');
-    if (prevChunkBtn) {
-      attachInteractiveHandler(prevChunkBtn, 'OCR Previous Chunk', () => {
-        if (ocrMediaPlayer.currentChunkIndex > 0) {
-          ocr_stopPlayback();
-          ocrMediaPlayer.currentChunkIndex--;
-          updateChunkDisplay();
-          console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
-        }
-      });
-    }
-
-    const nextChunkBtn = document.getElementById('ocr-next-chunk');
-    if (nextChunkBtn) {
-      attachInteractiveHandler(nextChunkBtn, 'OCR Next Chunk', () => {
-        if (ocrMediaPlayer.currentChunkIndex < ocrMediaPlayer.chunks.length - 1) {
-          ocr_stopPlayback();
-          ocrMediaPlayer.currentChunkIndex++;
-          updateChunkDisplay();
-          console.log(`[OCR] Moved to chunk ${ocrMediaPlayer.currentChunkIndex + 1}`);
-        }
-      });
-    }
-
-    // Speed control buttons
-    document.querySelectorAll('.speed-btn').forEach(btn => {
-      const speed = parseFloat(btn.getAttribute('data-speed'));
-      attachInteractiveHandler(btn, `OCR Speed ${speed}x`, () => {
-        ocrMediaPlayer.rate = speed;
-
-        // Update visual state
-        document.querySelectorAll('.speed-btn').forEach(b => {
-          b.style.background = '#f0f0f0';
-          b.style.color = '#333';
-          b.style.border = '2px solid transparent';
-        });
-        btn.style.background = '#667eea';
-        btn.style.color = 'white';
-        btn.style.border = '2px solid #667eea';
-
-        // If currently playing, update the utterance rate
-        if (ocrMediaPlayer.utterance && ocrMediaPlayer.isPlaying) {
-          ocrMediaPlayer.utterance.rate = speed;
-        }
-
-        console.log(`[OCR] Speed set to ${speed}x`);
-      });
-    });
-
-    // Utility buttons
-    attachInteractiveHandler(document.getElementById('assist-ocr-close'), 'OCR Close', () => {
-      ocr_stopPlayback();
-      overlay.remove();
-      resolve();
-    });
-
-    // Study Path button — passes full OCR text directly to avoid textarea selection limitation
-    const studyPathBtn = document.getElementById('assist-ocr-study-path');
-    if (studyPathBtn) {
-      attachInteractiveHandler(studyPathBtn, 'OCR Study Path', () => {
-        const fullText = ocrMediaPlayer.fullText;
-        if (window.assistFeatures?.studyPathGenerator) {
-          ocr_stopPlayback();
-          overlay.remove();
-          resolve();
-          window.assistFeatures.studyPathGenerator.show(fullText);
-        } else {
-          console.warn('[OCR] Study Path Generator feature not loaded');
-          alert('Study Path Generator is not available. Please ensure it is enabled in settings.');
-        }
-      });
-    }
-
-    attachInteractiveHandler(document.getElementById('assist-ocr-copy'), 'OCR Copy', () => {
-      ocr_copyToClipboard(ocrMediaPlayer.fullText);
-      alert('Full text copied to clipboard!');
-    });
-
-    attachInteractiveHandler(document.getElementById('assist-ocr-save'), 'OCR Save', () => {
-      ocr_saveAsFile(ocrMediaPlayer.fullText);
-    });
-
-    // Close on overlay click
-    attachInteractiveHandler(overlay, 'OCR Modal Backdrop', e => {
-      if (e.target === overlay) {
-        ocr_stopPlayback();
-        overlay.remove();
-        resolve();
-      }
-    });
-
-    // ESC key to close
-    const handleEsc = e => {
-      if (e.key === 'Escape') {
-        ocr_stopPlayback();
-        overlay.remove();
-        document.removeEventListener('keydown', handleEsc);
-        resolve();
-      }
-    };
-    document.addEventListener('keydown', handleEsc);
-
-    // Auto-play TTS if enabled in settings
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get('assist_settings', result => {
-        const autoTTS = result.assist_settings?.ocr?.autoTTS ?? true; // Default to true
-        if (autoTTS && result.text) {
-          // Auto-start playback after a brief delay to ensure modal is fully rendered
-          setTimeout(() => {
-            const playPauseBtn = document.getElementById('ocr-play-pause');
-            if (playPauseBtn && !ocrMediaPlayer.isPlaying) {
-              console.log('[OCR] Auto-starting TTS playback (auto-TTS enabled)');
-              playPauseBtn.click(); // Simulate clicking the play button
-            }
-          }, 300);
-        }
-      });
-    }
-  });
+/**
+ * Show a brief, accessible notification (replaces blocking alert() in OCR flows).
+ * Uses an ARIA live region so screen readers announce it; auto-dismisses.
+ * @param {string} message
+ * @param {boolean} [assertive=false] - true for errors (role=alert), false for status
+ */
+function ocr_notify(message, assertive = false) {
+  const el = document.createElement('div');
+  el.setAttribute('role', assertive ? 'alert' : 'status');
+  el.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+  el.textContent = message;
+  el.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${assertive ? '#7f1d1d' : '#1e293b'};
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    max-width: 90%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: ${Z.TOAST};
+  `;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
 }
 
 /**
@@ -2008,93 +2398,43 @@ function ocr_playChunk(chunkIndex, playPauseBtn) {
   const text = ocrMediaPlayer.chunks[chunkIndex];
   console.log(`[OCR] Playing chunk ${chunkIndex + 1}/${ocrMediaPlayer.chunks.length}`);
 
-  // Load user TTS settings
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get('assist_settings', result => {
-      const ttsSettings = result.assist_settings?.tts || {};
-      const userVoiceName = ttsSettings.voice;
-      const userPitch = ttsSettings.pitch || 1.0;
-      const userVolume = ttsSettings.volume || 1.0;
+  // The saved voice, pitch and volume, read fresh for each chunk; the rate is the player's own,
+  // which starts at the saved rate and follows the player's speed control.
+  createSavedUtterance(text).then(utterance => {
+    utterance.rate = ocrMediaPlayer.rate;
 
-      const voices = window.speechSynthesis.getVoices();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = ocrMediaPlayer.rate;
-      utterance.pitch = userPitch;
-      utterance.volume = userVolume;
+    utterance.onstart = () => {
+      ocrMediaPlayer.isPlaying = true;
+      ocrMediaPlayer.isPaused = false;
+      playPauseBtn.textContent = '⏸';
+      console.log('[OCR] ✓ Chunk playback started');
+    };
 
-      // Try to use user's preferred voice, or fallback to Google UK Female
-      if (userVoiceName && userVoiceName !== 'default') {
-        const selectedVoice = voices.find(v => v.name === userVoiceName);
-        if (selectedVoice) {
-          utterance.voice = selectedVoice;
-        }
+    utterance.onend = () => {
+      console.log('[OCR] ✓ Chunk playback ended');
+
+      // Auto-advance to next chunk if available
+      if (ocrMediaPlayer.currentChunkIndex < ocrMediaPlayer.chunks.length - 1) {
+        ocrMediaPlayer.currentChunkIndex++;
+
+        ocr_playChunk(ocrMediaPlayer.currentChunkIndex, playPauseBtn);
       } else {
-        // Default to Google UK Female voice (same as extension-level TTS)
-        // Preference order: Google UK Female > UK Female > Any English Female
-        const defaultVoice =
-          voices.find(
-            v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
-          ) ||
-          voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
-          voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
-
-        if (defaultVoice) {
-          utterance.voice = defaultVoice;
-          console.log('[OCR] Using default voice:', defaultVoice.name);
-        }
-      }
-
-      utterance.onstart = () => {
-        ocrMediaPlayer.isPlaying = true;
-        ocrMediaPlayer.isPaused = false;
-        playPauseBtn.textContent = '⏸';
-        console.log('[OCR] ✓ Chunk playback started');
-      };
-
-      utterance.onend = () => {
-        console.log('[OCR] ✓ Chunk playback ended');
-
-        // Auto-advance to next chunk if available
-        if (ocrMediaPlayer.currentChunkIndex < ocrMediaPlayer.chunks.length - 1) {
-          ocrMediaPlayer.currentChunkIndex++;
-          document.getElementById('ocr-current-chunk').textContent =
-            ocrMediaPlayer.currentChunkIndex + 1;
-          document.getElementById('ocr-chunk-length').textContent =
-            ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex].length;
-          document.getElementById('ocr-text-display').value =
-            ocrMediaPlayer.chunks[ocrMediaPlayer.currentChunkIndex];
-
-          // Update navigation buttons
-          const prevBtn = document.getElementById('ocr-prev-chunk');
-          const nextBtn = document.getElementById('ocr-next-chunk');
-          if (prevBtn) {
-            prevBtn.disabled = false;
-          }
-          if (nextBtn) {
-            nextBtn.disabled =
-              ocrMediaPlayer.currentChunkIndex === ocrMediaPlayer.chunks.length - 1;
-          }
-
-          // Continue playing
-          ocr_playChunk(ocrMediaPlayer.currentChunkIndex, playPauseBtn);
-        } else {
-          // Reached end of all chunks
-          ocrMediaPlayer.isPlaying = false;
-          playPauseBtn.textContent = '▶';
-          console.log('[OCR] ✓ Finished playing all chunks');
-        }
-      };
-
-      utterance.onerror = e => {
-        console.error('[OCR] ✗ Speech error:', e.error || 'unknown');
+        // Reached end of all chunks
         ocrMediaPlayer.isPlaying = false;
         playPauseBtn.textContent = '▶';
-      };
+        console.log('[OCR] ✓ Finished playing all chunks');
+      }
+    };
 
-      ocrMediaPlayer.utterance = utterance;
-      window.speechSynthesis.speak(utterance);
-    });
-  }
+    utterance.onerror = e => {
+      console.error('[OCR] ✗ Speech error:', e.error || 'unknown');
+      ocrMediaPlayer.isPlaying = false;
+      playPauseBtn.textContent = '▶';
+    };
+
+    ocrMediaPlayer.utterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 /**
@@ -2107,27 +2447,6 @@ function ocr_stopPlayback() {
     ocrMediaPlayer.isPaused = false;
     ocrMediaPlayer.utterance = null;
     console.log('[OCR] Stopped playback');
-  }
-}
-
-/**
- * Copies text to clipboard
- *
- * @param {string} text - Text to copy
- */
-async function ocr_copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    console.log('[OCR] Text copied to clipboard');
-  } catch (error) {
-    console.error('[OCR] Clipboard copy failed:', error);
-    // Fallback method
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
   }
 }
 
@@ -2148,7 +2467,7 @@ function ocr_saveAsFile(text) {
   a.click();
 
   URL.revokeObjectURL(url);
-  console.log(`[OCR] Text saved as ${filename}`);
+  console.log('[OCR] Text saved');
 }
 
 // Old ocr_readAloud and ocr_stopAudio functions removed - replaced by media player system
@@ -2162,18 +2481,18 @@ if (typeof window !== 'undefined') {
   ocr_init();
 }
 
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    ocr_loadTesseract,
-    ocr_isReady,
-    ocr_getLoadingState,
-    ocr_init,
-    ocr_cleanup,
-    ocr_performOCR,
-    ocr_recognizeText,
-    ocr_captureVisibleTab,
-    ocr_captureFullPage,
-    ocr_captureRegion,
-  };
-}
+// Named exports for the unit suite. This is a self-initializing content-script module —
+// nothing imports these bindings at runtime, so the bundler drops them.
+export {
+  ocr_loadTesseract,
+  ocr_isReady,
+  ocr_getLoadingState,
+  ocr_init,
+  ocr_cleanup,
+  ocr_performOCR,
+  ocr_recognizeText,
+  ocr_captureVisibleTab,
+  ocr_captureFullPage,
+  ocr_captureRegion,
+  ocr_prepareCanvas,
+};

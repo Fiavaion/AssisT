@@ -5,7 +5,7 @@
  *   - the data model  (website/book/journal/newspaper/video/social_media/pdf/other)
  *   - the edit-modal <select>  (webpage/bookSection/conferencePaper/report)
  *   - CrossRef's mapper  (journal/book/bookSection/conferencePaper/report/dataset/preprint/webpage)
- *   - the exporter + source-evaluator  (journal-article/book-chapter/news-article/social-media …)
+ *   - the exporter and the credibility weights  (journal-article/book-chapter/news-article …)
  *
  * Because nothing agreed, the formatter funnelled almost everything through `formatWebsite`,
  * export columns came back empty, and credibility scoring defaulted every item to 0.5.
@@ -14,57 +14,38 @@
  * that converges every producer/consumer onto it. Everything else imports from here.
  *
  * Design notes:
- * - Canonical formatting types are the 8 the data model uses (keeps the formatter small).
- * - Academically-meaningful sub-types that collapse during formatting (book-chapter,
- *   conference-paper, report, thesis, preprint, dataset) are preserved on `extra.subtype`
- *   so credibility weighting and BibTeX/RIS export keep their fidelity.
+ * - Canonical formatting types are the 10 the registry declares (keeps the formatter small).
+ * - Academically-meaningful sub-types that collapse during formatting (conference-paper,
+ *   report, preprint, dataset) are preserved on `extra.subtype` so credibility weighting and
+ *   BibTeX/RIS export keep their fidelity.
  */
+
+import { getTypeIds, getTypes, getType, UI_ORDER } from './type-registry.js';
 
 /**
- * Canonical citation types used for formatting. Aligned with citation-model.js `CitationType`.
+ * Canonical citation types used for formatting. Derived from the type registry (single source of
+ * truth); aligned with citation-model.js `CitationType`. Adding a canonical type is one
+ * registerType() call in type-registry.js — these tables follow automatically.
  * @enum {string}
  */
-export const CITATION_TYPES = Object.freeze({
-  WEBSITE: 'website',
-  BOOK: 'book',
-  JOURNAL: 'journal',
-  NEWSPAPER: 'newspaper',
-  VIDEO: 'video',
-  SOCIAL_MEDIA: 'social_media',
-  PDF: 'pdf',
-  OTHER: 'other',
-});
+export const CITATION_TYPES = Object.freeze(
+  Object.fromEntries(getTypeIds().map(id => [id.toUpperCase(), id]))
+);
 
 /** Set of canonical values for fast membership checks. */
-const CANONICAL = new Set(Object.values(CITATION_TYPES));
+const CANONICAL = new Set(getTypeIds());
 
-/** Human-readable labels for canonical types (UI display). */
-export const TYPE_LABELS = Object.freeze({
-  website: 'Web Page',
-  book: 'Book',
-  journal: 'Journal Article',
-  newspaper: 'Newspaper Article',
-  video: 'Video',
-  social_media: 'Social Media',
-  pdf: 'PDF Document',
-  other: 'Other',
-});
+/** Human-readable labels for canonical types (UI display), derived from the registry. */
+export const TYPE_LABELS = Object.freeze(Object.fromEntries(getTypes().map(t => [t.id, t.label])));
 
 /**
  * Options for the edit-modal <select>. These MUST emit canonical values so a saved
- * citation never carries a non-canonical type again.
+ * citation never carries a non-canonical type again. Ordered per the registry's UI_ORDER.
  * @type {Array<{value: string, label: string}>}
  */
-export const UI_TYPE_OPTIONS = Object.freeze([
-  { value: CITATION_TYPES.WEBSITE, label: TYPE_LABELS.website },
-  { value: CITATION_TYPES.JOURNAL, label: TYPE_LABELS.journal },
-  { value: CITATION_TYPES.BOOK, label: TYPE_LABELS.book },
-  { value: CITATION_TYPES.NEWSPAPER, label: TYPE_LABELS.newspaper },
-  { value: CITATION_TYPES.PDF, label: TYPE_LABELS.pdf },
-  { value: CITATION_TYPES.VIDEO, label: TYPE_LABELS.video },
-  { value: CITATION_TYPES.SOCIAL_MEDIA, label: TYPE_LABELS.social_media },
-  { value: CITATION_TYPES.OTHER, label: TYPE_LABELS.other },
-]);
+export const UI_TYPE_OPTIONS = Object.freeze(
+  UI_ORDER.map(id => ({ value: id, label: (getType(id) || {}).label }))
+);
 
 /**
  * Normalise a raw type token to a stable lookup key: lower-cased, with underscores and
@@ -105,16 +86,17 @@ const TYPE_ALIASES = Object.freeze({
   'reference-book': 'book',
   'edited-book': 'book',
   ebook: 'book',
-  booksection: 'book',
-  'book-section': 'book',
-  'book-chapter': 'book',
-  chapter: 'book',
-  inbook: 'book',
-  incollection: 'book',
-  thesis: 'book',
-  phdthesis: 'book',
-  mastersthesis: 'book',
-  dissertation: 'book',
+  // chapter family (a chapter in an edited book — its own canonical type)
+  booksection: 'chapter',
+  'book-section': 'chapter',
+  'book-chapter': 'chapter',
+  bookchapter: 'chapter',
+  inbook: 'chapter',
+  incollection: 'chapter',
+  // thesis family
+  phdthesis: 'thesis',
+  mastersthesis: 'thesis',
+  dissertation: 'thesis',
   // journal family
   journal: 'journal',
   'journal-article': 'journal',
@@ -176,17 +158,16 @@ export function normalizeType(raw) {
 }
 
 /**
- * Fine-grained credibility weights keyed by sub-type (normalizeKey form). Used by
- * source-evaluator so a CrossRef `journal-article` or `report` keeps its true weight even
- * though it formats as `journal` / `website`.
+ * Fine-grained credibility weights. Canonical weights come from the type registry; the keys below
+ * are academic SUB-types and legacy aliases that carry a different weight from their canonical
+ * parent, so a CrossRef `journal-article` or `report` keeps its true weight even though it
+ * formats as `journal` / `website`.
  */
 const SUBTYPE_WEIGHTS = Object.freeze({
+  ...Object.fromEntries(getTypes().map(t => [t.id, t.weight])),
   'journal-article': 1.0,
-  journal: 1.0,
-  book: 0.95,
   'book-chapter': 0.9,
   booksection: 0.9,
-  thesis: 0.85,
   'conference-paper': 0.85,
   conferencepaper: 0.85,
   'proceedings-article': 0.85,
@@ -194,31 +175,16 @@ const SUBTYPE_WEIGHTS = Object.freeze({
   preprint: 0.7,
   'posted-content': 0.7,
   dataset: 0.7,
-  newspaper: 0.6,
   'news-article': 0.6,
-  website: 0.5,
   webpage: 0.5,
-  pdf: 0.5,
   'blog-post': 0.4,
   blog: 0.4,
-  video: 0.4,
-  social_media: 0.3,
   'social-media': 0.3,
-  other: 0.5,
   unknown: 0.5,
 });
 
-/** Canonical-type fallback weights when no sub-type is recorded. */
-const CANONICAL_WEIGHTS = Object.freeze({
-  website: 0.5,
-  book: 0.95,
-  journal: 1.0,
-  newspaper: 0.6,
-  video: 0.4,
-  social_media: 0.3,
-  pdf: 0.5,
-  other: 0.5,
-});
+/** Canonical-type fallback weights when no sub-type is recorded (from the registry). */
+const CANONICAL_WEIGHTS = Object.freeze(Object.fromEntries(getTypes().map(t => [t.id, t.weight])));
 
 /**
  * Get the credibility weight (0..1) for a citation, preferring the preserved sub-type.
@@ -234,50 +200,34 @@ export function getSourceTypeWeight(citation) {
   return CANONICAL_WEIGHTS[canonical] ?? 0.5;
 }
 
-/** BibTeX entry types keyed by sub-type (normalizeKey form). */
+/** BibTeX entry types. Canonical types come from the registry; sub-types/aliases override. */
 const BIBTEX_TYPES = Object.freeze({
-  journal: 'article',
+  ...Object.fromEntries(getTypes().map(t => [t.id, t.bibtex])),
   'journal-article': 'article',
-  newspaper: 'article',
   'news-article': 'article',
-  book: 'book',
-  booksection: 'inbook',
-  'book-chapter': 'inbook',
-  thesis: 'phdthesis',
+  booksection: 'incollection',
+  'book-chapter': 'incollection',
   phdthesis: 'phdthesis',
   'conference-paper': 'inproceedings',
   conferencepaper: 'inproceedings',
   'proceedings-article': 'inproceedings',
   report: 'techreport',
-  website: 'misc',
   webpage: 'misc',
-  video: 'misc',
-  social_media: 'misc',
   'social-media': 'misc',
-  pdf: 'misc',
-  other: 'misc',
 });
 
-/** RIS reference types keyed by sub-type (normalizeKey form). */
+/** RIS reference types. Canonical types come from the registry; sub-types/aliases override. */
 const RIS_TYPES = Object.freeze({
-  journal: 'JOUR',
+  ...Object.fromEntries(getTypes().map(t => [t.id, t.ris])),
   'journal-article': 'JOUR',
-  book: 'BOOK',
   booksection: 'CHAP',
   'book-chapter': 'CHAP',
-  thesis: 'THES',
   'conference-paper': 'CONF',
   conferencepaper: 'CONF',
   report: 'RPRT',
-  newspaper: 'NEWS',
   'news-article': 'NEWS',
-  website: 'ELEC',
   webpage: 'ELEC',
-  video: 'VIDEO',
-  social_media: 'ELEC',
   'social-media': 'ELEC',
-  pdf: 'ELEC',
-  other: 'GEN',
 });
 
 /**
@@ -298,6 +248,24 @@ export function getBibTeXType(citation) {
 export function getRISType(citation) {
   const subKey = normalizeKey(citation?.extra?.subtype || citation?.type);
   return RIS_TYPES[subKey] || RIS_TYPES[normalizeType(citation?.type)] || 'GEN';
+}
+
+/** The "no author" placeholder older captures stored in the author field. */
+const ANON_PLACEHOLDER = /^anon\.?$/i;
+
+/** A run of C0 control characters and DEL. */
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]+/g;
+
+/**
+ * A name or title without control characters. The styles use some as private marks (italics, an
+ * organisation author), so one arriving in a record could mark itself, and none belongs in a
+ * BibTeX or RIS file. A line break or tab becomes one space ("\r\n" included), so the words either
+ * side stay apart.
+ * @param {string} text
+ * @returns {string}
+ */
+function withoutControlCharacters(text) {
+  return text.replace(CONTROL_CHARACTERS, run => (/\s/.test(run) ? ' ' : ''));
 }
 
 /**
@@ -338,14 +306,60 @@ export function normalizeCitation(c) {
     extra.edition = c.edition;
   }
 
-  // Authors: always an array of non-empty strings.
+  // Chapter / thesis fields. Kept on `extra` (no schema change) and only when they carry a
+  // value, so an ordinary web page never grows empty book-chapter keys. Flat top-level forms
+  // (a BibTeX importer writing `place`, a manual form writing `institution`) fold into `extra`.
+  for (const key of ['place', 'chapter', 'institution', 'thesisType']) {
+    const value = extra[key] !== undefined && extra[key] !== null ? extra[key] : c[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      extra[key] = String(value);
+    }
+  }
+
+  // Editors of the containing book: always an array of non-empty "Family, Given" strings.
+  const rawEditors = extra.editors !== undefined ? extra.editors : c.editors;
+  if (rawEditors !== undefined && rawEditors !== null) {
+    const editors = Array.isArray(rawEditors) ? rawEditors : [rawEditors];
+    const cleaned = editors
+      .filter(e => typeof e === 'string')
+      .map(withoutControlCharacters)
+      .filter(e => e.trim().length > 0);
+    if (cleaned.length > 0) {
+      extra.editors = cleaned;
+    } else {
+      delete extra.editors;
+    }
+  }
+
+  // Authors: always an array of real names. "Anon." is the placeholder older captures stored when a
+  // page named nobody; it is not a name, and no style prints it (the title takes the author's
+  // place), so it is dropped here. A work signed "Anonymous" keeps that author.
   let authors;
   if (Array.isArray(c.authors)) {
-    authors = c.authors.filter(a => typeof a === 'string' && a.trim().length > 0);
-  } else if (typeof c.authors === 'string' && c.authors.trim()) {
-    authors = [c.authors.trim()];
+    authors = c.authors.filter(a => typeof a === 'string').map(withoutControlCharacters);
+  } else if (typeof c.authors === 'string') {
+    authors = [withoutControlCharacters(c.authors).trim()];
   } else {
     authors = [];
+  }
+  authors = authors.filter(a => a.trim().length > 0 && !ANON_PLACEHOLDER.test(a.trim()));
+
+  // Which authors are organisations, by name exactly as it stands in `authors`, so the styles
+  // print "World Health Organization" whole rather than as "Organization, W. H.". A name that is no
+  // longer among the authors has nothing to describe, and an empty list is no list.
+  if (extra.organisationAuthors !== undefined) {
+    const named = new Set(authors.map(a => a.trim()));
+    const organisations = Array.isArray(extra.organisationAuthors)
+      ? extra.organisationAuthors
+          .filter(o => typeof o === 'string')
+          .map(withoutControlCharacters)
+          .filter(o => named.has(o.trim()))
+      : [];
+    if (organisations.length > 0) {
+      extra.organisationAuthors = [...new Set(organisations.map(o => o.trim()))];
+    } else {
+      delete extra.organisationAuthors;
+    }
   }
 
   const tags = Array.isArray(c.tags)
@@ -359,9 +373,9 @@ export function normalizeCitation(c) {
 
   let title = '';
   if (typeof c.title === 'string') {
-    title = c.title;
+    title = withoutControlCharacters(c.title);
   } else if (c.title !== undefined && c.title !== null) {
-    title = String(c.title);
+    title = withoutControlCharacters(String(c.title));
   }
 
   return {
@@ -378,6 +392,12 @@ export function normalizeCitation(c) {
     accessDate: c.accessDate || '',
     doi: c.doi || '',
     notes: c.notes || '',
+    // Grade-protection fields (non-indexed — no schema migration needed):
+    // quote = the source's exact words captured at read time (kept visibly "not your words");
+    // locator = where it lives (page, paragraph, timestamp) so a quoted in-text citation can
+    // carry "(Author, Year, p. X)" — the attribution details markers penalise hardest.
+    quote: typeof c.quote === 'string' ? c.quote : '',
+    locator: typeof c.locator === 'string' ? c.locator.trim() : '',
     createdAt,
   };
 }

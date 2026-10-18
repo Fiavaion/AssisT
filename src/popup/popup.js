@@ -6,8 +6,12 @@
 import DOMPurify from 'dompurify';
 import { MESSAGE_TYPES } from '../config/constants.js';
 import {
+  DEFAULT_SHORTCUTS,
+  MIND_MAP_SCOPE,
+  PAGE_SCOPE,
   SHORTCUT_LABELS,
   loadShortcuts,
+  shortcutKeysInScope,
   saveShortcuts,
   validateShortcut,
   eventToShortcut,
@@ -15,774 +19,215 @@ import {
 import { migrateAnnotations } from '../features/annotations/migration-manager.js';
 import { CitationManagerPanel } from './citation-manager-panel.js';
 import { sanitizeHTML, sanitizeText } from '../utils/sanitize.js';
-import Sortable from 'sortablejs';
+import {
+  filterChatModels,
+  pickDefaultChatModel,
+  DEFAULT_CHAT_MODEL,
+  RECOMMENDED_PULL_MODEL,
+} from '../utils/ollama-models.js';
+import {
+  DEFAULT_OLLAMA_BASE_URL,
+  getOllamaBaseUrl,
+  applyOllamaBaseUrlChange,
+  ensureOllamaPermission,
+} from '../utils/ollama-url.js';
 import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
 } from '../features/shared/ai-feature-client.js';
-import { getCompatibleModels } from '../pages/ai-setup/ollama-catalog.js';
+import { getCompatibleModels, isCatalogModelInstalled } from '../pages/ai-setup/ollama-catalog.js';
+import { createControlFinder, mountFlat } from './flat/flat-mount.js';
+import { bindCompanionSwitches } from './companion-switches.js';
+import { THEMES, THEME_LABELS, loadAndApplyTheme, setThemePreference } from './theme.js';
+import { createHeaderMenu } from './header-menu.js';
+import { attachAccessibleHandler } from '../utils/event-handlers.js';
+import { Z } from '../utils/z-index.js';
+import { renderedId } from './registry/control-renderer.js';
+import { waitForVoices } from '../utils/speech-voice.js';
+import { renderVoiceOptions } from './voice-picker.js';
+import { debugLog } from '../utils/debug-log.js';
+import { trapFocus } from '../utils/focus-trap.js';
+import { INBOX_ID, TARGET_KEY, writeTargetId } from '../features/mindMap/mindmap-keys.js';
+import { eraseProfileData } from '../features/cognitiveProfile/profile-storage.js';
+import { showInfoTray } from '../utils/action-tray.js';
+import { exportSettings, importSettingsFromFile } from '../utils/settings-portability.js';
+import { applySettingWrites, changedSettingWrites } from '../utils/setting-writes.js';
+import { StorageManager } from '../utils/storage-manager.js';
+import { getHardcodedFallbackModels, resolveModel } from '../ai/model-registry.js';
+import { takePopupSurfaceRequest, POPUP_SURFACE_AI } from '../utils/popup-open-request.js';
+import { renderYourData } from './your-data.js';
+import { DESTINATIONS, describeCloudConsent, getConsent, recordConsent } from '../utils/consent.js';
+import {
+  originsFor,
+  requestHostPermissions,
+  releaseHostPermissions,
+  holdsHostPermissions,
+} from '../utils/host-permissions.js';
+import {
+  clearInstitutionKey,
+  getStoredInstitutionKey,
+  resolveBrandingFromToken,
+} from '../features/institution/institution-resolver.js';
+
+/**
+ * The models each cloud provider offers, straight from the model registry. There is
+ * deliberately no list of models in this file: two hand-kept copies drifted from the registry
+ * and went on offering retired ids.
+ * @returns {Record<string, Array<{id: string, name: string, description: string}>>}
+ */
+function cloudFallbackModels() {
+  return Object.fromEntries(
+    ['anthropic', 'openai', 'google', 'perplexity'].map(p => [p, getHardcodedFallbackModels(p)])
+  );
+}
 
 // Make DOMPurify available for sanitize.js (popup runs in separate context from content script)
 window.DOMPurify = DOMPurify;
 
 /**
- * Layout Mode Configurations
- * Defines how sections are organized in each layout mode
+ * Registry `optionsFrom` sources, and the accordion select that already holds each list.
+ * A select whose options are enumerated at runtime has exactly one filled copy in the popup;
+ * every other view reads it from there rather than fetching the list a second time.
+ * @type {Record<string, string>}
  */
-const LAYOUT_MODES = {
-  'feature-category': {
-    name: 'Feature Category',
-    description: 'Groups by what features do (Reading, Writing, Visual, etc.)',
-    sections: [
-      { id: 'reading', name: 'Reading Help', icon: '🔊' },
-      { id: 'writing', name: 'Writing Help', icon: '✍️' },
-      { id: 'lookup', name: 'Look Up Words', icon: '📚' },
-      { id: 'reading-aids', name: 'Reading Aids', icon: '👓' },
-      { id: 'pointer-zoom', name: 'Pointer & Zoom', icon: '🔍' },
-      { id: 'visual-comfort', name: 'Visual Comfort', icon: '👁️' },
-      { id: 'productivity', name: 'Productivity', icon: '⏱️' },
-      { id: 'school', name: 'School Tools', icon: '🎓' },
-      { id: 'ai-assist', name: 'AI Assist', icon: '✨' },
-    ],
-  },
-  'user-need': {
-    name: 'User Need',
-    description: 'Groups by what you need help with (Focus, Reading, Writing, etc.)',
-    sections: [
-      { id: 'focus-attention', name: 'Focus & Attention', icon: '🎯' },
-      { id: 'reading-support', name: 'Reading Support', icon: '📖' },
-      { id: 'writing-support', name: 'Writing Support', icon: '✍️' },
-      { id: 'visual-access', name: 'Visual Accessibility', icon: '👁️' },
-      { id: 'study-tools', name: 'Study Tools', icon: '🎓' },
-    ],
-  },
-  'disability-profile': {
-    name: 'Disability Profile',
-    description: 'Groups optimized for specific needs (ADHD, Dyslexia, Low Vision)',
-    sections: [
-      { id: 'adhd-tools', name: 'ADHD Tools', icon: '🎯' },
-      { id: 'dyslexia-tools', name: 'Dyslexia Tools', icon: '📖' },
-      { id: 'low-vision-tools', name: 'Low Vision Tools', icon: '👁️' },
-      { id: 'general-tools', name: 'General Tools', icon: '🔧' },
-    ],
-  },
+const RUNTIME_OPTION_SOURCES = {
+  voices: 'voice-select',
+  mindMaps: 'mind-map-target',
 };
 
 /**
- * OrganizeMode - Manages drag-and-drop reordering and visibility of sections/features
+ * The keyboard listener `attachInteractiveHandler` last put on an element.
+ *
+ * `element.onmousedown = ...` replaces itself; `addEventListener` stacks. Wiring the same control
+ * twice — a panel rebuilt, a section re-rendered — would otherwise leave two listeners and fire the
+ * handler twice per keypress, so the previous one is taken off first.
  */
-class OrganizeMode {
-  constructor(popupController) {
-    this.popup = popupController;
-    this.isActive = false;
-    this.sectionSortable = null;
-    this.featureSortables = [];
-    this.originalState = null;
-    this.controlCleanupFns = []; // Track cleanup functions for control handlers
-
-    // Delegate to popup controller's event handler method
-    this.attachInteractiveHandler = this.popup.attachInteractiveHandler.bind(this.popup);
-  }
-
-  /**
-   * Attach handler to organize control using capture phase to ensure it fires first
-   * This prevents SortableJS and accordion handlers from intercepting the events
-   */
-  attachOrganizeControlHandler(element, label, handler) {
-    if (!element) {
-      console.warn(`[OrganizeMode] Element not found for: ${label}`);
-      return () => {};
-    }
-
-    const wrappedHandler = e => {
-      console.log(`[OrganizeMode] ${label} triggered (capture phase)`);
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation(); // Prevent other listeners on same element
-
-      try {
-        handler(e);
-      } catch (error) {
-        console.error(`[OrganizeMode] ${label} error:`, error);
-      }
-    };
-
-    // Use capture phase to ensure we handle the event before it reaches other listeners
-    // mousedown only — registering click too would fire the handler twice per press
-    element.addEventListener('mousedown', wrappedHandler, true);
-
-    // Visual feedback
-    element.addEventListener('mouseenter', () => {
-      element.style.transform = 'scale(1.1)';
-    });
-    element.addEventListener('mouseleave', () => {
-      element.style.transform = 'scale(1)';
-    });
-
-    // Return cleanup function
-    const cleanup = () => {
-      element.removeEventListener('mousedown', wrappedHandler, true);
-    };
-
-    this.controlCleanupFns.push(cleanup);
-    return cleanup;
-  }
-
-  /**
-   * Toggle organize mode on/off
-   */
-  toggle() {
-    if (this.isActive) {
-      this.exit();
-    } else {
-      this.enter();
-    }
-  }
-
-  /**
-   * Enter organize mode
-   */
-  enter() {
-    this.isActive = true;
-    this.originalState = this.captureState();
-
-    // Add visual indicators
-    document.querySelector('.popup-container').classList.add('organize-mode');
-    document.getElementById('btn-organize').classList.add('active');
-    document.getElementById('organize-banner').classList.remove('hidden');
-
-    // Inject drag handles and visibility toggles into accordion headers
-    this.injectOrganizeControls();
-
-    // Initialize sortable
-    this.initSortables();
-
-    // Setup keyboard navigation
-    this.setupKeyboardNav();
-
-    console.log('[OrganizeMode] Entered organize mode');
-  }
-
-  /**
-   * Exit organize mode
-   */
-  exit() {
-    this.isActive = false;
-
-    // Remove visual indicators
-    document.querySelector('.popup-container').classList.remove('organize-mode');
-    document.getElementById('btn-organize').classList.remove('active');
-    document.getElementById('organize-banner').classList.add('hidden');
-
-    // Restore accordion header mousedown handlers overridden during injectOrganizeControls
-    document.querySelectorAll('.accordion-header').forEach(header => {
-      if ('_savedMousedown' in header) {
-        header.onmousedown = header._savedMousedown;
-        delete header._savedMousedown;
-      }
-    });
-
-    // Clean up control handlers
-    this.controlCleanupFns.forEach(cleanup => cleanup());
-    this.controlCleanupFns = [];
-
-    // Destroy sortables
-    this.destroySortables();
-
-    // Save layout
-    this.saveLayout();
-
-    // Show toast notification
-    this.showToast('Layout saved');
-
-    console.log('[OrganizeMode] Exited organize mode');
-  }
-
-  /**
-   * Inject drag handles and visibility toggles into accordion headers
-   */
-  injectOrganizeControls() {
-    const sections = document.querySelectorAll('.accordion-section');
-
-    sections.forEach(section => {
-      const header = section.querySelector('.accordion-header');
-      const titleSpan = header.querySelector('.accordion-title');
-      const sectionId = section.dataset.section;
-
-      // Skip if controls already exist
-      if (header.querySelector('.drag-handle')) {
-        return;
-      }
-
-      // Get current visibility from settings
-      const isVisible = this.popup.settings?.ui_layout?.sectionVisibility?.[sectionId] !== false;
-
-      // Create drag handle
-      const dragHandle = document.createElement('span');
-      dragHandle.className = 'drag-handle';
-      dragHandle.innerHTML = sanitizeHTML('⠿');
-      dragHandle.setAttribute('aria-hidden', 'true');
-
-      // Create visibility toggle
-      const visibilityToggle = document.createElement('button');
-      visibilityToggle.className = 'visibility-toggle';
-      visibilityToggle.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
-      visibilityToggle.setAttribute('aria-label', isVisible ? 'Hide section' : 'Show section');
-      visibilityToggle.innerHTML = sanitizeHTML(
-        `<span class="visibility-icon">${isVisible ? '👁️' : '👁️‍🗨️'}</span>`
-      );
-      // Use mousedown with stopPropagation so:
-      // - the handler fires at target phase before any parent handlers run
-      // - stopPropagation prevents the event reaching the accordion header
-      // - the button's own opacity state never interferes with event dispatch
-      const visibilityMousedownHandler = e => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.toggleSectionVisibility(sectionId, visibilityToggle);
-      };
-      visibilityToggle.addEventListener('mousedown', visibilityMousedownHandler);
-      this.controlCleanupFns.push(() =>
-        visibilityToggle.removeEventListener('mousedown', visibilityMousedownHandler)
-      );
-
-      // Create edit title button
-      const editTitleBtn = document.createElement('button');
-      editTitleBtn.className = 'edit-title-btn';
-      editTitleBtn.setAttribute('aria-label', 'Edit section title');
-      editTitleBtn.innerHTML = sanitizeHTML('✏️');
-      console.log('[OrganizeMode] Edit title button created for section:', sectionId, editTitleBtn);
-      this.attachOrganizeControlHandler(editTitleBtn, 'Edit Title', () => {
-        console.log('[OrganizeMode] Edit title clicked for section:', sectionId);
-        this.editSectionTitle(sectionId);
-      });
-
-      // Wrap title text for editing - find the text node (not whitespace-only)
-      let titleText = null;
-      for (let i = 0; i < titleSpan.childNodes.length; i++) {
-        const node = titleSpan.childNodes[i];
-        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-          titleText = node;
-          break;
-        }
-      }
-      if (titleText) {
-        const titleTextSpan = document.createElement('span');
-        titleTextSpan.className = 'accordion-title-text';
-        titleTextSpan.textContent = titleText.textContent.trim();
-        titleSpan.replaceChild(titleTextSpan, titleText);
-      }
-
-      // Create move buttons for keyboard accessibility
-      const moveButtons = document.createElement('div');
-      moveButtons.className = 'move-buttons';
-      moveButtons.innerHTML = sanitizeHTML(`
-        <button class="move-btn move-up" aria-label="Move section up" title="Move up">▲</button>
-        <button class="move-btn move-down" aria-label="Move section down" title="Move down">▼</button>
-      `);
-
-      const moveUpBtn = moveButtons.querySelector('.move-up');
-      const moveDownBtn = moveButtons.querySelector('.move-down');
-      console.log('[OrganizeMode] Move buttons created:', { moveUpBtn, moveDownBtn, sectionId });
-
-      this.attachOrganizeControlHandler(moveUpBtn, 'Move Up', () => {
-        console.log('[OrganizeMode] Move up clicked for section:', sectionId);
-        this.moveSection(section, 'up');
-      });
-      this.attachOrganizeControlHandler(moveDownBtn, 'Move Down', () => {
-        console.log('[OrganizeMode] Move down clicked for section:', sectionId);
-        this.moveSection(section, 'down');
-      });
-
-      // Insert controls
-      header.insertBefore(dragHandle, header.firstChild);
-      titleSpan.appendChild(editTitleBtn);
-      header.insertBefore(visibilityToggle, header.querySelector('.accordion-icon'));
-      header.insertBefore(moveButtons, header.querySelector('.accordion-icon'));
-
-      // Override the accordion header's mousedown handler so that:
-      // 1. Clicks on .drag-handle reach SortableJS (it listens on .popup-main via bubble)
-      // 2. Clicks on organize controls (.visibility-toggle etc.) don't call the accordion
-      //    handler's e.preventDefault(), which would suppress their click events
-      const savedMousedown = header.onmousedown;
-      header._savedMousedown = savedMousedown;
-      header.onmousedown = e => {
-        if (e.target.closest('.drag-handle, .visibility-toggle, .edit-title-btn, .move-buttons')) {
-          return; // let SortableJS or the control's own handler take over
-        }
-        if (savedMousedown) {
-          savedMousedown.call(header, e);
-        }
-      };
-
-      // Apply hidden state if section was hidden
-      if (!isVisible) {
-        section.classList.add('hidden-by-user');
-      }
-    });
-  }
-
-  /**
-   * Initialize SortableJS for sections and features
-   */
-  initSortables() {
-    const main = document.querySelector('.popup-main');
-    const dragHandles = document.querySelectorAll('.drag-handle');
-    console.log('[OrganizeMode] Initializing sortables. Main element:', main);
-    console.log('[OrganizeMode] Found', dragHandles.length, 'drag handles:', dragHandles);
-
-    // Section-level sortable
-    this.sectionSortable = new Sortable(main, {
-      handle: '.drag-handle',
-      draggable: '.accordion-section',
-      animation: 200,
-      ghostClass: 'section-ghost',
-      chosenClass: 'section-chosen',
-      dragClass: 'section-dragging',
-      filter: '.visibility-toggle, .edit-title-btn, .move-buttons',
-      onStart: e => {
-        console.log('[OrganizeMode] Section drag started:', e.item);
-      },
-      onEnd: () => {
-        console.log('[OrganizeMode] Section drag ended');
-        this.saveLayout();
-        this.announceForScreenReader('Section order updated');
-      },
-    });
-    console.log('[OrganizeMode] Section sortable initialized:', this.sectionSortable);
-
-    // Feature-level sortables (one per accordion content)
-    document.querySelectorAll('.accordion-content').forEach(content => {
-      // Inject feature drag handles
-      this.injectFeatureControls(content);
-
-      const sortable = new Sortable(content, {
-        handle: '.feature-drag-handle',
-        animation: 150,
-        ghostClass: 'feature-ghost',
-        chosenClass: 'feature-chosen',
-        filter: '.feature-visibility-toggle',
-        draggable: '.control-section',
-        onEnd: () => {
-          this.saveLayout();
-          this.announceForScreenReader('Feature order updated');
-        },
-      });
-      this.featureSortables.push(sortable);
-    });
-  }
-
-  /**
-   * Inject drag handles into feature control sections
-   */
-  injectFeatureControls(content) {
-    const features = content.querySelectorAll('.control-section');
-
-    features.forEach(feature => {
-      // Skip if already has controls or is a sub-option container
-      if (feature.querySelector('.feature-drag-handle')) {
-        return;
-      }
-      if (feature.classList.contains('hidden')) {
-        return;
-      }
-
-      const toggleControl = feature.querySelector('.toggle-control');
-      if (!toggleControl) {
-        return;
-      }
-
-      const label = toggleControl.querySelector('.toggle-label');
-      if (!label) {
-        return;
-      }
-
-      // Create feature drag handle
-      const dragHandle = document.createElement('span');
-      dragHandle.className = 'feature-drag-handle';
-      dragHandle.innerHTML = sanitizeHTML('⠿');
-      dragHandle.setAttribute('aria-hidden', 'true');
-
-      // Insert at start of label
-      label.insertBefore(dragHandle, label.firstChild);
-    });
-  }
-
-  /**
-   * Destroy all sortable instances
-   */
-  destroySortables() {
-    if (this.sectionSortable) {
-      this.sectionSortable.destroy();
-      this.sectionSortable = null;
-    }
-
-    this.featureSortables.forEach(sortable => sortable.destroy());
-    this.featureSortables = [];
-  }
-
-  /**
-   * Toggle section visibility
-   */
-  toggleSectionVisibility(sectionId, toggleBtn) {
-    console.log('[OrganizeMode] toggleSectionVisibility called for:', sectionId);
-    const section = document.querySelector(`[data-section="${sectionId}"]`);
-    const isCurrentlyVisible = toggleBtn.getAttribute('aria-pressed') === 'true';
-    const newVisibility = !isCurrentlyVisible;
-    console.log('[OrganizeMode] Current visibility:', isCurrentlyVisible, '-> New:', newVisibility);
-
-    // Update button state
-    toggleBtn.setAttribute('aria-pressed', newVisibility ? 'true' : 'false');
-    toggleBtn.setAttribute('aria-label', newVisibility ? 'Hide section' : 'Show section');
-    toggleBtn.querySelector('.visibility-icon').textContent = newVisibility ? '👁️' : '👁️‍🗨️';
-
-    // Update section class
-    if (newVisibility) {
-      section.classList.remove('hidden-by-user');
-    } else {
-      section.classList.add('hidden-by-user');
-    }
-
-    // Save to settings
-    this.saveLayout();
-    this.announceForScreenReader(`Section ${newVisibility ? 'shown' : 'hidden'}`);
-  }
-
-  /**
-   * Edit section title inline
-   */
-  editSectionTitle(sectionId) {
-    const section = document.querySelector(`[data-section="${sectionId}"]`);
-    let titleTextSpan = section.querySelector('.accordion-title-text');
-
-    // Create span if missing
-    if (!titleTextSpan) {
-      const titleSpan = section.querySelector('.accordion-title');
-      const iconSpan = titleSpan.querySelector('.accordion-icon-left');
-
-      // Get the full text content and remove the icon emoji
-      const fullText = titleSpan.textContent;
-      const iconText = iconSpan ? iconSpan.textContent : '';
-      const titleText = fullText.replace(iconText, '').trim();
-
-      // Create wrapper span for the title text
-      titleTextSpan = document.createElement('span');
-      titleTextSpan.className = 'accordion-title-text';
-      titleTextSpan.textContent = titleText;
-
-      // Clear all text nodes and re-add structured content
-      // Remove all child nodes except the icon
-      while (titleSpan.childNodes.length > 1) {
-        titleSpan.removeChild(titleSpan.lastChild);
-      }
-
-      // Add space and the new title span after icon
-      titleSpan.appendChild(document.createTextNode(' '));
-      titleSpan.appendChild(titleTextSpan);
-    }
-
-    const currentTitle = titleTextSpan.textContent;
-
-    // Create input
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentTitle;
-    input.className = 'title-edit-input';
-    input.setAttribute('aria-label', 'Edit section title');
-
-    // Replace span with input
-    titleTextSpan.replaceWith(input);
-    input.focus();
-    input.select();
-
-    // Handle save on blur or enter
-    const saveEdit = () => {
-      const newTitle = input.value.trim() || currentTitle;
-
-      // Create new span
-      const newSpan = document.createElement('span');
-      newSpan.className = 'accordion-title-text';
-      newSpan.textContent = newTitle;
-
-      input.replaceWith(newSpan);
-
-      // Save to settings
-      if (!this.popup.settings.ui_layout) {
-        this.popup.settings.ui_layout = {};
-      }
-      if (!this.popup.settings.ui_layout.sectionTitles) {
-        this.popup.settings.ui_layout.sectionTitles = {};
-      }
-      this.popup.settings.ui_layout.sectionTitles[sectionId] = newTitle;
-      this.saveLayout();
-
-      this.announceForScreenReader(`Section renamed to ${newTitle}`);
-    };
-
-    input.addEventListener('blur', saveEdit);
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        input.blur();
-      } else if (e.key === 'Escape') {
-        input.value = currentTitle;
-        input.blur();
-      }
-    });
-  }
-
-  /**
-   * Move section up or down (keyboard accessibility)
-   */
-  moveSection(section, direction) {
-    const main = document.querySelector('.popup-main');
-    const sections = Array.from(main.querySelectorAll('.accordion-section'));
-    const currentIndex = sections.indexOf(section);
-
-    if (direction === 'up' && currentIndex > 0) {
-      main.insertBefore(section, sections[currentIndex - 1]);
-    } else if (direction === 'down' && currentIndex < sections.length - 1) {
-      main.insertBefore(sections[currentIndex + 1], section);
-    }
-
-    this.saveLayout();
-    this.updateMoveButtons();
-    this.announceForScreenReader(`Section moved ${direction}`);
-  }
-
-  /**
-   * Update move button disabled states
-   */
-  updateMoveButtons() {
-    const sections = document.querySelectorAll('.accordion-section');
-    sections.forEach((section, index) => {
-      const moveUp = section.querySelector('.move-up');
-      const moveDown = section.querySelector('.move-down');
-      if (moveUp) {
-        moveUp.disabled = index === 0;
-      }
-      if (moveDown) {
-        moveDown.disabled = index === sections.length - 1;
-      }
-    });
-  }
-
-  /**
-   * Setup keyboard navigation for organize mode
-   */
-  setupKeyboardNav() {
-    this.keyHandler = e => {
-      if (!this.isActive) {
-        return;
-      }
-
-      // Escape to exit
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        this.exit();
-        return;
-      }
-
-      // Alt+Up/Down to move focused section
-      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        const focused = document.activeElement.closest('.accordion-section');
-        if (focused) {
-          e.preventDefault();
-          this.moveSection(focused, e.key === 'ArrowUp' ? 'up' : 'down');
-        }
-      }
-    };
-
-    document.addEventListener('keydown', this.keyHandler);
-  }
-
-  /**
-   * Capture current state for potential undo
-   */
-  captureState() {
-    return {
-      sectionOrder: this.getSectionOrder(),
-      sectionVisibility: { ...this.popup.settings?.ui_layout?.sectionVisibility },
-      sectionTitles: { ...this.popup.settings?.ui_layout?.sectionTitles },
-    };
-  }
-
-  /**
-   * Get current section order from DOM
-   */
-  getSectionOrder() {
-    const sections = document.querySelectorAll('.accordion-section');
-    return Array.from(sections).map(s => s.dataset.section);
-  }
-
-  /**
-   * Get current feature order from DOM
-   */
-  getFeatureOrder() {
-    const featureOrder = {};
-    document.querySelectorAll('.accordion-section').forEach(section => {
-      const sectionId = section.dataset.section;
-      const content = section.querySelector('.accordion-content');
-      if (content) {
-        const features = content.querySelectorAll('.control-section[id]');
-        featureOrder[sectionId] = Array.from(features).map(f => {
-          // Extract feature ID from section ID (e.g., 'tts-section' -> 'tts')
-          return f.id.replace('-section', '');
-        });
-      }
-    });
-    return featureOrder;
-  }
-
-  /**
-   * Save current layout to settings
-   */
-  async saveLayout() {
-    // Initialize ui_layout if needed
-    if (!this.popup.settings.ui_layout) {
-      this.popup.settings.ui_layout = {};
-    }
-
-    // Update section order
-    this.popup.settings.ui_layout.sectionOrder = this.getSectionOrder();
-
-    // Update section visibility
-    if (!this.popup.settings.ui_layout.sectionVisibility) {
-      this.popup.settings.ui_layout.sectionVisibility = {};
-    }
-    document.querySelectorAll('.accordion-section').forEach(section => {
-      const sectionId = section.dataset.section;
-      this.popup.settings.ui_layout.sectionVisibility[sectionId] =
-        !section.classList.contains('hidden-by-user');
-    });
-
-    // Update feature order
-    this.popup.settings.ui_layout.featureOrder = this.getFeatureOrder();
-
-    // Save settings
-    await this.popup.saveSettings();
-    console.log('[OrganizeMode] Layout saved:', this.popup.settings.ui_layout);
-  }
-
-  /**
-   * Apply saved layout on popup load
-   */
-  applyLayout() {
-    console.log('[OrganizeMode][applyLayout] Starting layout application...');
-    const layout = this.popup.settings?.ui_layout;
-    if (!layout) {
-      console.log('[OrganizeMode][applyLayout] No layout settings found, using defaults');
-      return;
-    }
-
-    console.log('[OrganizeMode][applyLayout] Layout settings:', layout);
-
-    const main = document.querySelector('.popup-main');
-    if (!main) {
-      console.error('[OrganizeMode][applyLayout] ❌ .popup-main element not found!');
-      return;
-    }
-
-    // Apply section order
-    if (layout.sectionOrder) {
-      console.log('[OrganizeMode][applyLayout] Applying section order:', layout.sectionOrder);
-      layout.sectionOrder.forEach(sectionId => {
-        const section = document.querySelector(`[data-section="${sectionId}"]`);
-        if (section) {
-          main.appendChild(section);
-        } else {
-          console.warn('[OrganizeMode][applyLayout] Section not found:', sectionId);
-        }
-      });
-    }
-
-    // Apply section visibility
-    if (layout.sectionVisibility) {
-      console.log(
-        '[OrganizeMode][applyLayout] Applying section visibility:',
-        layout.sectionVisibility
-      );
-      Object.entries(layout.sectionVisibility).forEach(([sectionId, visible]) => {
-        const section = document.querySelector(`[data-section="${sectionId}"]`);
-        if (section) {
-          section.classList.toggle('hidden-by-user', !visible);
-        }
-      });
-    }
-
-    // Apply custom titles
-    if (layout.sectionTitles) {
-      console.log('[OrganizeMode][applyLayout] Applying custom titles:', layout.sectionTitles);
-      Object.entries(layout.sectionTitles).forEach(([sectionId, title]) => {
-        const section = document.querySelector(`[data-section="${sectionId}"]`);
-        if (section) {
-          const titleSpan = section.querySelector('.accordion-title');
-          if (titleSpan) {
-            // Check if title-text span exists
-            const titleTextSpan = titleSpan.querySelector('.accordion-title-text');
-            if (titleTextSpan) {
-              titleTextSpan.textContent = title;
-            } else {
-              // Replace text node
-              const textNode = Array.from(titleSpan.childNodes).find(
-                n => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
-              );
-              if (textNode) {
-                textNode.textContent = ' ' + title;
-              }
-            }
-          }
-        }
-      });
-    }
-
-    console.log('[OrganizeMode][applyLayout] ✓ Layout applied successfully');
-  }
-
-  /**
-   * Show toast notification
-   */
-  showToast(message) {
-    const toast = document.createElement('div');
-    toast.className = 'layout-toast';
-    toast.textContent = message;
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
-    document.body.appendChild(toast);
-
-    // Remove after animation
-    setTimeout(() => toast.remove(), 1500);
-  }
-
-  /**
-   * Announce message for screen readers
-   */
-  announceForScreenReader(message) {
-    let region = document.querySelector('.sr-live-region');
-    if (!region) {
-      region = document.createElement('div');
-      region.className = 'sr-live-region';
-      region.setAttribute('aria-live', 'polite');
-      region.setAttribute('aria-atomic', 'true');
-      document.body.appendChild(region);
-    }
-    region.textContent = message;
-  }
-}
-
-class PopupController {
+const popupKeyListeners = new WeakMap();
+
+/**
+ * How long an accordion section takes to shut, in milliseconds.
+ *
+ * It matches the `max-height` transition on `.accordion-content` in popup.css, because that is
+ * what it waits for: the content is only made `inert` once it has finished shrinking, so nothing
+ * disappears from under a student mid-animation. A student who has asked the system for less
+ * movement has no animation to wait for and the wait is skipped entirely.
+ */
+const ACCORDION_COLLAPSE_MS = 300;
+
+/**
+ * How long the popup waits before trying the settings fetch again, in milliseconds.
+ *
+ * A popup opened while the service worker is asleep or restarting gets no answer at all, and the
+ * worker is usually up a moment later. One quiet retry turns the commonest cause of a dead popup
+ * into a pause; a second would only make the banner's own Retry button dishonest.
+ */
+const SETTINGS_RETRY_MS = 1200;
+/**
+ * How long the popup waits for its settings before treating the request as failed. A worker that
+ * hangs rather than refusing would otherwise leave start-up waiting for ever: the popup busy, its
+ * clicks held, and the failure banner never shown. Generous, because a waking worker is slow.
+ */
+const SETTINGS_TIMEOUT_MS = 5000;
+
+/**
+ * The shortcut presets, every one of them covering every key in the registry.
+ *
+ * They used to be three hand-written lists. `action_tray_focus` was added to the registry and the
+ * lists were not, so each of them silently left the tray shortcut on whatever the previous preset
+ * had bound — a preset that does not fully replace the previous one is not a preset. Starting from
+ * the registry keys and laying the preset's own choices on top means a key added to the registry
+ * cannot be missed here again; the test that compares each preset's keys against the registry is
+ * what holds that.
+ *
+ * An empty string means "no shortcut". `action_tray_focus` is never empty: the Undo offered by the
+ * confirmation tray has no other keyboard route, and a preset that removed it would take a student
+ * on the keyboard out of their own undo (WCAG 2.2 SC 2.1.1).
+ *
+ * What a preset REARRANGES is the page scope — the tools that act on the page a student is reading.
+ * The mind map editor's keys are carried through at their defaults instead, because a preset that
+ * blanked them would leave the editor with no keyboard at all: the outline IS its keyboard, and
+ * "minimal" meaning "you can no longer save or undo your map" is not a reading preference. They stay
+ * changeable one at a time in the Keyboard grid, and the editor's own shortcut list prints whatever
+ * the student has.
+ */
+const UNBOUND_SHORTCUTS = Object.fromEntries(shortcutKeysInScope(PAGE_SCOPE).map(key => [key, '']));
+
+/** The editor's keys at their shipped chords, carried into every preset unchanged. */
+const EDITOR_SHORTCUTS = Object.fromEntries(
+  shortcutKeysInScope(MIND_MAP_SCOPE).map(key => [key, DEFAULT_SHORTCUTS[key]])
+);
+
+export const SHORTCUT_PRESETS = {
+  // Balanced modifiers: the registry's own bindings.
+  default: { ...UNBOUND_SHORTCUTS, ...DEFAULT_SHORTCUTS },
+
+  // Essential shortcuts only; everything else is left unbound.
+  minimal: {
+    ...UNBOUND_SHORTCUTS,
+    ...EDITOR_SHORTCUTS,
+    tts_play_pause: 'Ctrl+Space',
+    reading_mode_toggle: 'Alt+R',
+    reading_mode_exit: 'Escape',
+    // Kept: for a student who cannot type comfortably this is the way in, not an extra.
+    stt_dictate: 'Alt+Shift+V',
+    action_tray_focus: 'Alt+Shift+U',
+    focus_mode_toggle: 'Alt+F',
+    reading_guide_toggle: 'Alt+G',
+  },
+
+  // Left-hand keys with Alt, so the whole set is reachable one-handed.
+  oneHanded: {
+    ...UNBOUND_SHORTCUTS,
+    ...EDITOR_SHORTCUTS,
+    tts_play_pause: 'Alt+Q',
+    tts_stop: 'Alt+W',
+    ocr_activate: 'Alt+E',
+    reading_mode_toggle: 'Alt+A',
+    reading_mode_exit: 'Escape',
+    dictionary_lookup: 'Alt+S',
+    text_stats_toggle: 'Alt+D',
+    highlight_menu_toggle: 'Alt+F',
+    sticky_note_create: 'Alt+Z',
+    translation_toggle: 'Alt+X',
+    citation_save: 'Alt+C',
+    stt_dictate: 'Alt+Shift+V',
+    open_mind_map: 'Alt+T',
+    action_tray_focus: 'Alt+Shift+A',
+    focus_mode_toggle: 'Alt+V',
+    reading_guide_toggle: 'Alt+R',
+    screen_overlay_toggle: 'Alt+B',
+    dyslexia_mode_toggle: 'Alt+G',
+  },
+};
+
+export class PopupController {
   constructor() {
     this.settings = null;
+    // The settings as they were last read from storage. saveSettings() diffs against it.
+    this.pristineSettings = null;
     this.currentTab = null;
     this.isInitialized = false;
     this.citationPanel = null;
-    this.citationPanelExpanded = false;
-    this.organizeMode = new OrganizeMode(this);
+    // One pending "now make it inert" per section, so re-opening a section mid-collapse cancels
+    // the shutting rather than racing it.
+    this.accordionCloseTimers = new Map();
+    // The one automatic retry of the settings fetch, and what it disabled while it waited.
+    this.settingsRetryTimer = null;
+    this.settingsRetryUsed = false;
+    this.controlsDisabledByFailure = null;
   }
 
   /**
-   * Attaches mousedown event handler to prevent race conditions
-   * Per LESSONS_UI_EVENT_HANDLING.md - mousedown fires before document listeners
+   * Attaches the popup's activation handlers: mousedown for the pointer, Enter and Space for the
+   * keyboard.
+   *
+   * Mousedown is what beats the document-level listeners that would otherwise hide the control
+   * before a click landed. It is also the one event a keyboard
+   * never sends: a native button pressed with Enter fires `click`, and Space fires `click` on the
+   * way up, so mousedown alone made every button in this popup mouse-only — a straight SC 2.1.1
+   * failure across the whole surface.
+   *
    * @param {HTMLElement} element - The element to attach handler to
    * @param {string} label - Debug label for logging
    * @param {Function} handler - The handler function to execute
@@ -793,7 +238,7 @@ class PopupController {
       return;
     }
 
-    element.onmousedown = e => {
+    const activate = e => {
       console.log(`[Popup] ${label} triggered`);
       e.preventDefault();
       e.stopPropagation();
@@ -806,6 +251,26 @@ class PopupController {
       }
     };
 
+    element.onmousedown = activate;
+
+    // addEventListener, not `.onkeydown`: the property is a single slot, and the popup's own
+    // keyboard wiring (Escape on the menus, arrow keys on the sliders) sets it on some of these
+    // elements. `preventDefault()` above also cancels the click the browser would synthesise from
+    // the key, so the handler runs once per press, and `repeat` keeps a held key to one run.
+    const onKeydown = e => {
+      if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat) {
+        return;
+      }
+      activate(e);
+    };
+
+    const previous = popupKeyListeners.get(element);
+    if (previous) {
+      element.removeEventListener('keydown', previous);
+    }
+    popupKeyListeners.set(element, onKeydown);
+    element.addEventListener('keydown', onKeydown);
+
     // Visual feedback
     element.onmouseenter = () => {
       element.style.transform = 'scale(1.05)';
@@ -813,6 +278,226 @@ class PopupController {
     element.onmouseleave = () => {
       element.style.transform = 'scale(1)';
     };
+  }
+
+  /**
+   * Turn a backdrop and the panel inside it into a real modal dialog, and show it.
+   *
+   * The popup built its overlays by hand: a `div` with a dark background and no `role`, so a
+   * screen reader announced nothing, Tab walked straight out into the controls behind the
+   * overlay, and Escape worked on one of them and not the other. The trapping and the focus
+   * restore come from the shared `trapFocus` helper the citation, OCR and annotation dialogs
+   * already use — this adds the naming and the ways out, not a third focus trap.
+   *
+   * @param {Object} options
+   * @param {HTMLElement} options.backdrop - the full-screen layer; a press on it closes.
+   * @param {HTMLElement} options.dialog - the panel inside it that becomes the dialog.
+   * @param {string} options.labelledBy - id of the heading that names the dialog.
+   * @param {HTMLElement} [options.opener] - the control the student opened this from.
+   * @param {HTMLElement} [options.initialFocus] - where the keyboard lands.
+   * @param {() => void} [options.onClose] - runs once the dialog has gone, however it was closed.
+   * @returns {() => void} Closes the dialog, once, whoever calls it.
+   */
+  openPopupDialog({ backdrop, dialog, labelledBy, opener: pressed, initialFocus, onClose }) {
+    // A dialog opened through Flat is opened by the hidden accordion control Flat passed the press
+    // on to. Flat's copy is the one on screen, so that is the one to give the keyboard back to.
+    const opener = this.visibleCopyOf(pressed);
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', labelledBy);
+
+    document.body.appendChild(backdrop);
+
+    // trapFocus hands the keyboard back to whatever held it when the trap was set, and a pointer
+    // press on the opener never focused it — the popup's activation helper cancels the default
+    // that would have. Focusing it here is what makes "focus comes back to the button you opened
+    // this from" true on the pointer path as well as the keyboard one.
+    if (opener?.isConnected && typeof opener.focus === 'function') {
+      opener.focus();
+    }
+
+    let closed = false;
+    let release = () => {};
+    const close = () => {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      release(); // restores focus to the opener
+      backdrop.remove();
+      if (onClose) {
+        onClose();
+      }
+    };
+
+    // A press on the backdrop dismisses. Deliberately a plain mousedown listener and not
+    // attachInteractiveHandler: that helper also binds Enter and Space on the element it is given
+    // and calls preventDefault(), and every key pressed inside the dialog bubbles up to here — it
+    // was swallowing the space bar in the Add Custom Word field, so a phrase could not be typed.
+    backdrop.addEventListener('mousedown', e => {
+      if (e.target === backdrop) {
+        close();
+      }
+    });
+
+    release = trapFocus(dialog, { onEscape: close, initialFocus });
+    return close;
+  }
+
+  /**
+   * The control a student actually pressed to reach `element`.
+   *
+   * Flat draws its own copy of each accordion control and passes every press on to the original,
+   * which stays hidden and so can never take the keyboard. A dialog opened from one of those
+   * originals hands the keyboard back to Flat's copy, the one on screen (SC 2.4.3).
+   *
+   * @param {HTMLElement} [element] - the accordion control whose handler is running
+   * @returns {HTMLElement|undefined}
+   */
+  visibleCopyOf(element) {
+    const copy = element?.id ? document.getElementById(renderedId(element.id)) : null;
+    return copy?.isConnected ? copy : element;
+  }
+
+  /**
+   * The backdrop and panel of a dialog opened from Flat, before `openPopupDialog` makes it modal.
+   *
+   * It takes the look of the Your data confirmation, which has its own AA colour tokens in light
+   * and dark and no fixed heights, so text spacing can grow (SC 1.4.12), rather than adding another.
+   *
+   * @param {string} id - the dialog's id; its heading is `${id}-title`
+   * @param {string} heading
+   * @returns {{backdrop: HTMLElement, dialog: HTMLElement, actions: HTMLElement, titleId: string}}
+   */
+  buildPopupSheet(id, heading) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'your-data-confirm';
+    backdrop.style.zIndex = String(Z.MODAL);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'your-data-confirm__dialog';
+    dialog.id = id;
+
+    const title = document.createElement('h2');
+    title.className = 'your-data-confirm__title';
+    title.id = `${id}-title`;
+    title.textContent = heading;
+
+    const actions = document.createElement('div');
+    actions.className = 'your-data-confirm__actions';
+
+    dialog.append(title, actions);
+    backdrop.appendChild(dialog);
+    return { backdrop, dialog, actions, titleId: title.id };
+  }
+
+  /**
+   * One button in a popup sheet, wired for pointer and keyboard.
+   * @param {string} label
+   * @param {() => void} run
+   * @param {boolean} [danger]
+   * @returns {HTMLButtonElement}
+   */
+  sheetButton(label, run, danger = false) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = danger ? 'your-data__btn your-data__btn--danger' : 'your-data__btn';
+    button.textContent = label;
+    attachAccessibleHandler(button, label, run, { enableVisualFeedback: false });
+    return button;
+  }
+
+  /**
+   * Ask before deleting the record of how the student works.
+   *
+   * A dialog with its own Delete button, never a second press on the button that asked. Flat
+   * passes each press on its copy of that button to the hidden original, so the old two-press
+   * arming showed its warning nowhere and let a double press delete for good.
+   *
+   * @param {HTMLElement} opener - the accordion button whose handler asked
+   * @param {() => Promise<void>} onDelete
+   */
+  confirmDeleteLearningRecord(opener, onDelete) {
+    const id = 'delete-learning-record-dialog';
+    if (document.getElementById(id)) {
+      return;
+    }
+    const { backdrop, dialog, actions, titleId } = this.buildPopupSheet(
+      id,
+      'Delete the record of how you work?'
+    );
+
+    const warning = document.createElement('p');
+    warning.id = `${id}-warning`;
+    warning.textContent =
+      'Deleting removes it from this device straight away. It cannot be undone.';
+    dialog.insertBefore(warning, actions);
+    dialog.setAttribute('aria-describedby', warning.id);
+
+    let close = () => {};
+    const cancel = this.sheetButton('Cancel', () => close());
+    const confirm = this.sheetButton(
+      'Delete this record',
+      async () => {
+        close();
+        await onDelete();
+      },
+      true
+    );
+    actions.append(cancel, confirm);
+
+    close = this.openPopupDialog({
+      backdrop,
+      dialog,
+      labelledBy: titleId,
+      opener,
+      // Cancel is the safe answer, so it is where the keyboard starts.
+      initialFocus: cancel,
+    });
+  }
+
+  /**
+   * Show a panel from the hidden accordion in a dialog, and put it back when the dialog closes.
+   *
+   * Citation Quick View and the dictation statistics each unfold a panel the accordion holds. The
+   * accordion is hidden while Flat is the popup's face, so the panel is lent to a dialog on top of
+   * everything instead, then returned, with its own handlers still attached.
+   *
+   * @param {Object} options
+   * @param {string} options.id - the dialog's id
+   * @param {string} options.heading - the dialog's name
+   * @param {HTMLElement} options.panel - the accordion panel to show
+   * @param {HTMLElement} options.opener - the accordion button whose handler is running
+   * @returns {boolean} whether a dialog opened; false when this one is already open
+   */
+  showPanelInSheet({ id, heading, panel, opener }) {
+    if (document.getElementById(id)) {
+      return false;
+    }
+    const { backdrop, dialog, actions, titleId } = this.buildPopupSheet(id, heading);
+    const home = panel.parentNode;
+    const nextSibling = panel.nextSibling;
+    dialog.insertBefore(panel, actions);
+    panel.style.display = 'block';
+
+    let close = () => {};
+    actions.appendChild(this.sheetButton('Close', () => close()));
+    // The panel itself takes the keyboard, so the dialog is announced by its heading and the
+    // student reads from the top rather than landing part-way down.
+    dialog.tabIndex = -1;
+
+    close = this.openPopupDialog({
+      backdrop,
+      dialog,
+      labelledBy: titleId,
+      opener,
+      initialFocus: dialog,
+      onClose: () => {
+        panel.style.display = 'none';
+        home.insertBefore(panel, nextSibling);
+      },
+    });
+    return true;
   }
 
   async initialize() {
@@ -827,68 +512,130 @@ class PopupController {
 
       // Load settings
       console.log('[Popup] Step 2: Loading settings...');
-      await this.loadSettings();
+      if (!(await this.loadSettings())) {
+        // Without settings there is nothing to fill the popup with, and every handler below would
+        // read them. Say so on screen and stop here rather than building a popup that looks alive
+        // and answers nothing.
+        this.enterSettingsFailure();
+        return;
+      }
       console.log('[Popup] Step 2: ✓ Settings loaded');
 
-      // Setup UI
-      console.log('[Popup] Step 3: Setting up event listeners...');
-      this.setupEventListeners();
-      console.log('[Popup] Step 3: ✓ Event listeners setup complete');
-
-      console.log('[Popup] Step 4: Setting up accordions...');
-      this.setupAccordions();
-      console.log('[Popup] Step 4: ✓ Accordions setup complete');
-
-      console.log('[Popup] Step 5: Updating UI...');
-      this.updateUI();
-      console.log('[Popup] Step 5: ✓ UI update complete');
-
-      this.injectShortcutBadges();
-
-      console.log('[Popup] Step 6: Loading voices...');
-      this.loadVoices();
-      console.log('[Popup] Step 6: ✓ Voices loaded');
-
-      // Apply saved layout (section order, visibility, custom titles)
-      console.log('[Popup] Step 7: Applying saved layout...');
-      this.organizeMode.applyLayout();
-      console.log('[Popup] Step 7: ✓ Layout applied');
-
-      // Setup organize mode event listeners
-      console.log('[Popup] Step 8: Setting up organize mode listeners...');
-      this.setupOrganizeModeListeners();
-      console.log('[Popup] Step 8: ✓ Organize mode listeners setup');
-
-      this.isInitialized = true;
-      this.updateStatus('Ready');
-      console.log('[Popup] ✓✓✓ INITIALIZATION COMPLETE ✓✓✓');
-
-      // Setup permission banner AFTER initialization (non-blocking)
-      setTimeout(() => this.setupPermissionBanner(), 100);
+      await this.buildPopup();
     } catch (error) {
       console.error('[Popup] ❌ INITIALIZATION FAILED:', error);
       console.error('[Popup] Error stack:', error.stack);
       this.updateStatus(`Initialization failed: ${error.message}`, 'error');
+      // A failure with settings in hand is a bug somewhere further down, and saying "could not
+      // load its settings" about it would send the student to a Retry that cannot help. The
+      // banner is only for the case it describes.
+      if (!this.settings) {
+        this.enterSettingsFailure();
+      }
     }
   }
 
   /**
-   * Setup event listeners for organize mode
+   * Everything the popup does once it has its settings. Split out of `initialize` so the one
+   * quiet retry after a failed settings fetch can pick up exactly where that left off, rather
+   * than running the tab query and the live region a second time.
+   *
+   * @returns {Promise<void>}
    */
-  setupOrganizeModeListeners() {
-    // Organize button in header
-    this.attachInteractiveHandler(
-      document.getElementById('btn-organize'),
-      'Organize Mode Toggle',
-      () => this.organizeMode.toggle()
-    );
+  async buildPopup() {
+    // Setup UI
+    console.log('[Popup] Step 3: Setting up event listeners...');
+    this.setupEventListeners();
+    console.log('[Popup] Step 3: ✓ Event listeners setup complete');
 
-    // Done button in organize banner
-    this.attachInteractiveHandler(
-      document.getElementById('btn-organize-done'),
-      'Organize Mode Done',
-      () => this.organizeMode.exit()
-    );
+    console.log('[Popup] Step 4: Setting up accordions...');
+    this.setupAccordions();
+    console.log('[Popup] Step 4: ✓ Accordions setup complete');
+
+    console.log('[Popup] Step 5: Updating UI...');
+    this.updateUI();
+    console.log('[Popup] Step 5: ✓ UI update complete');
+
+    this.injectShortcutBadges();
+
+    console.log('[Popup] Step 6: Loading voices...');
+    this.loadVoices();
+    console.log('[Popup] Step 6: ✓ Voices loaded');
+
+    // Flat reads the accordion's switches, so it is drawn only once updateUI() has filled them.
+    this.mountFlatView();
+
+    // A student who pressed Open Settings on an AI panel asked for a particular screen, and the
+    // worker could only leave a note saying which — this is where that note is honoured.
+    await this.honourPendingOpenRequest();
+
+    // Settled before the popup is ready, not after: the banner pushes every control down by about
+    // 160px, and inserted once the popup looked usable it moved the switch a student was reaching
+    // for, so the click landed on whatever slid into its place.
+    try {
+      await this.setupPermissionBanner();
+    } catch (error) {
+      console.error('[Popup] Permission banner setup failed:', error);
+    }
+
+    this.isInitialized = true;
+    this.updateStatus('Ready');
+    console.log('[Popup] ✓✓✓ INITIALIZATION COMPLETE ✓✓✓');
+  }
+
+  /**
+   * Open the screen the student asked for from somewhere the popup could not be reached.
+   *
+   * The Open Settings button on an AI panel lives in a content script, which cannot open the popup
+   * or talk to one that is not there. The worker opens it and leaves a note; this reads the note,
+   * which spends it, so only the opening that was asked for is diverted.
+   *
+   * @returns {Promise<void>}
+   */
+  async honourPendingOpenRequest() {
+    let surface = null;
+    try {
+      surface = await takePopupSurfaceRequest();
+    } catch (error) {
+      // A popup that cannot read the note is still a working popup.
+      console.warn('[Popup] Could not read the pending open request:', error?.message);
+      return;
+    }
+
+    if (surface !== POPUP_SURFACE_AI) {
+      return;
+    }
+
+    this.showAdvancedOptions('ai');
+  }
+
+  /**
+   * Show one tab of the Advanced Options modal by name, as pressing that tab would.
+   * @param {string} tabId - The tab's `data-tab` value.
+   */
+  openModalTab(tabId) {
+    const modal = document.getElementById('advanced-options-modal');
+    const tab = modal?.querySelector(`.modal-tab[data-tab="${tabId}"]`);
+    const content = modal?.querySelector(`#tab-${tabId}`);
+    if (!tab || !content) {
+      console.warn(`[Popup] No Advanced Options tab named ${tabId}`);
+      return;
+    }
+
+    modal.querySelectorAll('.modal-tab').forEach(other => {
+      other.classList.remove('active');
+      other.setAttribute('aria-selected', 'false');
+      // Roving tabindex: the strip is one stop in the tab order, and the arrow keys move within
+      // it. Four separate stops made the student Tab past three panels to reach the fourth.
+      other.setAttribute('tabindex', '-1');
+    });
+    modal.querySelectorAll('.tab-content').forEach(other => other.classList.remove('active'));
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    tab.removeAttribute('tabindex');
+    content.classList.add('active');
+    // The tab is where the student's attention has just been sent, so send the keyboard there too.
+    tab.focus();
   }
 
   /**
@@ -1124,34 +871,204 @@ class PopupController {
     }
   }
 
+  /**
+   * Fetch the student's settings from the service worker.
+   *
+   * Returns whether it worked rather than throwing. A worker that is asleep, restarting or being
+   * updated rejects the message, and the popup that used to come back from that looked completely
+   * normal and did nothing at all: `this.settings` stayed null, `applyVisibilitySettings` threw
+   * reading `ui_visibility`, and the only trace was one line in the status bar at the bottom.
+   * The caller now has an answer it can act on.
+   *
+   * @returns {Promise<boolean>} true when `this.settings` now holds real settings
+   */
   async loadSettings() {
+    let timer;
     try {
-      console.log('[Popup][loadSettings] Sending GET_SETTINGS message to background...');
-      const response = await chrome.runtime.sendMessage({
-        type: MESSAGE_TYPES.GET_SETTINGS,
-      });
-      console.log('[Popup][loadSettings] Response received:', response);
+      const response = await Promise.race([
+        chrome.runtime.sendMessage({ type: MESSAGE_TYPES.GET_SETTINGS }),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`no answer after ${SETTINGS_TIMEOUT_MS}ms`)),
+            SETTINGS_TIMEOUT_MS
+          );
+        }),
+      ]);
 
-      if (response.success) {
+      if (response && response.success && response.data) {
         this.settings = response.data;
-        console.log('[Popup][loadSettings] ✓ Settings loaded successfully:', this.settings);
-      } else {
-        console.error('[Popup][loadSettings] ❌ Response indicated failure:', response);
+        // The copy `saveSettings()` diffs against. Taken here and refreshed on every save, so what
+        // gets written is only what the student changed in the popup — see saveSettings().
+        this.pristineSettings = structuredClone(this.settings);
+        // The settings hold the student's chosen voice, their institution and their AI endpoint,
+        // so what is logged is that they arrived, never what they contain.
+        debugLog('[Popup][loadSettings] settings loaded:', this.settings);
+        return true;
       }
+      console.error('[Popup][loadSettings] settings fetch failed, success flag not set');
+      return false;
     } catch (error) {
-      console.error('[Popup][loadSettings] ❌ Error loading settings:', error);
-      console.error('[Popup][loadSettings] Error stack:', error.stack);
-      this.updateStatus('Error loading settings', 'error');
-      throw error; // Re-throw to be caught by initialize()
+      console.error('[Popup][loadSettings] settings fetch failed:', error);
+      return false;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
+  /**
+   * The popup could not get its settings: say so where it can be seen, and stop pretending.
+   *
+   * Every control in the popup reads the settings, so with none of them the switches show nothing
+   * true and pressing one saves nothing. They are disabled for as long as that is the case, which
+   * is the honest state — a live-looking switch that does nothing is worse than a greyed one.
+   *
+   * The message is a `role="alert"` at the TOP of the popup, not the status line at the bottom
+   * where this used to go unseen, and it carries the way out: a Retry button. One retry also runs
+   * on its own after a short pause, because the commonest cause is a service worker that was
+   * asleep when the popup opened and is awake a moment later.
+   */
+  enterSettingsFailure() {
+    this.updateStatus('Could not load settings', 'error');
+    this.showSettingsBanner();
+    this.setControlsDisabled(true);
+
+    if (this.settingsRetryTimer || this.settingsRetryUsed) {
+      return;
+    }
+    this.settingsRetryUsed = true;
+    this.settingsRetryTimer = setTimeout(() => {
+      this.settingsRetryTimer = null;
+      this.retrySettings();
+    }, SETTINGS_RETRY_MS);
+  }
+
+  /**
+   * Try the settings fetch again and, if it works this time, build the popup properly.
+   * @returns {Promise<boolean>} whether the settings arrived
+   */
+  async retrySettings() {
+    const banner = document.getElementById('settings-failure-banner');
+    const retryButton = banner && banner.querySelector('.settings-failure__retry');
+    if (retryButton) {
+      retryButton.disabled = true;
+    }
+
+    const loaded = await this.loadSettings();
+    if (!loaded) {
+      if (retryButton) {
+        retryButton.disabled = false;
+      }
+      return false;
+    }
+
+    if (banner) {
+      banner.remove();
+    }
+    this.setControlsDisabled(false);
+
+    try {
+      await this.buildPopup();
+    } catch (error) {
+      console.error('[Popup] Building the popup after a retry failed:', error);
+      this.updateStatus(`Initialization failed: ${error.message}`, 'error');
+    }
+    return true;
+  }
+
+  /** Put the banner at the top of the popup, once. */
+  showSettingsBanner() {
+    if (document.getElementById('settings-failure-banner')) {
+      return;
+    }
+    const container = document.querySelector('.popup-container');
+    if (!container) {
+      return;
+    }
+
+    const banner = document.createElement('div');
+    banner.id = 'settings-failure-banner';
+    banner.className = 'settings-failure';
+    // Announced the moment it appears: the student has just opened a popup that looks ordinary,
+    // and nothing else on screen says why nothing in it works.
+    banner.setAttribute('role', 'alert');
+
+    const message = document.createElement('p');
+    message.className = 'settings-failure__text';
+    message.textContent = 'AssisT could not load its settings, so nothing here can be changed yet.';
+    banner.appendChild(message);
+
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'settings-failure__retry';
+    retry.textContent = 'Retry';
+    banner.appendChild(retry);
+    this.attachInteractiveHandler(retry, 'Retry loading settings', () => this.retrySettings());
+
+    container.insertBefore(banner, container.firstChild);
+  }
+
+  /**
+   * Disable, or give back, every control in the popup.
+   *
+   * Only the ones this turned off are turned back on: a control the popup disabled for its own
+   * reasons (Save is disabled until a shortcut is recorded) must stay that way.
+   *
+   * @param {boolean} disabled
+   */
+  setControlsDisabled(disabled) {
+    const container = document.querySelector('.popup-container');
+    if (!container) {
+      return;
+    }
+
+    if (!disabled) {
+      (this.controlsDisabledByFailure || []).forEach(control => {
+        control.disabled = false;
+      });
+      this.controlsDisabledByFailure = null;
+      return;
+    }
+
+    this.controlsDisabledByFailure = [
+      ...container.querySelectorAll('input, select, textarea, button'),
+    ].filter(control => !control.disabled && !control.closest('.settings-failure'));
+    this.controlsDisabledByFailure.forEach(control => {
+      control.disabled = true;
+    });
+  }
+
+  /**
+   * Store what the student changed — and nothing else.
+   *
+   * The popup reads the whole settings object when it opens and roughly 160 handlers mutate that
+   * one in-memory copy. Writing the copy back whole, which is what this used to do, discards
+   * everything another realm stored while the popup sat open: a feature switched off from the page,
+   * Escape dismissing the reading guide, the mind map saving a preference. The student never sees it
+   * happen; the setting is simply back to what it was.
+   *
+   * So the popup keeps `this.pristineSettings`, the settings exactly as they were read at open or at
+   * the last save. Saving diffs the live copy against it, and writes only the dotted paths that
+   * actually differ, through `applySettingWrites`, which re-reads and merges at write time. Nothing
+   * outside those paths is written, so nothing outside them can be lost. Then the pristine copy is
+   * refreshed, so the next save starts from what is now on disk.
+   *
+   * There is no `UPDATE_SETTINGS` message any more, and no handler for one. A page learns about a
+   * changed setting from `chrome.storage.onChanged`, which this write fires just the same, and which
+   * is the only route now: the broadcast that used to accompany it never carried anything the page
+   * acted on, and the handler that wrote the whole object alongside it was the second way to lose a
+   * student's settings.
+   *
+   * Callers must not have to think about any of this: the signature is unchanged, and the many
+   * handlers that call it without awaiting still work.
+   */
   async saveSettings() {
     try {
-      await chrome.runtime.sendMessage({
-        type: MESSAGE_TYPES.UPDATE_SETTINGS,
-        data: this.settings,
-      });
+      const writes = changedSettingWrites(this.pristineSettings, this.settings);
+      if (writes.length === 0) {
+        return;
+      }
+      await applySettingWrites(writes);
+      this.pristineSettings = structuredClone(this.settings);
       console.log('[Popup] Settings saved');
     } catch (error) {
       console.error('[Popup] Error saving settings:', error);
@@ -1171,7 +1088,7 @@ class PopupController {
       await chrome.storage.local.set({
         highlightMenuSettings: this.settings.highlightMenu,
       });
-      console.log('[Popup] Highlight Menu settings saved to storage:', this.settings.highlightMenu);
+      debugLog('[Popup] highlight menu settings saved:', this.settings.highlightMenu);
     } catch (error) {
       console.error('[Popup] Error saving highlight menu settings:', error);
     }
@@ -1197,27 +1114,29 @@ class PopupController {
     toggleSection('highlight-menu-section', 'show_highlight_menu'); // Highlight Menu section
     toggleSection('dictionary-section', 'show_dictionary'); // Dictionary section
     toggleSection('highlight-options-container', 'show_highlighting');
-    toggleSection('speed-presets-container', 'show_speed_presets');
     toggleSection('text-customization-section', 'show_text_customization');
     toggleSection('reading-guide-section', 'show_reading_guide');
     toggleSection('focus-mode-section', 'show_focus_mode');
     toggleSection('stt-section', 'show_stt', true);
+    toggleSection('annotations-section', 'show_annotations');
+    toggleSection('translation-section', 'show_translation');
     toggleSection('screen-overlay-section', 'show_screen_overlay');
-    toggleSection('canvas-integration-section', 'show_canvas_integration', false); // EXPERIMENTAL - hidden by default
-    toggleSection('moodle-integration-section', 'show_moodle_integration', false); // EXPERIMENTAL - hidden by default
+    toggleSection('canvas-integration-section', 'show_canvas_integration', true); // visible by default from 1.0
+    toggleSection('moodle-integration-section', 'show_moodle_integration', true); // visible by default from 1.0
     toggleSection(
       'google-classroom-integration-section',
       'show_google_classroom_integration',
-      false
-    ); // EXPERIMENTAL - hidden by default
+      true
+    ); // visible by default from 1.0
     toggleSection('dyslexia-mode-section', 'show_dyslexia_mode');
-    toggleSection('citation-section', 'show_citations', false); // Citation Manager toggle - EXPERIMENTAL default off
-    toggleSection('citation-options-container', 'show_citations', false); // Citation Manager buttons
+    toggleSection('citation-section', 'show_citations', true); // Citation Manager toggle - visible by default from 1.0
+    toggleSection('citation-options-container', 'show_citations', true); // Citation Manager buttons
+    toggleSection('mind-map-section', 'show_mind_map', true); // Mind Map toggle
+    toggleSection('mind-map-options-container', 'show_mind_map', true); // Mind Map layout + buttons
     // Dark Mode feature removed - extension UI dark mode remains in popup header
     toggleSection('simplify-section', 'show_simplify'); // Simplified Interface
     toggleSection('reading-progress-section', 'show_reading_progress'); // Reading Progress Tracker
     toggleSection('pomodoro-section', 'show_pomodoro'); // Pomodoro Timer
-    // toggleSection('stargardt-section', 'show_stargardt'); // Stargardt Support - HIDDEN FOR BETA
     toggleSection('reduced-motion-section', 'show_reduced_motion'); // Reduced Motion
     toggleSection('media-control-section', 'show_media_control'); // Media Control
 
@@ -1261,10 +1180,11 @@ class PopupController {
       },
       school: {
         features: [
-          { key: 'show_citations', default: false },
-          { key: 'show_canvas_integration', default: false },
-          { key: 'show_moodle_integration', default: false },
-          { key: 'show_google_classroom_integration', default: false },
+          { key: 'show_citations', default: true },
+          { key: 'show_mind_map', default: true },
+          { key: 'show_canvas_integration', default: true },
+          { key: 'show_moodle_integration', default: true },
+          { key: 'show_google_classroom_integration', default: true },
         ],
       },
       'ai-assist': { alwaysVisible: true }, // AI mode has no visibility toggle
@@ -1323,23 +1243,18 @@ class PopupController {
       const isExpanded =
         savedState[sectionId] !== undefined ? savedState[sectionId] : sectionId === 'reading';
 
-      this.setAccordionState(header, content, isExpanded);
+      // No animation on the first paint: a section that starts shut has never been open, so there
+      // is nothing to wait for before it is taken out of the tab order.
+      this.setAccordionState(header, content, isExpanded, false);
 
-      // Click handler (mousedown to prevent race conditions)
+      // One activation path, pointer and keyboard together: attachInteractiveHandler binds
+      // mousedown AND Enter/Space. A second keydown toggle used to sit here as well, so every
+      // key press toggled twice and cancelled itself out — the sections were mouse-only, and a
+      // keyboard-only student could not reach Speech-to-Text at all.
       this.attachInteractiveHandler(header, `Accordion: ${sectionId}`, () => {
         const currentlyExpanded = header.getAttribute('aria-expanded') === 'true';
         this.setAccordionState(header, content, !currentlyExpanded);
         this.saveAccordionState();
-      });
-
-      // Keyboard handler (keep for accessibility)
-      header.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          const currentlyExpanded = header.getAttribute('aria-expanded') === 'true';
-          this.setAccordionState(header, content, !currentlyExpanded);
-          this.saveAccordionState();
-        }
       });
 
       processedCount++;
@@ -1348,9 +1263,113 @@ class PopupController {
     console.log('[Popup][setupAccordions] ✓ Processed', processedCount, 'accordions');
   }
 
-  setAccordionState(header, content, expanded) {
+  /**
+   * Open or shut one accordion section — to the eye, to the keyboard and to a screen reader.
+   *
+   * A shut section used to be shut to the eye alone: `max-height: 0` with `overflow: hidden` and
+   * nothing else, so about seventy switches, selects and buttons stayed in the tab order inside
+   * boxes with no height. Tab moved focus into a section that was not on screen, no focus ring was
+   * visible anywhere, and Space on the stop it landed on switched Speech-to-Text on with the
+   * section still shut (SC 2.4.3, 2.4.7, 2.4.11). `inert` takes the whole subtree out of the tab
+   * order and out of the accessibility tree; `visibility: hidden` says the same thing to any
+   * browser that has not caught up, and neither touches `max-height`, so the animation is unchanged.
+   *
+   * Making it inert WAITS for the collapse to finish, because the content is still on screen while
+   * it shrinks. Re-opening during that wait cancels it — `content` is the key, so a section opened
+   * and shut repeatedly can only ever have one pending shutting.
+   *
+   * Flat drives these same controls while they are hidden, and that still works: `inert` blocks
+   * focus and real user input, not a dispatched event or a programmatic `.click()`.
+   *
+   * @param {HTMLElement} header
+   * @param {HTMLElement} content
+   * @param {boolean} expanded
+   * @param {boolean} [animate] - false on the first paint, when there is no collapse to wait for
+   */
+  setAccordionState(header, content, expanded, animate = true) {
     header.setAttribute('aria-expanded', expanded.toString());
     content.setAttribute('data-expanded', expanded.toString());
+
+    const pending = this.accordionCloseTimers.get(content);
+    if (pending) {
+      clearTimeout(pending);
+      this.accordionCloseTimers.delete(content);
+    }
+
+    if (expanded) {
+      content.removeAttribute('inert');
+      content.classList.remove('accordion-content--shut');
+      return;
+    }
+
+    const shut = () => {
+      this.accordionCloseTimers.delete(content);
+      content.setAttribute('inert', '');
+      content.classList.add('accordion-content--shut');
+    };
+
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!animate || reduceMotion) {
+      shut();
+      return;
+    }
+
+    this.accordionCloseTimers.set(content, setTimeout(shut, ACCORDION_COLLAPSE_MS));
+  }
+
+  /**
+   * Draw the Flat view: every support on one screen.
+   *
+   * Flat is the popup's face, and it drives the accordion beneath it: that markup stays in the
+   * document, hidden, and every control Flat draws proxies to the accordion element of the same id,
+   * whose handler does the real work (see flat/flat-mount.js).
+   */
+  mountFlatView() {
+    const container = document.querySelector('.popup-container');
+    const main = document.querySelector('.popup-main');
+    if (!container || !main || this.flat) {
+      return;
+    }
+
+    this.flatRoot = document.createElement('div');
+    this.flatRoot.id = 'flat-root';
+    main.parentNode.insertBefore(this.flatRoot, main);
+
+    // Search the whole popup, because not every support's switch is inside an accordion section —
+    // Show Text Stats sits in the bar above `<main>` — but never search Flat's own markup, which
+    // draws the same controls again under the same ids and would otherwise be found first.
+    const findControl = createControlFinder({ root: container, exclude: '#flat-root' });
+
+    this.flat = mountFlat({
+      container: this.flatRoot,
+      find: findControl,
+      getSettings: () => this.settings,
+      getAiMode: () => this.aiMode,
+      // Neither runtime list is knowable from the registry — the installed voices come from the
+      // speech engine, the student's mind maps from the service worker — so in both cases the real
+      // select in the accordion, already filled by its own handler, is the source.
+      optionsFor: control => {
+        const sourceId = RUNTIME_OPTION_SOURCES[control.optionsFrom];
+        if (!sourceId) {
+          return undefined;
+        }
+        const select = findControl(`[id="${sourceId}"]`);
+        return [...(select ? select.options : [])].map(option => ({
+          value: option.value,
+          label: option.textContent,
+        }));
+      },
+      // The theme control lives in Flat's own bar as well as Advanced Options. Both drive the one
+      // stored preference, so there is no second copy of the state to fall out of step.
+      theme: {
+        choices: THEMES.map(value => ({ value, label: THEME_LABELS[value] })),
+        current: () => this.themePreference || 'dark',
+        set: preference => this.setThemePreference(preference),
+      },
+    });
   }
 
   loadAccordionState() {
@@ -1392,14 +1411,11 @@ class PopupController {
 
       const ocrEnabled = document.getElementById('ocr-enabled');
       if (ocrEnabled) {
-        // Initialize OCR settings if they don't exist
+        // An install that predates OCR has no ocr key at all, and getSettings() does not merge
+        // defaults in. Seed from the one definition of the default: the literal that used to live
+        // here said enabled: true and switched OCR on for every one of those installs.
         if (!this.settings.ocr) {
-          this.settings.ocr = {
-            enabled: true,
-            autoActivateReadingMode: true,
-            filterNoise: true,
-            upscaleFactor: 1.5,
-          };
+          this.settings.ocr = structuredClone(StorageManager.DEFAULT_SETTINGS.ocr);
         }
 
         ocrEnabled.checked = this.settings.ocr.enabled !== false;
@@ -1421,6 +1437,49 @@ class PopupController {
           } else {
             ocrOptionsContainer.classList.add('hidden');
           }
+        });
+      }
+
+      // Maths Support — master toggle + sub-tools (content script converges via storage change)
+      const mathsEnabled = document.getElementById('maths-enabled');
+      const mathsOptionsContainer = document.getElementById('maths-options-container');
+      if (mathsEnabled && mathsOptionsContainer) {
+        // A settings object written before 1.0 has no maths branch at all. The defaults live in
+        // StorageManager.DEFAULT_SETTINGS and are merged in on read; all this needs is somewhere to
+        // write, and the reads below already treat an absent key as its default.
+        this.settings.maths ??= {};
+
+        const syncMathsVisibility = () => {
+          if (mathsEnabled.checked) {
+            mathsOptionsContainer.classList.remove('hidden');
+          } else {
+            mathsOptionsContainer.classList.add('hidden');
+          }
+        };
+        mathsEnabled.checked = this.settings.maths.enabled === true;
+        syncMathsVisibility();
+        mathsEnabled.addEventListener('change', e => {
+          this.settings.maths.enabled = e.target.checked;
+          this.saveSettings();
+          syncMathsVisibility();
+        });
+
+        [
+          ['maths-calculator', 'calculator', true],
+          ['maths-number-format', 'numberFormat', false],
+          ['maths-place-value', 'placeValue', false],
+        ].forEach(([id, key, defaultOn]) => {
+          const box = document.getElementById(id);
+          if (!box) {
+            return;
+          }
+          box.checked = defaultOn
+            ? this.settings.maths[key] !== false
+            : this.settings.maths[key] === true;
+          box.addEventListener('change', e => {
+            this.settings.maths[key] = e.target.checked;
+            this.saveSettings();
+          });
         });
       }
 
@@ -1502,6 +1561,16 @@ class PopupController {
         });
       }
 
+      // Opt-in image preprocessing before recognition (changes OCR output — default OFF)
+      const ocrOfflineAccuracy = document.getElementById('ocr-offline-accuracy');
+      if (ocrOfflineAccuracy) {
+        ocrOfflineAccuracy.checked = this.settings.ocr?.offlineAccuracy === true;
+        ocrOfflineAccuracy.addEventListener('change', e => {
+          this.settings.ocr.offlineAccuracy = e.target.checked;
+          this.saveSettings();
+        });
+      }
+
       const ocrUpscaleSlider = document.getElementById('ocr-upscale-factor');
       const ocrUpscaleLabel = document.getElementById('ocr-upscale-label');
       if (ocrUpscaleSlider && ocrUpscaleLabel) {
@@ -1514,21 +1583,20 @@ class PopupController {
           };
         }
 
-        // Get quality label for upscale factor
+        // Label the zoom level. Higher zoom helps small fonts but makes capture/recognition slower;
+        // a region capture is best for very small text.
         const getQualityLabel = factor => {
+          const x = `${factor.toFixed(1)}×`;
           if (factor <= 1.0) {
-            return 'Low (1.0x)';
-          }
-          if (factor <= 1.4) {
-            return 'Medium-Low (1.3x)';
+            return `${x} (none)`;
           }
           if (factor <= 1.6) {
-            return 'Medium (1.5x)';
+            return `${x} (medium)`;
           }
-          if (factor <= 1.8) {
-            return 'Medium-High (1.8x)';
+          if (factor <= 2.2) {
+            return `${x} (high)`;
           }
-          return 'High (2.0x)';
+          return `${x} (max — best for small text, slower)`;
         };
 
         // Set initial state from settings
@@ -1548,17 +1616,7 @@ class PopupController {
 
       const ocrLanguageSelect = document.getElementById('ocr-language');
       if (ocrLanguageSelect) {
-        // Initialize default if not set
-        if (!this.settings.ocr) {
-          this.settings.ocr = {
-            autoActivateReadingMode: true,
-            filterNoise: true,
-            upscaleFactor: 1.5,
-            language: 'eng',
-            confidenceThreshold: 60,
-            autoTTS: true,
-          };
-        }
+        this.settings.ocr ??= structuredClone(StorageManager.DEFAULT_SETTINGS.ocr);
 
         // Set initial state from settings
         ocrLanguageSelect.value = this.settings.ocr.language || 'eng';
@@ -1574,17 +1632,7 @@ class PopupController {
       const ocrConfidenceSlider = document.getElementById('ocr-confidence-threshold');
       const ocrConfidenceLabel = document.getElementById('ocr-confidence-label');
       if (ocrConfidenceSlider && ocrConfidenceLabel) {
-        // Initialize default if not set
-        if (!this.settings.ocr) {
-          this.settings.ocr = {
-            autoActivateReadingMode: true,
-            filterNoise: true,
-            upscaleFactor: 1.5,
-            language: 'eng',
-            confidenceThreshold: 60,
-            autoTTS: true,
-          };
-        }
+        this.settings.ocr ??= structuredClone(StorageManager.DEFAULT_SETTINGS.ocr);
 
         // Set initial state from settings
         const initialConfidence = this.settings.ocr.confidenceThreshold ?? 60;
@@ -1603,20 +1651,10 @@ class PopupController {
 
       const ocrAutoTTS = document.getElementById('ocr-auto-tts');
       if (ocrAutoTTS) {
-        // Initialize OCR settings if they don't exist
-        if (!this.settings.ocr) {
-          this.settings.ocr = {
-            autoActivateReadingMode: true,
-            filterNoise: true,
-            upscaleFactor: 1.5,
-            language: 'eng',
-            confidenceThreshold: 60,
-            autoTTS: true,
-          };
-        }
+        this.settings.ocr ??= structuredClone(StorageManager.DEFAULT_SETTINGS.ocr);
 
-        // Set initial state from settings
-        ocrAutoTTS.checked = this.settings.ocr.autoTTS !== false;
+        // Off unless the student switched it on.
+        ocrAutoTTS.checked = this.settings.ocr.autoTTS === true;
 
         // Handle toggle changes
         ocrAutoTTS.addEventListener('change', e => {
@@ -1774,188 +1812,15 @@ class PopupController {
         });
       }
 
-      const providerSelect = document.getElementById('translation-provider');
-      const deeplKeySection = document.getElementById('deepl-key-section');
-      const azureKeySection = document.getElementById('azure-key-section');
-      const deeplKeyInput = document.getElementById('deepl-api-key');
-      const azureKeyInput = document.getElementById('azure-api-key');
-      const azureRegionInput = document.getElementById('azure-region');
-      const btnTestDeepL = document.getElementById('btn-test-deepl');
-      const btnTestAzure = document.getElementById('btn-test-azure');
-
-      if (providerSelect && deeplKeySection && azureKeySection) {
-        // Load provider settings and API keys
-        chrome.storage.local.get(['translationSettings', 'translationApiKeys'], result => {
-          if (result.translationSettings?.provider) {
-            providerSelect.value = result.translationSettings.provider;
-          }
-
-          if (result.translationApiKeys) {
-            if (result.translationApiKeys.deepl) {
-              deeplKeyInput.value = result.translationApiKeys.deepl;
-            }
-            if (result.translationApiKeys.azure) {
-              azureKeyInput.value = result.translationApiKeys.azure;
-            }
-            if (result.translationApiKeys.azureRegion) {
-              azureRegionInput.value = result.translationApiKeys.azureRegion;
-            }
-          }
-
-          // Show/hide API key sections based on provider
-          this.updateProviderUI(providerSelect.value);
-        });
-
-        // Handle provider change
-        providerSelect.addEventListener('change', async e => {
-          const provider = e.target.value;
-
-          // Save provider to settings
-          const settings = await chrome.storage.local.get('translationSettings');
-          const updatedSettings = {
-            ...(settings.translationSettings || {}),
-            provider: provider,
-          };
-          await chrome.storage.local.set({ translationSettings: updatedSettings });
-
-          // Update UI
-          this.updateProviderUI(provider);
-
-          console.log('[Popup] Translation provider changed to:', provider);
-        });
-
-        // Handle DeepL API key input
-        if (deeplKeyInput) {
-          deeplKeyInput.addEventListener('change', async () => {
-            const apiKeys = await chrome.storage.local.get('translationApiKeys');
-            const updatedKeys = {
-              ...(apiKeys.translationApiKeys || {}),
-              deepl: deeplKeyInput.value,
-            };
-            await chrome.storage.local.set({ translationApiKeys: updatedKeys });
-          });
-        }
-
-        // Handle Azure API key input
-        if (azureKeyInput) {
-          azureKeyInput.addEventListener('change', async () => {
-            const apiKeys = await chrome.storage.local.get('translationApiKeys');
-            const updatedKeys = {
-              ...(apiKeys.translationApiKeys || {}),
-              azure: azureKeyInput.value,
-            };
-            await chrome.storage.local.set({ translationApiKeys: updatedKeys });
-          });
-        }
-
-        // Handle Azure region input
-        if (azureRegionInput) {
-          azureRegionInput.addEventListener('change', async () => {
-            const apiKeys = await chrome.storage.local.get('translationApiKeys');
-            const updatedKeys = {
-              ...(apiKeys.translationApiKeys || {}),
-              azureRegion: azureRegionInput.value,
-            };
-            await chrome.storage.local.set({ translationApiKeys: updatedKeys });
-            console.log('[Popup] Azure region updated');
-          });
-        }
-
-        // Test DeepL API key
-        if (btnTestDeepL) {
-          this.attachInteractiveHandler(btnTestDeepL, 'Test DeepL Key', async () => {
-            const apiKey = deeplKeyInput.value;
-            if (!apiKey) {
-              this.updateStatus('Please enter a DeepL API key', 'error');
-              return;
-            }
-
-            btnTestDeepL.disabled = true;
-            btnTestDeepL.textContent = 'Testing...';
-
-            try {
-              // Test with a simple translation
-              const response = await fetch('https://api-free.deepl.com/v2/translate', {
-                method: 'POST',
-                signal: AbortSignal.timeout(10000),
-                body: new URLSearchParams({
-                  auth_key: apiKey,
-                  text: 'Hello',
-                  target_lang: 'ES',
-                }),
-              });
-
-              if (response.ok) {
-                this.updateStatus('DeepL API key is valid!', 'success');
-              } else if (response.status === 403) {
-                this.updateStatus('DeepL API key is invalid', 'error');
-              } else {
-                this.updateStatus(`DeepL API test failed: ${response.status}`, 'error');
-              }
-            } catch (error) {
-              console.error('[Popup] DeepL API test error:', error);
-              this.updateStatus('DeepL API test failed', 'error');
-            } finally {
-              btnTestDeepL.disabled = false;
-              btnTestDeepL.textContent = 'Test';
-            }
-          });
-        }
-
-        // Test Azure API key
-        if (btnTestAzure) {
-          this.attachInteractiveHandler(btnTestAzure, 'Test Azure Key', async () => {
-            const apiKey = azureKeyInput.value;
-            const region = azureRegionInput.value || 'global';
-
-            if (!apiKey) {
-              this.updateStatus('Please enter an Azure API key', 'error');
-              return;
-            }
-
-            btnTestAzure.disabled = true;
-            btnTestAzure.textContent = 'Testing...';
-
-            try {
-              // Test with a simple translation
-              const response = await fetch(
-                'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=es',
-                {
-                  method: 'POST',
-                  signal: AbortSignal.timeout(10000),
-                  headers: {
-                    'Ocp-Apim-Subscription-Key': apiKey,
-                    'Ocp-Apim-Subscription-Region': region,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify([{ text: 'Hello' }]),
-                }
-              );
-
-              if (response.ok) {
-                this.updateStatus('Azure API key is valid!', 'success');
-              } else if (response.status === 401 || response.status === 403) {
-                this.updateStatus('Azure API key is invalid', 'error');
-              } else {
-                this.updateStatus(`Azure API test failed: ${response.status}`, 'error');
-              }
-            } catch (error) {
-              console.error('[Popup] Azure API test error:', error);
-              this.updateStatus('Azure API test failed', 'error');
-            } finally {
-              btnTestAzure.disabled = false;
-              btnTestAzure.textContent = 'Test';
-            }
-          });
-        }
-      }
+      // Also absent from any settings object written before 1.0 — see the maths branch above.
+      this.settings.citation ??= {};
 
       const citationEnabled = document.getElementById('citation-enabled');
       const citationOptionsContainer = document.getElementById('citation-options-container');
 
       if (citationEnabled && citationOptionsContainer) {
         // Set initial state from settings
-        citationEnabled.checked = this.settings.citation?.enabled !== false; // Default to true
+        citationEnabled.checked = this.settings.citation?.enabled !== false; // default ON from 1.0
 
         // Initial visibility
         if (citationEnabled.checked) {
@@ -1966,9 +1831,6 @@ class PopupController {
 
         // Handle toggle
         citationEnabled.addEventListener('change', e => {
-          if (!this.settings.citation) {
-            this.settings.citation = { enabled: true };
-          }
           this.settings.citation.enabled = e.target.checked;
           this.saveSettings();
 
@@ -1986,17 +1848,30 @@ class PopupController {
       const citationVerifyOnline = document.getElementById('citation-verify-online');
       if (citationVerifyOnline) {
         citationVerifyOnline.checked = this.settings.citation?.verifyOnline === true;
-        citationVerifyOnline.addEventListener('change', async e => {
-          if (!this.settings.citation) {
-            this.settings.citation = { enabled: true };
+        // Semantic Scholar is an optional host permission (ADR 0006). The student's choice is saved
+        // first, then Chrome is asked, in the same tick: its prompt shows only inside this change's
+        // user gesture, and it can close the popup, which must not lose the choice. A refusal
+        // while the popup is still open turns the switch back off. Switching off gives the
+        // permission back.
+        citationVerifyOnline.addEventListener('change', e => {
+          const input = e.target;
+          const on = input.checked;
+          const saved = this.saveVerifyOnline(on);
+          if (!on) {
+            saved.then(() => releaseHostPermissions(['citationVerification']));
+            return;
           }
-          this.settings.citation.verifyOnline = e.target.checked;
-          this.saveSettings();
-          // Push directly to citationAnalyzerSettings so the feature picks it up immediately
-          const stored = await chrome.storage.local.get('citationAnalyzerSettings');
-          const existing = stored.citationAnalyzerSettings || {};
-          chrome.storage.local.set({
-            citationAnalyzerSettings: { ...existing, verifyOnline: e.target.checked },
+          requestHostPermissions(originsFor(['citationVerification'])).then(async granted => {
+            await saved;
+            if (granted) {
+              return;
+            }
+            input.checked = false;
+            await this.saveVerifyOnline(false);
+            this.updateStatus(
+              'Chrome did not give AssisT access to Semantic Scholar, so online checking stays off.',
+              'error'
+            );
           });
         });
       }
@@ -2016,12 +1891,9 @@ class PopupController {
 
             if (response && response.success) {
               this.updateStatus('Citation saved!', 'success');
-              // Refresh citation count
+              // Refresh citation count. Quick View is a modal dialog, so it cannot be open behind
+              // this button, and it loads the list afresh each time it opens.
               await this.updateCitationCount();
-              // Refresh panel if expanded
-              if (this.citationPanelExpanded && this.citationPanel) {
-                await this.citationPanel.loadCitations();
-              }
             } else {
               this.updateStatus('Failed to save citation', 'error');
             }
@@ -2056,24 +1928,20 @@ class PopupController {
         });
       }
 
-      const btnCitationProjects = document.getElementById('btn-citation-projects');
+      // How-to guide. Unlike the buttons above it this goes straight to the service worker rather
+      // than through the content script: the guide is an extension page, so it does not need — and
+      // must not wait on — a content script being present in the current tab.
+      const btnCitationGuide = document.getElementById('btn-citation-guide');
 
-      if (btnCitationProjects) {
-        this.attachInteractiveHandler(btnCitationProjects, 'Citation Projects Button', async () => {
-          console.log('[Popup] Citation Projects button clicked');
+      if (btnCitationGuide) {
+        this.attachInteractiveHandler(btnCitationGuide, 'Citation Guide Button', async () => {
           try {
-            const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-              type: 'OPEN_PROJECT_MANAGER',
-            });
-            if (response?.success) {
-              this.updateStatus('Opening Projects...', 'info');
-              setTimeout(() => window.close(), 300);
-            } else {
-              throw new Error(response?.error || 'Failed to open');
-            }
+            await chrome.runtime.sendMessage({ type: 'OPEN_CITATION_GUIDE' });
+            this.updateStatus('Opening the citation guide...', 'info');
+            setTimeout(() => window.close(), 300);
           } catch (error) {
-            console.error('[Popup] Error opening project manager:', error);
-            this.updateStatus('Failed to open Projects', 'error');
+            console.error('[Popup] Error opening citation guide:', error);
+            this.updateStatus('Failed to open the citation guide', 'error');
           }
         });
       }
@@ -2099,11 +1967,7 @@ class PopupController {
         this.settings.tts.rate = rate;
         this.saveSettings();
         this.sendCommandToTab('setRate', { rate });
-        this.updatePresetButtonStates(rate);
       });
-
-      // Setup speed presets
-      this.setupSpeedPresets();
 
       // Pitch slider
       const pitchSlider = document.getElementById('pitch-slider');
@@ -2118,14 +1982,15 @@ class PopupController {
         this.sendCommandToTab('setPitch', { pitch });
       });
 
-      // Volume slider
+      // Volume slider. It travels in whole percent, the way it reads; the engine and the stored
+      // setting take a 0-1 fraction, so the conversion happens here and nowhere else.
       const volumeSlider = document.getElementById('volume-slider');
       const volumeValue = document.getElementById('volume-value');
-      volumeSlider.value = this.settings?.tts?.volume || 1.0;
-      volumeValue.textContent = `${Math.round(volumeSlider.value * 100)}%`;
+      volumeSlider.value = Math.round((this.settings?.tts?.volume ?? 1.0) * 100);
+      volumeValue.textContent = `${volumeSlider.value}%`;
       volumeSlider.addEventListener('input', e => {
-        const volume = parseFloat(e.target.value);
-        volumeValue.textContent = `${Math.round(volume * 100)}%`;
+        const volume = parseInt(e.target.value, 10) / 100;
+        volumeValue.textContent = `${e.target.value}%`;
         this.settings.tts.volume = volume;
         this.saveSettings();
         this.sendCommandToTab('setVolume', { volume });
@@ -2168,11 +2033,11 @@ class PopupController {
       // Highlight Opacity
       const highlightOpacity = document.getElementById('highlight-opacity');
       const opacityValue = document.getElementById('opacity-value');
-      highlightOpacity.value = this.settings?.tts?.highlightOpacity || 0.7;
-      opacityValue.textContent = `${Math.round(highlightOpacity.value * 100)}%`;
+      highlightOpacity.value = Math.round((this.settings?.tts?.highlightOpacity || 0.7) * 100);
+      opacityValue.textContent = `${highlightOpacity.value}%`;
       highlightOpacity.addEventListener('input', e => {
-        const opacity = parseFloat(e.target.value);
-        opacityValue.textContent = `${Math.round(opacity * 100)}%`;
+        const opacity = parseInt(e.target.value, 10) / 100;
+        opacityValue.textContent = `${e.target.value}%`;
         this.settings.tts.highlightOpacity = opacity;
         this.saveSettings();
         this.sendCommandToTab('setHighlightOpacity', { opacity });
@@ -2271,7 +2136,9 @@ class PopupController {
 
       this.setupPomodoro();
 
-      this.setupStargardt();
+      this.setupLearningDataControls();
+
+      this.setupMindMap();
 
       this.setupCanvasIntegration();
 
@@ -2287,7 +2154,9 @@ class PopupController {
 
       this.setupAnnotations();
 
-      this.setupLocalLLM();
+      this.setupAIAssist();
+
+      this.setupCompanionSection();
 
       // Settings link
       this.attachInteractiveHandler(
@@ -2300,35 +2169,25 @@ class PopupController {
         }
       );
 
-      // Reset button
-      this.attachInteractiveHandler(document.getElementById('btn-reset'), 'Reset Button', () => {
-        if (confirm('Reset all settings to defaults? This cannot be undone.')) {
-          this.resetToDefaults();
-        }
-      });
-
-      // Help button (WCAG 2.2 SC 3.2.6 - Consistent Help)
-      this.attachInteractiveHandler(document.getElementById('btn-help'), 'Help Button', () => {
-        // Open help page in new tab
-        chrome.tabs.create({
-          url: chrome.runtime.getURL('src/pages/help/help.html'),
-        });
-      });
-
-      // Discovery Quiz button - opens adaptive quiz to discover best tools
-      const btnDiscovery = document.getElementById('btn-discovery');
-      if (btnDiscovery) {
-        this.attachInteractiveHandler(btnDiscovery, 'Discovery Quiz Button', () => {
-          // Open discovery quiz in new tab via service worker
-          chrome.runtime.sendMessage({ action: 'OPEN_DISCOVERY_QUIZ' });
-          // Close the popup
-          window.close();
-        });
-      }
+      this.setupHeaderActions();
 
       // Text Stats main toggle
       const mainTextStatsToggle = document.getElementById('main-text-stats-toggle');
       if (mainTextStatsToggle) {
+        // First paint, not first opening of Advanced Options. This switch used to take its state
+        // only from loadModalSettings(), which runs when the gear is pressed — so it opened OFF
+        // however it had been left, the badge stayed on the page beside it, and switching it off
+        // took two presses because the first one only brought the switch into line with storage.
+        // The mirror into chrome.storage.local came with it: it is what stops a stale `true` from
+        // a previous install leaving the badge on pages, and it has to happen whether or not the
+        // student ever opens the gear.
+        const uiOverlayAtOpen = this.settings?.ui_overlay || {};
+        mainTextStatsToggle.checked = uiOverlayAtOpen.show_text_stats_badge === true;
+        chrome.storage.local.set({
+          textStatsBadgeVisible: uiOverlayAtOpen.show_text_stats_badge === true,
+          textStatsNotificationsEnabled: uiOverlayAtOpen.show_text_stats_notifications === true,
+        });
+
         // Use 'change' (not attachInteractiveHandler/mousedown) — checkboxes need
         // the change event so .checked reflects the new state, not the pre-click state.
         mainTextStatsToggle.addEventListener('change', () => {
@@ -2347,20 +2206,8 @@ class PopupController {
         });
       }
 
-      // Options button
-      this.attachInteractiveHandler(
-        document.getElementById('btn-options'),
-        'Options Button',
-        () => {
-          this.showAdvancedOptions();
-        }
-      );
-
-      // Minimize UI Clutter toggle button
-      this.setupMinimizeClutterButton();
-
-      // Popup Dark Mode toggle button
-      this.setupPopupDarkModeButton();
+      // Apply the saved popup dark-mode theme on load (the control lives in Advanced Options).
+      this.applyPopupThemeOnLoad();
 
       console.log('[Popup][setupEventListeners] ✓ Event listener setup complete');
     } catch (error) {
@@ -2391,213 +2238,301 @@ class PopupController {
     }
   }
 
-  setupSpeedPresets() {
-    const presetButtons = document.querySelectorAll('.preset-btn');
-    const rateSlider = document.getElementById('rate-slider');
-    const rateValue = document.getElementById('rate-value');
-
-    // Add click handlers to preset buttons
-    presetButtons.forEach(btn => {
-      this.attachInteractiveHandler(btn, 'Rate Preset Button', () => {
-        const speed = parseFloat(btn.getAttribute('data-speed'));
-
-        // Update slider and value display
-        rateSlider.value = speed;
-        rateValue.textContent = `${speed}x`;
-
-        // Save to settings
-        this.settings.tts.rate = speed;
-        this.saveSettings();
-        this.sendCommandToTab('setRate', { rate: speed });
-
-        // Update button states
-        this.updatePresetButtonStates(speed);
-      });
+  /**
+   * Wire the header's actions: the settings gear, and the overflow menu beside it.
+   */
+  setupHeaderActions() {
+    this.headerMenu = createHeaderMenu({
+      trigger: document.getElementById('btn-header-more'),
+      menu: document.getElementById('header-menu'),
     });
 
-    // Initialize button states based on current rate
-    const currentRate = this.settings?.tts?.rate || 1.0;
-    this.updatePresetButtonStates(currentRate);
-  }
+    const actions = [
+      {
+        label: 'Options Button',
+        id: 'btn-options-compact',
+        run: () => this.showAdvancedOptions(),
+      },
+      {
+        // WCAG 2.2 SC 3.2.6 Consistent Help: folded into the header menu, never further than one
+        // press away.
+        label: 'Help Button',
+        id: 'menu-help',
+        run: () => chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/help/help.html') }),
+      },
+      {
+        label: 'Report a Bug Button',
+        id: 'menu-report-bug',
+        run: () =>
+          chrome.tabs.create({
+            url: 'https://github.com/Fiavaion/AssisT/issues/new?template=bug_report.md',
+          }),
+      },
+      {
+        label: 'Discovery Quiz Button',
+        id: 'menu-discovery',
+        run: () => {
+          chrome.runtime.sendMessage({ action: 'OPEN_DISCOVERY_QUIZ' });
+          window.close();
+        },
+      },
+      {
+        // resetToDefaults asks for confirmation itself, so the button must not ask a second time.
+        label: 'Reset Button',
+        id: 'menu-reset',
+        run: () => this.resetToDefaults(),
+      },
+    ];
 
-  updatePresetButtonStates(currentRate) {
-    const presetButtons = document.querySelectorAll('.preset-btn');
-
-    presetButtons.forEach(btn => {
-      const btnSpeed = parseFloat(btn.getAttribute('data-speed'));
-
-      // Check if this button's speed matches current rate (with tolerance for floating point)
-      if (Math.abs(btnSpeed - currentRate) < 0.01) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
+    actions.forEach(({ label, id, run }) => {
+      const element = document.getElementById(id);
+      if (!element) {
+        return;
       }
+
+      if (element.closest('#header-menu')) {
+        // Put the menu away first, or it stays open over whatever the action just opened.
+        attachAccessibleHandler(
+          element,
+          label,
+          () => {
+            this.headerMenu.close({ refocus: true });
+            run();
+          },
+          // A full-width row swelling against the panel edge reads as a glitch; the row's hover
+          // background is the feedback, and it is drawn in forced colours too.
+          { enableVisualFeedback: false }
+        );
+        return;
+      }
+
+      this.attachInteractiveHandler(element, label, run);
     });
   }
 
   /**
-   * Setup Minimize UI Clutter toggle button in header
-   * Provides quick access to hide on-page overlays and notifications
+   * Resolve and paint the popup's theme at startup.
+   *
+   * Two states, dark by default. An explicit choice is exactly what shows — there is no system
+   * state behind it to repaint against.
    */
-  setupMinimizeClutterButton() {
-    const btn = document.getElementById('btn-minimize-clutter');
-    if (!btn) {
-      console.log('[Popup] Minimize clutter button not found');
+  async applyPopupThemeOnLoad() {
+    const { preference } = await loadAndApplyTheme();
+    this.themePreference = preference;
+  }
+
+  /**
+   * Store and paint a theme preference, from whichever control the student used.
+   * @param {'light'|'dark'} preference
+   */
+  async setThemePreference(preference) {
+    this.themePreference = THEMES.includes(preference) ? preference : 'dark';
+    await setThemePreference(this.themePreference);
+    this.updateStatus(`Theme set to ${THEME_LABELS[this.themePreference].toLowerCase()}`);
+    // Any other theme control on screen has to move with it.
+    document.querySelectorAll('[data-theme-choice]').forEach(control => {
+      control.setAttribute(
+        'aria-pressed',
+        String(control.dataset.themeChoice === this.themePreference)
+      );
+    });
+    const select = document.getElementById('popup-theme-select');
+    if (select && select.value !== this.themePreference) {
+      select.value = this.themePreference;
+    }
+  }
+
+  /**
+   * Wire the theme control in Advanced Options → Preferences.
+   * @param {HTMLElement} modal - The advanced options modal element
+   */
+  setupThemeControl(modal) {
+    const select = modal.querySelector('#popup-theme-select');
+    if (!select) {
+      return;
+    }
+    select.value = this.themePreference || 'dark';
+    // Selects use 'change' so the value read is the new one.
+    select.addEventListener('change', () => this.setThemePreference(select.value));
+  }
+
+  /**
+   * Wire the institution appearance section (Advanced Options → Preferences).
+   *
+   * There is deliberately no way to ENTER an institution key from the popup. The signature check
+   * that stops one institution impersonating another is the whole security value of the feature,
+   * and it went unexercised in CI, so for 1.0.0 the entry point is not shipped rather than shipped
+   * on an unproven verification. Institutions roll AssisT out through managed policy
+   * (chrome.storage.managed, see institution-resolver.readManagedToken), which is untouched by this
+   * and needs no popup at all.
+   *
+   * What stays is the exit: a machine that already carries a locally stored key keeps its colours,
+   * and this section is how a student gets back to the standard appearance. It renders only when
+   * branding is actually in force from that stored key — no stored key, or a key that verifies to
+   * nothing, means no section at all, so a student never meets a control with nothing behind it.
+   * A managed-policy skin is not removable here because it is not removable at all from this side;
+   * offering the button would be the dead control this avoids.
+   *
+   * @param {HTMLElement} modal - The advanced options modal element
+   */
+  async setupInstitutionBranding(modal) {
+    const section = modal.querySelector('#institution-branding');
+    const nameLine = modal.querySelector('#institution-branding-name');
+    const removeBtn = modal.querySelector('#institution-branding-remove');
+    const status = modal.querySelector('#institution-branding-status');
+    if (!section || !nameLine || !removeBtn || !status) {
       return;
     }
 
-    // Initialize button state based on settings
-    const isActive = this.settings?.ui_overlay?.minimize_clutter === true;
-    this.updateMinimizeClutterButtonState(btn, isActive);
-
-    // Toggle handler
-    this.attachInteractiveHandler(btn, 'Minimize Clutter Toggle', () => {
-      const currentState = btn.classList.contains('active');
-      const newState = !currentState;
-
-      // Update button state
-      this.updateMinimizeClutterButtonState(btn, newState);
-
-      // Update settings
-      if (!this.settings.ui_overlay) {
-        this.settings.ui_overlay = {};
-      }
-      this.settings.ui_overlay.minimize_clutter = newState;
-
-      // Sync with modal checkbox if it exists
-      const modalCheckbox = document.getElementById('minimize-ui-clutter');
-      if (modalCheckbox) {
-        modalCheckbox.checked = newState;
-        // Also update the overlay controls in the modal
-        const overlayControls = document.getElementById('ui-overlay-controls');
-        if (overlayControls) {
-          overlayControls.style.opacity = newState ? '0.5' : '1';
-          overlayControls.style.pointerEvents = newState ? 'none' : 'auto';
-        }
-      }
-
-      // Save to storage
-      this.saveSettings();
-
-      // Update chrome.storage.local for content scripts
-      chrome.storage.local.set({
-        textStatsBadgeVisible: newState
-          ? false
-          : this.settings.ui_overlay.show_text_stats_badge === true,
-        textStatsNotificationsEnabled: newState
-          ? false
-          : this.settings.ui_overlay.show_text_stats_notifications === true,
-        featureNotificationsEnabled: newState
-          ? false
-          : this.settings.ui_overlay.show_feature_notifications !== false,
-        tokenCounterVisible: newState
-          ? false
-          : this.settings.ui_overlay.show_token_counter !== false,
-        readingProgressBadgeVisible: newState
-          ? false
-          : this.settings.ui_overlay.show_reading_progress_badge !== false,
-      });
-
-      // Direct message to active tab - handles case where storage value is already
-      // set to the same value (chrome.storage.onChanged won't fire in that case)
-      if (this.currentTab?.id) {
-        chrome.tabs
-          .sendMessage(this.currentTab.id, {
-            type: 'MINIMIZE_CLUTTER_UPDATE',
-            state: newState,
-          })
-          .catch(() => {}); // Ignore if content script not loaded
-      }
-
-      // Show feedback
-      this.updateStatus(newState ? 'UI clutter minimized' : 'UI overlays restored');
-      console.log(`[Popup] Minimize UI Clutter: ${newState ? 'enabled' : 'disabled'}`);
-    });
-
-    console.log('[Popup] Minimize clutter button initialized');
-  }
-
-  /**
-   * Update the visual state of the minimize clutter button
-   * @param {HTMLElement} btn - The button element
-   * @param {boolean} isActive - Whether the button should be active
-   */
-  updateMinimizeClutterButtonState(btn, isActive) {
-    if (isActive) {
-      btn.classList.add('active');
-      btn.setAttribute('aria-pressed', 'true');
-      btn.title = 'Minimize UI Clutter (ON) - Click to show overlays';
-    } else {
-      btn.classList.remove('active');
-      btn.setAttribute('aria-pressed', 'false');
-      btn.title = 'Minimize UI Clutter (OFF) - Click to hide overlays';
+    let branding = null;
+    try {
+      const stored = await getStoredInstitutionKey();
+      branding = stored ? await resolveBrandingFromToken(stored) : null;
+    } catch {
+      branding = null;
     }
-  }
-
-  /**
-   * Setup Popup Dark Mode toggle button in header
-   * Toggles dark mode theme for the extension popup UI
-   */
-  setupPopupDarkModeButton() {
-    const btn = document.getElementById('btn-popup-darkmode');
-    if (!btn) {
-      console.log('[Popup] Dark mode button not found');
+    // Only a skin that is actually painted earns the section (name, colour or logo in force).
+    if (!branding || !(branding.name || branding.accent || branding.logo)) {
       return;
     }
 
-    // Load saved dark mode state from storage (defaults to light mode/OFF)
-    chrome.storage.local.get(['popup_dark_mode'], result => {
-      // Default to light mode (OFF) - only enable dark mode if explicitly set to true
-      const isDarkMode = result.popup_dark_mode === true;
-      this.updatePopupDarkModeState(btn, isDarkMode);
+    nameLine.textContent = branding.name
+      ? `AssisT is showing ${branding.name}'s colours on this computer.`
+      : 'AssisT is showing your institution’s colours on this computer.';
+    section.hidden = false;
+
+    this.attachInteractiveHandler(removeBtn, 'Use the standard appearance', async () => {
+      try {
+        await clearInstitutionKey();
+        // Retire the button rather than the section: hiding the whole block would take the
+        // confirmation away with it, leaving the press with no perceivable outcome. The section is
+        // gone the next time Preferences opens, because nothing is stored any more.
+        removeBtn.hidden = true;
+        nameLine.textContent = 'AssisT is using the standard appearance.';
+        status.textContent = 'Your institution’s colours have been removed.';
+      } catch {
+        status.textContent = 'That could not be changed just now. Try again.';
+      }
     });
-
-    // Toggle handler
-    this.attachInteractiveHandler(btn, 'Popup Dark Mode Toggle', () => {
-      const container = document.querySelector('.popup-container');
-      const currentState = container.classList.contains('dark-mode');
-      const newState = !currentState;
-
-      // Update UI state
-      this.updatePopupDarkModeState(btn, newState);
-
-      // Save to storage
-      chrome.storage.local.set({ popup_dark_mode: newState });
-
-      // Show feedback
-      this.updateStatus(newState ? 'Popup dark theme enabled' : 'Popup light theme enabled');
-      console.log(`[Popup] Popup Dark Mode: ${newState ? 'enabled' : 'disabled'}`);
-    });
-
-    console.log('[Popup] Dark mode button initialized');
   }
 
   /**
-   * Update the visual state of the popup dark mode button and apply theme
-   * @param {HTMLElement} btn - The button element
-   * @param {boolean} isDarkMode - Whether dark mode should be active
+   * Wire the settings backup controls (Advanced Options → Preferences).
+   *
+   * Export writes an allowlisted, secret-free JSON file; import validates it whole before applying
+   * it in a single write, and hands back an undo. Both outcomes are announced through the shared
+   * action tray (role="status") and left on screen in the section's own summary line, so the
+   * message survives the tray's dismissal.
+   *
+   * @param {HTMLElement} modal - The advanced options modal element
    */
-  updatePopupDarkModeState(btn, isDarkMode) {
-    const container = document.querySelector('.popup-container');
-
-    if (isDarkMode) {
-      btn.classList.add('active');
-      btn.setAttribute('aria-pressed', 'true');
-      btn.title = 'Dark mode (ON) - Click for light mode';
-      btn.querySelector('.header-btn-icon').textContent = '☀️';
-      container.classList.add('dark-mode');
-      document.body.classList.add('dark-mode');
-    } else {
-      btn.classList.remove('active');
-      btn.setAttribute('aria-pressed', 'false');
-      btn.title = 'Dark mode (OFF) - Click for dark mode';
-      btn.querySelector('.header-btn-icon').textContent = '🌙';
-      container.classList.remove('dark-mode');
-      document.body.classList.remove('dark-mode');
+  setupSettingsPortability(modal) {
+    const exportBtn = modal.querySelector('#btn-settings-export');
+    const importBtn = modal.querySelector('#btn-settings-import');
+    const undoBtn = modal.querySelector('#btn-settings-undo');
+    const fileInput = modal.querySelector('#settings-import-input');
+    const summary = modal.querySelector('#settings-portability-status');
+    if (!exportBtn || !importBtn || !undoBtn || !fileInput || !summary) {
+      return;
     }
+
+    // The tray announces (role="status"); the summary line is the visible record left behind after
+    // it dismisses. Only the tray is a live region, so a screen reader hears each outcome once.
+    const report = (message, variant = 'info') => {
+      summary.textContent = message;
+      showInfoTray({ message, variant, duration: variant === 'error' ? 8000 : 6000 });
+    };
+
+    // Storage has changed underneath the open popup. Its in-memory copy of assist_settings, and the
+    // pristine copy saveSettings() diffs against, both predate the restore, so the next control the
+    // student touches would save the difference back and undo it. Re-reading resets both.
+    const refreshInMemorySettings = async () => {
+      try {
+        await this.loadSettings();
+      } catch (error) {
+        console.error('[Settings] Could not re-read settings after a restore:', error);
+      }
+    };
+
+    this.attachInteractiveHandler(exportBtn, 'Save settings to a file', async () => {
+      try {
+        const { json, filename, keyCount } = await exportSettings();
+        const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        report(`Saved ${keyCount} settings to ${filename}. The file contains no API keys.`);
+      } catch (error) {
+        console.error('[Settings] Export failed:', error);
+        report('Your settings could not be saved to a file. Nothing was changed.', 'error');
+      }
+    });
+
+    // A button proxies the file input so the control carries a real label and a 44px target; the
+    // input stays out of the tab order (hidden) and is opened by the button, keyboard included.
+    this.attachInteractiveHandler(importBtn, 'Restore settings from a file', () => {
+      fileInput.click();
+    });
+
+    // Restoring is destructive, so Undo is a real button in the panel rather than only an action on
+    // a tray that times out — it stays put, is reachable by keyboard, and cannot be missed.
+    let pendingUndo = null;
+    this.attachInteractiveHandler(undoBtn, 'Undo the restore', async () => {
+      if (!pendingUndo) {
+        return;
+      }
+      try {
+        await pendingUndo();
+        pendingUndo = null;
+        undoBtn.hidden = true;
+        await refreshInMemorySettings();
+        report('Restore undone — your previous settings are back.');
+      } catch (error) {
+        console.error('[Settings] Undo failed:', error);
+        report('That restore could not be undone.', 'error');
+      }
+    });
+
+    // File inputs report their choice through 'change', like checkboxes and selects.
+    fileInput.addEventListener('change', async event => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) {
+        return;
+      }
+
+      const result = await importSettingsFromFile(file);
+      if (!result.ok) {
+        report(result.message, 'error');
+        return;
+      }
+
+      pendingUndo = result.undo;
+      undoBtn.hidden = false;
+      await refreshInMemorySettings();
+
+      const skipped = result.ignored.length
+        ? ` ${result.ignored.length} setting(s) this version does not use were skipped.`
+        : '';
+      report(
+        `Restored ${result.applied.length} settings.${skipped} Close and reopen AssisT to see them, ` +
+          'or use "Undo the restore" below.'
+      );
+    });
   }
 
-  showAdvancedOptions() {
+  /**
+   * Open Advanced Options, optionally on a named tab.
+   *
+   * The tab matters to where the keyboard lands: the dialog's initial focus is the selected tab, so
+   * a caller that opened the panel and THEN switched tabs had its choice undone a tick later when
+   * the trap's own focus landed. Saying which tab up front is one decision instead of two racing.
+   *
+   * @param {string} [tabId] - the `data-tab` value to open on
+   */
+  showAdvancedOptions(tabId = 'features') {
     console.log('[Popup] showAdvancedOptions called');
     // Create modal overlay
     const modal = document.createElement('div');
@@ -2609,20 +2544,26 @@ class PopupController {
     modal.innerHTML = `
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Advanced Options</h2>
-          <button id="modal-close" class="modal-close-btn" aria-label="Close">&times;</button>
+          <h2 id="advanced-options-title">Advanced Options</h2>
+          <button id="modal-close" type="button" class="modal-close-btn" aria-label="Close">&times;</button>
         </div>
 
-        <div class="modal-tabs">
-          <button class="modal-tab active" data-tab="features">Features</button>
-          <button class="modal-tab" data-tab="keyboard">Keyboard</button>
-          <button class="modal-tab" data-tab="preferences">Preferences</button>
-          <button class="modal-tab" data-tab="ai">AI</button>
+        <div class="modal-tabs" role="tablist" aria-label="Advanced Options sections">
+          <button class="modal-tab active" type="button" role="tab" id="tab-btn-features"
+                  aria-controls="tab-features" aria-selected="true" data-tab="features">Features</button>
+          <button class="modal-tab" type="button" role="tab" id="tab-btn-keyboard" tabindex="-1"
+                  aria-controls="tab-keyboard" aria-selected="false" data-tab="keyboard">Keyboard</button>
+          <button class="modal-tab" type="button" role="tab" id="tab-btn-preferences" tabindex="-1"
+                  aria-controls="tab-preferences" aria-selected="false" data-tab="preferences">Preferences</button>
+          <button class="modal-tab" type="button" role="tab" id="tab-btn-ai" tabindex="-1"
+                  aria-controls="tab-ai" aria-selected="false" data-tab="ai">AI</button>
+          <button class="modal-tab" type="button" role="tab" id="tab-btn-your-data" tabindex="-1"
+                  aria-controls="tab-your-data" aria-selected="false" data-tab="your-data">Your data</button>
         </div>
 
         <div class="modal-body">
           <!-- Features Tab -->
-          <div id="tab-features" class="tab-content active">
+          <div id="tab-features" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-features">
             <h3>Feature Visibility</h3>
             <p class="tab-description">Choose which features appear in the main popup</p>
 
@@ -2719,7 +2660,7 @@ class PopupController {
                 </label>
               </div>
 
-              <!-- Dark Mode feature removed - extension UI dark mode remains in popup header -->
+              <!-- Extension popup dark mode is a toggle in the Preferences tab, not a feature-visibility item -->
 
               <div class="feature-item">
                 <label class="feature-label">
@@ -2739,13 +2680,6 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-pomodoro" checked>
                   <span>Pomodoro Timer</span>
-                </label>
-              </div>
-
-              <div class="feature-item">
-                <label class="feature-label">
-                  <input type="checkbox" id="show-stargardt" checked>
-                  <span>Stargardt Support</span>
                 </label>
               </div>
 
@@ -2858,43 +2792,6 @@ class PopupController {
                   <span>⚙️ Translation Settings:</span>
                 </label>
 
-                <!-- Engine Selector -->
-                <div style="margin-top: 10px;">
-                  <label style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
-                    Translation Engine
-                  </label>
-                  <div style="display: flex; gap: 16px; margin-top: 8px;">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                      <input type="radio" name="translation-engine" id="translation-engine-libre" value="libre" checked style="margin-right: 6px;">
-                      <span style="font-size: 13px;">LibreTranslate (Free)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                      <input type="radio" name="translation-engine" id="translation-engine-google" value="google" style="margin-right: 6px;">
-                      <span style="font-size: 13px;">Google Translate</span>
-                    </label>
-                  </div>
-                  <p style="margin: 4px 0 0 0; font-size: 11px; color: #888;">
-                    LibreTranslate is free but may have rate limits. Google requires an API key.
-                  </p>
-                </div>
-
-                <!-- Google API Key Input -->
-                <div id="google-api-key-container" style="margin-top: 12px; display: none;">
-                  <label for="translation-google-api-key" style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
-                    Google Translate API Key
-                  </label>
-                  <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="password" id="translation-google-api-key" placeholder="Enter API key (AIza...)" style="flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-family: monospace;">
-                    <button id="translation-toggle-api-key" type="button" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 12px;">
-                      Show
-                    </button>
-                    <span id="translation-api-key-status" style="font-size: 16px; min-width: 20px; text-align: center;"></span>
-                  </div>
-                  <p style="margin: 4px 0 0 0; font-size: 11px; color: #888;">
-                    Get your API key from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: #2196F3;">Google Cloud Console</a>
-                  </p>
-                </div>
-
                 <!-- Default Target Language -->
                 <div style="margin-top: 12px;">
                   <label for="translation-default-language" style="display: block; font-size: 12px; color: #555; margin-bottom: 6px;">
@@ -2943,14 +2840,20 @@ class PopupController {
               </div>
 
               <div class="feature-section-header">
-                <span>🎓 School Tools & LMS Integration <span class="feature-badge beta">Beta</span></span>
+                <span>🎓 School Tools & LMS Integration</span>
               </div>
 
               <div class="feature-item">
                 <label class="feature-label">
                   <input type="checkbox" id="show-citations">
                   <span>Citation Manager</span>
-                  <span class="feature-badge beta">Beta</span>
+                </label>
+              </div>
+
+              <div class="feature-item">
+                <label class="feature-label">
+                  <input type="checkbox" id="show-mind-map">
+                  <span>Mind Map</span>
                 </label>
               </div>
 
@@ -2958,7 +2861,6 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-canvas-integration">
                   <span>Canvas LMS</span>
-                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
@@ -2966,7 +2868,6 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-moodle-integration">
                   <span>Moodle LMS</span>
-                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
@@ -2974,7 +2875,6 @@ class PopupController {
                 <label class="feature-label">
                   <input type="checkbox" id="show-google-classroom-integration">
                   <span>Google Classroom</span>
-                  <span class="feature-badge beta">Beta</span>
                 </label>
               </div>
 
@@ -2985,7 +2885,7 @@ class PopupController {
           </div>
 
           <!-- Keyboard Tab -->
-          <div id="tab-keyboard" class="tab-content">
+          <div id="tab-keyboard" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-keyboard">
             <div class="tab-header-row">
               <div>
                 <h3>Keyboard Shortcuts</h3>
@@ -3004,7 +2904,7 @@ class PopupController {
 
           <!-- Appearance Tab -->
           <!-- Preferences Tab (merged Appearance + Profiles) -->
-          <div id="tab-preferences" class="tab-content">
+          <div id="tab-preferences" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-preferences">
             <h3>Preferences</h3>
             <p class="tab-description">Customize appearance and manage profiles</p>
 
@@ -3012,6 +2912,17 @@ class PopupController {
             <div class="preferences-section">
               <h4>UI Preferences</h4>
               <div class="appearance-options">
+                <div class="option-group">
+                  <label for="popup-theme-select">Theme</label>
+                  <div class="option-control">
+                    <select id="popup-theme-select" class="option-select">
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                    <span class="option-desc">Dark is the default</span>
+                  </div>
+                </div>
+
                 <div class="option-group">
                   <label>Compact Mode</label>
                   <div class="option-control">
@@ -3047,38 +2958,45 @@ class PopupController {
               </div>
             </div>
 
-            <!-- Layout Organization Section -->
-            <div class="preferences-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
-              <h4>📐 Section Organization</h4>
-              <p style="font-size: 13px; color: #666; margin-bottom: 16px;">
-                Choose how features are grouped in the popup. Different layouts work better for different needs.
+            <!-- Settings Backup Section -->
+            <div class="preferences-section settings-portability">
+              <h4>💾 Your settings, as a file</h4>
+              <p class="settings-portability-intro">
+                Save the way you have AssisT set up, so you can put it back after reinstalling or on
+                another computer. The file holds your settings only — never your API keys, and none
+                of your citations, notes or highlights.
               </p>
-
-              <div class="option-group">
-                <label for="layout-mode-select">Organize Sections By:</label>
-                <div class="option-control" style="flex-direction: column; align-items: flex-start; gap: 8px;">
-                  <select id="layout-mode-select" class="voice-select" style="width: 100%;">
-                    <option value="feature-category">Feature Category (Default)</option>
-                    <option value="user-need">User Need</option>
-                    <option value="disability-profile">Disability Profile</option>
-                  </select>
-                  <div id="layout-mode-description" style="font-size: 12px; color: #666; line-height: 1.4;">
-                    <strong>Feature Category:</strong> Groups by what features do (Reading, Writing, Visual, etc.)
-                  </div>
-                </div>
+              <div class="settings-portability-actions">
+                <button id="btn-settings-export" type="button" class="settings-portability-btn">
+                  <span aria-hidden="true">📤</span> Save settings to a file
+                </button>
+                <button id="btn-settings-import" type="button" class="settings-portability-btn">
+                  <span aria-hidden="true">📥</span> Restore settings from a file
+                </button>
+                <input type="file" id="settings-import-input" accept="application/json,.json" hidden>
               </div>
-
-              <div class="layout-mode-preview" style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 12px;">
-                <strong style="display: block; margin-bottom: 8px;">Current Sections:</strong>
-                <div id="layout-sections-preview" style="display: flex; flex-wrap: wrap; gap: 6px;">
-                  <!-- Populated dynamically -->
-                </div>
-              </div>
-
-              <button id="btn-apply-layout" class="profile-btn profile-btn-primary" style="margin-top: 12px; width: 100%;">
-                <span class="profile-btn-icon">✨</span>
-                Apply Layout
+              <p class="settings-portability-warning">
+                Restoring replaces your current settings. You can undo it straight afterwards.
+              </p>
+              <p id="settings-portability-status" class="settings-portability-status"></p>
+              <button id="btn-settings-undo" type="button" class="settings-portability-btn" hidden>
+                <span aria-hidden="true">↩️</span> Undo the restore
               </button>
+            </div>
+
+            <!--
+              Institution appearance — a way OUT of an applied skin, and nothing more. There is no
+              entry point here on purpose (see setupInstitutionBranding); the whole section stays
+              hidden unless this machine is actually showing an institution's colours.
+            -->
+            <div class="preferences-section" id="institution-branding" hidden
+              style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e0e0e0;">
+              <h4>🏛️ Institution appearance</h4>
+              <p id="institution-branding-name" style="font-size: 13px; color: #666; margin-bottom: 12px;"></p>
+              <button id="institution-branding-remove" type="button" class="modal-btn modal-btn-secondary" style="min-height:44px;">
+                Use the standard appearance
+              </button>
+              <p id="institution-branding-status" role="status" aria-live="polite" style="font-size:12px; color:#555; margin-top:8px;"></p>
             </div>
 
             <!-- UI Overlay Visibility Section -->
@@ -3245,7 +3163,7 @@ class PopupController {
           </div>
 
           <!-- AI Tab -->
-          <div id="tab-ai" class="tab-content ai-tab-full">
+          <div id="tab-ai" class="tab-content ai-tab-full" role="tabpanel" aria-labelledby="tab-btn-ai">
             <fieldset class="ai-mode-chips" id="modal-ai-mode-chips">
               <legend class="sr-only">Select AI mode</legend>
               <label class="ai-chip" data-mode="off">
@@ -3275,6 +3193,9 @@ class PopupController {
               Full setup wizard &#x2192;
             </button>
           </div>
+
+          <!-- Your data Tab: filled by your-data.js -->
+          <div id="tab-your-data" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-your-data"></div>
         </div>
 
         <!-- Shortcut Recording Overlay -->
@@ -3316,15 +3237,43 @@ class PopupController {
       </div>
     `;
 
-    document.body.appendChild(modal);
+    // A real dialog, not a div over the popup. Opened by hand it had no role, no name and no
+    // trap: a screen reader announced nothing, fourteen Tab presses walked out into the controls
+    // behind it, and Escape left it open with focus dropped somewhere underneath. The shared
+    // helper names it, traps Tab, closes on Escape and on a press outside, appends it to the
+    // document — which every `document.getElementById` in the loaders below depends on — and hands
+    // the keyboard back to the gear on the way out: the compact header's, the one on screen.
+    const closeModal = this.openPopupDialog({
+      backdrop: modal,
+      dialog: modal.querySelector('.modal-content'),
+      labelledBy: 'advanced-options-title',
+      opener: document.getElementById('btn-options-compact'),
+      initialFocus: modal.querySelector(`#tab-btn-${tabId}`) || modal.querySelector('.modal-tab'),
+    });
+    this.closeAdvancedOptions = () => {
+      this.closeAdvancedOptions = null;
+      closeModal();
+    };
     console.log('[Popup] Modal appended to body');
 
     // Setup tab switching
     this.setupModalTabs(modal);
+    if (tabId !== 'features') {
+      this.openModalTab(tabId);
+    }
     console.log('[Popup] Modal tabs setup complete');
 
     // Setup modal actions
     this.setupModalActions(modal);
+
+    // Wire the Dark Mode toggle (Preferences tab; applies + persists live)
+    this.setupThemeControl(modal);
+
+    // Wire the settings backup controls (Preferences tab)
+    this.setupSettingsPortability(modal);
+
+    // Wire the institution appearance section (Preferences tab)
+    this.setupInstitutionBranding(modal);
 
     // Load current settings into modal
     this.loadModalSettings();
@@ -3332,13 +3281,51 @@ class PopupController {
     // Setup profiles tab
     this.setupProfilesTab(modal);
 
-    // Setup layout mode selector
-    this.setupLayoutModeSelector(modal);
-
     // Setup AI tab
     console.log('[Popup] About to call setupAITab');
     this.setupAITab(modal);
     console.log('[Popup] setupAITab complete');
+
+    this.setupYourDataTab(modal);
+  }
+
+  /**
+   * The Your data tab: what AssisT may send to online services, and the stored AI keys.
+   *
+   * A removed key must not linger in an AI panel already on screen, where Save would put it
+   * straight back, so any panel showing that provider has its key field emptied.
+   *
+   * @param {HTMLElement} modal
+   */
+  setupYourDataTab(modal) {
+    const panel = modal.querySelector('#tab-your-data');
+    if (!panel) {
+      return;
+    }
+    renderYourData(panel, {
+      // Your data wrote the switch off already; the popup's own copy follows, so the two agree
+      // and the next save does not put it back.
+      onVerifyOnlineOff: () => {
+        [this.settings, this.pristineSettings].forEach(settings => {
+          if (settings) {
+            settings.citation = { ...(settings.citation || {}), verifyOnline: false };
+          }
+        });
+        const verifySwitch = document.getElementById('citation-verify-online');
+        if (verifySwitch) {
+          verifySwitch.checked = false;
+        }
+      },
+      onKeyRemoved: provider => {
+        document.querySelectorAll('.ai-panel-key-input').forEach(input => {
+          const scope = input.closest('.ai-panel-row')?.parentElement;
+          const select = scope?.querySelector('select[aria-label="Cloud AI provider"]');
+          if (select && select.value === provider) {
+            input.value = '';
+          }
+        });
+      },
+    }).catch(error => console.error('[Popup] Your data could not be shown:', error));
   }
 
   /**
@@ -3435,136 +3422,6 @@ class PopupController {
     // Initialize profile description
     const currentProfile = this.currentProfileName || 'Default';
     this.updateProfileDescription(modal, currentProfile);
-  }
-
-  /**
-   * Setup the layout mode selector in the Preferences tab
-   * @param {HTMLElement} modal - The modal element
-   */
-  setupLayoutModeSelector(modal) {
-    const layoutSelect = modal.querySelector('#layout-mode-select');
-    const descriptionEl = modal.querySelector('#layout-mode-description');
-    const previewEl = modal.querySelector('#layout-sections-preview');
-    const applyBtn = modal.querySelector('#btn-apply-layout');
-
-    if (!layoutSelect) {
-      console.log('[Popup] Layout mode selector not found');
-      return;
-    }
-
-    // Load current layout mode from storage
-    chrome.storage.local.get('layout_mode', result => {
-      const currentMode = result.layout_mode || 'feature-category';
-      layoutSelect.value = currentMode;
-      this.updateLayoutModeUI(descriptionEl, previewEl, currentMode);
-    });
-
-    // Handle layout mode selection change
-    layoutSelect.addEventListener('change', () => {
-      const selectedMode = layoutSelect.value;
-      this.updateLayoutModeUI(descriptionEl, previewEl, selectedMode);
-    });
-
-    // Handle apply button
-    if (applyBtn) {
-      this.attachInteractiveHandler(applyBtn, 'Apply Layout Button', async () => {
-        const selectedMode = layoutSelect.value;
-        await this.applyLayoutMode(selectedMode);
-        // Show confirmation
-        applyBtn.innerHTML = '<span class="profile-btn-icon">✓</span> Applied!';
-        setTimeout(() => {
-          applyBtn.innerHTML = '<span class="profile-btn-icon">✨</span> Apply Layout';
-        }, 2000);
-      });
-    }
-
-    console.log('[Popup] Layout mode selector initialized');
-  }
-
-  /**
-   * Update layout mode description and preview
-   */
-  updateLayoutModeUI(descriptionEl, previewEl, mode) {
-    const config = LAYOUT_MODES[mode];
-    if (!config) {
-      return;
-    }
-
-    // Update description
-    // SECURITY: Sanitize even trusted content for defense-in-depth
-    if (descriptionEl) {
-      descriptionEl.innerHTML = sanitizeHTML(
-        `<strong>${config.name}:</strong> ${config.description}`
-      );
-    }
-
-    // Update sections preview
-    // SECURITY: Sanitize even trusted content for defense-in-depth
-    if (previewEl) {
-      previewEl.innerHTML = sanitizeHTML(
-        config.sections
-          .map(
-            section =>
-              `<span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 11px;">${section.icon} ${section.name}</span>`
-          )
-          .join('')
-      );
-    }
-  }
-
-  /**
-   * Apply the selected layout mode
-   * @param {string} mode - The layout mode to apply
-   */
-  async applyLayoutMode(mode) {
-    console.log(`[Popup] Applying layout mode: ${mode}`);
-
-    // Save the layout mode
-    await chrome.storage.local.set({ layout_mode: mode });
-
-    // For now, we'll just show/hide sections based on the current HTML structure
-    // A full implementation would reorganize or rebuild sections dynamically
-    const config = LAYOUT_MODES[mode];
-    if (!config) {
-      console.error(`[Popup] Unknown layout mode: ${mode}`);
-      return;
-    }
-
-    // If switching to a different layout mode than feature-category,
-    // we need to reorganize the sections
-    if (mode === 'feature-category') {
-      // Show all default sections, hide alternative layout sections
-      this.showDefaultSections();
-    } else {
-      // For user-need and disability-profile modes,
-      // we show a message that this feature is coming soon
-      // In a full implementation, we would dynamically reorganize sections
-      console.log(`[Popup] Layout mode "${mode}" selected - section reorganization coming soon`);
-      alert(
-        `Layout mode "${config.name}" has been saved.\n\n` +
-          `Note: Dynamic section reorganization will be fully implemented in a future update. ` +
-          `For now, you can use Organize Mode to manually reorder and hide sections.`
-      );
-    }
-
-    // Notify that layout changed
-    console.log(`[Popup] Layout mode "${mode}" applied`);
-  }
-
-  /**
-   * Show the default feature-category sections
-   */
-  showDefaultSections() {
-    const defaultSections = LAYOUT_MODES['feature-category'].sections.map(s => s.id);
-    const allSections = document.querySelectorAll('.accordion-section[data-section]');
-
-    allSections.forEach(section => {
-      const sectionId = section.getAttribute('data-section');
-      // Show if it's a default section, respect hidden-by-user class
-      if (defaultSections.includes(sectionId) && !section.classList.contains('hidden-by-user')) {
-        section.style.display = '';
-      }
-    });
   }
 
   /**
@@ -3686,6 +3543,9 @@ class PopupController {
           return;
         }
         const newMode = radio.value;
+        if (newMode === 'local') {
+          await ensureOllamaPermission();
+        }
         chrome.storage.local.set({
           aiMode: newMode,
           llmEnabled: newMode === 'local',
@@ -3724,377 +3584,9 @@ class PopupController {
    * Switch to Local AI mode
    * @param {HTMLElement} modal - The modal element
    */
-  switchToLocalMode(modal) {
-    const cloudSection = modal.querySelector('#cloud-provider-section');
-    const localSection = modal.querySelector('#local-ai-section');
-    const usageSection = modal.querySelector('#usage-stats-section');
-    const modelPrefsSection = modal.querySelector('.feature-models-section');
 
-    cloudSection.classList.add('hidden');
-    usageSection.classList.add('hidden');
-    localSection.classList.remove('hidden');
-    if (modelPrefsSection) {
-      modelPrefsSection.classList.remove('hidden');
-    }
-
-    chrome.storage.local.set({ cloudModeEnabled: false });
-  }
-
-  /**
-   * Switch to Cloud AI mode
-   * @param {HTMLElement} modal - The modal element
-   */
-  switchToCloudMode(modal) {
-    const cloudSection = modal.querySelector('#cloud-provider-section');
-    const localSection = modal.querySelector('#local-ai-section');
-    const usageSection = modal.querySelector('#usage-stats-section');
-    const modelPrefsSection = modal.querySelector('.feature-models-section');
-
-    cloudSection.classList.remove('hidden');
-    usageSection.classList.remove('hidden');
-    localSection.classList.add('hidden');
-    if (modelPrefsSection) {
-      modelPrefsSection.classList.add('hidden');
-    }
-
-    chrome.storage.local.set({ cloudModeEnabled: true });
-  }
-
-  /**
-   * Update cloud provider selection
-   * @param {HTMLElement} modal - The modal element
-   * @param {string} provider - The selected provider (anthropic/openai/google/perplexity)
-   */
-  updateCloudProvider(modal, provider) {
-    chrome.storage.local.set({ cloudProvider: provider });
-    this.updateCloudProviderUI(modal, provider);
-    this.loadApiKey(modal, provider);
-  }
-
-  /**
-   * Update UI elements based on selected cloud provider
-   * @param {HTMLElement} modal - The modal element
-   * @param {string} provider - The selected provider
-   */
-  updateCloudProviderUI(modal, provider) {
-    const apiKeyLink = modal.querySelector('#api-key-link');
-    const modelHeader = modal.querySelector('#model-selection-header');
-    const modelDescription = modal.querySelector('#model-description');
-
-    // Update API key link
-    const providerLinks = {
-      anthropic: 'https://console.anthropic.com/settings/keys',
-      openai: 'https://platform.openai.com/api-keys',
-      google: 'https://aistudio.google.com/app/apikey',
-      perplexity: 'https://www.perplexity.ai/settings/api',
-    };
-    if (apiKeyLink) {
-      apiKeyLink.href = providerLinks[provider] || '#';
-    }
-
-    // Load cached or fallback models into dropdown
-    this.populateCloudModelDropdown(modal, provider);
-
-    // Update model header and description
-    const providerNames = {
-      anthropic: 'Claude',
-      openai: 'OpenAI',
-      google: 'Gemini',
-      perplexity: 'Perplexity',
-    };
-    if (modelHeader) {
-      modelHeader.textContent = `${providerNames[provider] || 'Model'} Selection`;
-    }
-    if (modelDescription) {
-      modelDescription.textContent = `Select the ${providerNames[provider] || 'model'} for all AI features`;
-    }
-  }
-
-  /**
-   * Populate cloud model dropdown from cached models or hardcoded fallback
-   * @param {HTMLElement} modal - The modal element
-   * @param {string} provider - The provider name
-   * @param {Array} [models] - Optional models array (skips cache lookup)
-   */
-  async populateCloudModelDropdown(modal, provider, models = null) {
-    const modelSelect = modal.querySelector('#cloud-model-select');
-    if (!modelSelect) {
-      return;
-    }
-
-    // Hardcoded fallbacks (used when no cached/fetched models available)
-    const fallbackModels = {
-      anthropic: [
-        {
-          id: 'claude-haiku-4-5-20251001',
-          name: 'Haiku (Fast)',
-          description: 'Fast and economical',
-        },
-        {
-          id: 'claude-sonnet-4-6',
-          name: 'Sonnet (Recommended)',
-          description: 'Best for everyday tasks',
-        },
-        {
-          id: 'claude-opus-4-7',
-          name: 'Opus (Most Capable)',
-          description: 'Most capable for complex work',
-        },
-      ],
-      openai: [
-        { id: 'gpt-5.5', name: 'GPT-5.5 (Most Capable)' },
-        { id: 'gpt-4o', name: 'GPT-4o (Recommended)' },
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
-        { id: 'o3-mini', name: 'o3 Mini (Reasoning)' },
-      ],
-      google: [
-        { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Most Capable)' },
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended)' },
-        { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (Fast)' },
-      ],
-      perplexity: [
-        { id: 'sonar', name: 'Sonar (Recommended)' },
-        { id: 'sonar-pro', name: 'Sonar Pro (Most Capable)' },
-        { id: 'sonar-reasoning', name: 'Sonar Reasoning' },
-      ],
-    };
-
-    let modelList = models;
-
-    // Try to load from cache if no models provided
-    if (!modelList) {
-      try {
-        const cacheKey = `cloudModels_${provider}`;
-        const cached = await chrome.storage.local.get(cacheKey);
-        if (cached[cacheKey]?.models?.length > 0) {
-          modelList = cached[cacheKey].models;
-          console.log(`[Popup] Loaded ${modelList.length} cached models for ${provider}`);
-        }
-      } catch (e) {
-        console.warn('[Popup] Failed to load cached models:', e);
-      }
-    }
-
-    // Fallback to hardcoded
-    if (!modelList || modelList.length === 0) {
-      modelList = fallbackModels[provider] || fallbackModels.anthropic;
-    }
-
-    // Find recommended model (first one with "Recommended" in name, or first model)
-    const recommendedModel = modelList.find(m => m.name?.includes('Recommended')) || modelList[0];
-    const savedModel = await new Promise(resolve => {
-      chrome.storage.local.get(['cloudModel'], result => resolve(result.cloudModel));
-    });
-
-    // If no model has ever been saved, persist the recommended one now so features
-    // always have a valid default without falling back to their own hardcoded values.
-    if (!savedModel && recommendedModel) {
-      chrome.storage.local.set({ cloudModel: recommendedModel.id });
-      console.log(`[Popup] Auto-saved default cloudModel: ${recommendedModel.id}`);
-    }
-
-    // Build options HTML — sanitize API-sourced strings before injecting into DOM
-    modelSelect.innerHTML = modelList
-      .map(m => {
-        const selected =
-          (savedModel && m.id === savedModel) ||
-          (!savedModel && recommendedModel && m.id === recommendedModel.id)
-            ? ' selected'
-            : '';
-        const safeId = sanitizeText(m.id);
-        const safeName = sanitizeText(m.name);
-        const safeDesc = m.description ? ` — ${sanitizeText(m.description)}` : '';
-        return `<option value="${safeId}"${selected}>${safeName}${safeDesc}</option>`;
-      })
-      .join('\n');
-
-    console.log(`[Popup] Model dropdown populated with ${modelList.length} models for ${provider}`);
-  }
-
-  /**
-   * Fetch models from provider API and update dropdown
-   * Called after successful API key verification
-   * @param {HTMLElement} modal - The modal element
-   * @param {string} provider - The provider name
-   * @param {string} apiKey - The verified API key
-   */
-  async fetchAndPopulateModels(modal, provider, apiKey) {
-    const modelSelect = modal.querySelector('#cloud-model-select');
-    if (!modelSelect) {
-      return;
-    }
-
-    try {
-      console.log(`[Popup] Fetching models for ${provider}...`);
-
-      const response = await chrome.runtime.sendMessage({
-        action: 'CLOUD_FETCH_MODELS',
-        provider,
-        apiKey,
-      });
-
-      if (response?.success && response?.models?.length > 0) {
-        console.log(`[Popup] Fetched ${response.models.length} models from ${provider}`);
-        this.populateCloudModelDropdown(modal, provider, response.models);
-      } else {
-        console.warn(`[Popup] Model fetch returned no models for ${provider}`);
-      }
-    } catch (error) {
-      console.warn(`[Popup] Failed to fetch models for ${provider}:`, error);
-    }
-  }
-
-  /**
-   * Load API key for provider from storage
-   * @param {HTMLElement} modal - The modal element
-   * @param {string} provider - The provider name
-   */
-  async loadApiKey(modal, provider) {
-    const apiKeyInput = modal.querySelector('#cloud-api-key');
-    if (!apiKeyInput) {
-      return;
-    }
-
-    try {
-      // Use secure encrypted storage
-      const { getSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
-      const key = await getSecureAPIKey(provider);
-
-      if (key) {
-        apiKeyInput.value = key;
-        this.updateApiKeyStatus(modal, '✓ API key configured (encrypted)', 'success');
-        this.toggleModelSelection(modal, true);
-        // Load cached models into dropdown (populated dynamically after key verification)
-        this.populateCloudModelDropdown(modal, provider);
-      } else {
-        apiKeyInput.value = '';
-        this.updateApiKeyStatus(modal, 'No API key configured', 'warning');
-        this.toggleModelSelection(modal, false);
-      }
-    } catch (error) {
-      console.error('[Popup] Failed to load API key:', error.message);
-      this.updateApiKeyStatus(modal, 'Error loading API key', 'error');
-      this.toggleModelSelection(modal, false);
-    }
-  }
-
-  /**
-   * Show/hide the model selection section based on API key presence
-   * @param {HTMLElement} modal - The modal element
-   * @param {boolean} show - Whether to show the section
-   */
-  toggleModelSelection(modal, show) {
-    const modelSection = modal.querySelector('#cloud-model-section');
-    const usageSection = modal.querySelector('#usage-stats-section');
-
-    if (modelSection) {
-      modelSection.style.display = show ? 'block' : 'none';
-    }
-    if (usageSection) {
-      usageSection.style.display = show ? 'block' : 'none';
-    }
-  }
-
-  /**
-   * Update API key status message
-   * @param {HTMLElement} modal - The modal element
-   * @param {string} message - Status message
-   * @param {string} type - Status type (success/warning/error)
-   */
-  updateApiKeyStatus(modal, message, type = 'info') {
-    const statusEl = modal.querySelector('#api-key-status');
-    if (!statusEl) {
-      return;
-    }
-
-    const colors = {
-      success: '#16a34a',
-      warning: '#ea580c',
-      error: '#dc2626',
-      info: '#666',
-    };
-
-    statusEl.textContent = message;
-    statusEl.style.color = colors[type] || colors.info;
-    statusEl.style.marginRight = '8px';
-    statusEl.style.fontWeight = '600';
-  }
-
-  /**
-   * Test API key connection
-   * @param {string} provider - The cloud provider
-   * @param {string} apiKey - The API key to test
-   * @param {HTMLElement} modal - The modal element
-   */
-  async testAPIKey(provider, apiKey, modal) {
-    if (!apiKey) {
-      this.updateApiKeyStatus(modal, 'Please enter an API key', 'warning');
-      return;
-    }
-
-    const testBtn = modal.querySelector('#test-api-key');
-    const originalText = testBtn.textContent;
-    testBtn.textContent = 'Testing...';
-    testBtn.disabled = true;
-    this.updateApiKeyStatus(modal, 'Testing connection...', 'info');
-
-    try {
-      // Import secure API key manager
-      const { saveSecureAPIKey, isValidKeyFormat, testSecureConnection } = await import(
-        '../core/storage/secure-key-storage.js'
-      );
-
-      // Validate format first
-      if (!isValidKeyFormat(provider, apiKey)) {
-        this.updateApiKeyStatus(modal, '❌ Invalid API key format', 'error');
-        this.toggleModelSelection(modal, false);
-        testBtn.textContent = originalText;
-        testBtn.disabled = false;
-        return;
-      }
-
-      // Test the API connection (key passed securely in headers)
-      const testResult = await testSecureConnection(provider, apiKey);
-
-      if (!testResult.success) {
-        this.updateApiKeyStatus(modal, `❌ ${testResult.message}`, 'error');
-        this.toggleModelSelection(modal, false);
-        testBtn.textContent = originalText;
-        testBtn.disabled = false;
-        return;
-      }
-
-      // Save with encryption
-      const saved = await saveSecureAPIKey(provider, apiKey);
-
-      if (saved) {
-        this.updateApiKeyStatus(modal, '✅ Saved (encrypted)', 'success');
-        this.toggleModelSelection(modal, true);
-
-        // Fetch available models from provider API and populate dropdown
-        this.updateApiKeyStatus(modal, '✅ Saved (encrypted) — Fetching models...', 'success');
-        await this.fetchAndPopulateModels(modal, provider, apiKey);
-        this.updateApiKeyStatus(modal, '✅ Saved (encrypted)', 'success');
-      } else {
-        this.updateApiKeyStatus(modal, '❌ Failed to save API key', 'error');
-        this.toggleModelSelection(modal, false);
-      }
-    } catch (error) {
-      console.error('[Popup] API key test failed:', error.message);
-      this.updateApiKeyStatus(modal, `❌ Error: ${error.message}`, 'error');
-      this.toggleModelSelection(modal, false);
-    } finally {
-      testBtn.textContent = originalText;
-      testBtn.disabled = false;
-    }
-  }
-
-  /**
-   * Show install model dialog
-   */
   showInstallModelDialog() {
-    const modelName = prompt('Enter model name to install (e.g., llama3.2):');
+    const modelName = prompt(`Enter model name to install (e.g., ${DEFAULT_CHAT_MODEL}):`);
     if (modelName) {
       alert(
         `Installing model: ${modelName}\n\nRun this in your terminal:\n\nollama pull ${modelName}`
@@ -4103,367 +3595,81 @@ class PopupController {
   }
 
   /**
-   * Check Ollama status
-   * @param {HTMLElement} modal - The modal element
+   * Wire the Advanced Options tabs as a real tablist.
+   *
+   * They were four buttons with a class on the chosen one: nothing said they were tabs, nothing
+   * said which was selected, all four sat in the tab order, and the arrow keys did nothing. The
+   * roles and `aria-selected` are written into the markup; this adds the two behaviours a tablist
+   * has to have — one tab stop for the whole strip, and the arrow keys moving between them.
+   *
+   * Activation follows the arrow key (the ARIA pattern for a tablist whose panels are already in
+   * the document), so a student arrowing along the strip sees each panel as they reach it.
+   *
+   * @param {HTMLElement} modal
    */
-  async checkOllamaStatus(modal) {
-    const statusDot = modal.querySelector('#ollama-status .status-dot');
-    const statusText = modal.querySelector('#ollama-status .status-text');
-
-    try {
-      const response = await fetch('http://localhost:11434/api/tags', {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        statusDot.style.backgroundColor = '#10b981';
-        statusText.textContent = `Connected (${data.models?.length || 0} models)`;
-
-        // Populate model list
-        this.populateModelList(modal, data.models || []);
-      } else {
-        throw new Error('Ollama not responding');
-      }
-    } catch {
-      statusDot.style.backgroundColor = '#ef4444';
-      statusText.textContent = 'Not connected';
-    }
-  }
-
-  /**
-   * Populate model list
-   * @param {HTMLElement} modal - The modal element
-   * @param {Array} models - List of Ollama models
-   */
-  populateModelList(modal, models) {
-    const listEl = modal.querySelector('#local-model-list');
-    if (!listEl) {
-      return;
-    }
-
-    listEl.innerHTML = '';
-
-    if (models.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'local-model-list-empty';
-      empty.textContent = 'No models installed — click "+ Install New Model" below';
-      listEl.appendChild(empty);
-    } else {
-      models.forEach(model => {
-        const item = document.createElement('div');
-        item.className = 'local-model-item';
-        item.setAttribute('role', 'option');
-        item.setAttribute('aria-selected', 'false');
-        item.dataset.model = model.name;
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'local-model-item-name';
-        nameSpan.textContent = model.name;
-
-        const chip = document.createElement('span');
-        chip.className = 'local-model-default-chip';
-        chip.textContent = 'default';
-        chip.setAttribute('aria-hidden', 'true');
-
-        item.appendChild(nameSpan);
-        item.appendChild(chip);
-        listEl.appendChild(item);
-      });
-
-      // Single-click: visual focus highlight
-      listEl.addEventListener('click', e => {
-        const item = e.target.closest('.local-model-item');
-        if (!item) {
-          return;
-        }
-        listEl.querySelectorAll('.local-model-item').forEach(i => i.classList.remove('is-focused'));
-        item.classList.add('is-focused');
-      });
-
-      // Double-click: set as default (cascades to all task types)
-      listEl.addEventListener('dblclick', e => {
-        const item = e.target.closest('.local-model-item');
-        if (!item) {
-          return;
-        }
-        this.setDefaultModelCascade(modal, models, item.dataset.model);
-      });
-
-      // Keyboard: arrows to navigate, Enter to set default
-      listEl.addEventListener('keydown', e => {
-        const items = [...listEl.querySelectorAll('.local-model-item')];
-        if (!items.length) {
-          return;
-        }
-        const focused = listEl.querySelector('.local-model-item.is-focused');
-        let idx = focused ? items.indexOf(focused) : -1;
-
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          idx = Math.min(idx + 1, items.length - 1);
-          items.forEach(i => i.classList.remove('is-focused'));
-          items[idx].classList.add('is-focused');
-          items[idx].scrollIntoView({ block: 'nearest' });
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          idx = Math.max(idx - 1, 0);
-          items.forEach(i => i.classList.remove('is-focused'));
-          items[idx].classList.add('is-focused');
-          items[idx].scrollIntoView({ block: 'nearest' });
-        } else if (e.key === 'Enter' && focused) {
-          this.setDefaultModelCascade(modal, models, focused.dataset.model);
-        }
-      });
-    }
-
-    // Populate the task-override dropdowns
-    this.populateModelPreferences(modal, models);
-  }
-
-  /**
-   * Populate model preference dropdowns for task types
-   * @param {HTMLElement} modal - The modal element
-   * @param {Array} models - List of Ollama models
-   */
-  async populateModelPreferences(modal, models) {
-    // Only Academic and Code are user-configurable overrides.
-    // General = the default model (set via double-click in the list).
-    // Vision = always auto (uses first available vision model).
-    const overrideTypes = ['academic', 'code'];
-
-    const savedPrefs = await new Promise(resolve => {
-      chrome.storage.local.get('modelPreferences', result => {
-        resolve(result.modelPreferences || {});
-      });
-    });
-
-    overrideTypes.forEach(taskType => {
-      const select = modal.querySelector(`#model-${taskType}`);
-      if (!select) {
-        return;
-      }
-
-      select.innerHTML = '';
-
-      // Auto option
-      const autoOption = document.createElement('option');
-      autoOption.value = 'auto';
-      autoOption.textContent = 'Auto (use default)';
-      select.appendChild(autoOption);
-
-      if (taskType === 'code') {
-        // Code models first, then all others
-        const codeModels = models.filter(
-          m => m.name.includes('code') || m.name.includes('coder') || m.name.includes('deepseek')
-        );
-        const otherModels = models.filter(
-          m => !m.name.includes('code') && !m.name.includes('coder') && !m.name.includes('deepseek')
-        );
-        if (codeModels.length > 0) {
-          const codeGroup = document.createElement('optgroup');
-          codeGroup.label = 'Code Models';
-          codeModels.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.name;
-            opt.textContent = m.name;
-            codeGroup.appendChild(opt);
-          });
-          select.appendChild(codeGroup);
-        }
-        if (otherModels.length > 0) {
-          const otherGroup = document.createElement('optgroup');
-          otherGroup.label = 'General Models';
-          otherModels.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.name;
-            opt.textContent = m.name;
-            otherGroup.appendChild(opt);
-          });
-          select.appendChild(otherGroup);
-        }
-      } else {
-        models.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m.name;
-          opt.textContent = m.name;
-          select.appendChild(opt);
-        });
-      }
-
-      // Restore saved value
-      if (savedPrefs[taskType] && select.querySelector(`option[value="${savedPrefs[taskType]}"]`)) {
-        select.value = savedPrefs[taskType];
-      }
-
-      select.addEventListener('change', () => {
-        this.saveModelPreference(taskType, select.value);
-      });
-    });
-
-    // Show the active default model card
-    this.updateActiveModelDisplay(modal, models, savedPrefs.general);
-  }
-
-  /**
-   * Update the active/default model indicator in the local AI section
-   * @param {HTMLElement} modal - The modal element
-   * @param {Array} models - List of Ollama model objects
-   * @param {string} generalPref - Saved general preference ('auto' or model name)
-   */
-  updateActiveModelDisplay(modal, models, generalPref = 'auto') {
-    const cardEl = modal.querySelector('#active-model-info');
-    const nameEl = modal.querySelector('#active-model-name');
-    if (!cardEl || !nameEl) {
-      return;
-    }
-
-    // Resolve effective model: explicit pref → balanced auto-detect → first available
-    let effectiveModel;
-    if (generalPref && generalPref !== 'auto') {
-      effectiveModel = generalPref;
-    } else {
-      const balanced = ['llama3.2', 'llama3.2:latest', 'mistral', 'mistral:latest'];
-      effectiveModel = null;
-      for (const pref of balanced) {
-        const match = models.find(m => m.name === pref || m.name.startsWith(pref.split(':')[0]));
-        if (match) {
-          effectiveModel = match.name;
-          break;
-        }
-      }
-      if (!effectiveModel) {
-        effectiveModel = models[0]?.name || 'None available';
-      }
-    }
-
-    nameEl.textContent = effectiveModel;
-    cardEl.style.display = 'block';
-
-    // Highlight the default item in the custom list
-    const listEl = modal.querySelector('#local-model-list');
-    if (listEl) {
-      listEl.querySelectorAll('.local-model-item').forEach(item => {
-        const isDefault = item.dataset.model === effectiveModel;
-        item.classList.toggle('is-default', isDefault);
-        item.setAttribute('aria-selected', String(isDefault));
-        if (isDefault) {
-          item.scrollIntoView({ block: 'nearest' });
-        }
-      });
-    }
-  }
-
-  /**
-   * Set a model as the default and cascade to all task types (general, academic, code).
-   * Vision is intentionally excluded — it always auto-routes to llava.
-   */
-  async setDefaultModelCascade(modal, models, modelName) {
-    // Single storage write for all cascade types
-    const result = await new Promise(resolve => {
-      chrome.storage.local.get('modelPreferences', r => resolve(r));
-    });
-    const prefs = result.modelPreferences || {};
-    ['general', 'academic', 'code'].forEach(t => {
-      prefs[t] = modelName;
-    });
-    await chrome.storage.local.set({ modelPreferences: prefs });
-
-    // Notify service worker
-    ['general', 'academic', 'code'].forEach(t => {
-      chrome.runtime
-        .sendMessage({ action: 'SET_MODEL_PREFERENCE', taskType: t, model: modelName })
-        .catch(() => {});
-    });
-
-    // Sync the Academic and Code dropdowns
-    ['academic', 'code'].forEach(taskType => {
-      const select = modal.querySelector(`#model-${taskType}`);
-      if (select && select.querySelector(`option[value="${modelName}"]`)) {
-        select.value = modelName;
-      }
-    });
-
-    // Update the default model card and list highlight
-    this.updateActiveModelDisplay(modal, models, modelName);
-
-    console.log(`[Settings] Default model cascaded → ${modelName} (general, academic, code)`);
-  }
-
-  /**
-   * Save model preference for a task type
-   * @param {string} taskType - The task type (general, academic, vision, code)
-   * @param {string} modelName - The selected model name
-   */
-  async saveModelPreference(taskType, modelName) {
-    const result = await new Promise(resolve => {
-      chrome.storage.local.get('modelPreferences', r => resolve(r));
-    });
-
-    const prefs = result.modelPreferences || {};
-    prefs[taskType] = modelName;
-
-    await chrome.storage.local.set({ modelPreferences: prefs });
-
-    // Notify service worker of preference change
-    chrome.runtime
-      .sendMessage({
-        action: 'SET_MODEL_PREFERENCE',
-        taskType,
-        model: modelName,
-      })
-      .catch(() => {});
-
-    console.log(`[Settings] Model preference saved: ${taskType} → ${modelName}`);
-  }
-
   setupModalTabs(modal) {
-    const tabs = modal.querySelectorAll('.modal-tab');
-    const contents = modal.querySelectorAll('.tab-content');
+    const tabs = [...modal.querySelectorAll('.modal-tab')];
+    const steps = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
 
     tabs.forEach(tab => {
-      this.attachInteractiveHandler(tab, 'Modal Tab', () => {
-        // Remove active from all tabs
-        tabs.forEach(t => t.classList.remove('active'));
-        contents.forEach(c => c.classList.remove('active'));
+      this.attachInteractiveHandler(tab, 'Modal Tab', () =>
+        this.openModalTab(tab.getAttribute('data-tab'))
+      );
+    });
 
-        // Add active to clicked tab
-        tab.classList.add('active');
-        const tabId = tab.getAttribute('data-tab');
-        modal.querySelector(`#tab-${tabId}`).classList.add('active');
-      });
+    const tablist = modal.querySelector('.modal-tabs');
+    if (!tablist) {
+      return;
+    }
+    tablist.addEventListener('keydown', event => {
+      const at = tabs.indexOf(event.target);
+      if (at === -1) {
+        return;
+      }
+      let next = null;
+      if (steps[event.key] !== undefined) {
+        next = tabs[(at + steps[event.key] + tabs.length) % tabs.length];
+      } else if (event.key === 'Home') {
+        next = tabs[0];
+      } else if (event.key === 'End') {
+        next = tabs[tabs.length - 1];
+      }
+      if (!next) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.openModalTab(next.getAttribute('data-tab'));
     });
   }
 
+  /**
+   * The Advanced Options buttons. Every one of them closes through the dialog's own closer, so
+   * focus goes back to the gear whichever way the student left — Escape, Close, Cancel, Save, or
+   * a press on the backdrop, which `openPopupDialog` already owns.
+   *
+   * @param {HTMLElement} modal
+   */
   setupModalActions(modal) {
-    // Close button
-    this.attachInteractiveHandler(modal.querySelector('#modal-close'), 'Modal Close Button', () => {
-      modal.remove();
-    });
+    const close = () => {
+      if (this.closeAdvancedOptions) {
+        this.closeAdvancedOptions();
+      } else {
+        modal.remove();
+      }
+    };
 
-    // Cancel button
+    this.attachInteractiveHandler(modal.querySelector('#modal-close'), 'Modal Close Button', close);
+
     this.attachInteractiveHandler(
       modal.querySelector('#modal-cancel'),
       'Modal Cancel Button',
-      () => {
-        modal.remove();
-      }
+      close
     );
 
-    // Save button
     this.attachInteractiveHandler(modal.querySelector('#modal-save'), 'Modal Save Button', () => {
       this.saveModalSettings();
-      modal.remove();
-    });
-
-    // Click outside to close
-    // NOTE: Use regular addEventListener (not attachInteractiveHandler) to avoid
-    // preventing default behavior on dropdowns/inputs inside the modal
-    modal.addEventListener('click', e => {
-      console.log('[Popup] Modal click event:', e.target);
-      if (e.target === modal) {
-        console.log('[Popup] Click on backdrop - closing modal');
-        modal.remove();
-      }
+      close();
     });
   }
 
@@ -4492,17 +3698,17 @@ class PopupController {
     loadCheckbox('show-focus-mode', 'show_focus_mode');
     loadCheckbox('show-stt', 'show_stt', true);
     loadCheckbox('show-screen-overlay', 'show_screen_overlay');
-    loadCheckbox('show-canvas-integration', 'show_canvas_integration', false); // EXPERIMENTAL - hidden by default
-    loadCheckbox('show-moodle-integration', 'show_moodle_integration', false); // EXPERIMENTAL - hidden by default
-    loadCheckbox('show-google-classroom-integration', 'show_google_classroom_integration', false); // EXPERIMENTAL - hidden by default
+    loadCheckbox('show-canvas-integration', 'show_canvas_integration', true); // visible by default from 1.0
+    loadCheckbox('show-moodle-integration', 'show_moodle_integration', true); // visible by default from 1.0
+    loadCheckbox('show-google-classroom-integration', 'show_google_classroom_integration', true); // visible by default from 1.0
     loadCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     loadCheckbox('show-annotations', 'show_annotations'); // Annotations
-    loadCheckbox('show-citations', 'show_citations', false); // Citations — default off, matches applyVisibilitySettings
+    loadCheckbox('show-citations', 'show_citations', true); // Citations — visible by default from 1.0
+    loadCheckbox('show-mind-map', 'show_mind_map', true); // Mind Map — visible by default
     // Dark Mode feature removed - extension UI dark mode remains in popup header
     loadCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
     loadCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
     loadCheckbox('show-pomodoro', 'show_pomodoro'); // Pomodoro Timer
-    loadCheckbox('show-stargardt', 'show_stargardt'); // Stargardt Support
     loadCheckbox('show-reduced-motion', 'show_reduced_motion'); // Reduced Motion
     loadCheckbox('show-media-control', 'show_media_control'); // Media Control
 
@@ -4512,21 +3718,13 @@ class PopupController {
       const currentMode = this.settings.annotations?.storageMode || 'local';
       storageMode.value = currentMode;
 
-      // Attach migration event listener (must happen after modal is created)
-      console.warn('[Popup] Attaching storage mode change listener. Current mode:', currentMode);
-
       // Track the last committed mode
       let committedMode = currentMode;
 
       storageMode.addEventListener('change', async e => {
-        console.warn('[Popup] ⚡ CHANGE EVENT FIRED');
         const newMode = e.target.value;
 
-        console.warn('[Popup] Storage mode change detected:', {
-          committedMode,
-          newMode,
-          willMigrate: newMode !== committedMode,
-        });
+        debugLog('[Popup] annotation storage mode change:', { committedMode, newMode });
 
         // If mode actually changed, trigger migration
         if (newMode !== committedMode) {
@@ -4618,101 +3816,10 @@ class PopupController {
     // Initialize translation settings if they don't exist
     if (!this.settings.translationSettings) {
       this.settings.translationSettings = {
-        preferredEngine: 'libre',
-        googleApiKey: '',
         cacheEnabled: true,
         cacheDuration: 7,
         defaultTargetLanguage: 'en',
       };
-    }
-
-    // Load engine selection
-    const engineLibre = document.getElementById('translation-engine-libre');
-    const engineGoogle = document.getElementById('translation-engine-google');
-    const googleApiKeyContainer = document.getElementById('google-api-key-container');
-
-    if (engineLibre && engineGoogle) {
-      const preferredEngine = this.settings.translationSettings.preferredEngine || 'libre';
-      if (preferredEngine === 'libre') {
-        engineLibre.checked = true;
-      } else {
-        engineGoogle.checked = true;
-      }
-
-      // Show/hide Google API key input based on selection
-      if (googleApiKeyContainer) {
-        googleApiKeyContainer.style.display = preferredEngine === 'google' ? 'block' : 'none';
-      }
-
-      // Add event listeners for engine selection
-      engineLibre.addEventListener('change', () => {
-        if (googleApiKeyContainer) {
-          googleApiKeyContainer.style.display = 'none';
-        }
-        this.settings.translationSettings.preferredEngine = 'libre';
-        this.saveSettings();
-        console.log('[Popup] Translation engine changed to: LibreTranslate');
-      });
-
-      engineGoogle.addEventListener('change', () => {
-        if (googleApiKeyContainer) {
-          googleApiKeyContainer.style.display = 'block';
-        }
-        this.settings.translationSettings.preferredEngine = 'google';
-        this.saveSettings();
-        console.log('[Popup] Translation engine changed to: Google Translate');
-      });
-    }
-
-    // Load Google API key
-    const googleApiKeyInput = document.getElementById('translation-google-api-key');
-    const googleApiKeyToggle = document.getElementById('translation-toggle-api-key');
-    const googleApiKeyStatus = document.getElementById('translation-api-key-status');
-
-    if (googleApiKeyInput) {
-      googleApiKeyInput.value = this.settings.translationSettings.googleApiKey || '';
-
-      // Validate API key format
-      const validateApiKey = key => {
-        const apiKeyPattern = /^AIza[A-Za-z0-9_-]{35}$/;
-        return apiKeyPattern.test(key);
-      };
-
-      // Update status indicator
-      const updateApiKeyStatus = key => {
-        if (!key) {
-          googleApiKeyStatus.textContent = '';
-        } else if (validateApiKey(key)) {
-          googleApiKeyStatus.textContent = '✓';
-          googleApiKeyStatus.style.color = '#4caf50';
-        } else {
-          googleApiKeyStatus.textContent = '✗';
-          googleApiKeyStatus.style.color = '#f44336';
-        }
-      };
-
-      // Initial status
-      updateApiKeyStatus(googleApiKeyInput.value);
-
-      // Add event listener for API key input
-      googleApiKeyInput.addEventListener('input', e => {
-        this.settings.translationSettings.googleApiKey = e.target.value;
-        updateApiKeyStatus(e.target.value);
-        this.saveSettings();
-      });
-
-      // Toggle password visibility
-      if (googleApiKeyToggle) {
-        this.attachInteractiveHandler(googleApiKeyToggle, 'Google API Key Toggle', () => {
-          if (googleApiKeyInput.type === 'password') {
-            googleApiKeyInput.type = 'text';
-            googleApiKeyToggle.textContent = 'Hide';
-          } else {
-            googleApiKeyInput.type = 'password';
-            googleApiKeyToggle.textContent = 'Show';
-          }
-        });
-      }
     }
 
     // Load default target language
@@ -4811,18 +3918,10 @@ class PopupController {
     // Load UI overlay visibility settings
     const uiOverlay = this.settings.ui_overlay || {};
 
-    // Main popup text stats toggle — default OFF
-    // Also sync to chrome.storage.local so content scripts respect the current setting
-    // (without this, a stale true value from a previous install would keep stats visible)
-    const mainTextStatsToggle = document.getElementById('main-text-stats-toggle');
-    if (mainTextStatsToggle) {
-      const textStatsEnabled = uiOverlay.show_text_stats_badge === true;
-      mainTextStatsToggle.checked = textStatsEnabled;
-      chrome.storage.local.set({
-        textStatsBadgeVisible: textStatsEnabled,
-        textStatsNotificationsEnabled: uiOverlay.show_text_stats_notifications === true,
-      });
-    }
+    // The main popup's own Show Text Stats switch is NOT loaded here. It is on screen from the
+    // moment the popup opens, so it is brought into line with storage at first paint instead —
+    // see setupEventListeners(). Syncing a visible control from a modal's loader is what made it
+    // read OFF whatever had been saved.
 
     const showTextStatsBadge = document.getElementById('show-text-stats-badge');
     if (showTextStatsBadge) {
@@ -4863,6 +3962,20 @@ class PopupController {
 
     const isMac = navigator.platform.startsWith('Mac');
 
+    /**
+     * A binding as this keyboard writes it — Mac keycaps rather than the words.
+     * @param {string} shortcut
+     * @returns {string}
+     */
+    const forDisplay = shortcut =>
+      isMac
+        ? shortcut
+            .replace(/\bCtrl\b/g, '⌃')
+            .replace(/\bAlt\b/g, '⌥')
+            .replace(/\bShift\b/g, '⇧')
+            .replace(/\+/g, '')
+        : shortcut;
+
     // Maps shortcut key → the label[for] selector of the corresponding toggle
     const BADGE_TARGETS = {
       tts_play_pause: 'label[for="tts-enabled"]',
@@ -4870,10 +3983,12 @@ class PopupController {
       ocr_activate: 'label[for="ocr-enabled"]',
       highlight_menu_toggle: 'label[for="highlight-menu-enabled"]',
       sticky_note_create: 'label[for="annotations-enabled"]',
+      stt_dictate: 'label[for="stt-enabled"]',
       focus_mode_toggle: 'label[for="focus-mode-enabled"]',
       reading_guide_toggle: 'label[for="reading-guide-enabled"]',
       screen_overlay_toggle: 'label[for="screen-overlay-enabled"]',
       dyslexia_mode_toggle: 'label[for="dyslexia-mode-enabled"]',
+      open_mind_map: 'label[for="mind-map-enabled"]',
     };
 
     for (const [key, selector] of Object.entries(BADGE_TARGETS)) {
@@ -4890,15 +4005,7 @@ class PopupController {
         continue;
       }
 
-      let display = shortcut;
-      if (isMac) {
-        display = display
-          .replace(/\bCtrl\b/g, '⌃')
-          .replace(/\bAlt\b/g, '⌥')
-          .replace(/\bShift\b/g, '⇧')
-          .replace(/\+/g, '');
-      }
-
+      const display = forDisplay(shortcut);
       const labelText = label.querySelector('.label-text');
       if (!labelText) {
         continue;
@@ -4909,6 +4016,18 @@ class PopupController {
       badge.setAttribute('aria-hidden', 'true');
       badge.textContent = display;
       labelText.appendChild(badge);
+    }
+
+    // "Show Microphone Button" says what happens when it is off, and has to name the key the
+    // student actually has — the one written into popup.html is only the shipped default.
+    const dictationHint = document.getElementById('stt-floating-button-hint');
+    if (dictationHint) {
+      const dictation = shortcuts.stt_dictate;
+      dictationHint.textContent = dictation
+        ? `Turn this off and voice typing is still there: press ${forDisplay(dictation)} in ` +
+          'any text box to start or stop dictation.'
+        : 'No dictation shortcut is set, so the microphone button is the only way to start ' +
+          'voice typing. Give it a key under Keyboard Shortcuts.';
     }
   }
 
@@ -4932,18 +4051,46 @@ class PopupController {
       text_stats_toggle: 'Reading',
       highlight_menu_toggle: 'Lookup Tools',
       sticky_note_create: 'Writing',
+      stt_dictate: 'Writing',
       translation_toggle: 'Lookup Tools',
       focus_mode_toggle: 'Display',
       reading_guide_toggle: 'Display',
       screen_overlay_toggle: 'Display',
       dyslexia_mode_toggle: 'Display',
+      open_mind_map: 'Study',
     };
 
     // Clear existing cards
     grid.innerHTML = sanitizeHTML('');
 
+    // Gathered under headings, because this list doubled when the mind map editor's own keys joined
+    // the registry. Thirty undifferentiated rows is a worse thing to read than eighteen, and reading
+    // is the whole point of this product. A heading per group also gives a screen reader something to
+    // jump between, instead of thirty rows that all sound alike.
+    const groupOf = key => categories[key] || (key.startsWith('mm_') ? 'Mind map' : 'General');
+    const order = ['TTS Controls', 'Reading', 'Writing', 'Lookup Tools', 'Display', 'Study'];
+    const rank = name => {
+      const at = order.indexOf(name);
+      // Anything unlisted sorts after the known groups; "Mind map" last, as its own page's keys.
+      return at === -1 ? (name === 'Mind map' ? order.length + 1 : order.length) : at;
+    };
+    const entries = Object.entries(shortcuts).sort(
+      ([a], [b]) => rank(groupOf(a)) - rank(groupOf(b))
+    );
+
+    let lastGroup = null;
+
     // Create a card for each shortcut
-    for (const [key, shortcut] of Object.entries(shortcuts)) {
+    for (const [key, shortcut] of entries) {
+      const group = groupOf(key);
+      if (group !== lastGroup) {
+        const heading = document.createElement('h4');
+        heading.className = 'shortcut-group-heading';
+        heading.textContent = group;
+        grid.appendChild(heading);
+        lastGroup = group;
+      }
+
       const card = document.createElement('div');
       card.className = 'shortcut-card';
       card.setAttribute('data-shortcut', key);
@@ -5032,72 +4179,13 @@ class PopupController {
    * @param {string} preset - Preset name (default, minimal, oneHanded)
    */
   async applyShortcutPreset(preset) {
-    const presets = {
-      // Mirrors DEFAULT_SHORTCUTS — all 14 keys with balanced modifiers
-      default: {
-        tts_play_pause: 'Ctrl+Shift+Space',
-        tts_stop: 'Ctrl+Shift+S',
-        ocr_activate: 'Alt+O',
-        reading_mode_toggle: 'Alt+R',
-        reading_mode_exit: 'Escape',
-        dictionary_lookup: 'Alt+Shift+D',
-        text_stats_toggle: 'Ctrl+Shift+W',
-        highlight_menu_toggle: 'Ctrl+Shift+H',
-        sticky_note_create: 'Alt+N',
-        translation_toggle: 'Alt+T',
-        citation_save: 'Alt+C',
-        focus_mode_toggle: 'Alt+F',
-        reading_guide_toggle: 'Alt+G',
-        screen_overlay_toggle: 'Alt+Shift+O',
-        dyslexia_mode_toggle: 'Alt+Y',
-      },
-      // Essential shortcuts only — empty string disables a shortcut
-      minimal: {
-        tts_play_pause: 'Ctrl+Space',
-        tts_stop: '',
-        ocr_activate: '',
-        reading_mode_toggle: 'Alt+R',
-        reading_mode_exit: 'Escape',
-        dictionary_lookup: '',
-        text_stats_toggle: '',
-        highlight_menu_toggle: '',
-        sticky_note_create: '',
-        translation_toggle: '',
-        citation_save: '',
-        focus_mode_toggle: 'Alt+F',
-        reading_guide_toggle: 'Alt+G',
-        screen_overlay_toggle: '',
-        dyslexia_mode_toggle: '',
-      },
-      // All Alt+ combos on the left side of the keyboard — usable with one hand
-      oneHanded: {
-        tts_play_pause: 'Alt+Q',
-        tts_stop: 'Alt+W',
-        ocr_activate: 'Alt+E',
-        reading_mode_toggle: 'Alt+A',
-        reading_mode_exit: 'Escape',
-        dictionary_lookup: 'Alt+S',
-        text_stats_toggle: 'Alt+D',
-        highlight_menu_toggle: 'Alt+F',
-        sticky_note_create: 'Alt+Z',
-        translation_toggle: 'Alt+X',
-        citation_save: 'Alt+C',
-        focus_mode_toggle: 'Alt+V',
-        reading_guide_toggle: 'Alt+R',
-        screen_overlay_toggle: 'Alt+B',
-        dyslexia_mode_toggle: 'Alt+G',
-      },
-    };
-
-    const selectedPreset = presets[preset];
+    const selectedPreset = SHORTCUT_PRESETS[preset];
     if (!selectedPreset) {
       return;
     }
 
-    // Load current shortcuts, merge preset on top, save atomically
-    const current = await loadShortcuts();
-    const merged = { ...current, ...selectedPreset };
-    await saveShortcuts(merged);
+    // A preset covers every registry key, so it replaces the saved set rather than merging into it.
+    await saveShortcuts({ ...selectedPreset });
 
     // Reload the shortcuts display and refresh inline badges
     this.loadKeyboardShortcuts();
@@ -5240,7 +4328,7 @@ class PopupController {
     // Close on escape (but not record it)
     const escapeHandler = e => {
       if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        cancelHandler();
+        closeOverlay();
         document.removeEventListener('keydown', escapeHandler);
       }
     };
@@ -5284,12 +4372,12 @@ class PopupController {
     saveCheckbox('show-dyslexia-mode', 'show_dyslexia_mode');
     saveCheckbox('show-annotations', 'show_annotations'); // Annotations
     saveCheckbox('show-citations', 'show_citations'); // Citations
+    saveCheckbox('show-mind-map', 'show_mind_map'); // Mind Map
     saveCheckbox('show-translation', 'show_translation'); // Translation
     // Dark Mode feature removed - extension UI dark mode remains in popup header
     saveCheckbox('show-simplify', 'show_simplify'); // Simplified Interface
     saveCheckbox('show-reading-progress', 'show_reading_progress'); // Reading Progress Tracker
     saveCheckbox('show-pomodoro', 'show_pomodoro'); // Pomodoro Timer
-    saveCheckbox('show-stargardt', 'show_stargardt'); // Stargardt Support
     saveCheckbox('show-reduced-motion', 'show_reduced_motion'); // Reduced Motion
     saveCheckbox('show-media-control', 'show_media_control'); // Media Control
 
@@ -5419,14 +4507,13 @@ class PopupController {
       appearance: this.settings.appearance,
     });
 
-    // Check if any visibility changed
-    const visibilityChanged =
-      Object.keys(oldVisibility).some(
-        key => oldVisibility[key] !== this.settings.ui_visibility[key]
-      ) ||
-      Object.keys(this.settings.ui_visibility).some(
-        key => oldVisibility[key] !== this.settings.ui_visibility[key]
-      );
+    // Compare what the student saw, not what was stored: a preference never saved is shown ticked,
+    // so reading it as `undefined` made the first Save on a fresh install count as a change and
+    // reload the popup, dropping a keyboard student's place for nothing.
+    const shown = value => value !== false;
+    const visibilityChanged = [
+      ...new Set([...Object.keys(oldVisibility), ...Object.keys(this.settings.ui_visibility)]),
+    ].some(key => shown(oldVisibility[key]) !== shown(this.settings.ui_visibility[key]));
 
     // Reload popup if visibility changed
     if (visibilityChanged) {
@@ -5437,77 +4524,20 @@ class PopupController {
 
   async loadVoices() {
     try {
-      console.log('[Popup][loadVoices] Loading voices from speechSynthesis...');
-      const voices = speechSynthesis.getVoices();
-      console.log('[Popup][loadVoices] Found', voices.length, 'voices immediately');
-
-      if (voices.length === 0) {
-        console.log('[Popup][loadVoices] No voices yet, waiting for voiceschanged event...');
-        // Wait for voices to load
-        speechSynthesis.addEventListener('voiceschanged', () => {
-          console.log('[Popup][loadVoices] voiceschanged event fired');
-          this.populateVoices(speechSynthesis.getVoices());
-        });
-      } else {
-        this.populateVoices(voices);
-      }
-      console.log('[Popup][loadVoices] ✓ Voice loading initiated');
+      const voices = await waitForVoices(speechSynthesis);
+      this.populateVoices(voices);
+      // Voices can arrive or change after the first list (a language pack installs, Chrome refreshes
+      // its network voices); keep the picker in step without touching the saved choice.
+      speechSynthesis.addEventListener('voiceschanged', () =>
+        this.populateVoices(speechSynthesis.getVoices())
+      );
     } catch (error) {
-      console.error('[Popup][loadVoices] ❌ Error loading voices:', error);
-      console.error('[Popup][loadVoices] Error stack:', error.stack);
+      console.error('[Popup][loadVoices] Error loading voices:', error);
     }
   }
 
   populateVoices(voices) {
-    const voiceSelect = document.getElementById('voice-select');
-    voiceSelect.innerHTML = sanitizeHTML('');
-
-    // Try to find Google UK Female voice
-    const preferredVoice =
-      voices.find(
-        v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
-      ) ||
-      voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
-      voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
-
-    // Set default voice if not already set OR if set to 'default'
-    if (preferredVoice && (!this.settings?.tts?.voice || this.settings.tts.voice === 'default')) {
-      this.settings.tts.voice = preferredVoice.name;
-      this.saveSettings();
-    }
-
-    // Group voices by language
-    const grouped = voices.reduce((acc, voice) => {
-      const lang = voice.lang.split('-')[0];
-      if (!acc[lang]) {
-        acc[lang] = [];
-      }
-      acc[lang].push(voice);
-      return acc;
-    }, {});
-
-    // Add voices to select
-    Object.keys(grouped)
-      .sort()
-      .forEach(lang => {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = lang.toUpperCase();
-
-        grouped[lang].forEach(voice => {
-          const option = document.createElement('option');
-          option.value = voice.name;
-          option.textContent = voice.name + (voice.default ? ' (Default)' : '');
-          option.selected = voice.name === this.settings?.tts?.voice;
-          optgroup.appendChild(option);
-        });
-
-        voiceSelect.appendChild(optgroup);
-      });
-
-    console.log('[Popup] Loaded', voices.length, 'voices');
-    if (preferredVoice) {
-      console.log('[Popup] Default voice set to:', preferredVoice.name);
-    }
+    renderVoiceOptions(document.getElementById('voice-select'), voices, this.settings?.tts?.voice);
   }
 
   async sendCommandToTab(command, data = {}) {
@@ -5551,30 +4581,28 @@ class PopupController {
     console.log('[Popup][updateUI] ✓ UI update complete');
   }
 
+  /**
+   * Save the Verify citations online choice where the popup and the citation analyser read it.
+   * Both writes start before this returns, so a caller can ask Chrome for the permission next.
+   * @param {boolean} on
+   * @returns {Promise<void>}
+   */
+  saveVerifyOnline(on) {
+    this.settings.citation = this.settings.citation || {};
+    this.settings.citation.verifyOnline = on;
+    const settingsSaved = this.saveSettings();
+    const analyserSaved = chrome.storage.local.get('citationAnalyzerSettings').then(stored =>
+      chrome.storage.local.set({
+        citationAnalyzerSettings: { ...(stored.citationAnalyzerSettings || {}), verifyOnline: on },
+      })
+    );
+    return Promise.all([settingsSaved, analyserSaved]).then(() => undefined);
+  }
+
   updateStatus(message, type = '') {
     const statusIndicator = document.getElementById('status-indicator');
     statusIndicator.textContent = message;
     statusIndicator.className = 'status-indicator ' + type;
-  }
-
-  updateProviderUI(provider) {
-    const deeplKeySection = document.getElementById('deepl-key-section');
-    const azureKeySection = document.getElementById('azure-key-section');
-
-    if (!deeplKeySection || !azureKeySection) {
-      return;
-    }
-
-    // Hide all API key sections first
-    deeplKeySection.style.display = 'none';
-    azureKeySection.style.display = 'none';
-
-    // Show the relevant section based on provider
-    if (provider === 'deepl') {
-      deeplKeySection.style.display = 'block';
-    } else if (provider === 'azure') {
-      azureKeySection.style.display = 'block';
-    }
   }
 
   setupTextCustomization() {
@@ -5609,7 +4637,7 @@ class PopupController {
     // Toggle event
     textCustomizationEnabled.addEventListener('change', e => {
       this.settings.textCustomization.enabled = e.target.checked;
-      this._saveTextCustomizationSettings();
+      this.saveSettings();
 
       // Toggle description and options visibility
       if (e.target.checked) {
@@ -5621,38 +4649,12 @@ class PopupController {
       }
     });
 
-    // Sync toggle: "Apply to all windows" (default OFF)
-    const syncToggle = document.getElementById('text-customization-sync');
-    chrome.storage.local.get('textCustomSync', result => {
-      // Default to false (local only) if not yet stored
-      syncToggle.checked = result.textCustomSync === true;
-    });
-    // Use change event (not attachInteractiveHandler) — mousedown+preventDefault
-    // would block the checkbox from toggling its checked state.
-    syncToggle.addEventListener('change', () => {
-      const syncEnabled = syncToggle.checked;
-      chrome.storage.local
-        .set({ textCustomSync: syncEnabled })
-        .catch(err => console.error('[Popup] Failed to save textCustomSync:', err));
-
-      if (syncEnabled) {
-        // Toggle switched ON: push current formatting to all other tabs immediately
-        this._applyTextCustomizationAllTabs();
-      } else {
-        // Toggle switched OFF: clear formatting on all OTHER tabs, apply to current tab only
-        this._clearTextCustomizationOtherTabs();
-      }
-
-      // Save settings to the appropriate destination
-      this._saveTextCustomizationSettings();
-    });
-
     // Font Family selector
     const fontFamilySelect = document.getElementById('text-font-family');
     fontFamilySelect.value = this.settings.textCustomization.fontFamily || 'lexend';
     fontFamilySelect.addEventListener('change', e => {
       this.settings.textCustomization.fontFamily = e.target.value;
-      this._saveTextCustomizationSettings();
+      this.saveSettings();
     });
 
     // Line Spacing slider
@@ -5664,7 +4666,7 @@ class PopupController {
       const value = parseFloat(e.target.value);
       lineSpacingValue.textContent = value;
       this.settings.textCustomization.lineSpacing = value;
-      this._saveTextCustomizationSettings();
+      this.saveSettings();
     });
 
     // Letter Spacing slider (percentage to em conversion)
@@ -5681,7 +4683,7 @@ class PopupController {
       letterSpacingValue.textContent = percent + '%';
       // Convert percentage to em (12% = 0.12em)
       this.settings.textCustomization.letterSpacing = percent / 100;
-      this._saveTextCustomizationSettings();
+      this.saveSettings();
     });
 
     // Word Spacing slider (percentage to em conversion)
@@ -5698,7 +4700,7 @@ class PopupController {
       wordSpacingValue.textContent = percent + '%';
       // Convert percentage to em (16% = 0.16em)
       this.settings.textCustomization.wordSpacing = percent / 100;
-      this._saveTextCustomizationSettings();
+      this.saveSettings();
     });
 
     // Paragraph Spacing slider
@@ -5710,89 +4712,10 @@ class PopupController {
       const value = parseFloat(e.target.value);
       paragraphSpacingValue.textContent = value + 'em';
       this.settings.textCustomization.paragraphSpacing = value;
-      this._saveTextCustomizationSettings();
+      this.saveSettings();
     });
 
     console.log('[Popup] Text Customization initialized');
-  }
-
-  /**
-   * Save text customization settings respecting the "Apply to all windows" sync toggle.
-   * Toggle ON (default): saves via the normal saveSettings() path — broadcasts to all tabs.
-   * Toggle OFF: sends directly to the current tab only via chrome.tabs.sendMessage.
-   *             Do NOT write to chrome.storage.local — it is shared across all tabs and
-   *             storage.onChanged would broadcast the change to every open window.
-   */
-  async _saveTextCustomizationSettings() {
-    const syncToggle = document.getElementById('text-customization-sync');
-    const syncEnabled = syncToggle ? syncToggle.checked : true;
-
-    if (syncEnabled) {
-      // Normal path: saves to assist_settings and broadcasts to all open tabs via storage.onChanged
-      await this.saveSettings();
-    } else {
-      // This-window-only path: send directly to the current tab only
-      if (this.currentTab?.id) {
-        try {
-          await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: 'LOCAL_TEXT_CUSTOMIZATION',
-            settings: this.settings.textCustomization,
-          });
-        } catch (err) {
-          console.warn('[Popup] Could not send local text customization to tab:', err.message);
-        }
-      }
-    }
-  }
-
-  /**
-   * Send CLEAR_TEXT_CUSTOMIZATION to all tabs except the current one.
-   * Called when the "Apply to all windows" toggle is switched OFF so that
-   * other windows revert to unstyled and only the focused window keeps formatting.
-   */
-  async _clearTextCustomizationOtherTabs() {
-    try {
-      const tabs = await chrome.tabs.query({});
-      const currentId = this.currentTab?.id;
-      const sends = tabs
-        .filter(tab => tab.id !== currentId && tab.id)
-        .map(tab =>
-          chrome.tabs.sendMessage(tab.id, { type: 'CLEAR_TEXT_CUSTOMIZATION' }).catch(() => {
-            // Tab may not have content script — silently ignore
-          })
-        );
-      await Promise.all(sends);
-      console.log('[Popup] Cleared text customization on all other tabs');
-    } catch (err) {
-      console.warn('[Popup] Error clearing text customization on other tabs:', err.message);
-    }
-  }
-
-  /**
-   * Push the current text customization settings to ALL tabs (including current).
-   * Called when "Apply to all windows" is toggled ON so other tabs immediately
-   * receive the formatting that was set while the toggle was OFF.
-   */
-  async _applyTextCustomizationAllTabs() {
-    try {
-      const tabs = await chrome.tabs.query({});
-      const sends = tabs
-        .filter(tab => tab.id)
-        .map(tab =>
-          chrome.tabs
-            .sendMessage(tab.id, {
-              type: 'LOCAL_TEXT_CUSTOMIZATION',
-              settings: this.settings.textCustomization,
-            })
-            .catch(() => {
-              // Tab may not have content script — silently ignore
-            })
-        );
-      await Promise.all(sends);
-      console.log('[Popup] Applied text customization to all tabs');
-    } catch (err) {
-      console.warn('[Popup] Error applying text customization to all tabs:', err.message);
-    }
   }
 
   setupReadingGuide() {
@@ -5857,14 +4780,14 @@ class PopupController {
       this.saveSettings();
     });
 
-    // Line Opacity slider (displayed as percentage)
+    // Line Opacity slider: whole percent on screen, a 0-1 fraction in storage.
     const lineOpacitySlider = document.getElementById('reading-guide-opacity');
     const lineOpacityValue = document.getElementById('reading-guide-opacity-value');
-    lineOpacitySlider.value = this.settings.readingGuide.lineOpacity || 0.7;
-    lineOpacityValue.textContent = Math.round(lineOpacitySlider.value * 100) + '%';
+    lineOpacitySlider.value = Math.round((this.settings.readingGuide.lineOpacity || 0.7) * 100);
+    lineOpacityValue.textContent = lineOpacitySlider.value + '%';
     lineOpacitySlider.addEventListener('input', e => {
-      const value = parseFloat(e.target.value);
-      lineOpacityValue.textContent = Math.round(value * 100) + '%';
+      const value = parseInt(e.target.value, 10) / 100;
+      lineOpacityValue.textContent = e.target.value + '%';
       this.settings.readingGuide.lineOpacity = value;
       this.saveSettings();
     });
@@ -6128,13 +5051,14 @@ class PopupController {
       this.saveSettings();
     });
 
+    // Whole percent on screen, a 0-1 fraction in storage.
     const overlayOpacitySlider = document.getElementById('focus-mode-opacity');
     const overlayOpacityValue = document.getElementById('focus-mode-opacity-value');
-    overlayOpacitySlider.value = this.settings.focusMode.overlayOpacity || 0.7;
-    overlayOpacityValue.textContent = Math.round(overlayOpacitySlider.value * 100) + '%';
+    overlayOpacitySlider.value = Math.round((this.settings.focusMode.overlayOpacity || 0.7) * 100);
+    overlayOpacityValue.textContent = overlayOpacitySlider.value + '%';
     overlayOpacitySlider.addEventListener('input', e => {
-      const value = parseFloat(e.target.value);
-      overlayOpacityValue.textContent = Math.round(value * 100) + '%';
+      const value = parseInt(e.target.value, 10) / 100;
+      overlayOpacityValue.textContent = e.target.value + '%';
       this.settings.focusMode.overlayOpacity = value;
       this.saveSettings();
     });
@@ -6185,13 +5109,14 @@ class PopupController {
       this.saveSettings();
     });
 
+    // Whole percent on screen, a 0-1 fraction in storage.
     const opacitySlider = document.getElementById('screen-overlay-opacity');
     const opacityValue = document.getElementById('screen-overlay-opacity-value');
-    opacitySlider.value = this.settings.screenOverlay.opacity || 0.3;
-    opacityValue.textContent = Math.round(opacitySlider.value * 100) + '%';
+    opacitySlider.value = Math.round((this.settings.screenOverlay.opacity || 0.3) * 100);
+    opacityValue.textContent = opacitySlider.value + '%';
     opacitySlider.addEventListener('input', e => {
-      const value = parseFloat(e.target.value);
-      opacityValue.textContent = Math.round(value * 100) + '%';
+      const value = parseInt(e.target.value, 10) / 100;
+      opacityValue.textContent = e.target.value + '%';
       this.settings.screenOverlay.opacity = value;
       this.saveSettings();
     });
@@ -6236,22 +5161,55 @@ class PopupController {
 
     const systemToggle = document.getElementById('reduced-motion-system');
     systemToggle.checked = this.settings.reducedMotion.respectSystemPreference !== false;
+
+    // The switch always shows the student's own choice and always stays usable. Following the
+    // computer's setting can only ADD to that choice, never replace it, so there is nothing to grey
+    // out and no way to end up looking switched on with no way back. When the computer is asking for
+    // less motion as well, the note says so, because otherwise the student sees motion already
+    // reduced while the switch reads off and reasonably concludes it is broken.
+    const systemPrefers = () => {
+      try {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch {
+        return false;
+      }
+    };
+
+    const followingNote = document.getElementById('reduced-motion-following-note');
+
+    const paintMotionSwitch = () => {
+      reducedMotionEnabled.checked = this.settings.reducedMotion.enabled || false;
+      const systemAlsoAsks = systemToggle.checked && systemPrefers();
+      if (followingNote) {
+        followingNote.textContent = systemAlsoAsks
+          ? 'Your computer is asking for less motion too, so movement stays reduced even with this off.'
+          : '';
+        followingNote.classList.toggle('hidden', !systemAlsoAsks);
+      }
+    };
+
     systemToggle.addEventListener('change', e => {
       this.settings.reducedMotion.respectSystemPreference = e.target.checked;
       this.saveSettings();
+      paintMotionSwitch();
     });
 
-    console.log('[Popup] Reduced Motion initialized');
+    // The computer's setting can change while the popup is open.
+    try {
+      window
+        .matchMedia('(prefers-reduced-motion: reduce)')
+        .addEventListener('change', paintMotionSwitch);
+    } catch {
+      // An older engine without matchMedia listeners: the switch is still correct on open.
+    }
+
+    paintMotionSwitch();
   }
 
   setupMediaControl() {
     if (!this.settings.mediaControl) {
-      this.settings.mediaControl = {
-        enabled: false,
-        blockVideos: true,
-        blockAudios: true,
-        showIndicator: true,
-      };
+      // One switch covers both video and audio; the three per-type keys were never read.
+      this.settings.mediaControl = { enabled: false };
     }
 
     const mediaControlEnabled = document.getElementById('media-control-enabled');
@@ -6408,6 +5366,124 @@ class PopupController {
     console.log('[Popup] Reading Progress initialized');
   }
 
+  /**
+   * The two supports that record how a student works: their opt-in, and deleting what was recorded.
+   *
+   * Both live in their own top-level chrome.storage.local keys rather than in `assist_settings`,
+   * because the content script listens for a change on them and stops collecting in the tab the
+   * student is already reading — an opt-out that only took effect on the next page load would not
+   * be an opt-out. Switching the learning profile off says, in the section's status line, that what
+   * was already recorded is still there and which button removes it: withdrawing consent and erasing
+   * what consent produced are two deliberate acts, and neither is asked for in a native dialog.
+   */
+  setupLearningDataControls() {
+    // Spelled out here as they are in storage, as the other top-level keys in this file are. The
+    // profile's own module owns the same two names (`profile-storage.js`), and a unit test pins
+    // this spelling to it so a rename cannot leave the popup writing a key nobody reads.
+    const PROFILE_KEY = 'cognitiveProfileSettings';
+    const STRUGGLE_KEY = 'struggleDetectionSettings';
+
+    /**
+     * Write one opt-in, and say whether it stuck.
+     *
+     * The answer matters most when it is no: if switching recording OFF fails, the checkbox would
+     * sit there unticked while the content script kept collecting, which is the one outcome this
+     * control exists to prevent. The caller puts the control back and says so.
+     *
+     * @param {string} key - the storage key holding that opt-in
+     * @param {boolean} enabled - what the student just asked for
+     * @returns {Promise<boolean>} whether storage now holds it
+     */
+    const writeOptIn = async (key, enabled) => {
+      try {
+        const stored = await chrome.storage.local.get(key);
+        await chrome.storage.local.set({ [key]: { ...(stored?.[key] || {}), enabled } });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const status = document.getElementById('learning-profile-delete-status');
+    const say = message => {
+      if (status) {
+        status.textContent = message;
+      }
+    };
+
+    const deleteRecord = async () => {
+      try {
+        const removed = await eraseProfileData();
+        say(
+          removed.length > 0
+            ? 'Deleted. Nothing about how you work is stored on this device.'
+            : 'There was nothing stored to delete.'
+        );
+      } catch {
+        say('That did not work, so the record is still here. Try again.');
+      }
+    };
+
+    const profileToggle = document.getElementById('learning-profile-enabled');
+    const struggleToggle = document.getElementById('struggle-detection-enabled');
+    const deleteButton = document.getElementById('btn-delete-learning-data');
+
+    chrome.storage.local
+      .get([PROFILE_KEY, STRUGGLE_KEY])
+      .then(stored => {
+        if (profileToggle) {
+          profileToggle.checked = stored?.[PROFILE_KEY]?.enabled === true;
+        }
+        if (struggleToggle) {
+          struggleToggle.checked = stored?.[STRUGGLE_KEY]?.enabled === true;
+        }
+      })
+      .catch(() => {
+        // Both boxes stay as the markup left them, unticked, which is what "off" looks like. Saying
+        // so beats a control that silently claims to know a state it could not read.
+        say('Could not read whether these are on. Reopen the popup to check.');
+      });
+
+    // A checkbox binds `change` directly: the shared handler's preventDefault() on mousedown would
+    // cancel the flip.
+    profileToggle?.addEventListener('change', async event => {
+      const enabled = event.target.checked;
+      if (!(await writeOptIn(PROFILE_KEY, enabled))) {
+        event.target.checked = !enabled;
+        say(
+          enabled
+            ? 'That did not save, so nothing is being recorded. Try again.'
+            : 'That did not save, so AssisT is still recording. Try again.'
+        );
+        return;
+      }
+      say(
+        enabled
+          ? 'Recording from now on. You can delete it at any time.'
+          : 'Stopped. Nothing new will be recorded. What was recorded before is still here — use ' +
+              'Delete this record to remove it.'
+      );
+    });
+
+    struggleToggle?.addEventListener('change', async event => {
+      const enabled = event.target.checked;
+      if (!(await writeOptIn(STRUGGLE_KEY, enabled))) {
+        event.target.checked = !enabled;
+        say(
+          enabled
+            ? 'That did not save, so help will not be offered. Try again.'
+            : 'That did not save, so AssisT is still watching for this. Try again.'
+        );
+      }
+    });
+
+    if (deleteButton) {
+      attachAccessibleHandler(deleteButton, 'Delete learning record', () =>
+        this.confirmDeleteLearningRecord(deleteButton, deleteRecord)
+      );
+    }
+  }
+
   setupPomodoro() {
     if (!this.settings.pomodoro) {
       this.settings.pomodoro = {
@@ -6486,7 +5562,7 @@ class PopupController {
 
     // Position select
     const positionSelect = document.getElementById('pomodoro-position');
-    positionSelect.value = this.settings.pomodoro.position || 'bottom-right';
+    positionSelect.value = this.settings.pomodoro.position || 'top-right';
     positionSelect.addEventListener('change', e => {
       this.settings.pomodoro.position = e.target.value;
       this.saveSettings();
@@ -6511,432 +5587,158 @@ class PopupController {
     console.log('[Popup] Pomodoro Timer initialized');
   }
 
-  setupStargardt() {
-    if (!this.settings.stargardt) {
-      this.settings.stargardt = {
-        enabled: false,
-        mode: 'lite',
-        setupComplete: false,
-        remapping: {
-          enabled: true,
-          mode: 'peripheral-push',
-          preferredSide: 'right',
-        },
-        textOptimization: {
-          enabled: true,
-          letterSpacing: 150,
-          lineHeight: 200,
-        },
-        lightAdaptation: {
-          enabled: true,
-          targetBrightness: 70,
-        },
-      };
+  /**
+   * Wire the Mind Map switch, the layout select and the two routes into the feature.
+   *
+   * The two buttons take different roads on purpose. "Open Mind Maps" goes straight to the service
+   * worker, because the library is an extension page and must not wait on a content script being
+   * present in the current tab — the same reasoning as the citation guide button. "Map this page"
+   * needs the page's own text, so it can only go through the content script, and says so plainly
+   * when there is none to answer.
+   */
+  setupMindMap() {
+    if (!this.settings.mindMap) {
+      // The whole default, not the half the popup draws: the editor page reads autosave and
+      // readAloud out of the same object and must not find them undefined.
+      this.settings.mindMap = { enabled: true, layout: 'map', autosave: true, readAloud: true };
     }
 
-    const stargardtEnabled = document.getElementById('stargardt-enabled');
-    const stargardtDescription = document.getElementById('stargardt-description');
-    const stargardtOptions = document.getElementById('stargardt-options');
+    const mindMapEnabled = document.getElementById('mind-map-enabled');
+    const mindMapOptions = document.getElementById('mind-map-options-container');
 
-    if (!stargardtEnabled) {
-      console.log('[Popup] Stargardt section not found in DOM, skipping setup');
+    // Guard: the popup variant may not draw this section — skip rather than abort popup init.
+    if (!mindMapEnabled || !mindMapOptions) {
       return;
     }
 
-    stargardtEnabled.checked = this.settings.stargardt.enabled || false;
+    mindMapEnabled.checked = this.settings.mindMap.enabled !== false; // default ON
+    mindMapOptions.classList.toggle('hidden', !mindMapEnabled.checked);
 
-    if (stargardtEnabled.checked) {
-      stargardtDescription.classList.remove('hidden');
-      stargardtOptions.classList.remove('hidden');
-    } else {
-      stargardtDescription.classList.add('hidden');
-      stargardtOptions.classList.add('hidden');
+    mindMapEnabled.addEventListener('change', e => {
+      this.settings.mindMap.enabled = e.target.checked;
+      this.saveSettings();
+      mindMapOptions.classList.toggle('hidden', !e.target.checked);
+    });
+
+    const mindMapLayout = document.getElementById('mind-map-layout');
+    if (mindMapLayout) {
+      mindMapLayout.value = this.settings.mindMap.layout || 'map';
+      mindMapLayout.addEventListener('change', e => {
+        this.settings.mindMap.layout = e.target.value;
+        this.saveSettings();
+      });
     }
 
-    // Main toggle
-    stargardtEnabled.addEventListener('change', e => {
-      this.settings.stargardt.enabled = e.target.checked;
-      this.saveSettings();
-
-      if (e.target.checked) {
-        stargardtDescription.classList.remove('hidden');
-        stargardtOptions.classList.remove('hidden');
-      } else {
-        stargardtDescription.classList.add('hidden');
-        stargardtOptions.classList.add('hidden');
-      }
-    });
-
-    // Mode select
-    const modeSelect = document.getElementById('stargardt-mode');
-    const calibrateSection = document.getElementById('stargardt-calibrate-section');
-    modeSelect.value = this.settings.stargardt.mode || 'lite';
-
-    // Show/hide calibrate button based on mode
-    if (modeSelect.value === 'advanced') {
-      calibrateSection.style.display = 'block';
-    } else {
-      calibrateSection.style.display = 'none';
+    const mindMapTarget = document.getElementById('mind-map-target');
+    if (mindMapTarget) {
+      this.setupMindMapTarget(mindMapTarget);
     }
 
-    modeSelect.addEventListener('change', e => {
-      this.settings.stargardt.mode = e.target.value;
-      this.saveSettings();
-
-      if (e.target.value === 'advanced') {
-        calibrateSection.style.display = 'block';
-      } else {
-        calibrateSection.style.display = 'none';
-      }
-    });
-
-    // Custom Cursor Settings
-    const cursorEnabled = document.getElementById('stargardt-cursor-enabled');
-    const cursorOptions = document.getElementById('stargardt-cursor-options');
-    const cursorSizeSlider = document.getElementById('stargardt-cursor-size');
-    const cursorSizeValue = document.getElementById('stargardt-cursor-size-value');
-    const cursorStyleSelect = document.getElementById('stargardt-cursor-style');
-    const cursorColorSelect = document.getElementById('stargardt-cursor-color');
-
-    // Initialize cursor settings if not present
-    if (!this.settings.stargardt.cursor) {
-      this.settings.stargardt.cursor = {
-        enabled: false,
-        size: 32,
-        style: 'crosshair',
-        color: '#ff0000',
-      };
-    }
-
-    // Set initial values
-    cursorEnabled.checked = this.settings.stargardt.cursor.enabled || false;
-    cursorSizeSlider.value = this.settings.stargardt.cursor.size || 32;
-    cursorSizeValue.textContent = `${cursorSizeSlider.value}px`;
-    cursorStyleSelect.value = this.settings.stargardt.cursor.style || 'crosshair';
-    cursorColorSelect.value = this.settings.stargardt.cursor.color || '#ff0000';
-
-    // Show/hide cursor options based on toggle
-    if (cursorEnabled.checked) {
-      cursorOptions.classList.remove('hidden');
-    } else {
-      cursorOptions.classList.add('hidden');
-    }
-
-    cursorEnabled.addEventListener('change', e => {
-      this.settings.stargardt.cursor.enabled = e.target.checked;
-      this.saveSettings();
-
-      if (e.target.checked) {
-        cursorOptions.classList.remove('hidden');
-      } else {
-        cursorOptions.classList.add('hidden');
-      }
-    });
-
-    cursorSizeSlider.addEventListener('input', e => {
-      cursorSizeValue.textContent = `${e.target.value}px`;
-      this.settings.stargardt.cursor.size = parseInt(e.target.value, 10);
-      this.saveSettings();
-    });
-
-    cursorStyleSelect.addEventListener('change', e => {
-      this.settings.stargardt.cursor.style = e.target.value;
-      this.saveSettings();
-    });
-
-    cursorColorSelect.addEventListener('change', e => {
-      this.settings.stargardt.cursor.color = e.target.value;
-      this.saveSettings();
-    });
-
-    // Remapping toggle
-    const remappingToggle = document.getElementById('stargardt-remapping');
-    const remappingOptions = document.getElementById('stargardt-remapping-options');
-    remappingToggle.checked = this.settings.stargardt.remapping?.enabled !== false;
-
-    if (remappingToggle.checked) {
-      remappingOptions.style.display = 'block';
-    } else {
-      remappingOptions.style.display = 'none';
-    }
-
-    remappingToggle.addEventListener('change', e => {
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.enabled = e.target.checked;
-      this.saveSettings();
-
-      if (e.target.checked) {
-        remappingOptions.style.display = 'block';
-      } else {
-        remappingOptions.style.display = 'none';
-      }
-    });
-
-    // Remapping mode select
-    const remapModeSelect = document.getElementById('stargardt-remap-mode');
-    const magnifyOptions = document.getElementById('stargardt-magnify-options');
-    remapModeSelect.value = this.settings.stargardt.remapping?.mode || 'peripheral-push';
-
-    // Show/hide magnify options based on current mode
-    const updateMagnifyOptionsVisibility = mode => {
-      if (mode === 'magnify-remap') {
-        magnifyOptions.classList.remove('hidden');
-      } else {
-        magnifyOptions.classList.add('hidden');
-      }
-    };
-    updateMagnifyOptionsVisibility(remapModeSelect.value);
-
-    remapModeSelect.addEventListener('change', e => {
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.mode = e.target.value;
-      this.saveSettings();
-      updateMagnifyOptionsVisibility(e.target.value);
-    });
-
-    // Magnify Lens Settings
-    const magnifyScaleSlider = document.getElementById('stargardt-magnify-scale');
-    const magnifyScaleValue = document.getElementById('stargardt-magnify-scale-value');
-    magnifyScaleSlider.value = this.settings.stargardt.remapping?.magnifyScale || 2;
-    magnifyScaleValue.textContent = `${magnifyScaleSlider.value}x`;
-    magnifyScaleSlider.addEventListener('input', e => {
-      magnifyScaleValue.textContent = `${e.target.value}x`;
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.magnifyScale = parseFloat(e.target.value);
-      this.saveSettings();
-    });
-
-    const magnifySizeSlider = document.getElementById('stargardt-magnify-size');
-    const magnifySizeValue = document.getElementById('stargardt-magnify-size-value');
-    magnifySizeSlider.value = this.settings.stargardt.remapping?.magnifySize || 275;
-    magnifySizeValue.textContent = `${magnifySizeSlider.value}px`;
-    magnifySizeSlider.addEventListener('input', e => {
-      magnifySizeValue.textContent = `${e.target.value}px`;
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.magnifySize = parseInt(e.target.value, 10);
-      this.saveSettings();
-    });
-
-    const magnifyOffsetSlider = document.getElementById('stargardt-magnify-offset');
-    const magnifyOffsetValue = document.getElementById('stargardt-magnify-offset-value');
-    magnifyOffsetSlider.value = this.settings.stargardt.remapping?.magnifyOffset || 150;
-    magnifyOffsetValue.textContent = `${magnifyOffsetSlider.value}px`;
-    magnifyOffsetSlider.addEventListener('input', e => {
-      magnifyOffsetValue.textContent = `${e.target.value}px`;
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.magnifyOffset = parseInt(e.target.value, 10);
-      this.saveSettings();
-    });
-
-    const magnifyOffsetDirSelect = document.getElementById('stargardt-magnify-offset-dir');
-    magnifyOffsetDirSelect.value = this.settings.stargardt.remapping?.magnifyOffsetDir || 'right';
-    magnifyOffsetDirSelect.addEventListener('change', e => {
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.magnifyOffsetDir = e.target.value;
-      this.saveSettings();
-    });
-
-    const magnifyLockToggle = document.getElementById('stargardt-magnify-lock');
-    magnifyLockToggle.checked = this.settings.stargardt.remapping?.magnifyLock === true;
-    magnifyLockToggle.addEventListener('change', e => {
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.magnifyLock = e.target.checked;
-      this.saveSettings();
-    });
-
-    // Preferred side select
-    const sideSelect = document.getElementById('stargardt-preferred-side');
-    sideSelect.value = this.settings.stargardt.remapping?.preferredSide || 'right';
-    sideSelect.addEventListener('change', e => {
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.preferredSide = e.target.value;
-      this.saveSettings();
-    });
-
-    // Reading mode toggle (clean content filtering for all remapping styles)
-    const readingModeToggle = document.getElementById('stargardt-reading-mode');
-    readingModeToggle.checked = this.settings.stargardt.remapping?.readingMode !== false;
-    readingModeToggle.addEventListener('change', e => {
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.readingMode = e.target.checked;
-      this.saveSettings();
-    });
-
-    // Font size / zoom slider for remapping content
-    const fontSizeSlider = document.getElementById('stargardt-remap-font-size');
-    const fontSizeValue = document.getElementById('stargardt-font-size-value');
-    fontSizeSlider.value = this.settings.stargardt.remapping?.fontSize || 100;
-    fontSizeValue.textContent = `${fontSizeSlider.value}%`;
-    fontSizeSlider.addEventListener('input', e => {
-      fontSizeValue.textContent = `${e.target.value}%`;
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.fontSize = parseInt(e.target.value, 10);
-      this.saveSettings();
-    });
-
-    // Font family selector for remapping content
-    const fontFamilySelect = document.getElementById('stargardt-font-family');
-    fontFamilySelect.value = this.settings.stargardt.remapping?.fontFamily || 'system';
-    fontFamilySelect.addEventListener('change', e => {
-      if (!this.settings.stargardt.remapping) {
-        this.settings.stargardt.remapping = {};
-      }
-      this.settings.stargardt.remapping.fontFamily = e.target.value;
-      this.saveSettings();
-    });
-
-    // Text optimization toggle
-    const textOptToggle = document.getElementById('stargardt-text-opt');
-    textOptToggle.checked = this.settings.stargardt.textOptimization?.enabled !== false;
-    textOptToggle.addEventListener('change', e => {
-      if (!this.settings.stargardt.textOptimization) {
-        this.settings.stargardt.textOptimization = {};
-      }
-      this.settings.stargardt.textOptimization.enabled = e.target.checked;
-      this.saveSettings();
-    });
-
-    // Letter spacing slider
-    const letterSlider = document.getElementById('stargardt-letter-spacing');
-    const letterValue = document.getElementById('stargardt-letter-value');
-    letterSlider.value = this.settings.stargardt.textOptimization?.letterSpacing || 150;
-    letterValue.textContent = `${letterSlider.value}%`;
-    letterSlider.addEventListener('input', e => {
-      letterValue.textContent = `${e.target.value}%`;
-      if (!this.settings.stargardt.textOptimization) {
-        this.settings.stargardt.textOptimization = {};
-      }
-      this.settings.stargardt.textOptimization.letterSpacing = parseInt(e.target.value, 10);
-      this.saveSettings();
-    });
-
-    // Line height slider
-    const lineSlider = document.getElementById('stargardt-line-height');
-    const lineValue = document.getElementById('stargardt-line-value');
-    lineSlider.value = this.settings.stargardt.textOptimization?.lineHeight || 200;
-    lineValue.textContent = `${lineSlider.value}%`;
-    lineSlider.addEventListener('input', e => {
-      lineValue.textContent = `${e.target.value}%`;
-      if (!this.settings.stargardt.textOptimization) {
-        this.settings.stargardt.textOptimization = {};
-      }
-      this.settings.stargardt.textOptimization.lineHeight = parseInt(e.target.value, 10);
-      this.saveSettings();
-    });
-
-    // Light adaptation toggle
-    const lightToggle = document.getElementById('stargardt-light-adapt');
-    const brightnessSection = document.getElementById('stargardt-brightness-section');
-    lightToggle.checked = this.settings.stargardt.lightAdaptation?.enabled !== false;
-
-    if (lightToggle.checked) {
-      brightnessSection.style.display = 'block';
-    } else {
-      brightnessSection.style.display = 'none';
-    }
-
-    lightToggle.addEventListener('change', e => {
-      if (!this.settings.stargardt.lightAdaptation) {
-        this.settings.stargardt.lightAdaptation = {};
-      }
-      this.settings.stargardt.lightAdaptation.enabled = e.target.checked;
-      this.saveSettings();
-
-      if (e.target.checked) {
-        brightnessSection.style.display = 'block';
-      } else {
-        brightnessSection.style.display = 'none';
-      }
-    });
-
-    // Brightness slider
-    const brightnessSlider = document.getElementById('stargardt-brightness');
-    const brightnessValue = document.getElementById('stargardt-brightness-value');
-    brightnessSlider.value = this.settings.stargardt.lightAdaptation?.targetBrightness || 70;
-    brightnessValue.textContent = `${brightnessSlider.value}%`;
-    brightnessSlider.addEventListener('input', e => {
-      brightnessValue.textContent = `${e.target.value}%`;
-      if (!this.settings.stargardt.lightAdaptation) {
-        this.settings.stargardt.lightAdaptation = {};
-      }
-      this.settings.stargardt.lightAdaptation.targetBrightness = parseInt(e.target.value, 10);
-      this.saveSettings();
-    });
-
-    // Setup wizard button
-    const setupBtn = document.getElementById('stargardt-setup-btn');
-    this.attachInteractiveHandler(setupBtn, 'Stargardt Setup Button', () => {
-      // Send message to content script to show setup wizard
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: 'stargardt_showSetupWizard',
-          });
+    const btnOpenMindMaps = document.getElementById('btn-open-mind-maps');
+    if (btnOpenMindMaps) {
+      this.attachInteractiveHandler(btnOpenMindMaps, 'Open Mind Maps Button', async () => {
+        try {
+          await chrome.runtime.sendMessage({ type: 'OPEN_MIND_MAP' });
+          this.updateStatus('Opening your mind maps...', 'info');
+          setTimeout(() => window.close(), 300);
+        } catch (error) {
+          console.error('[Popup] Error opening mind maps:', error);
+          this.updateStatus('Failed to open mind maps', 'error');
         }
       });
-    });
+    }
 
-    // Calibrate button
-    const calibrateBtn = document.getElementById('stargardt-calibrate-btn');
-    this.attachInteractiveHandler(calibrateBtn, 'Stargardt Calibrate Button', () => {
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: 'stargardt_runCalibration',
+    const btnMapThisPage = document.getElementById('btn-map-this-page');
+    if (btnMapThisPage) {
+      this.attachInteractiveHandler(btnMapThisPage, 'Map This Page Button', async () => {
+        this.updateStatus('Reading this page...', 'processing');
+        try {
+          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+            type: 'MINDMAP_MAP_PAGE',
           });
+          if (response?.success) {
+            this.updateStatus('Building your map...', 'success');
+            setTimeout(() => window.close(), 300);
+          } else {
+            this.updateStatus(response?.error || 'Could not map this page', 'error');
+          }
+        } catch (error) {
+          // No content script answered — a settings page, the Web Store, or a PDF viewer.
+          console.error('[Popup] Map this page failed:', error);
+          this.updateStatus('Open a web page first', 'error');
         }
       });
-    });
+    }
+  }
 
-    // PRL Training button
-    const prlBtn = document.getElementById('stargardt-prl-btn');
-    this.attachInteractiveHandler(prlBtn, 'PRL Training Button', () => {
-      chrome.runtime.sendMessage({
-        action: 'openTab',
-        url: chrome.runtime.getURL('pages/prl-training/training.html'),
+  /**
+   * Fill the "Highlights go to" picker and remember what the student chooses.
+   *
+   * The maps live in the service worker's database, so the popup has to ask for the list; the
+   * markup ships with the Inbox option already in place so the control still means something
+   * before — or without — an answer. Nothing here may throw: a student capturing a highlight is
+   * mid-reading, and a picker that could not be filled must fall back to the Inbox rather than
+   * take the rest of the popup down with it.
+   *
+   * The stored choice is applied after the list arrives, and only if that map is still there — a
+   * map the student has since deleted leaves the select showing Inbox, which is where the captures
+   * will genuinely land.
+   *
+   * @param {HTMLSelectElement} select
+   * @returns {Promise<void>}
+   */
+  async setupMindMapTarget(select) {
+    let chosen = INBOX_ID;
+
+    try {
+      const stored = await chrome.storage.local.get(TARGET_KEY);
+      chosen = stored?.mindMapTarget || INBOX_ID;
+
+      const response = await chrome.runtime.sendMessage({ type: 'MINDMAP_LIST' });
+      (response?.maps || []).forEach(map => {
+        // The Inbox is already the first option; listing it again would offer the same map twice.
+        if (map.id === INBOX_ID) {
+          return;
+        }
+        const option = document.createElement('option');
+        option.value = map.id;
+        option.textContent = map.title;
+        select.appendChild(option);
       });
-    });
+    } catch (error) {
+      console.warn('[Popup] Could not list mind maps for the target picker:', error);
+    }
 
-    console.log('[Popup] Stargardt Central Vision Support initialized');
+    select.value = [...select.options].some(option => option.value === chosen) ? chosen : INBOX_ID;
+
+    // A select binds `change` directly: the shared handler's preventDefault on mousedown would
+    // stop the list opening at all. The write goes through mindmap-keys.js so the popup and the
+    // service worker cannot drift about where the choice is stored.
+    select.addEventListener('change', e => {
+      writeTargetId(e.target.value);
+    });
   }
 
   setupCanvasIntegration() {
-    // Initialize canvasIntegration settings if they don't exist
-    if (!this.settings.canvasIntegration) {
-      this.settings.canvasIntegration = {
-        enabled: false,
-        assignmentReader: true,
-        quizHelper: false,
-        keyboardNav: false,
-      };
-    }
+    // Settings normally arrive already merged over the defaults. Running the branch through the same
+    // merge here covers a raw stored object too, and upgrades a quiz helper an older version stored
+    // as a bare boolean, so every quizHelper.<option> read below has an object to read.
+    this.settings.canvasIntegration = StorageManager.withDefaults({
+      canvasIntegration: this.settings.canvasIntegration ?? {},
+    }).canvasIntegration;
 
     const canvasIntegrationEnabled = document.getElementById('canvas-integration-enabled');
     const canvasIntegrationDescription = document.getElementById('canvas-integration-description');
     const canvasIntegrationOptions = document.getElementById('canvas-integration-options');
 
+    // Guard: if the Canvas section isn't present in this popup variant, skip wiring it
+    // rather than throwing and aborting the whole popup init chain.
+    if (!canvasIntegrationEnabled) {
+      return;
+    }
+
     // Set initial state
-    canvasIntegrationEnabled.checked = this.settings.canvasIntegration.enabled || false;
+    canvasIntegrationEnabled.checked = this.settings.canvasIntegration.enabled !== false; // default ON from 1.0
 
     // Show/hide description and options based on enabled state
     if (canvasIntegrationEnabled.checked) {
@@ -6970,26 +5772,11 @@ class PopupController {
       this.saveSettings();
     });
 
-    // Initialize quizHelper settings if they don't exist
-    if (!this.settings.canvasIntegration.quizHelper) {
-      this.settings.canvasIntegration.quizHelper = {
-        enabled: false,
-        readAnswers: true,
-        autoRead: false,
-        highlightQuestion: true,
-        highlightColor: '#4A90E2',
-        keyboardNavigation: true,
-      };
-    }
-
     const quizHelperCheckbox = document.getElementById('canvas-quiz-helper');
     const quizHelperOptions = document.getElementById('quiz-helper-options');
 
     // Set initial state
-    const quizHelperEnabled =
-      typeof this.settings.canvasIntegration.quizHelper === 'object'
-        ? this.settings.canvasIntegration.quizHelper.enabled
-        : this.settings.canvasIntegration.quizHelper || false;
+    const quizHelperEnabled = this.settings.canvasIntegration.quizHelper.enabled === true;
 
     quizHelperCheckbox.checked = quizHelperEnabled;
 
@@ -7002,18 +5789,7 @@ class PopupController {
 
     // Quiz Helper main toggle
     quizHelperCheckbox.addEventListener('change', e => {
-      if (typeof this.settings.canvasIntegration.quizHelper !== 'object') {
-        this.settings.canvasIntegration.quizHelper = {
-          enabled: e.target.checked,
-          readAnswers: true,
-          autoRead: false,
-          highlightQuestion: true,
-          highlightColor: '#4A90E2',
-          keyboardNavigation: true,
-        };
-      } else {
-        this.settings.canvasIntegration.quizHelper.enabled = e.target.checked;
-      }
+      this.settings.canvasIntegration.quizHelper.enabled = e.target.checked;
       this.saveSettings();
 
       // Toggle options visibility
@@ -7092,7 +5868,7 @@ class PopupController {
       return;
     }
 
-    moodleEnabled.checked = this.settings.moodleIntegration.enabled || false;
+    moodleEnabled.checked = this.settings.moodleIntegration.enabled !== false; // default ON from 1.0
 
     const setMoodleVisibility = enabled => {
       if (enabled) {
@@ -7173,7 +5949,7 @@ class PopupController {
       return;
     }
 
-    classroomEnabled.checked = this.settings.googleClassroomIntegration.enabled || false;
+    classroomEnabled.checked = this.settings.googleClassroomIntegration.enabled !== false; // default ON from 1.0
 
     const setClassroomVisibility = enabled => {
       if (enabled) {
@@ -7227,6 +6003,40 @@ class PopupController {
       '[Popup] Google Classroom Integration initialized',
       this.settings.googleClassroomIntegration
     );
+  }
+
+  /**
+   * Wire View Session Statistics: the words per minute, accuracy, word count and time of the
+   * dictation on this page, asked of the page and shown in a dialog.
+   */
+  setupSTTStats() {
+    const showStatsBtn = document.getElementById('stt-show-stats');
+    const statsSummary = document.getElementById('stt-stats-summary');
+    if (!showStatsBtn || !statsSummary) {
+      return;
+    }
+
+    this.attachInteractiveHandler(showStatsBtn, 'STT Show Stats Button', async () => {
+      const opened = this.showPanelInSheet({
+        id: 'stt-stats-dialog',
+        heading: 'Dictation statistics',
+        panel: statsSummary,
+        opener: showStatsBtn,
+      });
+      if (!opened) {
+        return;
+      }
+      try {
+        const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+          type: 'GET_STT_STATS',
+        });
+        if (response && response.stats) {
+          this.updateSTTStatsDisplay(response.stats);
+        }
+      } catch {
+        console.log('[STT Stats] No response from content script');
+      }
+    });
   }
 
   setupSTT() {
@@ -7285,7 +6095,7 @@ class PopupController {
       this.saveSettings();
     });
 
-    // Recognition Engine Selection (Phase 2.8 - S.8)
+    // Recognition Engine Selection
     const engineSelect = document.getElementById('stt-engine');
     const engineStatusIndicator = document.getElementById('stt-engine-indicator');
     const engineNameDisplay = document.getElementById('stt-engine-name');
@@ -7315,7 +6125,6 @@ class PopupController {
           auto: 'Web Speech API',
           whisper: 'Whisper (Coming Soon)',
           'web-speech': 'Web Speech API',
-          azure: 'Azure Speech Services',
         };
 
         if (engineNameDisplay) {
@@ -7419,30 +6228,15 @@ class PopupController {
       });
     }
 
-    // Advanced section toggle
-    const advancedToggle = document.getElementById('stt-advanced-toggle');
-    const advancedSection = document.getElementById('stt-advanced-section');
-    if (advancedToggle && advancedSection) {
-      advancedToggle.addEventListener('click', () => {
-        const isOpen = advancedSection.style.display !== 'none';
-        advancedSection.style.display = isOpen ? 'none' : 'block';
-        advancedToggle.setAttribute('aria-expanded', String(!isOpen));
-        const arrow = advancedToggle.querySelector('.advanced-arrow');
-        if (arrow) {
-          arrow.textContent = isOpen ? '▶' : '▼';
-        }
-      });
-    }
+    this.setupSTTStats();
 
-    // Confidence Feedback (Phase 2.7 - S.4)
+    // Confidence Feedback
     const confidenceFeedbackCheckbox = document.getElementById('stt-confidence-feedback');
     const confidenceThresholdSlider = document.getElementById('stt-confidence-threshold');
     const confidenceThresholdValue = document.getElementById('stt-confidence-threshold-value');
     const confidenceThresholdSection = document.getElementById('confidence-threshold-section');
     const highlightLowConfidenceCheckbox = document.getElementById('stt-highlight-low-confidence');
     const showAlternativesCheckbox = document.getElementById('stt-show-alternatives');
-    const showStatsBtn = document.getElementById('stt-show-stats');
-    const statsSummary = document.getElementById('stt-stats-summary');
 
     if (confidenceFeedbackCheckbox) {
       // Initialize confidence settings if not present
@@ -7561,34 +6355,9 @@ class PopupController {
           });
         });
       }
-
-      // Show stats button handler
-      if (showStatsBtn) {
-        this.attachInteractiveHandler(showStatsBtn, 'STT Show Stats Button', async () => {
-          // Toggle stats summary visibility
-          if (statsSummary) {
-            const isVisible = statsSummary.style.display !== 'none';
-            statsSummary.style.display = isVisible ? 'none' : 'block';
-
-            if (!isVisible) {
-              // Request stats from content script
-              try {
-                const response = await chrome.tabs.sendMessage(this.currentTab.id, {
-                  type: 'GET_STT_STATS',
-                });
-                if (response && response.stats) {
-                  this.updateSTTStatsDisplay(response.stats);
-                }
-              } catch {
-                console.log('[STT Stats] No response from content script');
-              }
-            }
-          }
-        });
-      }
     }
 
-    // Voice Editing Commands (Phase 2.7)
+    // Voice Editing Commands
     const voiceCommandsCheckbox = document.getElementById('stt-voice-commands');
     if (voiceCommandsCheckbox) {
       // Initialize voiceCommands setting if not present
@@ -7606,7 +6375,7 @@ class PopupController {
       const showCommandsBtn = document.getElementById('stt-show-commands');
       if (showCommandsBtn) {
         this.attachInteractiveHandler(showCommandsBtn, 'STT Show Commands Button', () => {
-          this.showVoiceCommandsModal();
+          this.showVoiceCommandsModal(showCommandsBtn);
         });
       }
     }
@@ -7635,14 +6404,14 @@ class PopupController {
       this.saveSettings();
     });
 
-    // Custom Vocabulary (Phase 2.7 - S.5)
+    // Custom Vocabulary
     this.initializeVocabulary();
 
     console.log('[Popup] STT initialized');
   }
 
   /**
-   * Initialize Custom Vocabulary UI (Phase 2.7 - S.5)
+   * Initialize Custom Vocabulary UI
    * Handles vocabulary presets, word management, import/export
    */
   async initializeVocabulary() {
@@ -7715,7 +6484,7 @@ class PopupController {
     const addWordBtn = document.getElementById('btn-add-vocab-word');
     if (addWordBtn) {
       this.attachInteractiveHandler(addWordBtn, 'Add Vocabulary Word Button', () => {
-        this.showAddVocabularyWordModal();
+        this.showAddVocabularyWordModal(addWordBtn);
       });
     }
 
@@ -7723,7 +6492,7 @@ class PopupController {
     const manageBtn = document.getElementById('btn-manage-vocabulary');
     if (manageBtn) {
       this.attachInteractiveHandler(manageBtn, 'Manage Vocabulary Button', () => {
-        this.showManageVocabularyModal();
+        this.showManageVocabularyModal(manageBtn);
       });
     }
 
@@ -7804,9 +6573,12 @@ class PopupController {
   }
 
   /**
-   * Show Add Vocabulary Word Modal
+   * Show the Add Custom Word dialog.
+   *
+   * @param {HTMLElement} [opener] - the control that opened it; the keyboard goes back there on
+   *   every way out, including after a word has been added.
    */
-  showAddVocabularyWordModal() {
+  showAddVocabularyWordModal(opener) {
     const existingModal = document.getElementById('add-vocab-modal');
     if (existingModal) {
       existingModal.remove();
@@ -7829,19 +6601,20 @@ class PopupController {
 
     // Safe innerHTML: hardcoded modal content (no user input)
     modal.innerHTML = `
-      <div style="background: white; border-radius: 12px; padding: 20px; width: 300px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+      <div id="add-vocab-dialog" style="background: white; border-radius: 12px; padding: 20px; width: 300px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="margin: 0; font-size: 16px;">Add Custom Word</h3>
-          <button id="close-add-vocab-modal" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+          <h3 id="add-vocab-title" style="margin: 0; font-size: 16px;">Add Custom Word</h3>
+          <button id="close-add-vocab-modal" aria-label="Close add custom word" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
         </div>
         <div style="margin-bottom: 12px;">
-          <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Word or Phrase:</label>
-          <input type="text" id="vocab-word-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;" placeholder="e.g., adenocarcinoma">
+          <label for="vocab-word-input" style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Word or Phrase:</label>
+          <input type="text" id="vocab-word-input" aria-describedby="vocab-word-error" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;" placeholder="e.g., adenocarcinoma">
+          <span id="vocab-word-error" role="alert" style="display: block; margin-top: 4px; font-size: 12px; color: #b3251e;"></span>
           <button id="suggest-pronunciation-btn" style="display: none; margin-top: 6px; padding: 5px 10px; border: 1px solid #4a90d9; border-radius: 6px; background: #f0f7ff; color: #357abd; font-size: 12px; cursor: pointer;">Suggest Pronunciation</button>
           <span id="pronunciation-result" role="status" aria-live="polite" style="display: block; margin-top: 5px; font-size: 12px; color: #555; min-height: 18px;"></span>
         </div>
         <div style="margin-bottom: 16px;">
-          <label style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Pronunciation Hint (optional):</label>
+          <label for="vocab-phonetic-input" style="display: block; font-size: 12px; margin-bottom: 4px; color: #666;">Pronunciation Hint (optional):</label>
           <input type="text" id="vocab-phonetic-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;" placeholder="e.g., ad-uh-no-kar-suh-NO-muh">
         </div>
         <div style="display: flex; gap: 8px;">
@@ -7851,88 +6624,107 @@ class PopupController {
       </div>
     `;
 
-    document.body.appendChild(modal);
+    const wordInput = modal.querySelector('#vocab-word-input');
+    const wordError = modal.querySelector('#vocab-word-error');
 
-    // Focus input
-    const wordInput = document.getElementById('vocab-word-input');
-    setTimeout(() => wordInput.focus(), 100);
+    const closeModal = this.openPopupDialog({
+      backdrop: modal,
+      dialog: modal.querySelector('#add-vocab-dialog'),
+      labelledBy: 'add-vocab-title',
+      opener,
+      initialFocus: wordInput,
+    });
 
-    // Event handlers
-    const closeModal = () => modal.remove();
+    /**
+     * Say what is wrong where the student is working, rather than in a browser alert box.
+     * `role="alert"` on the element means a screen reader reads it as it appears, and the field
+     * points at it with aria-describedby so it is read again on focus (SC 3.3.1).
+     * @param {string} message - empty clears it.
+     */
+    const showWordError = message => {
+      wordError.textContent = message;
+      if (message) {
+        wordInput.setAttribute('aria-invalid', 'true');
+        wordInput.style.borderColor = '#b3251e';
+        wordInput.focus();
+      } else {
+        wordInput.removeAttribute('aria-invalid');
+        wordInput.style.borderColor = '#ddd';
+      }
+    };
 
     this.attachInteractiveHandler(
-      document.getElementById('close-add-vocab-modal'),
+      modal.querySelector('#close-add-vocab-modal'),
       'Close Add Vocab Modal Button',
       closeModal
     );
     this.attachInteractiveHandler(
-      document.getElementById('cancel-add-vocab'),
+      modal.querySelector('#cancel-add-vocab'),
       'Cancel Add Vocab Button',
       closeModal
     );
-    this.attachInteractiveHandler(modal, 'Add Vocab Modal Backdrop', e => {
-      if (e.target === modal) {
-        closeModal();
+
+    const addWord = () => {
+      const word = wordInput.value.trim();
+      const phonetic = modal.querySelector('#vocab-phonetic-input').value.trim();
+
+      if (!word) {
+        showWordError('Enter a word or phrase to add.');
+        return;
       }
-    });
+
+      // Add to settings
+      if (!this.settings.stt.vocabulary.customWords) {
+        this.settings.stt.vocabulary.customWords = [];
+      }
+
+      const exists = this.settings.stt.vocabulary.customWords.some(
+        w => w.word.toLowerCase() === word.toLowerCase()
+      );
+
+      if (exists) {
+        showWordError(`"${word}" is already in your vocabulary.`);
+        return;
+      }
+
+      this.settings.stt.vocabulary.customWords.push({ word, phonetic });
+      this.saveSettings();
+
+      // Send to content script
+      this.sendCommandToTab({
+        command: 'ADD_VOCABULARY_WORD',
+        word,
+        phonetic,
+      });
+
+      this.updateVocabularyStats();
+      closeModal();
+    };
 
     this.attachInteractiveHandler(
-      document.getElementById('confirm-add-vocab'),
+      modal.querySelector('#confirm-add-vocab'),
       'Confirm Add Vocab Button',
-      async () => {
-        const word = wordInput.value.trim();
-        const phonetic = document.getElementById('vocab-phonetic-input').value.trim();
-
-        if (!word) {
-          wordInput.style.borderColor = '#e74c3c';
-          wordInput.focus();
-          return;
-        }
-
-        // Add to settings
-        if (!this.settings.stt.vocabulary.customWords) {
-          this.settings.stt.vocabulary.customWords = [];
-        }
-
-        const exists = this.settings.stt.vocabulary.customWords.some(
-          w => w.word.toLowerCase() === word.toLowerCase()
-        );
-
-        if (exists) {
-          alert('This word is already in your vocabulary.');
-          return;
-        }
-
-        this.settings.stt.vocabulary.customWords.push({ word, phonetic });
-        this.saveSettings();
-
-        // Send to content script
-        this.sendCommandToTab({
-          command: 'ADD_VOCABULARY_WORD',
-          word,
-          phonetic,
-        });
-
-        this.updateVocabularyStats();
-        closeModal();
-      }
+      addWord
     );
 
-    // Enter key to submit
+    // Enter in the field submits. It calls addWord directly: the confirm button answers mousedown
+    // and Enter/Space on itself, so a synthetic .click() on it did nothing at all.
     wordInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
-        document.getElementById('confirm-add-vocab').click();
+        e.preventDefault();
+        addWord();
       }
     });
 
     // Show/hide "Suggest Pronunciation" button based on input content
-    const suggestBtn = document.getElementById('suggest-pronunciation-btn');
-    const pronunciationResult = document.getElementById('pronunciation-result');
+    const suggestBtn = modal.querySelector('#suggest-pronunciation-btn');
+    const pronunciationResult = modal.querySelector('#pronunciation-result');
 
     wordInput.addEventListener('input', () => {
       const hasText = wordInput.value.trim().length > 0;
       suggestBtn.style.display = hasText ? 'inline-block' : 'none';
-      // Clear result when input changes
+      // Clear both messages: the student is answering the one they were given.
+      showWordError('');
       pronunciationResult.textContent = '';
       pronunciationResult.style.color = '#555';
     });
@@ -7982,9 +6774,12 @@ class PopupController {
   }
 
   /**
-   * Show Manage Vocabulary Modal
+   * Show the Manage Custom Words dialog.
+   *
+   * @param {HTMLElement} [opener] - the control that opened it; the keyboard goes back there on
+   *   every way out, including after a word has been deleted and the list redrawn.
    */
-  showManageVocabularyModal() {
+  showManageVocabularyModal(opener) {
     const existingModal = document.getElementById('manage-vocab-modal');
     if (existingModal) {
       existingModal.remove();
@@ -8017,7 +6812,7 @@ class PopupController {
                 <span style="font-weight: 500;">${sanitizeText(w.word)}</span>
                 ${w.phonetic ? `<span style="font-size: 11px; color: #888; margin-left: 8px;">(${sanitizeText(w.phonetic)})</span>` : ''}
               </div>
-              <button class="delete-vocab-word" data-index="${i}" style="background: #ff4757; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;">Delete</button>
+              <button class="delete-vocab-word" data-index="${i}" aria-label="Delete ${sanitizeText(w.word)}" style="background: #ff4757; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px;">Delete</button>
             </div>
           `
             )
@@ -8026,10 +6821,10 @@ class PopupController {
 
     // Safe innerHTML: hardcoded modal content (no user input)
     modal.innerHTML = `
-      <div style="background: white; border-radius: 12px; padding: 20px; width: 350px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+      <div id="manage-vocab-dialog" style="background: white; border-radius: 12px; padding: 20px; width: 350px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="margin: 0; font-size: 16px;">Manage Custom Words</h3>
-          <button id="close-manage-vocab-modal" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+          <h3 id="manage-vocab-title" style="margin: 0; font-size: 16px;">Manage Custom Words</h3>
+          <button id="close-manage-vocab-modal" aria-label="Close manage custom words" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
         </div>
         <div style="flex: 1; overflow-y: auto; max-height: 300px; border: 1px solid #eee; border-radius: 6px;">
           ${wordsList}
@@ -8041,9 +6836,22 @@ class PopupController {
       </div>
     `;
 
-    document.body.appendChild(modal);
+    const dialog = modal.querySelector('#manage-vocab-dialog');
 
-    const closeModal = () => modal.remove();
+    // The panel itself takes the keyboard: the dialog is announced by its heading and the student
+    // can read the list before Tab reaches anything — and it is never a Delete button that the
+    // keyboard lands on.
+    dialog.tabIndex = -1;
+
+    // openPopupDialog appends it, names it, traps Tab, wires Escape and the backdrop press, and
+    // hands the keyboard back to `opener` on every way out.
+    const closeModal = this.openPopupDialog({
+      backdrop: modal,
+      dialog,
+      labelledBy: 'manage-vocab-title',
+      opener,
+      initialFocus: dialog,
+    });
 
     this.attachInteractiveHandler(
       document.getElementById('close-manage-vocab-modal'),
@@ -8055,11 +6863,6 @@ class PopupController {
       'Done Manage Vocab Button',
       closeModal
     );
-    this.attachInteractiveHandler(modal, 'Manage Vocab Modal Backdrop', e => {
-      if (e.target === modal) {
-        closeModal();
-      }
-    });
 
     // Delete word buttons
     modal.querySelectorAll('.delete-vocab-word').forEach(btn => {
@@ -8077,7 +6880,9 @@ class PopupController {
 
         this.updateVocabularyStats();
         closeModal();
-        this.showManageVocabularyModal(); // Refresh modal
+        // Redraw the list with the word gone. The opener is carried through, so the keyboard goes
+        // into the new dialog rather than being dropped on <body> with the button it was on.
+        this.showManageVocabularyModal(opener);
       });
     });
 
@@ -8224,10 +7029,12 @@ class PopupController {
   }
 
   /**
-   * Show Voice Commands Modal (Phase 2.7)
-   * Displays all available voice editing commands in a modal dialog
+   * Show the voice commands reference in a modal dialog.
+   *
+   * @param {HTMLElement} [opener] - the control that opened it; the keyboard goes back there on
+   *   every way out.
    */
-  showVoiceCommandsModal() {
+  showVoiceCommandsModal(opener) {
     // Remove any existing modal
     const existingModal = document.getElementById('voice-commands-modal');
     if (existingModal) {
@@ -8263,8 +7070,8 @@ class PopupController {
 
     modalContent.innerHTML = sanitizeHTML(`
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h2 style="margin: 0; font-size: 20px; color: #333;">Voice Commands Reference</h2>
-        <button id="close-voice-commands-modal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+        <h2 id="voice-commands-title" style="margin: 0; font-size: 20px; color: #333;">Voice Commands Reference</h2>
+        <button id="close-voice-commands-modal" aria-label="Close voice commands reference" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
       </div>
       <p style="color: #666; margin-bottom: 16px; font-size: 14px;">Speak any of these commands while dictating to edit your text by voice.</p>
 
@@ -8334,28 +7141,28 @@ class PopupController {
     `);
 
     modal.appendChild(modalContent);
-    document.body.appendChild(modal);
 
-    // Close modal handlers
-    const closeBtn = document.getElementById('close-voice-commands-modal');
-    this.attachInteractiveHandler(closeBtn, 'Close Voice Commands Modal Button', () =>
-      modal.remove()
+    // The panel itself takes the keyboard, so the reference is announced by its heading and the
+    // student can scroll the list before Tab reaches the close button.
+    modalContent.tabIndex = -1;
+
+    const closeModal = this.openPopupDialog({
+      backdrop: modal,
+      dialog: modalContent,
+      labelledBy: 'voice-commands-title',
+      opener,
+      initialFocus: modalContent,
+    });
+
+    this.attachInteractiveHandler(
+      modalContent.querySelector('#close-voice-commands-modal'),
+      'Close Voice Commands Modal Button',
+      closeModal
     );
-    this.attachInteractiveHandler(modal, 'Voice Commands Modal Backdrop', e => {
-      if (e.target === modal) {
-        modal.remove();
-      }
-    });
-    document.addEventListener('keydown', function closeOnEsc(e) {
-      if (e.key === 'Escape') {
-        modal.remove();
-        document.removeEventListener('keydown', closeOnEsc);
-      }
-    });
   }
 
   /**
-   * Update STT statistics display (Phase 2.7 - S.4)
+   * Update STT statistics display
    * @param {Object} stats - Statistics object from content script
    */
   updateSTTStatsDisplay(stats) {
@@ -8368,17 +7175,30 @@ class PopupController {
       wpmEl.textContent = stats.wordsPerMinute || 0;
     }
     if (accuracyEl) {
-      const accuracy = stats.averageConfidence || 0;
-      accuracyEl.textContent = `${accuracy}%`;
-      // Color based on accuracy
-      const color = accuracy >= 85 ? '#22c55e' : accuracy >= 60 ? '#eab308' : '#ef4444';
-      accuracyEl.style.color = color;
+      // The number says it; the green, amber and red it used to be painted in were under 3:1 on
+      // the panel's background.
+      accuracyEl.textContent = `${stats.averageConfidence || 0}%`;
     }
     if (wordsEl) {
       wordsEl.textContent = stats.totalWords || 0;
     }
     if (durationEl) {
       durationEl.textContent = `${stats.duration || 0}m`;
+    }
+  }
+
+  /**
+   * Fill the companion checkboxes from storage and store their changes (companion-switches.js),
+   * then redraw Flat, which drew its switches from these checkboxes before storage answered.
+   */
+  async setupCompanionSection() {
+    try {
+      await bindCompanionSwitches(document);
+      if (this.flat) {
+        this.flat.refresh();
+      }
+    } catch (error) {
+      console.error('[Popup] Companion switches failed to load:', error);
     }
   }
 
@@ -8435,18 +7255,14 @@ class PopupController {
       }
 
       try {
-        // Send message to content script to toggle reading mode
-        await chrome.tabs.sendMessage(this.currentTab.id, {
+        const reply = await chrome.tabs.sendMessage(this.currentTab.id, {
           type: 'READING_MODE_TOGGLE',
         });
 
-        // Update button text (the content script will handle the actual toggle)
+        // Label from the state the page reports, not a guess: on a page with no readable article
+        // reading mode does not open, and the button must not then offer to exit it.
         const btnText = toggleButton.querySelector('.btn-text');
-        if (btnText.textContent === 'Enter Reading Mode') {
-          btnText.textContent = 'Exit Reading Mode';
-        } else {
-          btnText.textContent = 'Enter Reading Mode';
-        }
+        btnText.textContent = reply?.active ? 'Exit Reading Mode' : 'Enter Reading Mode';
       } catch (error) {
         console.error('[Popup] Error toggling reading mode:', error);
         this.updateStatus('Error: Please reload the page', 'error');
@@ -8460,8 +7276,8 @@ class PopupController {
     if (!this.settings.dyslexiaMode) {
       this.settings.dyslexiaMode = {
         enabled: false,
-        bionicReading: true,
-        syllableHighlighting: false,
+        bionicReading: false,
+        syllableHighlighting: true,
         grammarColors: false,
       };
     }
@@ -8498,13 +7314,13 @@ class PopupController {
     const syllableRadio = document.getElementById('dyslexia-syllable');
     const grammarRadio = document.getElementById('dyslexia-grammar');
 
-    // Set initial state
+    // Set initial state (syllable is the fallback default; bionic stays opt-in)
     if (this.settings.dyslexiaMode.bionicReading) {
       bionicRadio.checked = true;
-    } else if (this.settings.dyslexiaMode.syllableHighlighting) {
-      syllableRadio.checked = true;
     } else if (this.settings.dyslexiaMode.grammarColors) {
       grammarRadio.checked = true;
+    } else {
+      syllableRadio.checked = true;
     }
 
     // Radio button handlers
@@ -8999,17 +7815,6 @@ class PopupController {
 
   profiles_populateSelector() {
     // Populate main popup selector (if exists)
-    const selector = document.getElementById('profile-select');
-    if (selector) {
-      selector.innerHTML = sanitizeHTML('');
-      Object.keys(this.profiles).forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        option.selected = name === this.activeProfile;
-        selector.appendChild(option);
-      });
-    }
 
     // Populate modal selector (if exists)
     const modalSelector = document.getElementById('modal-profile-select');
@@ -9025,58 +7830,13 @@ class PopupController {
     }
   }
 
+  /**
+   * Wires the save and delete confirmation dialogs, which live in popup.html. The selector,
+   * save, export and import controls live in the Advanced Options Preferences tab and are wired
+   * there, in setupProfilesTab, when that modal is built. This used to look for a main-popup
+   * copy of each of those as well; that surface was removed and the lookups found nothing.
+   */
   profiles_setupEventListeners() {
-    // Profile selector change (may be in main popup or modal)
-    const selector = document.getElementById('profile-select');
-    if (selector) {
-      selector.addEventListener('change', e => {
-        this.profiles_loadProfile(e.target.value);
-      });
-    }
-
-    // Modal profile selector (in advanced settings)
-    const modalSelector = document.getElementById('modal-profile-select');
-    if (modalSelector) {
-      modalSelector.addEventListener('change', e => {
-        this.profiles_loadProfile(e.target.value);
-      });
-    }
-
-    // Save current button (may be removed from main popup)
-    const saveBtn = document.getElementById('btn-save-profile');
-    if (saveBtn) {
-      this.attachInteractiveHandler(saveBtn, 'Save Profile Button', () => {
-        this.profiles_showSaveModal();
-      });
-    }
-
-    // Export button
-    const exportBtn = document.getElementById('btn-export-profiles');
-    if (exportBtn) {
-      this.attachInteractiveHandler(exportBtn, 'Export Profiles Button', () => {
-        this.profiles_export();
-      });
-    }
-
-    // Import button
-    const importBtn = document.getElementById('btn-import-profiles');
-    if (importBtn) {
-      this.attachInteractiveHandler(importBtn, 'Import Profiles Button', () => {
-        const importInput = document.getElementById('profile-import-input');
-        if (importInput) {
-          importInput.click();
-        }
-      });
-    }
-
-    // Import file input
-    const importInput = document.getElementById('profile-import-input');
-    if (importInput) {
-      importInput.addEventListener('change', e => {
-        this.profiles_import(e.target.files[0]);
-      });
-    }
-
     // Save profile modal
     const cancelSaveBtn = document.getElementById('btn-cancel-save-profile');
     if (cancelSaveBtn) {
@@ -9603,8 +8363,6 @@ class PopupController {
   setupCitationPanel() {
     const expandBtn = document.getElementById('btn-expand-citations');
     const panelContainer = document.getElementById('citation-manager-panel');
-    const expandIcon = document.getElementById('expand-citations-icon');
-    const expandText = document.getElementById('expand-citations-text');
 
     if (!expandBtn || !panelContainer) {
       console.log('[Popup] Citation panel elements not found');
@@ -9620,33 +8378,15 @@ class PopupController {
     // Load citation count initially
     this.updateCitationCount();
 
-    // Expand/collapse button handler
-    this.attachInteractiveHandler(expandBtn, 'Citation Panel Expand Button', async () => {
-      this.citationPanelExpanded = !this.citationPanelExpanded;
-
-      if (this.citationPanelExpanded) {
-        // Expand
-        panelContainer.style.display = 'block';
-        expandIcon.style.transform = 'rotate(180deg)';
-        expandText.textContent = 'Hide Quick View';
-        expandBtn.setAttribute('aria-expanded', 'true');
-
-        // Initialize and show panel
+    this.attachInteractiveHandler(expandBtn, 'Citation Quick View Button', async () => {
+      const opened = this.showPanelInSheet({
+        id: 'citation-quick-view-dialog',
+        heading: 'Citation Quick View',
+        panel: panelContainer,
+        opener: expandBtn,
+      });
+      if (opened) {
         await this.citationPanel.initialize();
-      } else {
-        // Collapse
-        panelContainer.style.display = 'none';
-        expandIcon.style.transform = 'rotate(0deg)';
-        expandText.textContent = 'Show Quick View';
-        expandBtn.setAttribute('aria-expanded', 'false');
-      }
-    });
-
-    // Keyboard support
-    expandBtn.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        expandBtn.click();
       }
     });
 
@@ -9677,56 +8417,25 @@ class PopupController {
     }
   }
 
-  setupLocalLLM() {
-    // Initialize localLLM settings if they don't exist
-    if (!this.settings.localLLM) {
-      this.settings.localLLM = {
-        enabled: false,
-        baseUrl: 'http://localhost:11434',
-        preferredModel: 'mistral:7b-instruct',
-        fastModel: 'phi3:mini',
-        visionModel: 'llava',
-        vramTier: '8gb', // Default to 8GB tier
-        features: {
-          smartSummarization: true,
-          textSimplification: true,
-          cognitiveProfile: true,
-          struggleDetection: true,
-          socraticTutor: true,
-          assignmentAnalyzer: true,
-          citationAnalyzer: true,
-          visionAnalysis: true,
-          knowledgeGraph: true,
-          predictiveLoading: true,
-        },
-        cognitiveProfile: {
-          persistence: '6months',
-          lastCleared: null,
-          exportEnabled: true,
-        },
-        privacy: {
-          neverSendToCloud: true,
-          clearContextAfterSession: false,
-          noPersonalDataInPrompts: true,
-          localProcessingOnly: true,
-        },
-        performance: {
-          cacheResponses: true,
-          cacheTTL: 300000,
-          maxConcurrentRequests: 2,
-          timeoutMs: 30000,
-        },
-        ui: {
-          showAIIndicator: true,
-          showFallbackMessages: true,
-          compactMode: false,
-        },
-      };
+  /**
+   * Remember which AI mode is in use, and tell Flat.
+   *
+   * AI Assist is the one support whose state is not a checkbox — it is the top-level `aiMode`
+   * key — so Flat cannot read it off a control the way it reads every other one. It asks this
+   * instead, which is why the value has to be kept current rather than read once and forgotten:
+   * nothing held it before, so Flat's AI row reported the declared default whatever mode the
+   * student was actually in.
+   *
+   * @param {string} mode
+   */
+  setAiMode(mode) {
+    if (this.aiMode === mode) {
+      return;
     }
-
-    this.setupAIAssist();
-
-    // Extension UI dark mode button (in header) remains functional
+    this.aiMode = mode;
+    if (this.flat) {
+      this.flat.refresh();
+    }
   }
 
   /**
@@ -9821,13 +8530,21 @@ class PopupController {
       }
     };
 
-    // ── Wire chip change handlers (use change event; CLAUDE.md allows it for radios) ──
+    // ── Wire chip change handlers (use change event, the click helper would cancel the radio flip) ──
     chipsEl.querySelectorAll('input[type="radio"]').forEach(radio => {
       radio.addEventListener('change', async () => {
         if (!radio.checked) {
           return;
         }
         const newMode = radio.value;
+
+        // Local AI talks to Ollama over a loopback origin the extension does not hold at install
+        // (ADR 0002). Ask for it here, inside the press that turned local AI on — the only moment
+        // Chrome will show the prompt. A refusal still selects the mode; the panel below then says
+        // in words what is missing, rather than reporting a server that is running as dead.
+        if (newMode === 'local') {
+          await ensureOllamaPermission();
+        }
 
         // Persist immediately — skip the legacy flags that triggered storage onChanged re-render
         chrome.storage.local.set({
@@ -9845,7 +8562,9 @@ class PopupController {
     // ── Advanced settings link ────────────────────────────────────
     if (advancedBtn) {
       this.attachInteractiveHandler(advancedBtn, 'AI Advanced Settings', () => {
-        this.showAdvancedOptions();
+        // Straight to the AI tab. The button sits in the AI section and says "Advanced settings",
+        // so landing on Feature Visibility left the student to find the mode chooser themselves.
+        this.showAdvancedOptions('ai');
       });
     }
 
@@ -9861,6 +8580,7 @@ class PopupController {
         }
         chrome.storage.local.set({ aiMode: mode });
       }
+      this.setAiMode(mode);
       selectChip(mode);
       syncBadge(mode);
       // Use renderPending guard: if set already triggered onChanged it will be skipped
@@ -9871,6 +8591,7 @@ class PopupController {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.aiMode) {
         const newMode = changes.aiMode.newValue || 'off';
+        this.setAiMode(newMode);
         selectChip(newMode);
         syncBadge(newMode);
         renderPanel(newMode);
@@ -9897,7 +8618,11 @@ class PopupController {
 
     const s = await chrome.storage.local.get(['cloudProvider', 'cloudModel']);
     const currentProvider = s.cloudProvider || 'anthropic';
-    const currentModel = s.cloudModel || '';
+    // A saved model that has been replaced moves to its replacement here, and is saved as such.
+    const currentModel = s.cloudModel ? resolveModel(currentProvider, s.cloudModel) : '';
+    if (currentModel !== (s.cloudModel || '')) {
+      chrome.storage.local.set({ cloudModel: currentModel });
+    }
 
     // Provider row
     const provRow = document.createElement('div');
@@ -9931,7 +8656,8 @@ class PopupController {
     const toggleBtn = document.createElement('button');
     toggleBtn.type = 'button';
     toggleBtn.className = 'ai-panel-key-toggle';
-    toggleBtn.setAttribute('aria-label', 'Show or hide API key');
+    toggleBtn.setAttribute('aria-label', 'Show API key');
+    toggleBtn.setAttribute('aria-pressed', 'false');
     toggleBtn.textContent = '👁';
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
@@ -9943,6 +8669,16 @@ class PopupController {
     keyRow.appendChild(keyWrap);
     container.appendChild(keyRow);
 
+    // What saving the key means (ADR 0006): which provider the text goes to. Saving is the yes.
+    const consentNote = document.createElement('p');
+    consentNote.className = 'ai-panel-consent-note';
+    consentNote.setAttribute('data-cloud-consent-note', '');
+    consentNote.textContent = describeCloudConsent(currentProvider);
+    // The panel can be drawn twice at once (the popup and Advanced Options), so the id is its own.
+    consentNote.id = `ai-panel-consent-note-${_isModal ? 'modal' : 'popup'}`;
+    keyInput.setAttribute('aria-describedby', consentNote.id);
+    container.appendChild(consentNote);
+
     // Status line
     const statusLine = document.createElement('div');
     statusLine.className = 'ai-panel-status';
@@ -9953,7 +8689,22 @@ class PopupController {
     statusText.textContent = 'Checking…';
     statusLine.appendChild(dot);
     statusLine.appendChild(statusText);
+    statusLine.setAttribute('role', 'status');
+    // Focusable from script only: where focus goes when the button it was on goes away.
+    statusLine.tabIndex = -1;
     container.appendChild(statusLine);
+
+    // The yes to a provider (ADR 0006), for a key saved before consent existed, after a no, or
+    // without Chrome's permission for the provider's host (every cloud AI provider is an optional
+    // host permission: ADR 0006, and ADR 0007 for Gemini). Described by the note above, which names
+    // the provider and what is sent.
+    const allowBtn = document.createElement('button');
+    allowBtn.type = 'button';
+    allowBtn.className = 'ai-panel-save-btn ai-panel-allow-btn';
+    allowBtn.hidden = true;
+    allowBtn.setAttribute('aria-describedby', consentNote.id);
+    container.appendChild(allowBtn);
+    const serviceName = provider => DESTINATIONS[provider]?.service || provider;
 
     // Model row (always visible in popup too — users need quick model switching)
     const modelRow = document.createElement('div');
@@ -9967,47 +8718,11 @@ class PopupController {
     container.appendChild(modelRow);
 
     // ── Populate model dropdown ───────────────────────────────────
-    const FALLBACK_MODELS = {
-      anthropic: [
-        { id: 'claude-haiku-4-5-20251001', name: 'Haiku (Fast)' },
-        { id: 'claude-sonnet-4-6', name: 'Sonnet (Recommended)' },
-        { id: 'claude-opus-4-7', name: 'Opus (Most Capable)' },
-      ],
-      openai: [
-        { id: 'gpt-5.5', name: 'GPT-5.5 (Most Capable)' },
-        { id: 'gpt-4o', name: 'GPT-4o (Recommended)' },
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
-        { id: 'o3-mini', name: 'o3 Mini (Reasoning)' },
-      ],
-      google: [
-        { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Most Capable)' },
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Recommended)' },
-        { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (Fast)' },
-      ],
-      perplexity: [
-        { id: 'sonar', name: 'Sonar (Recommended)' },
-        { id: 'sonar-pro', name: 'Sonar Pro (Most Capable)' },
-        { id: 'sonar-reasoning', name: 'Sonar Reasoning' },
-      ],
-    };
+    const FALLBACK_MODELS = cloudFallbackModels();
 
-    const populateModels = async provider => {
+    const populateModels = provider => {
       modelSel.innerHTML = '';
-      let models = null;
-      try {
-        const cacheKey = `cloudModels_${provider}`;
-        const cached = await chrome.storage.local.get(cacheKey);
-        if (cached[cacheKey]?.models?.length > 0) {
-          models = cached[cacheKey].models;
-        }
-      } catch {
-        /* use fallback */
-      }
-      if (!models) {
-        models = FALLBACK_MODELS[provider] || [];
-      }
-      models.forEach(m => {
+      (FALLBACK_MODELS[provider] || []).forEach(m => {
         const opt = document.createElement('option');
         opt.value = m.id;
         opt.textContent = m.name || m.id;
@@ -10016,17 +8731,33 @@ class PopupController {
       });
     };
 
-    await populateModels(currentProvider);
+    populateModels(currentProvider);
 
     // ── Load current API key ──────────────────────────────────────
     const loadKey = async provider => {
       try {
         const { getSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
         const key = await getSecureAPIKey(provider);
+        allowBtn.hidden = true;
         if (key) {
           keyInput.value = key;
-          dot.className = 'ai-status-dot online';
-          statusText.textContent = 'API key configured';
+          const [consent, reachable] = await Promise.all([
+            getConsent(provider),
+            holdsHostPermissions([provider]),
+          ]);
+          if (consent !== 'granted') {
+            dot.className = 'ai-status-dot warning';
+            statusText.textContent = `AssisT sends nothing to ${serviceName(provider)} until you allow it.`;
+          } else if (!reachable) {
+            dot.className = 'ai-status-dot warning';
+            statusText.textContent = `Chrome has not given AssisT access to ${serviceName(provider)}, so nothing can be sent to it yet.`;
+          } else {
+            dot.className = 'ai-status-dot online';
+            statusText.textContent = 'API key configured';
+            return;
+          }
+          allowBtn.textContent = `Allow access to ${serviceName(provider)}`;
+          allowBtn.hidden = false;
         } else {
           keyInput.value = '';
           dot.className = 'ai-status-dot warning';
@@ -10040,10 +8771,39 @@ class PopupController {
 
     await loadKey(currentProvider);
 
+    /** The button focus was on has gone away: the status line says what happened (SC 2.4.3). */
+    const keepFocusInPanel = () => {
+      const active = document.activeElement;
+      if (allowBtn.hidden && (!active || active === allowBtn || active === document.body)) {
+        statusLine.focus();
+      }
+    };
+
     // ── Event handlers ────────────────────────────────────────────
+    this.attachInteractiveHandler(allowBtn, 'Allow cloud AI provider', () => {
+      const provider = provSel.value;
+      // Intent first, and both before anything is awaited: the yes is written now, then Chrome is
+      // asked inside this gesture. Its prompt can close the popup; the yes is already sent.
+      const recorded = recordConsent(provider, true);
+      const access = requestHostPermissions(originsFor([provider]));
+      recorded
+        .then(() => access)
+        .then(async granted => {
+          await loadKey(provider);
+          if (!granted) {
+            statusText.textContent = `Chrome did not give AssisT access to ${serviceName(provider)}. Press the button again and choose Allow.`;
+          }
+          keepFocusInPanel();
+        })
+        .catch(error => {
+          console.error('[Popup] Could not record the answer:', error);
+          dot.className = 'ai-status-dot offline';
+          statusText.textContent = 'Your answer could not be saved. Try again.';
+        });
+    });
+
     // Show/hide toggle
-    toggleBtn.addEventListener('mousedown', e => {
-      e.preventDefault();
+    this.attachInteractiveHandler(toggleBtn, 'Show API key', () => {
       keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
       toggleBtn.setAttribute('aria-pressed', String(keyInput.type === 'text'));
     });
@@ -10052,8 +8812,9 @@ class PopupController {
     provSel.addEventListener('change', async () => {
       const p = provSel.value;
       chrome.storage.local.set({ cloudProvider: p });
+      consentNote.textContent = describeCloudConsent(p);
       await loadKey(p);
-      await populateModels(p);
+      populateModels(p);
     });
 
     // Model change
@@ -10062,25 +8823,57 @@ class PopupController {
     });
 
     // Save key on button click
-    this.attachInteractiveHandler(saveBtn, 'Save API Key', async () => {
+    this.attachInteractiveHandler(saveBtn, 'Save API Key', () => {
       const key = keyInput.value.trim();
       if (!key) {
         dot.className = 'ai-status-dot warning';
         statusText.textContent = 'Enter a key first';
         return;
       }
-      try {
-        const { saveSecureAPIKey } = await import('../core/storage/secure-key-storage.js');
-        await saveSecureAPIKey(provSel.value, key);
-        dot.className = 'ai-status-dot online';
-        statusText.textContent = 'Key saved ✓';
-        // Populate models after saving key
-        await populateModels(provSel.value);
-      } catch (err) {
-        dot.className = 'ai-status-dot offline';
-        statusText.textContent = 'Save failed — try wizard';
-        console.error('[Popup] Key save error:', err);
-      }
+      const provider = provSel.value;
+      // Intent first, all before anything is awaited: the service worker saves the key (it
+      // outlives the popup), the yes is written (saving the key, beside the note that names the
+      // provider, is the student's yes), and only then is Chrome asked, inside this gesture. Its
+      // prompt can close the popup; what the student did is already on its way.
+      const saved = Promise.resolve(
+        chrome.runtime.sendMessage({ action: 'SAVE_API_KEY', provider, apiKey: key })
+      ).then(
+        reply => reply?.success === true,
+        () => false
+      );
+      const recorded = recordConsent(provider, true).then(
+        () => true,
+        error => {
+          console.error('[Popup] Could not record the answer:', error);
+          return false;
+        }
+      );
+      const access = requestHostPermissions(originsFor([provider]));
+      dot.className = 'ai-status-dot';
+      statusText.textContent = 'Saving…';
+
+      saved.then(async stored => {
+        if (!stored) {
+          dot.className = 'ai-status-dot offline';
+          statusText.textContent = 'Save failed — try wizard';
+          return;
+        }
+        const [yes, granted] = await Promise.all([recorded, access]);
+        if (granted && yes) {
+          allowBtn.hidden = true;
+          dot.className = 'ai-status-dot online';
+          statusText.textContent = 'Key saved ✓';
+          return;
+        }
+        // The key is saved; what is missing is the yes (its write failed) or Chrome's access. The
+        // button beside the note gives both.
+        dot.className = 'ai-status-dot warning';
+        statusText.textContent = granted
+          ? `Key saved. Your answer could not be saved, so nothing is sent to ${serviceName(provider)} yet.`
+          : `Key saved. Chrome did not give AssisT access to ${serviceName(provider)}, so nothing can be sent yet.`;
+        allowBtn.textContent = `Allow access to ${serviceName(provider)}`;
+        allowBtn.hidden = false;
+      });
     });
 
     // Save model selection on blur too (immediate feedback)
@@ -10571,10 +9364,23 @@ class PopupController {
 
     const dot = document.createElement('span');
     dot.className = 'ai-status-dot';
+    // A live region, and empty until the first check answers. This line carries the sentence
+    // asking for permission to reach Ollama, and a student who cannot see the panel would
+    // otherwise never learn that a permission prompt is waiting on them.
     const statusText = document.createElement('span');
+    statusText.setAttribute('role', 'status');
+    statusText.setAttribute('aria-live', 'polite');
     statusText.style.flex = '1';
     statusText.style.fontSize = '12px';
-    statusText.textContent = 'Checking Ollama…';
+
+    /**
+     * The one place this line is written, so every state reaches the region.
+     * @param {string} text
+     */
+    const setStatus = text => {
+      statusText.textContent = text;
+    };
+
     const checkBtn = document.createElement('button');
     checkBtn.type = 'button';
     checkBtn.className = 'ai-panel-action-btn';
@@ -10604,20 +9410,21 @@ class PopupController {
     const populateModels = detectedModels => {
       lastDetectedModels = detectedModels || [];
       modelSel.innerHTML = '';
-      const models =
-        detectedModels && detectedModels.length > 0
-          ? detectedModels
-          : ['llama3.2', 'phi3:mini', 'mistral', 'llava'];
+      // Exclude embeddings-only models (e.g. nomic-embed-text) — they can't
+      // generate text and would 400 if auto-selected as the active model.
+      const detected = filterChatModels(detectedModels);
+      const models = detected.length > 0 ? detected : [DEFAULT_CHAT_MODEL, RECOMMENDED_PULL_MODEL];
+      const defaultModel = savedModel || pickDefaultChatModel(models) || models[0];
       models.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = name;
-        opt.selected = name === (savedModel || models[0]);
+        opt.selected = name === defaultModel;
         modelSel.appendChild(opt);
       });
       // Persist initial selection if nothing saved yet
       if (!savedModel && models.length > 0) {
-        chrome.storage.local.set({ ollamaModel: models[0] });
+        chrome.storage.local.set({ ollamaModel: defaultModel });
       }
     };
 
@@ -10626,14 +9433,14 @@ class PopupController {
     });
 
     const checkOllama = async () => {
-      statusText.textContent = 'Checking…';
+      setStatus('Checking…');
       dot.className = 'ai-status-dot';
       try {
         const r = await chrome.runtime.sendMessage({ action: 'LOCAL_LLM_CHECK' });
         if (r?.success && r?.available) {
           dot.className = 'ai-status-dot online';
           const models = r.models || [];
-          statusText.textContent = `Online — ${models.length} model${models.length !== 1 ? 's' : ''} available`;
+          setStatus(`Online — ${models.length} model${models.length !== 1 ? 's' : ''} available`);
           populateModels(models);
           // Update header badge
           const badge = document.getElementById('llm-status-badge');
@@ -10643,7 +9450,13 @@ class PopupController {
           }
         } else {
           dot.className = 'ai-status-dot offline';
-          statusText.textContent = 'Offline — start Ollama to use Local AI';
+          // A missing permission is not a stopped server. Saying "start Ollama" to someone whose
+          // Ollama is already running sends them to fix the one thing that is not broken.
+          setStatus(
+            r?.needsPermission
+              ? 'AssisT needs your permission to reach Ollama on this computer — press Check and choose Allow.'
+              : 'Offline — start Ollama to use Local AI'
+          );
           populateModels([]);
           const badge = document.getElementById('llm-status-badge');
           if (badge) {
@@ -10653,14 +9466,78 @@ class PopupController {
         }
       } catch {
         dot.className = 'ai-status-dot offline';
-        statusText.textContent = 'Could not reach Ollama';
+        setStatus('Could not reach Ollama');
         populateModels([]);
       }
     };
 
     await checkOllama();
 
-    this.attachInteractiveHandler(checkBtn, 'Check Ollama Status', checkOllama);
+    // Check is a press, so it is also the second chance at the permission prompt for a student who
+    // dismissed the first one — asked before the check, so a granted permission is checked against.
+    this.attachInteractiveHandler(checkBtn, 'Check Ollama Status', async () => {
+      await ensureOllamaPermission();
+      await checkOllama();
+    });
+
+    // Server endpoint — where Ollama lives. Default is the student's own machine; an
+    // institution can point every seat at one shared Ollama server on the LAN. A custom
+    // origin needs a one-time host-permission grant, requested on Apply (a user gesture).
+    const serverRow = document.createElement('div');
+    serverRow.className = 'ai-panel-row';
+    const serverLabel = document.createElement('span');
+    serverLabel.className = 'ai-panel-label';
+    serverLabel.textContent = 'Server';
+    const serverInput = document.createElement('input');
+    serverInput.type = 'text';
+    serverInput.setAttribute('aria-label', 'Ollama server URL');
+    serverInput.placeholder = DEFAULT_OLLAMA_BASE_URL;
+    serverInput.style.flex = '1';
+    serverInput.style.minWidth = '0';
+    serverInput.style.fontSize = '12px';
+    const serverApply = document.createElement('button');
+    serverApply.type = 'button';
+    serverApply.className = 'ai-panel-action-btn';
+    serverApply.textContent = 'Apply';
+    serverRow.appendChild(serverLabel);
+    serverRow.appendChild(serverInput);
+    serverRow.appendChild(serverApply);
+    container.appendChild(serverRow);
+
+    const serverStatus = document.createElement('p');
+    serverStatus.setAttribute('role', 'status');
+    serverStatus.style.margin = '2px 0 6px';
+    serverStatus.style.fontSize = '11px';
+    container.appendChild(serverStatus);
+
+    const describeServer = url => {
+      serverStatus.textContent =
+        url === DEFAULT_OLLAMA_BASE_URL
+          ? 'AI runs in Ollama on this computer — nothing leaves your machine.'
+          : `AI runs on the Ollama server at ${url} — text you analyse is sent to that server. ` +
+            'A server other than this computer only works if your institution has added it to the extension.';
+    };
+    getOllamaBaseUrl().then(url => {
+      if (url !== DEFAULT_OLLAMA_BASE_URL) {
+        serverInput.value = url;
+      }
+      describeServer(url);
+    });
+
+    this.attachInteractiveHandler(serverApply, 'Apply Ollama Server URL', async () => {
+      const result = await applyOllamaBaseUrlChange(serverInput.value);
+      if (result.ok) {
+        serverInput.value = result.isDefault ? '' : result.url;
+        describeServer(result.url);
+        await checkOllama();
+      } else if (result.reason === 'permission') {
+        serverStatus.textContent =
+          'AssisT needs your permission to reach that server — Apply again and choose Allow.';
+      } else {
+        serverStatus.textContent =
+          'That doesn’t look like a server address — try host:port, e.g. 192.168.1.50:11434.';
+      }
+    });
 
     // ── Get more models ────────────────────────────────────────────────────────
     const catalogDetails = document.createElement('details');
@@ -10683,8 +9560,9 @@ class PopupController {
       catalogBody.dataset.built = '1';
 
       const ramGB = navigator.deviceMemory || 4;
-      const installSet = new Set(lastDetectedModels.map(m => m.toLowerCase().split(':')[0]));
-      const compatible = getCompatibleModels(ramGB);
+      // The popup does not measure graphics memory, so the large model shows here only once
+      // installed; the AI setup page offers it where the memory is known.
+      const compatible = getCompatibleModels(ramGB, { installed: lastDetectedModels });
 
       if (compatible.length === 0) {
         const msg = document.createElement('p');
@@ -10695,8 +9573,7 @@ class PopupController {
       }
 
       compatible.forEach(model => {
-        const baseName = model.name.split(':')[0];
-        const isInstalled = installSet.has(baseName) || installSet.has(model.name.toLowerCase());
+        const isInstalled = isCatalogModelInstalled(model, lastDetectedModels);
 
         const row = document.createElement('div');
         row.className = 'ollama-popup-model-row';
@@ -10829,613 +9706,7 @@ class PopupController {
   /**
    * Update AI mode (show/hide containers, update badge, notify background)
    */
-  updateAIMode(mode) {
-    const localAIContainer = document.getElementById('local-ai-container');
-    const cloudAIContainer = document.getElementById('cloud-ai-container');
-    const geminiAIContainer = document.getElementById('gemini-ai-container');
-    const webllmAIContainer = document.getElementById('webllm-ai-container');
-    const llmStatusBadge = document.getElementById('llm-status-badge');
-    const cloudUsageStats = document.getElementById('cloud-usage-stats');
 
-    // Hide all containers first
-    localAIContainer?.classList.add('hidden');
-    cloudAIContainer?.classList.add('hidden');
-    geminiAIContainer?.classList.add('hidden');
-    webllmAIContainer?.classList.add('hidden');
-
-    // Show appropriate container and update badge
-    switch (mode) {
-      case 'local':
-        localAIContainer?.classList.remove('hidden');
-        llmStatusBadge.textContent = 'Checking...';
-        llmStatusBadge.className = 'llm-badge';
-        this.checkLLMStatus();
-
-        // Update legacy settings for compatibility
-        this.settings.localLLM.enabled = true;
-        this.saveSettings();
-
-        // Notify content scripts
-        chrome.runtime
-          .sendMessage({
-            action: 'LOCAL_LLM_MODE_CHANGED',
-            enabled: true,
-          })
-          .catch(() => {});
-
-        chrome.storage.local.set({
-          llmEnabled: true,
-          cloudModeEnabled: false,
-          geminiEnabled: false,
-        });
-
-        this.updateStatus('Local AI enabled', 'success');
-        break;
-
-      case 'cloud':
-        cloudAIContainer?.classList.remove('hidden');
-        llmStatusBadge.textContent = 'Cloud';
-        llmStatusBadge.className = 'llm-badge online';
-
-        // Update legacy settings for compatibility
-        this.settings.localLLM.enabled = false;
-        this.saveSettings();
-
-        // Notify content scripts
-        chrome.runtime
-          .sendMessage({
-            action: 'CLOUD_MODE_CHANGED',
-            enabled: true,
-          })
-          .catch(() => {});
-
-        chrome.storage.local.set({
-          llmEnabled: false,
-          cloudModeEnabled: true,
-          geminiEnabled: false,
-        });
-
-        this.updateStatus('Cloud AI enabled', 'success');
-        break;
-
-      case 'gemini':
-        geminiAIContainer?.classList.remove('hidden');
-        llmStatusBadge.textContent = 'Gemini';
-        llmStatusBadge.className = 'llm-badge';
-        this.checkGeminiStatus();
-
-        // Update legacy settings for compatibility
-        this.settings.localLLM.enabled = false;
-        this.saveSettings();
-
-        // Notify content scripts
-        chrome.runtime
-          .sendMessage({
-            action: 'GEMINI_MODE_CHANGED',
-            enabled: true,
-          })
-          .catch(() => {});
-
-        chrome.storage.local.set({
-          llmEnabled: false,
-          cloudModeEnabled: false,
-          geminiEnabled: true,
-        });
-
-        this.updateStatus('Gemini Nano enabled', 'success');
-        break;
-
-      case 'webllm':
-        webllmAIContainer?.classList.remove('hidden');
-        llmStatusBadge.textContent = 'Browser AI';
-        llmStatusBadge.className = 'llm-badge';
-        this.checkWebLLMStatus();
-        this.loadWebLLMModels();
-
-        // Update legacy settings for compatibility
-        this.settings.localLLM.enabled = false;
-        this.saveSettings();
-
-        // Notify content scripts
-        chrome.runtime
-          .sendMessage({
-            action: 'WEBLLM_MODE_CHANGED',
-            enabled: true,
-          })
-          .catch(() => {});
-
-        chrome.storage.local.set({
-          llmEnabled: false,
-          cloudModeEnabled: false,
-          geminiEnabled: false,
-          webllmEnabled: true,
-        });
-
-        this.updateStatus('Browser AI enabled', 'success');
-        break;
-
-      case 'off':
-      default:
-        llmStatusBadge.textContent = 'Off';
-        llmStatusBadge.className = 'llm-badge offline';
-
-        // Hide cloud usage stats
-        if (cloudUsageStats) {
-          cloudUsageStats.style.display = 'none';
-        }
-
-        // Update legacy settings for compatibility
-        this.settings.localLLM.enabled = false;
-        this.saveSettings();
-
-        // Notify content scripts
-        chrome.runtime
-          .sendMessage({
-            action: 'LOCAL_LLM_MODE_CHANGED',
-            enabled: false,
-          })
-          .catch(() => {});
-
-        chrome.runtime
-          .sendMessage({
-            action: 'CLOUD_MODE_CHANGED',
-            enabled: false,
-          })
-          .catch(() => {});
-
-        chrome.storage.local.set({
-          llmEnabled: false,
-          cloudModeEnabled: false,
-          geminiEnabled: false,
-        });
-
-        this.updateStatus('AI Assist disabled', 'success');
-        break;
-    }
-  }
-
-  async checkLLMStatus() {
-    const llmStatusBadge = document.getElementById('llm-status-badge');
-    const llmConnectionStatus = document.getElementById('llm-connection-status');
-    const llmModelsRow = document.getElementById('llm-models-row');
-    const llmInstalledModels = document.getElementById('llm-installed-models');
-
-    // Legacy UI elements - only update if they exist
-    if (llmConnectionStatus) {
-      llmConnectionStatus.textContent = 'Checking...';
-      llmConnectionStatus.className = 'llm-status-value';
-    }
-
-    try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'LOCAL_LLM_CHECK',
-      });
-
-      if (response.success && response.available) {
-        // Update badge (always exists in new UI)
-        if (llmStatusBadge) {
-          llmStatusBadge.textContent = 'Online';
-          llmStatusBadge.className = 'llm-badge online';
-        }
-
-        // Legacy UI elements
-        if (llmConnectionStatus) {
-          llmConnectionStatus.textContent = 'Connected to Ollama';
-          llmConnectionStatus.className = 'llm-status-value connected';
-        }
-
-        // Show models (legacy UI)
-        this.installedModels = response.models || [];
-        if (this.installedModels.length > 0) {
-          if (llmModelsRow) {
-            llmModelsRow.style.display = 'flex';
-          }
-          if (llmInstalledModels) {
-            llmInstalledModels.textContent = this.installedModels.join(', ');
-          }
-          this.updateModelList();
-        } else {
-          if (llmModelsRow) {
-            llmModelsRow.style.display = 'none';
-          }
-        }
-      } else {
-        // Ollama not available
-        if (llmStatusBadge) {
-          llmStatusBadge.textContent = 'Offline';
-          llmStatusBadge.className = 'llm-badge offline';
-        }
-        if (llmConnectionStatus) {
-          llmConnectionStatus.textContent = 'Not connected - Start Ollama';
-          llmConnectionStatus.className = 'llm-status-value disconnected';
-        }
-        if (llmModelsRow) {
-          llmModelsRow.style.display = 'none';
-        }
-      }
-    } catch (error) {
-      console.error('[Popup] LLM check failed:', error);
-      // Update badge to show error
-      if (llmStatusBadge) {
-        llmStatusBadge.textContent = 'Error';
-        llmStatusBadge.className = 'llm-badge error';
-      }
-      if (llmConnectionStatus) {
-        llmConnectionStatus.textContent = 'Connection error';
-        llmConnectionStatus.className = 'llm-status-value disconnected';
-      }
-      if (llmModelsRow) {
-        llmModelsRow.style.display = 'none';
-      }
-    }
-  }
-
-  /**
-   * Check Gemini Nano availability status
-   */
-  async checkGeminiStatus() {
-    const badge = document.getElementById('gemini-status-badge');
-    const instructions = document.getElementById('gemini-setup-instructions');
-
-    if (!badge) {
-      console.warn('[Popup] Gemini status badge not found');
-      return;
-    }
-
-    try {
-      const response = await chrome.runtime.sendMessage({ action: 'GEMINI_LLM_CHECK' });
-
-      if (response?.available) {
-        badge.textContent = 'Ready';
-        badge.className = 'llm-badge online';
-        instructions?.classList.add('hidden');
-      } else {
-        badge.textContent = 'Not Available';
-        badge.className = 'llm-badge offline';
-        instructions?.classList.remove('hidden');
-      }
-    } catch (error) {
-      console.error('[Popup] Gemini check failed:', error);
-      badge.textContent = 'Error';
-      badge.className = 'llm-badge error';
-    }
-  }
-
-  /**
-   * Check WebLLM/WebGPU availability and update UI
-   */
-  async checkWebLLMStatus() {
-    const statusCard = document.getElementById('webllm-status');
-    const statusText = statusCard?.querySelector('.status-text');
-    const hardwareInfo = document.getElementById('webllm-hardware-info');
-    const gpuName = document.getElementById('webllm-gpu-name');
-    const engineStatus = document.getElementById('webllm-engine-status');
-    const fallbackMessage = document.getElementById('webllm-fallback');
-    const fallbackText = document.getElementById('webllm-fallback-text');
-    const modelSelection = document.getElementById('webllm-model-selection');
-
-    if (!statusCard) {
-      return;
-    }
-
-    // Show checking state
-    statusCard.className = 'webllm-status-card status-loading';
-    if (statusText) {
-      statusText.textContent = 'Checking WebGPU...';
-    }
-
-    try {
-      // Check WebLLM availability via service worker
-      const response = await chrome.runtime.sendMessage({
-        action: 'WEBLLM_CHECK',
-      });
-
-      if (response.success && response.available) {
-        // WebGPU is available
-        statusCard.className = 'webllm-status-card status-ready';
-        if (statusText) {
-          statusText.textContent = 'WebGPU Available';
-        }
-
-        // Show hardware info
-        if (hardwareInfo) {
-          hardwareInfo.style.display = 'block';
-          if (gpuName && response.gpu) {
-            gpuName.textContent = response.gpu;
-          }
-        }
-
-        // Hide fallback, show model list
-        if (fallbackMessage) {
-          fallbackMessage.style.display = 'none';
-        }
-        if (modelSelection) {
-          modelSelection.style.display = 'block';
-        }
-
-        // Check if engine is initialized
-        const statusResponse = await chrome.runtime.sendMessage({
-          action: 'WEBLLM_STATUS',
-        });
-
-        if (statusResponse.success && statusResponse.status) {
-          const { ready, loading, model } = statusResponse.status;
-
-          if (engineStatus) {
-            if (ready) {
-              engineStatus.textContent = `Ready (${model})`;
-            } else if (loading) {
-              engineStatus.textContent = 'Loading model...';
-            } else {
-              engineStatus.textContent = 'Not initialized';
-            }
-          }
-        }
-      } else {
-        // WebGPU not available
-        statusCard.className = 'webllm-status-card status-error';
-        if (statusText) {
-          statusText.textContent = 'WebGPU Not Available';
-        }
-
-        // Hide hardware info and model list
-        if (hardwareInfo) {
-          hardwareInfo.style.display = 'none';
-        }
-        if (modelSelection) {
-          modelSelection.style.display = 'none';
-        }
-
-        // Show fallback message
-        if (fallbackMessage) {
-          fallbackMessage.style.display = 'block';
-          if (fallbackText && response.error) {
-            fallbackText.textContent = response.error;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[Popup] WebLLM status check failed:', error);
-      statusCard.className = 'webllm-status-card status-error';
-      if (statusText) {
-        statusText.textContent = 'Status Check Failed';
-      }
-    }
-  }
-
-  /**
-   * Load and render available WebLLM models
-   */
-  async loadWebLLMModels() {
-    const modelListContainer = document.getElementById('webllm-model-list');
-    if (!modelListContainer) {
-      return;
-    }
-
-    try {
-      // Get available models from service worker
-      const response = await chrome.runtime.sendMessage({
-        action: 'WEBLLM_GET_MODELS',
-      });
-
-      if (!response.success || !response.models) {
-        throw new Error('Failed to fetch models');
-      }
-
-      // Get cached models
-      const cacheResponse = await chrome.runtime.sendMessage({
-        action: 'WEBLLM_GET_CACHED',
-      });
-      const cachedModelKeys = new Set(cacheResponse.success ? cacheResponse.cachedModels : []);
-
-      // Get currently selected model from storage
-      const { webllmModel } = await chrome.storage.local.get(['webllmModel']);
-      const selectedModel = webllmModel || 'llama-3.2-1b';
-
-      // Group models by category
-      const categories = {
-        lightweight: [],
-        balanced: [],
-        'high-quality': [],
-      };
-
-      response.models.forEach(model => {
-        const category = model.category || 'balanced';
-        if (categories[category]) {
-          categories[category].push(model);
-        }
-      });
-
-      // Render model cards grouped by category
-      modelListContainer.innerHTML = '';
-
-      Object.entries(categories).forEach(([category, models]) => {
-        if (models.length === 0) {
-          return;
-        }
-
-        // Category header
-        const categoryHeader = document.createElement('div');
-        categoryHeader.className = 'webllm-category-header';
-        categoryHeader.textContent =
-          category === 'lightweight'
-            ? 'Lightweight (< 1GB)'
-            : category === 'balanced'
-              ? 'Balanced (1-3GB)'
-              : 'High-Quality (4-6GB)';
-        modelListContainer.appendChild(categoryHeader);
-
-        models.forEach(model => {
-          const card = document.createElement('div');
-          card.className = 'webllm-model-card';
-          card.dataset.modelKey = model.key;
-
-          if (model.key === selectedModel) {
-            card.classList.add('selected');
-          }
-
-          const isCached = cachedModelKeys.has(model.key);
-          const cacheBadge = isCached ? '<span class="model-cache-badge">✓ Downloaded</span>' : '';
-
-          card.innerHTML = `
-            <div class="model-card-header">
-              <span class="model-card-name">${model.name}</span>
-              <span class="model-card-size">${model.size}</span>
-            </div>
-            <div class="model-card-description">${model.description}</div>
-            <div class="model-card-footer">
-              <div class="model-card-tags">
-                ${model.bestFor
-                  .slice(0, 3)
-                  .map(tag => `<span class="model-tag">${tag}</span>`)
-                  .join('')}
-              </div>
-              ${cacheBadge}
-            </div>
-          `;
-
-          // Click to select and initialize
-          this.attachInteractiveHandler(card, `WebLLM Model: ${model.name}`, () => {
-            this.selectWebLLMModel(model.key);
-          });
-
-          modelListContainer.appendChild(card);
-        });
-      });
-    } catch (error) {
-      console.error('[Popup] Failed to load WebLLM models:', error);
-      modelListContainer.innerHTML = `
-        <div class="error-message" style="padding: 16px; text-align: center; color: var(--error-color);">
-          Failed to load models. Please try again.
-        </div>
-      `;
-    }
-  }
-
-  /**
-   * Select and initialize a WebLLM model
-   * @param {string} modelKey - Model key to initialize
-   */
-  async selectWebLLMModel(modelKey) {
-    console.log('[Popup] Selecting WebLLM model:', modelKey);
-
-    // Update selection UI
-    document.querySelectorAll('.webllm-model-card').forEach(card => {
-      if (card.dataset.modelKey === modelKey) {
-        card.classList.add('selected');
-      } else {
-        card.classList.remove('selected');
-      }
-    });
-
-    // Save to storage
-    await chrome.storage.local.set({ webllmModel: modelKey });
-
-    // Show download progress UI
-    const progressContainer = document.getElementById('webllm-download-progress');
-    const downloadModelName = document.getElementById('download-model-name');
-    const downloadPercent = document.getElementById('download-percent');
-    const downloadBarFill = document.getElementById('download-bar-fill');
-    const downloadStatusText = document.getElementById('download-status-text');
-
-    if (progressContainer) {
-      progressContainer.style.display = 'block';
-    }
-    if (downloadModelName) {
-      const modelCard = document.querySelector(`.webllm-model-card[data-model-key="${modelKey}"]`);
-      const modelName = modelCard?.querySelector('.model-card-name')?.textContent || modelKey;
-      downloadModelName.textContent = modelName;
-    }
-
-    // Set up progress listener
-    const progressListener = message => {
-      if (message.action === 'WEBLLM_PROGRESS' && message.modelKey === modelKey) {
-        const { progress } = message;
-
-        if (downloadPercent) {
-          downloadPercent.textContent = `${progress.percent}%`;
-        }
-        if (downloadBarFill) {
-          downloadBarFill.style.width = `${progress.percent}%`;
-        }
-        if (downloadStatusText) {
-          downloadStatusText.textContent = progress.status;
-        }
-      }
-    };
-
-    chrome.runtime.onMessage.addListener(progressListener);
-
-    try {
-      // Initialize model via service worker
-      const response = await chrome.runtime.sendMessage({
-        action: 'WEBLLM_INITIALIZE',
-        modelKey,
-      });
-
-      // Remove progress listener
-      chrome.runtime.onMessage.removeListener(progressListener);
-
-      if (response.success) {
-        console.log('[Popup] Model initialized:', modelKey);
-
-        // Hide progress, update status
-        if (progressContainer) {
-          progressContainer.style.display = 'none';
-        }
-
-        // Update engine status
-        await this.checkWebLLMStatus();
-
-        // Show success
-        this.updateStatus(`${modelKey} ready to use!`, 'success');
-      } else {
-        throw new Error(response.error || 'Initialization failed');
-      }
-    } catch (error) {
-      console.error('[Popup] Model initialization failed:', error);
-
-      // Remove progress listener
-      chrome.runtime.onMessage.removeListener(progressListener);
-
-      // Hide progress
-      if (progressContainer) {
-        progressContainer.style.display = 'none';
-      }
-
-      // Show error
-      this.updateStatus(`Failed to load model: ${error.message}`, 'error');
-    }
-  }
-
-  updateModelList() {
-    // Update install buttons based on installed models
-    document.querySelectorAll('.llm-install-btn').forEach(btn => {
-      const modelName = btn.dataset.model;
-      const isInstalled = this.installedModels.some(
-        m => m === modelName || m.startsWith(modelName.split(':')[0])
-      );
-      if (isInstalled && !btn.classList.contains('installing')) {
-        btn.classList.add('installed');
-        btn.textContent = 'Installed';
-      }
-    });
-
-    // Update installed models display
-    const llmInstalledModels = document.getElementById('llm-installed-models');
-    if (llmInstalledModels && this.installedModels.length > 0) {
-      llmInstalledModels.textContent = this.installedModels.slice(0, 3).join(', ');
-      if (this.installedModels.length > 3) {
-        llmInstalledModels.textContent += ` +${this.installedModels.length - 3} more`;
-      }
-    }
-  }
-
-  /**
-   * Set up Dark Mode controls
-   * REMOVED - Web page dark mode feature removed
-   * Extension UI dark mode button (in header) remains functional
-   */
   setupDarkMode() {
     // No-op: Dark mode feature removed
     console.log('[Popup] Dark mode feature removed - skipping setup');
@@ -11457,8 +9728,27 @@ window.addEventListener('error', event => {
 });
 
 // Initialize popup when DOM is ready
+/**
+ * Holds a student's click while the popup is still starting. Setup paints every control from
+ * storage and only then attaches its listener, so a click in that window flipped a switch that the
+ * paint then put back, with nothing yet listening to save it: the choice looked taken and was
+ * silently undone. Only trusted input is held; Flat drives hidden controls with programmatic
+ * clicks, which must still arrive.
+ *
+ * @param {Event} event
+ */
+function holdClickWhileStarting(event) {
+  if (event.isTrusted) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[Popup] DOMContentLoaded fired');
+  const container = document.querySelector('.popup-container');
+  container?.setAttribute('aria-busy', 'true');
+  container?.addEventListener('click', holdClickWhileStarting, true);
   try {
     const popup = new PopupController();
     console.log('[Popup] PopupController created');
@@ -11474,5 +9764,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusIndicator.textContent = 'Initialization Error - See Console (F12)';
       statusIndicator.className = 'status-indicator error';
     }
+  } finally {
+    // Released on failure too, so a Retry offered by the failure banner can be pressed.
+    container?.removeEventListener('click', holdClickWhileStarting, true);
+    container?.removeAttribute('aria-busy');
+    // Transitions come back only after the saved state has been painted, so nothing animates into
+    // place under a student's pointer; ready is declared once they are back.
+    requestAnimationFrame(() => {
+      document.documentElement.classList.remove('assist-starting');
+      document.documentElement.dataset.popupReady = 'true';
+    });
   }
 });

@@ -10,6 +10,15 @@
   --brand-black: #000000;
   --brand-white: #ffffff;
   --brand-accent: #f36f21;
+  /*
+   * The accent as TEXT, and as a focus ring. Ten rules used to name a --brand-orange that this
+   * page never defined, so each of them was dropped by the browser: the "Due" badge lost its
+   * background and came out white on the page's own grey at 1.09:1, and :focus-visible lost its
+   * outline altogether. The accent orange itself only reaches 2.7:1 on white, so text and the ring
+   * take this darker shade (7.6:1 on white, 7:1 on the page ground) and the orange stays for
+   * fills and decorative borders.
+   */
+  --brand-accent-text: #8f3a00;
   --brand-gray-dark: #333333;
   --brand-gray: #666666;
   --brand-gray-light: #e5e5e5;
@@ -55,7 +64,7 @@ body {
 
 /* Focus Styles */
 :focus-visible {
-  outline: 3px solid var(--brand-orange);
+  outline: 3px solid var(--brand-accent-text);
   outline-offset: 2px;
 }
 
@@ -154,7 +163,7 @@ body {
 
 .nav-link:hover,
 .nav-link.active {
-  border-color: var(--brand-orange);
+  border-color: var(--brand-accent);
 }
 
 /* ============================================
@@ -185,7 +194,7 @@ body {
 }
 
 .breadcrumb a:hover {
-  color: var(--brand-orange);
+  color: var(--brand-accent-text);
   text-decoration: underline;
 }
 
@@ -224,8 +233,8 @@ body {
 }
 
 .info-badge.deadline {
-  background: var(--brand-orange);
-  color: var(--brand-white);
+  background: var(--brand-accent);
+  color: var(--brand-black);
 }
 
 /* Assignment Brief */
@@ -281,7 +290,7 @@ body {
   padding: var(--space-md);
   background: var(--brand-bg);
   margin-bottom: var(--space-sm);
-  border-left: 3px solid var(--brand-orange);
+  border-left: 3px solid var(--brand-accent);
 }
 
 /* Requirements Grid */
@@ -350,7 +359,7 @@ body {
 .reference-example blockquote {
   margin: var(--space-sm) 0 var(--space-lg);
   padding-left: var(--space-md);
-  border-left: 3px solid var(--brand-orange);
+  border-left: 3px solid var(--brand-accent);
   font-style: italic;
   color: var(--brand-gray-dark);
 }
@@ -406,7 +415,7 @@ body {
 
 .support-link {
   display: inline-block;
-  color: var(--brand-orange);
+  color: var(--brand-accent-text);
   text-decoration: none;
   font-weight: 500;
 }
@@ -436,7 +445,7 @@ body {
   font-weight: 700;
   margin-bottom: var(--space-md);
   padding-bottom: var(--space-sm);
-  border-bottom: 2px solid var(--brand-orange);
+  border-bottom: 2px solid var(--brand-accent);
 }
 
 .sidebar-links {
@@ -454,7 +463,7 @@ body {
 }
 
 .sidebar-links a:hover {
-  color: var(--brand-orange);
+  color: var(--brand-accent-text);
 }
 
 .dates-list {
@@ -475,7 +484,7 @@ body {
 
 .dates-list .date {
   font-weight: 600;
-  color: var(--brand-orange);
+  color: var(--brand-accent-text);
   min-width: 60px;
 }
 

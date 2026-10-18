@@ -174,11 +174,17 @@ const DEFAULT_SETTINGS = {
 function applySettings(settings, isInit = false) {
   const wasEnabled = reducedMotion_enabled;
 
-  // If respectSystemPreference is enabled and system prefers reduced motion, auto-enable
-  let shouldEnable = settings.enabled || false;
-  if (settings.respectSystemPreference && reducedMotion_systemPreference()) {
-    shouldEnable = true;
-  }
+  // The student's own choice always counts. "Follow System Setting" can only ADD to it: if their
+  // computer asks for less motion, AssisT honours that even when they never switched this on. It can
+  // never take their choice away.
+  //
+  // Both of the other readings were tried and both hurt somebody. Forcing the system value over the
+  // student's choice left the switch unable to turn anything off. Letting the system decide in both
+  // directions silently switched reduced motion OFF, on upgrade, for a student who had deliberately
+  // switched it on. A setting a student chose is not something to overrule.
+  const chosen = settings.enabled || false;
+  const systemAsks = settings.respectSystemPreference ? reducedMotion_systemPreference() : false;
+  const shouldEnable = chosen || systemAsks;
 
   // Handle enable/disable
   if (shouldEnable && !wasEnabled) {

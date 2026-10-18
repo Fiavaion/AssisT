@@ -38,12 +38,15 @@ export async function checkPromptAPIAvailability() {
 
 /**
  * @param {string} prompt
- * @param {{ maxTokens?: number, temperature?: number, systemPrompt?: string }} [options]
+ * `maxTokens` is accepted by the router's shared option shape but has no equivalent on the
+ * Chrome Prompt API session, so it is not destructured here.
+ *
+ * @param {{ temperature?: number, systemPrompt?: string }} [options]
  * @returns {Promise<{ text: string, usage: null }>}
  */
-export async function promptAPIGenerate(prompt, { maxTokens, temperature, systemPrompt } = {}) {
+export async function promptAPIGenerate(prompt, { temperature, systemPrompt } = {}) {
   const api = window.ai ?? window.LanguageModel;
-  if (!api) throw new Error('Chrome Prompt API not available');
+  if (!api) {throw new Error('Chrome Prompt API not available');}
 
   const session = await api.createTextSession?.({
     systemPrompt,

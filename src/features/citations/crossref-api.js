@@ -1,55 +1,57 @@
 /**
- * CrossRef API Integration for DOI Metadata Enrichment
+ * CrossRef metadata for a DOI.
  *
- * CrossRef is a free API that provides metadata for academic publications via DOI lookup.
- * No API key required for basic usage (50 requests/second limit).
- *
- * API Documentation: https://api.crossref.org
- * Best Practice: Include mailto in User-Agent for higher rate limits
- *
- * Zero-Barrier Accessibility: Completely free, no signup required
+ * CrossRef is a free service that holds the publisher's own record for academic publications.
+ * The lookup is made by the service worker once the student has allowed CrossRef (ADR 0006); this
+ * module asks for it and turns the record into citation metadata.
  */
 
 import { normalizeType } from './citation-types.js';
+import { todayLocal } from './citation-model.js';
+import { requestThirdParty } from '../../utils/third-party-client.js';
+import { cleanDOI, isValidDOI } from '../../utils/doi.js';
 
-const CROSSREF_API_BASE = 'https://api.crossref.org/works/';
-const USER_AGENT = 'AssisT-Extension/0.1.0 (mailto:noreply@example.com)';
+export { isValidDOI };
 
 /**
- * Fetch metadata from CrossRef API using DOI
- * @param {string} doi - Digital Object Identifier (e.g., "10.1000/xyz123")
- * @returns {Promise<Object|null>} - Enriched metadata or null if not found
+ * Look up a DOI and say what happened.
+ *
+ * @param {string} doi - a DOI, with or without a doi.org link prefix
+ * @param {Object} [options]
+ * @param {boolean} [options.ask=true] - false for a lookup the student did not start, which must
+ *   never open the consent panel
+ * @returns {Promise<{status: 'found'|'not-found'|'declined'|'invalid'|'failed', metadata: Object|null}>}
  */
-export async function fetchDOIMetadata(doi) {
-  if (!doi) {
-    return null;
+export async function lookUpDOI(doi, { ask = true } = {}) {
+  if (!isValidDOI(doi)) {
+    return { status: 'invalid', metadata: null };
   }
+  const clean = cleanDOI(doi);
+  const reply = await requestThirdParty('citations', { doi: clean }, { ask, detail: clean });
 
-  // Clean DOI (remove URL prefix if present)
-  const cleanDOI = doi.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, '');
-
-  try {
-    const response = await fetch(`${CROSSREF_API_BASE}${encodeURIComponent(cleanDOI)}`, {
-      headers: {
-        'User-Agent': USER_AGENT,
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.warn(`[CrossRef] DOI not found: ${cleanDOI}`);
-        return null;
-      }
-      throw new Error(`CrossRef API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return parseCrossRefResponse(data);
-  } catch (error) {
-    console.error('[CrossRef] API request failed:', error);
-    return null;
+  if (reply.success) {
+    return { status: 'found', metadata: parseCrossRefResponse({ message: reply.data.work }) };
   }
+  // A host Chrome does not hold is no consent (ADR 0009); it only arrives here with ask: false.
+  if (['consent-declined', 'consent-unasked', 'permission-missing'].includes(reply.code)) {
+    return { status: 'declined', metadata: null };
+  }
+  if (reply.code === 'not-found') {
+    return { status: 'not-found', metadata: null };
+  }
+  console.error('[CrossRef] Lookup failed:', reply.code, reply.error);
+  return { status: 'failed', metadata: null };
+}
+
+/**
+ * Metadata from CrossRef for a DOI, or null when there is none to be had (not found, not allowed,
+ * or the lookup failed).
+ * @param {string} doi - Digital Object Identifier (e.g., "10.1000/xyz123")
+ * @param {{ask?: boolean}} [options] - see lookUpDOI
+ * @returns {Promise<Object|null>}
+ */
+export async function fetchDOIMetadata(doi, options) {
+  return (await lookUpDOI(doi, options)).metadata;
 }
 
 /**
@@ -81,6 +83,9 @@ function parseCrossRefResponse(data) {
       volume: message.volume || '',
       issue: message.issue || '',
       pages: message.page || '',
+      // Provenance the UI can trust: these details are the publisher's own record, not a guess
+      // scraped off a page. The wizard's verification lock reads this and nothing else.
+      verified: { source: 'crossref', at: new Date().toISOString() },
     },
     issn: message.ISSN?.[0] || '',
     isbn: message.ISBN?.[0] || '',
@@ -101,6 +106,13 @@ function parseCrossRefResponse(data) {
         return '';
       })
       .filter(name => name.length > 0);
+    // CrossRef gives an organisation as `name` alone, where a person has family and given names.
+    const organisations = message.author
+      .filter(author => author.name && !author.family)
+      .map(author => author.name);
+    if (organisations.length) {
+      metadata.extra.organisationAuthors = organisations;
+    }
   }
 
   // Parse publication date (CrossRef uses date-parts array)
@@ -120,7 +132,7 @@ function parseCrossRefResponse(data) {
 
   // Fallback to access date if no publication date
   if (!metadata.publicationDate) {
-    metadata.accessDate = new Date().toISOString().split('T')[0];
+    metadata.accessDate = todayLocal();
   }
 
   return metadata;
@@ -169,8 +181,42 @@ function formatDate(year, month, day) {
 }
 
 /**
- * Enrich existing citation metadata with CrossRef data
- * Merges CrossRef data with priority given to existing data
+ * The metadata fields CrossRef itself can vouch for. A record's `extra.verified.fields` lists the
+ * subset CrossRef actually supplied on a given lookup, and the wizard locks exactly those — never a
+ * page guess wearing CrossRef's name. `type` is absent on purpose: the canonical type is the
+ * student's own categorisation (CrossRef's own is kept on `extra.subtype`).
+ */
+export const VERIFIED_FIELD_KEYS = Object.freeze([
+  'title',
+  'authors',
+  'publicationDate',
+  'url',
+  'doi',
+  'siteName',
+  'publisher',
+]);
+
+/**
+ * True when CrossRef actually returned something for a field, rather than an empty placeholder.
+ * @param {string|string[]|undefined} value
+ * @returns {boolean}
+ */
+function hasValue(value) {
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  return String(value === undefined || value === null ? '' : value).trim().length > 0;
+}
+
+/**
+ * Enrich existing citation metadata with CrossRef data.
+ *
+ * For the fields CrossRef vouches for, CrossRef's own record wins wherever it supplied a value —
+ * a page-scraped title like "Attention Is All You Need | ExampleBlog" is a guess, and stamping it
+ * "verified" would be a lie. Page values fill only the gaps CrossRef left. Everything else (the
+ * student's type choice, notes, tags) is untouched, and `extra.verified.fields` records exactly
+ * which keys came from CrossRef so the UI can claim those and no others.
+ *
  * @param {Object} existingMetadata - Current citation metadata
  * @param {string} doi - DOI to lookup
  * @returns {Promise<Object>} - Enriched metadata
@@ -181,46 +227,48 @@ export async function enrichMetadataWithDOI(existingMetadata, doi) {
     return existingMetadata;
   }
 
-  // Merge with priority: existing user data wins, EXCEPT where the page-derived value is a
-  // generic fallback — then CrossRef's richer value is used (type, container, journal fields).
-  const existingType = String(existingMetadata.type || '').toLowerCase();
-  const existingTypeIsGeneric = ['', 'website', 'webpage', 'other', 'pdf'].includes(existingType);
+  const merged = { ...crossrefData, ...existingMetadata };
 
-  return {
-    ...crossrefData,
-    ...existingMetadata,
-    // Prefer CrossRef's specific type when the page only had a generic guess.
-    type: existingTypeIsGeneric ? crossrefData.type : existingMetadata.type,
-    // Keep the user's container name if set, else CrossRef's.
-    siteName: existingMetadata.siteName || crossrefData.siteName || '',
-    // Merge journal metadata (volume/issue/pages/subtype) — existing values win per key.
-    extra: { ...(crossrefData.extra || {}), ...(existingMetadata.extra || {}) },
-    // Fill in authors when the page only found a placeholder.
-    authors:
-      existingMetadata.authors?.[0] === 'Anon.' ? crossrefData.authors : existingMetadata.authors,
-    // Always keep the DOI.
-    doi: doi,
-  };
-}
-
-/**
- * Validate DOI format
- * @param {string} doi - DOI string
- * @returns {boolean} - True if valid DOI format
- */
-export function isValidDOI(doi) {
-  if (!doi) {
-    return false;
+  // CrossRef wins per verified key when it has one; the page fills the rest.
+  const fields = [];
+  for (const key of VERIFIED_FIELD_KEYS) {
+    if (hasValue(crossrefData[key])) {
+      merged[key] = crossrefData[key];
+      fields.push(key);
+    }
   }
 
-  // DOI format: 10.{4+ digits}/{suffix}
-  const doiRegex = /^10\.\d{4,9}\/[-._;()/:A-Z0-9]+$/i;
-  const cleanDOI = doi.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, '');
+  // Prefer CrossRef's specific type when the page only had a generic guess.
+  const existingType = String(existingMetadata.type || '').toLowerCase();
+  const existingTypeIsGeneric = ['', 'website', 'webpage', 'other', 'pdf'].includes(existingType);
+  merged.type = existingTypeIsGeneric ? crossrefData.type : existingMetadata.type;
 
-  return doiRegex.test(cleanDOI);
+  // Journal metadata (volume/issue/pages/subtype) merges per key with existing values winning,
+  // except the provenance mark: this lookup just happened, so a stale mark on the incoming record
+  // must not outlive it.
+  merged.extra = {
+    ...(crossrefData.extra || {}),
+    ...(existingMetadata.extra || {}),
+    verified: { ...(crossrefData.extra?.verified || {}), fields },
+  };
+  // Which authors are organisations goes with the authors: when CrossRef's list replaced the
+  // page's, the page's say on it describes names that are no longer there.
+  if (fields.includes('authors')) {
+    if (crossrefData.extra?.organisationAuthors) {
+      merged.extra.organisationAuthors = crossrefData.extra.organisationAuthors;
+    } else {
+      delete merged.extra.organisationAuthors;
+    }
+  }
+
+  // Always keep the DOI that was looked up, even if the record itself omitted one.
+  merged.doi = merged.doi || doi;
+
+  return merged;
 }
 
 export default {
+  lookUpDOI,
   fetchDOIMetadata,
   enrichMetadataWithDOI,
   isValidDOI,

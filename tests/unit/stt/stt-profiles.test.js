@@ -22,7 +22,7 @@ import {
 // Mock chrome.storage for testing
 const mockStorage = {
   local: {
-    get: jest.fn().mockImplementation(keys => {
+    get: jest.fn().mockImplementation(_keys => {
       return Promise.resolve({});
     }),
     set: jest.fn().mockResolvedValue(undefined),

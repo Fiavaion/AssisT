@@ -10,7 +10,7 @@
  * Extraction status (May 2026): availability checks and routing logic are
  * complete; WebLLM engine lifecycle (model download, initialisation) is
  * retained in AssisT's service worker and will be extracted in the full
- * NLnet-funded library release.
+ * library release.
  *
  * @module local-ai-router/router
  */
@@ -120,7 +120,7 @@ export class LocalAIRouter {
 
     for (const mode of DEGRADATION_ORDER) {
       const avail = await this._checkMode(mode);
-      if (avail.available) return mode;
+      if (avail.available) {return mode;}
     }
     return null;
   }

@@ -23,17 +23,28 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
+import { getProfileAddendum } from '../companion/profile-addendum.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
+import { Z } from '../../utils/z-index.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
 let breakdown_panel = null;
+let breakdown_releaseFocus = null;
+let breakdown_returnFocus = null;
+let breakdown_requestId = 0;
 let breakdown_isLoading = false;
 let breakdown_currentText = '';
 let breakdown_currentResult = null;
@@ -94,46 +105,31 @@ RULES:
 - Start response with { end with }`;
 
   try {
-    const aiResult = await generateWithAI(prompt, modeInfo, {
-      maxTokens,
-      temperature: 0.2,
-      feature: 'assignmentBreakdown',
-    });
+    const profileAddendum = await getProfileAddendum();
+    const aiResult = await generateWithAI(
+      profileAddendum ? `${profileAddendum.trim()}\n\n${prompt}` : prompt,
+      modeInfo,
+      {
+        maxTokens,
+        temperature: 0.2,
+        feature: 'assignmentBreakdown',
+        // Constrains a local decoder to JSON and has the shared client do the parsing. The fence
+        // stripping, brace slicing and trailing-comma repair that lived here were a copy of what
+        // the client already does, minus the cases it handles that this did not.
+        format: 'json',
+      }
+    );
 
     if (aiResult && aiResult.text) {
-      // Try to parse JSON from response
       try {
-        let jsonStr = aiResult.text.trim();
-
-        // Remove markdown code blocks (various formats)
-        jsonStr = jsonStr
-          .replace(/```json\s*/gi, '')
-          .replace(/```JSON\s*/g, '')
-          .replace(/```\s*/g, '')
-          .replace(/^\s*json\s*/i, ''); // Remove leading "json" if present
-
-        // Try to extract JSON object from the string
-        // Find the first { and last } to extract the JSON
-        const firstBrace = jsonStr.indexOf('{');
-        const lastBrace = jsonStr.lastIndexOf('}');
-
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+        const parsed = aiResult.json;
+        if (!parsed) {
+          throw new Error('No JSON object in the reply');
         }
 
-        // Clean up common JSON issues
-        jsonStr = jsonStr
-          .trim()
-          .replace(/,\s*}/g, '}') // Remove trailing commas before }
-          .replace(/,\s*]/g, ']'); // Remove trailing commas before ]
-
-        console.log('[AssignmentBreakdown] Parsing JSON:', jsonStr.substring(0, 200) + '...');
-
-        const parsed = JSON.parse(jsonStr);
-
         // Validate the structure has required fields
-        if (parsed && parsed.title && Array.isArray(parsed.tasks)) {
-          console.log('[AssignmentBreakdown] JSON parsed successfully:', parsed.title);
+        if (parsed.title && Array.isArray(parsed.tasks)) {
+          console.log('[AssignmentBreakdown] JSON parsed successfully');
           return { breakdown: parsed };
         } else {
           console.warn('[AssignmentBreakdown] JSON missing required fields');
@@ -141,7 +137,7 @@ RULES:
         }
       } catch (parseError) {
         console.warn('[AssignmentBreakdown] JSON parse failed:', parseError.message);
-        console.log('[AssignmentBreakdown] Raw response:', aiResult.text.substring(0, 500));
+        debugLog('[AssignmentBreakdown] Raw response:', aiResult.text);
 
         // Try to extract meaningful content from the response for a better fallback
         const rawText = aiResult.text;
@@ -165,7 +161,7 @@ RULES:
                 step: 1,
                 task: 'AI response was truncated or malformed. Click "Regenerate" to try again, or try a faster model like Haiku.',
                 timeEstimate: '-',
-                tips: 'Tip: Haiku 4.5 produces more concise, reliable results',
+                tips: 'Tip: Haiku produces more concise, reliable results',
               },
             ],
             keyRequirements: [],
@@ -443,18 +439,20 @@ async function breakdown_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-breakdown-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Assignment Breakdown');
   panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'assist-breakdown-title');
+  // Focusable so the dialog itself can hold the keyboard: `.focus()` on a plain div does nothing.
+  panel.setAttribute('tabindex', '-1');
 
   panel.innerHTML = sanitizeHTML(`
     <div class="assist-breakdown-header">
-      <span class="assist-breakdown-title">📋 Assignment Breakdown</span>
+      <span class="assist-breakdown-title" id="assist-breakdown-title">📋 Assignment Breakdown</span>
       <div class="assist-breakdown-controls">
         <button class="assist-breakdown-close" aria-label="Close" title="Close (Esc)">×</button>
       </div>
     </div>
-    <div class="assist-breakdown-status"></div>
-    <div class="assist-breakdown-content" aria-live="polite">
+    <div class="assist-breakdown-status" role="status"></div>
+    <div class="assist-breakdown-content">
       <p class="assist-breakdown-placeholder">Select assignment text and click breakdown...</p>
     </div>
     <div class="assist-breakdown-actions">
@@ -473,16 +471,16 @@ async function breakdown_createPanel() {
   breakdown_injectStyles();
 
   const closeBtn = panel.querySelector('.assist-breakdown-close');
-  attachInteractiveHandler(closeBtn, 'Assignment Breakdown Close Button', breakdown_hide);
+  attachAccessibleHandler(closeBtn, 'Assignment Breakdown Close Button', breakdown_hide);
 
   const copyBtn = panel.querySelector('.assist-breakdown-copy');
-  attachInteractiveHandler(copyBtn, 'Assignment Breakdown Copy Button', breakdown_copy);
+  attachAccessibleHandler(copyBtn, 'Assignment Breakdown Copy Button', breakdown_copy);
 
   const speakBtn = panel.querySelector('.assist-breakdown-speak');
-  attachInteractiveHandler(speakBtn, 'Assignment Breakdown Speak Button', breakdown_speak);
+  attachAccessibleHandler(speakBtn, 'Assignment Breakdown Speak Button', breakdown_speak);
 
   const regenerateBtn = panel.querySelector('.assist-breakdown-regenerate');
-  attachInteractiveHandler(regenerateBtn, 'Assignment Breakdown Regenerate Button', async () => {
+  attachAccessibleHandler(regenerateBtn, 'Assignment Breakdown Regenerate Button', async () => {
     if (breakdown_currentText) {
       breakdown_analyze(breakdown_currentText);
     }
@@ -506,14 +504,17 @@ function breakdown_injectStyles() {
       top: 80px;
       right: 20px;
       width: 450px;
-      max-width: calc(100vw - 40px);
+      /* Fits a 320px screen (SC 1.4.10): 100% of a fixed box excludes the scrollbar, which 100vw
+         includes, and border-box keeps padding and border inside the cap. */
+      box-sizing: border-box;
+      max-width: calc(100% - 40px);
       max-height: 70vh;
       background: #ffffff;
       color: #333;
       border: 1px solid #e0e0e0;
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-      z-index: 999998;
+      z-index: ${Z.MODAL};
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
       display: flex;
@@ -584,7 +585,13 @@ function breakdown_injectStyles() {
       color: #2e7d32;
     }
 
-    .assist-breakdown-status[data-assist-clickable]:hover {
+    .assist-breakdown-status [data-assist-clickable]:hover {
+      text-decoration: underline;
+    }
+
+    .assist-breakdown-status [data-assist-clickable]:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
       text-decoration: underline;
     }
 
@@ -619,6 +626,10 @@ function breakdown_injectStyles() {
       border-top-color: #FF6B6B;
       border-radius: 50%;
       animation: assist-breakdown-spin 0.8s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .assist-breakdown-spinner { animation: none; }
     }
 
     @keyframes assist-breakdown-spin {
@@ -895,17 +906,15 @@ function breakdown_injectStyles() {
       margin-left: 8px;
     }
 
-    .assist-breakdown-fallback-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: #ff9800;
-      color: white;
-      font-size: 10px;
-      font-weight: 600;
-      border-radius: 10px;
-      margin-left: 8px;
+    .assist-breakdown-fallback-note {
+      margin: 0 0 8px 0;
+      padding: 8px 10px;
+      background: #fff3e0;
+      color: #8a4b00;
+      border-left: 3px solid #ff9800;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     /* Dark mode support */
@@ -1079,7 +1088,15 @@ async function breakdown_renderResult(result, isAI, _isCloud = false, _modelName
     ? renderAIBadge(_bkBadgeInfo.mode, _bkBadgeInfo.label)
     : renderAIBadge('fallback', 'Basic');
 
-  let html = `
+  let html = isAI
+    ? ''
+    : `
+    <p class="assist-breakdown-fallback-note">
+      These steps were pulled out of the assignment text on this device, without AI.
+    </p>
+  `;
+
+  html += `
     <div class="assist-breakdown-summary">
       <div class="assist-breakdown-summary-title">${escapeHtml(result.title)} ${badge}</div>
       <div>${escapeHtml(result.summary)}</div>
@@ -1104,11 +1121,12 @@ async function breakdown_renderResult(result, isAI, _isCloud = false, _modelName
                data-task-step="${task.step}"
                role="checkbox"
                aria-checked="${isChecked}"
+               aria-labelledby="assist-breakdown-task-label-${task.step}"
                tabindex="0">
             ${isChecked ? '✓' : ''}
           </div>
           <div class="assist-breakdown-task-content">
-            <div>
+            <div id="assist-breakdown-task-label-${task.step}">
               <span class="assist-breakdown-task-step">Step ${task.step}:</span>
               <span class="assist-breakdown-task-text">${escapeHtml(task.task)}</span>
             </div>
@@ -1146,17 +1164,30 @@ async function breakdown_renderResult(result, isAI, _isCloud = false, _modelName
     `;
   }
 
+  // Every tick re-renders this area, which destroys the checkbox the student is standing on.
+  // Note which step held the keyboard so it can be handed back to the new one (SC 2.4.3).
+  const focusedStep = contentArea.contains(document.activeElement)
+    ? document.activeElement.getAttribute('data-task-step')
+    : null;
+
   contentArea.innerHTML = sanitizeHTML(html);
 
   // Attach event handlers to checkboxes (onclick is stripped by sanitizeHTML)
   contentArea.querySelectorAll('.assist-breakdown-task-checkbox').forEach(checkbox => {
     const step = parseInt(checkbox.getAttribute('data-task-step'), 10);
     if (!isNaN(step)) {
-      attachInteractiveHandler(checkbox, `Task ${step} Checkbox`, () => {
+      attachAccessibleHandler(checkbox, `Task ${step} Checkbox`, () => {
         breakdown_toggleTask(step);
       });
     }
   });
+
+  if (focusedStep) {
+    const sameStep = Array.from(
+      contentArea.querySelectorAll('.assist-breakdown-task-checkbox')
+    ).find(checkbox => checkbox.getAttribute('data-task-step') === focusedStep);
+    sameStep?.focus();
+  }
 }
 
 /**
@@ -1188,6 +1219,14 @@ async function breakdown_show(selectionRect = null) {
 
   breakdown_checkedItems.clear();
 
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  breakdown_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
+
   breakdown_panel = await breakdown_createPanel();
   document.body.appendChild(breakdown_panel);
 
@@ -1216,31 +1255,32 @@ async function breakdown_show(selectionRect = null) {
     breakdown_panel.style.right = 'auto';
   }
 
-  document.addEventListener('keydown', breakdown_handleKeydown);
-  breakdown_panel.focus();
+  breakdown_releaseFocus = trapFocus(breakdown_panel, {
+    onEscape: breakdown_hide,
+    initialFocus: breakdown_panel.querySelector('.assist-breakdown-close'),
+  });
 }
 
 /**
  * Hide the breakdown panel
  */
 function breakdown_hide() {
+  // Abandon anything in flight: its result must not paint into a panel the student has closed.
+  breakdown_requestId += 1;
+  breakdown_isLoading = false;
+
+  if (breakdown_releaseFocus) {
+    breakdown_releaseFocus();
+    breakdown_releaseFocus = null;
+  }
+
   if (breakdown_panel) {
     breakdown_panel.remove();
     breakdown_panel = null;
   }
 
-  document.removeEventListener('keydown', breakdown_handleKeydown);
-  breakdown_isLoading = false;
-}
-
-/**
- * Handle keyboard events
- * @param {KeyboardEvent} e - Keyboard event
- */
-function breakdown_handleKeydown(e) {
-  if (e.key === 'Escape') {
-    breakdown_hide();
-  }
+  returnFocusAfterDialog(breakdown_returnFocus);
+  breakdown_returnFocus = null;
 }
 
 /**
@@ -1254,6 +1294,7 @@ async function breakdown_analyze(text) {
 
   breakdown_currentText = text;
   breakdown_isLoading = true;
+  const requestId = ++breakdown_requestId;
 
   const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
   const statusBar = breakdown_panel?.querySelector('.assist-breakdown-status');
@@ -1275,6 +1316,10 @@ async function breakdown_analyze(text) {
   const modeInfo = await getAIMode('assignmentBreakdown');
   const availability = await checkAIAvailable(modeInfo);
 
+  if (requestId !== breakdown_requestId) {
+    return;
+  }
+
   try {
     let result;
     let isAI = false;
@@ -1285,7 +1330,7 @@ async function breakdown_analyze(text) {
         actionBtns?.forEach(btn => {
           btn.disabled = false;
         });
-        breakdown_showApiKeyWarning();
+        breakdown_showApiKeyWarning(availability.provider);
         return;
       }
       result = breakdown_fallback(text);
@@ -1295,6 +1340,10 @@ async function breakdown_analyze(text) {
       }
     } else {
       const response = await breakdown_generate(text, modeInfo);
+
+      if (requestId !== breakdown_requestId) {
+        return;
+      }
       result = response.breakdown;
       isAI = true;
 
@@ -1315,7 +1364,8 @@ async function breakdown_analyze(text) {
 
     if (statusBar) {
       // Check if it's a CORS error and provide helpful guidance
-      const isCorsError = error.message.includes('CORS') || error.message.includes('403');
+      const reason = getFailureMessage(error);
+      const isCorsError = reason.includes('CORS') || reason.includes('403');
       if (isCorsError) {
         statusBar.innerHTML = `
           <div style="padding: 4px 8px;">
@@ -1338,16 +1388,18 @@ async function breakdown_analyze(text) {
           </div>
         `;
       } else {
-        statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
+        statusBar.textContent = `⚠️ ${reason}`;
       }
       statusBar.className = 'assist-breakdown-status visible error';
     }
   } finally {
-    breakdown_isLoading = false;
+    if (requestId === breakdown_requestId) {
+      breakdown_isLoading = false;
 
-    actionBtns?.forEach(btn => {
-      btn.disabled = false;
-    });
+      actionBtns?.forEach(btn => {
+        btn.disabled = false;
+      });
+    }
   }
 }
 
@@ -1436,8 +1488,7 @@ function breakdown_speak() {
     const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
     window.readText(text, contentArea || document.body);
   } else {
-    const utterance = new SpeechSynthesisUtterance(text);
-    window.speechSynthesis.speak(utterance);
+    createSavedUtterance(text).then(utterance => window.speechSynthesis.speak(utterance));
   }
 }
 
@@ -1458,7 +1509,7 @@ function escapeHtml(text) {
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
-function breakdown_showApiKeyWarning() {
+function breakdown_showApiKeyWarning(provider) {
   const contentArea = breakdown_panel?.querySelector('.assist-breakdown-content');
   if (!contentArea) {
     return;
@@ -1470,7 +1521,7 @@ function breakdown_showApiKeyWarning() {
       <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
       <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="breakdown-open-settings" style="
@@ -1500,17 +1551,14 @@ function breakdown_showApiKeyWarning() {
 
   const openSettingsBtn = contentArea.querySelector('.breakdown-open-settings');
   if (openSettingsBtn) {
-    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+    attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
       chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-      alert(
-        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-      );
     });
   }
 
   const useLocalBtn = contentArea.querySelector('.breakdown-use-local');
   if (useLocalBtn) {
-    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+    attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
       await chrome.storage.local.set({ aiMode: 'local' });
       console.log('[AssignmentBreakdown] Switched to local AI mode');
       breakdown_showEmptyState();
@@ -1576,7 +1624,10 @@ function breakdown_init() {
   chrome.storage.local.get(['assignmentBreakdownSettings'], result => {
     if (result.assignmentBreakdownSettings) {
       Object.assign(breakdown_settings, result.assignmentBreakdownSettings);
-      console.log('[AssignmentBreakdown] Settings loaded:', breakdown_settings);
+      console.log(
+        '[AssignmentBreakdown] Settings loaded:',
+        Object.keys(breakdown_settings).join(', ')
+      );
     }
   });
 
@@ -1584,7 +1635,10 @@ function breakdown_init() {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.assignmentBreakdownSettings) {
       Object.assign(breakdown_settings, changes.assignmentBreakdownSettings.newValue);
-      console.log('[AssignmentBreakdown] Settings updated:', breakdown_settings);
+      console.log(
+        '[AssignmentBreakdown] Settings updated:',
+        Object.keys(breakdown_settings).join(', ')
+      );
     }
   });
 

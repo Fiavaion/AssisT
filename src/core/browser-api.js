@@ -9,13 +9,13 @@
  *
  * All new code should use `browser` from this module rather than calling
  * `chrome.*` directly. Existing `chrome.*` calls are being migrated
- * progressively; the Firefox port (NLnet deliverable) will complete this
- * migration and verify against the moz-extension:// origin.
+ * progressively; the Firefox port will complete this migration and verify
+ * against the moz-extension:// origin.
  *
  * Chrome-specific APIs with no cross-browser equivalent (Chrome Prompt API,
  * browser-native STT via webkitSpeechRecognition) are intentionally kept as
  * chrome.* calls and capability-detected at runtime — they are disabled with
- * honest UX copy on Firefox. See docs/LESSONS_CONTENT_SCRIPT_INJECTION.md.
+ * honest UX copy on Firefox.
  */
 
 import browserPolyfill from 'webextension-polyfill';

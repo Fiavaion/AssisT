@@ -25,10 +25,7 @@ describe('MessageRouter', () => {
 
     // Mock StorageManager methods
     StorageManager.getSettings = jest.fn().mockResolvedValue({ test: 'settings' });
-    StorageManager.saveSettings = jest.fn().mockResolvedValue({ test: 'updated' });
     StorageManager.resetToDefaults = jest.fn().mockResolvedValue({ test: 'defaults' });
-    StorageManager.exportSettings = jest.fn().mockResolvedValue('{"exported": true}');
-    StorageManager.importSettings = jest.fn().mockResolvedValue({ test: 'imported' });
 
     // Mock chrome.tabs.query
     chrome.tabs.query.mockResolvedValue([
@@ -50,18 +47,6 @@ describe('MessageRouter', () => {
       expect(result).toEqual({ test: 'settings' });
     });
 
-    test('should route UPDATE_SETTINGS message', async () => {
-      const message = {
-        type: 'UPDATE_SETTINGS',
-        data: { tts: { enabled: true } }
-      };
-
-      const result = await MessageRouter.route(message, mockSender);
-
-      expect(StorageManager.saveSettings).toHaveBeenCalledWith({ tts: { enabled: true } });
-      expect(result).toEqual({ test: 'updated' });
-    });
-
     test('should route RESET_SETTINGS message', async () => {
       const message = { type: 'RESET_SETTINGS' };
 
@@ -71,38 +56,7 @@ describe('MessageRouter', () => {
       expect(result).toEqual({ test: 'defaults' });
     });
 
-    test('should route EXPORT_SETTINGS message', async () => {
-      const message = { type: 'EXPORT_SETTINGS' };
 
-      const result = await MessageRouter.route(message, mockSender);
-
-      expect(StorageManager.exportSettings).toHaveBeenCalled();
-      expect(result).toBe('{"exported": true}');
-    });
-
-    test('should route IMPORT_SETTINGS message', async () => {
-      const message = {
-        type: 'IMPORT_SETTINGS',
-        data: '{"settings": true}'
-      };
-
-      const result = await MessageRouter.route(message, mockSender);
-
-      expect(StorageManager.importSettings).toHaveBeenCalledWith('{"settings": true}');
-      expect(result).toEqual({ test: 'imported' });
-    });
-
-    test('should route GET_TAB_CONTEXT message', async () => {
-      const message = { type: 'GET_TAB_CONTEXT' };
-      chrome.tabs.sendMessage.mockResolvedValue({ context: 'Canvas' });
-
-      const result = await MessageRouter.route(message, mockSender);
-
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, {
-        type: 'GET_PAGE_CONTEXT'
-      });
-      expect(result).toEqual({ context: 'Canvas' });
-    });
 
     test('should route TTS_COMMAND message', async () => {
       const message = {
@@ -166,96 +120,23 @@ describe('MessageRouter', () => {
     });
   });
 
-  describe('handleUpdateSettings()', () => {
-    test('should save settings and broadcast to Canvas tabs', async () => {
-      const settings = { tts: { enabled: true } };
-
-      const result = await MessageRouter.handleUpdateSettings(settings);
-
-      expect(StorageManager.saveSettings).toHaveBeenCalledWith(settings);
-      expect(chrome.tabs.query).toHaveBeenCalledWith({
-        url: '*://*.instructure.com/*'
-      });
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
-      expect(result).toEqual({ test: 'updated' });
-    });
-
-    test('should broadcast UPDATE_SETTINGS message with updated settings', async () => {
-      const settings = { tts: { enabled: true } };
-
-      await MessageRouter.handleUpdateSettings(settings);
-
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
-        type: 'UPDATE_SETTINGS',
-        settings: { test: 'updated' }
-      });
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
-        type: 'UPDATE_SETTINGS',
-        settings: { test: 'updated' }
-      });
-    });
-  });
-
   describe('handleResetSettings()', () => {
-    test('should reset settings and broadcast to Canvas tabs', async () => {
+    test('should reset settings and return the defaults', async () => {
       const result = await MessageRouter.handleResetSettings();
 
       expect(StorageManager.resetToDefaults).toHaveBeenCalled();
-      expect(chrome.tabs.query).toHaveBeenCalledWith({
-        url: '*://*.instructure.com/*'
-      });
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
       expect(result).toEqual({ test: 'defaults' });
     });
-  });
 
-  describe('handleExportSettings()', () => {
-    test('should call StorageManager.exportSettings', async () => {
-      const result = await MessageRouter.handleExportSettings();
+    test('should tell open pages nothing — storing the defaults fires storage.onChanged', async () => {
+      await MessageRouter.handleResetSettings();
 
-      expect(StorageManager.exportSettings).toHaveBeenCalled();
-      expect(result).toBe('{"exported": true}');
+      expect(chrome.tabs.query).not.toHaveBeenCalled();
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
     });
   });
 
-  describe('handleImportSettings()', () => {
-    test('should import settings and broadcast to Canvas tabs', async () => {
-      const jsonString = '{"settings": true}';
 
-      const result = await MessageRouter.handleImportSettings(jsonString);
-
-      expect(StorageManager.importSettings).toHaveBeenCalledWith(jsonString);
-      expect(chrome.tabs.query).toHaveBeenCalledWith({
-        url: '*://*.instructure.com/*'
-      });
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
-      expect(result).toEqual({ test: 'imported' });
-    });
-  });
-
-  describe('handleGetTabContext()', () => {
-    test('should send GET_PAGE_CONTEXT message to tab', async () => {
-      const tab = { id: 456, url: 'https://canvas.instructure.com/courses/456' };
-      chrome.tabs.sendMessage.mockResolvedValue({ context: 'quiz' });
-
-      const result = await MessageRouter.handleGetTabContext(tab);
-
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(456, {
-        type: 'GET_PAGE_CONTEXT'
-      });
-      expect(result).toEqual({ context: 'quiz' });
-    });
-
-    test('should throw error if no tab provided', async () => {
-      await expect(MessageRouter.handleGetTabContext(null))
-        .rejects.toThrow('No active tab');
-    });
-
-    test('should throw error if tab has no id', async () => {
-      await expect(MessageRouter.handleGetTabContext({}))
-        .rejects.toThrow('No active tab');
-    });
-  });
 
   describe('handleTTSCommand()', () => {
     test('should send TTS_COMMAND to specified tab', async () => {
@@ -293,75 +174,13 @@ describe('MessageRouter', () => {
     });
   });
 
-  describe('broadcastToCanvasTabs()', () => {
-    test('should query Canvas tabs with correct pattern', async () => {
-      const message = { type: 'TEST', data: 'broadcast' };
-
-      await MessageRouter.broadcastToCanvasTabs(message);
-
-      expect(chrome.tabs.query).toHaveBeenCalledWith({
-        url: '*://*.instructure.com/*'
-      });
-    });
-
-    test('should send message to all Canvas tabs', async () => {
-      const message = { type: 'TEST', data: 'broadcast' };
-
-      await MessageRouter.broadcastToCanvasTabs(message);
-
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, message);
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, message);
-    });
-
-    test('should handle tabs with no Canvas pages gracefully', async () => {
-      chrome.tabs.query.mockResolvedValue([]);
-      const message = { type: 'TEST' };
-
-      await MessageRouter.broadcastToCanvasTabs(message);
-
-      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
-    });
-
-    test('should handle individual tab failures without throwing', async () => {
-      chrome.tabs.sendMessage
-        .mockResolvedValueOnce({ success: true })
-        .mockRejectedValueOnce(new Error('Tab closed'));
-
-      const message = { type: 'TEST' };
-
-      // Should not throw
-      await expect(MessageRouter.broadcastToCanvasTabs(message))
-        .resolves.not.toThrow();
-
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
-    });
-
-    test('should handle query failure gracefully', async () => {
-      chrome.tabs.query.mockRejectedValue(new Error('Query failed'));
-      const message = { type: 'TEST' };
-
-      // Should not throw
-      await expect(MessageRouter.broadcastToCanvasTabs(message))
-        .resolves.not.toThrow();
-    });
-
-    test('should use Promise.allSettled for concurrent sends', async () => {
-      const message = { type: 'TEST' };
-
-      await MessageRouter.broadcastToCanvasTabs(message);
-
-      // All messages should be sent concurrently, not sequentially
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
-    });
-  });
-
   describe('Error Handling', () => {
     test('should catch and rethrow errors from handlers', async () => {
-      const message = { type: 'UPDATE_SETTINGS', data: {} };
-      StorageManager.saveSettings.mockRejectedValue(new Error('Save failed'));
+      const message = { type: 'RESET_SETTINGS' };
+      StorageManager.resetToDefaults.mockRejectedValue(new Error('Reset failed'));
 
       await expect(MessageRouter.route(message, mockSender))
-        .rejects.toThrow('Save failed');
+        .rejects.toThrow('Reset failed');
     });
 
     test('should handle chrome.tabs.sendMessage errors', async () => {
@@ -374,15 +193,6 @@ describe('MessageRouter', () => {
   });
 
   describe('Integration with StorageManager', () => {
-    test('should correctly pass data to StorageManager methods', async () => {
-      const settings = { complex: { nested: { value: true } } };
-      const message = { type: 'UPDATE_SETTINGS', data: settings };
-
-      await MessageRouter.route(message, mockSender);
-
-      expect(StorageManager.saveSettings).toHaveBeenCalledWith(settings);
-    });
-
     test('should return results from StorageManager unchanged', async () => {
       const complexResult = { multi: { level: { data: [1, 2, 3] } } };
       StorageManager.getSettings.mockResolvedValue(complexResult);

@@ -2,12 +2,13 @@
  * Google Gemini API Client for AssisT Cloud AI Mode
  *
  * Provides integration with Google's Generative Language API.
- * Supports Gemini 2.0, 1.5, and future models.
+ * The models offered are listed in model-registry.js.
  *
  * @module ai/google-client
  */
 
 import { getSecureAPIKey as getApiKey } from '../core/storage/secure-key-storage.js';
+import { REGISTRY, getModelId } from './model-registry.js';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -34,7 +35,7 @@ export async function geminiGenerate(prompt, options = {}) {
     );
   }
 
-  const modelId = opts.model || 'gemini-2.5-flash';
+  const modelId = opts.model || getModelId('google', REGISTRY.google.defaultModel);
   const url = `${GEMINI_API_BASE}/models/${modelId}:generateContent?key=${apiKey}`;
 
   try {
@@ -92,155 +93,6 @@ export async function geminiGenerate(prompt, options = {}) {
   }
 }
 
-/**
- * Fetch available models from Google Generative Language API
- * @param {string} apiKey - Google AI API key
- * @returns {Promise<Array<{id: string, name: string, description: string}>>}
- */
-export async function fetchGeminiModels(apiKey) {
-  const response = await fetch(`${GEMINI_API_BASE}/models`, {
-    method: 'GET',
-    signal: AbortSignal.timeout(10000),
-    headers: { 'x-goog-api-key': apiKey },
-    credentials: 'omit',
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch models: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const allModels = data.models || [];
-
-  // Filter to models that support generateContent (text generation)
-  const chatModels = allModels
-    .filter(
-      m =>
-        m.supportedGenerationMethods?.includes('generateContent') &&
-        !m.name?.includes('embedding') &&
-        !m.name?.includes('aqa')
-    )
-    .map(m => {
-      // m.name is like "models/gemini-2.0-flash"
-      const id = m.name?.replace('models/', '') || m.name;
-      return {
-        id,
-        name: m.displayName || formatGeminiModelName(id),
-        description: getGeminiModelDescription(id),
-      };
-    })
-    .sort((a, b) => {
-      // Sort newest/best first
-      const order = getGeminiSortOrder(a.id) - getGeminiSortOrder(b.id);
-      return order || a.name.localeCompare(b.name);
-    });
-
-  return chatModels;
-}
-
-/**
- * Format Gemini model ID into a clean display name
- * @param {string} modelId
- * @returns {string}
- */
-function formatGeminiModelName(modelId) {
-  const id = modelId.toLowerCase();
-
-  if (id.includes('3.1-pro')) {
-    return 'Gemini 3.1 Pro (Most Capable)';
-  }
-  if (id.includes('2.5-pro')) {
-    return 'Gemini 2.5 Pro';
-  }
-  if (id.includes('2.5-flash')) {
-    return 'Gemini 2.5 Flash';
-  }
-  if (id.includes('2.0-flash-lite')) {
-    return 'Gemini 2.0 Flash Lite (Fast)';
-  }
-  if (id.includes('2.0-flash')) {
-    return 'Gemini 2.0 Flash (Recommended)';
-  }
-  if (id.includes('1.5-pro')) {
-    return 'Gemini 1.5 Pro';
-  }
-  if (id.includes('1.5-flash')) {
-    return 'Gemini 1.5 Flash';
-  }
-
-  // Fallback
-  return modelId
-    .split('-')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
-/**
- * Get description for known Gemini models
- * @param {string} modelId
- * @returns {string}
- */
-function getGeminiModelDescription(modelId) {
-  const id = modelId.toLowerCase();
-
-  if (id.includes('3.1-pro')) {
-    return 'Most capable — complex tasks';
-  }
-  if (id.includes('2.5-pro')) {
-    return 'Highly capable';
-  }
-  if (id.includes('2.5-flash')) {
-    return 'Fast and capable';
-  }
-  if (id.includes('2.0-flash-lite')) {
-    return 'Fastest, most economical';
-  }
-  if (id.includes('2.0-flash')) {
-    return 'Best for everyday tasks';
-  }
-  if (id.includes('1.5-pro')) {
-    return 'High capability';
-  }
-  if (id.includes('1.5-flash')) {
-    return 'Fast and economical';
-  }
-
-  return '';
-}
-
-/**
- * Sort order for Gemini models (lower = first)
- * @param {string} modelId
- * @returns {number}
- */
-function getGeminiSortOrder(modelId) {
-  const id = modelId.toLowerCase();
-  if (id.includes('3.1-pro')) {
-    return 1;
-  }
-  if (id.includes('2.5-pro')) {
-    return 2;
-  }
-  if (id.includes('2.5-flash')) {
-    return 3;
-  }
-  if (id.includes('2.0-flash-lite')) {
-    return 5;
-  }
-  if (id.includes('2.0-flash')) {
-    return 4;
-  }
-  if (id.includes('1.5-pro')) {
-    return 6;
-  }
-  if (id.includes('1.5-flash')) {
-    return 6;
-  }
-  return 99;
-}
-
 export default {
   geminiGenerate,
-  fetchGeminiModels,
 };

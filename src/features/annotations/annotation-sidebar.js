@@ -30,7 +30,8 @@ import { Z } from '../../utils/z-index.js';
 import { exportAnnotations } from './export-manager.js';
 import { getExistingTags } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler, attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { debugLog } from '../../utils/debug-log.js';
 
 /** @type {BaseStorageAdapter} Current storage adapter instance */
 let storageAdapter = null;
@@ -70,6 +71,38 @@ let activeFilters = {
 
 /** @type {Array<string>} Available tags from storage */
 let availableTags = [];
+
+/** @type {HTMLElement|null} The control that had focus when the sidebar was opened */
+let sidebarOpener = null;
+
+/** @type {number|null} Timer that finishes hiding the panel after it has slid out */
+let sidebarHideTimer = null;
+
+/** @type {number} Slide duration, in ms — must match the CSS transition below */
+const SIDEBAR_TRANSITION_MS = 300;
+
+/**
+ * Whether the student has asked the system for reduced motion.
+ * @returns {boolean}
+ */
+function prefersReducedMotion() {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches === true
+  );
+}
+
+/**
+ * Take the closed panel out of the tab order and the accessibility tree.
+ *
+ * Translating it off-screen is not enough: it stayed focusable, so every page began with
+ * four Tab presses onto invisible controls (SC 2.4.3, 2.4.7, 2.4.11). `visibility` is left
+ * to the caller, which waits for the slide-out first.
+ */
+function markSidebarClosed() {
+  sidebarElement.setAttribute('inert', '');
+  sidebarElement.setAttribute('aria-hidden', 'true');
+}
 
 /**
  * Initialize the annotation sidebar system
@@ -169,7 +202,11 @@ function createSidebar() {
   sidebar.className = 'assist-annotation-sidebar';
   sidebar.setAttribute('role', 'complementary');
   sidebar.setAttribute('aria-label', 'Annotations sidebar');
-  sidebar.style.transform = 'translateX(100%)'; // Hidden by default
+  // Closed from the moment it is injected: off-screen alone left it focusable.
+  sidebar.style.transform = 'translateX(100%)';
+  sidebar.style.visibility = 'hidden';
+  sidebar.setAttribute('inert', '');
+  sidebar.setAttribute('aria-hidden', 'true');
 
   sidebar.innerHTML = sanitizeHTML(`
     <div class="assist-sidebar-header">
@@ -192,6 +229,9 @@ function createSidebar() {
           class="assist-sidebar-button"
           aria-label="Export annotations"
           title="Export annotations (Markdown, Plain Text, JSON, CSV)"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="export-dropdown-container"
         >
           📥
         </button>
@@ -252,27 +292,41 @@ function createSidebar() {
   `);
 
   const closeBtn = sidebar.querySelector('#sidebar-close-btn');
-  attachInteractiveHandler(closeBtn, 'Sidebar Close', closeSidebar);
+  attachAccessibleHandler(closeBtn, 'Sidebar Close', closeSidebar);
 
   const filterBtn = sidebar.querySelector('#sidebar-filter-btn');
-  attachInteractiveHandler(filterBtn, 'Sidebar Filter', handleFilterClick);
+  attachAccessibleHandler(filterBtn, 'Sidebar Filter', handleFilterClick);
 
   const exportBtn = sidebar.querySelector('#sidebar-export-btn');
-  attachInteractiveHandler(exportBtn, 'Sidebar Export', handleExportClick);
+  attachAccessibleHandler(exportBtn, 'Sidebar Export', handleExportClick);
+
+  // Bound once on the container that survives every re-render of the menu inside it, so showing
+  // the menu again does not stack a second copy of this listener.
+  sidebar
+    .querySelector('#export-dropdown-container')
+    .addEventListener('keydown', handleExportMenuKeydown);
 
   const searchInput = sidebar.querySelector('#sidebar-search-input');
   const searchClearBtn = sidebar.querySelector('#sidebar-search-clear');
 
   searchInput.addEventListener('input', handleSearchInput);
-  attachInteractiveHandler(searchClearBtn, 'Search Clear', clearSearch);
+  attachAccessibleHandler(searchClearBtn, 'Search Clear', clearSearch);
 
+  // One Escape policy for the whole panel, innermost thing first: a popup the student has open
+  // closes before the search, and the search before the panel itself. Escape used to shut the
+  // entire sidebar while the export menu was open over it, losing their place.
   sidebar.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      if (currentSearchQuery) {
-        clearSearch();
-      } else {
-        closeSidebar();
-      }
+    if (e.key !== 'Escape') {
+      return;
+    }
+    if (isExportDropdownOpen()) {
+      hideExportDropdown();
+    } else if (isFilterDropdownOpen()) {
+      hideFilterDropdown();
+    } else if (currentSearchQuery) {
+      clearSearch();
+    } else {
+      closeSidebar();
     }
   });
 
@@ -297,8 +351,16 @@ export function toggleSidebar() {
  * Open sidebar and load annotations
  */
 async function openSidebar() {
+  // Remember where focus came from before any await can move it.
+  sidebarOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
   if (!sidebarElement) {
     createSidebar();
+  }
+
+  if (sidebarHideTimer !== null) {
+    clearTimeout(sidebarHideTimer);
+    sidebarHideTimer = null;
   }
 
   await loadAvailableTags();
@@ -306,15 +368,23 @@ async function openSidebar() {
   await loadAnnotations();
   applyFilters();
 
+  sidebarElement.style.visibility = 'visible';
+  sidebarElement.removeAttribute('inert');
+  sidebarElement.removeAttribute('aria-hidden');
   sidebarElement.style.transform = 'translateX(0)';
   isSidebarOpen = true;
 
-  setTimeout(() => {
-    const searchInput = sidebarElement.querySelector('#sidebar-search-input');
-    if (searchInput) {
-      searchInput.focus();
-    }
-  }, 300);
+  // Focus waits for the slide-in so the panel is on screen when it lands — unless the
+  // student has asked for reduced motion, when there is nothing to wait for.
+  setTimeout(
+    () => {
+      const searchInput = sidebarElement.querySelector('#sidebar-search-input');
+      if (searchInput && isSidebarOpen) {
+        searchInput.focus();
+      }
+    },
+    prefersReducedMotion() ? 0 : SIDEBAR_TRANSITION_MS
+  );
 
   console.log('[AnnotationSidebar] Sidebar opened');
 }
@@ -327,8 +397,36 @@ function closeSidebar() {
     return;
   }
 
+  // Focus must leave before the panel goes inert, or the page is left with no focus at all.
+  if (sidebarElement.contains(document.activeElement)) {
+    if (sidebarOpener && sidebarOpener.isConnected) {
+      sidebarOpener.focus();
+    } else {
+      document.activeElement.blur();
+    }
+  }
+  sidebarOpener = null;
+
   sidebarElement.style.transform = 'translateX(100%)';
+  markSidebarClosed();
   isSidebarOpen = false;
+
+  // visibility waits for the slide-out, so the panel is still seen leaving.
+  if (sidebarHideTimer !== null) {
+    clearTimeout(sidebarHideTimer);
+    sidebarHideTimer = null;
+  }
+
+  if (prefersReducedMotion()) {
+    sidebarElement.style.visibility = 'hidden';
+  } else {
+    sidebarHideTimer = setTimeout(() => {
+      sidebarHideTimer = null;
+      if (!isSidebarOpen && sidebarElement) {
+        sidebarElement.style.visibility = 'hidden';
+      }
+    }, SIDEBAR_TRANSITION_MS);
+  }
 
   console.log('[AnnotationSidebar] Sidebar closed');
 }
@@ -385,21 +483,45 @@ async function loadAvailableTags() {
 }
 
 /**
+ * Whether the filter panel is showing.
+ *
+ * Read from the button's `aria-expanded`, never from the container's inline `style.display`:
+ * the closed state comes from the injected stylesheet, so the inline value starts as the empty
+ * string and `'' !== 'none'` read as OPEN — which made the first press of either header button
+ * take the "hide" branch and do nothing visible. State a screen reader is told is the state the
+ * code decides from, so the two cannot drift apart.
+ *
+ * @returns {boolean}
+ */
+function isFilterDropdownOpen() {
+  return (
+    sidebarElement?.querySelector('#sidebar-filter-btn')?.getAttribute('aria-expanded') === 'true'
+  );
+}
+
+/**
  * Handle filter button click - show/hide filter dropdown
  */
 function handleFilterClick() {
+  if (isFilterDropdownOpen()) {
+    hideFilterDropdown();
+  } else {
+    showFilterDropdown();
+  }
+}
+
+/**
+ * Hide the filter panel, and take the keyboard out of it before it goes.
+ */
+function hideFilterDropdown() {
   const dropdownContainer = sidebarElement.querySelector('#filter-dropdown-container');
-  const isVisible = dropdownContainer.style.display !== 'none';
   const filterBtn = sidebarElement.querySelector('#sidebar-filter-btn');
 
-  if (isVisible) {
-    // Hide dropdown
-    dropdownContainer.style.display = 'none';
-    filterBtn.setAttribute('aria-expanded', 'false');
-  } else {
-    // Show dropdown
-    showFilterDropdown();
-    filterBtn.setAttribute('aria-expanded', 'true');
+  dropdownContainer.style.display = 'none';
+  filterBtn.setAttribute('aria-expanded', 'false');
+
+  if (dropdownContainer.contains(document.activeElement)) {
+    filterBtn.focus();
   }
 }
 
@@ -546,6 +668,7 @@ async function showFilterDropdown() {
   `);
 
   dropdownContainer.style.display = 'block';
+  sidebarElement.querySelector('#sidebar-filter-btn').setAttribute('aria-expanded', 'true');
 
   // Attach event listeners for filter changes
   dropdownContainer.querySelectorAll('input[type="radio"]').forEach(input => {
@@ -574,7 +697,7 @@ async function showFilterDropdown() {
   // Attach clear all filters button listener
   const clearBtn = dropdownContainer.querySelector('#clear-all-filters-btn');
   if (clearBtn) {
-    attachInteractiveHandler(clearBtn, 'Clear All Filters', clearAllFilters);
+    attachAccessibleHandler(clearBtn, 'Clear All Filters', clearAllFilters);
   }
 
   console.log('[AnnotationSidebar] Filter dropdown shown');
@@ -713,7 +836,7 @@ function renderActiveFilters() {
 
   // Attach remove listeners
   container.querySelectorAll('.assist-filter-badge-remove').forEach(btn => {
-    attachInteractiveHandler(btn, 'Filter Badge Remove', () => {
+    attachAccessibleHandler(btn, 'Filter Badge Remove', () => {
       const filterType = btn.dataset.filterType;
       const filterValue = btn.dataset.filterValue;
       removeFilter(filterType, filterValue);
@@ -765,9 +888,9 @@ function removeFilter(filterType, filterValue) {
     activeFilters.tags = activeFilters.tags.filter(t => t !== filterValue);
   }
 
-  // Update filter dropdown UI
-  const filterDropdown = sidebarElement.querySelector('#filter-dropdown-container');
-  if (filterDropdown.style.display !== 'none') {
+  // Redraw the filter panel only while it is actually open (same inline-style trap as the
+  // toggles: ask the button, not the container).
+  if (isFilterDropdownOpen()) {
     showFilterDropdown();
   }
 
@@ -787,9 +910,9 @@ function clearAllFilters() {
     type: 'all',
   };
 
-  // Update filter dropdown UI
-  const filterDropdown = sidebarElement.querySelector('#filter-dropdown-container');
-  if (filterDropdown.style.display !== 'none') {
+  // Redraw the filter panel only while it is actually open (same inline-style trap as the
+  // toggles: ask the button, not the container).
+  if (isFilterDropdownOpen()) {
     showFilterDropdown();
   }
 
@@ -801,6 +924,38 @@ function clearAllFilters() {
 /**
  * Render filtered annotations in sidebar
  */
+/**
+ * What an empty list should say, and there are two quite different reasons for one.
+ *
+ * Opening the sidebar renders through the filter path even when the student has set no filter, so a
+ * student with no annotations at all used to be told to "try adjusting your filter selections" —
+ * advice about a control they had never touched, instead of the one sentence that tells them how to
+ * make their first note.
+ *
+ * @param {boolean} filtersHidThem - There ARE annotations; the current filter is what emptied the list.
+ * @returns {string} Markup for the empty state.
+ */
+function emptyStateHTML(filtersHidThem) {
+  if (filtersHidThem) {
+    return `
+      <div class="assist-sidebar-empty">
+        <div class="assist-sidebar-empty-icon">🔍</div>
+        <p class="assist-sidebar-empty-text">No annotations match filters</p>
+        <p class="assist-sidebar-empty-hint">Try adjusting your filter selections</p>
+      </div>
+    `;
+  }
+  return `
+      <div class="assist-sidebar-empty">
+        <div class="assist-sidebar-empty-icon">📝</div>
+        <p class="assist-sidebar-empty-text">No annotations on this page</p>
+        <p class="assist-sidebar-empty-hint">
+          Select text and click "Annotate" to add your first note
+        </p>
+      </div>
+    `;
+}
+
 function renderFilteredAnnotations() {
   const content = sidebarElement.querySelector('#sidebar-content');
   const countElement = sidebarElement.querySelector('#sidebar-count');
@@ -808,15 +963,8 @@ function renderFilteredAnnotations() {
   // Update count
   countElement.textContent = filteredAnnotations.length;
 
-  // Empty state
   if (filteredAnnotations.length === 0) {
-    content.innerHTML = sanitizeHTML(`
-      <div class="assist-sidebar-empty">
-        <div class="assist-sidebar-empty-icon">🔍</div>
-        <p class="assist-sidebar-empty-text">No annotations match filters</p>
-        <p class="assist-sidebar-empty-hint">Try adjusting your filter selections</p>
-      </div>
-    `);
+    content.innerHTML = sanitizeHTML(emptyStateHTML(currentAnnotations.length > 0));
     return;
   }
 
@@ -902,7 +1050,7 @@ function performSearch(query) {
     // Render search results
     renderSearchResults(results);
 
-    console.log(`[AnnotationSidebar] Search found ${results.length} results for "${query}"`);
+    console.log(`[AnnotationSidebar] Search found ${results.length} results`);
   } catch (error) {
     console.error('[AnnotationSidebar] Error performing search:', error);
     resultsRegion.textContent = 'Error searching annotations';
@@ -981,24 +1129,32 @@ function searchAnnotations(query) {
  * @returns {string} HTML with matching text bolded
  */
 function highlightMatches(text, query) {
+  // The result is interpolated straight into markup, so EVERY path has to return escaped
+  // HTML. The text is the student's own selection, lifted off the host page: returning it
+  // raw when there is no query to highlight put page markup back into the sidebar.
   if (!text || !query) {
-    return text;
+    return escapeHtml(text || '');
   }
 
+  // Matches are found in the RAW text and each segment escaped separately. Searching the
+  // escaped text instead would let a query match inside an entity — "amp" against
+  // "Rock &amp; amplifier" splits the ampersand and the student sees "&amp;" as literal
+  // characters in their own note.
   const lowerText = text.toLowerCase();
   const lowerQuery = query.toLowerCase();
-  const index = lowerText.indexOf(lowerQuery);
 
-  if (index === -1) {
-    return text;
+  let out = '';
+  let cursor = 0;
+  let index = lowerText.indexOf(lowerQuery);
+
+  while (index !== -1) {
+    out += escapeHtml(text.slice(cursor, index));
+    out += `<strong>${escapeHtml(text.slice(index, index + query.length))}</strong>`;
+    cursor = index + query.length;
+    index = lowerText.indexOf(lowerQuery, cursor);
   }
 
-  // Escape HTML and highlight the match
-  const escaped = escapeHtml(text);
-  const escapedQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const highlighted = escaped.replace(new RegExp(`(${escapedQuery})`, 'gi'), '<strong>$1</strong>');
-
-  return highlighted;
+  return out + escapeHtml(text.slice(cursor));
 }
 
 /**
@@ -1009,7 +1165,11 @@ function highlightMatches(text, query) {
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
-  return div.innerHTML;
+  // Serialising a text node escapes &, < and > but leaves quotes alone, which is fine
+  // inside an element and wrong inside an attribute — a quote in the student's selected
+  // text would close aria-label early and the rest would be parsed as markup. Every
+  // caller here feeds one context or the other, so both are covered in one place.
+  return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 /**
@@ -1080,7 +1240,7 @@ function createSearchResultItemHTML(annotation, currentUrl) {
       data-id="${annotation.id}"
       tabindex="0"
       role="button"
-      aria-label="View ${annotation.type}: ${excerpt.substring(0, 50)}"
+      aria-label="View ${annotation.type}: ${escapeHtml(excerpt.substring(0, 50))}"
     >
       <div class="assist-sidebar-item-header">
         <span class="assist-sidebar-item-icon">${icon}</span>
@@ -1123,7 +1283,7 @@ async function scrollToAnnotationFromSearch(annotation) {
       if (window.showToast) {
         window.showToast(`⚠️ This annotation is on a different page. Navigate there to view it.`);
       }
-      console.log(
+      debugLog(
         `[AnnotationSidebar] Annotation ${annotation.id} is on different page: ${annotation.url}`
       );
       return;
@@ -1146,17 +1306,8 @@ function renderAnnotations() {
   // Update count
   countElement.textContent = currentAnnotations.length;
 
-  // Empty state
   if (currentAnnotations.length === 0) {
-    content.innerHTML = sanitizeHTML(`
-      <div class="assist-sidebar-empty">
-        <div class="assist-sidebar-empty-icon">📝</div>
-        <p class="assist-sidebar-empty-text">No annotations on this page</p>
-        <p class="assist-sidebar-empty-hint">
-          Select text and click "Annotate" to add your first note
-        </p>
-      </div>
-    `);
+    content.innerHTML = sanitizeHTML(emptyStateHTML(false));
     return;
   }
 
@@ -1193,14 +1344,15 @@ function createAnnotationItemHTML(annotation) {
       data-id="${annotation.id}"
       tabindex="0"
       role="button"
-      aria-label="View ${annotation.type}: ${excerpt}"
+      aria-label="View ${annotation.type}: ${escapeHtml(excerpt)}"
     >
       <div class="assist-sidebar-item-header">
         <span class="assist-sidebar-item-icon">${icon}</span>
         <span class="assist-sidebar-item-type">${annotation.type === 'note' ? 'Sticky Note' : 'Annotation'}</span>
         ${colorDot}
       </div>
-      <div class="assist-sidebar-item-excerpt">${excerpt}</div>
+      <!-- The excerpt is text the student selected on the host page: escaped, never markup. -->
+      <div class="assist-sidebar-item-excerpt">${escapeHtml(excerpt)}</div>
       <div class="assist-sidebar-item-footer">
         <span class="assist-sidebar-item-timestamp">${timestamp}</span>
       </div>
@@ -1348,31 +1500,102 @@ function highlightTemporarily(element) {
 }
 
 /**
+ * Whether the export menu is showing. See isFilterDropdownOpen for why the button, not the
+ * container's inline style, is the authority.
+ *
+ * @returns {boolean}
+ */
+function isExportDropdownOpen() {
+  return (
+    sidebarElement?.querySelector('#sidebar-export-btn')?.getAttribute('aria-expanded') === 'true'
+  );
+}
+
+/**
  * Handle export button click - show dropdown menu
  */
 function handleExportClick() {
-  const dropdownContainer = sidebarElement.querySelector('#export-dropdown-container');
-  const isVisible = dropdownContainer.style.display !== 'none';
-
-  if (isVisible) {
-    // Hide dropdown
-    dropdownContainer.style.display = 'none';
+  if (isExportDropdownOpen()) {
+    hideExportDropdown();
   } else {
-    // Show dropdown
     showExportDropdown();
   }
 }
 
 /**
- * Show export format dropdown menu
+ * The four format buttons, in the order they are offered.
+ * @returns {HTMLElement[]}
+ */
+function exportMenuOptions() {
+  const dropdownContainer = sidebarElement.querySelector('#export-dropdown-container');
+  return Array.from(dropdownContainer.querySelectorAll('.assist-export-option'));
+}
+
+/**
+ * Move the keyboard to one format option, keeping the menu a single tab stop (roving tabindex).
+ *
+ * @param {HTMLElement[]} options
+ * @param {number} index
+ */
+function focusExportOption(options, index) {
+  options.forEach((option, i) => {
+    option.setAttribute('tabindex', i === index ? '0' : '-1');
+  });
+  options[index]?.focus();
+}
+
+/**
+ * Arrow keys, Home and End walk the export menu (SC 2.1.1). Escape is deliberately NOT handled
+ * here: the sidebar's own keydown listener owns the one Escape policy for the whole panel.
+ *
+ * @param {KeyboardEvent} e
+ */
+function handleExportMenuKeydown(e) {
+  const options = exportMenuOptions();
+  if (options.length === 0) {
+    return;
+  }
+
+  const current = options.indexOf(document.activeElement);
+  let next;
+
+  switch (e.key) {
+    case 'ArrowDown':
+      next = current < 0 ? 0 : (current + 1) % options.length;
+      break;
+    case 'ArrowUp':
+      next = current <= 0 ? options.length - 1 : current - 1;
+      break;
+    case 'Home':
+      next = 0;
+      break;
+    case 'End':
+      next = options.length - 1;
+      break;
+    default:
+      return;
+  }
+
+  e.preventDefault();
+  focusExportOption(options, next);
+}
+
+/**
+ * Show export format dropdown menu.
+ *
+ * A menu button, so the keyboard goes into the menu on open and comes back to the button on the
+ * way out; the options carry a roving tabindex and are rendered with exactly one tab stop from
+ * their first paint.
  */
 function showExportDropdown() {
   const dropdownContainer = sidebarElement.querySelector('#export-dropdown-container');
 
   dropdownContainer.innerHTML = sanitizeHTML(`
-    <div class="assist-export-dropdown">
+    <div class="assist-export-dropdown" role="menu" aria-label="Export format">
       <button
         class="assist-export-option"
+        role="menuitem"
+        tabindex="0"
         data-format="md"
         aria-label="Export as Markdown"
       >
@@ -1380,6 +1603,8 @@ function showExportDropdown() {
       </button>
       <button
         class="assist-export-option"
+        role="menuitem"
+        tabindex="-1"
         data-format="txt"
         aria-label="Export as Plain Text"
       >
@@ -1387,6 +1612,8 @@ function showExportDropdown() {
       </button>
       <button
         class="assist-export-option"
+        role="menuitem"
+        tabindex="-1"
         data-format="json"
         aria-label="Export as JSON"
       >
@@ -1394,6 +1621,8 @@ function showExportDropdown() {
       </button>
       <button
         class="assist-export-option"
+        role="menuitem"
+        tabindex="-1"
         data-format="csv"
         aria-label="Export as CSV"
       >
@@ -1403,16 +1632,42 @@ function showExportDropdown() {
   `);
 
   dropdownContainer.style.display = 'block';
+  sidebarElement.querySelector('#sidebar-export-btn').setAttribute('aria-expanded', 'true');
 
-  // Attach click handlers
-  dropdownContainer.querySelectorAll('.assist-export-option').forEach(btn => {
-    attachInteractiveHandler(btn, `Export ${btn.dataset.format}`, () => {
+  // Attach activation handlers
+  const options = exportMenuOptions();
+  options.forEach(btn => {
+    attachAccessibleHandler(btn, `Export ${btn.dataset.format}`, () => {
       const format = btn.dataset.format;
       handleExportFormat(format);
     });
   });
 
+  focusExportOption(options, 0);
+
   console.log('[AnnotationSidebar] Export dropdown shown');
+}
+
+/**
+ * Hide the export menu, and take the keyboard back to the button before the options go.
+ */
+function hideExportDropdown() {
+  const dropdownContainer = sidebarElement.querySelector('#export-dropdown-container');
+  const exportBtn = sidebarElement.querySelector('#sidebar-export-btn');
+
+  const hadFocus = dropdownContainer.contains(document.activeElement);
+  dropdownContainer.style.display = 'none';
+  exportBtn.setAttribute('aria-expanded', 'false');
+
+  if (hadFocus) {
+    exportBtn.focus();
+  }
+
+  // Take the menu out of the page rather than only hiding its container. A closed menu that is still
+  // in the document is a menu as far as anything else can tell: while this markup stayed behind, the
+  // reading guide and the magnifier both read it as an open menu and stopped answering Escape for the
+  // rest of the session. Hiding a thing and removing a thing are not the same promise.
+  dropdownContainer.innerHTML = '';
 }
 
 /**
@@ -1441,8 +1696,9 @@ async function handleExportFormat(format) {
     // Perform export
     const result = await exportAnnotations(annotationsToExport, format);
 
-    // Hide dropdown
-    dropdownContainer.style.display = 'none';
+    // Hide the menu — and hand the keyboard back to the export button, since the option that
+    // still holds it is about to be hidden.
+    hideExportDropdown();
 
     // Show result toast
     if (result.success) {
@@ -1538,6 +1794,12 @@ function injectStyles() {
       flex-direction: column;
       transition: transform 0.3s ease-in-out;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .assist-annotation-sidebar {
+        transition: none;
+      }
     }
 
     .assist-sidebar-header {

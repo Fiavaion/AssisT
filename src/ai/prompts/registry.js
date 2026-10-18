@@ -6,9 +6,8 @@
  * userProfile, allowing institutions to swap discipline-adapted prompts
  * without modifying feature code.
  *
- * This is a NLnet deliverable (pluggable prompts architecture). Current state:
- * registry structure and resolution logic are in place; feature modules still
- * use their own inline prompts and will be migrated progressively.
+ * Current state: registry structure and resolution logic are in place; feature
+ * modules still use their own inline prompts and will be migrated progressively.
  *
  * Usage:
  *   import { getPrompt, registerPrompt } from '../ai/prompts/registry.js';
@@ -93,6 +92,14 @@ register(
   '*',
   '*',
   `You are a Socratic tutor. Ask a thought-provoking question that helps the student think more deeply about the following topic. Do not give the answer — only ask the question.\n\nTopic:\n{{text}}`
+);
+
+// OCR layout — vision model reads an image and returns format-preserving Markdown of the content.
+register(
+  'ocrLayout',
+  '*',
+  '*',
+  `Transcribe the text from this image into clean Markdown so it can be read aloud. Preserve the document's structure: use # / ## for headings, blank lines between paragraphs, "-" for bullet lists, and Markdown tables for tabular data. Transcribe the actual content faithfully — do not summarize, reword, translate, or add anything. Ignore page furniture that is not the content: site names, navigation menus, breadcrumbs, search/sign-in/share controls, sidebars, adverts, cookie or consent banners, and headers/footers. Return only the Markdown, with no commentary or code fences.`
 );
 
 // ─── Public API ────────────────────────────────────────────────────────────────

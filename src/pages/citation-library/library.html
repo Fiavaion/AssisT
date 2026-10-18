@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AssisT — Citation Library</title>
+    <link rel="stylesheet" href="library.css" />
+  </head>
+  <body>
+    <a class="assist-lib-skip" href="#assist-lib-main">Skip to your citations</a>
+    <!-- SC 3.2.6: Help sits last in the header on every AssisT page, as it does in the popup. -->
+    <header class="assist-lib-header" id="assist-lib-header">
+      <a
+        class="assist-cite-btn assist-lib-header__help"
+        href="../help/help.html"
+        target="_blank"
+        rel="noopener"
+        data-destination="help"
+        aria-label="Help (opens in a new tab)"
+        >Help</a
+      >
+    </header>
+    <section class="assist-lib-hero" aria-labelledby="assist-lib-hero-title">
+      <div class="assist-lib-hero__inner">
+        <p class="assist-lib-hero__eyebrow">Research &amp; References</p>
+        <h1 class="assist-lib-hero__title" id="assist-lib-hero-title">Your citation library</h1>
+        <p class="assist-lib-hero__subline" id="assist-lib-hero-subline"></p>
+      </div>
+    </section>
+    <div class="assist-lib-layout">
+      <div id="assist-lib-sidebar-host"></div>
+      <main id="assist-lib-main" class="assist-lib-main" tabindex="-1" aria-label="Your citations">
+        <p id="assist-lib-loading">Loading your citations…</p>
+      </main>
+    </div>
+    <script type="module" src="library.js"></script>
+  </body>
+</html>

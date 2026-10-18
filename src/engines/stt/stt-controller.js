@@ -1,5 +1,5 @@
 /**
- * Speech-to-Text Controller (Sprint 5 + Phase 2.7 Enhancement)
+ * Speech-to-Text Controller
  * Handles voice recognition using Web Speech API
  *
  * Features:
@@ -11,10 +11,10 @@
  * - Voice editing commands (delete, undo, redo, replace)
  * - Voice navigation commands (cursor movement)
  * - Voice formatting commands (bold, italic, etc.)
- * - Custom vocabulary support (Phase 2.7 - S.5)
+ * - Custom vocabulary support
  *
  * @module STTController
- * @version 2.1.0 (Phase 2.7 Enhancement - Custom Vocabulary)
+ * @version 2.1.0 (Custom Vocabulary)
  */
 
 import { CommandParser, CommandType } from './command-parser.js';
@@ -30,6 +30,44 @@ import {
   ConfidenceLevel,
   DEFAULT_CONFIG as CONFIDENCE_CONFIG,
 } from './confidence-feedback.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { allowDictation, onDictationWithdrawn } from '../../utils/dictation-consent.js';
+import { showToast } from '../../core/ui/toast.js';
+
+/**
+ * What a no to the dictation question is answered with: the same words the floating microphone
+ * and the shortcut use, naming both ways this controller is started so the student knows how to
+ * be asked again.
+ */
+const DECLINED_NOTICE =
+  'Nothing was recorded or sent. Press the microphone or the voice typing shortcut to be asked again.';
+
+/**
+ * What the student is told when recognition fails. Every sentence names the thing to do next, and
+ * no browser error code or DOMException text reaches the page: "not-allowed" means a blocked
+ * microphone, and the fix is in the address bar, so that is what it says.
+ */
+export const STT_ERROR_MESSAGES = {
+  'no-speech': 'Nothing was heard. Press the microphone button and speak again.',
+  'audio-capture':
+    'No microphone was found. Plug one in, or pick one in your computer sound settings, then try again.',
+  'not-allowed':
+    'AssisT needs permission to use your microphone. Click the microphone icon in the address bar, choose Allow, then press the microphone button again.',
+  'service-not-allowed':
+    'Your browser blocked the speech service. Allow the microphone for this site in its settings, then try again.',
+  network: 'Voice typing needs an internet connection. Check your connection and try again.',
+  'language-not-supported':
+    'Voice typing does not support the language it is set to. Choose another language in AssisT settings.',
+  'bad-grammar':
+    'Voice typing could not understand that. Press the microphone button and try again.',
+};
+
+/** Said when voice typing has nowhere to run. */
+export const UNSUPPORTED_BROWSER =
+  'Voice typing is not available in this browser. Open the page in Google Chrome to dictate.';
+
+/** Said when the cause is something the student can do nothing specific about. */
+export const GENERIC_START_FAILURE = 'Voice typing could not start. Please try again in a moment.';
 
 export class STTController {
   constructor(options = {}) {
@@ -43,10 +81,10 @@ export class STTController {
       voiceCommands: options.voiceCommands !== undefined ? options.voiceCommands : true,
       maxAlternatives: options.maxAlternatives || 1,
       vocabularyEnabled: options.vocabularyEnabled !== undefined ? options.vocabularyEnabled : true,
-      // Auto-punctuation settings (Phase 2.7 - S.3)
+      // Auto-punctuation settings
       autoPunctuation: options.autoPunctuation !== undefined ? options.autoPunctuation : true,
       autoPunctuationMode: options.autoPunctuationMode || 'auto', // 'auto', 'assisted', 'manual'
-      // Confidence feedback settings (Phase 2.7 - S.4)
+      // Confidence feedback settings
       confidenceFeedback:
         options.confidenceFeedback !== undefined ? options.confidenceFeedback : true,
       confidenceThreshold: options.confidenceThreshold || 0.6,
@@ -57,6 +95,10 @@ export class STTController {
 
     this.recognition = null;
     this.isRecording = false;
+    // True from the moment start() is called until onstart, onerror or onend answers. Nothing
+    // else can tell a pending start from an idle controller, which is why Stop used to do
+    // nothing while the microphone was still coming up.
+    this.isStarting = false;
     this.isPaused = false;
     this.targetElement = null;
     this.lastTranscript = '';
@@ -71,19 +113,19 @@ export class STTController {
       onError: error => this.onError(error),
     });
 
-    // Initialize vocabulary manager for custom word recognition (Phase 2.7 - S.5)
+    // Initialize vocabulary manager for custom word recognition
     this.vocabularyManager = null;
     if (this.settings.vocabularyEnabled) {
       this.initializeVocabulary(options.vocabularyOptions || {});
     }
 
-    // Initialize auto-punctuator (Phase 2.7 - S.3)
+    // Initialize auto-punctuator
     this.autoPunctuator = null;
     if (this.settings.autoPunctuation) {
       this.initializeAutoPunctuation(options.autoPunctuationOptions || {});
     }
 
-    // Initialize confidence feedback (Phase 2.7 - S.4)
+    // Initialize confidence feedback
     this.confidenceFeedback = null;
     if (this.settings.confidenceFeedback) {
       this.initializeConfidenceFeedback(options.confidenceFeedbackOptions || {});
@@ -91,6 +133,16 @@ export class STTController {
 
     // Timing tracking for auto-punctuation
     this.lastResultTimestamp = 0;
+
+    // Dictation sends the voice to Google (Chrome's speech recognition), so nothing starts without
+    // the student's yes (ADR 0006). A caller that has already asked may pass its own check.
+    this.confirmStart = options.confirmStart || allowDictation;
+    this.startAttempt = 0;
+    this.releaseWithdrawal = () => {};
+
+    // Others who need to know the recogniser started, stopped or failed (citation Voice capture)
+    // subscribe here; the callbacks below belong to whoever created the controller.
+    this.stateListeners = new Set();
 
     // Callbacks
     this.onStart = options.onStart || (() => {});
@@ -100,6 +152,14 @@ export class STTController {
     this.onInterimResult = options.onInterimResult || (() => {});
     this.onCommandExecuted = options.onCommandExecuted || (() => {}); // Callback for voice commands
     this.onPunctuationAdded = options.onPunctuationAdded || (() => {}); // Callback for auto-punctuation
+    // Citation voice-capture hook. Given a final transcript, returns true if it was a citation
+    // trigger phrase (e.g. "cite this") that it consumed — in which case the phrase is NOT inserted
+    // as dictated text. Default no-op so STT behaves identically when citation capture is unwired.
+    this.onCitationTrigger = options.onCitationTrigger || (() => false);
+    // Companion voice-palette hook. Given a final transcript, returns true if it was a spoken
+    // command it executed — in which case the phrase is NOT inserted as dictated text. Default
+    // no-op so STT behaves identically when the palette is unwired.
+    this.onAssistCommand = options.onAssistCommand || (() => false);
     this.onConfidenceUpdate = options.onConfidenceUpdate || (() => {}); // Callback for confidence feedback
     this.onLowConfidence = options.onLowConfidence || (() => {}); // Callback for low confidence warning
     this.onStatsUpdate = options.onStatsUpdate || (() => {}); // Callback for session stats update
@@ -136,7 +196,7 @@ export class STTController {
     // Check browser support
     if (!('webkitSpeechRecognition' in window)) {
       console.error('[STT] Web Speech API not supported in this browser');
-      this.onError(new Error('Speech recognition not supported'));
+      this.onError(new Error(UNSUPPORTED_BROWSER), 'unsupported');
       return false;
     }
 
@@ -163,8 +223,9 @@ export class STTController {
       console.log('[STT] Controller initialized successfully');
       return true;
     } catch (error) {
+      // The raw error is for the console; the student gets a sentence.
       console.error('[STT] Initialization failed:', error);
-      this.onError(error);
+      this.onError(new Error(GENERIC_START_FAILURE), 'init-failed');
       return false;
     }
   }
@@ -184,18 +245,65 @@ export class STTController {
       return false;
     }
 
+    if (this.isStarting) {
+      console.warn('[STT] A start is already pending');
+      return false;
+    }
+
     this.targetElement = targetElement;
     this.lastTranscript = '';
     this.interimTranscript = '';
     this.finalTranscript = '';
 
+    // Starting is pending from here, question included, so Stop works while the student decides.
+    this.isStarting = true;
+    const attempt = ++this.startAttempt;
+    const verdict = this.confirmStart({ returnFocus: targetElement });
+    if (verdict === true) {
+      return this.beginRecognition();
+    }
+    Promise.resolve(verdict)
+      .catch(() => false)
+      .then(allowed => {
+        if (attempt !== this.startAttempt || !this.isStarting) {
+          // Stopped, or started again, while the question was open.
+          return;
+        }
+        if (!allowed) {
+          // Nothing was started and nothing was sent; the button goes back to rest, and the
+          // student is told so in a live region rather than left with silence.
+          this.isStarting = false;
+          this.onEnd();
+          this.emitState({ type: 'end' });
+          showToast(DECLINED_NOTICE, 6000, { force: true });
+          return;
+        }
+        this.beginRecognition();
+      });
+    return true;
+  }
+
+  /**
+   * Start the browser's recognition, once the student has said yes.
+   * @returns {boolean} whether the start was requested
+   */
+  beginRecognition() {
     try {
       this.recognition.start();
-      console.log('[STT] Started listening');
+      console.log('[STT] Start requested, waiting for onstart');
       return true;
     } catch (error) {
+      // A DOMException here reads "Failed to execute 'start' on 'SpeechRecognition': recognition
+      // has already started." — engine wording that means nothing to a student, so it never
+      // leaves this method.
       console.error('[STT] Failed to start recognition:', error);
-      this.onError(error);
+      this.isStarting = false;
+      if (error && error.name === 'InvalidStateError') {
+        // Recognition is already running: nothing is broken and nothing needs saying.
+        return false;
+      }
+      this.onError(new Error(GENERIC_START_FAILURE), 'start-failed');
+      this.emitState({ type: 'error', code: 'start-failed', message: GENERIC_START_FAILURE });
       return false;
     }
   }
@@ -204,18 +312,31 @@ export class STTController {
    * Stop listening
    */
   stopListening() {
-    if (!this.recognition || !this.isRecording) {
+    if (!this.recognition || (!this.isRecording && !this.isStarting)) {
       return false;
     }
+
+    // A start that has not landed yet is aborted, not stopped: stop() on a recognition that never
+    // started is a no-op, which is how Stop came to do nothing and the next press hit
+    // "recognition has already started".
+    const pendingStart = !this.isRecording && this.isStarting;
+    this.releaseWithdrawal();
+    this.releaseWithdrawal = () => {};
 
     // CRITICAL: Set isRecording to false BEFORE calling stop()
     // This prevents handleEnd() from restarting recognition
     this.isRecording = false;
+    this.isStarting = false;
     this.isPaused = false;
 
     try {
-      this.recognition.stop();
-      console.log('[STT] Stopped listening (isRecording set to false before stop)');
+      if (pendingStart) {
+        this.recognition.abort();
+        console.log('[STT] Pending start aborted');
+      } else {
+        this.recognition.stop();
+        console.log('[STT] Stopped listening (isRecording set to false before stop)');
+      }
       return true;
     } catch (error) {
       console.error('[STT] Failed to stop recognition:', error);
@@ -256,9 +377,14 @@ export class STTController {
    */
   handleStart() {
     this.isRecording = true;
+    this.isStarting = false;
     this.isPaused = false;
+    // A yes withdrawn in the popup stops dictation now, not at the next start.
+    this.releaseWithdrawal();
+    this.releaseWithdrawal = onDictationWithdrawn(() => this.stopListening());
     console.log('[STT] Recognition started');
     this.onStart();
+    this.emitState({ type: 'start' });
   }
 
   /**
@@ -280,15 +406,21 @@ export class STTController {
         this.recognition.start();
       } catch (error) {
         console.error('[STT] Failed to restart continuous recognition:', error);
-        // Use stop() for consistent flag cleanup rather than resetting manually
-        this.stop();
+        // stopListening() keeps the flags consistent; this.stop() never existed and threw here.
+        this.stopListening();
+        this.onEnd();
+        this.emitState({ type: 'end' });
       }
     } else {
       // User stopped recording (not just paused)
       console.log('[STT] Recording fully stopped');
+      this.releaseWithdrawal();
+      this.releaseWithdrawal = () => {};
       this.isRecording = false;
+      this.isStarting = false;
       this.isPaused = false;
       this.onEnd();
+      this.emitState({ type: 'end' });
     }
   }
 
@@ -317,10 +449,13 @@ export class STTController {
         finalTranscript += transcript;
         avgConfidence += confidence || 1.0;
         confidenceCount++;
-        console.log(`[STT] Final transcript: "${transcript}" (confidence: ${confidence})`);
+        // Don't log the transcript text — dictated speech is the student's own words and can be
+        // sensitive on a shared/lab machine. Log only length + confidence for debugging.
+        console.log(
+          `[STT] Final transcript: ${transcript.length} chars (confidence: ${confidence})`
+        );
       } else {
         interimTranscript += transcript;
-        console.log(`[STT] Interim transcript: "${transcript}"`);
       }
     }
 
@@ -356,6 +491,17 @@ export class STTController {
         }
       }
 
+      // Citation voice-capture: a trigger phrase snapshots a draft and must NOT be inserted as
+      // dictated text. If the hook consumes it, stop here.
+      if (this.onCitationTrigger(finalTranscript)) {
+        return;
+      }
+
+      // Companion voice palette: a recognised command is executed, never inserted as text.
+      if (this.onAssistCommand(finalTranscript)) {
+        return;
+      }
+
       // No command detected - process as regular text
       this.processAndInsertText(finalTranscript, {
         confidence: avgConfidence,
@@ -377,7 +523,7 @@ export class STTController {
       processedText = this.processPunctuationCommands(processedText);
     }
 
-    // Apply auto-punctuation if enabled (Phase 2.7 - S.3)
+    // Apply auto-punctuation if enabled
     if (this.autoPunctuator && this.autoPunctuator.isEnabled()) {
       const currentTime = Date.now();
       const punctResult = this.autoPunctuator.process(processedText, {
@@ -415,7 +561,7 @@ export class STTController {
     // Track last dictation for "delete that" / "replace that" commands
     this.lastDictation = processedText;
 
-    // Track confidence feedback (Phase 2.7 - S.4)
+    // Track confidence feedback
     if (this.confidenceFeedback && this.confidenceFeedback.isEnabled()) {
       const result = this.confidenceFeedback.addResult({
         transcript: processedText,
@@ -664,37 +810,39 @@ export class STTController {
       return;
     }
 
-    // Execute rich text formatting using execCommand
+    // Execute rich text formatting using execCommand, in the field's own document: an editor's
+    // iframe (Canvas's Rich Content Editor) has a selection of its own, which the page's does not see.
+    const doc = element.ownerDocument || document;
     switch (params.format) {
       case 'bold':
-        document.execCommand('bold', false, null);
+        doc.execCommand('bold', false, null);
         break;
       case 'italic':
-        document.execCommand('italic', false, null);
+        doc.execCommand('italic', false, null);
         break;
       case 'underline':
-        document.execCommand('underline', false, null);
+        doc.execCommand('underline', false, null);
         break;
       case 'paragraph':
-        document.execCommand('insertParagraph', false, null);
+        doc.execCommand('insertParagraph', false, null);
         break;
       case 'newline':
-        document.execCommand('insertLineBreak', false, null);
+        doc.execCommand('insertLineBreak', false, null);
         break;
       case 'bulletList':
-        document.execCommand('insertUnorderedList', false, null);
+        doc.execCommand('insertUnorderedList', false, null);
         break;
       case 'numberedList':
-        document.execCommand('insertOrderedList', false, null);
+        doc.execCommand('insertOrderedList', false, null);
         break;
       case 'heading':
         if (params.level >= 1 && params.level <= 6) {
-          document.execCommand('formatBlock', false, `h${params.level}`);
+          doc.execCommand('formatBlock', false, `h${params.level}`);
         }
         break;
       case 'quote':
       case 'blockquote':
-        document.execCommand('formatBlock', false, 'blockquote');
+        doc.execCommand('formatBlock', false, 'blockquote');
         break;
     }
 
@@ -720,20 +868,43 @@ export class STTController {
   handleError(event) {
     console.error('[STT] Recognition error:', event.error, event.message);
 
-    const errorMessages = {
-      'no-speech': 'No speech detected. Please try again.',
-      'audio-capture': 'No microphone detected. Please check your audio input.',
-      'not-allowed': 'Microphone permission denied. Please allow microphone access.',
-      network: 'Network error. Please check your internet connection.',
-      aborted: 'Speech recognition aborted.',
-      'bad-grammar': 'Speech recognition grammar error.',
-      'language-not-supported': `Language "${this.settings.language}" is not supported.`,
-    };
-
-    const userMessage = errorMessages[event.error] || `Speech recognition error: ${event.error}`;
-
     this.isRecording = false;
+    this.isStarting = false;
+
+    // A deliberate abort (Stop, or a cancelled start) is not a failure and needs no message.
+    if (event.error === 'aborted') {
+      return;
+    }
+
+    const userMessage = STT_ERROR_MESSAGES[event.error] || GENERIC_START_FAILURE;
+
     this.onError(new Error(userMessage), event.error);
+    this.emitState({ type: 'error', code: event.error, message: userMessage });
+  }
+
+  /**
+   * Hear the recogniser start, stop and fail without taking over the owner's callbacks.
+   * @param {(event: {type: 'start'|'end'|'error', code?: string, message?: string}) => void} listener
+   * @returns {() => void} unsubscribe
+   */
+  addStateListener(listener) {
+    this.stateListeners.add(listener);
+    return () => this.stateListeners.delete(listener);
+  }
+
+  /**
+   * Tell every state listener; one that throws does not stop the rest hearing.
+   * @param {{type: 'start'|'end'|'error', code?: string, message?: string}} event
+   * @param {Set<Function>} [listeners]
+   */
+  emitState(event, listeners = this.stateListeners) {
+    for (const listener of [...listeners]) {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('[STT] A state listener failed:', error);
+      }
+    }
   }
 
   /**
@@ -741,7 +912,10 @@ export class STTController {
    */
   handleNoMatch() {
     console.warn('[STT] No speech recognized');
-    this.onError(new Error('Speech not recognized. Please try again.'), 'no-match');
+    this.onError(
+      new Error('That was not clear. Press the microphone button and try again.'),
+      'no-match'
+    );
   }
 
   /**
@@ -823,14 +997,29 @@ export class STTController {
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
     } else if (element.contentEditable === 'true' || element.isContentEditable) {
-      // ContentEditable element
-      const selection = window.getSelection();
+      // ContentEditable element. Everything is done in the element's own document: the body of an
+      // editor's iframe (Canvas's Rich Content Editor) has its own selection and makes its own nodes.
+      const doc = element.ownerDocument || document;
+      const selection = (doc.defaultView || window).getSelection();
+      const caretInElement =
+        selection.rangeCount > 0 &&
+        typeof element.contains === 'function' &&
+        element.contains(selection.anchorNode);
 
-      if (selection.rangeCount > 0) {
+      // The browser's own typing path first: the editor sees a real input event, its undo history
+      // holds the words, and what it saves includes them.
+      const typed =
+        caretInElement &&
+        typeof doc.execCommand === 'function' &&
+        doc.execCommand('insertText', false, textToInsert);
+
+      if (typed) {
+        // Nothing more to do: the browser inserted the words and told the editor.
+      } else if (selection.rangeCount > 0) {
         const range = selection.getRangeAt(0);
         range.deleteContents();
 
-        const textNode = document.createTextNode(textToInsert);
+        const textNode = doc.createTextNode(textToInsert);
         range.insertNode(textNode);
 
         // Move cursor to end of inserted text
@@ -847,7 +1036,8 @@ export class STTController {
       }
     }
 
-    console.log(`[STT] Inserted text: "${text}"`);
+    console.log(`[STT] Inserted ${text.length} characters`);
+    debugLog('[STT] Inserted text:', text);
   }
 
   /**
@@ -878,11 +1068,11 @@ export class STTController {
       this.commandParser.updateSettings({ enabled: newSettings.voiceCommands });
     }
 
-    console.log('[STT] Settings updated:', this.settings);
+    console.log('[STT] Settings updated:', Object.keys(newSettings).join(', '));
   }
 
   /**
-   * Apply STT profile settings (Phase 2.7 - S.7)
+   * Apply STT profile settings
    * @param {string} profileType - Profile type from STTProfileType enum
    * @param {Object} customizations - Optional customizations
    */
@@ -1053,6 +1243,11 @@ export class STTController {
    * Cleanup and destroy controller
    */
   destroy() {
+    // Listeners hear one end, now: the recogniser's own end event would arrive after they are gone.
+    const wasActive = this.isRecording || this.isStarting;
+    const listeners = this.stateListeners;
+    this.stateListeners = new Set();
+
     if (this.recognition) {
       if (this.isRecording) {
         this.recognition.stop();
@@ -1084,6 +1279,7 @@ export class STTController {
     }
 
     this.isRecording = false;
+    this.isStarting = false;
     this.isPaused = false;
     this.targetElement = null;
     this.lastTranscript = '';
@@ -1091,6 +1287,9 @@ export class STTController {
     this.interimTranscript = '';
     this.finalTranscript = '';
 
+    if (wasActive) {
+      this.emitState({ type: 'end' }, listeners);
+    }
     console.log('[STT] Controller destroyed');
   }
 
@@ -1105,10 +1304,10 @@ export class STTController {
         autoLearnThreshold: options.autoLearnThreshold || 3,
         enabledCategories: options.enabledCategories || [VocabularyPresets.CUSTOM],
         onWordAdded: entry => {
-          console.log(`[STT] Vocabulary word added: ${entry.word}`);
+          debugLog(`[STT] Vocabulary word added: ${entry.word}`);
         },
         onWordRemoved: entry => {
-          console.log(`[STT] Vocabulary word removed: ${entry.word}`);
+          debugLog(`[STT] Vocabulary word removed: ${entry.word}`);
         },
         onError: error => {
           console.error('[STT] Vocabulary error:', error);
@@ -1366,9 +1565,8 @@ export class STTController {
           this.onConfidenceUpdate(result);
         },
         onLowConfidence: result => {
-          console.log(
-            `[STT] Low confidence warning: "${result.transcript}" (${result.getPercentage()}%)`
-          );
+          console.log(`[STT] Low confidence warning (${result.getPercentage()}%)`);
+          debugLog('[STT] Low confidence transcript:', result.transcript);
           this.onLowConfidence(result);
         },
         onStatsUpdate: stats => {

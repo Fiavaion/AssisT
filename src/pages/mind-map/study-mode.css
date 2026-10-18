@@ -1,0 +1,93 @@
+/*
+ * Study mode: the contents of the right dock's Study tab.
+ *
+ * Layout only — the palette, the font, the button family and the focus ring are the page's, in
+ * mindmap.css. There are no transitions anywhere in here: a step that fades in is one more thing
+ * between a student and the answer they are trying to recall, and a reduced-motion preference
+ * should not have to switch off something that was never turned on.
+ */
+
+.mm-study {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  color: var(--mm-body, #33414a);
+}
+
+.mm-study__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mm-study__hint {
+  margin: 0;
+  color: var(--mm-muted, #5b655c);
+}
+
+.mm-study__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mm-study__progress,
+.mm-study__score {
+  margin: 0;
+  color: var(--mm-muted, #5b655c);
+}
+
+.mm-study__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mm-study__question,
+.mm-study__heading {
+  margin: 0;
+  color: var(--mm-strong, #1f2a30);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.mm-study__answerLabel {
+  color: var(--mm-strong, #1f2a30);
+  font-weight: 600;
+}
+
+.mm-study__answerText {
+  align-self: stretch;
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--mm-radius-sm, 6px);
+  background: var(--mm-accent-soft, rgba(67, 98, 107, 0.12));
+  font-weight: 600;
+}
+
+.mm-study__summary {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 8px;
+}
+
+.mm-study__missedList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mm-study__missed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}

@@ -1,0 +1,355 @@
+/*
+ * Canvas pane.
+ *
+ * Layout only — the palette, the font, the button family and the focus ring are the page's, in
+ * mindmap.css. The pane draws no ground of its own: the dotted grid belongs to the canvas dock
+ * behind it, so the picture sits on the page rather than on a card of its own.
+ *
+ * ADR 0001 makes the canvas a rendering of the outline, so nothing here is the only way to reach a
+ * capability: every colour cue is doubled by a shape cue, and the two controls that must be
+ * operable without a pointer — the collapse toggles and the inline text editor — are real HTML
+ * elements in an overlay above the SVG rather than SVG shapes with roles painted on.
+ */
+
+.mm-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  overflow: hidden;
+  background: transparent;
+}
+
+/*
+ * The pane holds the keyboard itself when a press on it has to take the caret out of a field
+ * elsewhere on the page (canvas-pane.js, `releaseOutsideEdit`), so it is focusable by script.
+ *
+ * A pointer press is the student looking at what they pressed, not asking where they are, so it
+ * draws nothing; arriving here from the keyboard draws the page's ring (SC 2.4.7). Inside the edge
+ * rather than outside it, because the pane clips its own overflow and an outset ring would be cut
+ * off on all four sides.
+ */
+.mm-canvas:focus {
+  outline: none;
+}
+
+.mm-canvas:focus-visible {
+  outline: 3px solid var(--mm-focus, #123b45);
+  outline-offset: -3px;
+}
+
+.mm-canvas__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* ---- the zoom cluster --------------------------------------------------- */
+
+/*
+ * One pill in the bottom-right corner: zoom out, the level in words, zoom in, fit. It is the only
+ * Fit control on the page — it used to be duplicated in the toolbar.
+ *
+ * Above 900px the docks are columns of the grid, so nothing overlaps it. Below that they are sheets
+ * over the canvas, and a sheet at the narrow end covers the whole of it: mindmap.css lifts this
+ * pill above the sheets there, so its buttons are never focusable underneath one (SC 2.4.11).
+ *
+ * The inset and the padding are the page's own tokens (mindmap.css): the toast has to clear this
+ * pill, and it works its offset out from those two numbers plus the height they hold.
+ */
+.mm-canvas__zoom {
+  position: absolute;
+  right: var(--mm-zoom-inset, 12px);
+  bottom: var(--mm-zoom-inset, 12px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--mm-zoom-padding, 4px);
+  border: 1px solid var(--mm-line-strong, #6f7869);
+  border-radius: var(--mm-radius-pill, 999px);
+  background: var(--mm-surface, #fbfaf6);
+  box-shadow: var(--mm-shadow, 0 1px 2px rgba(31, 42, 48, 0.14));
+}
+
+.mm-canvas__zoomButton {
+  min-width: 32px;
+  justify-content: center;
+  border-color: transparent;
+  border-radius: var(--mm-radius-pill, 999px);
+  background: transparent;
+}
+
+.mm-canvas__zoomLevel {
+  min-width: 4.5em;
+  padding: 0 4px;
+  color: var(--mm-muted, #5b655c);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ---- nodes and edges ---------------------------------------------------- */
+
+.mm-canvas__edge {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.mm-node__box {
+  stroke: var(--mm-surface, #fbfaf6);
+  stroke-width: 1;
+}
+
+.mm-node__text,
+.mm-node__glyph,
+.mm-node__badgeText,
+.mm-link__label,
+.mm-canvas__editor {
+  font-family: var(--mm-font, system-ui, sans-serif);
+}
+
+.mm-node__text,
+.mm-node__glyph,
+.mm-node__badgeText,
+.mm-link__label {
+  /* The pointer drags whole nodes, so text inside one must never start a selection instead. */
+  user-select: none;
+}
+
+.mm-node__text {
+  font-size: 14px;
+}
+
+.mm-node__glyph {
+  font-size: 12px;
+}
+
+/* The centre of the map is the one node a student looks for first, so it says so in weight. */
+.mm-node--root .mm-node__text {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.mm-node--root .mm-node__box {
+  stroke: var(--mm-strong, #1f2a30);
+  stroke-width: 2;
+}
+
+.mm-node {
+  cursor: grab;
+}
+
+.mm-node--dragging {
+  cursor: grabbing;
+  opacity: 0.85;
+}
+
+/*
+ * Selection is a thicker stroke AND a dashed ring drawn outside the box: a shape difference, so it
+ * survives a colour-blind reading and a forced-colours mode (SC 1.4.1).
+ */
+.mm-node--selected .mm-node__box {
+  stroke: var(--mm-focus, #123b45);
+  stroke-width: 3;
+}
+
+.mm-node__ring {
+  fill: none;
+  stroke: var(--mm-strong, #1f2a30);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+/*
+ * The one node of a set that the Details panel edits, that read aloud starts from and that the
+ * quick-add handles would belong to: a heavier UNBROKEN ring against the dashed one the rest of the
+ * set carries. A difference in shape rather than in colour, so it survives a colour-blind reading and
+ * a forced-colours mode (SC 1.4.1). One node selected is its own primary and never carries this: with
+ * nothing to be told apart from, the ring it has always had is the ring it keeps.
+ */
+.mm-node--primary .mm-node__ring {
+  stroke-width: 4;
+  stroke-dasharray: none;
+}
+
+.mm-node--dropTarget .mm-node__box {
+  stroke: var(--mm-strong, #1f2a30);
+  stroke-width: 4;
+  stroke-dasharray: 6 3;
+}
+
+/*
+ * A refused drop reads as refused without moving: a heavy dashed outline plus the barred-circle
+ * glyph the renderer adds. Nothing shakes, because motion is the one cue a vestibular disorder
+ * cannot ignore.
+ */
+.mm-node--invalidTarget .mm-node__box {
+  stroke: var(--mm-danger, #9d2117);
+  stroke-width: 4;
+  stroke-dasharray: 2 3;
+}
+
+/*
+ * Where a dragged node will land between two siblings: a line across the gap with a caret at its
+ * leading end. Shape, not colour: the caret is what says "in here", so the mark reads the same to a
+ * student who cannot tell the stroke from the connectors around it (SC 1.4.1).
+ */
+.mm-canvas__dropLine {
+  fill: none;
+  stroke: var(--mm-focus, #123b45);
+  stroke-width: 3;
+}
+
+.mm-canvas__dropCaret {
+  fill: var(--mm-focus, #123b45);
+}
+
+.mm-node__badge {
+  fill: var(--mm-surface, #fbfaf6);
+  stroke: var(--mm-strong, #1f2a30);
+  stroke-width: 1.5;
+}
+
+.mm-node__badgeText {
+  fill: var(--mm-strong, #1f2a30);
+  font-size: 11px;
+}
+
+/* ---- cross-links -------------------------------------------------------- */
+
+.mm-link {
+  fill: none;
+  stroke: var(--mm-line-strong, #6f7869);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.mm-link__arrow {
+  fill: var(--mm-line-strong, #6f7869);
+}
+
+.mm-link__label {
+  fill: var(--mm-strong, #1f2a30);
+  font-size: 12px;
+  /* Painting the stroke first haloes the label in the page colour so it stays legible over a path. */
+  paint-order: stroke;
+  stroke: var(--mm-bg, #e9ece5);
+  stroke-width: 3;
+}
+
+/* ---- HTML overlay ------------------------------------------------------- */
+
+.mm-canvas__overlay {
+  position: absolute;
+  inset: 0;
+  /* The overlay must not swallow pans and drags aimed at the SVG; its children take pointers back. */
+  pointer-events: none;
+}
+
+.mm-canvas__overlay > * {
+  position: absolute;
+  pointer-events: auto;
+}
+
+/*
+ * The collapse toggle is transparent because the SVG badge underneath is its visible form; it is a
+ * real button so that it carries a name, a role and a focus ring.
+ */
+.mm-canvas__toggle {
+  /* SC 2.5.8: the toggle sits over a picture that scales, so the target has a floor of its own.
+     canvas-pane.js holds the same floor for the inline size it writes as the zoom changes. */
+  min-inline-size: 24px;
+  min-block-size: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}
+
+/*
+ * The quick-add handles on the selected node. Unlike the collapse toggle these are not transparent:
+ * there is no badge drawn under them for the eye to find, so they are the visible control as well as
+ * the target. Same 24px floor, stated here as well as in canvas-pane.js so a zoom cannot undercut it.
+ */
+.mm-canvas__handle {
+  display: flex;
+  min-inline-size: 24px;
+  min-block-size: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--mm-line-strong, #6f7869);
+  border-radius: 50%;
+  background: var(--mm-surface, #fbfaf6);
+  color: var(--mm-strong, #1f2a30);
+  font-family: var(--mm-font, system-ui, sans-serif);
+  /* Two characters in a 24px circle: the plus and the arrow that says which way the new node goes. */
+  font-size: 11px;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mm-canvas__handle:hover {
+  background: var(--mm-accent-soft, rgba(67, 98, 107, 0.12));
+}
+
+.mm-canvas__editor {
+  box-sizing: border-box;
+  padding: 2px 6px;
+  border: 2px solid var(--mm-focus, #123b45);
+  border-radius: var(--mm-radius-sm, 6px);
+  background: var(--mm-surface, #fbfaf6);
+  color: var(--mm-strong, #1f2a30);
+  font-size: 14px;
+}
+
+/* ---- motion ------------------------------------------------------------- */
+
+/*
+ * Only a programmatic move (Fit, a zoom button, following a selection made in the outline) eases;
+ * an interactive pan must track the pointer exactly, so the class is added for the move and taken
+ * off again.
+ */
+.mm-canvas__viewport--moving {
+  transition: transform 150ms ease-out;
+}
+
+.mm-canvas__overlay--moving > * {
+  transition:
+    left 150ms ease-out,
+    top 150ms ease-out,
+    width 150ms ease-out,
+    height 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-canvas__viewport--moving,
+  .mm-canvas__overlay--moving > * {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .mm-node__box,
+  .mm-node__ring,
+  .mm-canvas__dropLine {
+    stroke: CanvasText;
+  }
+
+  .mm-canvas__dropCaret {
+    fill: CanvasText;
+  }
+
+  /* A round button on a picture: forced colours would otherwise leave it invisible over the SVG. */
+  .mm-canvas__handle {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+}

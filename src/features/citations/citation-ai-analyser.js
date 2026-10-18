@@ -2,8 +2,9 @@
  * Citation AI Analyser (OPTIONAL enhancement layer)
  *
  * Wraps the shared AI client to provide an on-demand credibility assessment for a SAVED
- * citation's metadata. This is strictly additive: the heuristic source-evaluator
- * (CRAAP + domain rules) is always available and never depends on this module. When no AI
+ * citation's metadata. This is strictly additive: the heuristic scoring in
+ * src/features/citationAnalyzer/citationAnalyzer.js is always available and never depends on
+ * this module. When no AI
  * mode is configured, `getAnalyserAvailability().available` is false and callers simply hide
  * the "Analyse with AI" affordance — nothing breaks.
  *
@@ -70,29 +71,20 @@ function buildPrompt(c) {
 }
 
 /**
- * Defensively parse the model's JSON response.
- * @param {string} text
- * @returns {{signal:string, summary:string, considerations:string[]}|null}
+ * Shape a raw parsed object into the analyser result contract.
+ * @param {Object} obj
+ * @returns {{signal:string, summary:string, considerations:string[]}}
  */
-function parseResult(text) {
-  const match = text && text.match(/\{[\s\S]*\}/);
-  if (!match) {
-    return null;
-  }
-  try {
-    const obj = JSON.parse(match[0]);
-    const raw = String(obj.signal || '').toLowerCase();
-    const signal = ['high', 'medium', 'low'].includes(raw) ? raw : 'unknown';
-    return {
-      signal,
-      summary: typeof obj.summary === 'string' ? obj.summary.trim() : '',
-      considerations: Array.isArray(obj.considerations)
-        ? obj.considerations.filter(x => typeof x === 'string' && x.trim()).slice(0, 4)
-        : [],
-    };
-  } catch {
-    return null;
-  }
+function normaliseParsed(obj) {
+  const raw = String(obj.signal || '').toLowerCase();
+  const signal = ['high', 'medium', 'low'].includes(raw) ? raw : 'unknown';
+  return {
+    signal,
+    summary: typeof obj.summary === 'string' ? obj.summary.trim() : '',
+    considerations: Array.isArray(obj.considerations)
+      ? obj.considerations.filter(x => typeof x === 'string' && x.trim()).slice(0, 4)
+      : [],
+  };
 }
 
 /**
@@ -108,7 +100,9 @@ export async function analyseCitation(citation) {
   }
 
   const prompt = buildPrompt(citation || {});
-  const { text } = await generateWithAI(prompt, mode, {
+  // format:'json' → the shared client returns the parsed object in `json` (string modes included),
+  // with `text` always a string. No per-mode type-checking needed here.
+  const { text, json } = await generateWithAI(prompt, mode, {
     maxTokens: 350,
     temperature: 0.3,
     feature: FEATURE,
@@ -116,16 +110,15 @@ export async function analyseCitation(citation) {
     format: 'json',
   });
 
-  const parsed = parseResult(text);
-  if (!parsed) {
-    return {
-      available: true,
-      signal: 'unknown',
-      summary: text ? text.trim().slice(0, 300) : 'No analysis returned.',
-      considerations: [],
-    };
+  if (json && typeof json === 'object') {
+    return { available: true, ...normaliseParsed(json) };
   }
-  return { available: true, ...parsed };
+  return {
+    available: true,
+    signal: 'unknown',
+    summary: text ? text.trim().slice(0, 300) : 'No analysis returned.',
+    considerations: [],
+  };
 }
 
 export default { getAnalyserAvailability, isAnalyserAvailable, analyseCitation };

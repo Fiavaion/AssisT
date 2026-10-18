@@ -18,9 +18,21 @@
 
 import { MESSAGE_TYPES } from '../config/constants.js';
 import { sanitizeHTML } from '../utils/sanitize.js';
-import { attachInteractiveHandler, attachDelegatedHandler } from '../utils/event-handlers.js';
+import {
+  attachAccessibleHandler,
+  attachAccessibleDelegatedHandler,
+} from '../utils/event-handlers.js';
 import { normalizeCitation } from '../features/citations/citation-types.js';
-import { formatReference } from '../features/citations/citation-styles/index.js';
+import { formatReference, referenceSetFor } from '../features/citations/citation-styles/index.js';
+
+/** The local, decorative icon a card shows when its citation holds none of its own. */
+const GENERIC_ICON =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📄</text></svg>'
+  );
+
+let panelSequence = 0;
 
 /**
  * Citation Manager Panel Component
@@ -52,6 +64,14 @@ export class CitationManagerPanel {
 
     // Keyboard navigation
     this.focusedIndex = -1;
+
+    // Removes the citation list's delegated handler; the list is re-rendered often and
+    // the container element survives, so the old listener has to go before the new one
+    // is attached or one Copy would fire once per render.
+    this.listCleanup = null;
+
+    // Ids tie the view tabs to their tabpanel; unique per panel instance.
+    this.idPrefix = `citation-panel-${++panelSequence}`;
   }
 
   /**
@@ -110,6 +130,12 @@ export class CitationManagerPanel {
    * Apply search and filter criteria to citations
    */
   applyFilters() {
+    // The focused position indexes the list about to be replaced, so it means nothing
+    // once the filter changes: index 3 of six citations is nothing at all once a search
+    // leaves one. Every render path runs through here, so resetting it here is what keeps
+    // the roving tab stop on a card that exists.
+    this.focusedIndex = -1;
+
     let filtered = [...this.citations];
 
     // Filter by view
@@ -156,18 +182,22 @@ export class CitationManagerPanel {
    * Render the main panel structure
    */
   render() {
+    const id = this.idPrefix;
     this.container.innerHTML = sanitizeHTML(`
       <div class="citation-panel" role="region" aria-label="Citation Manager">
         <!-- Panel Header with View Switcher -->
         <div class="citation-panel-header">
-          <div class="citation-view-tabs" role="tablist">
-            <button class="view-tab active" data-view="all" role="tab" aria-selected="true" tabindex="0">
+          <div class="citation-view-tabs" role="tablist" aria-label="Citation views">
+            <button class="view-tab active" id="${id}-tab-all" data-view="all" role="tab"
+                    aria-selected="true" aria-controls="${id}-tabpanel" tabindex="0">
               All
             </button>
-            <button class="view-tab" data-view="projects" role="tab" aria-selected="false" tabindex="-1">
+            <button class="view-tab" id="${id}-tab-projects" data-view="projects" role="tab"
+                    aria-selected="false" aria-controls="${id}-tabpanel" tabindex="-1">
               Projects
             </button>
-            <button class="view-tab" data-view="recent" role="tab" aria-selected="false" tabindex="-1">
+            <button class="view-tab" id="${id}-tab-recent" data-view="recent" role="tab"
+                    aria-selected="false" aria-controls="${id}-tabpanel" tabindex="-1">
               Recent
             </button>
           </div>
@@ -194,34 +224,38 @@ export class CitationManagerPanel {
           </button>
         </div>
 
-        <!-- Project Selector (shown when Projects view active) -->
-        <div class="citation-project-selector hidden">
-          <select class="project-select" aria-label="Select project">
-            <option value="">All Projects</option>
-          </select>
-        </div>
+        <div class="citation-tabpanel" id="${id}-tabpanel" role="tabpanel"
+             aria-labelledby="${id}-tab-all">
+          <!-- Project Selector (shown when Projects view active) -->
+          <div class="citation-project-selector hidden">
+            <select class="project-select" aria-label="Select project">
+              <option value="">All Projects</option>
+            </select>
+          </div>
 
-        <!-- Stats Bar -->
-        <div class="citation-stats-bar">
-          <span class="citation-count">0 citations</span>
-          <span class="citation-page-indicator"></span>
-        </div>
+          <!-- Stats Bar -->
+          <div class="citation-stats-bar">
+            <span class="citation-count">0 citations</span>
+            <span class="citation-page-indicator"></span>
+          </div>
 
-        <!-- Citation List -->
-        <div class="citation-list-container" role="list" aria-live="polite">
-          <div class="citation-list"></div>
+          <!-- The list is NOT a live region: it is rebuilt on every keystroke, and a live list
+               would be read out whole each time. Only the count summary is announced. -->
+          <div class="citation-list-status" role="status"></div>
+
+          <!-- Citation List -->
+          <div class="citation-list-container">
+            <div class="citation-list"></div>
+          </div>
         </div>
 
         <!-- Quick Actions -->
         <div class="citation-quick-actions">
-          <button class="quick-action-btn" data-action="save" title="Save current page">
+          <button class="quick-action-btn" data-command="save" data-action="save" title="Save current page">
             <span aria-hidden="true">💾</span> Save Page
           </button>
-          <button class="quick-action-btn" data-action="library" title="Open full library">
+          <button class="quick-action-btn" data-command="library" title="Open full library">
             <span aria-hidden="true">📚</span> Library
-          </button>
-          <button class="quick-action-btn" data-action="projects" title="Manage projects">
-            <span aria-hidden="true">📁</span> Projects
           </button>
         </div>
       </div>
@@ -414,6 +448,19 @@ export class CitationManagerPanel {
         padding: 4px;
       }
 
+      /* Visually hidden, still read by screen readers. */
+      .citation-list-status {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
       .citation-list.gallery {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -439,7 +486,7 @@ export class CitationManagerPanel {
         background: #fffbeb;
       }
 
-      .citation-card:focus-visible {
+      .citation-open:focus-visible {
         outline: 2px solid #f59e0b;
         outline-offset: 2px;
       }
@@ -462,6 +509,23 @@ export class CitationManagerPanel {
         flex: 1;
         min-width: 0;
         overflow: hidden;
+      }
+
+      /* The card's open control is a real button; it looks like the card text it always was. */
+      .citation-open {
+        background: none;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .citation-open .citation-title,
+      .citation-open .citation-meta {
+        display: block;
       }
 
       .citation-title {
@@ -634,7 +698,7 @@ export class CitationManagerPanel {
           border-width: 2px;
         }
 
-        .citation-card:focus-visible {
+        .citation-open:focus-visible {
           outline-width: 3px;
         }
 
@@ -668,7 +732,7 @@ export class CitationManagerPanel {
     // View tabs
     const viewTabs = this.container.querySelectorAll('.view-tab');
     viewTabs.forEach(tab => {
-      attachInteractiveHandler(tab, 'View Tab', e => {
+      attachAccessibleHandler(tab, 'View Tab', e => {
         this.setView(e.currentTarget.dataset.view);
       });
 
@@ -680,7 +744,7 @@ export class CitationManagerPanel {
     // Display mode toggle
     const displayBtns = this.container.querySelectorAll('.display-btn');
     displayBtns.forEach(btn => {
-      attachInteractiveHandler(btn, 'Display Mode Button', e => {
+      attachAccessibleHandler(btn, 'Display Mode Button', e => {
         this.setDisplayMode(e.currentTarget.dataset.mode);
       });
     });
@@ -695,7 +759,11 @@ export class CitationManagerPanel {
       });
 
       searchInput.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
+        // Escape clears a search first. With nothing typed it is left to reach the Quick View
+        // dialog, which it closes.
+        if (e.key === 'Escape' && e.target.value !== '') {
+          e.preventDefault();
+          e.stopPropagation();
           e.target.value = '';
           this.searchQuery = '';
           this.applyFilters();
@@ -717,8 +785,8 @@ export class CitationManagerPanel {
     // Quick action buttons
     const quickActions = this.container.querySelectorAll('.quick-action-btn');
     quickActions.forEach(btn => {
-      attachInteractiveHandler(btn, 'Quick Action Button', () => {
-        this.handleQuickAction(btn.dataset.action);
+      attachAccessibleHandler(btn, 'Quick Action Button', () => {
+        this.handleQuickAction(btn.dataset.command);
       });
     });
 
@@ -770,7 +838,7 @@ export class CitationManagerPanel {
    * Handle keyboard navigation for citation list
    */
   handleListKeyNav(e) {
-    const cards = Array.from(this.container.querySelectorAll('.citation-card'));
+    const cards = Array.from(this.container.querySelectorAll('.citation-open'));
     if (cards.length === 0) {
       return;
     }
@@ -788,13 +856,10 @@ export class CitationManagerPanel {
         this.updateFocusedCard(cards);
         break;
 
-      case 'Enter':
-      case ' ':
-        e.preventDefault();
-        if (this.focusedIndex >= 0 && cards[this.focusedIndex]) {
-          cards[this.focusedIndex].click();
-        }
-        break;
+      // Enter and Space are deliberately absent: the list's own delegated handler
+      // activates whatever is focused — a card, or an action button inside one — so the
+      // keyboard runs the same code the mouse does and reaches the button too. Handling
+      // them here as well would open the card behind a Copy press.
 
       case 'Home':
         e.preventDefault();
@@ -811,12 +876,36 @@ export class CitationManagerPanel {
   }
 
   /**
+   * Index of the one card that sits in the tab order, given how many are rendered.
+   *
+   * Bounded at both ends, because focusedIndex runs off both. It is -1 until an arrow key
+   * moves it and is reset to -1 by applyFilters(), so without the lower bound NO card
+   * would be tabbable at first render or after any filter change, and Tab would skip the
+   * list and stop only on the Copy and Open buttons inside it. The upper bound matters
+   * because the rendered list is capped at 20 and shrinks under a search: a stale index
+   * past the end would leave no card tabbable either. A roving tab stop needs exactly one
+   * entry point, and it has to be a card that exists.
+   *
+   * @param {number} count - Number of cards actually rendered
+   * @returns {number} Index of the tabbable card
+   */
+  tabbableIndex(count) {
+    if (count <= 0) {
+      return -1;
+    }
+    return Math.min(Math.max(this.focusedIndex, 0), count - 1);
+  }
+
+  /**
    * Update focused card visual state
+   * @param {HTMLElement[]} cards - each card's open button, which holds the roving tab stop
    */
   updateFocusedCard(cards) {
+    const tabbable = this.tabbableIndex(cards.length);
     cards.forEach((card, i) => {
-      card.classList.toggle('focused', i === this.focusedIndex);
-      card.setAttribute('tabindex', i === this.focusedIndex ? '0' : '-1');
+      // The highlight follows the real focus; the tab stop follows the entry point.
+      card.closest('.citation-card')?.classList.toggle('focused', i === this.focusedIndex);
+      card.setAttribute('tabindex', i === tabbable ? '0' : '-1');
     });
 
     if (this.focusedIndex >= 0 && cards[this.focusedIndex]) {
@@ -839,6 +928,9 @@ export class CitationManagerPanel {
       tab.classList.toggle('active', isActive);
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
       tab.setAttribute('tabindex', isActive ? '0' : '-1');
+      if (isActive) {
+        this.container.querySelector('[role="tabpanel"]')?.setAttribute('aria-labelledby', tab.id);
+      }
     });
 
     // Show/hide project selector
@@ -901,13 +993,6 @@ export class CitationManagerPanel {
           });
           this.onStatusUpdate('Opening library...', 'info');
           break;
-
-        case 'projects':
-          await chrome.tabs.sendMessage(this.currentTab.id, {
-            type: MESSAGE_TYPES.OPEN_PROJECT_MANAGER,
-          });
-          this.onStatusUpdate('Opening projects...', 'info');
-          break;
       }
     } catch (error) {
       console.error('[CitationPanel] Quick action failed:', error);
@@ -926,76 +1011,137 @@ export class CitationManagerPanel {
 
     list.classList.toggle('gallery', this.displayMode === 'gallery');
 
+    this.listCleanup?.();
+    this.listCleanup = null;
+    this.updateVisibleCount();
+    this.announceCount();
+
     if (this.filteredCitations.length === 0) {
+      list.removeAttribute('role');
       this.renderEmptyState();
       return;
     }
 
+    const visible = this.filteredCitations.slice(0, 20); // Limit for performance
+    const tabbable = this.tabbableIndex(visible.length);
+
+    list.setAttribute('role', 'list');
     list.innerHTML = sanitizeHTML(
-      this.filteredCitations
-        .slice(0, 20) // Limit for performance
-        .map((citation, index) => this.renderCitationCard(citation, index))
-        .join('')
+      visible.map((citation, index) => this.renderCitationCard(citation, index, tabbable)).join('')
     );
 
-    // Handle favicon load errors (CSP-compliant - no inline handlers)
+    // A stored icon that will not decode falls back to the generic one (CSP-compliant - no inline
+    // handlers).
     list.querySelectorAll('.citation-favicon').forEach(img => {
       img.addEventListener('error', () => {
-        img.src =
-          'data:image/svg+xml,' +
-          encodeURIComponent(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📄</text></svg>'
-          );
+        img.src = GENERIC_ICON;
       });
     });
 
-    // Attach delegated handlers to cards
-    attachDelegatedHandler(list, '.citation-card', 'Citation Card', (e, card) => {
-      const index = Array.from(list.querySelectorAll('.citation-card')).indexOf(card);
-      if (index >= 0) {
-        this.openCitation(this.filteredCitations[index]);
-      }
-    });
+    // One delegate for the whole list, so mouse, Enter and Space all reach the same code.
+    // The selector list matters: closest() resolves a hit on an action button to the
+    // button rather than to the card around it, so Copy never also opens the citation.
+    // A click elsewhere on the card (the favicon, the padding) still opens it; the keyboard
+    // reaches the same action through the card's open button.
+    this.listCleanup = attachAccessibleDelegatedHandler(
+      list,
+      '.citation-action-btn, .citation-open, .citation-card',
+      'Citation List',
+      (e, target) => {
+        if (target.classList.contains('citation-action-btn')) {
+          const id = target.closest('.citation-card')?.dataset.id;
+          if (id) {
+            this.handleCitationAction(target.dataset.command, id);
+          }
+          return;
+        }
 
-    // Attach delegated handlers to action buttons
-    attachDelegatedHandler(list, '.citation-action-btn', 'Citation Action Button', (e, btn) => {
-      const action = btn.dataset.action;
-      const card = btn.closest('.citation-card');
-      const id = card?.dataset.id;
-      if (id) {
-        this.handleCitationAction(action, id);
+        const card = target.closest('.citation-card');
+        const index = Array.from(list.querySelectorAll('.citation-card')).indexOf(card);
+        if (index >= 0) {
+          this.openCitation(this.filteredCitations[index]);
+        }
       }
-    });
+    );
+  }
+
+  /**
+   * Show how many citations are on screen. While a search or view narrows the list it reads
+   * "1 of 2 citations", so the number agrees with the cards the student can see.
+   */
+  updateVisibleCount() {
+    const countEl = this.container.querySelector('.citation-count');
+    if (!countEl) {
+      return;
+    }
+    const shown = this.filteredCitations.length;
+    const total = this.citations.length;
+    const noun = `citation${total === 1 ? '' : 's'}`;
+    countEl.textContent = shown === total ? `${total} ${noun}` : `${shown} of ${total} ${noun}`;
+  }
+
+  /**
+   * Announce the result count through the status element. Written only when the wording
+   * changes, so a keystroke that leaves the count alone says nothing.
+   */
+  announceCount() {
+    const statusEl = this.container.querySelector('.citation-list-status');
+    if (!statusEl) {
+      return;
+    }
+    const total = this.filteredCitations.length;
+    let message;
+    if (total > 0) {
+      message = `${total} citation${total === 1 ? '' : 's'}`;
+    } else {
+      message = this.searchQuery ? 'No citations match your search' : 'No citations';
+    }
+    if (statusEl.textContent !== message) {
+      statusEl.textContent = message;
+    }
   }
 
   /**
    * Render a single citation card
+   *
+   * @param {Object} citation - Citation to render
+   * @param {number} index - Position in the rendered list
+   * @param {number} tabbableIndex - Index of the one card holding the tab stop, resolved
+   *   once against the rendered count rather than per card
+   * @returns {string} Card markup
    */
-  renderCitationCard(citation, index) {
-    const faviconUrl = citation.favicon || this.getFaviconFromUrl(citation.url);
+  renderCitationCard(citation, index, tabbableIndex) {
+    const faviconUrl = this.iconFor(citation);
     const authors =
       citation.authors?.length > 0 ? citation.authors.slice(0, 2).join(', ') : 'Unknown author';
     const date = citation.createdAt ? this.formatDate(citation.createdAt) : '';
+    // Named by the title alone, described by the author line, so a screen reader hears
+    // "Deep Residual Learning, button" first and the details after.
+    const cardId = `${this.idPrefix}-card-${index}`;
 
     return `
-      <div class="citation-card"
-           data-id="${citation.id}"
-           role="listitem"
-           tabindex="${index === this.focusedIndex ? '0' : '-1'}"
-           aria-label="${this.escapeHtml(citation.title || 'Untitled citation')}">
+      <div class="citation-card" data-id="${this.escapeHtml(String(citation.id))}" role="listitem">
         <img class="citation-favicon"
              src="${this.escapeHtml(faviconUrl)}"
              alt=""
         />
-        <div class="citation-info">
-          <div class="citation-title">${this.escapeHtml(citation.title || 'Untitled')}</div>
-          <div class="citation-meta">${this.escapeHtml(authors)}${date ? ' • ' + date : ''}</div>
-        </div>
+        <button type="button" class="citation-open citation-info"
+                tabindex="${index === tabbableIndex ? '0' : '-1'}"
+                aria-labelledby="${cardId}-title" aria-describedby="${cardId}-meta">
+          <span class="citation-title" id="${cardId}-title">${this.escapeHtml(citation.title || 'Untitled')}</span>
+          <span class="citation-meta" id="${cardId}-meta">${this.escapeHtml(authors)}${date ? ' • ' + date : ''}</span>
+        </button>
         <div class="citation-actions">
-          <button class="citation-action-btn" data-action="copy" title="Copy citation">
+          <!-- The glyph is aria-hidden, so without an explicit label these buttons have
+               only their title to fall back on. aria-label matches the title word for
+               word: a visible name and an accessible name that disagree is its own
+               failure. -->
+          <button class="citation-action-btn" data-command="copy" data-action="copy"
+                  title="Copy citation" aria-label="Copy citation">
             <span aria-hidden="true">📋</span>
           </button>
-          <button class="citation-action-btn" data-action="open" title="Open URL">
+          <button class="citation-action-btn" data-command="open" data-action="open"
+                  title="Open URL" aria-label="Open URL">
             <span aria-hidden="true">🔗</span>
           </button>
         </div>
@@ -1045,7 +1191,7 @@ export class CitationManagerPanel {
         ${
           showSaveBtn
             ? `
-          <button class="citation-empty-action" data-action="save-first">
+          <button class="citation-empty-action" data-command="save-first">
             Save Current Page
           </button>
         `
@@ -1054,9 +1200,9 @@ export class CitationManagerPanel {
       </div>
     `);
 
-    const saveBtn = list.querySelector('[data-action="save-first"]');
+    const saveBtn = list.querySelector('[data-command="save-first"]');
     if (saveBtn) {
-      attachInteractiveHandler(saveBtn, 'Save First Action', () => {
+      attachAccessibleHandler(saveBtn, 'Save First Action', () => {
         this.handleQuickAction('save');
       });
     }
@@ -1085,13 +1231,7 @@ export class CitationManagerPanel {
    * Update statistics display
    */
   updateStats() {
-    const countEl = this.container.querySelector('.citation-count');
     const pageIndicator = this.container.querySelector('.citation-page-indicator');
-
-    if (countEl) {
-      const total = this.filteredCitations.length;
-      countEl.textContent = `${total} citation${total === 1 ? '' : 's'}`;
-    }
 
     if (pageIndicator) {
       const currentPage = this.checkCurrentPageCitation();
@@ -1179,7 +1319,7 @@ export class CitationManagerPanel {
    * Copy citation to clipboard
    */
   async copyCitation(citation) {
-    const text = this.formatCitation(citation);
+    const text = await this.formatCitation(citation);
 
     try {
       await navigator.clipboard.writeText(text);
@@ -1191,29 +1331,33 @@ export class CitationManagerPanel {
   }
 
   /**
-   * Format citation for clipboard (Harvard style via shared formatter)
+   * Format citation for the clipboard in the student's CHOSEN style (persisted by the library's
+   * style switcher) — the popup must never silently fall back to Harvard for an APA student.
    */
-  formatCitation(citation) {
-    return formatReference(normalizeCitation(citation));
+  async formatCitation(citation) {
+    let style;
+    try {
+      style = (await chrome.storage.local.get('citationStyle')).citationStyle;
+    } catch {
+      style = undefined; // default style applies
+    }
+    // Within its reference list — its collection, or every unfiled citation — so the year letter
+    // is the one the library copies and the reference list carries.
+    return formatReference(normalizeCitation(citation), style, {
+      set: referenceSetFor(citation, this.citations),
+    });
   }
 
   /**
-   * Get favicon URL from page URL.
-   * Only http/https origins are permitted — javascript: and data: URLs are rejected.
+   * The card's icon. Never fetched from anywhere: asking a favicon service for a source's icon
+   * would tell that service the domain of every source the student has saved. An icon the
+   * citation already holds as a data: image is used; anything else gets the local generic icon.
+   * @param {Object} citation
+   * @returns {string} a data: URL
    */
-  getFaviconFromUrl(url) {
-    if (!url) {
-      return '';
-    }
-    try {
-      const urlObj = new URL(url);
-      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-        return '';
-      }
-      return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`;
-    } catch {
-      return '';
-    }
+  iconFor(citation) {
+    const stored = typeof citation.favicon === 'string' ? citation.favicon.trim() : '';
+    return /^data:image\//i.test(stored) ? stored : GENERIC_ICON;
   }
 
   /**

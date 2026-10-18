@@ -20,6 +20,8 @@
 // TODO: Bundle dexie properly with Vite for dynamic imports
 // import Dexie from 'dexie';
 
+import { debugLog } from '../../utils/debug-log.js';
+
 /**
  * Vocabulary entry type
  * @typedef {Object} VocabularyEntry
@@ -371,7 +373,7 @@ export class VocabularyManager {
     this.invalidateCache();
 
     this.onWordAdded({ ...entry, id });
-    console.log(`[VocabularyManager] Added word: "${word}"`);
+    debugLog(`[VocabularyManager] Added word: "${word}"`);
 
     return id;
   }
@@ -491,7 +493,7 @@ export class VocabularyManager {
     this.invalidateCache();
 
     this.onWordRemoved(existing);
-    console.log(`[VocabularyManager] Deleted word: "${existing.word}"`);
+    debugLog(`[VocabularyManager] Deleted word: "${existing.word}"`);
 
     return true;
   }
@@ -787,7 +789,7 @@ export class VocabularyManager {
         category: VocabularyPresets.CUSTOM,
         autoLearned: true,
       });
-      console.log(`[VocabularyManager] Auto-learned word: "${word}"`);
+      debugLog(`[VocabularyManager] Auto-learned word: "${word}"`);
     } catch (error) {
       console.error('[VocabularyManager] Auto-learn failed:', error);
     }

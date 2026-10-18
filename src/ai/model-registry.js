@@ -8,27 +8,29 @@
  * @module ai/model-registry
  */
 
+// IDs and prices from platform.claude.com/docs/en/about-claude/models/overview (2026-10-07).
+// Costs are dollars per thousand tokens. Every one of these rejects temperature, top_p and top_k.
 const ANTHROPIC_MODELS = {
-  'haiku-4.5': {
-    id: 'claude-haiku-4-5-20251001',
+  'haiku-5.5': {
+    id: 'claude-haiku-5-5',
     name: 'Haiku (Fast)',
     description: 'Fast and economical',
-    avgCost: 0.001,
-    outputCost: 0.005,
+    avgCost: 0.0001,
+    outputCost: 0.0005,
   },
-  'sonnet-4.6': {
-    id: 'claude-sonnet-4-6',
+  'sonnet-5.5': {
+    id: 'claude-sonnet-5-5',
     name: 'Sonnet (Recommended)',
     description: 'Best for everyday tasks',
-    avgCost: 0.003,
-    outputCost: 0.015,
+    avgCost: 0.002,
+    outputCost: 0.01,
   },
-  'opus-4.7': {
-    id: 'claude-opus-4-7',
-    name: 'Opus (Most Capable)',
-    description: 'Most capable for complex work',
-    avgCost: 0.015,
-    outputCost: 0.075,
+  'opus-5.5': {
+    id: 'claude-opus-5-5',
+    name: 'Opus (Most Capable, costs about 2× Sonnet)',
+    description: 'Most capable for complex work, at about twice the cost of Sonnet per use',
+    avgCost: 0.004,
+    outputCost: 0.02,
   },
 };
 
@@ -55,17 +57,59 @@ const OPENAI_MODELS = {
   },
 };
 
+// The stable models ai.google.dev/gemini-api/docs/models recommends for new projects (2026-10-07).
+// Both have a free tier (/pricing) and read images. Gemini 3.1 Pro is preview-only, so not offered.
 const GOOGLE_MODELS = {
-  'gemini-2.5-flash': {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Latest)',
-    description: 'Free — newest flash model',
-    free: true,
+  'gemini-3.8-flash': {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash (Recommended — Free)',
+    description: 'Free tier — most capable Flash model',
   },
-  'gemini-2.5-pro': {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro (Most Capable)',
-    description: 'Most capable model',
+  'gemini-3.5-flash-lite': {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite (Fast — Free)',
+    description: 'Free tier — fastest and cheapest',
+  },
+};
+
+/**
+ * Saved model keys and IDs that are no longer offered, and the current key that replaces each.
+ * Covers models Anthropic and Google have retired or are retiring (see their deprecation pages)
+ * and the ones this registry offered before. Read through resolveModel, so a student whose
+ * settings name one of these is moved to its replacement rather than left on a dead model.
+ */
+const REPLACED_MODELS = {
+  anthropic: {
+    'haiku-4.5': 'haiku-5.5',
+    'claude-haiku-4-5': 'haiku-5.5',
+    'claude-haiku-4-5-20251001': 'haiku-5.5',
+    'claude-3-5-haiku-20241022': 'haiku-5.5',
+    'claude-3-haiku-20240307': 'haiku-5.5',
+    'sonnet-4.5': 'sonnet-5.5',
+    'sonnet-4.6': 'sonnet-5.5',
+    'claude-sonnet-4-6': 'sonnet-5.5',
+    'claude-sonnet-4-5': 'sonnet-5.5',
+    'claude-sonnet-4-5-20250929': 'sonnet-5.5',
+    'claude-sonnet-4-20250514': 'sonnet-5.5',
+    'claude-3-7-sonnet-20250219': 'sonnet-5.5',
+    'claude-3-5-sonnet-20241022': 'sonnet-5.5',
+    'claude-3-5-sonnet-20240620': 'sonnet-5.5',
+    'opus-4.6': 'opus-5.5',
+    'opus-4.7': 'opus-5.5',
+    'claude-opus-4-7': 'opus-5.5',
+    'claude-opus-4-6': 'opus-5.5',
+    'claude-opus-4-1-20250805': 'opus-5.5',
+    'claude-opus-4-20250514': 'opus-5.5',
+    'claude-3-opus-20240229': 'opus-5.5',
+  },
+  google: {
+    'gemini-2.5-flash': 'gemini-3.8-flash',
+    'gemini-2.5-pro': 'gemini-3.8-flash',
+    'gemini-2.5-flash-lite': 'gemini-3.5-flash-lite',
+    'gemini-2.0-flash': 'gemini-3.8-flash',
+    'gemini-2.0-flash-lite': 'gemini-3.5-flash-lite',
+    'gemini-1.5-flash': 'gemini-3.8-flash',
+    'gemini-1.5-pro': 'gemini-3.8-flash',
   },
 };
 
@@ -92,38 +136,29 @@ const PERPLEXITY_MODELS = {
   },
 };
 
+// The same three models the AI setup page offers (pages/ai-setup/ollama-catalog.js).
 const OLLAMA_MODELS = {
-  'phi3:mini': {
-    id: 'phi3:mini',
-    name: 'Phi-3 Mini',
-    size: '3.8B',
-    description: 'Fast responses for real-time tasks',
-    bestFor: ['state-detection', 'quick-responses', 'simple-queries'],
-    avgResponseTime: 500,
+  'qwen3:4b-instruct-2507-q4_K_M': {
+    id: 'qwen3:4b-instruct-2507-q4_K_M',
+    name: 'Qwen 3 Instruct (4B)',
+    size: '4B',
+    description: 'Small and quick; answers without a thinking step',
+    bestFor: ['quick-responses', 'summaries', 'simple-queries'],
   },
-  'llama3.2': {
-    id: 'llama3.2',
-    name: 'Llama 3.2',
-    size: '8B',
-    description: 'Balanced performance for most tasks',
-    bestFor: ['conversation', 'summaries', 'analysis', 'tutoring'],
-    avgResponseTime: 1500,
+  'qwen3.5:9b': {
+    id: 'qwen3.5:9b',
+    name: 'Qwen 3.5 (9B)',
+    size: '9B',
+    description: 'Recommended for an 8 GB graphics card; reads images too',
+    bestFor: ['conversation', 'tutoring', 'analysis', 'image-description'],
+    isVision: true,
   },
-  mistral: {
-    id: 'mistral',
-    name: 'Mistral 7B',
-    size: '7B',
-    description: 'Excellent instruction following',
-    bestFor: ['complex-analysis', 'writing-help', 'detailed-explanations'],
-    avgResponseTime: 1200,
-  },
-  llava: {
-    id: 'llava',
-    name: 'LLaVA',
-    size: '7B',
-    description: 'Vision + Language model',
-    bestFor: ['image-description', 'page-analysis', 'visual-understanding'],
-    avgResponseTime: 2000,
+  'qwen3.5:27b': {
+    id: 'qwen3.5:27b',
+    name: 'Qwen 3.5 (27B)',
+    size: '27B',
+    description: 'Most capable; needs a graphics card with 20 GB or more',
+    bestFor: ['complex-analysis', 'detailed-explanations', 'image-description'],
     isVision: true,
   },
 };
@@ -225,17 +260,17 @@ const WEBLLM_MODELS = {
 export const REGISTRY = {
   anthropic: {
     models: ANTHROPIC_MODELS,
-    defaultModel: 'sonnet-4.6',
+    defaultModel: 'sonnet-5.5',
     featureDefaults: {
-      summarization: 'haiku-4.5',
-      textSimplification: 'sonnet-4.6',
-      assignmentBreakdown: 'sonnet-4.6',
-      citationAnalyzer: 'sonnet-4.6',
-      socraticTutor: 'sonnet-4.6',
-      imageUnderstanding: 'sonnet-4.6',
-      studyPathGenerator: 'sonnet-4.6',
-      multiDocCompare: 'opus-4.7',
-      knowledgeGraph: 'sonnet-4.6',
+      summarization: 'haiku-5.5',
+      textSimplification: 'sonnet-5.5',
+      assignmentBreakdown: 'sonnet-5.5',
+      citationAnalyzer: 'sonnet-5.5',
+      socraticTutor: 'sonnet-5.5',
+      imageUnderstanding: 'sonnet-5.5',
+      studyPathGenerator: 'sonnet-5.5',
+      multiDocCompare: 'opus-5.5',
+      knowledgeGraph: 'sonnet-5.5',
     },
   },
   openai: {
@@ -255,17 +290,17 @@ export const REGISTRY = {
   },
   google: {
     models: GOOGLE_MODELS,
-    defaultModel: 'gemini-2.5-flash',
+    defaultModel: 'gemini-3.8-flash',
     featureDefaults: {
-      summarization: 'gemini-2.5-flash',
-      textSimplification: 'gemini-2.5-flash',
-      assignmentBreakdown: 'gemini-2.5-flash',
-      citationAnalyzer: 'gemini-2.5-flash',
-      socraticTutor: 'gemini-2.5-pro',
-      imageUnderstanding: 'gemini-2.5-flash',
-      studyPathGenerator: 'gemini-2.5-pro',
-      multiDocCompare: 'gemini-2.5-pro',
-      knowledgeGraph: 'gemini-2.5-flash',
+      summarization: 'gemini-3.8-flash',
+      textSimplification: 'gemini-3.8-flash',
+      assignmentBreakdown: 'gemini-3.8-flash',
+      citationAnalyzer: 'gemini-3.8-flash',
+      socraticTutor: 'gemini-3.8-flash',
+      imageUnderstanding: 'gemini-3.8-flash',
+      studyPathGenerator: 'gemini-3.8-flash',
+      multiDocCompare: 'gemini-3.8-flash',
+      knowledgeGraph: 'gemini-3.8-flash',
     },
   },
   perplexity: {
@@ -285,9 +320,9 @@ export const REGISTRY = {
   },
   ollama: {
     models: OLLAMA_MODELS,
-    defaultModel: 'llama3.2',
-    fastModel: 'phi3:mini',
-    visionModel: 'llava',
+    defaultModel: 'qwen3.5:9b',
+    fastModel: 'qwen3:4b-instruct-2507-q4_K_M',
+    visionModel: 'qwen3.5:9b',
   },
   webllm: {
     models: WEBLLM_MODELS,
@@ -355,8 +390,9 @@ export function getModelsForProvider(provider) {
 }
 
 /**
- * Resolve either a model key ('sonnet-4.6') or a raw model ID ('claude-sonnet-4-6')
- * to the actual API ID. Handles both forms for backward compatibility.
+ * Resolve either a model key ('sonnet-5.5') or a raw model ID ('claude-sonnet-5-5')
+ * to the actual API ID. A key or ID that has been replaced (REPLACED_MODELS) resolves to its
+ * replacement, which is how a saved setting naming a retired model is migrated on read.
  * @param {string} provider - Provider name
  * @param {string} keyOrId - Model key or raw model ID
  * @returns {string} The API model ID
@@ -365,6 +401,11 @@ export function resolveModel(provider, keyOrId) {
   const providerEntry = REGISTRY[provider];
   if (!providerEntry) {
     return keyOrId;
+  }
+
+  const replacement = REPLACED_MODELS[provider]?.[keyOrId];
+  if (replacement) {
+    return providerEntry.models[replacement].id;
   }
 
   // Check if it's a known key first

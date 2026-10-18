@@ -13,18 +13,30 @@
  * @module features/multiDocCompare
  */
 
+import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
+import { getProfileAddendum } from '../companion/profile-addendum.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
+import { Z } from '../../utils/z-index.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
 let mdc_panel = null;
+let mdc_releaseFocus = null;
+let mdc_returnFocus = null;
+let mdc_requestId = 0;
 let mdc_documents = [];
 let mdc_dragCleanup = null; // Cleanup fn for drag listeners when panel is closed
 let mdc_isLoading = false; // eslint-disable-line no-unused-vars
@@ -50,7 +62,7 @@ const MDC_PANEL_CSS = `
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.25);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    z-index: 999998;
+    z-index: ${Z.MODAL};
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -292,6 +304,10 @@ const MDC_PANEL_CSS = `
     margin: 0 auto 16px;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .mdc-spinner { animation: none; }
+  }
+
   @keyframes mdc-spin {
     to { transform: rotate(360deg); }
   }
@@ -303,6 +319,17 @@ const MDC_PANEL_CSS = `
     font-size: 13px;
     color: #f57f17;
     margin-top: 16px;
+  }
+
+  .mdc-fallback-note {
+    margin: 0 0 12px 0;
+    padding: 8px 10px;
+    background: #fff3e0;
+    color: #8a4b00;
+    border-left: 3px solid #ff9800;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   .mdc-status {
@@ -324,7 +351,13 @@ const MDC_PANEL_CSS = `
     color: #e65100;
   }
 
-  .mdc-status[data-assist-clickable]:hover {
+  .mdc-status [data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+
+  .mdc-status [data-assist-clickable]:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
     text-decoration: underline;
   }
 
@@ -385,6 +418,24 @@ function mdc_injectStyles() {
 }
 
 /**
+ * Tell the student something in the panel's own status region.
+ *
+ * A native alert() freezes the tab and takes the keyboard outside the dialog's focus trap, so
+ * the panel says it where the panel already says everything else (SC 2.1.2).
+ *
+ * @param {string} message - One plain sentence.
+ */
+function mdc_showMessage(message) {
+  const statusBar = mdc_panel?.querySelector('#mdc-status');
+  if (statusBar) {
+    statusBar.className = 'mdc-status visible error';
+    statusBar.textContent = message;
+  } else {
+    showToast(message);
+  }
+}
+
+/**
  * Add a document/text selection for comparison
  * @param {string} text - Text content
  * @param {string} title - Optional title/source
@@ -410,7 +461,7 @@ function mdc_addDocument(text, title = null) {
   };
 
   mdc_documents.push(doc);
-  console.log(`[MultiDocCompare] Added document: ${doc.title} (${doc.wordCount} words)`);
+  console.log(`[MultiDocCompare] Added document ${doc.id} (${doc.wordCount} words)`);
 
   // Update panel if visible
   if (mdc_panel) {
@@ -465,7 +516,7 @@ async function mdc_compareDocuments() {
 
   if (!availability.available) {
     if (availability.needsApiKey) {
-      mdc_showApiKeyWarning();
+      mdc_showApiKeyWarning(availability.provider);
       return null;
     }
     // AI unavailable — show status bar and fall back to heuristic
@@ -475,12 +526,13 @@ async function mdc_compareDocuments() {
     }
     const fallback = mdc_heuristicCompare();
     mdc_comparisonResult = fallback;
-    mdc_displayResults(fallback);
+    mdc_displayResults(fallback, true);
     return fallback;
   }
 
   mdc_isLoading = true;
   mdc_updateLoadingState(true);
+  const requestId = ++mdc_requestId;
 
   // Prepare documents for comparison
   const docSummaries = mdc_documents
@@ -514,45 +566,69 @@ Rules:
   try {
     // Local: 700 tokens — JSON output is compact, model terminates early.
     // Cloud: 1200 for full-depth analysis.
-    const aiResult = await generateWithAI(prompt, modeInfo, {
-      maxTokens: modeInfo.isLocal ? 700 : 1200,
-      temperature: 0.3,
-      feature: 'multiDocCompare',
-    });
-
-    console.log(`[MultiDocCompare] AI response (${modeInfo.displayLabel}):`, aiResult?.text);
-
-    if (aiResult && aiResult.text) {
-      // Parse JSON response
-      const jsonMatch = aiResult.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        mdc_comparisonResult = parsed;
-        mdc_displayResults(parsed);
-        const statusBar = mdc_panel?.querySelector('#mdc-status');
-        if (statusBar) {
-          statusBar.className = 'mdc-status visible success';
-          statusBar.textContent = getSuccessStatusMessage(modeInfo, 'compared');
-        }
-        return parsed;
+    const profileAddendum = await getProfileAddendum();
+    const aiResult = await generateWithAI(
+      profileAddendum ? `${profileAddendum.trim()}\n\n${prompt}` : prompt,
+      modeInfo,
+      {
+        maxTokens: modeInfo.isLocal ? 700 : 1200,
+        temperature: 0.3,
+        feature: 'multiDocCompare',
+        // Asks a local model for JSON at the decoder, and has the shared client parse the reply
+        // into `json`. This used to be omitted, so `json` was always null and the text was
+        // brace-matched by hand, with a raw JSON.parse that threw on the first stray comma.
+        format: 'json',
       }
+    );
+
+    console.log(
+      `[MultiDocCompare] AI response (${modeInfo.displayLabel}): ${aiResult?.text?.length ?? 0} characters`
+    );
+    debugLog('[MultiDocCompare] AI response:', aiResult?.text);
+
+    if (requestId !== mdc_requestId) {
+      return null;
+    }
+
+    if (aiResult?.json) {
+      const parsed = aiResult.json;
+      mdc_comparisonResult = parsed;
+      mdc_displayResults(parsed);
+      const statusBar = mdc_panel?.querySelector('#mdc-status');
+      if (statusBar) {
+        statusBar.className = 'mdc-status visible success';
+        statusBar.textContent = getSuccessStatusMessage(modeInfo, 'compared');
+      }
+      return parsed;
     }
 
     // Fallback to heuristic comparison
     console.log('[MultiDocCompare] Using heuristic comparison');
     const fallback = mdc_heuristicCompare();
     mdc_comparisonResult = fallback;
-    mdc_displayResults(fallback);
+    mdc_displayResults(fallback, true);
     return fallback;
   } catch (error) {
     console.error('[MultiDocCompare] Comparison failed:', error);
+    if (requestId !== mdc_requestId) {
+      return null;
+    }
+
+    const statusBar = mdc_panel?.querySelector('#mdc-status');
+    if (statusBar) {
+      statusBar.className = 'mdc-status visible error';
+      statusBar.textContent = `⚠️ ${getFailureMessage(error)}`;
+    }
+
     const fallback = mdc_heuristicCompare();
     mdc_comparisonResult = fallback;
-    mdc_displayResults(fallback);
+    mdc_displayResults(fallback, true);
     return fallback;
   } finally {
-    mdc_isLoading = false;
-    mdc_updateLoadingState(false);
+    if (requestId === mdc_requestId) {
+      mdc_isLoading = false;
+      mdc_updateLoadingState(false);
+    }
   }
 }
 
@@ -633,17 +709,18 @@ function mdc_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-mdc-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Multi-Document Comparison');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'mdc-title');
   panel.tabIndex = -1;
 
   // CSS is now injected into document.head via mdc_injectStyles()
 
   panel.innerHTML = `
     <div class="mdc-header">
-      <h3>📊 Compare Documents</h3>
+      <h3 id="mdc-title">📊 Compare Documents</h3>
       <button class="mdc-close" aria-label="Close">&times;</button>
     </div>
-    <div class="mdc-status" id="mdc-status"></div>
+    <div class="mdc-status" id="mdc-status" role="status"></div>
     <div class="mdc-content">
       <div class="mdc-doc-list" id="mdc-doc-list">
         <div class="mdc-empty" id="mdc-empty">
@@ -664,6 +741,10 @@ function mdc_createPanel() {
       </div>
 
       <div class="mdc-results" id="mdc-results">
+        <p class="mdc-fallback-note" id="mdc-fallback-note" hidden>
+          This comparison was worked out on this device by matching words between the sources,
+          without AI.
+        </p>
         <div class="mdc-result-section" id="mdc-themes-section">
           <h4>🎯 Common Themes <span class="mdc-agreement" id="mdc-agreement"></span></h4>
           <div class="mdc-result-list" id="mdc-themes"></div>
@@ -749,7 +830,7 @@ function mdc_updateDocumentList() {
     listEl.appendChild(item);
 
     // Add remove handler
-    attachInteractiveHandler(item.querySelector('.mdc-doc-remove'), 'Multi-Doc Remove Button', () =>
+    attachAccessibleHandler(item.querySelector('.mdc-doc-remove'), 'Multi-Doc Remove Button', () =>
       mdc_removeDocument(doc.id)
     );
   });
@@ -779,23 +860,28 @@ function mdc_extractText(item) {
 /**
  * Display comparison results
  * @param {Object} result - Comparison result
+ * @param {boolean} [withoutAI] - True when this comparison was worked out on this device, which
+ *   the student is told in words rather than left to infer from a badge.
  */
-function mdc_displayResults(result) {
+function mdc_displayResults(result, withoutAI = false) {
   const resultsEl = document.getElementById('mdc-results');
   if (!resultsEl) {
     return;
   }
 
   resultsEl.classList.add('visible');
+
+  const fallbackNote = document.getElementById('mdc-fallback-note');
+  if (fallbackNote) {
+    fallbackNote.hidden = !withoutAI;
+  }
   document.getElementById('mdc-tip').style.display = 'none';
 
   // Wire Read All button (idempotent — only attach once via data flag)
   const readAllBtn = document.getElementById('mdc-read-all-btn');
   if (readAllBtn && !readAllBtn.dataset.handlerAttached) {
     readAllBtn.dataset.handlerAttached = 'true';
-    attachInteractiveHandler(readAllBtn, 'Multi-Doc Read All Button', () =>
-      mdc_readAll(readAllBtn)
-    );
+    attachAccessibleHandler(readAllBtn, 'Multi-Doc Read All Button', () => mdc_readAll(readAllBtn));
   }
 
   // Agreement level
@@ -892,32 +978,6 @@ function mdc_clearResults() {
 }
 
 /**
- * Wait for speechSynthesis voices to be available
- * @returns {Promise<SpeechSynthesisVoice[]>}
- */
-function mdc_ensureVoicesLoaded() {
-  return new Promise(resolve => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      resolve(voices);
-      return;
-    }
-    const onChanged = () => {
-      const loaded = window.speechSynthesis.getVoices();
-      if (loaded.length > 0) {
-        window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
-        resolve(loaded);
-      }
-    };
-    window.speechSynthesis.addEventListener('voiceschanged', onChanged);
-    setTimeout(() => {
-      window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
-      resolve(window.speechSynthesis.getVoices());
-    }, 2000);
-  });
-}
-
-/**
  * Build plain-text summary of comparison results for reading aloud
  * @returns {string}
  */
@@ -997,24 +1057,7 @@ async function mdc_readAll(btn) {
     return;
   }
 
-  mdc_utterance = new SpeechSynthesisUtterance(text);
-
-  try {
-    const stored = await chrome.storage.local.get(['assist_settings']);
-    const tts = stored.assist_settings?.tts || {};
-    mdc_utterance.rate = tts.rate || 1.0;
-    mdc_utterance.pitch = tts.pitch || 1.0;
-    mdc_utterance.volume = tts.volume || 1.0;
-    if (tts.voice && tts.voice !== 'default') {
-      const voices = await mdc_ensureVoicesLoaded();
-      const match = voices.find(v => v.name === tts.voice);
-      if (match) {
-        mdc_utterance.voice = match;
-      }
-    }
-  } catch {
-    // Use browser defaults if storage fails
-  }
+  mdc_utterance = await createSavedUtterance(text);
 
   btn.classList.add('active');
   btn.textContent = '⏹ Stop';
@@ -1066,6 +1109,14 @@ function mdc_show(initialText = null) {
     mdc_panel = null;
   }
 
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  mdc_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
+
   // Inject CSS to document.head before creating panel
   mdc_injectStyles();
 
@@ -1082,17 +1133,17 @@ function mdc_show(initialText = null) {
   // Setup event handlers
   const closeBtn = mdc_panel.querySelector('.mdc-close');
   if (closeBtn) {
-    attachInteractiveHandler(closeBtn, 'Multi-Doc Close Button', mdc_hide);
+    attachAccessibleHandler(closeBtn, 'Multi-Doc Close Button', mdc_hide);
   }
 
   const addBtn = document.getElementById('mdc-add-btn');
   if (addBtn) {
-    attachInteractiveHandler(addBtn, 'Multi-Doc Add Button', () => {
+    attachAccessibleHandler(addBtn, 'Multi-Doc Add Button', () => {
       const selection = window.getSelection().toString().trim();
       if (selection) {
         mdc_addDocument(selection);
       } else {
-        alert('Please select some text first');
+        mdc_showMessage('Select some text on the page first, then add it.');
       }
     });
   }
@@ -1100,7 +1151,7 @@ function mdc_show(initialText = null) {
   const compareBtn = document.getElementById('mdc-compare-btn');
   if (compareBtn) {
     console.log('[MDC] Wiring compare button, disabled:', compareBtn.disabled);
-    attachInteractiveHandler(compareBtn, 'Multi-Doc Compare Button', () => {
+    attachAccessibleHandler(compareBtn, 'Multi-Doc Compare Button', () => {
       console.log(
         '[MDC] Compare button clicked! disabled:',
         compareBtn.disabled,
@@ -1170,16 +1221,24 @@ function mdc_show(initialText = null) {
     };
   }
 
-  // Escape to close
-  document.addEventListener('keydown', mdc_handleKeydown);
-
-  mdc_panel.focus();
+  mdc_releaseFocus = trapFocus(mdc_panel, {
+    onEscape: mdc_hide,
+    initialFocus: mdc_panel.querySelector('.mdc-close'),
+  });
 }
 
 /**
  * Hide the panel
  */
 function mdc_hide() {
+  // Abandon a comparison in flight: its results would paint into elements that have gone.
+  mdc_requestId += 1;
+  mdc_isLoading = false;
+
+  if (mdc_releaseFocus) {
+    mdc_releaseFocus();
+    mdc_releaseFocus = null;
+  }
   if (mdc_dragCleanup) {
     mdc_dragCleanup();
   }
@@ -1192,23 +1251,15 @@ function mdc_hide() {
     window.speechSynthesis.cancel();
     mdc_utterance = null;
   }
-  document.removeEventListener('keydown', mdc_handleKeydown);
-}
 
-/**
- * Handle keyboard events
- * @param {KeyboardEvent} e
- */
-function mdc_handleKeydown(e) {
-  if (e.key === 'Escape' && mdc_panel) {
-    mdc_hide();
-  }
+  returnFocusAfterDialog(mdc_returnFocus);
+  mdc_returnFocus = null;
 }
 
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
-function mdc_showApiKeyWarning() {
+function mdc_showApiKeyWarning(provider) {
   const resultsDiv = mdc_panel?.querySelector('.mdc-results');
   const emptyDiv = mdc_panel?.querySelector('.mdc-empty');
 
@@ -1219,7 +1270,7 @@ function mdc_showApiKeyWarning() {
       <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
       <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="mdc-open-settings" style="
@@ -1249,17 +1300,14 @@ function mdc_showApiKeyWarning() {
     // Attach handlers for buttons
     const openSettingsBtn = emptyDiv.querySelector('.mdc-open-settings');
     if (openSettingsBtn) {
-      attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+      attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
         chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-        alert(
-          'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-        );
       });
     }
 
     const useLocalBtn = emptyDiv.querySelector('.mdc-use-local');
     if (useLocalBtn) {
-      attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+      attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
         await chrome.storage.local.set({ aiMode: 'local' });
         console.log('[MultiDocCompare] Switched to local AI mode');
         mdc_showEmptyState();

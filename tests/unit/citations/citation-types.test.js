@@ -22,9 +22,15 @@ describe('normalizeType', () => {
     ['web-page', 'website'],
     ['report', 'website'],
     ['dataset', 'website'],
-    ['bookSection', 'book'],
-    ['book-chapter', 'book'],
-    ['thesis', 'book'],
+    ['bookSection', 'chapter'],
+    ['book-chapter', 'chapter'],
+    ['bookchapter', 'chapter'],
+    ['inbook', 'chapter'],
+    ['incollection', 'chapter'],
+    ['thesis', 'thesis'],
+    ['phdthesis', 'thesis'],
+    ['mastersthesis', 'thesis'],
+    ['dissertation', 'thesis'],
     ['journal-article', 'journal'],
     ['conferencePaper', 'journal'],
     ['conference-paper', 'journal'],
@@ -95,8 +101,42 @@ describe('normalizeCitation', () => {
 
   test('collapses type to canonical but preserves the fine-grained subtype', () => {
     const out = normalizeCitation({ type: 'book-chapter', title: 'Chapter', authors: [] });
-    expect(out.type).toBe('book');
+    expect(out.type).toBe('chapter');
     expect(out.extra.subtype).toBe('book-chapter');
+  });
+
+  test('keeps the fields a chapter needs, from extra or from flat aliases', () => {
+    const out = normalizeCitation({
+      type: 'chapter',
+      title: 'Drawing as thinking',
+      siteName: 'The Handbook',
+      extra: { editors: ['Smith, Ann', 'Jones, Bob'], edition: '2nd', chapter: '4' },
+      place: 'London',
+    });
+    expect(out.extra.editors).toEqual(['Smith, Ann', 'Jones, Bob']);
+    expect(out.extra.edition).toBe('2nd');
+    expect(out.extra.place).toBe('London');
+    expect(out.extra.chapter).toBe('4');
+    expect(normalizeCitation(out)).toEqual(out);
+  });
+
+  test('keeps the fields a thesis needs and drops empty editor entries', () => {
+    const out = normalizeCitation({
+      type: 'phdthesis',
+      title: 'A thesis',
+      extra: { institution: 'NCAD', thesisType: 'PhD thesis', editors: ['', '  '] },
+    });
+    expect(out.type).toBe('thesis');
+    expect(out.extra.institution).toBe('NCAD');
+    expect(out.extra.thesisType).toBe('PhD thesis');
+    expect(out.extra.editors).toBeUndefined();
+  });
+
+  test('a plain web page grows no chapter or thesis fields', () => {
+    const out = normalizeCitation({ type: 'website', title: 'T', url: 'https://e.x' });
+    expect(out.extra.editors).toBeUndefined();
+    expect(out.extra.institution).toBeUndefined();
+    expect(out.extra.place).toBeUndefined();
   });
 
   test('is idempotent (excluding the createdAt default, which stabilises after first pass)', () => {
@@ -144,13 +184,17 @@ describe('getSourceTypeWeight', () => {
 describe('getBibTeXType / getRISType', () => {
   test('BibTeX honours subtype then canonical', () => {
     expect(getBibTeXType({ type: 'journal' })).toBe('article');
-    expect(getBibTeXType({ type: 'book', extra: { subtype: 'book-chapter' } })).toBe('inbook');
+    expect(getBibTeXType({ type: 'chapter' })).toBe('incollection');
+    expect(getBibTeXType({ type: 'thesis' })).toBe('phdthesis');
+    expect(getBibTeXType({ type: 'book', extra: { subtype: 'book-chapter' } })).toBe('incollection');
     expect(getBibTeXType({ type: 'journal', extra: { subtype: 'conference-paper' } })).toBe('inproceedings');
     expect(getBibTeXType({ type: 'website' })).toBe('misc');
   });
 
   test('RIS honours subtype then canonical', () => {
     expect(getRISType({ type: 'journal' })).toBe('JOUR');
+    expect(getRISType({ type: 'chapter' })).toBe('CHAP');
+    expect(getRISType({ type: 'thesis' })).toBe('THES');
     expect(getRISType({ type: 'book', extra: { subtype: 'book-chapter' } })).toBe('CHAP');
     expect(getRISType({ type: 'website' })).toBe('ELEC');
     expect(getRISType({ type: 'newspaper' })).toBe('NEWS');

@@ -8,6 +8,8 @@
  * @module storage-utils
  */
 
+import { applySettingWrites } from '../../utils/setting-writes.js';
+
 /**
  * Get all settings from chrome.storage
  * @returns {Promise<Object>} Settings object
@@ -31,28 +33,19 @@ export async function getFeatureSettings(featureKey) {
 }
 
 /**
- * Save a specific setting key/value pair
- * @param {string} key - Setting key
+ * Save a specific setting key/value pair.
+ *
+ * The write goes through the shared writer, which re-reads and merges at write time: the popup and
+ * the content script both store settings, and a whole-object write built from an earlier read
+ * discards whatever the other realm stored in between. There is deliberately no whole-object save
+ * here for the same reason.
+ *
+ * @param {string} key - Setting key, or a dotted path inside the settings object
  * @param {*} value - Setting value
  * @returns {Promise<void>}
  */
 export async function saveSetting(key, value) {
-  const settings = await getSettings();
-  settings[key] = value;
-  return new Promise(resolve => {
-    chrome.storage.local.set({ assist_settings: settings }, resolve);
-  });
-}
-
-/**
- * Save complete settings object
- * @param {Object} settings - Complete settings object
- * @returns {Promise<void>}
- */
-export async function saveSettings(settings) {
-  return new Promise(resolve => {
-    chrome.storage.local.set({ assist_settings: settings }, resolve);
-  });
+  return applySettingWrites([{ path: key, value }]);
 }
 
 /**
@@ -82,7 +75,12 @@ export function onFeatureSettingsChange(featureKey, callback) {
         `[StorageUtils] ${featureKey} settings changed:`,
         changes.assist_settings.newValue[featureKey]
       );
-      callback(changes.assist_settings.newValue[featureKey]);
+      // One feature's callback throwing must not take the others' listeners down with it.
+      try {
+        callback(changes.assist_settings.newValue[featureKey]);
+      } catch (error) {
+        console.error(`[StorageUtils] ${featureKey} change handler failed:`, error);
+      }
     }
   };
 
@@ -112,10 +110,16 @@ export function onFeatureSettingsChange(featureKey, callback) {
  * );
  */
 export function initFeatureSettings(featureKey, defaultSettings, onInit, onChange) {
-  // Load initial settings
-  getFeatureSettings(featureKey).then(settings => {
-    onInit(settings || defaultSettings);
-  });
+  // Load initial settings. About ten features call this at module top level, so a failed read — or
+  // an onInit that throws — used to switch that one feature off for the whole page as an unhandled
+  // rejection: no console line, and a student left with a tool that never appeared.
+  getFeatureSettings(featureKey)
+    .then(settings => {
+      onInit(settings || defaultSettings);
+    })
+    .catch(error => {
+      console.error(`[StorageUtils] ${featureKey} failed to initialise:`, error);
+    });
 
   // Set up change listener
   return onFeatureSettingsChange(featureKey, onChange);

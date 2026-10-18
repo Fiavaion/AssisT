@@ -22,6 +22,29 @@ function getDOMPurify() {
 }
 
 /**
+ * Forces every surviving tabindex to a roving-safe value.
+ *
+ * A positive tabindex moves an element ahead of everything in document order, across the
+ * WHOLE page, which is why WCAG treats it as a focus-order failure (SC 2.4.3). The
+ * allowlist can only admit the attribute name, so the value is constrained here instead:
+ * anything that is not "0" or "-1" becomes "0" — still focusable, never queue-jumping.
+ * Nothing the extension renders needs a positive value; text captured from a host page
+ * might well contain one.
+ *
+ * @param {Element} node - Node being sanitized
+ */
+function clampTabIndex(node) {
+  if (typeof node?.getAttribute !== 'function' || !node.hasAttribute('tabindex')) {
+    return;
+  }
+
+  const value = node.getAttribute('tabindex');
+  if (value !== '0' && value !== '-1') {
+    node.setAttribute('tabindex', '0');
+  }
+}
+
+/**
  * Sanitizes HTML content to prevent XSS attacks
  *
  * @param {string} dirtyHTML - Untrusted HTML string to sanitize
@@ -108,6 +131,19 @@ export function sanitizeHTML(dirtyHTML, config = {}) {
       'data-*',
       'aria-*',
       'role',
+      // Keyboard operability (SC 2.1.1). An integer-valued global attribute with no URL
+      // and no script in it — DOMPurify allows it by default, and it is listed here only
+      // because this config replaces those defaults wholesale. Stripping it silently
+      // un-focused every element the extension renders through innerHTML: the roving
+      // citation cards, the panel's own view tabs, the annotation sidebar's role="button"
+      // items, and the assignment breakdown's role="checkbox" steps were all reachable by
+      // mouse only.
+      //
+      // An allowlist admits the NAME, never the value, so clampTabIndex below constrains
+      // the value. Some of this markup carries text lifted off the host page, and a
+      // positive tabindex in that text would otherwise jump the whole document's tab
+      // order (SC 2.4.3).
+      'tabindex',
       'width',
       'height',
       'type',
@@ -156,7 +192,19 @@ export function sanitizeHTML(dirtyHTML, config = {}) {
 
   const mergedConfig = { ...defaultConfig, ...config };
 
-  return getDOMPurify().sanitize(dirtyHTML, mergedConfig);
+  // Scoped to this function only: the hook is registered for the one call and removed
+  // again, so sanitizeUserContent and sanitizeText — which do not allow tabindex at all —
+  // keep stripping it rather than rewriting it.
+  const purify = getDOMPurify();
+  purify.addHook('afterSanitizeAttributes', clampTabIndex);
+  try {
+    return purify.sanitize(dirtyHTML, mergedConfig);
+  } finally {
+    // By reference, not by entry point: removeHook('afterSanitizeAttributes') pops the
+    // LAST hook registered there, which would silently remove someone else's if a
+    // persistent one is ever added.
+    purify.removeHook('afterSanitizeAttributes', clampTabIndex);
+  }
 }
 
 /**
@@ -296,7 +344,7 @@ export function sanitizeURL(url) {
     trimmedURL.startsWith('data:') ||
     trimmedURL.startsWith('vbscript:')
   ) {
-    console.warn('[Sanitize] Blocked dangerous URL protocol:', url);
+    console.warn('[Sanitize] Blocked dangerous URL protocol');
     return '';
   }
 

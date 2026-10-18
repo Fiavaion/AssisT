@@ -24,9 +24,13 @@
 import { getStorageAdapter } from './storage-adapter.js';
 import { createTagInput, renderTagPills } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
+import { allowDictation, onDictationWithdrawn } from '../../utils/dictation-consent.js';
+import { showToast } from '../../core/ui/toast.js';
 /** @type {BaseStorageAdapter} Current storage adapter instance */
 let storageAdapter = null;
 
@@ -46,14 +50,6 @@ let annotationSettings = {
   autoSave: true,
   showBadge: true,
   sidebarAutoOpen: true,
-};
-
-/** @type {Object} TTS settings from extension */
-const ttsSettings = {
-  voice: null,
-  rate: 1.0,
-  pitch: 1.0,
-  volume: 1.0,
 };
 
 /**
@@ -78,7 +74,6 @@ async function initializeStickyNotes() {
 
   try {
     await loadAnnotationSettings();
-    await loadTTSSettings();
     await loadStorageMode();
 
     storageAdapter = getStorageAdapter(storageMode);
@@ -126,73 +121,6 @@ async function loadStorageMode() {
       storageMode = result.annotationStorageMode || 'local';
       resolve();
     });
-  });
-}
-
-/**
- * Load TTS settings from extension settings
- * Properly waits for voices to be available before resolving
- */
-async function loadTTSSettings() {
-  // First, ensure voices are loaded
-  await ensureVoicesLoaded();
-
-  return new Promise(resolve => {
-    chrome.storage.local.get(['assist_settings'], result => {
-      const tts = result.assist_settings?.tts;
-      if (tts) {
-        ttsSettings.rate = tts.rate || 1.0;
-        ttsSettings.pitch = tts.pitch || 1.0;
-        ttsSettings.volume = tts.volume || 1.0;
-
-        if (tts.voice && tts.voice !== 'default') {
-          const voices = window.speechSynthesis.getVoices();
-          const voice = voices.find(v => v.name === tts.voice);
-          if (voice) {
-            ttsSettings.voice = voice;
-            console.log('[StickyNotes] Loaded TTS voice:', voice.name);
-          } else {
-            console.warn('[StickyNotes] Voice not found:', tts.voice);
-          }
-        }
-
-        console.log('[StickyNotes] Loaded TTS settings:', {
-          rate: ttsSettings.rate,
-          pitch: ttsSettings.pitch,
-          volume: ttsSettings.volume,
-          voice: ttsSettings.voice?.name || 'default',
-        });
-      }
-      resolve();
-    });
-  });
-}
-
-/**
- * Ensure speech synthesis voices are loaded
- * @returns {Promise<SpeechSynthesisVoice[]>} Available voices
- */
-function ensureVoicesLoaded() {
-  return new Promise(resolve => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      resolve(voices);
-    } else {
-      const onVoicesChanged = () => {
-        const loadedVoices = window.speechSynthesis.getVoices();
-        if (loadedVoices.length > 0) {
-          window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-          resolve(loadedVoices);
-        }
-      };
-      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-
-      // Fallback timeout in case voices never load
-      setTimeout(() => {
-        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-        resolve(window.speechSynthesis.getVoices());
-      }, 2000);
-    }
   });
 }
 
@@ -289,12 +217,19 @@ function renderStickyNote(note) {
   header.setAttribute('aria-label', 'Drag to move note');
   header.setAttribute('tabindex', '0');
 
+  // `data-action` on the three controls below is the WAI-Adapt Content Module vocabulary: the
+  // control says what it does, so tooling a student brings with them can relabel it or swap it
+  // for a symbol they read. Only tokens that draft enumerates are used, and nothing here reads
+  // the attribute back - AssisT declares its own interface and interprets nobody else's.
+  // The dictation microphone is left bare: the nearest token means voice commands, which is a
+  // different feature of this extension.
   const colorBtn = document.createElement('button');
   colorBtn.className = 'assist-sticky-note-color-btn';
   colorBtn.innerHTML = sanitizeHTML('🎨');
   colorBtn.setAttribute('aria-label', 'Change note color');
   colorBtn.setAttribute('title', 'Change color');
-  attachInteractiveHandler(colorBtn, 'Sticky Note Color', () => {
+  colorBtn.setAttribute('data-action', 'color');
+  attachAccessibleHandler(colorBtn, 'Sticky Note Color', () => {
     toggleColorPicker(note.id, colorBtn);
   });
 
@@ -303,7 +238,8 @@ function renderStickyNote(note) {
   deleteBtn.innerHTML = sanitizeHTML('×');
   deleteBtn.setAttribute('aria-label', 'Delete note');
   deleteBtn.setAttribute('title', 'Delete note');
-  attachInteractiveHandler(deleteBtn, 'Sticky Note Delete', () => {
+  deleteBtn.setAttribute('data-action', 'delete');
+  attachAccessibleHandler(deleteBtn, 'Sticky Note Delete', () => {
     deleteStickyNote(note.id);
   });
 
@@ -429,7 +365,7 @@ function createRichTextToolbar(noteId) {
     button.setAttribute('type', 'button');
     button.dataset.command = btn.command;
 
-    attachInteractiveHandler(button, `Format ${btn.command}`, () => {
+    attachAccessibleHandler(button, `Format ${btn.command}`, () => {
       executeFormatCommand(btn.command);
     });
 
@@ -447,9 +383,10 @@ function createRichTextToolbar(noteId) {
   ttsBtn.title = 'Read note aloud';
   ttsBtn.setAttribute('aria-label', 'Read note aloud');
   ttsBtn.setAttribute('type', 'button');
+  ttsBtn.setAttribute('data-action', 'play');
   ttsBtn.dataset.noteId = noteId;
 
-  attachInteractiveHandler(ttsBtn, 'Note TTS', () => {
+  attachAccessibleHandler(ttsBtn, 'Note TTS', () => {
     speakNoteContent(noteId, ttsBtn);
   });
 
@@ -463,7 +400,20 @@ function createRichTextToolbar(noteId) {
   sttBtn.setAttribute('type', 'button');
   sttBtn.dataset.noteId = noteId;
 
-  attachInteractiveHandler(sttBtn, 'Note STT', () => {
+  attachAccessibleHandler(sttBtn, 'Note STT', async () => {
+    // Stopping needs no question. Starting sends the voice to Google (Chrome's speech
+    // recognition), so it needs the student's yes first (ADR 0006).
+    const stopping = recordingNoteId === noteId && currentRecognition;
+    if (!stopping && !(await allowDictation({ returnFocus: sttBtn }))) {
+      showToast(
+        'Nothing was recorded or sent. Press the note’s microphone to be asked again.',
+        6000,
+        {
+          force: true,
+        }
+      );
+      return;
+    }
     startNoteDictation(noteId, sttBtn);
   });
 
@@ -520,7 +470,7 @@ let speakingNoteId = null;
  * @param {number} noteId - Note ID
  * @param {HTMLElement} button - TTS button element
  */
-function speakNoteContent(noteId, button) {
+async function speakNoteContent(noteId, button) {
   if (speakingNoteId === noteId && window.speechSynthesis.speaking) {
     window.speechSynthesis.cancel();
     speakingNoteId = null;
@@ -558,13 +508,7 @@ function speakNoteContent(noteId, button) {
     return;
   }
 
-  currentUtterance = new SpeechSynthesisUtterance(text);
-  currentUtterance.rate = ttsSettings.rate;
-  currentUtterance.pitch = ttsSettings.pitch;
-  currentUtterance.volume = ttsSettings.volume;
-  if (ttsSettings.voice) {
-    currentUtterance.voice = ttsSettings.voice;
-  }
+  currentUtterance = await createSavedUtterance(text);
   speakingNoteId = noteId;
 
   button.classList.add('assist-toolbar-btn-active');
@@ -644,6 +588,9 @@ function startNoteDictation(noteId, button) {
   }
 
   currentRecognition = new SpeechRecognition();
+  // A yes withdrawn in the popup stops this dictation now.
+  const recognition = currentRecognition;
+  const releaseWithdrawal = onDictationWithdrawn(() => recognition.stop());
   currentRecognition.continuous = true;
   currentRecognition.interimResults = true;
   currentRecognition.lang = 'en-US';
@@ -668,11 +615,12 @@ function startNoteDictation(noteId, button) {
       }
     }
 
-    console.log('[StickyNotes] STT interim:', interimTranscript);
-    console.log('[StickyNotes] STT final:', finalTranscript);
+    debugLog('[StickyNotes] STT interim:', interimTranscript);
+    debugLog('[StickyNotes] STT final:', finalTranscript);
   };
 
   currentRecognition.onend = () => {
+    releaseWithdrawal();
     if (finalTranscript.trim()) {
       appendToNoteContent(noteId, contentElement, finalTranscript.trim());
     }
@@ -845,7 +793,7 @@ function toggleColorPicker(noteId, colorBtn) {
     option.setAttribute('role', 'menuitem');
     option.dataset.color = color.name;
 
-    attachInteractiveHandler(option, `Color ${color.name}`, async () => {
+    attachAccessibleHandler(option, `Color ${color.name}`, async () => {
       await changeNoteColor(noteId, color.name);
       picker.remove();
     });
@@ -1203,10 +1151,10 @@ function openTagEditModal(noteId, currentTags = []) {
   const tagInputContainer = modal.querySelector('#tag-input-container');
   const tagInput = createTagInput(tagInputContainer, currentTags);
 
-  attachInteractiveHandler(closeBtn, 'Tag Modal Close', () => modal.remove());
-  attachInteractiveHandler(cancelBtn, 'Tag Modal Cancel', () => modal.remove());
+  attachAccessibleHandler(closeBtn, 'Tag Modal Close', () => modal.remove());
+  attachAccessibleHandler(cancelBtn, 'Tag Modal Cancel', () => modal.remove());
 
-  attachInteractiveHandler(saveBtn, 'Tag Modal Save', async () => {
+  attachAccessibleHandler(saveBtn, 'Tag Modal Save', async () => {
     const newTags = tagInput.getTags();
     try {
       await storageAdapter.update(noteId, { tags: newTags });
@@ -1363,34 +1311,6 @@ function handleStorageChange(changes) {
       };
 
       console.log('[StickyNotes] Updated annotation settings:', annotationSettings);
-    }
-  }
-
-  if (changes.assist_settings) {
-    const newSettings = changes.assist_settings.newValue;
-    const tts = newSettings?.tts;
-    if (tts) {
-      ttsSettings.rate = tts.rate || 1.0;
-      ttsSettings.pitch = tts.pitch || 1.0;
-      ttsSettings.volume = tts.volume || 1.0;
-
-      if (tts.voice && tts.voice !== 'default') {
-        const voices = window.speechSynthesis.getVoices();
-        const voice = voices.find(v => v.name === tts.voice);
-        if (voice) {
-          ttsSettings.voice = voice;
-          console.log('[StickyNotes] Updated TTS voice:', voice.name);
-        }
-      } else {
-        ttsSettings.voice = null;
-      }
-
-      console.log('[StickyNotes] Updated TTS settings:', {
-        rate: ttsSettings.rate,
-        pitch: ttsSettings.pitch,
-        volume: ttsSettings.volume,
-        voice: ttsSettings.voice?.name || 'default',
-      });
     }
   }
 }

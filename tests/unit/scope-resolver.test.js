@@ -7,7 +7,11 @@
  * navigation/sidebar exclusion in page mode.
  */
 
-import { resolveReadingTarget } from '../../src/core/dom/scope-resolver.js';
+import {
+  resolveReadingTarget,
+  resolveSelectionTarget,
+  leafText,
+} from '../../src/core/dom/scope-resolver.js';
 
 function setBody(html) {
   document.body.innerHTML = html;
@@ -218,5 +222,104 @@ describe('resolveReadingTarget — invariant: text matches joined leaf textConte
     const result = resolveReadingTarget(document.body, 'page');
     const expected = result.leaves.map(l => l.textContent.trim()).join('\n\n');
     expect(result.text).toBe(expected);
+  });
+});
+
+describe('resolveSelectionTarget — reading a selection', () => {
+  function rangeOver(startNode, startOffset, endNode, endOffset) {
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    return range;
+  }
+
+  test('a triple-click (range ends at offset 0 of the next block) reads only that paragraph', () => {
+    setBody(
+      '<section id="s">' +
+        '<p id="a">First paragraph the student wants read.</p>' +
+        '<div id="glance"><h3>At a glance</h3><p>Box text that must stay silent.</p></div>' +
+      '</section>'
+    );
+    const a = document.getElementById('a');
+    const glance = document.getElementById('glance');
+    const result = resolveSelectionTarget(rangeOver(a.firstChild, 0, glance, 0));
+    expect(result.text).toBe('First paragraph the student wants read.');
+    expect(result.element).toBe(a);
+    expect(result.leaves).toHaveLength(1);
+    expect(result.leaves[0].element).toBe(a);
+  });
+
+  test('a drag across part of a sentence reads exactly the selected words', () => {
+    setBody('<p id="a">The quick brown fox jumps over the lazy dog.</p>');
+    const text = document.getElementById('a').firstChild;
+    const result = resolveSelectionTarget(rangeOver(text, 4, text, 19));
+    expect(result.text).toBe('quick brown fox');
+    expect(result.element).toBe(document.getElementById('a'));
+    expect(result.leaves.map(leafText)).toEqual(['quick brown fox']);
+  });
+
+  test('a selection crossing inline markup keeps the words in between', () => {
+    setBody('<p id="a">Start <strong id="b">bold words</strong> and the end.</p>');
+    const p = document.getElementById('a');
+    const result = resolveSelectionTarget(rangeOver(p.firstChild, 2, p.lastChild, 8));
+    expect(result.text).toBe('art bold words and the');
+    expect(result.element).toBe(p);
+  });
+
+  test('a selection across two paragraphs reads both, in order, one leaf each', () => {
+    setBody(
+      '<article id="art">' +
+        '<p id="a">Alpha paragraph text here.</p>' +
+        '<p id="b">Beta paragraph text here.</p>' +
+        '<p id="c">Gamma paragraph is not selected.</p>' +
+      '</article>'
+    );
+    const a = document.getElementById('a');
+    const b = document.getElementById('b');
+    const result = resolveSelectionTarget(rangeOver(a.firstChild, 6, b.firstChild, 14));
+    expect(result.text).toBe('paragraph text here.\n\nBeta paragraph');
+    expect(result.leaves.map(l => l.element)).toEqual([a, b]);
+    expect(result.element).toBe(document.getElementById('art'));
+    expect(result.text).toBe(result.leaves.map(leafText).join('\n\n'));
+  });
+
+  test('indentation between paragraphs does not merge them into their container', () => {
+    setBody(
+      '<article id="art">\n  <p id="a">Alpha paragraph text here.</p>\n' +
+        '  <p id="b">Beta paragraph text here.</p>\n</article>'
+    );
+    const a = document.getElementById('a');
+    const b = document.getElementById('b');
+    const result = resolveSelectionTarget(rangeOver(a.firstChild, 0, b.firstChild, 4));
+    expect(result.leaves.map(l => l.element)).toEqual([a, b]);
+    expect(result.text).toBe('Alpha paragraph text here.\n\nBeta');
+  });
+
+  test('leaf offsets index the element textContent so they survive word wrapping', () => {
+    setBody('<p id="a">  Leading space then words.</p>');
+    const text = document.getElementById('a').firstChild;
+    const result = resolveSelectionTarget(rangeOver(text, 2, text, 15));
+    const leaf = result.leaves[0];
+    expect(leaf.element.textContent.slice(leaf.start, leaf.end)).toBe('Leading space');
+  });
+
+  test('a whole element is its own leaf with its trimmed text', () => {
+    setBody('<p id="a">  Whole paragraph.  </p>');
+    expect(leafText(document.getElementById('a'))).toBe('Whole paragraph.');
+  });
+
+  test('returns null for a collapsed range', () => {
+    setBody('<p id="a">Some text here.</p>');
+    const text = document.getElementById('a').firstChild;
+    expect(resolveSelectionTarget(rangeOver(text, 3, text, 3))).toBeNull();
+  });
+
+  test('an editable region is read without word leaves, so the editor is never rewrapped', () => {
+    setBody('<div contenteditable="true"><p id="a">Draft the student is writing.</p></div>');
+    const p = document.getElementById('a');
+    const result = resolveSelectionTarget(rangeOver(p.firstChild, 0, p.firstChild, 9));
+    expect(result.text).toBe('Draft the');
+    expect(result.element).toBe(p);
+    expect(result.leaves).toBeNull();
   });
 });

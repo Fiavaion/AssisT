@@ -1,5 +1,5 @@
 /**
- * Confidence & Quality Feedback Module (Phase 2.7 - S.4)
+ * Confidence & Quality Feedback Module
  * Provides visual feedback for speech recognition confidence
  *
  * Features:
@@ -16,7 +16,9 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { frameHolding } from '../../features/stt/editor-frames.js';
+import { Z } from '../../utils/z-index.js';
 
 /**
  * Confidence level thresholds
@@ -762,7 +764,7 @@ export class ConfidenceFeedback {
            style="position: fixed; bottom: 20px; right: 20px;
                   background: white; border-radius: 12px;
                   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-                  padding: 16px; min-width: 280px; z-index: 10001;
+                  padding: 16px; min-width: 280px; z-index: ${Z.MODAL};
                   font-family: system-ui, -apple-system, sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <h3 style="margin: 0; font-size: 14px; font-weight: 600;">Session Statistics</h3>
@@ -859,13 +861,18 @@ export class ConfidenceFeedback {
     badge.className = 'assist-confidence-badge-container';
     badge.innerHTML = sanitizeHTML(this.createBadgeHTML(result));
 
-    // Position near target
+    // Position near target. The badge is in the page, so a field in an editor iframe (whose
+    // rectangle is in the iframe's viewport) is offset by where the iframe's content box sits.
     const rect = targetElement.getBoundingClientRect();
+    const frame = frameHolding(targetElement);
+    const frameRect = frame?.getBoundingClientRect();
+    const offsetTop = frame ? frameRect.top + frame.clientTop : 0;
+    const offsetLeft = frame ? frameRect.left + frame.clientLeft : 0;
     badge.style.cssText = `
       position: fixed;
-      top: ${rect.top - 30}px;
-      right: ${window.innerWidth - rect.right}px;
-      z-index: 10000;
+      top: ${offsetTop + rect.top - 30}px;
+      right: ${window.innerWidth - (offsetLeft + rect.right)}px;
+      z-index: ${Z.CONTROLS};
       animation: fadeIn 0.2s ease;
     `;
 
@@ -900,7 +907,7 @@ export class ConfidenceFeedback {
     // Add close handler
     const closeBtn = panel.querySelector('.assist-stats-close');
     if (closeBtn) {
-      attachInteractiveHandler(closeBtn, 'Stats Close', () => this.hideStatsPanel());
+      attachAccessibleHandler(closeBtn, 'Stats Close', () => this.hideStatsPanel());
     }
 
     document.body.appendChild(panel);

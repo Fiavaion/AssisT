@@ -27,8 +27,26 @@
         overflow: hidden;
       }
 
+      .skip-link {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        background: #ffffff;
+        color: #3f37a8;
+        padding: 12px 20px;
+        border-radius: 0 0 8px 0;
+        font-weight: 600;
+        z-index: 10;
+      }
+
+      .skip-link:focus {
+        left: 0;
+        outline: 3px solid #1a1a1a;
+        outline-offset: 2px;
+      }
+
       .header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #5a67d8 0%, #6b3fa0 100%);
         color: white;
         padding: 40px;
         text-align: center;
@@ -41,7 +59,30 @@
 
       .header p {
         font-size: 1.2em;
-        opacity: 0.95;
+      }
+
+      .toc {
+        background: #f8f9fa;
+        padding: 20px 40px;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .toc h2 {
+        font-size: 1em;
+        color: #3f37a8;
+        margin-bottom: 10px;
+      }
+
+      .toc ul {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+      }
+
+      .toc a {
+        color: #3f37a8;
+        font-weight: 600;
       }
 
       .content {
@@ -53,7 +94,7 @@
       }
 
       .section h2 {
-        color: #667eea;
+        color: #4a41b8;
         font-size: 1.8em;
         margin-bottom: 15px;
         padding-bottom: 10px;
@@ -61,7 +102,7 @@
       }
 
       .section h3 {
-        color: #764ba2;
+        color: #6b3fa0;
         font-size: 1.3em;
         margin: 25px 0 10px 0;
       }
@@ -82,15 +123,74 @@
         padding-left: 30px;
         position: relative;
         line-height: 1.6;
+        color: #333;
       }
 
       .feature-list li:before {
         content: '✓';
         position: absolute;
         left: 0;
-        color: #667eea;
+        color: #4a41b8;
         font-weight: bold;
         font-size: 1.2em;
+      }
+
+      .shortcut-table-wrap {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+        overflow-x: auto;
+      }
+
+      .shortcut-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+      }
+
+      .shortcut-table caption {
+        text-align: left;
+        color: #444;
+        padding-bottom: 12px;
+        line-height: 1.6;
+      }
+
+      .shortcut-table th,
+      .shortcut-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #dee2e6;
+        vertical-align: top;
+        color: #333;
+      }
+
+      .shortcut-table thead th {
+        color: #3f37a8;
+        font-size: 0.95em;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .shortcut-action {
+        font-weight: 600;
+        color: #333;
+      }
+
+      .shortcut-keys kbd {
+        display: inline-block;
+        background: #ffffff;
+        border: 1px solid #adb5bd;
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-family: 'Consolas', 'Menlo', monospace;
+        font-size: 0.95em;
+        color: #212529;
+      }
+
+      .shortcut-note {
+        color: #5a6268;
+        font-size: 0.9em;
       }
 
       .shortcut-list {
@@ -102,14 +202,15 @@
 
       .shortcut-list dt {
         font-weight: 600;
-        color: #667eea;
+        color: #3f37a8;
         margin-top: 10px;
       }
 
       .shortcut-list dd {
         margin-left: 20px;
         margin-bottom: 10px;
-        color: #555;
+        color: #495057;
+        line-height: 1.6;
       }
 
       .note {
@@ -118,41 +219,60 @@
         padding: 15px 20px;
         margin: 20px 0;
         border-radius: 4px;
+        color: #4a3c00;
+        line-height: 1.6;
       }
 
       .note strong {
-        color: #856404;
+        color: #4a3c00;
       }
 
       .footer {
         background: #f8f9fa;
         padding: 30px;
         text-align: center;
-        color: #6c757d;
+        color: #5a6268;
         border-top: 2px solid #e9ecef;
+        line-height: 1.6;
       }
 
       .footer a {
-        color: #667eea;
-        text-decoration: none;
+        color: #3f37a8;
+        text-decoration: underline;
         font-weight: 600;
       }
 
-      .footer a:hover {
-        text-decoration: underline;
+      a:focus-visible,
+      .skip-link:focus-visible {
+        outline: 3px solid #1a1a1a;
+        outline-offset: 2px;
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <div class="header">
-        <h1>AssisT Help & Documentation</h1>
-        <p>Adaptive Learning Technology for Students</p>
-      </div>
+    <a class="skip-link" href="#help-main">Skip to main content</a>
 
-      <div class="content">
+    <div class="container">
+      <header class="header">
+        <h1>AssisT Help &amp; Documentation</h1>
+        <p>Adaptive Learning Technology for Students</p>
+      </header>
+
+      <nav class="toc" aria-labelledby="toc-heading">
+        <h2 id="toc-heading">On this page</h2>
+        <ul>
+          <li><a href="#getting-started">Getting started</a></li>
+          <li><a href="#key-features">Key features</a></li>
+          <li><a href="#keyboard-shortcuts">Keyboard shortcuts</a></li>
+          <li><a href="#tips">Tips</a></li>
+          <li><a href="#privacy">Privacy and data</a></li>
+          <li><a href="#troubleshooting">Troubleshooting</a></li>
+        </ul>
+      </nav>
+
+      <main id="help-main" class="content" tabindex="-1">
         <div class="section">
-          <h2>Getting Started</h2>
+          <h2 id="getting-started">Getting Started</h2>
           <p>
             AssisT is an adaptive educational technology extension designed to support
             neurodivergent students and learners with diverse needs. Click the extension icon in
@@ -161,7 +281,7 @@
         </div>
 
         <div class="section">
-          <h2>Key Features</h2>
+          <h2 id="key-features">Key Features</h2>
 
           <h3>Reading Help</h3>
           <ul class="feature-list">
@@ -174,8 +294,9 @@
               settings
             </li>
             <li>
-              <strong>Dyslexia Support:</strong> Bionic reading, syllable colors, and grammar
-              highlighting modes
+              <strong>Dyslexia Support:</strong> Syllable colours, grammar highlighting, and bionic
+              reading modes. Some readers find bionic-style bolding comfortable, but research hasn't
+              shown speed or comprehension benefits — choose whichever mode reads best for you.
             </li>
             <li><strong>OCR (Image Reading):</strong> Extract and read text from images</li>
             <li>
@@ -192,7 +313,8 @@
             </li>
             <li>
               <strong>Annotations:</strong> Create sticky notes and highlights with organization
-              tools
+              tools. Hold Alt over a highlight to see what a click would delete, or press Delete
+              when it is focused - either way you get an Undo
             </li>
             <li><strong>Citations:</strong> Manage sources and generate citations</li>
           </ul>
@@ -222,37 +344,62 @@
         </div>
 
         <div class="section">
-          <h2>Keyboard Shortcuts</h2>
+          <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
           <div class="note">
-            <strong>Note:</strong> You can customize keyboard shortcuts in the Settings panel (gear
-            icon).
+            <strong>Note:</strong> These are your own shortcuts, read from your settings. Change any
+            of them in the popup under Advanced Options → Keyboard.
           </div>
+
+          <div class="shortcut-table-wrap">
+            <table class="shortcut-table">
+              <caption>
+                Every AssisT shortcut, with the keys currently set on this computer.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Action</th>
+                  <th scope="col">Keys</th>
+                </tr>
+              </thead>
+              <tbody id="shortcut-table-body">
+                <tr>
+                  <th scope="row" class="shortcut-action">Loading your shortcuts…</th>
+                  <td class="shortcut-keys"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Other keys that always work</h3>
           <dl class="shortcut-list">
-            <dt>Ctrl+Shift+R</dt>
-            <dd>Toggle Reading Mode</dd>
+            <dt>Alt+Click</dt>
+            <dd>Delete a highlighted annotation straight away (with Undo)</dd>
 
-            <dt>Ctrl+Shift+T</dt>
-            <dd>Toggle Text-to-Speech</dd>
+            <dt>Delete or Backspace</dt>
+            <dd>Delete the annotation you have tabbed to (with Undo)</dd>
 
-            <dt>Ctrl+Shift+S</dt>
-            <dd>Toggle Speech-to-Text</dd>
+            <dt>Escape</dt>
+            <dd>
+              Close an AssisT overlay, dialog or reading view. With nothing open, it switches off
+              the Magnifier or the Reading Guide.
+            </dd>
 
-            <dt>Ctrl+Shift+F</dt>
-            <dd>Toggle Focus Mode</dd>
+            <dt>Alt + Arrow keys</dt>
+            <dd>
+              Aim the Magnifier, or move the Reading Guide up and down a line at a time. Hold Shift
+              as well for a bigger step.
+            </dd>
 
-            <dt>Ctrl+Shift+D</dt>
-            <dd>Toggle Dark Mode</dd>
+            <dt>Alt + Plus or Alt + Minus</dt>
+            <dd>Change the Magnifier&rsquo;s zoom</dd>
 
-            <dt>Ctrl+Shift+W</dt>
-            <dd>Open Text Statistics</dd>
-
-            <dt>ESC</dt>
-            <dd>Exit Reading Mode or close overlays</dd>
+            <dt>Alt + [ or Alt + ]</dt>
+            <dd>Change the Magnifier&rsquo;s size</dd>
           </dl>
         </div>
 
         <div class="section">
-          <h2>Tips for Best Experience</h2>
+          <h2 id="tips">Tips for Best Experience</h2>
           <ul class="feature-list">
             <li>Start by taking the Discovery Quiz to get personalized feature recommendations</li>
             <li>Use the Organize button to customize which features appear in your popup</li>
@@ -267,18 +414,35 @@
         </div>
 
         <div class="section">
-          <h2>Privacy & Data</h2>
+          <h2 id="privacy">Privacy &amp; Data</h2>
           <p>AssisT respects your privacy:</p>
           <ul class="feature-list">
             <li>All settings and data are stored locally on your device</li>
-            <li>No personal information is collected or transmitted</li>
-            <li>AI features (when enabled) process data locally or through your chosen provider</li>
+            <li>AssisT collects no personal information and runs no analytics or tracking</li>
+            <li>
+              Nothing is sent to an outside service until you say yes. AssisT asks about each
+              service separately, in setup or the first time a feature needs it: dictionary lookups,
+              translation, citation lookups, a chosen cloud AI provider, and dictation (which uses
+              Chrome's own speech recognition, a Google service)
+            </li>
+            <li>
+              Local AI (Ollama) and in-browser AI (WebLLM) process text on your device, without
+              sending it anywhere
+            </li>
+            <li>
+              You can review or change any consent answer, or remove a saved AI key, in Advanced
+              Options &gt; Your data
+            </li>
             <li>You can export/import your settings for backup or transfer</li>
+            <li>
+              See the full <a href="../../../privacy-policy.html">Privacy Policy</a> for exactly
+              what each service receives
+            </li>
           </ul>
         </div>
 
         <div class="section">
-          <h2>Troubleshooting</h2>
+          <h2 id="troubleshooting">Troubleshooting</h2>
 
           <h3>Features Not Working?</h3>
           <ul class="feature-list">
@@ -295,19 +459,23 @@
             <li>Reduce animation effects by enabling "Reduced Motion"</li>
           </ul>
         </div>
-      </div>
+      </main>
 
-      <div class="footer">
+      <footer class="footer">
         <p>AssisT - Adaptive Educational Technology Extension</p>
         <p style="margin-top: 10px">
-          <a href="https://github.com/MarJone/AssisT" target="_blank">GitHub Repository</a> (Coming
-          Soon)
+          <a href="https://github.com/Fiavaion/AssisT" target="_blank" rel="noopener"
+            >Source code and documentation on GitHub</a
+          >
+          (opens in a new tab)
         </p>
         <p style="margin-top: 10px; font-size: 0.9em">
-          Full documentation will be available when the extension is published to the Chrome Web
-          Store.
+          AssisT is available on the Chrome Web Store. Found a problem? Open an issue on GitHub and
+          tell us what you were doing when it happened.
         </p>
-      </div>
+      </footer>
     </div>
+
+    <script type="module" src="./help.js"></script>
   </body>
 </html>

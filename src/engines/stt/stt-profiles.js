@@ -1,5 +1,5 @@
 /**
- * STT Neurodivergent Profiles (Phase 2.7 - S.7)
+ * STT Neurodivergent Profiles
  * Specialized STT configurations for different neurodivergent needs
  *
  * Each profile optimizes:

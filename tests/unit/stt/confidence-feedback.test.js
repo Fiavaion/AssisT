@@ -172,6 +172,42 @@ describe('ConfidenceFeedback Module', () => {
       feedback.destroy();
     });
 
+    it("places the badge against an editor iframe's field in page viewport coordinates", () => {
+      jest.useFakeTimers();
+      try {
+        const rect =
+          ({ left, top, width, height }) =>
+          () => ({
+            left,
+            top,
+            width,
+            height,
+            right: left + width,
+            bottom: top + height,
+            x: left,
+            y: top,
+            toJSON: () => {},
+          });
+        const frame = document.createElement('iframe');
+        document.body.appendChild(frame);
+        frame.getBoundingClientRect = rect({ left: 100, top: 300, width: 600, height: 250 });
+        const body = frame.contentDocument.body;
+        // In the iframe's own coordinates, which mean nothing to the page.
+        body.getBoundingClientRect = rect({ left: 0, top: 10, width: 500, height: 200 });
+
+        feedback.showBadge(body, new RecognitionResult({ transcript: 'hi', confidence: 0.9 }));
+
+        const badge = document.querySelector('.assist-confidence-badge-container');
+        expect(badge.ownerDocument).toBe(document);
+        expect(badge.style.top).toBe(`${300 + 10 - 30}px`);
+        expect(badge.style.right).toBe(`${window.innerWidth - (100 + 500)}px`);
+        expect(frame.contentDocument.querySelector('[class*="assist-"]')).toBeNull();
+        frame.remove();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('should initialize with default config', () => {
       expect(feedback.config.enabled).toBe(true);
       expect(feedback.config.minThreshold).toBe(0.6);

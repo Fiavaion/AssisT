@@ -718,6 +718,51 @@ describe('CommandParser', () => {
   });
 
   // ==========================================
+  // Canvas's Rich Content Editor: the field is the body of a same-origin iframe, so the
+  // selection that matters is the iframe's, not the page's.
+  // ==========================================
+
+  describe('a field inside an editor iframe', () => {
+    let frame;
+    let body;
+
+    beforeEach(() => {
+      frame = document.createElement('iframe');
+      document.body.appendChild(frame);
+      body = frame.contentDocument.body;
+      body.setAttribute('contenteditable', 'true');
+      // jsdom does not implement isContentEditable.
+      Object.defineProperty(body, 'isContentEditable', { value: true });
+      body.textContent = 'hello beautiful world';
+    });
+
+    afterEach(() => {
+      window.getSelection().removeAllRanges();
+      frame.remove();
+    });
+
+    it("selects the words in the editor's own selection", () => {
+      parser.executeSelect(body, { unit: 'text', text: 'beautiful' });
+
+      expect(frame.contentWindow.getSelection().toString()).toBe('beautiful');
+      expect(window.getSelection().rangeCount).toBe(0);
+    });
+
+    it("saves the editor's caret, not the page's, to the undo history", () => {
+      const range = frame.contentDocument.createRange();
+      range.setStart(body.firstChild, 6);
+      range.setEnd(body.firstChild, 15);
+      const selection = frame.contentWindow.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      parser.saveToHistory(body);
+
+      expect(parser.history[0]).toMatchObject({ cursorStart: 6, cursorEnd: 15 });
+    });
+  });
+
+  // ==========================================
   // Available Commands Tests
   // ==========================================
 

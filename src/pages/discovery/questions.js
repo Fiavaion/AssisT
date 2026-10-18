@@ -33,7 +33,7 @@ export const QUESTIONS = [
       {
         id: 'reading_strain',
         label: 'I get headaches or eye strain from reading on screen',
-        featureBoost: { darkMode: 2, screenOverlay: 2, textCustomization: 2 },
+        featureBoost: { screenOverlay: 2, textCustomization: 2 },
       },
       {
         id: 'reading_overwhelm',
@@ -55,6 +55,7 @@ export const QUESTIONS = [
       tts: 3,
       readingMode: 2,
       readingGuide: 2,
+      readingProgress: 2,
       dyslexiaFont: 1,
     },
   },
@@ -108,7 +109,7 @@ export const QUESTIONS = [
       stt: 3,
       autoPunctuation: 2,
       voiceCommands: 1,
-      vocabulary: 1,
+      vocabulary: 3,
     },
   },
   {
@@ -161,7 +162,7 @@ export const QUESTIONS = [
       focusMode: 3,
       reducedMotion: 2,
       pomodoro: 2,
-      mediaControl: 1,
+      mediaControl: 2,
     },
   },
   {
@@ -177,7 +178,7 @@ export const QUESTIONS = [
       {
         id: 'visual_dark',
         label: 'I prefer darker interfaces over bright white backgrounds',
-        featureBoost: { darkMode: 3 },
+        featureBoost: { screenOverlay: 3 },
       },
       {
         id: 'visual_colors',
@@ -192,7 +193,7 @@ export const QUESTIONS = [
       {
         id: 'visual_strain',
         label: 'Bright white backgrounds cause eye strain or headaches',
-        featureBoost: { darkMode: 3, screenOverlay: 2 },
+        featureBoost: { screenOverlay: 3 },
       },
       {
         id: 'visual_spacing',
@@ -202,7 +203,7 @@ export const QUESTIONS = [
       {
         id: 'visual_bluelight',
         label: 'I am sensitive to blue light from screens',
-        featureBoost: { darkMode: 2, screenOverlay: 3 },
+        featureBoost: { screenOverlay: 3 },
       },
       {
         id: 'visual_smalltext',
@@ -211,8 +212,7 @@ export const QUESTIONS = [
       },
     ],
     featureMapping: {
-      darkMode: 3,
-      screenOverlay: 2,
+      screenOverlay: 3,
       textCustomization: 2,
       dyslexiaFont: 1,
     },
@@ -266,7 +266,7 @@ export const QUESTIONS = [
     featureMapping: {
       annotations: 3,
       citations: 2,
-      textStats: 1,
+      textStats: 2,
       highlightMenu: 2,
     },
   },
@@ -478,17 +478,13 @@ export const FEATURES = {
   },
 
   // Visual Features
-  darkMode: {
-    id: 'darkMode',
-    name: 'Dark Mode',
-    description: 'Reduce brightness with dark theme',
-    detailedDescription:
-      'Inverts the colour scheme of webpages to use light text on a dark background. Reduces eye strain in low-light environments and can help with light sensitivity. Multiple theme presets are available, from subtle dimming to full dark mode with high contrast.',
-    icon: '🌙',
-    category: 'visual',
-    settingKey: 'darkModeEnabled',
-    howToUse: 'Toggle in the Visual Comfort section - choose from 4 presets',
-  },
+  // Dark Mode was removed from the extension: popup.js `setupDarkMode()` is a no-op and the
+  // `show_dark_mode` visibility key went with the feature. It stayed in this list long after,
+  // recommending itself to students, while the quiz quietly aliased it to the Colour Overlay — so
+  // "I prefer darker interfaces" was answered with a warm sepia tint. The entry is gone and its
+  // scoring now goes to Colour Overlay, which is what the extension really offers against glare
+  // (it detects a dark page and dims it). Restore a feature here only when one exists to enable.
+
   screenOverlay: {
     id: 'screenOverlay',
     name: 'Colour Overlay',

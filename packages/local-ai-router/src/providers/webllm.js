@@ -17,7 +17,7 @@
 let MLCEngine = null;
 
 async function getMLCEngine() {
-  if (MLCEngine) return MLCEngine;
+  if (MLCEngine) {return MLCEngine;}
   try {
     const mod = await import('@mlc-ai/web-llm');
     MLCEngine = mod.MLCEngine ?? mod.CreateMLCEngine ?? null;
@@ -60,7 +60,7 @@ export async function webllmGenerate(prompt, engine, {
   systemPrompt,
 } = {}) {
   const messages = [];
-  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  if (systemPrompt) {messages.push({ role: 'system', content: systemPrompt });}
   messages.push({ role: 'user', content: prompt });
 
   const reply = await engine.chat.completions.create({

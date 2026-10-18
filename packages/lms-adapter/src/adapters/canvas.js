@@ -125,19 +125,19 @@ function extractCanvasRubric() {
 
 function detectCanvasSubmissionType() {
   const el = document.querySelector('[data-submission-type]');
-  if (el) return normaliseSubmissionType(el.dataset.submissionType);
-  if (document.querySelector('[data-type="online_text_entry"]')) return 'text';
-  if (document.querySelector('[data-type="online_upload"]')) return 'file';
-  if (document.querySelector('[data-type="online_url"]')) return 'url';
+  if (el) {return normaliseSubmissionType(el.dataset.submissionType);}
+  if (document.querySelector('[data-type="online_text_entry"]')) {return 'text';}
+  if (document.querySelector('[data-type="online_upload"]')) {return 'file';}
+  if (document.querySelector('[data-type="online_url"]')) {return 'url';}
   return 'unknown';
 }
 
 function normaliseSubmissionType(raw) {
-  if (!raw) return 'unknown';
-  if (raw.includes('text')) return 'text';
-  if (raw.includes('upload') || raw.includes('file')) return 'file';
-  if (raw.includes('url')) return 'url';
-  if (raw.includes('media')) return 'media';
+  if (!raw) {return 'unknown';}
+  if (raw.includes('text')) {return 'text';}
+  if (raw.includes('upload') || raw.includes('file')) {return 'file';}
+  if (raw.includes('url')) {return 'url';}
+  if (raw.includes('media')) {return 'media';}
   return 'mixed';
 }
 
@@ -151,7 +151,7 @@ const DISCIPLINE_KEYWORDS = {
 function inferDiscipline(courseName) {
   const lower = courseName.toLowerCase();
   for (const [discipline, keywords] of Object.entries(DISCIPLINE_KEYWORDS)) {
-    if (keywords.some(k => lower.includes(k))) return discipline;
+    if (keywords.some(k => lower.includes(k))) {return discipline;}
   }
   return null;
 }

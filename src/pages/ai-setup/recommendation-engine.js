@@ -7,21 +7,34 @@
  * @module pages/ai-setup/recommendation-engine
  */
 
+import { DEFAULT_CHAT_MODEL, RECOMMENDED_PULL_MODEL } from '../../utils/ollama-models.js';
+import { describeRam } from './system-detector.js';
+
+/** Graphics memory the small Local AI model needs, in GB (see ollama-catalog.js). */
+const SMALL_MODEL_GRAPHICS_GB = 4;
+
+const SHARED_STEPS =
+  'It stays private and needs no account. Local AI needs Ollama, a free app, installed first; ' +
+  'the next step shows you how. ';
+
 /**
  * Generate AI mode recommendations based on system assessment.
  *
  * Priority order:
  * 1. Ollama running + models ready — already configured, use it
- * 2. WebGPU + enough RAM — browser-native, zero-config, free
- * 3. WebGPU + minimal RAM — browser AI with smallest model
- * 4. Gemini Nano available — on-device Chrome AI (rare)
- * 5. Cloud AI — always works, needs API key
+ * 2. A separate graphics card, or an Apple chip whose shared memory holds the small model — Local
+ *    AI, with Browser AI the alternative
+ * 3. WebGPU + enough RAM — browser-native, zero-config, free
+ * 4. WebGPU + minimal RAM — browser AI with smallest model
+ * 5. Gemini Nano available — on-device Chrome AI (rare)
+ * 6. Cloud AI — always works, needs API key
  *
  * @param {Object} assessment - Result from system-detector.assess()
  * @returns {{ recommended: string, reasoning: string, alternatives: string[], details: Object }}
  */
 export function recommend(assessment) {
   const { webgpu, ollama, nano, memory } = assessment;
+  const gpuClass = webgpu.supported ? webgpu.gpuClass : 'unknown';
 
   // --- Priority 1: Ollama already running ---
   if (ollama.available && ollama.models.length > 0) {
@@ -35,11 +48,46 @@ export function recommend(assessment) {
     };
   }
 
-  // --- Priority 2: WebGPU + enough RAM for medium models ---
+  // --- Priority 2: hardware that runs a larger model well, outside the browser ---
+  // WebGPU never reports graphics memory, so the small model is suggested and the larger one is
+  // named for the student to choose if they know their computer has the memory for it. An Apple
+  // chip qualifies only when its shared memory is known to hold the small model; the 9B needs 8 GB
+  // of graphics memory, which is 60% of a 16 GB Mac.
+  const appleFits =
+    gpuClass === 'apple' &&
+    typeof assessment.graphicsMemoryGB === 'number' &&
+    assessment.graphicsMemoryGB >= SMALL_MODEL_GRAPHICS_GB;
+  if (gpuClass === 'discrete' || appleFits) {
+    const advice =
+      gpuClass === 'apple'
+        ? "Your Mac's Apple chip shares its memory with its graphics, so it can run a larger, " +
+          'more capable model on this computer. ' +
+          SHARED_STEPS +
+          "AssisT can't see exactly how much memory your Mac has, so it suggests a small model. " +
+          'If your Mac has 16 GB of memory or more, choose Qwen 3.5 (9B). '
+        : `Your graphics card (${webgpu.gpuName}) can run a larger, more capable model on this ` +
+          'computer. ' +
+          SHARED_STEPS +
+          "AssisT can't see how much memory your graphics card has, so it suggests a small " +
+          'model. If your card has 8 GB of memory or more, choose Qwen 3.5 (9B). ';
+    return {
+      recommended: 'local',
+      reasoning: `${advice}Rather not install anything? Choose Browser AI below.`,
+      alternatives: ['webllm', 'cloud'],
+      details: {
+        suggestedModel: RECOMMENDED_PULL_MODEL,
+        largerModel: DEFAULT_CHAT_MODEL,
+        vramKnown: false,
+        gpuName: webgpu.gpuName,
+      },
+    };
+  }
+
+  // --- Priority 3: WebGPU + enough RAM for medium models ---
   if (webgpu.supported && memory.ramGB >= 6) {
     return {
       recommended: 'webllm',
-      reasoning: `Your GPU (${webgpu.gpuName || 'WebGPU'}) and ${memory.ramGB}GB RAM can run powerful browser-native AI models. No account or internet needed.`,
+      reasoning: `Your GPU (${webgpu.gpuName || 'WebGPU'}) and ${describeRam(memory.ramGB)} can run powerful browser-native AI models. No account or internet needed.`,
       alternatives: ['cloud', 'local'],
       details: {
         suggestedModel: 'llama-3.2-3b',
@@ -52,7 +100,7 @@ export function recommend(assessment) {
   if (webgpu.supported && memory.ramGB >= 2) {
     return {
       recommended: 'webllm',
-      reasoning: `Your browser supports WebGPU and you have ${memory.ramGB}GB RAM — enough to run a small but capable AI model (Llama 1B, ~650MB download). No account needed.`,
+      reasoning: `Your browser supports WebGPU and you have ${describeRam(memory.ramGB)} — enough to run a small but capable AI model (Llama 1B, ~650MB download). No account needed.`,
       alternatives: ['cloud', 'local'],
       details: {
         suggestedModel: 'llama-3.2-1b',
@@ -108,7 +156,7 @@ export function getModeInfo(mode) {
       title: 'Cloud AI',
       subtitle: 'Most powerful, needs API key',
       pros: [
-        'Most capable models (Claude, GPT-5.5, Gemini 3.1)',
+        'Most capable models (Claude, GPT-5.5, Gemini 3.8)',
         'No GPU required',
         'Fast responses',
       ],

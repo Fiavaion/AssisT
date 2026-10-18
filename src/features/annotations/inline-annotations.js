@@ -24,10 +24,20 @@
  */
 
 import { getStorageAdapter } from './storage-adapter.js';
+import {
+  applyAnnotationColor,
+  labelHighlightGroup,
+  unwrapHighlights,
+  wrapRangeInHighlights,
+} from './annotation-range.js';
+import { describeRange, resolveAnchor } from './annotation-anchor.js';
 import { Z } from '../../utils/z-index.js';
 import { createTagInput } from './tag-manager.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler, hasSelectionOver } from '../../utils/event-handlers.js';
+import { showInfoTray } from '../../utils/action-tray.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
 
 /** @type {BaseStorageAdapter} Current storage adapter instance */
 let storageAdapter = null;
@@ -38,6 +48,14 @@ let storageMode = 'local';
 /** @type {Map<number, Array<HTMLElement>>} Map of annotation ID to highlight elements */
 const activeAnnotations = new Map();
 
+/**
+ * Latest saved record per annotation ID. Highlight listeners read through this rather
+ * than closing over the record they were attached with, so an edit is reflected by the
+ * tooltip and the edit modal without re-attaching anything.
+ * @type {Map<number, Object>}
+ */
+const annotationRecords = new Map();
+
 /** @type {HTMLElement|null} Currently open modal */
 let currentModal = null;
 
@@ -46,6 +64,35 @@ let currentEditingAnnotation = null;
 
 /** @type {Range|null} Cloned range from selection — used directly for new annotation highlight, bypasses XPath recreation */
 let pendingRange = null;
+
+/** @type {Function|null} Releases the open modal's focus trap (restores focus to the opener) */
+let releaseModalFocus = null;
+/** Where focus goes when the dialog closes, when there is no opener left to return it to. */
+let modalReturnFocus = null;
+
+/** @type {boolean} True once Delete has been pressed once and is awaiting confirmation */
+let deleteArmed = false;
+
+/** @type {HTMLElement|null} The tooltip currently on screen (only ever one). */
+let activeTooltip = null;
+
+/** @type {HTMLElement|null} Highlight currently pointed at the tooltip by aria-describedby. */
+let describedElement = null;
+
+/** Id the single live tooltip carries, so a focused highlight can be described by it. */
+const TOOLTIP_ID = 'assist-annotation-tooltip-live';
+
+/** @type {number|string|null} Annotation the pointer is currently over. */
+let hoveredAnnotationId = null;
+
+/** @type {boolean} Whether Alt is held right now. */
+let altHeld = false;
+
+/** @type {boolean} Guards the one-time install of the document-level Alt listeners. */
+let altListenersInstalled = false;
+
+/** Class marking every span of the annotation Alt+click is about to delete. */
+const DELETE_CUE_CLASS = 'assist-inline-annotation-delete-cue';
 
 /**
  * Initialize the inline annotations system
@@ -117,6 +164,8 @@ async function loadAnnotationsForCurrentPage() {
  * @param {string} [options.comment=''] - Comment text
  * @param {string} [options.color='yellow'] - Highlight color
  * @param {Array<string>} [options.tags=[]] - Tags for the annotation
+ * @param {Array<HTMLElement>|null} [options.preInsertedSpans=null] - Spans already wrapped
+ *   synchronously from the live Range; wired to the stored id instead of being re-created.
  * @returns {Promise<Object>} Created annotation data
  */
 export async function createInlineAnnotation({
@@ -125,7 +174,7 @@ export async function createInlineAnnotation({
   comment = '',
   color = 'yellow',
   tags = [],
-  preInsertedSpan = null,
+  preInsertedSpans = null,
 }) {
   try {
     const annotationData = {
@@ -141,12 +190,14 @@ export async function createInlineAnnotation({
     const savedAnnotation = await storageAdapter.create(annotationData);
     console.log('[InlineAnnotations] Created annotation:', savedAnnotation.id);
 
-    if (preInsertedSpan) {
-      // Span already in DOM — just wire it up with the real ID
-      preInsertedSpan.dataset.annotationId = String(savedAnnotation.id);
-      preInsertedSpan.setAttribute('aria-label', `Annotation: ${comment || 'No comment'}`);
-      attachAnnotationListeners(preInsertedSpan, savedAnnotation);
-      activeAnnotations.set(savedAnnotation.id, [preInsertedSpan]);
+    if (preInsertedSpans && preInsertedSpans.length) {
+      // Spans already in the DOM — just wire them up with the real ID
+      preInsertedSpans.forEach(span => {
+        span.dataset.annotationId = String(savedAnnotation.id);
+        attachAnnotationListeners(span, savedAnnotation);
+      });
+      labelHighlightGroup(preInsertedSpans, comment);
+      activeAnnotations.set(savedAnnotation.id, preInsertedSpans);
     } else {
       // Programmatic call (no modal) — fall back to XPath-based rendering
       renderAnnotation(savedAnnotation);
@@ -170,177 +221,184 @@ function renderAnnotation(annotation) {
   }
 
   try {
-    const range = recreateRange(annotation.position);
-    if (!range) {
-      console.warn('[InlineAnnotations] Could not recreate range for annotation:', annotation.id);
+    // Nothing is deleted when this fails. The page may be mid-render, or may simply have
+    // changed; the record stays in storage so it can anchor again when the text comes back.
+    const anchored = resolveAnchor(annotation.position);
+    if (!anchored) {
+      console.warn(
+        '[InlineAnnotations] Could not find the annotated text on this page; leaving',
+        annotation.id,
+        'stored but unanchored'
+      );
       return;
     }
+    const range = anchored.range;
 
-    // Wrap the range in highlight spans
+    // Wrap the range in highlight spans — one per text run
     const highlightElements = highlightRange(range, annotation);
+    if (highlightElements.length === 0) {
+      console.warn('[InlineAnnotations] Range wrapped no text for annotation:', annotation.id);
+      return;
+    }
 
     // Store reference to highlight elements
     activeAnnotations.set(annotation.id, highlightElements);
 
-    console.log('[InlineAnnotations] Rendered annotation:', annotation.id);
+    console.log(
+      `[InlineAnnotations] Rendered annotation ${annotation.id} via ${anchored.strategy} anchor`
+    );
   } catch (error) {
     console.error('[InlineAnnotations] Error rendering annotation:', error);
   }
 }
 
 /**
- * Recreate a Range object from stored position data
- * @param {Object} position - Position data
- * @returns {Range|null} Recreated range
- */
-function recreateRange(position) {
-  try {
-    const { startOffset, endOffset, containerXPath } = position;
-
-    // Find container element using XPath
-    const container = getElementByXPath(containerXPath);
-    if (!container) {
-      console.warn('[InlineAnnotations] Container not found:', containerXPath);
-      return null;
-    }
-
-    // Create range
-    const range = document.createRange();
-
-    // Find text nodes and set range boundaries
-    const textNodes = getTextNodesIn(container);
-    let currentOffset = 0;
-    let startNode = null;
-    let startNodeOffset = 0;
-    let endNode = null;
-    let endNodeOffset = 0;
-
-    for (const node of textNodes) {
-      const nodeLength = node.textContent.length;
-      const nodeStart = currentOffset;
-      const nodeEnd = currentOffset + nodeLength;
-
-      // Find start node
-      if (startNode === null && startOffset >= nodeStart && startOffset < nodeEnd) {
-        startNode = node;
-        startNodeOffset = startOffset - nodeStart;
-      }
-
-      // Find end node
-      if (endOffset > nodeStart && endOffset <= nodeEnd) {
-        endNode = node;
-        endNodeOffset = endOffset - nodeStart;
-        break;
-      }
-
-      currentOffset += nodeLength;
-    }
-
-    if (startNode && endNode) {
-      range.setStart(startNode, startNodeOffset);
-      range.setEnd(endNode, endNodeOffset);
-      return range;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('[InlineAnnotations] Error recreating range:', error);
-    return null;
-  }
-}
-
-/**
- * Insert a highlight span synchronously from a live Range.
+ * Insert the highlight spans synchronously from a live Range.
  * Must be called before any await so the Range is guaranteed valid.
- * Returns the span on success, null if insertion failed.
+ *
+ * @param {Range} range - Live range from the selection.
+ * @param {string} color - Palette name.
+ * @param {string} comment - Comment, used for the accessible name.
+ * @returns {Array<HTMLElement>} Spans in document order (empty when nothing was wrapped).
  */
-function insertHighlightSpan(range, color, comment) {
+function insertHighlightSpans(range, color, comment) {
   if (!range) {
-    return null;
+    return [];
   }
-
-  const span = document.createElement('span');
-  span.className = 'assist-inline-annotation';
-  span.setAttribute('role', 'mark');
-  span.setAttribute('tabindex', '0');
-  // Placeholder label — replaced with real ID after storage write
-  span.setAttribute('aria-label', `Annotation: ${comment || 'No comment'}`);
-  applyAnnotationColor(span, color);
-
   try {
-    range.surroundContents(span);
-    return span;
-  } catch {
-    try {
-      const fragment = range.extractContents();
-      span.appendChild(fragment);
-      range.insertNode(span);
-      return span;
-    } catch (e) {
-      console.warn('[InlineAnnotations] insertHighlightSpan failed:', e);
-      return null;
-    }
+    return wrapRangeInHighlights(range, { color, comment });
+  } catch (error) {
+    console.warn('[InlineAnnotations] insertHighlightSpans failed:', error);
+    return [];
   }
 }
 
 /**
- * Highlight a range with annotation styling
+ * Highlight a range with annotation styling (restore-from-storage path)
  * @param {Range} range - Range to highlight
  * @param {Object} annotation - Annotation data
  * @returns {Array<HTMLElement>} Created highlight elements
  */
 function highlightRange(range, annotation) {
-  const highlightElements = [];
+  const highlightElements = wrapRangeInHighlights(range, {
+    color: annotation.color,
+    comment: annotation.comment,
+    annotationId: annotation.id,
+  });
 
-  // Create highlight wrapper
-  const span = document.createElement('span');
-  span.className = 'assist-inline-annotation';
-  span.dataset.annotationId = annotation.id;
-  span.setAttribute('role', 'mark');
-  span.setAttribute('aria-label', `Annotation: ${annotation.comment || 'No comment'}`);
-  span.setAttribute('tabindex', '0');
-
-  // Apply color theme
-  applyAnnotationColor(span, annotation.color);
-
-  // Wrap the range
-  try {
-    range.surroundContents(span);
-    highlightElements.push(span);
-  } catch (error) {
-    // If surroundContents fails (complex DOM), use alternative method
-    console.warn('[InlineAnnotations] surroundContents failed, using extractContents:', error);
-    const fragment = range.extractContents();
-    span.appendChild(fragment);
-    range.insertNode(span);
-    highlightElements.push(span);
-  }
-
-  // Add event listeners
-  attachAnnotationListeners(span, annotation);
+  highlightElements.forEach(element => attachAnnotationListeners(element, annotation));
 
   return highlightElements;
 }
 
 /**
- * Apply color theme to annotation highlight
- * @param {HTMLElement} element - Highlight element
- * @param {string} color - Color name
+ * Spans belonging to one annotation, in document order.
+ * @param {number|string} annotationId - Annotation ID.
+ * @returns {Array<HTMLElement>} Its highlight spans (empty when it is not on the page).
  */
-function applyAnnotationColor(element, color) {
-  const colorMap = {
-    yellow: { bg: 'rgba(254, 243, 199, 0.5)', border: '#fbbf24' },
-    blue: { bg: 'rgba(219, 234, 254, 0.5)', border: '#3b82f6' },
-    green: { bg: 'rgba(209, 250, 229, 0.5)', border: '#10b981' },
-    pink: { bg: 'rgba(252, 231, 243, 0.5)', border: '#ec4899' },
-    purple: { bg: 'rgba(233, 213, 255, 0.5)', border: '#a855f7' },
-  };
+function spansFor(annotationId) {
+  return activeAnnotations.get(annotationId) || [];
+}
 
-  const theme = colorMap[color] || colorMap.yellow;
-  element.style.backgroundColor = theme.bg;
-  element.style.borderBottom = `2px solid ${theme.border}`;
-  element.style.cursor = 'pointer';
-  element.style.transition = 'background-color 0.2s';
+/**
+ * Whether Alt+click on this annotation would actually delete it.
+ *
+ * The highlight opts into `allowTextSelection`, so activation is suppressed while a
+ * selection intersects it - a click that merely finished a drag-select is not a click.
+ * The cue asks the same question through the same helper, because a cue promising a
+ * delete that will not happen is worse than no cue at all.
+ *
+ * @param {number|string} annotationId - Annotation ID.
+ * @returns {boolean} True when the delete would fire.
+ */
+function deleteWouldFire(annotationId) {
+  const spans = spansFor(annotationId);
+  return spans.length > 0 && !spans.some(span => hasSelectionOver(span));
+}
+
+/**
+ * Mark every span of an annotation as about to be deleted, or clear the marks.
+ *
+ * Every span, not just the hovered one: an annotation can run across two paragraphs, and
+ * seeing the whole of it struck through is how the student knows how much text is going.
+ *
+ * @param {number|string|null} annotationId - Annotation to cue, or null to clear.
+ */
+function setDeleteCue(annotationId) {
+  document
+    .querySelectorAll('.' + DELETE_CUE_CLASS)
+    .forEach(span => span.classList.remove(DELETE_CUE_CLASS));
+
+  if (annotationId === null || annotationId === undefined) {
+    return;
+  }
+  spansFor(annotationId).forEach(span => span.classList.add(DELETE_CUE_CLASS));
+}
+
+/**
+ * Whether the pointer is over an annotation that is still on the page. A host page can
+ * replace its content under us (SPA navigation), which detaches the spans without ever
+ * firing mouseleave - and a stale hover must not make Alt behave differently.
+ * @returns {boolean} True when the hovered annotation still has spans in the document.
+ */
+function hoveringLiveAnnotation() {
+  return (
+    hoveredAnnotationId !== null && spansFor(hoveredAnnotationId).some(span => span.isConnected)
+  );
+}
+
+/** Re-evaluate the cue from the current hover and Alt state. */
+function refreshDeleteCue() {
+  const show = altHeld && hoveringLiveAnnotation() && deleteWouldFire(hoveredAnnotationId);
+  setDeleteCue(show ? hoveredAnnotationId : null);
+}
+
+/** Forget that Alt is down and take the cue off. Used wherever a keyup may never arrive. */
+function releaseAlt() {
+  altHeld = false;
+  setDeleteCue(null);
+}
+
+/**
+ * Install the document-level Alt tracking once, for every annotation on the page.
+ *
+ * One shared pair of listeners rather than one per span: Alt is a single piece of global
+ * state, and a page can carry dozens of annotations across hundreds of spans. Per-span
+ * listeners would all fire for the same keystroke and would each need tearing down; this
+ * pair is installed once and answers for all of them. The genuinely per-span listeners
+ * (hover, activation, delete keys) stay per-span and die with the span when it is unwrapped.
+ */
+function installAltCueListeners() {
+  if (altListenersInstalled) {
+    return;
+  }
+  altListenersInstalled = true;
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Alt') {
+      return;
+    }
+    altHeld = true;
+    if (hoveringLiveAnnotation()) {
+      // On Windows a bare Alt press-and-release moves focus to the browser menu bar, which
+      // would pull focus off the page mid-gesture. Suppressed ONLY while the pointer is over
+      // an annotation, so Alt keeps behaving normally everywhere else on the page.
+      e.preventDefault();
+    }
+    refreshDeleteCue();
+  });
+
+  document.addEventListener('keyup', e => {
+    if (e.key === 'Alt') {
+      releaseAlt();
+    }
+  });
+
+  // Alt+Tab is the trap: the keydown arrives, then the window loses focus and the keyup is
+  // delivered to the next window, never to us. Without these two the cue would still be on
+  // when the student came back, promising a delete they are no longer asking for.
+  window.addEventListener('blur', releaseAlt);
+  document.addEventListener('visibilitychange', releaseAlt);
 }
 
 /**
@@ -349,35 +407,101 @@ function applyAnnotationColor(element, color) {
  * @param {Object} annotation - Annotation data
  */
 function attachAnnotationListeners(element, annotation) {
-  // Click/keyboard to edit (includes Enter/Space key support)
-  attachAccessibleHandler(element, 'Annotation Highlight', () => {
-    openEditModal(annotation);
+  annotationRecords.set(annotation.id, annotation);
+  const current = () => annotationRecords.get(annotation.id) || annotation;
+  installAltCueListeners();
+
+  // Click/keyboard to edit (includes Enter/Space key support).
+  // allowTextSelection keeps the highlighted words selectable and copyable - the text a
+  // student most wants to lift into their notes - while a plain click still opens the editor.
+  // enableVisualFeedback is off because its hover treatment is written for buttons: it sets
+  // a scale transform (inert on an inline box) and forces cursor:pointer inline, which would
+  // overrule the I-beam the stylesheet deliberately keeps on selectable text.
+  attachAccessibleHandler(
+    element,
+    'Annotation Highlight',
+    e => {
+      // Alt+click is the one-action delete. Pointer path only: the same handler serves Enter
+      // and Space, and Alt+Enter must not quietly become a delete.
+      if (e?.altKey && e.type === 'click') {
+        quickDeleteAnnotation(current());
+        return;
+      }
+      openAnnotationModal(current());
+    },
+    { allowTextSelection: true, enableVisualFeedback: false }
+  );
+
+  // SC 2.1.1: the same one-action delete without a mouse. Enter and Space keep opening the
+  // editor - they are handled by attachAccessibleHandler and never reach this listener.
+  element.addEventListener('keydown', e => {
+    // SC 1.4.13: content shown on focus must be dismissible without moving focus away.
+    if (e.key === 'Escape' && activeTooltip) {
+      hideTooltip();
+      return;
+    }
+    if (e.key !== 'Delete' && e.key !== 'Backspace') {
+      return;
+    }
+    // Backspace navigates the page back when nothing consumes it.
+    e.preventDefault();
+    e.stopPropagation();
+    quickDeleteAnnotation(current());
   });
 
-  // Hover to show tooltip
-  let tooltip = null;
-
   element.addEventListener('mouseenter', e => {
-    tooltip = createTooltip(annotation, e.target);
-    document.body.appendChild(tooltip);
+    hoveredAnnotationId = annotation.id;
+    showTooltip(current(), e.target);
+    refreshDeleteCue();
   });
 
   element.addEventListener('mouseleave', () => {
-    if (tooltip) {
-      tooltip.remove();
-      tooltip = null;
+    if (hoveredAnnotationId === annotation.id) {
+      hoveredAnnotationId = null;
     }
+    hideTooltip();
+    setDeleteCue(null);
   });
 
-  // Focus indicator
-  element.addEventListener('focus', () => {
-    element.style.outline = '2px solid #3b82f6';
-    element.style.outlineOffset = '2px';
-  });
+  // The tooltip carries the delete hint, and a keyboard user cannot hover. Showing it on
+  // focus too - and describing the highlight with it - is what stops the shortcut being
+  // knowledge only a mouse user can reach.
+  element.addEventListener('focus', e => showTooltip(current(), e.target, element));
+  element.addEventListener('blur', hideTooltip);
+}
 
-  element.addEventListener('blur', () => {
-    element.style.outline = 'none';
-  });
+/**
+ * Show the hover tooltip for an annotation, replacing any tooltip already up.
+ * @param {Object} annotation - Annotation data.
+ * @param {HTMLElement} target - Element to position against.
+ */
+function showTooltip(annotation, target, describes = null) {
+  hideTooltip();
+  activeTooltip = createTooltip(annotation, target);
+  activeTooltip.id = TOOLTIP_ID;
+  document.body.appendChild(activeTooltip);
+
+  // Only the focus path describes: on hover there is nothing listening for a description,
+  // and a permanent aria-describedby would read the hint out on every annotation.
+  if (describes) {
+    describedElement = describes;
+    describes.setAttribute('aria-describedby', TOOLTIP_ID);
+  }
+}
+
+/**
+ * Take the tooltip down. Called from mouseleave, and from the delete path, where the span
+ * the tooltip is pointing at is about to stop existing.
+ */
+function hideTooltip() {
+  if (describedElement) {
+    describedElement.removeAttribute('aria-describedby');
+    describedElement = null;
+  }
+  if (activeTooltip) {
+    activeTooltip.remove();
+    activeTooltip = null;
+  }
 }
 
 /**
@@ -389,8 +513,19 @@ function attachAnnotationListeners(element, annotation) {
 function createTooltip(annotation, target) {
   const tooltip = document.createElement('div');
   tooltip.className = 'assist-annotation-tooltip';
-  tooltip.textContent = annotation.comment || 'No comment';
   tooltip.setAttribute('role', 'tooltip');
+
+  const comment = document.createElement('div');
+  comment.className = 'assist-annotation-tooltip-comment';
+  comment.textContent = annotation.comment || 'No comment';
+  tooltip.appendChild(comment);
+
+  // Alt+click is invisible, so it is named here, quietly, under the comment - which stays the
+  // primary content. The keyboard route is named beside it so it is not mouse-only knowledge.
+  const hint = document.createElement('div');
+  hint.className = 'assist-annotation-tooltip-hint';
+  hint.textContent = 'Alt+click, or press Delete, to remove';
+  tooltip.appendChild(hint);
 
   tooltip.style.cssText = `
     position: fixed;
@@ -416,6 +551,65 @@ function createTooltip(annotation, target) {
 }
 
 /**
+ * Delete an annotation in one action, offering Undo instead of asking first.
+ *
+ * The old route was three actions to undo one: click the highlight, press Delete, press
+ * Confirm delete. For a student who highlights heavily that is a tax on every mistake, so
+ * the delete happens immediately and the tray carries the way back. The tray is a live
+ * region, so the deletion is announced and not only seen.
+ *
+ * @param {Object} annotation - The annotation to remove.
+ */
+async function quickDeleteAnnotation(annotation) {
+  if (!annotation) {
+    return;
+  }
+
+  // Snapshot BEFORE the delete: everything Undo needs to build the annotation again.
+  const { selectedText, position, comment, color, tags } = annotation;
+
+  try {
+    await deleteAnnotation(annotation.id);
+  } catch (error) {
+    console.error('[InlineAnnotations] Quick delete failed:', error);
+    showInfoTray({
+      message: 'Could not delete that annotation. It is still here.',
+      variant: 'error',
+    });
+    return;
+  }
+
+  showInfoTray({
+    message: 'Annotation deleted',
+    actionLabel: 'Undo',
+    onAction: () => restoreAnnotation({ selectedText, position, comment, color, tags }),
+    duration: 8000,
+  });
+}
+
+/**
+ * Put a just-deleted annotation back: the stored record and its highlight spans.
+ *
+ * Goes through createInlineAnnotation, the same path that stores an annotation and re-wraps
+ * it from its stored position, so Undo cannot drift from ordinary rendering. The record
+ * comes back with a fresh id (both adapters mint their own); everything the student can see
+ * - the text, the comment, the colour, the tags - is restored exactly.
+ *
+ * @param {Object} snapshot - The deleted annotation's restorable fields.
+ */
+async function restoreAnnotation(snapshot) {
+  try {
+    const restored = await createInlineAnnotation(snapshot);
+    // Land focus on the annotation that just came back, so a keyboard user who pressed Undo
+    // is standing on it rather than back at the top of the page (SC 2.4.3).
+    spansFor(restored.id)[0]?.focus();
+  } catch (error) {
+    console.error('[InlineAnnotations] Undo failed:', error);
+    showInfoTray({ message: 'Could not bring that annotation back.', variant: 'error' });
+  }
+}
+
+/**
  * Open annotation modal for creating/editing
  * @param {Object|null} annotation - Existing annotation to edit, or null for new
  * @param {string} selectedText - Selected text (for new annotations)
@@ -429,11 +623,19 @@ export function openAnnotationModal(
 ) {
   // Close existing modal
   if (currentModal) {
-    currentModal.remove();
+    closeAnnotationModal();
   }
 
   currentEditingAnnotation = annotation;
   pendingRange = savedRange;
+  deleteArmed = false;
+
+  // The highlight menu that opened this dialog activates on mousedown and is removed before the
+  // dialog exists, so the focus trap has nothing to restore to and focus was landing on <body>.
+  // Cancel and Escape put it back on the student's own text instead (SC 2.4.3).
+  modalReturnFocus = annotation
+    ? spansFor(annotation.id)[0] || null
+    : selectionContainer(savedRange);
 
   // Create modal
   const modal = document.createElement('div');
@@ -473,8 +675,9 @@ export function openAnnotationModal(
         <div id="annotation-tag-input-container"></div>
         <p class="assist-annotation-tag-help">Press Enter or comma to add tags. Backspace to remove last tag.</p>
       </div>
+      <p id="annotation-modal-status" class="assist-annotation-status" role="status" aria-live="polite"></p>
       <div class="assist-annotation-modal-footer">
-        ${isEdit ? '<button class="assist-annotation-btn assist-annotation-btn-delete" aria-label="Delete annotation">Delete</button>' : ''}
+        ${isEdit ? '<button class="assist-annotation-btn assist-annotation-btn-delete">Delete</button>' : ''}
         <button class="assist-annotation-btn assist-annotation-btn-cancel" aria-label="Cancel">Cancel</button>
         <button class="assist-annotation-btn assist-annotation-btn-save" aria-label="Save annotation">Save</button>
       </div>
@@ -491,15 +694,15 @@ export function openAnnotationModal(
   const tagInputContainer = modal.querySelector('#annotation-tag-input-container');
   const tagInput = createTagInput(tagInputContainer, annotation?.tags || []);
 
-  attachInteractiveHandler(closeBtn, 'Annotation Modal Close', () => closeAnnotationModal());
-  attachInteractiveHandler(cancelBtn, 'Annotation Modal Cancel', () => closeAnnotationModal());
-  attachInteractiveHandler(saveBtn, 'Annotation Modal Save', () =>
+  attachAccessibleHandler(closeBtn, 'Annotation Modal Close', () => closeAnnotationModal());
+  attachAccessibleHandler(cancelBtn, 'Annotation Modal Cancel', () => closeAnnotationModal());
+  attachAccessibleHandler(saveBtn, 'Annotation Modal Save', () =>
     saveAnnotationFromModal(selectedText, position, tagInput, selectedColor)
   );
 
   if (deleteBtn) {
-    attachInteractiveHandler(deleteBtn, 'Annotation Modal Delete', () =>
-      deleteAnnotationFromModal()
+    attachAccessibleHandler(deleteBtn, 'Annotation Modal Delete', () =>
+      deleteAnnotationFromModal(deleteBtn)
     );
   }
 
@@ -510,18 +713,11 @@ export function openAnnotationModal(
     }
   });
 
-  // Keyboard navigation
-  modal.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      closeAnnotationModal();
-    }
-  });
-
   // Color picker handlers — track in closure var, not DOM class (DOM query unreliable on mousedown)
   let selectedColor = annotation?.color || 'yellow';
   const colorOptions = modal.querySelectorAll('.assist-annotation-color-option');
   colorOptions.forEach(option => {
-    attachInteractiveHandler(option, 'Annotation Color', () => {
+    attachAccessibleHandler(option, 'Annotation Color', () => {
       colorOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       selectedColor = option.dataset.color;
@@ -531,11 +727,28 @@ export function openAnnotationModal(
   document.body.appendChild(modal);
   currentModal = modal;
 
-  // Focus textarea
-  const textarea = modal.querySelector('#annotation-comment');
-  textarea.focus();
+  // aria-modal="true" is a promise to assistive technology that the rest of the page is
+  // unavailable. Without a trap, Tab walked out into the page behind and Escape — bound to
+  // the modal — stopped working, which is a keyboard trap (SC 2.1.2). The shared trap also
+  // returns focus to whatever opened the dialog on release (SC 2.4.3).
+  releaseModalFocus = trapFocus(modal, {
+    onEscape: () => closeAnnotationModal(),
+    initialFocus: modal.querySelector('#annotation-comment'),
+  });
 
   console.log('[InlineAnnotations] Modal opened');
+}
+
+/**
+ * Announce a message in the modal's live region, where it sits inside the focus trap
+ * next to the controls it is about — rather than a blocking alert()/confirm().
+ * @param {string} message - Text to announce, or '' to clear.
+ */
+function setModalStatus(message) {
+  const status = currentModal?.querySelector('#annotation-modal-status');
+  if (status) {
+    status.textContent = message;
+  }
 }
 
 /**
@@ -573,12 +786,21 @@ function createColorOptions(selectedColor) {
  * Close annotation modal
  */
 function closeAnnotationModal() {
+  // Release before removing: the trap restores focus to the element that opened the dialog,
+  // which must happen while there is still something to move focus away from.
+  if (releaseModalFocus) {
+    releaseModalFocus();
+    releaseModalFocus = null;
+  }
   if (currentModal) {
     currentModal.remove();
     currentModal = null;
   }
   currentEditingAnnotation = null;
   pendingRange = null;
+  deleteArmed = false;
+  returnFocusAfterDialog(modalReturnFocus);
+  modalReturnFocus = null;
   console.log('[InlineAnnotations] Modal closed');
 }
 
@@ -598,47 +820,71 @@ async function saveAnnotationFromModal(selectedText, position, tagInput, color =
   const rangeSnapshot = pendingRange;
   pendingRange = null;
 
+  // Wrap the highlight SYNCHRONOUSLY too, for the same reason: async DOM mutation
+  // invalidates the Range, so nothing may be awaited before it is consumed.
+  const spans = currentEditingAnnotation
+    ? null
+    : insertHighlightSpans(rangeSnapshot, color, comment);
+
   try {
     if (currentEditingAnnotation) {
       await storageAdapter.update(currentEditingAnnotation.id, { comment, color, tags });
-      const elements = activeAnnotations.get(currentEditingAnnotation.id);
+      const updated = { ...currentEditingAnnotation, comment, color, tags };
+      annotationRecords.set(updated.id, updated);
+      const elements = activeAnnotations.get(updated.id);
       if (elements) {
-        elements.forEach(el => {
-          applyAnnotationColor(el, color);
-          el.setAttribute('aria-label', `Annotation: ${comment || 'No comment'}`);
-        });
+        elements.forEach(el => applyAnnotationColor(el, color));
+        labelHighlightGroup(elements, comment);
       }
       console.log('[InlineAnnotations] Updated annotation:', currentEditingAnnotation.id);
+      closeAnnotationModal();
     } else {
-      // Insert highlight span SYNCHRONOUSLY before the storage await
-      const span = insertHighlightSpan(rangeSnapshot, color, comment);
       await createInlineAnnotation({
         selectedText,
         position,
         comment,
         color,
         tags,
-        preInsertedSpan: span,
+        preInsertedSpans: spans,
       });
       console.log('[InlineAnnotations] Created new annotation');
+      closeAnnotationModal();
+      // The menu that opened the dialog is gone by now, so the trap has nowhere to put
+      // focus back. Land it on the annotation the student just made instead (SC 2.4.3).
+      spans?.[0]?.focus();
     }
-
-    closeAnnotationModal();
   } catch (error) {
     console.error('[InlineAnnotations] Error saving annotation:', error);
-    alert('Failed to save annotation. Please try again.');
+    // The storage write failed, so the highlight it belongs to must not stay on the page.
+    unwrapHighlights(spans || []);
+    setModalStatus('Could not save your annotation. Your comment is still here — try Save again.');
   }
 }
 
 /**
- * Delete annotation from modal
+ * Delete annotation from modal.
+ *
+ * Deleting is irreversible, so it is confirmed — but a native confirm() is a separate
+ * window a screen reader has to be chased into and a keyboard user cannot reach from the
+ * trapped dialog. Instead the Delete button arms itself: the first press turns it into
+ * "Confirm delete" and announces what will happen in the modal's live region; the second
+ * press deletes. Cancel, Close and Escape all disarm it, and so does closing the dialog.
+ *
+ * @param {HTMLElement} deleteBtn - The Delete button, whose label doubles as the state.
  */
-async function deleteAnnotationFromModal() {
+async function deleteAnnotationFromModal(deleteBtn) {
   if (!currentEditingAnnotation) {
     return;
   }
 
-  if (!confirm('Are you sure you want to delete this annotation?')) {
+  if (!deleteArmed) {
+    deleteArmed = true;
+    deleteBtn.textContent = 'Confirm delete';
+    deleteBtn.classList.add('assist-annotation-btn-delete-armed');
+    setModalStatus(
+      'Press Confirm delete to remove this annotation for good, or Cancel to keep it.'
+    );
+    deleteBtn.focus();
     return;
   }
 
@@ -647,7 +893,10 @@ async function deleteAnnotationFromModal() {
     closeAnnotationModal();
   } catch (error) {
     console.error('[InlineAnnotations] Error deleting annotation:', error);
-    alert('Failed to delete annotation. Please try again.');
+    deleteArmed = false;
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.classList.remove('assist-annotation-btn-delete-armed');
+    setModalStatus('Could not delete this annotation. It is still here — try again.');
   }
 }
 
@@ -657,22 +906,24 @@ async function deleteAnnotationFromModal() {
  */
 async function deleteAnnotation(annotationId) {
   try {
+    // Whatever route the delete came in by, the hover state must not outlive the spans:
+    // a tooltip pointing at text that no longer exists is left floating on the page.
+    hideTooltip();
+    setDeleteCue(null);
+    if (hoveredAnnotationId === annotationId) {
+      hoveredAnnotationId = null;
+    }
+
     // Remove from storage
     await storageAdapter.delete(annotationId);
 
-    // Remove from DOM
+    // Remove from DOM — every span of the annotation, text lifted back into the page
     const elements = activeAnnotations.get(annotationId);
     if (elements) {
-      elements.forEach(el => {
-        // Unwrap the highlight span
-        const parent = el.parentNode;
-        while (el.firstChild) {
-          parent.insertBefore(el.firstChild, el);
-        }
-        el.remove();
-      });
+      unwrapHighlights(elements);
       activeAnnotations.delete(annotationId);
     }
+    annotationRecords.delete(annotationId);
 
     console.log('[InlineAnnotations] Deleted annotation:', annotationId);
   } catch (error) {
@@ -682,103 +933,17 @@ async function deleteAnnotation(annotationId) {
 }
 
 /**
- * Get element by XPath
- * @param {string} xpath - XPath expression
- * @returns {Element|null} Found element
- */
-function getElementByXPath(xpath) {
-  const result = document.evaluate(
-    xpath,
-    document,
-    null,
-    XPathResult.FIRST_ORDERED_NODE_TYPE,
-    null
-  );
-  return result.singleNodeValue;
-}
-
-/**
- * Get all text nodes within an element
- * @param {Element} element - Container element
- * @returns {Array<Text>} Array of text nodes
- */
-function getTextNodesIn(element) {
-  const textNodes = [];
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
-
-  let node;
-  while ((node = walker.nextNode())) {
-    if (node.textContent.trim()) {
-      textNodes.push(node);
-    }
-  }
-
-  return textNodes;
-}
-
-/**
- * Get XPath for an element
- * @param {Element} element - Element to get XPath for
- * @returns {string} XPath expression
- */
-function getXPath(element) {
-  if (element.id) {
-    return `//*[@id="${element.id}"]`;
-  }
-
-  if (element === document.body) {
-    return '/html/body';
-  }
-
-  let ix = 0;
-  const siblings = element.parentNode.childNodes;
-
-  for (let i = 0; i < siblings.length; i++) {
-    const sibling = siblings[i];
-    if (sibling === element) {
-      return (
-        getXPath(element.parentNode) + '/' + element.tagName.toLowerCase() + '[' + (ix + 1) + ']'
-      );
-    }
-    if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
-      ix++;
-    }
-  }
-}
-
-/**
- * Get position data from a Range
- * @param {Range} range - Range object
- * @returns {Object} Position data
+ * Describe a selection so the annotation can be found again on a later visit.
+ *
+ * The public name the highlight menu calls. The record it returns carries the quote and
+ * text-position selectors alongside the original offsets and XPath, so an annotation saved
+ * today survives the page being restructured, and one saved before this existed still reads.
+ *
+ * @param {Range} range - Range object.
+ * @returns {Object|null} Position data, or null for a selection covering no text.
  */
 export function getPositionFromRange(range) {
-  const container =
-    range.commonAncestorContainer.nodeType === Node.TEXT_NODE
-      ? range.commonAncestorContainer.parentElement
-      : range.commonAncestorContainer;
-
-  // Get text offset within container
-  const textNodes = getTextNodesIn(container);
-  let startOffset = 0;
-  let endOffset = 0;
-  let currentOffset = 0;
-
-  for (const node of textNodes) {
-    if (node === range.startContainer) {
-      startOffset = currentOffset + range.startOffset;
-    }
-    if (node === range.endContainer) {
-      endOffset = currentOffset + range.endOffset;
-      break;
-    }
-    currentOffset += node.textContent.length;
-  }
-
-  return {
-    startOffset,
-    endOffset,
-    containerXPath: getXPath(container),
-  };
+  return describeRange(range);
 }
 
 /**
@@ -795,16 +960,12 @@ function handleStorageChange(changes) {
     storageAdapter = getStorageAdapter(storageMode);
 
     // Clear existing annotations and reload
-    activeAnnotations.forEach(elements => {
-      elements.forEach(el => {
-        const parent = el.parentNode;
-        while (el.firstChild) {
-          parent.insertBefore(el.firstChild, el);
-        }
-        el.remove();
-      });
-    });
+    hideTooltip();
+    hoveredAnnotationId = null;
+    releaseAlt();
+    activeAnnotations.forEach(elements => unwrapHighlights(elements));
     activeAnnotations.clear();
+    annotationRecords.clear();
     loadAnnotationsForCurrentPage();
   }
 }
@@ -821,18 +982,84 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = styleId;
   style.textContent = `
+    /*
+     * No cursor: pointer. These are words in the page, not a button: the student is meant
+     * to be able to select and copy their own highlighted text, and the I-beam is what says
+     * so. A pointer would promise a link and hide the selection affordance; the highlight is
+     * still activatable, which role="mark", the focus ring and the tooltip already convey.
+     */
     .assist-inline-annotation {
       position: relative;
       border-radius: 2px;
+      transition: filter 0.2s;
     }
 
     .assist-inline-annotation:hover {
-      filter: brightness(0.95);
+      filter: brightness(0.9);
     }
 
     .assist-inline-annotation:focus {
-      outline: 2px solid #3b82f6;
+      outline: 2px solid #1d4ed8;
       outline-offset: 2px;
+    }
+
+    /*
+     * The Alt-held delete cue: what Alt+click is about to remove, shown on EVERY span of the
+     * annotation so a highlight running across two paragraphs shows its full extent.
+     * line-through and the dashed outline are both shape, not colour (SC 1.4.1): struck-through
+     * text reads as "this is going away" with no legend to learn, and both survive
+     * forced-colors, where the fill and underline are already replaced by Mark/MarkText.
+     * Deliberately NOT dimmed with opacity - the words underneath are what the student is
+     * reading, and fading them would cost contrast in the state where it matters most.
+     */
+    .assist-inline-annotation-delete-cue {
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+      outline: 2px dashed currentColor;
+      outline-offset: 1px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .assist-inline-annotation {
+        transition: none;
+      }
+      .assist-annotation-tooltip {
+        animation: none;
+      }
+    }
+
+    @media (forced-colors: active) {
+      .assist-inline-annotation-delete-cue {
+        text-decoration: line-through;
+        outline: 2px dashed MarkText;
+      }
+    }
+
+    /*
+     * The comment is the primary content; the hint sits under it, quieter and smaller, and
+     * still clears 4.5:1 against the tooltip's #374151 ground.
+     */
+    .assist-annotation-tooltip-hint {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #d1d5db;
+    }
+
+    /*
+     * High contrast mode discards the inline fill and underline, which would leave an
+     * annotation with no visible trace at all. Mark/MarkText are the system colours the
+     * platform reserves for highlighted text, which is exactly what role="mark" is.
+     * The fill and underline are set per-annotation as inline styles, and a style
+     * attribute outranks a normal rule in this sheet — so these must be !important to
+     * land at all.
+     */
+    @media (forced-colors: active) {
+      .assist-inline-annotation {
+        forced-color-adjust: none;
+        background-color: Mark !important;
+        color: MarkText !important;
+        border-bottom: 3px solid MarkText !important;
+      }
     }
 
     .assist-annotation-tooltip {
@@ -860,7 +1087,7 @@ function injectStyles() {
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 999998;
+      z-index: ${Z.MODAL};
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       animation: assist-modal-fade-in 0.2s ease-out;
     }
@@ -874,6 +1101,18 @@ function injectStyles() {
       }
     }
 
+    /*
+     * The dialog itself does not scroll: its body does. It used to be one scrolling block, so
+     * at 1280x800 the footer sat on the bottom edge under a horizontal scrollbar. And every
+     * control in here measures its own padding and border - the comment box and the tag input
+     * are width:100% with 12px of padding and a 2px border, which without box-sizing made each
+     * of them 28px wider than the space it had and pushed "Add tags" off the right edge.
+     */
+    .assist-annotation-modal,
+    .assist-annotation-modal * {
+      box-sizing: border-box;
+    }
+
     .assist-annotation-modal {
       background: white;
       border-radius: 12px;
@@ -881,7 +1120,9 @@ function injectStyles() {
       width: 90%;
       max-width: 500px;
       max-height: 80vh;
-      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       animation: assist-modal-slide-in 0.3s ease-out;
     }
 
@@ -941,6 +1182,8 @@ function injectStyles() {
 
     .assist-annotation-modal-body {
       padding: 24px;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .assist-annotation-selected-text {
@@ -996,8 +1239,10 @@ function injectStyles() {
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
+    /* Wrapping, so five 44px targets never widen the dialog on a narrow screen. */
     .assist-annotation-color-picker {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       margin-top: 8px;
     }
@@ -1032,12 +1277,30 @@ function injectStyles() {
       outline-offset: 2px;
     }
 
+    /*
+     * Empty until something needs saying, so it takes no room and announces nothing until
+     * then. It is inside the dialog, above the buttons it talks about.
+     */
+    .assist-annotation-status {
+      margin: 0;
+      padding: 0 24px;
+      color: #b91c1c;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .assist-annotation-status:not(:empty) {
+      padding-bottom: 12px;
+    }
+
     .assist-annotation-modal-footer {
       padding: 16px 24px;
       border-top: 1px solid #e5e7eb;
       display: flex;
+      flex-wrap: wrap;
       gap: 12px;
       justify-content: flex-end;
+      flex-shrink: 0;
     }
 
     .assist-annotation-btn {
@@ -1083,6 +1346,13 @@ function injectStyles() {
       box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
     }
 
+    /* Armed for confirmation — the changed wording carries the meaning, not the outline. */
+    .assist-annotation-btn-delete-armed {
+      background: #991b1b;
+      outline: 3px solid #991b1b;
+      outline-offset: 2px;
+    }
+
     .assist-annotation-btn:focus {
       outline: 2px solid #3b82f6;
       outline-offset: 2px;
@@ -1093,6 +1363,16 @@ function injectStyles() {
       font-size: 12px;
       color: #6b7280;
       font-style: italic;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .assist-inline-annotation,
+      .assist-annotation-tooltip,
+      .assist-annotation-modal-overlay,
+      .assist-annotation-modal {
+        transition: none;
+        animation: none;
+      }
     }
   `;
 

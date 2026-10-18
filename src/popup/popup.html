@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="assist-starting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,177 +8,178 @@
   </head>
   <body>
     <div class="popup-container">
-      <!-- Header -->
-      <header class="popup-header">
-        <!-- Brand Row: Logo + Name -->
-        <div class="header-brand">
-          <img src="../../public/icons/assist-logo.png" alt="AssisT Logo" class="header-logo" />
-          <h1 class="header-title">AssisT</h1>
-        </div>
+      <!--
+        The popup's header. Settings stays a visible icon because it is the most used; Discover,
+        Help, Report a bug, Support and Reset fold into the menu.
+      -->
+      <header class="popup-header-compact">
+        <img
+          src="../../public/icons/assist-logo.png"
+          alt=""
+          class="popup-header-compact__logo"
+          aria-hidden="true"
+        />
+        <h1 class="popup-header-compact__title">AssisT</h1>
 
-        <p class="subtitle">Learning Support Tools</p>
-
-        <!-- Support Button -->
-        <a
-          href="https://www.fiavaion.com/support/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="support-btn"
-          id="btn-support"
-          title="Support AssisT development"
-          aria-label="Support AssisT - opens in new tab"
-        >
-          <span class="support-icon" aria-hidden="true">💜</span>
-          <span class="support-text">Support Us</span>
-        </a>
-
-        <!-- Action Buttons Row -->
-        <div class="header-actions">
-          <button
-            id="btn-reset"
-            class="header-btn"
-            data-testid="reset-button"
-            title="Reset all settings to defaults"
-            aria-label="Reset settings"
-          >
-            <span class="header-btn-icon">🔄</span>
-          </button>
-          <button
-            id="btn-help"
-            class="header-btn"
-            data-testid="help-button"
-            title="Help and documentation"
-            aria-label="Open help documentation"
-          >
-            <span class="header-btn-icon">❓</span>
-          </button>
-          <button
-            id="btn-options"
-            class="header-btn"
-            data-testid="settings-button"
-            title="Advanced options"
-            aria-label="Open advanced options"
-          >
-            <span class="header-btn-icon">⚙️</span>
-          </button>
-          <button
-            id="btn-organize"
-            class="header-btn"
-            data-testid="organize-button"
-            title="Organize popup layout"
-            aria-label="Toggle organize mode"
-          >
-            <span class="header-btn-icon">📐</span>
-          </button>
-          <button
-            id="btn-minimize-clutter"
-            class="header-btn"
-            data-testid="minimize-clutter-button"
-            title="Minimize UI Clutter - Hide on-page overlays and notifications"
-            aria-label="Toggle minimize UI clutter"
-            aria-pressed="false"
-          >
-            <span class="header-btn-icon">🧹</span>
-          </button>
-          <button
-            id="btn-popup-darkmode"
-            class="header-btn"
-            data-testid="popup-darkmode-button"
-            title="Toggle extension dark mode"
-            aria-label="Toggle dark mode for popup"
-            aria-pressed="false"
-          >
-            <span class="header-btn-icon">🌙</span>
-          </button>
-        </div>
-
-        <!-- Discovery Quiz Button -->
         <button
-          id="btn-discovery"
-          class="discovery-btn"
-          data-testid="discovery-button"
-          title="Find the best tools for your learning style"
-          aria-label="Discover your tools"
+          id="btn-options-compact"
+          data-action="settings"
+          class="popup-header-compact__btn"
+          data-testid="settings-button-compact"
+          title="Advanced options"
+          aria-label="Open advanced options"
         >
-          <span class="discovery-icon" aria-hidden="true">🔍</span>
-          <span class="discovery-text">Discover Your Tools</span>
+          <span class="popup-header-compact__icon" aria-hidden="true">&#9881;&#65039;</span>
         </button>
+
+        <button
+          id="btn-header-more"
+          class="popup-header-compact__btn"
+          data-testid="header-more-button"
+          title="More"
+          aria-label="More options"
+          aria-haspopup="menu"
+          aria-controls="header-menu"
+          aria-expanded="false"
+        >
+          <span class="popup-header-compact__icon" aria-hidden="true">&#8943;</span>
+        </button>
+
+        <div id="header-menu" class="header-menu" role="menu" aria-label="More options" hidden>
+          <button
+            role="menuitem"
+            id="menu-discovery"
+            data-testid="menu-discovery-button"
+            class="header-menu__item"
+            type="button"
+          >
+            <span class="header-menu__icon" aria-hidden="true">&#128269;</span>
+            <span class="header-menu__label">Discover your tools</span>
+          </button>
+          <button
+            role="menuitem"
+            id="menu-help"
+            data-destination="help"
+            data-testid="menu-help-button"
+            class="header-menu__item"
+            type="button"
+          >
+            <span class="header-menu__icon" aria-hidden="true">&#10067;</span>
+            <span class="header-menu__label">Help</span>
+          </button>
+          <button
+            role="menuitem"
+            id="menu-report-bug"
+            data-destination="feedback"
+            data-testid="menu-report-bug-button"
+            class="header-menu__item"
+            type="button"
+          >
+            <span class="header-menu__icon" aria-hidden="true">&#128027;</span>
+            <span class="header-menu__label">Report a bug</span>
+          </button>
+          <a
+            role="menuitem"
+            id="menu-support"
+            data-testid="menu-support-link"
+            class="header-menu__item"
+            href="https://www.fiavaion.com/support/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="header-menu__icon" aria-hidden="true">&#128156;</span>
+            <span class="header-menu__label">Support us</span>
+            <span class="header-menu__note">opens in a new tab</span>
+          </a>
+          <button
+            role="menuitem"
+            id="menu-reset"
+            data-action="reset"
+            data-testid="menu-reset-button"
+            class="header-menu__item header-menu__item--last"
+            type="button"
+          >
+            <span class="header-menu__icon" aria-hidden="true">&#128260;</span>
+            <span class="header-menu__label">Reset all settings</span>
+          </button>
+        </div>
       </header>
 
-      <!-- Text Stats Display Toggle -->
-      <div class="text-stats-bar">
-        <label for="main-text-stats-toggle" class="toggle-label">
-          <span class="label-text">📊 Show Text Stats</span>
-          <div class="toggle-switch">
-            <input
-              type="checkbox"
-              id="main-text-stats-toggle"
-              role="switch"
-              aria-label="Show text statistics overlay on page"
-            />
-            <span class="toggle-slider"></span>
-          </div>
-        </label>
-      </div>
-
-      <!-- Enable All Sites Permission Banner (hidden when permission granted) -->
-      <div id="permission-banner" class="permission-banner hidden">
-        <div class="permission-banner-content">
-          <span class="permission-icon" aria-hidden="true">🌐</span>
-          <div class="permission-text">
-            <strong>Currently active on LMS sites</strong>
-            <span class="permission-desc"
-              >Enable on all websites for full accessibility support anywhere</span
-            >
-            <span class="permission-note"
-              >Note: You'll need to reload open pages after granting permission</span
-            >
-          </div>
+      <!--
+        Everything between the header and <main> - the Text Stats switch and the three banners -
+        sits in one region. Without it this is page content outside every landmark, which is how
+        axe reported it: a screen-reader user moving by landmark skipped the permission banner
+        telling them AssisT is only active on LMS sites.
+      -->
+      <section class="popup-notices" aria-label="Status and quick settings">
+        <!-- Text Stats Display Toggle -->
+        <div class="text-stats-bar">
+          <label for="main-text-stats-toggle" class="toggle-label">
+            <span class="label-text">📊 Show Text Stats</span>
+            <div class="toggle-switch">
+              <input
+                type="checkbox"
+                id="main-text-stats-toggle"
+                role="switch"
+                aria-label="Show text statistics overlay on page"
+              />
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
         </div>
-        <button
-          id="btn-enable-all-sites"
-          class="permission-btn"
-          title="Grant permission to run on all websites - reload pages after"
-          aria-label="Enable AssisT on all websites"
-        >
-          Enable Everywhere
-        </button>
-      </div>
 
-      <!-- File URL Access Banner (shown when on file:// pages without access) -->
-      <div
-        id="file-access-banner"
-        class="permission-banner hidden"
-        style="background: linear-gradient(135deg, #f59e0b22, #f59e0b11); border-color: #f59e0b44"
-      >
-        <div class="permission-banner-content">
-          <span class="permission-icon" aria-hidden="true">📂</span>
-          <div class="permission-text">
-            <strong>Local file detected</strong>
-            <span class="permission-desc"
-              >To use AssisT on local files, enable "Allow access to file URLs" in your extension
-              settings</span
-            >
+        <!-- Enable All Sites Permission Banner (hidden when permission granted) -->
+        <div id="permission-banner" class="permission-banner hidden">
+          <div class="permission-banner-content">
+            <span class="permission-icon" aria-hidden="true">🌐</span>
+            <div class="permission-text">
+              <strong>Currently active on LMS sites</strong>
+              <span class="permission-desc"
+                >Enable on all websites for full accessibility support anywhere</span
+              >
+              <span class="permission-note"
+                >Note: You'll need to reload open pages after granting permission</span
+              >
+            </div>
           </div>
+          <button
+            id="btn-enable-all-sites"
+            class="permission-btn"
+            title="Grant permission to run on all websites - reload pages after"
+            aria-label="Enable AssisT on all websites"
+          >
+            Enable Everywhere
+          </button>
         </div>
-        <button
-          id="btn-open-extension-settings"
-          class="permission-btn"
-          title="Open Chrome extension settings to enable file URL access"
-          aria-label="Open extension settings"
-          style="background: #f59e0b; color: #000"
-        >
-          Open Settings
-        </button>
-      </div>
 
-      <!-- Organize Mode Banner (hidden by default, shown in organize mode) -->
-      <div id="organize-banner" class="organize-banner hidden">
-        <span class="organize-banner-text"
-          >✨ Organize Mode - Drag to reorder, click eye to hide</span
+        <!-- File URL Access Banner (shown when on file:// pages without access) -->
+        <div
+          id="file-access-banner"
+          class="permission-banner hidden"
+          style="background: linear-gradient(135deg, #f59e0b22, #f59e0b11); border-color: #f59e0b44"
         >
-        <button id="btn-organize-done" class="organize-done-btn">Done</button>
-      </div>
+          <div class="permission-banner-content">
+            <span class="permission-icon" aria-hidden="true">📂</span>
+            <div class="permission-text">
+              <strong>Local file detected</strong>
+              <span class="permission-desc"
+                >To use AssisT on local files, enable "Allow access to file URLs" in your extension
+                settings</span
+              >
+            </div>
+          </div>
+          <button
+            id="btn-open-extension-settings"
+            data-action="settings"
+            class="permission-btn"
+            title="Open Chrome extension settings to enable file URL access"
+            aria-label="Open extension settings"
+            style="background: #f59e0b; color: #000"
+          >
+            Open Settings
+          </button>
+        </div>
+      </section>
 
       <!-- Main Controls -->
       <main class="popup-main">
@@ -199,7 +200,12 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="reading-content" class="accordion-content" role="region">
+          <div
+            id="reading-content"
+            class="accordion-content"
+            role="region"
+            aria-label="Reading Help"
+          >
             <!-- TTS Enable/Disable -->
             <section class="control-section">
               <div class="toggle-control main-toggle">
@@ -227,6 +233,7 @@
                 <p class="feature-description">Reads main content, skipping navigation and menus</p>
                 <button
                   id="btn-read-page"
+                  data-action="play"
                   data-testid="read-page-button"
                   class="control-btn primary full-width"
                   aria-label="Read entire page content"
@@ -274,42 +281,6 @@
                     <span>Faster</span>
                   </div>
                 </div>
-                <div id="speed-presets-container" class="speed-presets-container">
-                  <div class="preset-buttons">
-                    <button
-                      class="preset-btn"
-                      data-speed="0.5"
-                      data-testid="speed-preset-0.5"
-                      aria-label="Set speed to 0.5x"
-                    >
-                      0.5x
-                    </button>
-                    <button
-                      class="preset-btn"
-                      data-speed="1.0"
-                      data-testid="speed-preset-1.0"
-                      aria-label="Set speed to 1.0x"
-                    >
-                      1.0x
-                    </button>
-                    <button
-                      class="preset-btn"
-                      data-speed="1.5"
-                      data-testid="speed-preset-1.5"
-                      aria-label="Set speed to 1.5x"
-                    >
-                      1.5x
-                    </button>
-                    <button
-                      class="preset-btn"
-                      data-speed="2.0"
-                      data-testid="speed-preset-2.0"
-                      aria-label="Set speed to 2.0x"
-                    >
-                      2.0x
-                    </button>
-                  </div>
-                </div>
               </section>
 
               <!-- Pitch Control -->
@@ -350,9 +321,9 @@
                     data-testid="tts-volume-slider"
                     class="slider"
                     min="0"
-                    max="1"
-                    step="0.1"
-                    value="1"
+                    max="100"
+                    step="10"
+                    value="100"
                     aria-label="Adjust volume"
                   />
                   <div class="slider-labels">
@@ -416,10 +387,10 @@
                       id="highlight-opacity"
                       data-testid="tts-highlight-opacity-slider"
                       class="slider"
-                      min="0.1"
-                      max="1"
-                      step="0.1"
-                      value="0.7"
+                      min="10"
+                      max="100"
+                      step="10"
+                      value="70"
                       aria-label="Adjust highlight opacity"
                     />
                     <div class="slider-labels">
@@ -590,6 +561,7 @@
               <div id="reading-mode-options" class="reading-mode-options hidden">
                 <button
                   id="btn-toggle-reading-mode"
+                  data-action="mode"
                   data-testid="toggle-reading-mode-button"
                   class="control-btn primary full-width"
                   aria-label="Toggle Reading Mode"
@@ -619,7 +591,7 @@
                 </label>
               </div>
               <p class="feature-description hidden" id="dyslexia-mode-description">
-                Bionic reading, syllable colors, grammar colors
+                Syllable colours, grammar colours, bionic reading
               </p>
               <div id="dyslexia-mode-options" class="dyslexia-mode-options hidden">
                 <div class="control-subsection">
@@ -629,29 +601,16 @@
                       <input
                         type="radio"
                         name="dyslexia-feature"
-                        id="dyslexia-bionic"
-                        data-testid="dyslexia-bionic-radio"
-                        value="bionic"
-                        checked
-                        style="margin-right: 8px"
-                      />
-                      <span class="label-text">🔤 Bionic Reading</span>
-                    </label>
-                  </div>
-                  <div class="control-subsection" style="margin-bottom: 8px">
-                    <label class="toggle-label" style="cursor: pointer">
-                      <input
-                        type="radio"
-                        name="dyslexia-feature"
                         id="dyslexia-syllable"
                         data-testid="dyslexia-syllable-radio"
                         value="syllable"
+                        checked
                         style="margin-right: 8px"
                       />
-                      <span class="label-text">📝 Syllable Colors</span>
+                      <span class="label-text">📝 Syllable colours</span>
                     </label>
                   </div>
-                  <div class="control-subsection">
+                  <div class="control-subsection" style="margin-bottom: 8px">
                     <label class="toggle-label" style="cursor: pointer">
                       <input
                         type="radio"
@@ -661,7 +620,20 @@
                         value="grammar"
                         style="margin-right: 8px"
                       />
-                      <span class="label-text">🎨 Grammar Colors</span>
+                      <span class="label-text">🎨 Grammar colours</span>
+                    </label>
+                  </div>
+                  <div class="control-subsection">
+                    <label class="toggle-label" style="cursor: pointer">
+                      <input
+                        type="radio"
+                        name="dyslexia-feature"
+                        id="dyslexia-bionic"
+                        data-testid="dyslexia-bionic-radio"
+                        value="bionic"
+                        style="margin-right: 8px"
+                      />
+                      <span class="label-text">🔤 Bionic reading</span>
                     </label>
                   </div>
                 </div>
@@ -672,9 +644,7 @@
             <section id="ocr-section" class="control-section">
               <div class="toggle-control main-toggle">
                 <label for="ocr-enabled" class="toggle-label">
-                  <span class="label-text"
-                    >📸 Read from Images (OCR)<span class="beta-badge">Beta</span></span
-                  >
+                  <span class="label-text">📸 Read from Images (OCR)</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
@@ -701,8 +671,8 @@
                     font-size: 11px;
                   "
                 >
-                  ⚠️ <strong>Beta:</strong> OCR accuracy is still being improved and may not
-                  reliably recognise all text from images.
+                  ⚠️ OCR accuracy varies with image quality and may not reliably recognise all text
+                  from images.
                 </p>
                 <button
                   id="btn-trigger-ocr"
@@ -732,19 +702,21 @@
                   </label>
                 </div>
                 <div class="slider-control" style="margin-top: 12px">
-                  <label for="ocr-upscale-factor" class="section-title">Image Quality</label>
+                  <label for="ocr-upscale-factor" class="section-title"
+                    >Zoom (for small text)</label
+                  >
                   <input
                     type="range"
                     id="ocr-upscale-factor"
                     min="1.0"
-                    max="2.0"
+                    max="3.0"
                     step="0.1"
                     value="1.5"
                     class="slider"
-                    aria-label="OCR image quality"
+                    aria-label="OCR zoom for small text"
                   />
                   <p class="feature-description" style="text-align: center">
-                    <span id="ocr-upscale-label">Medium (1.5x)</span>
+                    <span id="ocr-upscale-label">1.5× (medium)</span>
                   </p>
                 </div>
                 <div style="margin-top: 12px">
@@ -796,8 +768,99 @@
                         id="ocr-auto-tts"
                         data-testid="ocr-auto-tts-toggle"
                         role="switch"
-                        aria-label="Auto TTS"
+                        aria-label="Auto-play TTS"
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <div class="toggle-control" style="margin-top: 12px">
+                  <label for="ocr-offline-accuracy" class="toggle-label">
+                    <span class="label-text">Accuracy boost (offline)</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="ocr-offline-accuracy"
+                        data-testid="ocr-offline-accuracy-toggle"
+                        role="switch"
+                        aria-label="Extra image clean-up before reading text"
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <p class="feature-description">
+                  Cleans up the image (contrast, sharpening) before reading. Helps low-quality scans
+                  and small text; takes a little longer.
+                </p>
+              </section>
+            </div>
+
+            <!-- Maths Support -->
+            <section id="maths-section" class="control-section">
+              <div class="toggle-control main-toggle">
+                <label for="maths-enabled" class="toggle-label">
+                  <span class="label-text">🧮 Maths Support</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="maths-enabled"
+                      data-testid="maths-toggle"
+                      role="switch"
+                      aria-label="Enable maths support tools"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+            </section>
+            <div id="maths-options-container" class="options-container hidden">
+              <section class="control-section">
+                <p class="feature-description">
+                  Number-friendly tools: an on-page calculator with a scratchpad, and clearer large
+                  numbers that screen readers say correctly.
+                </p>
+                <div class="toggle-control">
+                  <label for="maths-calculator" class="toggle-label">
+                    <span class="label-text">Calculator & scratchpad</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="maths-calculator"
+                        data-testid="maths-calculator-toggle"
+                        role="switch"
+                        aria-label="Show the on-page calculator and scratchpad"
                         checked
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <div class="toggle-control" style="margin-top: 12px">
+                  <label for="maths-number-format" class="toggle-label">
+                    <span class="label-text">Format large numbers</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="maths-number-format"
+                        data-testid="maths-number-format-toggle"
+                        role="switch"
+                        aria-label="Group large numbers on the page"
+                      />
+                      <span class="toggle-slider"></span>
+                    </div>
+                  </label>
+                </div>
+                <div class="toggle-control" style="margin-top: 12px">
+                  <label for="maths-place-value" class="toggle-label">
+                    <span class="label-text">Colour place values</span>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="maths-place-value"
+                        data-testid="maths-place-value-toggle"
+                        role="switch"
+                        aria-label="Colour place-value groups in formatted numbers"
                       />
                       <span class="toggle-slider"></span>
                     </div>
@@ -825,7 +888,12 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="writing-content" class="accordion-content" role="region">
+          <div
+            id="writing-content"
+            class="accordion-content"
+            role="region"
+            aria-label="Writing Help"
+          >
             <!-- Speech-to-Text -->
             <section class="control-section" id="stt-section">
               <div class="toggle-control">
@@ -924,6 +992,7 @@
                         <input
                           type="checkbox"
                           id="stt-voice-commands"
+                          data-action="voice-commands"
                           data-testid="stt-voice-commands-toggle"
                           role="switch"
                           aria-label="Voice editing commands"
@@ -976,7 +1045,13 @@
                 <div class="control-subsection">
                   <div class="toggle-control">
                     <label for="stt-floating-button" class="toggle-label">
-                      <span class="label-text">Show Microphone Button</span>
+                      <span class="label-text"
+                        >Show Microphone Button
+                        <span class="label-hint" id="stt-floating-button-hint"
+                          >Turn this off and voice typing is still there: press Alt+Shift+V in any
+                          text box to start or stop dictation.</span
+                        ></span
+                      >
                       <div class="toggle-switch">
                         <input
                           type="checkbox"
@@ -984,6 +1059,7 @@
                           data-testid="stt-floating-button-toggle"
                           role="switch"
                           aria-label="Show mic button"
+                          aria-describedby="stt-floating-button-hint"
                           checked
                         />
                         <span class="toggle-slider"></span>
@@ -992,35 +1068,8 @@
                   </div>
                 </div>
 
-                <!-- ── Advanced Settings (collapsible) ── -->
-                <button
-                  type="button"
-                  id="stt-advanced-toggle"
-                  aria-expanded="false"
-                  aria-controls="stt-advanced-section"
-                  style="
-                    width: 100%;
-                    margin-top: 12px;
-                    padding: 8px 12px;
-                    background: #f0f4f8;
-                    border: 1px solid #d1d9e0;
-                    border-radius: 6px;
-                    font-size: 12px;
-                    color: #555;
-                    cursor: pointer;
-                    text-align: left;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                  "
-                >
-                  <span>Advanced Settings</span>
-                  <span aria-hidden="true">▾</span>
-                </button>
-
                 <div
                   id="stt-advanced-section"
-                  class="hidden"
                   style="
                     border: 1px solid #e5e7eb;
                     border-top: none;
@@ -1080,7 +1129,6 @@
                       <option value="auto">Web Speech API (Browser Built-in)</option>
                       <option value="web-speech">Web Speech API</option>
                       <option value="whisper" disabled>Whisper Offline (coming soon)</option>
-                      <option value="azure">Azure Speech (Cloud)</option>
                     </select>
                     <div
                       id="stt-engine-status"
@@ -1295,15 +1343,13 @@
                       </svg>
                       View Session Statistics
                     </button>
+                    <!--
+                      Shown in the Dictation statistics dialog (popup.js, setupSTTStats), so its
+                      colours come from that dialog's light and dark tokens.
+                    -->
                     <div
                       id="stt-stats-summary"
-                      style="
-                        margin-top: 8px;
-                        padding: 10px;
-                        background: #f8f9fa;
-                        border-radius: 8px;
-                        display: none;
-                      "
+                      style="margin-top: 8px; padding: 10px 0; display: none"
                     >
                       <div
                         style="
@@ -1314,19 +1360,19 @@
                         "
                       >
                         <div>
-                          <span style="color: #666">Words/min:</span>
+                          <span style="color: var(--yd-muted)">Words/min:</span>
                           <span id="stt-stats-wpm" style="font-weight: 600">0</span>
                         </div>
                         <div>
-                          <span style="color: #666">Accuracy:</span>
+                          <span style="color: var(--yd-muted)">Accuracy:</span>
                           <span id="stt-stats-accuracy" style="font-weight: 600">0%</span>
                         </div>
                         <div>
-                          <span style="color: #666">Total Words:</span>
+                          <span style="color: var(--yd-muted)">Total Words:</span>
                           <span id="stt-stats-words" style="font-weight: 600">0</span>
                         </div>
                         <div>
-                          <span style="color: #666">Duration:</span>
+                          <span style="color: var(--yd-muted)">Duration:</span>
                           <span id="stt-stats-duration" style="font-weight: 600">0m</span>
                         </div>
                       </div>
@@ -1419,6 +1465,7 @@
                       <button
                         type="button"
                         id="btn-add-vocab-word"
+                        data-action="add"
                         class="control-btn secondary"
                         style="flex: 1; font-size: 11px; padding: 6px"
                         aria-label="Add custom word"
@@ -1488,6 +1535,7 @@
               <div id="annotations-options" class="annotations-options hidden">
                 <button
                   id="btn-create-sticky-note"
+                  data-action="new"
                   data-testid="create-sticky-note-button"
                   class="control-btn primary full-width"
                   aria-label="Create sticky note"
@@ -1528,7 +1576,12 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="lookup-content" class="accordion-content" role="region">
+          <div
+            id="lookup-content"
+            class="accordion-content"
+            role="region"
+            aria-label="Look Up Words"
+          >
             <!-- Full-Page Translation -->
             <section id="translation-section" class="control-section">
               <p class="feature-description">Translate selected text or entire pages</p>
@@ -1543,94 +1596,13 @@
                 <span class="btn-text">Translate Page</span>
               </button>
 
-              <!-- Translation Provider Selection -->
-              <div style="margin-top: 12px">
-                <label for="translation-provider" class="section-title">Translation Provider</label>
-                <select
-                  id="translation-provider"
-                  data-testid="translation-provider-select"
-                  class="voice-select"
-                  aria-label="Translation provider"
-                >
-                  <option value="mymemory">MyMemory (Free, No Key)</option>
-                  <option value="deepl">DeepL (Requires Key)</option>
-                  <option value="azure">Azure Translator (Requires Key)</option>
-                </select>
-              </div>
-
-              <!-- API Key Section for DeepL -->
-              <div
-                id="deepl-key-section"
-                class="api-key-section"
-                style="display: none; margin-top: 12px"
-              >
-                <label for="deepl-api-key" class="section-title">DeepL API Key</label>
-                <div class="input-group">
-                  <input
-                    type="password"
-                    id="deepl-api-key"
-                    class="api-key-input"
-                    placeholder="Enter DeepL API key"
-                    aria-label="DeepL API key"
-                  />
-                  <button id="btn-test-deepl" class="test-key-btn" title="Test API key">
-                    Test
-                  </button>
-                </div>
-                <a
-                  href="https://www.deepl.com/pro-api"
-                  target="_blank"
-                  class="api-link"
-                  rel="noopener noreferrer"
-                  >Get Free Key (500k chars/month)</a
-                >
-              </div>
-
-              <!-- API Key Section for Azure -->
-              <div
-                id="azure-key-section"
-                class="api-key-section"
-                style="display: none; margin-top: 12px"
-              >
-                <label for="azure-api-key" class="section-title">Azure API Key</label>
-                <div class="input-group">
-                  <input
-                    type="password"
-                    id="azure-api-key"
-                    class="api-key-input"
-                    placeholder="Enter Azure API key"
-                    aria-label="Azure API key"
-                  />
-                  <button id="btn-test-azure" class="test-key-btn" title="Test API key">
-                    Test
-                  </button>
-                </div>
-                <label for="azure-region" class="section-title" style="margin-top: 8px"
-                  >Azure Region</label
-                >
-                <input
-                  type="text"
-                  id="azure-region"
-                  class="api-key-input"
-                  placeholder="global"
-                  value="global"
-                  aria-label="Azure region"
-                />
-                <a
-                  href="https://azure.microsoft.com/services/cognitive-services/translator/"
-                  target="_blank"
-                  class="api-link"
-                  rel="noopener noreferrer"
-                  >Get Free Key (2M chars/month)</a
-                >
-              </div>
-
               <div style="margin-top: 12px">
                 <label for="translation-target-language" class="section-title"
                   >Target Language</label
                 >
                 <select
                   id="translation-target-language"
+                  data-action="language"
                   data-testid="translation-target-language-select"
                   class="voice-select"
                   aria-label="Target language"
@@ -1654,6 +1626,90 @@
             </section>
 
             <!-- Highlight Menu -->
+            <!-- Companion features. Flat draws a switch for each and drives these checkboxes. -->
+            <section id="companion-section" class="control-section">
+              <div class="toggle-control">
+                <label for="companion-studySuite" class="toggle-label">
+                  <span class="label-text">Study tools discovery</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-studySuite" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-control">
+                <label for="companion-personalisedAi" class="toggle-label">
+                  <span class="label-text">Personalised AI</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-personalisedAi" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-control">
+                <label for="companion-mathReadAloud" class="toggle-label">
+                  <span class="label-text">Read equations aloud</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-mathReadAloud" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-control">
+                <label for="companion-authorship" class="toggle-label">
+                  <span class="label-text">Authorship Shield</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-authorship" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-control">
+                <label for="companion-flashcards" class="toggle-label">
+                  <span class="label-text">Flashcards</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-flashcards" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-control">
+                <label for="companion-summaryDial" class="toggle-label">
+                  <span class="label-text">Summary reading level</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-summaryDial" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-control">
+                <label for="companion-lecture" class="toggle-label">
+                  <span class="label-text">Lecture companion</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-lecture" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <button id="btn-open-lecture-notes" type="button" class="control-btn full-width">
+                Start lecture captions
+              </button>
+              <p class="feature-description" id="lecture-launch-status" role="status"></p>
+              <div class="toggle-control">
+                <label for="companion-voiceCommands" class="toggle-label">
+                  <span class="label-text">Voice commands</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="companion-voiceCommands" role="switch" checked />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div class="toggle-control">
+                <label for="companion-reading-level" class="label-text">AI writing level</label>
+                <select id="companion-reading-level" class="voice-select"></select>
+              </div>
+            </section>
+
             <section id="highlight-menu-section" class="control-section">
               <div class="toggle-control main-toggle">
                 <label for="highlight-menu-enabled" class="toggle-label">
@@ -1793,7 +1849,12 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="reading-aids-content" class="accordion-content" role="region">
+          <div
+            id="reading-aids-content"
+            class="accordion-content"
+            role="region"
+            aria-label="Reading Aids"
+          >
             <!-- Text Customization -->
             <section class="control-section" id="text-customization-section">
               <div class="toggle-control">
@@ -1815,21 +1876,6 @@
                 Adjust font and spacing
               </p>
               <div id="text-customization-options" class="text-customization-options hidden">
-                <div class="control-subsection">
-                  <label class="toggle-label" for="text-customization-sync">
-                    <span class="label-text" style="font-size: 13px">Apply to all windows</span>
-                    <div class="toggle-switch">
-                      <input
-                        type="checkbox"
-                        id="text-customization-sync"
-                        data-testid="text-customization-sync-toggle"
-                        role="switch"
-                        aria-label="Apply text customization to all windows"
-                      />
-                      <span class="toggle-slider"></span>
-                    </div>
-                  </label>
-                </div>
                 <div class="control-subsection">
                   <h3 class="subsection-title"><label for="text-font-family">Font</label></h3>
                   <select
@@ -2016,10 +2062,10 @@
                       id="reading-guide-opacity"
                       data-testid="reading-guide-opacity-slider"
                       class="slider"
-                      min="0.1"
-                      max="1"
-                      step="0.1"
-                      value="0.7"
+                      min="10"
+                      max="100"
+                      step="10"
+                      value="70"
                       aria-label="Line opacity"
                     />
                     <div class="slider-labels"><span>Transparent</span><span>Solid</span></div>
@@ -2119,7 +2165,12 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="pointer-zoom-content" class="accordion-content" role="region">
+          <div
+            id="pointer-zoom-content"
+            class="accordion-content"
+            role="region"
+            aria-label="Pointer and Zoom"
+          >
             <!-- Custom Cursor -->
             <section class="control-section" id="custom-cursor-section">
               <div class="toggle-control">
@@ -2373,7 +2424,12 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="visual-comfort-content" class="accordion-content" role="region">
+          <div
+            id="visual-comfort-content"
+            class="accordion-content"
+            role="region"
+            aria-label="Visual Comfort"
+          >
             <!-- Focus Mode -->
             <section class="control-section" id="focus-mode-section">
               <div class="toggle-control">
@@ -2444,10 +2500,10 @@
                       id="focus-mode-opacity"
                       data-testid="focus-mode-opacity-slider"
                       class="slider"
-                      min="0.1"
-                      max="1"
-                      step="0.1"
-                      value="0.7"
+                      min="10"
+                      max="100"
+                      step="10"
+                      value="70"
                     />
                     <div class="slider-labels"><span>Light</span><span>Dark</span></div>
                   </div>
@@ -2507,10 +2563,10 @@
                       id="screen-overlay-opacity"
                       data-testid="screen-overlay-opacity-slider"
                       class="slider"
-                      min="0.1"
-                      max="0.9"
-                      step="0.1"
-                      value="0.3"
+                      min="10"
+                      max="90"
+                      step="10"
+                      value="30"
                       aria-label="Overlay intensity"
                     />
                     <div class="slider-labels"><span>Subtle</span><span>Strong</span></div>
@@ -2539,6 +2595,11 @@
               <p class="feature-description hidden" id="reduced-motion-description">
                 Disables animations for sensory comfort
               </p>
+              <p
+                class="feature-description hidden"
+                id="reduced-motion-following-note"
+                role="status"
+              ></p>
               <div id="reduced-motion-options" class="reduced-motion-options hidden">
                 <div class="control-subsection">
                   <div class="toggle-control">
@@ -2558,7 +2619,7 @@
                     </label>
                   </div>
                   <p class="feature-description" style="margin-top: 4px; font-size: 11px">
-                    Auto-enable when OS prefers reduced motion
+                    Also reduce motion when my computer asks for it
                   </p>
                 </div>
               </div>
@@ -2607,7 +2668,12 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="productivity-content" class="accordion-content" role="region">
+          <div
+            id="productivity-content"
+            class="accordion-content"
+            role="region"
+            aria-label="Productivity"
+          >
             <!-- Simplified Interface -->
             <section class="control-section" id="simplify-section">
               <div class="toggle-control">
@@ -2756,10 +2822,10 @@
                     class="voice-select"
                     aria-label="Select timer position"
                   >
-                    <option value="bottom-right" selected>Bottom Right</option>
-                    <option value="bottom-left">Bottom Left</option>
-                    <option value="top-right">Top Right</option>
+                    <option value="top-right" selected>Top Right</option>
                     <option value="top-left">Top Left</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
                   </select>
                 </div>
                 <div class="control-subsection">
@@ -2816,16 +2882,20 @@
             <span class="accordion-title">
               <span class="accordion-icon-left">🎓</span>
               School Tools
-              <span class="beta-badge">BETA</span>
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="school-content" class="accordion-content" role="region">
+          <div
+            id="school-content"
+            class="accordion-content"
+            role="region"
+            aria-label="School Tools"
+          >
             <!-- Citation Feature -->
             <section id="citation-section" class="control-section citation-section">
               <div class="toggle-control main-toggle">
                 <label for="citation-enabled" class="toggle-label">
-                  <span class="label-text">📚 Citations<span class="alpha-badge">ALPHA</span></span>
+                  <span class="label-text">📚 Citations</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
@@ -2868,6 +2938,7 @@
                 <p class="feature-description">Save citations from web pages</p>
                 <button
                   id="btn-save-citation"
+                  data-action="save"
                   data-testid="save-citation-button"
                   class="control-btn primary full-width"
                   aria-label="Save citation"
@@ -2876,33 +2947,32 @@
                   <span class="btn-icon">📚</span>
                   <span class="btn-text">Save Citation</span>
                 </button>
-                <div style="display: flex; gap: 8px; margin-bottom: 8px">
-                  <button
-                    id="btn-citation-manager"
-                    data-testid="citation-manager-button"
-                    class="control-btn secondary"
-                    aria-label="Citation library"
-                    style="flex: 1; padding: 6px 8px; font-size: 11px"
-                  >
-                    <span>📚 Library</span>
-                  </button>
-                  <button
-                    id="btn-citation-projects"
-                    data-testid="citation-projects-button"
-                    class="control-btn secondary"
-                    aria-label="Citation projects"
-                    style="flex: 1; padding: 6px 8px; font-size: 11px"
-                  >
-                    <span>📁 Projects</span>
-                  </button>
-                </div>
+                <button
+                  id="btn-citation-manager"
+                  data-testid="citation-manager-button"
+                  class="control-btn secondary full-width"
+                  aria-label="Citation library"
+                  style="margin-bottom: 8px"
+                >
+                  <span>📚 Library</span>
+                </button>
+                <button
+                  id="btn-citation-guide"
+                  data-destination="help"
+                  data-testid="citation-guide-button"
+                  class="control-btn secondary full-width"
+                  aria-label="How to use citations — opens a guide in a new tab"
+                  style="margin-bottom: 8px"
+                >
+                  <span class="btn-icon" aria-hidden="true">💡</span>
+                  <span class="btn-text">How to use citations</span>
+                </button>
                 <button
                   id="btn-expand-citations"
+                  data-action="expand"
                   data-testid="expand-citations-button"
                   class="control-btn"
-                  aria-label="Expand citation panel"
-                  aria-expanded="false"
-                  aria-controls="citation-manager-panel"
+                  aria-label="Open citation quick view"
                   style="
                     width: 100%;
                     background: #fffbeb;
@@ -2912,8 +2982,7 @@
                     font-size: 11px;
                   "
                 >
-                  <span id="expand-citations-icon" style="font-size: 10px">▼</span>
-                  <span id="expand-citations-text">Quick View</span>
+                  <span>Quick View</span>
                   <span
                     id="citation-count-badge"
                     style="
@@ -2935,20 +3004,81 @@
                   aria-label="Citation quick view panel"
                   style="display: none"
                 ></div>
-                <p
-                  class="feature-description"
-                  style="
-                    margin-top: 12px;
-                    padding: 8px;
-                    background: rgba(245, 158, 11, 0.1);
-                    border-left: 3px solid #f59e0b;
-                    border-radius: 4px;
-                    font-size: 11px;
-                  "
-                >
-                  ⚠️ <strong>Alpha Feature:</strong> Citation manager is an early alpha under active
-                  development. Data persistence and export features may change.
+              </section>
+            </div>
+
+            <!-- Mind Map -->
+            <section id="mind-map-section" class="control-section">
+              <div class="toggle-control main-toggle">
+                <label for="mind-map-enabled" class="toggle-label">
+                  <span class="label-text">🧠 Mind Map</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="mind-map-enabled"
+                      data-testid="mind-map-toggle"
+                      role="switch"
+                      aria-label="Enable mind maps"
+                      checked
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+            </section>
+            <div id="mind-map-options-container" class="options-container">
+              <section class="control-section">
+                <p class="feature-description">
+                  Plan and revise with an outline that is also a map
                 </p>
+                <div class="control-subsection">
+                  <h3 class="subsection-title" style="font-size: 12px">
+                    <label for="mind-map-layout">Layout</label>
+                  </h3>
+                  <select
+                    id="mind-map-layout"
+                    data-testid="mind-map-layout-select"
+                    class="voice-select"
+                    aria-label="Mind map layout"
+                  >
+                    <option value="map">Map</option>
+                    <option value="tree">Tree</option>
+                  </select>
+                </div>
+                <div class="control-subsection">
+                  <h3 class="subsection-title" style="font-size: 12px">
+                    <label for="mind-map-target">Highlights go to</label>
+                  </h3>
+                  <select
+                    id="mind-map-target"
+                    data-testid="mind-map-target-select"
+                    class="voice-select"
+                    aria-label="Mind map — Highlights go to"
+                  >
+                    <option value="inbox">Inbox</option>
+                  </select>
+                  <p class="feature-description">Which map “Add to mind map” saves into</p>
+                </div>
+                <button
+                  id="btn-open-mind-maps"
+                  data-testid="open-mind-maps-button"
+                  class="control-btn primary full-width"
+                  aria-label="Open mind maps — opens the map library in a new tab"
+                  style="margin: 8px 0"
+                >
+                  <span class="btn-icon" aria-hidden="true">🧠</span>
+                  <span class="btn-text">Open Mind Maps</span>
+                </button>
+                <button
+                  id="btn-map-this-page"
+                  data-testid="map-this-page-button"
+                  class="control-btn secondary full-width"
+                  aria-label="Map this page — builds a map from the current page"
+                  style="margin-bottom: 8px"
+                >
+                  <span class="btn-icon" aria-hidden="true">📄</span>
+                  <span class="btn-text">Map this page</span>
+                </button>
               </section>
             </div>
 
@@ -2956,7 +3086,7 @@
             <section class="control-section" id="canvas-integration-section">
               <div class="toggle-control">
                 <label for="canvas-integration-enabled" class="toggle-label">
-                  <span class="label-text">🎓 Canvas LMS <span class="beta-badge">BETA</span></span>
+                  <span class="label-text">🎓 Canvas LMS</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
@@ -3130,7 +3260,7 @@
             <section class="control-section" id="moodle-integration-section">
               <div class="toggle-control">
                 <label for="moodle-integration-enabled" class="toggle-label">
-                  <span class="label-text">📚 Moodle LMS <span class="beta-badge">BETA</span></span>
+                  <span class="label-text">📚 Moodle LMS</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
@@ -3226,9 +3356,7 @@
             <section class="control-section" id="google-classroom-integration-section">
               <div class="toggle-control">
                 <label for="google-classroom-integration-enabled" class="toggle-label">
-                  <span class="label-text"
-                    >🎒 Google Classroom <span class="beta-badge">BETA</span></span
-                  >
+                  <span class="label-text">🎒 Google Classroom</span>
                   <div class="toggle-switch">
                     <input
                       type="checkbox"
@@ -3304,6 +3432,95 @@
                 </div>
               </div>
             </section>
+
+            <!-- Learning profile. Off by default: it records how the student works, so the
+                 description is always visible, not revealed after the switch is flipped. -->
+            <section class="control-section" id="learning-profile-section">
+              <div class="toggle-control">
+                <label for="learning-profile-enabled" class="toggle-label">
+                  <span class="label-text">📓 Keep a record of how I work</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="learning-profile-enabled"
+                      data-testid="learning-profile-toggle"
+                      role="switch"
+                      aria-label="Keep a record of how I work"
+                      aria-describedby="learning-profile-description"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description" id="learning-profile-description">
+                Counts how often you use each tool, which reading speed you choose, how many words
+                were read to you, how many days in a row you have used AssisT, whether you said an
+                answer helped or asked for it again, and which kinds of explanation you take — the
+                pictures, the numbered steps, the worked examples. The counts stay on this device.
+                While Personalised AI is on, a short line about how you like things explained is
+                sent with your question to whichever AI you have chosen; nothing you read, typed or
+                dictated goes with it. AssisT uses the counts to pitch answers at the length and
+                wording that suit you. Off unless you turn it on. "See what is recorded" shows every
+                count it holds.
+              </p>
+              <div class="control-subsection">
+                <button
+                  id="btn-see-learning-record"
+                  data-testid="see-learning-record-button"
+                  class="control-btn secondary full-width"
+                  aria-label="See what is recorded about how I work"
+                >
+                  <span class="btn-icon" aria-hidden="true">📓</span>
+                  <span>See what is recorded</span>
+                </button>
+                <button
+                  id="btn-delete-learning-data"
+                  data-action="delete"
+                  data-testid="delete-learning-data-button"
+                  class="control-btn secondary full-width"
+                  aria-label="Delete this record of how I work"
+                >
+                  <span class="btn-icon" aria-hidden="true">🗑️</span>
+                  <span>Delete this record</span>
+                </button>
+                <!--
+                  What just happened, and only that. The warning that deleting cannot be undone is
+                  in the dialog the delete button opens (popup.js, confirmDeleteLearningRecord).
+                -->
+                <p
+                  class="feature-description"
+                  id="learning-profile-delete-status"
+                  role="status"
+                ></p>
+              </div>
+            </section>
+
+            <!-- Struggle detection. Off by default, and nothing it measures is saved. -->
+            <section class="control-section" id="struggle-detection-section">
+              <div class="toggle-control">
+                <label for="struggle-detection-enabled" class="toggle-label">
+                  <span class="label-text">🧭 Offer help when reading gets hard</span>
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="struggle-detection-enabled"
+                      data-testid="struggle-detection-toggle"
+                      role="switch"
+                      aria-label="Offer help when reading gets hard"
+                      aria-describedby="struggle-detection-description"
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <p class="feature-description" id="struggle-detection-description">
+                While you read, AssisT watches how often you scroll back, how long you stay on one
+                paragraph, and how often you ask for a definition or simpler wording. When those add
+                up it offers to read the page aloud, simplify it, or break it into steps. It stays
+                in the page you are reading, is never saved and never sent anywhere, and is cleared
+                the moment you turn it off. Off unless you turn it on.
+              </p>
+            </section>
           </div>
         </div>
 
@@ -3325,11 +3542,17 @@
             </span>
             <span class="accordion-icon">▼</span>
           </div>
-          <div id="ai-assist-content" class="accordion-content" role="region">
+          <div
+            id="ai-assist-content"
+            class="accordion-content"
+            role="region"
+            aria-label="AI Assist"
+          >
             <section class="control-section ai-quick-section">
               <!-- Setup wizard CTA — hidden once wizard has been run -->
               <button
                 id="btn-ai-setup-cta"
+                data-action="settings"
                 type="button"
                 class="ai-setup-cta"
                 style="display: none"
@@ -3372,7 +3595,12 @@
               </p>
 
               <!-- Link to full wizard for advanced config -->
-              <button id="btn-ai-advanced" type="button" class="ai-advanced-link">
+              <button
+                id="btn-ai-advanced"
+                type="button"
+                class="ai-advanced-link"
+                data-action="settings"
+              >
                 Advanced settings &#x2192;
               </button>
             </section>
@@ -3386,11 +3614,29 @@
           <span class="status-indicator" id="status-indicator">Ready</span>
         </div>
         <div class="footer-links">
-          <a href="#" id="link-settings" data-testid="footer-settings-link" class="footer-link"
+          <a
+            href="#"
+            id="link-settings"
+            data-testid="footer-settings-link"
+            class="footer-link"
+            data-action="settings"
             >⚙️ Settings</a
           >
-          <a href="https://github.com/MarJone/AssisT" target="_blank" class="footer-link"
+          <a
+            href="https://github.com/Fiavaion/AssisT"
+            target="_blank"
+            class="footer-link"
+            data-destination="help"
             >ℹ️ Help</a
+          >
+          <a
+            href="https://github.com/Fiavaion/AssisT/issues/new?template=bug_report.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-link"
+            aria-label="Report a bug - opens GitHub Issues in new tab"
+            data-destination="feedback"
+            >🐛 Report a Bug</a
           >
         </div>
       </footer>
@@ -3435,6 +3681,7 @@
         <div class="modal-footer">
           <button
             id="btn-cancel-save-profile"
+            data-action="cancel"
             data-testid="profile-save-cancel-button"
             class="modal-btn modal-btn-secondary"
           >
@@ -3442,6 +3689,7 @@
           </button>
           <button
             id="btn-confirm-save-profile"
+            data-action="save"
             data-testid="profile-save-confirm-button"
             class="modal-btn modal-btn-primary"
           >
@@ -3471,6 +3719,7 @@
         <div class="modal-footer">
           <button
             id="btn-cancel-delete-profile"
+            data-action="cancel"
             data-testid="profile-delete-cancel-button"
             class="modal-btn modal-btn-secondary"
           >
@@ -3478,6 +3727,7 @@
           </button>
           <button
             id="btn-confirm-delete-profile"
+            data-action="delete"
             data-testid="profile-delete-confirm-button"
             class="modal-btn modal-btn-danger"
           >
@@ -3486,16 +3736,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Hidden file input for profile import -->
-    <input
-      type="file"
-      id="profile-import-input"
-      data-testid="profile-import-input"
-      accept=".json"
-      aria-label="Import profile JSON file"
-      style="display: none"
-    />
 
     <!-- Migration Modal -->
     <div
@@ -3559,6 +3799,7 @@
         <div class="modal-actions">
           <button
             id="btn-migration-close"
+            data-action="close"
             class="modal-btn modal-btn-primary"
             style="display: none"
           >
@@ -3569,5 +3810,8 @@
     </div>
 
     <script type="module" src="popup.js"></script>
+    <!-- The "See what is recorded" button only asks the page to open the learning-profile
+         panel, so it is wired beside popup.js rather than inside it. -->
+    <script type="module" src="../features/cognitiveProfile/profile-record-button.js"></script>
   </body>
 </html>

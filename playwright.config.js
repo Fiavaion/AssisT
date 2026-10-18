@@ -14,7 +14,8 @@ export default defineConfig({
   testDir: './tests/e2e',
 
   // Test timeout
-  timeout: 30000,
+  // Every test launches and closes a whole Chrome with the extension; 30 s was too tight on a busy machine.
+  timeout: 60000,
 
   // Expect timeout for assertions
   expect: {

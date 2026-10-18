@@ -9,7 +9,7 @@
  * - Bias detection and indicators
  * - Key claims extraction
  * - Source type classification
- * - Reliability scoring
+ * - A quick-look band worked out from the signs found, never a numeric score
  * - Graceful fallback when LLM unavailable
  *
  * Architecture:
@@ -22,17 +22,29 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
+import { Z } from '../../utils/z-index.js';
+import { requestThirdParty } from '../../utils/third-party-client.js';
+import { createDeclinedNotice } from '../../utils/consent-panel.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
 let citation_panel = null;
+let citation_releaseFocus = null;
+let citation_returnFocus = null;
+let citation_requestId = 0;
 let citation_isLoading = false;
 let citation_currentText = '';
 let citation_currentAnalysis = null;
@@ -60,16 +72,17 @@ async function citation_analyze(text, context = {}, modeInfo) {
   // Local mode: smaller token budget, JSON format hint, larger context window
   const maxTokens = modeInfo.isLocal ? 500 : 700;
 
-  // Concise prompt — keep the JSON schema template brief to stay within token budget
-  const prompt = `Evaluate this source for credibility. Return ONLY valid JSON, no markdown, no explanation.
+  // Concise prompt — keep the JSON schema template brief to stay within token budget. No score is
+  // asked for: the band is worked out from the signs listed, so the student can see why.
+  const prompt = `Help a student judge whether this source is worth citing. Return ONLY valid JSON, no markdown, no explanation.
 
 SOURCE: ${truncatedText}
 ${context.url ? `URL: ${context.url}` : ''}
 
 JSON schema (fill in values):
-{"sourceType":"academic|news|blog|social|government|organization|unknown","credibilityScore":0,"credibilityRating":"High|Medium|Low","biasIndicators":{"detected":false,"type":"none","severity":"none","explanation":"brief"},"keyClaims":["claim1"],"strengths":["s1"],"weaknesses":["w1"],"recommendations":"brief","summary":"brief"}
+{"sourceType":"academic|news|blog|social|government|organization|unknown","goodSigns":["s1"],"warningSigns":["w1"],"couldNotTell":["c1"],"biasIndicators":{"detected":false,"type":"none","severity":"none","explanation":"brief"},"keyClaims":["claim1"],"recommendations":"brief","summary":"brief"}
 
-Rules: credibilityScore is 0-100 integer. blogs 20-50, news 40-70, academic 60-90.
+Rules: list only signs you can see in the source itself. Write each sign as a short, plain sentence a student can read. Do not give a score or a rating.
 Output ONLY the JSON object, starting with { and ending with }.`;
 
   try {
@@ -82,28 +95,15 @@ Output ONLY the JSON object, starting with { and ending with }.`;
     });
 
     if (aiResult && aiResult.text) {
-      console.log('[CitationAnalyzer] Raw LLM response:', aiResult.text);
+      console.log('[CitationAnalyzer] LLM response received,', aiResult.text.length, 'characters');
+      debugLog('[CitationAnalyzer] Raw LLM response:', aiResult.text);
 
       // Parse JSON response
       try {
-        let parsed;
-
-        // Local mode with format:'json' — service worker pre-parses and returns an object directly.
-        // If it failed to parse, it returns { raw, parseError: true }.
-        if (typeof aiResult.text === 'object') {
-          if (aiResult.text.parseError) {
-            // SW couldn't parse — re-attempt with the raw string below
-            const rawStr = aiResult.text.raw || '';
-            const rawMatch = rawStr.replace(/<think>[\s\S]*?<\/think>/g, '').match(/\{[\s\S]*\}/);
-            if (rawMatch) {
-              const jsonStr = rawMatch[0].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-              parsed = JSON.parse(jsonStr);
-            }
-          } else {
-            parsed = aiResult.text;
-          }
-        } else {
-          // String response — clean markdown fences then extract JSON object
+        // Prefer the client-parsed object (populated when format:'json' is requested); otherwise
+        // clean Markdown fences off the string and extract the JSON object.
+        let parsed = aiResult.json || null;
+        if (!parsed) {
           const cleanedResponse = aiResult.text
             .replace(/<think>[\s\S]*?<\/think>/g, '')
             .replace(/```json\s*/gi, '')
@@ -121,50 +121,17 @@ Output ONLY the JSON object, starting with { and ending with }.`;
         if (parsed) {
           console.log('[CitationAnalyzer] Parsed JSON:', parsed);
 
-          // Validate required fields exist
-          if (parsed.credibilityScore !== undefined || parsed.sourceType) {
-            // Blend AI result with heuristic analysis for better accuracy
-            const heuristic = citation_fallback(text, context);
-            console.log('[CitationAnalyzer] Heuristic score:', heuristic.credibilityScore);
-
-            // If heuristic found strong indicators AI missed, nudge the score — AI leads 70:30
-            if (heuristic.credibilityScore > parsed.credibilityScore + 20) {
-              console.log('[CitationAnalyzer] Nudging AI score with heuristic indicators');
-              parsed.credibilityScore = Math.round(
-                parsed.credibilityScore * 0.7 + heuristic.credibilityScore * 0.3
-              );
-
-              // Merge strengths from heuristic
-              if (!parsed.strengths) {
-                parsed.strengths = [];
-              }
-              heuristic.strengths.forEach(s => {
-                if (!parsed.strengths.includes(s)) {
-                  parsed.strengths.push(s);
-                }
-              });
-
-              // Update source type if heuristic found a better match
-              if (heuristic.sourceType !== 'unknown' && parsed.sourceType === 'unknown') {
-                parsed.sourceType = heuristic.sourceType;
-              }
-            }
-
-            // Recalculate rating based on final score
-            if (parsed.credibilityScore >= 70) {
-              parsed.credibilityRating = 'High';
-            } else if (parsed.credibilityScore >= 50) {
-              parsed.credibilityRating = 'Medium';
-            } else {
-              parsed.credibilityRating = 'Low';
-            }
-
-            return { analysis: parsed };
+          if (
+            parsed.sourceType ||
+            Array.isArray(parsed.goodSigns) ||
+            Array.isArray(parsed.warningSigns)
+          ) {
+            return { analysis: citation_fromAI(parsed) };
           }
         }
       } catch (parseError) {
         console.warn('[CitationAnalyzer] JSON parse error:', parseError.message);
-        console.log('[CitationAnalyzer] Failed to parse:', aiResult.text);
+        debugLog('[CitationAnalyzer] Failed to parse:', aiResult.text);
       }
 
       // If JSON parsing failed, use the heuristic fallback with the original text
@@ -181,14 +148,6 @@ Output ONLY the JSON object, starting with { and ending with }.`;
     throw error;
   }
 }
-
-/**
- * Basic source analysis when LLM is unavailable
- * Uses heuristics and pattern matching
- * @param {string} text - Text to analyze
- * @param {Object} context - Additional context
- * @returns {Object} Basic analysis results
- */
 
 const CITATION_DOI_REGEX = /\b(10\.\d{4,}\/[^\s"'<>&,;()\[\]{}]+)/i;
 
@@ -249,10 +208,78 @@ function citation_extractSearchTitle(text) {
   return stripped.substring(0, 120);
 }
 
+/** True when the worker refused because the student has not allowed the service. */
+function citation_isConsentRefusal(reply) {
+  return reply.code === 'consent-declined' || reply.code === 'consent-unasked';
+}
+
+/**
+ * Look a reference up on CrossRef by its DOI, then on Semantic Scholar by its title when CrossRef
+ * has nothing. Both requests are made by the service worker, behind the student's answer for each
+ * service (ADR 0006); only the DOI or a short title is sent, never the surrounding text.
+ *
+ * @param {string|null} doi
+ * @param {string|null} searchText
+ * @returns {Promise<{result: Object|null, declined: string|null}>} what was found; when nothing
+ *   was, the first destination the student has not allowed (a host Chrome does not hold is asked
+ *   about with the consent, ADR 0009, so it ends as an allow or a refusal too)
+ */
+async function citation_lookUpOnline(doi, searchText) {
+  let declined = null;
+
+  if (doi) {
+    const reply = await requestThirdParty('citations', { doi }, { detail: doi });
+    if (reply.success) {
+      const work = reply.data.work;
+      return {
+        declined: null,
+        result: {
+          source: 'crossref',
+          doi: work.DOI,
+          title: work.title[0] || '',
+          authors: work.author.map(a => `${a.given || ''} ${a.family || ''}`.trim()).join(', '),
+          year: work.published?.['date-parts']?.[0]?.[0] ?? null,
+          journal: work['container-title'][0] || '',
+        },
+      };
+    }
+    if (citation_isConsentRefusal(reply)) {
+      declined = 'citations';
+    }
+  }
+
+  if (searchText) {
+    const reply = await requestThirdParty(
+      'citationVerification',
+      { title: searchText },
+      { detail: searchText }
+    );
+    if (reply.success) {
+      const paper = reply.data.paper;
+      return {
+        declined: null,
+        result: {
+          source: 'semanticscholar',
+          doi: paper.doi,
+          title: paper.title,
+          authors: paper.authors.join(', '),
+          year: paper.year,
+          journal: paper.venue,
+        },
+      };
+    }
+    if (citation_isConsentRefusal(reply)) {
+      declined = declined || 'citationVerification';
+    }
+  }
+
+  return { result: null, declined };
+}
+
 /**
  * Verify the citation online via CrossRef (DOI) or Semantic Scholar (title search).
  * Fires after the panel is already rendered — appends a verification section.
- * Non-blocking; errors are swallowed silently.
+ * Non-blocking: a failed lookup reads as "not found", and a refused one says so.
  */
 async function citation_startVerification(text) {
   const contentArea = citation_panel?.querySelector('.assist-citation-content');
@@ -267,71 +294,158 @@ async function citation_startVerification(text) {
   slot.innerHTML =
     '<div class="assist-citation-section-title">' +
     '<span class="assist-citation-section-icon">🌐</span> Online Verification</div>' +
-    '<div class="assist-citation-verify-body" style="font-size:12px;color:#6b7280;padding:4px 0;">' +
+    '<div class="assist-citation-verify-body assist-citation-muted" style="font-size:12px;padding:4px 0;">' +
     'Checking CrossRef &amp; Semantic Scholar…</div>';
   contentArea.appendChild(slot);
 
   const doi = citation_extractDOI(text);
   const searchText = citation_extractSearchTitle(text);
-  let result;
-  try {
-    result = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('timeout')), 8000);
-      chrome.runtime.sendMessage(
-        { action: 'CITATION_VERIFY_ONLINE', doi, searchText },
-        response => {
-          clearTimeout(timer);
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(response || { found: false });
-          }
-        }
-      );
-    });
-  } catch {
-    result = { found: false };
-  }
+  const { result, declined } = await citation_lookUpOnline(doi, searchText);
 
   const body = slot.querySelector('.assist-citation-verify-body');
   if (!body) {
     return;
   }
 
-  if (result && result.found) {
+  if (!result && declined) {
+    // Nothing was looked up because the student said "not now"; "not found" would be untrue.
+    body.textContent = '';
+    body.appendChild(
+      createDeclinedNotice(declined, {
+        onAllowed: () => {
+          slot.remove();
+          citation_startVerification(text);
+        },
+      })
+    );
+    return;
+  }
+
+  if (result) {
     const sourceName = result.source === 'crossref' ? 'CrossRef' : 'Semantic Scholar';
-    const yearStr = result.year ? ` (${result.year})` : '';
+    const yearStr = result.year ? ` (${escapeHtml(String(result.year))})` : '';
     const journalStr = result.journal ? ` — ${escapeHtml(result.journal)}` : '';
     const doiLink = result.doi
-      ? `<div style="margin-top:4px;font-size:11px;color:#6b7280;">` +
+      ? `<div class="assist-citation-muted" style="margin-top:4px;font-size:11px;">` +
         `DOI: <a href="https://doi.org/${escapeHtml(result.doi)}" target="_blank" ` +
-        `rel="noopener noreferrer" style="color:#4f46e5;">${escapeHtml(result.doi)}</a></div>`
+        `rel="noopener noreferrer" class="assist-citation-verify-link">${escapeHtml(result.doi)}</a></div>`
       : '';
     const authorsStr = result.authors
-      ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(result.authors)}</div>`
+      ? `<div class="assist-citation-muted" style="font-size:11px;margin-top:2px;">${escapeHtml(result.authors)}</div>`
       : '';
     body.innerHTML =
       `<div style="display:flex;align-items:flex-start;gap:6px;">` +
-      `<span style="color:#16a34a;font-size:14px;flex-shrink:0;">&#10003;</span>` +
-      `<div><div style="font-size:12px;font-weight:600;color:#15803d;">Found on ${escapeHtml(sourceName)}</div>` +
-      `<div style="font-size:11px;color:#374151;margin-top:2px;">${escapeHtml(result.title)}${yearStr}${journalStr}</div>` +
+      `<span class="assist-citation-verify-found" style="font-size:14px;flex-shrink:0;">&#10003;</span>` +
+      `<div><div class="assist-citation-verify-found" style="font-size:12px;font-weight:600;">Found on ${escapeHtml(sourceName)}</div>` +
+      `<div style="font-size:11px;margin-top:2px;">${escapeHtml(result.title)}${yearStr}${journalStr}</div>` +
       `${authorsStr}${doiLink}</div></div>`;
   } else {
     body.innerHTML =
-      `<div style="display:flex;align-items:center;gap:6px;color:#6b7280;font-size:12px;">` +
+      `<div class="assist-citation-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;">` +
       `<span>—</span><span>Not found in CrossRef or Semantic Scholar</span></div>`;
   }
 }
 
+/**
+ * The quick-look bands. Each says what it is: a first look at clues in the text, not a verdict.
+ * There is deliberately no number: a score counted from keywords looks far more precise than it is.
+ */
+const CITATION_BANDS = {
+  reliable: {
+    label: 'Looks reliable',
+    reason: 'We found good signs and no warning signs.',
+    icon: '✓',
+  },
+  check: {
+    label: 'Check before you use it',
+    reason: 'We found at least one warning sign.',
+    icon: '!',
+  },
+  unclear: {
+    label: 'Hard to tell',
+    reason: 'We did not find enough clues to say either way.',
+    icon: '?',
+  },
+};
+
+const CITATION_CAVEAT =
+  'This is a quick look at clues in the text, not a verdict. Read the source yourself before you rely on it.';
+
+const CITATION_SOURCE_TYPE_NAMES = {
+  academic: 'Academic',
+  government: 'Government',
+  organization: 'Organisation',
+  news: 'News',
+  blog: 'Blog',
+  social: 'Social media',
+};
+
+/**
+ * Work out the band from the evidence. Any warning sign means "check"; a strong sign backed by at
+ * least one other good sign means "looks reliable"; anything less is "hard to tell".
+ */
+function citation_bandFor(goodCount, strongCount, warningCount) {
+  if (warningCount > 0) {
+    return 'check';
+  }
+  if (strongCount >= 1 && goodCount >= 2) {
+    return 'reliable';
+  }
+  return 'unclear';
+}
+
+/** What this panel never checks, whichever path produced the result. */
+function citation_alwaysNotChecked() {
+  const items = [
+    'Did not check whether it is peer reviewed',
+    'Did not check whether what it says is true',
+  ];
+  if (!citation_settings.verifyOnline) {
+    items.push('Did not look it up online to see that it exists');
+  }
+  return items;
+}
+
+/**
+ * Shape the AI's answer into the same evidence the on-device check gives. The AI's signs are not
+ * weighted, so each counts as strong and two with no warning sign read as "looks reliable". Any
+ * score the model sends anyway is dropped.
+ */
+function citation_fromAI(parsed) {
+  const list = value =>
+    Array.isArray(value)
+      ? value
+          .filter(item => typeof item === 'string' && item.trim())
+          .map(item => item.trim())
+          .slice(0, 6)
+      : [];
+  const good = list(parsed.goodSigns);
+  const warnings = list(parsed.warningSigns);
+  const notChecked = [...new Set([...list(parsed.couldNotTell), ...citation_alwaysNotChecked()])];
+
+  return {
+    sourceType: typeof parsed.sourceType === 'string' ? parsed.sourceType : 'unknown',
+    band: citation_bandFor(good.length, good.length, warnings.length),
+    evidence: { good, warnings, notChecked },
+    biasIndicators: parsed.biasIndicators || null,
+    keyClaims: list(parsed.keyClaims),
+    summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+    recommendations: typeof parsed.recommendations === 'string' ? parsed.recommendations : '',
+    isFallback: false,
+  };
+}
+
+/**
+ * Look at a source on this device, without AI, and list what was found and what was not checked.
+ * @param {string} text - Text to analyze
+ * @param {Object} context - Additional context
+ * @param {boolean} aiAttempted - The AI was asked first and failed
+ * @returns {Object} The band, the evidence behind it, and a recommendation
+ */
 function citation_fallback(text, context = {}, aiAttempted = false) {
   const lowerText = text.toLowerCase();
-  const url = context.url || '';
-  const lowerUrl = url.toLowerCase();
+  const lowerUrl = (context.url || '').toLowerCase();
 
-  // Detect source type - check text content first, then URL
-  let sourceType = 'unknown';
-
-  // Check text for institutional/academic indicators
   // "press" and bare "journal" excluded — too ambiguous; reputable publishers list handles them
   const academicKeywords = [
     'university',
@@ -358,6 +472,7 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     'association',
     'publications',
   ];
+  // Whole words only: as substrings "times" matched "sometimes" and "post" matched "posture".
   const newsKeywords = [
     'newspaper',
     'times',
@@ -370,33 +485,29 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     'the guardian',
     'the independent',
   ];
-  const blogKeywords = [
-    'blog',
-    'retrieved from',
-    'accessed',
-    'wordpress',
-    'medium.com',
-    'top 10',
-    'best of',
-  ];
+  // "Retrieved from" and "accessed" mark any web reference, not a blog, so they are not here.
+  const blogKeywords = ['blog', 'wordpress', 'medium.com', 'top 10', 'best of'];
+
+  const hasDOI =
+    CITATION_DOI_REGEX.test(text) || lowerText.includes('doi:') || lowerText.includes('doi.org');
 
   // Require 2+ academic indicators to avoid single-word false positives
   const academicHits = academicKeywords.filter(k => lowerText.includes(k));
   const hasAcademicIndicators =
     academicHits.length >= 2 || (academicHits.length === 1 && CITATION_DOI_REGEX.test(text));
   const hasInstitutionalIndicators = institutionalKeywords.some(k => lowerText.includes(k));
-  const hasNewsIndicators = newsKeywords.some(k => lowerText.includes(k));
+  const hasNewsIndicators = newsKeywords.some(k => new RegExp(`\\b${k}\\b`).test(lowerText));
   const hasBlogIndicators = blogKeywords.some(k => lowerText.includes(k));
 
-  // Prioritize text-based detection
+  let sourceType = 'unknown';
   if (hasAcademicIndicators && !hasBlogIndicators) {
     sourceType = 'academic';
   } else if (hasInstitutionalIndicators && !hasBlogIndicators) {
     sourceType = 'organization';
-  } else if (hasNewsIndicators) {
-    sourceType = 'news';
   } else if (hasBlogIndicators) {
     sourceType = 'blog';
+  } else if (hasNewsIndicators) {
+    sourceType = 'news';
   } else if (lowerUrl.includes('.edu') || lowerUrl.includes('.ac.')) {
     sourceType = 'academic';
   } else if (lowerUrl.includes('.gov')) {
@@ -417,51 +528,38 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     sourceType = 'social';
   }
 
-  // Calculate basic credibility score
-  let score = 50;
-  const strengths = [];
-  const weaknesses = [];
+  const good = [];
+  const warnings = [];
+  const notChecked = citation_alwaysNotChecked();
+  let strong = 0;
+  const addStrong = item => {
+    good.push(item);
+    strong += 1;
+  };
 
-  // Source type scoring
+  if (hasDOI) {
+    addStrong('Has a DOI (a permanent ID for published research)');
+  }
   if (sourceType === 'academic') {
-    score += 25;
-    strengths.push('Academic source (journal/university)');
+    addStrong('Looks like academic writing, such as a journal or university');
   } else if (sourceType === 'government') {
-    score += 20;
-    strengths.push('Government source');
-  } else if (sourceType === 'organization') {
-    score += 15;
-    strengths.push('Institutional/organizational source');
+    addStrong('Comes from a government website');
+  } else if (sourceType === 'organization' && !hasInstitutionalIndicators) {
+    good.push("Comes from an organisation's website");
   } else if (sourceType === 'news') {
-    score += 5;
-    strengths.push('News publication');
-  } else if (sourceType === 'social') {
-    score -= 20;
-    weaknesses.push('Social media source - verify independently');
+    good.push('Looks like a news publication');
   } else if (sourceType === 'blog') {
-    score -= 10;
-    weaknesses.push('Blog post - may reflect personal opinion');
+    warnings.push("Looks like a blog, which may be one person's opinion");
+  } else if (sourceType === 'social') {
+    warnings.push('Looks like social media');
+  } else if (sourceType === 'unknown') {
+    notChecked.push('Could not tell what kind of source this is');
   }
 
-  // Bonus for specific institutional indicators in text
   if (hasInstitutionalIndicators) {
-    score += 10;
-    strengths.push('Institutional publisher (museum/gallery/institute)');
+    addStrong('Published by a museum, library, institute or society');
   }
 
-  // Check for formal citation format across styles:
-  // APA/Harvard: (YYYY) — Vancouver: YYYY; — MLA/Chicago: , YYYY, or . YYYY.
-  const hasCitationFormat =
-    text.length > 25 &&
-    (/\(\d{4}[a-z]?\)/.test(text) || // APA/Harvard parenthetical year
-      /\b(?:19|20)\d{2}[;,]/.test(text) || // Vancouver / MLA year + punctuation
-      /\b(?:19|20)\d{2}\.(\s|$)/.test(text)); // Chicago / IEEE year + period
-  if (hasCitationFormat) {
-    score += 10;
-    strengths.push('Formal citation format');
-  }
-
-  // Check for reputable publishers
   const reputablePublishers = [
     'mit press',
     'oxford',
@@ -475,42 +573,63 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     'penguin',
     'harper',
   ];
-  const hasReputablePublisher = reputablePublishers.some(p => lowerText.includes(p));
-  if (hasReputablePublisher) {
-    score += 15;
-    strengths.push('Reputable publisher');
+  if (reputablePublishers.some(p => lowerText.includes(p))) {
+    addStrong('Names a well-known publisher');
   }
 
-  // Content indicators
   if (lowerText.includes('peer-reviewed') || lowerText.includes('peer reviewed')) {
-    score += 15;
-    strengths.push('Mentions peer review');
-  }
-  if (
-    CITATION_DOI_REGEX.test(text) ||
-    lowerText.includes('doi:') ||
-    lowerText.includes('doi.org')
-  ) {
-    score += 10;
-    strengths.push('Has DOI identifier');
-  }
-  if (lowerText.includes('references') || lowerText.includes('bibliography')) {
-    score += 5;
-    strengths.push('Contains references');
+    addStrong('Says it is peer reviewed');
   }
 
-  // Expert contributors mentioned
+  // Formal citation format across styles:
+  // APA/Harvard: (YYYY) — Vancouver: YYYY; — MLA/Chicago: , YYYY, or . YYYY.
+  const hasCitationFormat =
+    text.length > 25 &&
+    (/\(\d{4}[a-z]?\)/.test(text) || // APA/Harvard parenthetical year
+      /\b(?:19|20)\d{2}[;,]/.test(text) || // Vancouver / MLA year + punctuation
+      /\b(?:19|20)\d{2}\.(\s|$)/.test(text)); // Chicago / IEEE year + period
+  if (hasCitationFormat) {
+    good.push('Written as a formal reference');
+  }
+
+  if (lowerText.includes('references') || lowerText.includes('bibliography')) {
+    good.push('Lists its references');
+  }
+
+  // "Surname, A." as in a reference list, "et al", or "by Name"
+  if (/\b[A-Z][A-Za-z'’-]+,\s*[A-Z]\.|\bet al\b|\bby\s+[A-Z][a-z]+/.test(text)) {
+    good.push('Names an author');
+  } else {
+    notChecked.push('Could not see an author');
+  }
+
   if (
     lowerText.includes('expert') ||
     lowerText.includes('professor') ||
     lowerText.includes('dr.') ||
     lowerText.includes('ph.d')
   ) {
-    score += 5;
-    strengths.push('Expert contributors');
+    good.push('Mentions an expert, such as a professor or doctor');
   }
 
-  // Bias indicators
+  // Date — prefer parenthetical citation year over any year in prose. An old source is not a
+  // warning sign (a classic study is still a good source), so its age is left for the student.
+  const parenYearMatch = text.match(/\((\d{4})[a-z]?\)/);
+  const anyYearMatch = text.match(/\b((?:19|20)\d{2})\b/);
+  const yearStr = parenYearMatch ? parenYearMatch[1] : anyYearMatch ? anyYearMatch[1] : null;
+  if (yearStr) {
+    const age = new Date().getFullYear() - parseInt(yearStr, 10);
+    if (age > 10) {
+      notChecked.push(`Could not tell if a source from ${yearStr} is still up to date`);
+    } else if (age <= 2) {
+      good.push(`Published recently (${yearStr})`);
+    } else {
+      good.push(`Shows when it was published (${yearStr})`);
+    }
+  } else {
+    notChecked.push('Could not see a publication date');
+  }
+
   const biasWords = [
     'obviously',
     'clearly wrong',
@@ -519,70 +638,23 @@ function citation_fallback(text, context = {}, aiAttempted = false) {
     'fake news',
     'mainstream media',
   ];
-  const hasBiasLanguage = biasWords.some(word => lowerText.includes(word));
-
+  if (biasWords.some(word => lowerText.includes(word))) {
+    warnings.push('Uses loaded words, such as "obviously" or "everyone knows"');
+  }
   const commercialWords = ['buy now', 'click here', 'limited time', 'special offer', 'subscribe'];
-  const hasCommercialLanguage = commercialWords.some(word => lowerText.includes(word));
-
-  if (hasBiasLanguage) {
-    score -= 15;
-    weaknesses.push('Contains potentially biased language');
-  }
-  if (hasCommercialLanguage) {
-    score -= 10;
-    weaknesses.push('Contains commercial/promotional language');
-  }
-
-  // Date check — prefer parenthetical citation year over any year in prose
-  const parenYearMatch = text.match(/\((\d{4})[a-z]?\)/);
-  const anyYearMatch = text.match(/\b((?:19|20)\d{2})\b/);
-  const yearStr = parenYearMatch ? parenYearMatch[1] : anyYearMatch ? anyYearMatch[1] : null;
-  const currentYear = new Date().getFullYear();
-  if (yearStr) {
-    const year = parseInt(yearStr);
-    if (currentYear - year > 10) {
-      weaknesses.push(`Source may be outdated (${yearStr})`);
-      score -= 5;
-    } else if (currentYear - year <= 2) {
-      strengths.push('Recent publication');
-      score += 5;
-    }
-  }
-
-  // Clamp score
-  score = Math.max(0, Math.min(100, score));
-
-  // Determine rating
-  let rating = 'Unknown';
-  if (score >= 70) {
-    rating = 'High';
-  } else if (score >= 50) {
-    rating = 'Medium';
-  } else if (score >= 0) {
-    rating = 'Low';
+  if (commercialWords.some(word => lowerText.includes(word))) {
+    warnings.push('Uses selling words, such as "buy now" or "special offer"');
   }
 
   return {
     sourceType,
-    credibilityScore: score,
-    credibilityRating: rating,
-    biasIndicators: {
-      detected: hasBiasLanguage || hasCommercialLanguage,
-      type: hasCommercialLanguage ? 'commercial' : hasBiasLanguage ? 'ideological' : 'none',
-      severity: hasBiasLanguage || hasCommercialLanguage ? 'mild' : 'none',
-      explanation: hasBiasLanguage
-        ? 'Some potentially biased language detected'
-        : hasCommercialLanguage
-          ? 'Commercial/promotional content detected'
-          : 'No obvious bias detected',
-    },
-    keyClaims: ['Unable to extract claims without AI'],
-    strengths: strengths.length > 0 ? strengths : ['Basic analysis only'],
-    weaknesses: weaknesses.length > 0 ? weaknesses : ['Requires AI for deeper analysis'],
+    band: citation_bandFor(good.length, strong, warnings.length),
+    evidence: { good, warnings, notChecked },
+    keyClaims: [],
+    summary: '',
     recommendations: aiAttempted
       ? 'AI returned an unexpected response — try again or switch to a different model in settings.'
-      : 'For a more thorough analysis, enable an AI model in AssisT settings.',
-    summary: `Basic analysis suggests this is a ${sourceType} source with ${rating.toLowerCase()} credibility. Score: ${score}/100.`,
+      : 'For a closer look, turn on an AI model in AssisT settings.',
     isFallback: true,
   };
 }
@@ -597,12 +669,13 @@ async function citation_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-citation-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Citation Analysis');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'assist-citation-title');
   panel.setAttribute('tabindex', '-1');
 
   panel.innerHTML = sanitizeHTML(`
     <div class="assist-citation-header">
-      <div class="assist-citation-title">
+      <div class="assist-citation-title" id="assist-citation-title">
         <span class="assist-citation-icon">🔍</span>
         <span>Citation Analyzer</span>
       </div>
@@ -610,22 +683,23 @@ async function citation_createPanel() {
         <button class="assist-citation-close" aria-label="Close" title="Close (Esc)">×</button>
       </div>
     </div>
-    <div class="assist-citation-status"></div>
+    <div class="assist-citation-status" role="status"></div>
+    <div class="assist-citation-announce" role="status"></div>
     <div class="assist-citation-content">
       <div class="assist-citation-placeholder">
         Select text or paste a URL to analyze...
       </div>
     </div>
     <div class="assist-citation-actions">
-      <button class="assist-citation-btn" data-action="copy" disabled>
+      <button class="assist-citation-btn" data-command="copy" data-action="copy" disabled>
         <span class="assist-citation-btn-icon">📋</span>
         Copy Report
       </button>
-      <button class="assist-citation-btn" data-action="speak" disabled>
+      <button class="assist-citation-btn" data-command="speak" disabled>
         <span class="assist-citation-btn-icon">🔊</span>
         Read Aloud
       </button>
-      <button class="assist-citation-btn" data-action="reanalyze" disabled>
+      <button class="assist-citation-btn" data-command="reanalyze" disabled>
         <span class="assist-citation-btn-icon">🔄</span>
         Reanalyze
       </button>
@@ -633,24 +707,24 @@ async function citation_createPanel() {
   `);
 
   // Event handlers
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('.assist-citation-close'),
     'Citation Analyzer Close Button',
     citation_hide
   );
 
-  attachInteractiveHandler(
-    panel.querySelector('[data-action="copy"]'),
+  attachAccessibleHandler(
+    panel.querySelector('[data-command="copy"]'),
     'Citation Analyzer Copy Button',
     citation_copy
   );
-  attachInteractiveHandler(
-    panel.querySelector('[data-action="speak"]'),
+  attachAccessibleHandler(
+    panel.querySelector('[data-command="speak"]'),
     'Citation Analyzer Speak Button',
     citation_speak
   );
-  attachInteractiveHandler(
-    panel.querySelector('[data-action="reanalyze"]'),
+  attachAccessibleHandler(
+    panel.querySelector('[data-command="reanalyze"]'),
     'Citation Analyzer Reanalyze Button',
     async () => {
       if (citation_currentText) {
@@ -681,12 +755,17 @@ function citation_injectStyles() {
       top: 100px;
       right: 20px;
       width: 420px;
+      /* A 320px screen must not need sideways scrolling to read the panel (SC 1.4.10). 100% of a
+         fixed box is the viewport without its scrollbar, which 100vw would include, and border-box
+         keeps the panel's own padding and border inside the cap: 20px clear on each side. */
+      box-sizing: border-box;
+      max-width: calc(100% - 40px);
       max-height: 80vh;
       background: white;
       color: #333;
       border-radius: 12px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-      z-index: 2147483647;
+      z-index: ${Z.MODAL};
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       display: flex;
@@ -766,7 +845,13 @@ function citation_injectStyles() {
       color: #2e7d32;
     }
 
-    .assist-citation-status[data-assist-clickable]:hover {
+    .assist-citation-status [data-assist-clickable]:hover {
+      text-decoration: underline;
+    }
+
+    .assist-citation-status [data-assist-clickable]:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
       text-decoration: underline;
     }
 
@@ -803,60 +888,96 @@ function citation_injectStyles() {
       animation: assist-citation-spin 0.8s linear infinite;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      .assist-citation-spinner { animation: none; }
+    }
+
     @keyframes assist-citation-spin {
       to { transform: rotate(360deg); }
     }
 
-    /* Score display */
-    .assist-citation-score {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 16px;
-      background: #f8f9fa;
+    /* The quick-look band. Its colour always comes with an icon and words (SC 1.4.1); each
+       text colour reaches 4.5:1 on its theme's panel background. */
+    .assist-citation-band {
+      padding: 12px 14px;
+      border: 1px solid currentColor;
+      border-left-width: 6px;
       border-radius: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
     }
 
-    .assist-citation-score-circle {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
+    .assist-citation-band-reliable {
+      color: #1b5e20;
+    }
+
+    .assist-citation-band-check {
+      color: #8a4b00;
+    }
+
+    .assist-citation-band-unclear {
+      color: #37474f;
+    }
+
+    .assist-citation-band-title {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .assist-citation-band-icon {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
+      width: 1.6em;
+      height: 1.6em;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .assist-citation-band-reason,
+    .assist-citation-band-type {
+      margin: 4px 0 0 0;
+      font-size: 13px;
+    }
+
+    .assist-citation-caveat {
+      margin: 0 0 16px 0;
+      font-size: 13px;
+    }
+
+    .assist-citation-evidence {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .assist-citation-evidence li {
+      display: flex;
+      gap: 8px;
+    }
+
+    .assist-citation-evidence-glyph {
+      flex-shrink: 0;
+      width: 1em;
       font-weight: 700;
-      color: white;
+      text-align: center;
     }
 
-    .assist-citation-score-circle.high {
-      background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
-    }
-
-    .assist-citation-score-circle.medium {
-      background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    }
-
-    .assist-citation-score-circle.low {
-      background: linear-gradient(135deg, #f44336 0%, #c62828 100%);
-    }
-
-    .assist-citation-score-info {
-      flex: 1;
-    }
-
-    .assist-citation-score-rating {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .assist-citation-score-type {
-      font-size: 12px;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    /* Screen readers only: the whole result, announced once as one sentence. */
+    .assist-citation-announce {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     /* Sections */
@@ -888,14 +1009,6 @@ function citation_injectStyles() {
     .assist-citation-list li {
       margin-bottom: 4px;
       color: #555;
-    }
-
-    .assist-citation-list.strengths li::marker {
-      color: #4caf50;
-    }
-
-    .assist-citation-list.weaknesses li::marker {
-      color: #f44336;
     }
 
     /* Bias indicator */
@@ -1012,17 +1125,15 @@ function citation_injectStyles() {
       margin-left: 8px;
     }
 
-    .assist-citation-fallback-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: #ff9800;
-      color: white;
-      font-size: 10px;
-      font-weight: 600;
-      border-radius: 10px;
-      margin-left: 8px;
+    /* How this result was worked out: on this device without AI, or by AI. */
+    .assist-citation-disclosure {
+      margin: 0 0 8px 0;
+      padding: 8px 10px;
+      color: #333;
+      border-left: 3px solid #ff9800;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     /* Actions */
@@ -1064,6 +1175,24 @@ function citation_injectStyles() {
       font-size: 14px;
     }
 
+    /* Message colours live here, not inline, so the dark rules below can reach them. Each
+       reaches 4.5:1 on its theme's panel background (white / #1e1e1e). */
+    .assist-citation-message-title {
+      color: #333;
+    }
+
+    .assist-citation-muted {
+      color: #666;
+    }
+
+    .assist-citation-verify-found {
+      color: #15803d;
+    }
+
+    .assist-citation-verify-link {
+      color: #4f46e5;
+    }
+
     /* Dark mode support */
     @media (prefers-color-scheme: dark) {
       #assist-citation-panel {
@@ -1082,12 +1211,40 @@ function citation_injectStyles() {
         color: #aaa;
       }
 
-      .assist-citation-score {
-        background: #2d2d2d;
+      .assist-citation-band-reliable {
+        color: #81c784;
+      }
+
+      .assist-citation-band-check {
+        color: #ffb74d;
+      }
+
+      .assist-citation-band-unclear {
+        color: #b0bec5;
+      }
+
+      .assist-citation-disclosure {
+        color: #e0e0e0;
       }
 
       .assist-citation-section-title {
         color: #e0e0e0;
+      }
+
+      .assist-citation-message-title {
+        color: #e0e0e0;
+      }
+
+      .assist-citation-muted {
+        color: #b0b0b0;
+      }
+
+      .assist-citation-verify-found {
+        color: #4ade80;
+      }
+
+      .assist-citation-verify-link {
+        color: #a5b4fc;
       }
 
       .assist-citation-list li {
@@ -1180,95 +1337,117 @@ function citation_makeDraggable(panel) {
 }
 
 /**
- * Render analysis results in the panel
- * @param {Object} analysis - Analysis results
- * @param {boolean} isAI - Whether AI was used
- * @param {boolean} isCloud - Whether cloud model was used
- * @param {string} modelName - Name of the model used
+ * The three evidence lists, in the order a student reads them. The glyph repeats the heading's
+ * meaning for sighted readers and is hidden from screen readers, which hear the heading.
  */
-async function citation_renderResults(analysis, isAI, _isCloud = false, _modelName = '') {
+const CITATION_EVIDENCE_LISTS = [
+  { key: 'good', kind: 'good', title: 'Good signs found', glyph: '✓' },
+  { key: 'warnings', kind: 'warning', title: 'Warning signs found', glyph: '!' },
+  { key: 'notChecked', kind: 'notchecked', title: 'Not checked, or could not tell', glyph: '?' },
+];
+
+/** The band and evidence as one plain sentence, for the announcer and for reading aloud. */
+function citation_describe(analysis) {
+  const band = CITATION_BANDS[analysis.band] || CITATION_BANDS.unclear;
+  const { good, warnings, notChecked } = analysis.evidence;
+  const count = (n, one, many) => `${n === 0 ? 'no' : n} ${n === 1 ? one : many}`;
+  return (
+    `Quick look: ${band.label}. ${band.reason} ` +
+    `${count(good.length, 'good sign', 'good signs')}, ` +
+    `${count(warnings.length, 'warning sign', 'warning signs')}, ` +
+    `${count(notChecked.length, 'thing', 'things')} not checked.`
+  );
+}
+
+/**
+ * Render analysis results in the panel
+ * @param {Object} analysis - Analysis results, from citation_fallback or citation_fromAI
+ * @param {boolean} isAI - Whether AI was used
+ */
+async function citation_renderResults(analysis, isAI) {
   const contentArea = citation_panel?.querySelector('.assist-citation-content');
   if (!contentArea) {
     return;
   }
 
-  const scoreClass = analysis.credibilityRating?.toLowerCase() || 'medium';
-  const biasClass = analysis.biasIndicators?.severity || 'none';
+  const bandKey = CITATION_BANDS[analysis.band] ? analysis.band : 'unclear';
+  const band = CITATION_BANDS[bandKey];
+  const typeName = CITATION_SOURCE_TYPE_NAMES[analysis.sourceType] || 'Could not tell';
 
-  const keyClaims =
-    analysis.keyClaims && analysis.keyClaims.length > 0
-      ? analysis.keyClaims.map(c => `<li>${escapeHtml(c)}</li>`).join('')
-      : '<li>No specific claims extracted</li>';
-
-  const strengths =
-    analysis.strengths && analysis.strengths.length > 0
-      ? analysis.strengths.map(s => `<li>${escapeHtml(s)}</li>`).join('')
-      : '<li>None identified</li>';
-
-  const weaknesses =
-    analysis.weaknesses && analysis.weaknesses.length > 0
-      ? analysis.weaknesses.map(w => `<li>${escapeHtml(w)}</li>`).join('')
-      : '<li>None identified</li>';
-
-  const _citBadgeInfo = await getAIBadgeInfo();
+  const badgeInfo = await getAIBadgeInfo();
   const badge = isAI
-    ? renderAIBadge(_citBadgeInfo.mode, _citBadgeInfo.label)
+    ? renderAIBadge(badgeInfo.mode, badgeInfo.label)
     : renderAIBadge('fallback', 'Basic');
 
+  const disclosure = isAI
+    ? 'This quick look was written by AI from the text you selected. AI can be wrong, so check the source yourself.'
+    : 'This quick look was worked out on this device from the text itself, without AI.';
+
+  const evidenceSections = CITATION_EVIDENCE_LISTS.map(list => {
+    const entries = analysis.evidence[list.key];
+    const rows =
+      entries.length > 0
+        ? entries
+            .map(
+              item =>
+                `<li><span class="assist-citation-evidence-glyph" aria-hidden="true">${list.glyph}</span>` +
+                `<span>${escapeHtml(item)}</span></li>`
+            )
+            .join('')
+        : '<li class="assist-citation-evidence-none">None found</li>';
+    return `
+      <div class="assist-citation-section">
+        <div class="assist-citation-section-title">${list.title}</div>
+        <ul class="assist-citation-list assist-citation-evidence assist-citation-evidence-${list.kind}">${rows}</ul>
+      </div>`;
+  }).join('');
+
+  const bias = analysis.biasIndicators;
+  const biasClass = ['none', 'mild', 'moderate', 'strong'].includes(bias?.severity)
+    ? bias.severity
+    : 'none';
+  const biasSection = bias
+    ? `
+      <div class="assist-citation-section">
+        <div class="assist-citation-section-title">
+          <span class="assist-citation-section-icon">⚠️</span>
+          Bias Assessment
+        </div>
+        <div class="assist-citation-bias ${biasClass}">
+          ${escapeHtml(bias.explanation || 'No bias information available')}
+          ${bias.type && bias.type !== 'none' ? ` (Type: ${escapeHtml(String(bias.type))})` : ''}
+        </div>
+      </div>`
+    : '';
+
+  const claimsSection =
+    analysis.keyClaims.length > 0
+      ? `
+      <div class="assist-citation-section">
+        <div class="assist-citation-section-title">
+          <span class="assist-citation-section-icon">📌</span>
+          Key Claims
+        </div>
+        <ul class="assist-citation-list">${analysis.keyClaims.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>
+      </div>`
+      : '';
+
   contentArea.innerHTML = sanitizeHTML(`
-    <div class="assist-citation-score">
-      <div class="assist-citation-score-circle ${scoreClass}">
-        ${analysis.credibilityScore || '?'}
+    <p class="assist-citation-disclosure">${disclosure}</p>
+    <div class="assist-citation-band assist-citation-band-${bandKey}">
+      <div class="assist-citation-band-title">
+        <span class="assist-citation-band-icon" aria-hidden="true">${band.icon}</span>
+        <span class="assist-citation-band-label">${band.label}</span>
+        ${badge}
       </div>
-      <div class="assist-citation-score-info">
-        <div class="assist-citation-score-rating">
-          ${analysis.credibilityRating || 'Unknown'} Credibility
-          ${badge}
-        </div>
-        <div class="assist-citation-score-type">
-          Source Type: ${analysis.sourceType || 'Unknown'}
-        </div>
-      </div>
+      <p class="assist-citation-band-reason">${band.reason}</p>
+      <p class="assist-citation-band-type">Source type: ${escapeHtml(typeName)}</p>
     </div>
+    <p class="assist-citation-caveat assist-citation-muted">${CITATION_CAVEAT}</p>
 
-    <div class="assist-citation-section">
-      <div class="assist-citation-section-title">
-        <span class="assist-citation-section-icon">⚠️</span>
-        Bias Assessment
-      </div>
-      <div class="assist-citation-bias ${biasClass}">
-        ${analysis.biasIndicators?.explanation || 'No bias information available'}
-        ${
-          analysis.biasIndicators?.type && analysis.biasIndicators.type !== 'none'
-            ? ` (Type: ${analysis.biasIndicators.type})`
-            : ''
-        }
-      </div>
-    </div>
-
-    <div class="assist-citation-section">
-      <div class="assist-citation-section-title">
-        <span class="assist-citation-section-icon">📌</span>
-        Key Claims
-      </div>
-      <ul class="assist-citation-list">${keyClaims}</ul>
-    </div>
-
-    <div class="assist-citation-section">
-      <div class="assist-citation-section-title">
-        <span class="assist-citation-section-icon">✅</span>
-        Strengths
-      </div>
-      <ul class="assist-citation-list strengths">${strengths}</ul>
-    </div>
-
-    <div class="assist-citation-section">
-      <div class="assist-citation-section-title">
-        <span class="assist-citation-section-icon">⚡</span>
-        Weaknesses
-      </div>
-      <ul class="assist-citation-list weaknesses">${weaknesses}</ul>
-    </div>
+    ${evidenceSections}
+    ${biasSection}
+    ${claimsSection}
 
     ${
       analysis.summary
@@ -1298,6 +1477,11 @@ async function citation_renderResults(analysis, isAI, _isCloud = false, _modelNa
         : ''
     }
   `);
+
+  const announcer = citation_panel?.querySelector('.assist-citation-announce');
+  if (announcer) {
+    announcer.textContent = citation_describe(analysis);
+  }
 }
 
 /**
@@ -1308,6 +1492,14 @@ async function citation_show(selectionRect = null) {
   if (citation_panel) {
     citation_panel.remove();
   }
+
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  citation_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
 
   citation_panel = await citation_createPanel();
   document.body.appendChild(citation_panel);
@@ -1339,31 +1531,32 @@ async function citation_show(selectionRect = null) {
     citation_panel.style.right = 'auto';
   }
 
-  document.addEventListener('keydown', citation_handleKeydown);
-  citation_panel.focus();
+  citation_releaseFocus = trapFocus(citation_panel, {
+    onEscape: citation_hide,
+    initialFocus: citation_panel.querySelector('.assist-citation-close'),
+  });
 }
 
 /**
  * Hide the citation analysis panel
  */
 function citation_hide() {
+  // Abandon anything in flight: its result must not paint into a panel the student has closed.
+  citation_requestId += 1;
+  citation_isLoading = false;
+
+  if (citation_releaseFocus) {
+    citation_releaseFocus();
+    citation_releaseFocus = null;
+  }
+
   if (citation_panel) {
     citation_panel.remove();
     citation_panel = null;
   }
 
-  document.removeEventListener('keydown', citation_handleKeydown);
-  citation_isLoading = false;
-}
-
-/**
- * Handle keyboard events
- * @param {KeyboardEvent} e - Keyboard event
- */
-function citation_handleKeydown(e) {
-  if (e.key === 'Escape') {
-    citation_hide();
-  }
+  returnFocusAfterDialog(citation_returnFocus);
+  citation_returnFocus = null;
 }
 
 /**
@@ -1378,10 +1571,17 @@ async function citation_runAnalysis(text, context = {}) {
 
   citation_currentText = text;
   citation_isLoading = true;
+  const requestId = ++citation_requestId;
 
   const contentArea = citation_panel?.querySelector('.assist-citation-content');
   const statusBar = citation_panel?.querySelector('.assist-citation-status');
   const actionBtns = citation_panel?.querySelectorAll('.assist-citation-btn');
+  const announcer = citation_panel?.querySelector('.assist-citation-announce');
+
+  // Emptied so that a reanalysis announces its result again, even when it comes out the same.
+  if (announcer) {
+    announcer.textContent = '';
+  }
 
   if (contentArea) {
     contentArea.innerHTML = sanitizeHTML(`
@@ -1400,6 +1600,10 @@ async function citation_runAnalysis(text, context = {}) {
   const modeInfo = await getAIMode('citationAnalyzer');
   const availability = await checkAIAvailable(modeInfo);
 
+  if (requestId !== citation_requestId) {
+    return;
+  }
+
   try {
     let analysis;
     let isAI = false;
@@ -1410,7 +1614,7 @@ async function citation_runAnalysis(text, context = {}) {
         actionBtns?.forEach(btn => {
           btn.disabled = false;
         });
-        citation_showApiKeyWarning();
+        citation_showApiKeyWarning(availability.provider);
         return;
       }
       // Fall back to heuristic analysis
@@ -1431,6 +1635,9 @@ async function citation_runAnalysis(text, context = {}) {
         citation_analyze(text, context, modeInfo),
         timeoutPromise,
       ]);
+      if (requestId !== citation_requestId) {
+        return;
+      }
       analysis = response.analysis;
       isAI = !analysis.isFallback;
 
@@ -1459,22 +1666,25 @@ async function citation_runAnalysis(text, context = {}) {
     citation_currentAnalysis = fallbackAnalysis;
     citation_renderResults(fallbackAnalysis, false);
 
-    // User-friendly status message — hide raw error details from the user
-    const isTimeout = error.message === 'timeout';
-    const friendlyMsg = isTimeout
-      ? '⚠️ Analysis timed out — showing basic result. Try again or switch AI mode.'
-      : '⚠️ Unable to analyze citation — showing basic result. Please try again.';
+    // The reason the request failed is the student's only route to fixing it, so it is shown
+    // rather than replaced with a generic apology.
+    const reason =
+      error?.message === 'timeout'
+        ? 'The AI request timed out. Try again, or switch AI mode in settings.'
+        : getFailureMessage(error);
 
     if (statusBar) {
-      statusBar.textContent = friendlyMsg;
+      statusBar.textContent = `⚠️ ${reason}`;
       statusBar.className = 'assist-citation-status visible error';
     }
   } finally {
-    citation_isLoading = false;
+    if (requestId === citation_requestId) {
+      citation_isLoading = false;
 
-    actionBtns?.forEach(btn => {
-      btn.disabled = false;
-    });
+      actionBtns?.forEach(btn => {
+        btn.disabled = false;
+      });
+    }
   }
 }
 
@@ -1488,24 +1698,30 @@ async function citation_copy() {
   }
 
   const a = citation_currentAnalysis;
+  const band = CITATION_BANDS[a.band] || CITATION_BANDS.unclear;
+  const lines = items =>
+    items.length > 0 ? items.map(item => `- ${item}`).join('\n') : 'None found';
   const report = `CITATION ANALYSIS REPORT
 ========================
-Credibility Score: ${a.credibilityScore}/100 (${a.credibilityRating})
-Source Type: ${a.sourceType}
+Quick look: ${band.label}
+${band.reason}
+${CITATION_CAVEAT}
+Source Type: ${CITATION_SOURCE_TYPE_NAMES[a.sourceType] || 'Could not tell'}
+
+GOOD SIGNS FOUND
+${lines(a.evidence.good)}
+
+WARNING SIGNS FOUND
+${lines(a.evidence.warnings)}
+
+NOT CHECKED, OR COULD NOT TELL
+${lines(a.evidence.notChecked)}
 
 BIAS ASSESSMENT
 ${a.biasIndicators?.explanation || 'N/A'}
-Type: ${a.biasIndicators?.type || 'None'}
-Severity: ${a.biasIndicators?.severity || 'None'}
 
 KEY CLAIMS
-${a.keyClaims?.map(c => `• ${c}`).join('\n') || 'None extracted'}
-
-STRENGTHS
-${a.strengths?.map(s => `✓ ${s}`).join('\n') || 'None identified'}
-
-WEAKNESSES
-${a.weaknesses?.map(w => `✗ ${w}`).join('\n') || 'None identified'}
+${lines(a.keyClaims)}
 
 SUMMARY
 ${a.summary || 'N/A'}
@@ -1535,17 +1751,22 @@ function citation_speak() {
   }
 
   const a = citation_currentAnalysis;
-  const text = `Citation Analysis. Credibility score: ${a.credibilityScore} out of 100, rated ${a.credibilityRating}.
-Source type: ${a.sourceType}.
-${a.biasIndicators?.explanation || ''}.
-Summary: ${a.summary || 'No summary available'}.`;
+  const sentences = items => (items.length > 0 ? `${items.join('. ')}.` : 'None found.');
+  const text = [
+    `Citation Analysis. ${citation_describe(a)}`,
+    `Good signs: ${sentences(a.evidence.good)}`,
+    `Warning signs: ${sentences(a.evidence.warnings)}`,
+    `Not checked, or could not tell: ${sentences(a.evidence.notChecked)}`,
+    a.summary ? `Summary: ${a.summary}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   if (typeof window.readText === 'function') {
     const contentArea = citation_panel?.querySelector('.assist-citation-content');
     window.readText(text, contentArea || document.body);
   } else {
-    const utterance = new SpeechSynthesisUtterance(text);
-    window.speechSynthesis.speak(utterance);
+    createSavedUtterance(text).then(utterance => window.speechSynthesis.speak(utterance));
   }
 }
 
@@ -1563,7 +1784,7 @@ function escapeHtml(text) {
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
-function citation_showApiKeyWarning() {
+function citation_showApiKeyWarning(provider) {
   const contentArea = citation_panel?.querySelector('.assist-citation-content');
   if (!contentArea) {
     return;
@@ -1572,10 +1793,10 @@ function citation_showApiKeyWarning() {
   contentArea.innerHTML = sanitizeHTML(`
     <div style="text-align: center; padding: 40px 20px;">
       <div style="font-size: 48px; margin-bottom: 16px;">🔑</div>
-      <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
-      <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
+      <h3 class="assist-citation-message-title" style="margin: 0 0 12px 0;">API Key Required</h3>
+      <p class="assist-citation-muted" style="margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="citation-open-settings" style="
@@ -1597,7 +1818,7 @@ function citation_showApiKeyWarning() {
           cursor: pointer;
         ">💻 Use Local AI Instead</button>
       </div>
-      <p style="color: #999; font-size: 12px; margin-top: 16px;">
+      <p class="assist-citation-muted" style="font-size: 12px; margin-top: 16px;">
         Go to: Extension Popup → Advanced Options → AI tab → Enter API Key
       </p>
     </div>
@@ -1606,17 +1827,14 @@ function citation_showApiKeyWarning() {
   // Attach handlers for buttons
   const openSettingsBtn = contentArea.querySelector('.citation-open-settings');
   if (openSettingsBtn) {
-    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+    attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
       chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-      alert(
-        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-      );
     });
   }
 
   const useLocalBtn = contentArea.querySelector('.citation-use-local');
   if (useLocalBtn) {
-    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+    attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
       await chrome.storage.local.set({ aiMode: 'local' });
       console.log('[CitationAnalyzer] Switched to local AI mode');
       citation_showEmptyState();
@@ -1634,7 +1852,7 @@ function citation_showEmptyState() {
   }
 
   contentArea.innerHTML = sanitizeHTML(`
-    <div style="text-align: center; padding: 40px 20px; color: #666;">
+    <div class="assist-citation-muted" style="text-align: center; padding: 40px 20px;">
       <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
       <p>Select text containing a citation or source to analyze its credibility.</p>
       <p style="font-size: 13px; margin-top: 12px;">Now using Local AI mode.</p>
@@ -1689,7 +1907,7 @@ function citation_init() {
   chrome.storage.local.get(['citationAnalyzerSettings'], result => {
     if (result.citationAnalyzerSettings) {
       Object.assign(citation_settings, result.citationAnalyzerSettings);
-      console.log('[CitationAnalyzer] Settings loaded:', citation_settings);
+      console.log('[CitationAnalyzer] Settings loaded:', Object.keys(citation_settings).join(', '));
     }
   });
 
@@ -1697,7 +1915,10 @@ function citation_init() {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.citationAnalyzerSettings) {
       Object.assign(citation_settings, changes.citationAnalyzerSettings.newValue);
-      console.log('[CitationAnalyzer] Settings updated:', citation_settings);
+      console.log(
+        '[CitationAnalyzer] Settings updated:',
+        Object.keys(citation_settings).join(', ')
+      );
     }
   });
 
@@ -1709,4 +1930,12 @@ if (typeof window !== 'undefined') {
   citation_init();
 }
 
-export { citation_start, citation_show, citation_hide, citation_runAnalysis, citation_settings };
+export {
+  citation_start,
+  citation_show,
+  citation_hide,
+  citation_runAnalysis,
+  citation_settings,
+  citation_startVerification,
+  citation_fallback,
+};

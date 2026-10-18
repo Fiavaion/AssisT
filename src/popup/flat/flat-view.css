@@ -1,0 +1,750 @@
+/**
+ * Flat view.
+ *
+ * Twenty-seven supports in a 340px column, so the density is the design: rows are tight, the type
+ * is small but never below the popup's own floor, and a support's settings only take space while
+ * it is switched on.
+ *
+ * Accent is Ice. Every piece of state that colour shows is also carried by a word, an `aria-*`
+ * attribute, or a border that survives forced-colors.
+ *
+ * THEME: `theme.js` settles Light or Dark and applies it as a `dark-mode` class. This file keys
+ * off that class and NOTHING else — never `prefers-color-scheme` directly, because the student's
+ * choice is the whole answer and the machine's preference has no say in it. Reading the media
+ * query here instead is what produced a half-light, half-dark popup: Flat went dark for the
+ * machine while the rest of the interface stayed light for the student's own setting.
+ * Every surface is painted explicitly for the same reason — nothing shows through from behind.
+ */
+
+.assist-flat {
+  --flat-accent: #075985;
+  --flat-accent-text: #ffffff;
+  --flat-surface: #ffffff;
+  --flat-surface-sunk: #f1f5f9;
+  --flat-line: #cbd5e1;
+  --flat-text: #0f172a;
+  --flat-text-quiet: #475569;
+  --flat-off: #94a3b8;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--flat-surface);
+  color: var(--flat-text);
+}
+
+/*
+ * Dark is the popup's own dark mode, and only that. The surfaces come from the popup's `--dm-*`
+ * palette so Flat cannot drift into being a second dark theme sitting next to the first one; the
+ * accent stays Ice, which clears AA on those surfaces.
+ */
+.popup-container.dark-mode .assist-flat {
+  --flat-accent: #7dd3fc;
+  --flat-accent-text: #082f49;
+  --flat-surface: var(--dm-bg-surface, #1e2330);
+  --flat-surface-sunk: var(--dm-bg-secondary, #0f1419);
+  --flat-line: var(--dm-border, #3a4353);
+  --flat-text: var(--dm-text-primary, #e4e6eb);
+  --flat-text-quiet: var(--dm-text-secondary, #9ba3af);
+  --flat-off: #4b5563;
+}
+
+/* Every focusable thing in the view, one rule, so nothing can be missed. */
+.assist-flat :focus-visible {
+  outline: 3px solid var(--flat-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── The bar ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Two lines, not one: the controls, then the count beneath them.
+ *
+ * Sharing one row, the count had to fight two controls for width in a 340px popup — and the width
+ * it won changed with its own wording, so pressing the filter slid the row sideways and wrapped
+ * the longer sentence onto a second line, pushing the list down. On its own line it has the whole
+ * width, fits, and any growth pushes only downward.
+ */
+.assist-flat__bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--flat-surface);
+  border-bottom: 1px solid var(--flat-line);
+}
+
+/*
+ * The search field, on a line of its own above the controls.
+ *
+ * At 340px it cannot share a row with the theme choice and the filter without being reduced to a few
+ * characters, and it is the one control in the bar a student types into. It is also the first thing
+ * they reach by tab, which is why it comes first in the markup as well as on screen.
+ */
+.assist-flat__search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-surface-sunk);
+}
+
+.assist-flat__search-input {
+  flex: 1 1 auto;
+  /* A minimum and never a height: at 1.5 line-height with 0.12em letter spacing a fixed box clips
+     the text the student is typing (SC 1.4.12). The padding carries the target size instead. */
+  min-height: 36px;
+  /* Without this a flex item refuses to shrink below its placeholder and pushes the clear button
+     out of the bar. */
+  min-width: 0;
+  padding: 6px 4px;
+  border: 0;
+  background: var(--flat-surface-sunk);
+  color: var(--flat-text);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* Chrome draws its own clear affordance on a search input. Ours is the labelled one a keyboard can
+   reach, and two of them side by side is one too many. */
+.assist-flat__search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.assist-flat__search-input::placeholder {
+  color: var(--flat-text-quiet);
+  /* Firefox dims placeholders by default, which would take this below AA on the sunk surface. */
+  opacity: 1;
+}
+
+.assist-flat__search-clear {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  /* SC 2.5.8, in both directions and at any text size. */
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--flat-text-quiet);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* The `display` above would otherwise beat the browser's own rule for [hidden] and leave the button
+   on screen with nothing to clear. */
+.assist-flat__search-clear[hidden] {
+  display: none;
+}
+
+.assist-flat__bar-controls {
+  display: flex;
+  align-items: center;
+  /* Wraps rather than squeezing: at large text the filter drops below the theme choice instead of
+     being crushed into its own label (SC 1.4.12, SC 1.4.4). */
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/*
+ * The two boxes whose text changes when the filter is pressed.
+ *
+ * Every wording each can show is drawn at once, all of them in the SAME grid cell, so the box is
+ * sized by the largest of them and swapping which one is visible changes nothing about the layout.
+ * The reservation is made out of the real text, so it grows with the student's font size and with
+ * increased letter and word spacing instead of clipping the way a fixed pixel width would.
+ */
+.assist-flat__countbox,
+.assist-flat__filter-stack {
+  display: grid;
+}
+
+.assist-flat__countbox > *,
+.assist-flat__filter-stack > * {
+  grid-area: 1 / 1;
+}
+
+/*
+ * Held open by, never seen: `visibility: hidden` keeps the box in flow (unlike `display: none`,
+ * which would reserve nothing) and takes it out of the accessibility tree (unlike `opacity: 0`,
+ * which would leave a screen reader reading all three wordings).
+ */
+.assist-flat__count-sizer,
+.assist-flat__filter-text--sizer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* The count and its space-holders have to measure alike, digits included — tabular figures so a
+   one-digit count reserves exactly what a two-digit one does. */
+.assist-flat__count,
+.assist-flat__count-sizer {
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--flat-text-quiet);
+  overflow-wrap: anywhere;
+}
+
+.assist-flat__filter {
+  margin-inline-start: auto;
+  /* 44px of touch target, kept off the visible height with padding rather than a tall pill. */
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-surface);
+  color: var(--flat-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Each wording stays on one line where it fits, and wraps rather than overflowing where it does
+   not — the stack is sized by the taller of the two either way, so the button never changes. */
+.assist-flat__filter-text {
+  overflow-wrap: anywhere;
+}
+
+.assist-flat__filter[aria-pressed='true'] {
+  background: var(--flat-accent);
+  border-color: var(--flat-accent);
+  color: var(--flat-accent-text);
+}
+
+/* The theme choice: Light or Dark, as one radiogroup. */
+.assist-flat__theme {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-surface-sunk);
+}
+
+.assist-flat__theme-btn {
+  min-height: 28px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--flat-text-quiet);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Chosen state is a fill AND the aria-checked attribute the selector reads, never colour alone. */
+.assist-flat__theme-btn[aria-checked='true'] {
+  background: var(--flat-accent);
+  color: var(--flat-accent-text);
+}
+
+/* ── Jump strip ──────────────────────────────────────────────────────────── */
+
+.assist-flat__jump {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--flat-line);
+  background: var(--flat-surface-sunk);
+}
+
+.assist-flat__jump-btn {
+  min-height: 44px;
+  padding: 4px 10px;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-surface);
+  color: var(--flat-text);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
+.assist-flat__scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  background: var(--flat-surface);
+}
+
+.assist-flat__group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--flat-surface-sunk);
+  border-bottom: 1px solid var(--flat-line);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--flat-text-quiet);
+}
+
+.assist-flat__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  /* Painted, not transparent: a row that let the popup's own background through would put light
+     text on a light surface the moment the two themes disagreed. */
+  background: var(--flat-surface);
+  border-bottom: 1px solid var(--flat-line);
+  min-height: 44px;
+}
+
+.assist-flat__icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.assist-flat__naming {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The name and anything that qualifies it share a line and wrap together rather than clipping. */
+.assist-flat__nameline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+/*
+ * "Beta" beside a support's name.
+ *
+ * Quiet enough not to compete with the name, and still a word: the mark reads the same to a
+ * screen reader, in forced-colors, and to a student who cannot separate the chip from the row.
+ * Both colours are the view's own tokens, so the chip follows the popup into dark mode instead of
+ * being a second palette: `--flat-text-quiet` reads at 6.9:1 light and 7.3:1 dark on
+ * `--flat-surface-sunk`. The outline around it is decoration, and the word survives without it.
+ */
+.assist-flat__beta {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-surface-sunk);
+  color: var(--flat-text-quiet);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.assist-flat__name {
+  font-size: 13px;
+  font-weight: 600;
+  /* Text-spacing safe: wraps rather than truncating when a student widens spacing (SC 1.4.12). */
+  overflow-wrap: anywhere;
+}
+
+.assist-flat__desc {
+  font-size: 11px;
+  color: var(--flat-text-quiet);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * "Switch on for Highlight While Reading and Word by Word", on a switched-off support.
+ *
+ * Those two are drawn inside Read Aloud, so while it is off they are not on the screen at all.
+ * This is the only thing that says so, which is why it is a sentence rather than an icon, and why
+ * the switch points at it with `aria-describedby`: `--flat-accent` reads at 7.5:1 light and 9.4:1
+ * dark on `--flat-surface`, and a student who receives no colour at all still gets every word.
+ */
+.assist-flat__holds {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--flat-accent);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * A line the hidden accordion writes as the student works, shown here: a result ("Deleted."), a
+ * note ("Your computer is asking for less motion too"), what a slider's number means. In the quiet
+ * text colour, which is AA on both surfaces, with no fixed height so text spacing can grow.
+ */
+.assist-flat__status {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--flat-text-quiet);
+  overflow-wrap: anywhere;
+}
+
+.assist-flat__status[hidden] {
+  display: none;
+}
+
+.assist-flat__empty {
+  margin: 0;
+  padding: 16px 12px;
+  font-size: 13px;
+  color: var(--flat-text-quiet);
+}
+
+/* ── Switch ──────────────────────────────────────────────────────────────── */
+
+.assist-flat__switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 24px;
+}
+
+.assist-flat__switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.assist-flat__slider {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-off);
+  transition: background-color 120ms ease;
+}
+
+.assist-flat__slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 120ms ease;
+}
+
+.assist-flat__switch input:checked + .assist-flat__slider {
+  background: var(--flat-accent);
+  border-color: var(--flat-accent);
+}
+
+.assist-flat__switch input:checked + .assist-flat__slider::after {
+  transform: translateX(16px);
+}
+
+.assist-flat__switch input:focus-visible + .assist-flat__slider {
+  outline: 3px solid var(--flat-accent);
+  outline-offset: 2px;
+}
+
+/* ── A switched-on support's settings ────────────────────────────────────── */
+
+.assist-flat__settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px 34px;
+  border-bottom: 1px solid var(--flat-line);
+  background: var(--flat-surface-sunk);
+}
+
+.assist-flat__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/*
+ * The control on a row whose support is not a yes-or-no — AI Assist, which has four modes.
+ *
+ * Sized and shaped like the row's switch rather than like a settings button, because it stands
+ * where the switch stands: same 24px minimum on both sides of the target (SC 2.5.8), same right
+ * edge, so a column of rows still reads as a column. It says its state in words, so it is wider
+ * than a switch; `max-width` keeps the longest wording off the support's name.
+ */
+.assist-flat__state {
+  flex: 0 0 auto;
+  min-height: 24px;
+  max-width: 96px;
+  overflow: hidden;
+  padding: 3px 10px;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-surface);
+  color: var(--flat-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/*
+ * The supports that live inside another one, at the foot of its settings block.
+ *
+ * Pulled back out of that block's own 34px indent to 22px, and out to the popup's right edge, so
+ * the rows inside keep the full width and the same padding every other row has — they are rows,
+ * not settings, and a student switching one on should not be able to tell the difference.
+ *
+ * The rule down the left is the visible tie to the parent. It is not the only one: the group
+ * carries `role="group"` and an accessible name taken from the parent ("Read Aloud options"), so
+ * the nesting is announced as well as drawn. Accent rather than `--flat-line` because a 1px hair
+ * line at this indent is easy to miss — it clears 3:1 against `--flat-surface-sunk` in both
+ * themes, and forced-colors below replaces it with a system colour rather than losing it.
+ */
+.assist-flat__nested {
+  display: flex;
+  flex-direction: column;
+  margin: 8px -10px 0 -12px;
+  border-left: 3px solid var(--flat-accent);
+  background: var(--flat-surface);
+}
+
+/* The last nested row sits on the settings block's own bottom border; two would read as a gap. */
+.assist-flat__nested > .assist-flat__row:last-child,
+.assist-flat__nested > .assist-flat__settings:last-child {
+  border-bottom: 0;
+}
+
+/* ── Controls, drawn by control-renderer.js ──────────────────────────────── */
+
+.assist-reg-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.assist-reg-control__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.assist-reg-control__label,
+.assist-reg-switch__text {
+  font-size: 12px;
+  color: var(--flat-text);
+}
+
+.assist-reg-control__value {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--flat-text-quiet);
+}
+
+.assist-reg-control input[type='range'] {
+  width: 100%;
+  min-height: 24px;
+  accent-color: var(--flat-accent);
+}
+
+.assist-reg-control select {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid var(--flat-line);
+  border-radius: 6px;
+  background: var(--flat-surface);
+  color: var(--flat-text);
+  font-size: 12px;
+}
+
+.assist-reg-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  cursor: pointer;
+}
+
+.assist-reg-switch__box {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+}
+
+.assist-reg-switch__box input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.assist-reg-switch__slider {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-off);
+}
+
+.assist-reg-switch__slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 120ms ease;
+}
+
+.assist-reg-switch__box input:checked + .assist-reg-switch__slider {
+  background: var(--flat-accent);
+  border-color: var(--flat-accent);
+}
+
+.assist-reg-switch__box input:checked + .assist-reg-switch__slider::after {
+  transform: translateX(14px);
+}
+
+.assist-reg-switch__box input:focus-visible + .assist-reg-switch__slider {
+  outline: 3px solid var(--flat-accent);
+  outline-offset: 2px;
+}
+
+.assist-reg-control--radio {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--flat-line);
+  border-radius: 6px;
+}
+
+.assist-reg-control--radio legend {
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--flat-text-quiet);
+}
+
+.assist-reg-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 32px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.assist-reg-radio input {
+  margin-top: 3px;
+  accent-color: var(--flat-accent);
+}
+
+.assist-reg-radio__hint,
+.assist-reg-switch__hint {
+  display: block;
+  width: 100%;
+  font-size: 11px;
+  color: var(--flat-text-quiet);
+}
+
+.assist-reg-chips,
+.assist-reg-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A slider's presets sit under it, as chips: the same shape for the same kind of one-press choice. */
+.assist-reg-presets {
+  margin-top: 6px;
+}
+
+.assist-reg-chip,
+.assist-reg-preset,
+.assist-reg-action {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--flat-line);
+  border-radius: 999px;
+  background: var(--flat-surface);
+  color: var(--flat-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Pressed state is a fill AND the aria-pressed attribute the selector keys off, so it is never
+   colour alone. */
+.assist-reg-chip[aria-pressed='true'],
+.assist-reg-preset[aria-pressed='true'] {
+  background: var(--flat-accent);
+  border-color: var(--flat-accent);
+  color: var(--flat-accent-text);
+}
+
+/* ── Honouring the system ────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .assist-flat *,
+  .assist-flat *::after {
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  /* Windows high-contrast replaces the palette wholesale. Anything that showed state by fill has
+     to show it by border or text instead. */
+  .assist-flat__filter,
+  .assist-flat__jump-btn,
+  .assist-flat__state,
+  .assist-reg-chip,
+  .assist-reg-preset,
+  .assist-reg-action,
+  .assist-flat__slider,
+  .assist-reg-switch__slider {
+    border: 1px solid ButtonBorder;
+  }
+
+  .assist-flat__filter[aria-pressed='true'],
+  .assist-reg-chip[aria-pressed='true'],
+  .assist-reg-preset[aria-pressed='true'],
+  .assist-flat__theme-btn[aria-checked='true'] {
+    border: 3px solid ButtonBorder;
+  }
+
+  .assist-flat__switch input:checked + .assist-flat__slider,
+  .assist-reg-switch__box input:checked + .assist-reg-switch__slider {
+    border-width: 3px;
+  }
+
+  /* The tie between a support and the supports inside it, kept when the palette is replaced. */
+  .assist-flat__nested {
+    border-left-color: ButtonBorder;
+  }
+
+  .assist-flat :focus-visible {
+    outline: 3px solid Highlight;
+  }
+}

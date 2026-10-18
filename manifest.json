@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "0.9.3",
+  "version": "1.0.0",
   "author": "AssisT Development Team",
   "icons": {
     "16": "public/icons/icon16.png",
@@ -42,35 +42,11 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/ui/components/*.js",
-        "src/ui/styles/*.css",
-        "src/utils/event-handlers.js",
-        "public/assets/*",
-        "public/icons/*",
-        "src/adapters/canvas-adapter.js",
-        "src/adapters/moodle-adapter.js",
-        "src/adapters/google-classroom-adapter.js",
         "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
-        "src/pages/ai-setup/*",
-        "src/pages/discovery/*",
-        "src/pages/demo/*",
-        "src/pages/help/*",
-        "src/assets/fonts/*"
-      ],
-      "matches": [
-        "*://*.instructure.com/*",
-        "*://*.canvas.com/*",
-        "*://*.moodle.org/*",
-        "*://*.moodlecloud.com/*",
-        "*://classroom.google.com/*",
-        "*://docs.google.com/*"
-      ]
-    },
-    {
-      "resources": [
-        "src/ui/styles/*.css",
-        "public/icons/*",
-        "node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
+        "node_modules/tesseract.js/dist/worker.min.js",
+        "node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js",
+        "node_modules/tesseract.js-core/tesseract-core-lstm.wasm.js",
+        "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz",
         "assets/*.js",
         "assets/*.css",
         "src/assets/fonts/*"
@@ -81,7 +57,10 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://api.perplexity.ai https://api-free.deepl.com https://api.deepl.com https://api.mymemory.translated.net http://localhost:11434 https://*.huggingface.co https://huggingface.co https://hf.co https://*.hf.co https://*.xethub.hf.co https://raw.githubusercontent.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'"
+    "extension_pages": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://api.perplexity.ai https://api.mymemory.translated.net https://api.crossref.org https://api.semanticscholar.org https://api.dictionaryapi.dev https://cdn.jsdelivr.net http://localhost:11434 http://127.0.0.1:11434 https://*.huggingface.co https://huggingface.co https://hf.co https://*.hf.co https://*.xethub.hf.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'"
+  },
+  "storage": {
+    "managed_schema": "managed_schema.json"
   },
   "name": "AssisT: Adaptive Augmentative Tool",
   "description": "Adaptive learning tools with Text-to-Speech, AI assistance, and accessibility features for all learners",
@@ -100,17 +79,25 @@
     "*://*.moodlecloud.com/*",
     "*://classroom.google.com/*",
     "*://docs.google.com/*",
-    "http://localhost:11434/*",
-    "https://generativelanguage.googleapis.com/*",
     "https://huggingface.co/*",
     "https://*.huggingface.co/*",
     "https://hf.co/*",
     "https://*.hf.co/*",
-    "https://*.xethub.hf.co/*",
-    "https://raw.githubusercontent.com/*"
+    "https://*.xethub.hf.co/*"
   ],
   "optional_host_permissions": [
-    "<all_urls>"
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*",
+    "<all_urls>",
+    "https://api.semanticscholar.org/*",
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.perplexity.ai/*",
+    "https://api.dictionaryapi.dev/*",
+    "https://api.mymemory.translated.net/*",
+    "https://api.crossref.org/*",
+    "https://cdn.jsdelivr.net/*"
   ],
   "privacy_policy": "https://fiavaion.com/products/assist/privacy"
 }

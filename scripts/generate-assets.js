@@ -18,13 +18,6 @@ const WHITE = '#FFFFFF';
 const LOGO_SOURCE = 'Ident/AssisTLogo_1024.jpg';
 const OUTPUT_DIR = 'generated-assets';
 
-// Font configuration (matching MultiMon style - bold, geometric, wide)
-const FONT_CONFIG = {
-  family: 'Arial',
-  weight: 900,
-  letterSpacing: 2
-};
-
 async function ensureDir(dir) {
   await mkdir(dir, { recursive: true });
 }

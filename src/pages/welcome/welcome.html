@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to AssisT</title>
+    <link rel="stylesheet" href="welcome.css" />
+  </head>
+  <body>
+    <!-- Skip navigation for keyboard users -->
+    <a class="skip-link" href="#welcome-main">Skip to main content</a>
+
+    <!-- Progress and status announcements -->
+    <div
+      id="welcome-status"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      class="sr-only"
+    ></div>
+
+    <!-- SC 3.2.6: Help sits last in the header on every AssisT page, as it does in the popup. It
+         opens in a new tab so the wizard keeps its step. -->
+    <header class="page-help-bar">
+      <a
+        class="btn btn-secondary page-help"
+        href="../help/help.html"
+        target="_blank"
+        rel="noopener"
+        data-destination="help"
+        aria-label="Help (opens in a new tab)"
+        >Help</a
+      >
+    </header>
+
+    <main id="welcome-main" class="welcome-container">
+      <!-- ================================================================
+           VIEW 1: Guide picker
+           ================================================================ -->
+      <section id="view-intent" class="welcome-view" aria-labelledby="intent-heading">
+        <div class="welcome-header">
+          <span class="welcome-logo" aria-hidden="true">✨</span>
+          <h1 id="intent-heading" class="welcome-title" tabindex="-1">Welcome to AssisT</h1>
+        </div>
+
+        <fieldset class="track-fieldset">
+          <legend class="welcome-subtitle">Which guides would you like to complete?</legend>
+          <p class="welcome-hint">
+            Pick any that apply, or none at all — everything here can be done later from the
+            extension popup.
+          </p>
+
+          <!-- One checkbox per track; built by welcome.js from TRACK_ORDER -->
+          <div id="track-choices" class="track-choices"></div>
+
+          <!-- Shown only when the selection contradicts itself (clean setup + import) -->
+          <p
+            id="selection-warning"
+            class="track-warning"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+        </fieldset>
+
+        <div class="intent-actions">
+          <button id="btn-continue" type="button" class="btn btn-primary btn-large">
+            Continue
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           VIEW 2: Hub checklist
+           ================================================================ -->
+      <section id="view-hub" class="welcome-view" aria-labelledby="hub-heading" hidden>
+        <div class="welcome-header">
+          <span class="welcome-logo" aria-hidden="true">🗂️</span>
+          <h1 id="hub-heading" class="welcome-title" tabindex="-1">Your setup checklist</h1>
+          <p class="welcome-hint">
+            Work down the list in order. Each guide waits for the one above it.
+          </p>
+        </div>
+
+        <ol id="hub-checklist" class="hub-checklist" aria-label="Setup steps">
+          <!-- items inserted by renderHub() -->
+        </ol>
+
+        <div id="hub-complete" class="hub-complete" hidden>
+          <span class="hub-complete-icon" aria-hidden="true">🎉</span>
+          <h2 class="hub-complete-heading">All set!</h2>
+          <p class="hub-complete-text">
+            AssisT is ready. You can change any of this from the extension popup whenever you like.
+          </p>
+          <button id="btn-finish" type="button" class="btn btn-primary btn-large">
+            Open AssisT
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./welcome.js"></script>
+  </body>
+</html>

@@ -65,7 +65,7 @@ function extractClassroomCourseId() {
 
 function extractClassroomDueDate() {
   const el = document.querySelector('[data-due-date-ms], .dkkmFe');
-  if (el?.dataset?.dueDateMs) return new Date(Number(el.dataset.dueDateMs)).toISOString();
+  if (el?.dataset?.dueDateMs) {return new Date(Number(el.dataset.dueDateMs)).toISOString();}
   return el?.textContent?.trim() ?? null;
 }
 

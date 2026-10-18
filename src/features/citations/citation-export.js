@@ -11,11 +11,32 @@
  * @version 1.1.0
  */
 
-import { CitationStorage } from './citation-storage.js';
-import { formatBibliography } from './citation-formatter.js';
-import { showSuccessToast, showErrorToast } from './citation-ui.js';
+import { CitationStorageRPC as CitationStorage } from './citation-rpc.js';
+import { exportAsCSL, importFromCSL } from './citation-csl-io.js';
+import { parseBibTeX, parseRIS } from './citation-interchange.js';
+import { formatBibliography } from './citation-styles/index.js';
+import { showSuccessToast, showErrorToast } from './citation-toast.js';
 import { normalizeCitation, getBibTeXType, getRISType } from './citation-types.js';
+import { notesWithQuote, quoteNote } from './citation-quote-note.js';
+import { doiUrl } from './citation-styles/shared.js';
 import { extractYear } from './citation-model.js';
+
+/**
+ * The export menu, in the order it is offered: the placeholder first, then one entry per format
+ * `exportCitations()` accepts. Every surface that offers an export builds its menu from this —
+ * the library header and the selection bar both did it from their own literal list, and a format
+ * added to one would silently be missing from the other.
+ * @type {Array<[string, string]>}
+ */
+export const EXPORT_FORMATS = [
+  ['', 'Choose format…'],
+  ['bibtex', 'BibTeX (.bib)'],
+  ['ris', 'RIS (.ris)'],
+  ['csl', 'CSL-JSON (.json)'],
+  ['csv', 'CSV (.csv)'],
+  ['json', 'AssisT JSON (.json)'],
+  ['txt', 'Reference list, plain text (.txt)'],
+];
 
 /**
  * Export citations as JSON
@@ -89,11 +110,31 @@ function exportAsCSV(citations) {
     escapeCSV(c.extra.pages),
     escapeCSV(c.accessDate),
     escapeCSV(c.tags.join(', ')),
-    escapeCSV(c.notes),
+    // The captured quote and its page ride in the Notes column, after the student's own note.
+    escapeCSV(notesWithQuote(c)),
   ]);
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }
+
+/** BibTeX month macros, in month order. */
+const BIBTEX_MONTHS = [
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
+];
+
+/** RIS reference types whose SN line carries an ISSN rather than an ISBN. */
+const RIS_ISSN_TYPES = new Set(['JOUR', 'MGZN', 'NEWS']);
 
 /**
  * Export citations as BibTeX
@@ -110,22 +151,26 @@ function exportAsBibTeX(citations) {
     return str.replace(/[{}&%$#_^~\\]/g, char => `\\${char}`);
   };
 
-  const formatAuthorBibTeX = authors => {
-    if (!authors || authors.length === 0) {
+  const formatAuthorBibTeX = (names, organisations = []) => {
+    if (!Array.isArray(names) || names.length === 0) {
       return '';
     }
-    return authors
-      .map(author => {
-        // If already "Last, First" form, keep it; otherwise convert "First Last" -> "Last, First"
-        if (author.includes(',')) {
-          return author.trim();
+    return names
+      .map(name => {
+        // An organisation goes in its own braces, BibTeX's literal, so no reader inverts it.
+        if (organisations.includes(name.trim())) {
+          return `{${escapeBibTeX(name.trim())}}`;
         }
-        const parts = author.trim().split(' ');
+        // If already "Last, First" form, keep it; otherwise convert "First Last" -> "Last, First"
+        if (name.includes(',')) {
+          return escapeBibTeX(name.trim());
+        }
+        const parts = name.trim().split(' ');
         if (parts.length >= 2) {
           const last = parts.pop();
-          return `${last}, ${parts.join(' ')}`;
+          return escapeBibTeX(`${last}, ${parts.join(' ')}`);
         }
-        return author;
+        return escapeBibTeX(name);
       })
       .join(' and ');
   };
@@ -151,41 +196,47 @@ function exportAsBibTeX(citations) {
       const type = getBibTeXType(c);
       const key = generateKey(c);
       const year = extractYear(c.publicationDate);
+      const ex = c.extra || {};
+      const isChapter = type === 'incollection' || type === 'inbook';
+      const isThesis = type === 'phdthesis' || type === 'mastersthesis';
       const fields = [];
+      const add = (name, value) => {
+        if (value) {
+          fields.push(`  ${name} = {${value}}`);
+        }
+      };
 
-      if (c.authors.length > 0) {
-        fields.push(`  author = {${formatAuthorBibTeX(c.authors)}}`);
+      add('author', formatAuthorBibTeX(c.authors, ex.organisationAuthors));
+      add('editor', formatAuthorBibTeX(ex.editors));
+      add('title', escapeBibTeX(c.title));
+      add('year', year);
+      // BibTeX states the month as a macro; a full date has no BibTeX field, so it goes in the
+      // biblatex `date` field, which the importer reads back in preference to year + month.
+      const month = c.publicationDate.match(/^\d{4}-(\d{2})/);
+      if (month) {
+        fields.push(`  month = ${BIBTEX_MONTHS[Number(month[1]) - 1]}`);
       }
-      if (c.title) {
-        fields.push(`  title = {${escapeBibTeX(c.title)}}`);
-      }
-      if (year) {
-        fields.push(`  year = {${year}}`);
-      }
-      if (c.siteName) {
-        fields.push(`  journal = {${escapeBibTeX(c.siteName)}}`);
-      }
-      if (c.publisher) {
-        fields.push(`  publisher = {${escapeBibTeX(c.publisher)}}`);
-      }
-      if (c.extra.volume) {
-        fields.push(`  volume = {${c.extra.volume}}`);
-      }
-      if (c.extra.issue) {
-        fields.push(`  number = {${c.extra.issue}}`);
-      }
-      if (c.extra.pages) {
-        fields.push(`  pages = {${c.extra.pages}}`);
-      }
-      if (c.doi) {
-        fields.push(`  doi = {${c.doi}}`);
-      }
-      if (c.url) {
-        fields.push(`  url = {${c.url}}`);
-      }
-      if (c.accessDate) {
-        fields.push(`  urldate = {${c.accessDate}}`);
-      }
+      add('date', /^\d{4}-\d{2}-\d{2}$/.test(c.publicationDate) ? c.publicationDate : '');
+      add(isChapter ? 'booktitle' : 'journal', escapeBibTeX(c.siteName));
+      add('publisher', escapeBibTeX(c.publisher));
+      add(isThesis ? 'school' : 'institution', escapeBibTeX(ex.institution));
+      // For a thesis, BibTeX's `type` field is the degree ("Master's thesis"), not the entry type.
+      add('type', isThesis ? escapeBibTeX(ex.thesisType) : '');
+      add('address', escapeBibTeX(ex.place));
+      add('edition', escapeBibTeX(ex.edition));
+      add('chapter', escapeBibTeX(ex.chapter));
+      add('volume', ex.volume);
+      add('number', ex.issue);
+      // BibTeX writes a page range with an en-dash.
+      add('pages', ex.pages ? String(ex.pages).replace(/\s*-\s*/, '--') : '');
+      add('isbn', c.isbn);
+      add('issn', c.issn);
+      add('doi', c.doi);
+      add('url', c.url);
+      add('urldate', c.accessDate);
+      // The captured quote and its page go in the note, so they reach Zotero and EndNote.
+      add('note', escapeBibTeX(notesWithQuote(c)));
+      add('keywords', escapeBibTeX(c.tags.join(', ')));
 
       return `@${type}{${key},\n${fields.join(',\n')}\n}`;
     })
@@ -208,11 +259,15 @@ function exportAsRIS(citations) {
 
       lines.push(`TY  - ${type}`);
 
-      // Authors (AU tag for each author)
+      // Authors (AU tag for each author). An organisation is written whole, with no comma, which
+      // is how RIS readers (and our own importer) tell it from a person.
+      const organisations = c.extra.organisationAuthors || [];
       if (c.authors.length > 0) {
         c.authors.forEach(author => {
-          // If already "Last, First", emit as-is; otherwise convert
-          if (author.includes(',')) {
+          if (organisations.includes(author.trim())) {
+            lines.push(`AU  - ${author.trim()}`);
+          } else if (author.includes(',')) {
+            // Already "Last, First": emit as-is; otherwise convert
             lines.push(`AU  - ${author.trim()}`);
           } else {
             const parts = author.trim().split(' ');
@@ -236,15 +291,17 @@ function exportAsRIS(citations) {
         lines.push(`PY  - ${year}`);
       }
 
-      // Full publication date
-      if (c.publicationDate) {
-        const date = new Date(c.publicationDate);
-        if (!isNaN(date.getTime())) {
-          lines.push(
-            `DA  - ${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`
-          );
-        }
+      // Full publication date, at the precision the record actually has: a year alone stays in PY,
+      // because writing DA 2011/01/01 for it would invent a day the source never stated.
+      const stated = c.publicationDate.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
+      if (stated) {
+        lines.push(`DA  - ${stated.slice(1).filter(Boolean).join('/')}`);
       }
+
+      // Editors of the containing book
+      (c.extra.editors || []).forEach(editor => {
+        lines.push(`A2  - ${editor.trim()}`);
+      });
 
       // Journal / container / site name
       if (c.siteName) {
@@ -252,9 +309,20 @@ function exportAsRIS(citations) {
         lines.push(`T2  - ${c.siteName}`);
       }
 
-      // Publisher
-      if (c.publisher) {
-        lines.push(`PB  - ${c.publisher}`);
+      // Publisher — a thesis states its awarding institution here.
+      const publisher = c.publisher || c.extra.institution || '';
+      if (publisher) {
+        lines.push(`PB  - ${publisher}`);
+      }
+
+      // Place of publication
+      if (c.extra.place) {
+        lines.push(`CY  - ${c.extra.place}`);
+      }
+
+      // Edition
+      if (c.extra.edition) {
+        lines.push(`ET  - ${c.extra.edition}`);
       }
 
       // Volume
@@ -291,9 +359,13 @@ function exportAsRIS(citations) {
         lines.push(`Y2  - ${c.accessDate}`);
       }
 
-      // Abstract/Notes
+      // The student's note, then the captured quote and its page as a note of their own, so they
+      // reach Zotero and EndNote (read back into the quote by the importer).
       if (c.notes) {
         lines.push(`N1  - ${c.notes}`);
+      }
+      if (quoteNote(c)) {
+        lines.push(`N1  - ${quoteNote(c)}`);
       }
 
       // Tags as keywords
@@ -303,243 +375,20 @@ function exportAsRIS(citations) {
         });
       }
 
-      // ISBN (preserved from raw citation in case present)
-      if (c.isbn) {
-        lines.push(`SN  - ${c.isbn}`);
+      // RIS has one serial-number line: an ISSN on a periodical, an ISBN on anything else.
+      const serial = RIS_ISSN_TYPES.has(type) ? c.issn || c.isbn : c.isbn || c.issn;
+      if (serial) {
+        lines.push(`SN  - ${serial}`);
       }
 
       // End of record — trailing space required by RIS spec
       lines.push('ER  - ');
 
-      return lines.join('\n');
+      // RIS readers take one tag per physical line, so a line break inside any value (a note
+      // written in paragraphs, a pasted title) would split the field and corrupt the record.
+      return lines.map(line => line.replace(/\s*[\r\n]+\s*/g, ' ')).join('\n');
     })
     .join('\n\n');
-}
-
-/**
- * Parse RIS format and import citations
- * @param {string} risContent - RIS format content
- * @returns {Array} Parsed citations
- */
-function parseRIS(risContent) {
-  const typeMappings = {
-    JOUR: 'journal-article',
-    BOOK: 'book',
-    CHAP: 'book-chapter',
-    THES: 'thesis',
-    CONF: 'conference-paper',
-    RPRT: 'report',
-    ELEC: 'website',
-    VIDEO: 'video',
-    NEWS: 'news-article',
-    GEN: 'unknown',
-  };
-
-  const records = risContent.split(/ER\s+-\s*/);
-  const citations = [];
-
-  for (const record of records) {
-    if (!record.trim()) {
-      continue;
-    }
-
-    const lines = record.split('\n');
-    const citation = {
-      authors: [],
-      tags: [],
-      createdAt: Date.now(),
-      accessDate: new Date().toISOString().split('T')[0],
-    };
-
-    for (const line of lines) {
-      const match = line.match(/^([A-Z][A-Z0-9])\s+-\s+(.*)$/);
-      if (!match) {
-        continue;
-      }
-
-      const [, tag, value] = match;
-      const trimmedValue = value.trim();
-
-      switch (tag) {
-        case 'TY':
-          citation.type = typeMappings[trimmedValue] || 'unknown';
-          break;
-        case 'AU':
-        case 'A1': {
-          // Convert "Last, First" to "First Last"
-          const parts = trimmedValue.split(',');
-          if (parts.length >= 2) {
-            citation.authors.push(`${parts[1].trim()} ${parts[0].trim()}`);
-          } else {
-            citation.authors.push(trimmedValue);
-          }
-          break;
-        }
-        case 'TI':
-        case 'T1':
-          citation.title = trimmedValue;
-          break;
-        case 'PY':
-        case 'Y1':
-          citation.year = trimmedValue.split('/')[0];
-          break;
-        case 'JO':
-        case 'T2':
-          citation.journal = trimmedValue;
-          break;
-        case 'PB':
-          citation.publisher = trimmedValue;
-          break;
-        case 'VL':
-          citation.volume = trimmedValue;
-          break;
-        case 'IS':
-          citation.issue = trimmedValue;
-          break;
-        case 'SP':
-          citation.startPage = trimmedValue;
-          break;
-        case 'EP':
-          citation.endPage = trimmedValue;
-          break;
-        case 'DO':
-          citation.doi = trimmedValue;
-          break;
-        case 'UR':
-          citation.url = trimmedValue;
-          break;
-        case 'N1':
-        case 'AB':
-          citation.notes = trimmedValue;
-          break;
-        case 'KW':
-          citation.tags.push(trimmedValue);
-          break;
-        case 'SN':
-          citation.isbn = trimmedValue;
-          break;
-        default:
-          break;
-      }
-    }
-
-    // Combine start and end pages
-    if (citation.startPage) {
-      citation.pages = citation.endPage
-        ? `${citation.startPage}-${citation.endPage}`
-        : citation.startPage;
-      delete citation.startPage;
-      delete citation.endPage;
-    }
-
-    // Only add if we have at least a title
-    if (citation.title) {
-      citations.push(citation);
-    }
-  }
-
-  return citations;
-}
-
-/**
- * Parse BibTeX format and import citations
- * @param {string} bibtexContent - BibTeX format content
- * @returns {Array} Parsed citations
- */
-function parseBibTeX(bibtexContent) {
-  const typeMappings = {
-    article: 'journal-article',
-    book: 'book',
-    inbook: 'book-chapter',
-    incollection: 'book-chapter',
-    phdthesis: 'thesis',
-    mastersthesis: 'thesis',
-    inproceedings: 'conference-paper',
-    conference: 'conference-paper',
-    techreport: 'report',
-    misc: 'website',
-    online: 'website',
-    unpublished: 'unknown',
-  };
-
-  // Match BibTeX entries
-  const entryRegex = /@(\w+)\s*\{\s*([^,]+)\s*,([^}]+)\}/g;
-  const citations = [];
-  let match;
-
-  while ((match = entryRegex.exec(bibtexContent)) !== null) {
-    const [, type, , fieldsStr] = match;
-    const citation = {
-      type: typeMappings[type.toLowerCase()] || 'unknown',
-      authors: [],
-      tags: [],
-      createdAt: Date.now(),
-      accessDate: new Date().toISOString().split('T')[0],
-    };
-
-    // Parse fields
-    const fieldRegex = /(\w+)\s*=\s*\{([^}]*)\}/g;
-    let fieldMatch;
-
-    while ((fieldMatch = fieldRegex.exec(fieldsStr)) !== null) {
-      const [, field, value] = fieldMatch;
-      const cleanValue = value.replace(/\\/g, '');
-
-      switch (field.toLowerCase()) {
-        case 'author':
-          // Split on " and " and convert "Last, First" to "First Last"
-          citation.authors = cleanValue.split(/\s+and\s+/i).map(author => {
-            const parts = author.split(',');
-            if (parts.length >= 2) {
-              return `${parts[1].trim()} ${parts[0].trim()}`;
-            }
-            return author.trim();
-          });
-          break;
-        case 'title':
-          citation.title = cleanValue;
-          break;
-        case 'year':
-          citation.year = cleanValue;
-          break;
-        case 'journal':
-          citation.journal = cleanValue;
-          break;
-        case 'publisher':
-          citation.publisher = cleanValue;
-          break;
-        case 'volume':
-          citation.volume = cleanValue;
-          break;
-        case 'number':
-          citation.issue = cleanValue;
-          break;
-        case 'pages':
-          citation.pages = cleanValue.replace('--', '-');
-          break;
-        case 'doi':
-          citation.doi = cleanValue;
-          break;
-        case 'url':
-          citation.url = cleanValue;
-          break;
-        case 'urldate':
-          citation.accessDate = cleanValue;
-          break;
-        case 'keywords':
-          citation.tags = cleanValue.split(',').map(t => t.trim());
-          break;
-        default:
-          break;
-      }
-    }
-
-    if (citation.title) {
-      citations.push(citation);
-    }
-  }
-
-  return citations;
 }
 
 /**
@@ -575,10 +424,14 @@ function downloadFile(content, filename, mimeType) {
 
 /**
  * Export all citations to a file
- * @param {string} format - Export format (json, csv, bibtex, ris, txt, html)
+ * @param {string} format - Export format (json, csv, bibtex, ris, csl, txt)
  * @param {Array} citations - Optional specific citations (defaults to all)
+ * @param {string} [style] - the student's chosen citation style, which the plain-text
+ *   bibliography is formatted in; the other formats carry data, not a formatted reference
+ * @param {{pool?: Array}} [options] - pool: the whole library, so each entry in the plain-text
+ *   bibliography carries the year letter of its own collection, the one its card copies
  */
-async function exportCitations(format, citations = null) {
+async function exportCitations(format, citations = null, style = undefined, { pool } = {}) {
   try {
     const data = citations || (await CitationStorage.getAll());
 
@@ -615,9 +468,16 @@ async function exportCitations(format, citations = null) {
         mimeType = 'application/x-research-info-systems';
         break;
 
+      case 'csl':
+      case 'csl-json':
+        content = exportAsCSL(data);
+        filename = 'citations.csl.json';
+        mimeType = 'application/vnd.citationstyles.csl+json';
+        break;
+
       case 'txt':
       case 'text':
-        content = formatBibliography(data);
+        content = formatBibliography(data, style, { pool });
         filename = 'bibliography.txt';
         mimeType = 'text/plain';
         break;
@@ -636,125 +496,184 @@ async function exportCitations(format, citations = null) {
 }
 
 /**
- * Import citations from a file
- * @param {File} file - File to import
- * @returns {Promise<number>} Number of imported citations
+ * Heuristic: does this parsed JSON look like CSL-JSON rather than AssisT's own export? CSL items
+ * carry distinctive capitalised identifiers (DOI/URL/ISBN/ISSN) and CSL-only fields (issued,
+ * container-title), and AssisT's own CSL export tags items with an `assist:extras` overflow key.
+ * AssisT's native shape uses lowercase doi/url/title and string authors, so it never matches.
+ * @param {*} data - parsed JSON: an array, a single item, or an { items: [...] } wrapper
+ * @returns {boolean}
+ */
+function looksLikeCSL(data) {
+  let first;
+  if (Array.isArray(data)) {
+    first = data[0];
+  } else if (data && Array.isArray(data.items)) {
+    first = data.items[0];
+  } else if (data && typeof data === 'object' && !data.citations) {
+    first = data;
+  }
+  if (!first || typeof first !== 'object') {
+    return false;
+  }
+  return (
+    'DOI' in first ||
+    'URL' in first ||
+    'ISBN' in first ||
+    'ISSN' in first ||
+    'issued' in first ||
+    'container-title' in first ||
+    'assist:extras' in first
+  );
+}
+
+/**
+ * Read the entries out of an import file. Throws when the content cannot be understood — the caller
+ * turns that into a sentence; nothing here ever reaches a student.
+ * @param {string} content - the file's text
+ * @param {string} filename - lower-cased file name (the format is chosen by its extension)
+ * @returns {Array|null} the entries found, or null when the extension is not one we import
+ */
+function parseImportFile(content, filename) {
+  if (filename.endsWith('.ris')) {
+    return parseRIS(content);
+  }
+  if (filename.endsWith('.bib') || filename.endsWith('.bibtex')) {
+    return parseBibTeX(content);
+  }
+  if (filename.endsWith('.csl') || filename.endsWith('.csl.json')) {
+    return importFromCSL(content);
+  }
+  if (filename.endsWith('.json')) {
+    const data = JSON.parse(content);
+    // A .json file may be AssisT's own export or a CSL-JSON file. CSL items use distinctive
+    // capitalised keys (DOI/URL/ISBN) and CSL-only fields (issued, container-title), so sniff the
+    // first item and route CSL through the adapter; otherwise treat it as the native shape.
+    if (looksLikeCSL(data)) {
+      return importFromCSL(content);
+    }
+    const entries = Array.isArray(data)
+      ? data
+      : data && Array.isArray(data.citations)
+        ? data.citations
+        : null;
+    if (!entries) {
+      // A JSON file of some other shape entirely. Refusing it here is what turns the old
+      // "s.map is not a function" into something a student can be told.
+      throw new Error('This JSON file does not hold a list of citations.');
+    }
+    // Drop internal IDs that would collide with the ids already in this library.
+    return entries.map(entry => {
+      if (!entry || typeof entry !== 'object') {
+        return entry;
+      }
+      const cleaned = { ...entry };
+      delete cleaned._exportedId;
+      delete cleaned.id;
+      cleaned.createdAt = Date.now();
+      return cleaned;
+    });
+  }
+  return null;
+}
+
+/**
+ * Give a DOI-bearing entry a resolvable URL when it has none (RIS/BibTeX often omit it), so the
+ * reference links out. Entries with neither URL nor DOI still validate on their ISBN.
+ * @param {Object} entry
+ * @returns {Object}
+ */
+function withResolvableUrl(entry) {
+  // The shared DOI reader finds the DOI however the file wrote it ("doi:", "DOI ", a www. or dx.
+  // link), so the link is never https://doi.org/doi:… — and something that is not a DOI gets none.
+  const link = entry.url ? '' : doiUrl(entry.doi);
+  return link ? { ...entry, url: link } : entry;
+}
+
+/** What to call an entry that could not be saved: its title, or where it sat in the file. */
+function labelForEntry(entry, index) {
+  const title = entry && typeof entry === 'object' ? String(entry.title || '').trim() : '';
+  return title || `entry ${index + 1}`;
+}
+
+/**
+ * What an import attempt actually did, in facts rather than words.
+ *
+ * The surface that started the import owns the wording — this function says nothing to the student
+ * and throws nothing for a bad file. Both used to be true at once (the file-input handler toasted as
+ * well), so every import was announced twice, a refused one was announced as a success, and a
+ * screen reader read out `s.map is not a function`.
+ *
+ * @typedef {Object} ImportOutcome
+ * @property {string} filename - the file the student picked, as they named it
+ * @property {number} added - citations actually saved
+ * @property {number} failed - entries found in the file that could not be saved
+ * @property {string[]} failedLabels - a title, or "entry 3", for each of those, in file order
+ * @property {'unsupported'|'unreadable'|'empty'|null} problem - why nothing could be read, if so
+ */
+
+/**
+ * Import citations from a file. Every entry is saved on its own, so one unusable record can neither
+ * abort the import nor half-write anything.
+ * @param {File} file - the file the student chose
+ * @returns {Promise<ImportOutcome>}
  */
 async function importCitations(file) {
+  const outcome = {
+    filename: (file && file.name) || 'that file',
+    added: 0,
+    failed: 0,
+    failedLabels: [],
+    problem: null,
+  };
+
+  let content;
   try {
-    const content = await file.text();
-    const filename = file.name.toLowerCase();
-    let citations = [];
-
-    if (filename.endsWith('.ris')) {
-      citations = parseRIS(content);
-    } else if (filename.endsWith('.bib') || filename.endsWith('.bibtex')) {
-      citations = parseBibTeX(content);
-    } else if (filename.endsWith('.json')) {
-      const data = JSON.parse(content);
-      citations = data.citations || data;
-      // Clean up imported citations - remove internal IDs that may conflict
-      citations = citations.map(c => {
-        const cleaned = { ...c };
-        delete cleaned._exportedId;
-        delete cleaned.id;
-        cleaned.createdAt = Date.now();
-        return cleaned;
-      });
-    } else {
-      throw new Error('Unsupported file format. Please use .ris, .bib, or .json files.');
-    }
-
-    // Save imported citations
-    let imported = 0;
-    for (const citation of citations) {
-      await CitationStorage.add(citation);
-      imported++;
-    }
-
-    showSuccessToast(`Imported ${imported} citations`);
-    return imported;
+    content = await file.text();
   } catch (error) {
-    console.error('[CitationExport] Import error:', error);
-    showErrorToast(`Import failed: ${error.message}`);
-    throw error;
+    console.warn('[CitationExport] Could not read the chosen file:', error);
+    outcome.problem = 'unreadable';
+    return outcome;
   }
-}
 
-/**
- * Create full backup of all citation data
- * @returns {Promise<string>} Backup data as JSON string
- */
-async function createBackup() {
+  let entries;
   try {
-    const citations = await CitationStorage.getAll();
-
-    const backup = {
-      version: '1.0',
-      type: 'full-backup',
-      createdAt: new Date().toISOString(),
-      source: 'AssisT Extension',
-      data: {
-        citations,
-        count: citations.length,
-      },
-    };
-
-    const content = JSON.stringify(backup, null, 2);
-    const timestamp = new Date().toISOString().split('T')[0];
-    downloadFile(content, `assist-backup-${timestamp}.json`, 'application/json');
-
-    showSuccessToast(`Backup created: ${citations.length} citations`);
-    return content;
+    entries = parseImportFile(content, outcome.filename.toLowerCase());
   } catch (error) {
-    console.error('[CitationExport] Backup error:', error);
-    showErrorToast('Failed to create backup');
-    throw error;
+    console.warn('[CitationExport] Could not read the import file:', error);
+    outcome.problem = 'unreadable';
+    return outcome;
   }
-}
-
-/**
- * Restore from backup file.
- *
- * The MV3 popup context does not support `confirm()` — it always returns false,
- * silently cancelling restores. Instead, the CALLER opts in to replacement via
- * the `replace` option (default: false = non-destructive merge).
- *
- * @param {File} file - Backup file
- * @param {{ replace?: boolean }} [options={}]
- *   replace=false  → merge backup items into existing store (non-destructive)
- *   replace=true   → clear existing citations first, then restore
- * @returns {Promise<Object>} Restore result: { restored, backupDate } or { cancelled: true }
- */
-async function restoreFromBackup(file, { replace = false } = {}) {
-  try {
-    const content = await file.text();
-    const backup = JSON.parse(content);
-
-    if (backup.type !== 'full-backup' || !backup.data?.citations) {
-      throw new Error('Invalid backup file format');
-    }
-
-    if (replace) {
-      // Caller has already confirmed — clear existing store before restoring.
-      await CitationStorage.clear();
-    }
-
-    let restored = 0;
-    for (const citation of backup.data.citations) {
-      const citationCopy = { ...citation };
-      delete citationCopy.id; // Remove internal ID
-      await CitationStorage.add(citationCopy);
-      restored++;
-    }
-
-    showSuccessToast(`Restored ${restored} citations from backup`);
-    return { restored, backupDate: backup.createdAt };
-  } catch (error) {
-    console.error('[CitationExport] Restore error:', error);
-    showErrorToast(`Restore failed: ${error.message}`);
-    throw error;
+  if (entries === null) {
+    outcome.problem = 'unsupported';
+    return outcome;
   }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    outcome.problem = 'empty';
+    return outcome;
+  }
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    // Title is the one thing a citation cannot do without, so an untitled entry is reported by its
+    // place in the file rather than sent to storage to be refused (or silently dropped by a parser).
+    if (!entry || typeof entry !== 'object' || !String(entry.title || '').trim()) {
+      outcome.failed++;
+      outcome.failedLabels.push(labelForEntry(entry, i));
+      continue;
+    }
+    try {
+      // Normalising here — not in storage — is what stops a foreign record's flat `year`/`journal`
+      // keys being dropped on the way in.
+      await CitationStorage.add(normalizeCitation(withResolvableUrl(entry)));
+      outcome.added++;
+    } catch (addError) {
+      console.warn('[CitationExport] Skipped an entry that could not be saved:', addError);
+      outcome.failed++;
+      outcome.failedLabels.push(labelForEntry(entry, i));
+    }
+  }
+
+  return outcome;
 }
 
 export {
@@ -762,17 +681,12 @@ export {
   exportAsCSV,
   exportAsBibTeX,
   exportAsRIS,
-  parseRIS,
-  parseBibTeX,
+  looksLikeCSL,
   exportCitations,
   importCitations,
-  createBackup,
-  restoreFromBackup,
 };
 
 export default {
   exportCitations,
   importCitations,
-  createBackup,
-  restoreFromBackup,
 };

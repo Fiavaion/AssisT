@@ -1,0 +1,33 @@
+/*
+ * Read aloud: a play/stop pair in the toolbar.
+ *
+ * Layout only — the palette, the font, the button family and the focus ring are the page's, in
+ * mindmap.css. The two buttons are one control and are drawn as one: a single joined pill, so the
+ * pair does not read as two unrelated tools sitting next to each other.
+ *
+ * The play state is carried by the button's own label ("Read aloud", "Pause", "Resume") rather than
+ * by an icon or a colour, so it survives forced colours and a screen reader alike (SC 1.4.1).
+ */
+
+.mm-read {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mm-read__toggle {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.mm-read__stop {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* The pressed button has to sit above its neighbour, or the shared edge hides half the ring. */
+.mm-read button:focus-visible,
+.mm-read button:hover {
+  position: relative;
+  z-index: 1;
+}

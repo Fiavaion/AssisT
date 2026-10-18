@@ -285,7 +285,7 @@ describe('OCR Feature', () => {
       const ocrSettings = settings.assist_settings?.ocr;
 
       expect(ocrSettings).toBeUndefined();
-      // Implementation should use defaults: eng, 60%, true
+      // Implementation should use defaults: eng, 60%, auto-play off
     });
 
     test('should persist language selection', async () => {
@@ -368,19 +368,6 @@ describe('OCR Feature', () => {
   });
 
   describe('OCR Language Support', () => {
-    test('should support multiple languages', () => {
-      const supportedLanguages = [
-        'eng', 'spa', 'fra', 'deu', 'ita', 'por',
-        'nld', 'pol', 'rus', 'chi_sim', 'chi_tra',
-        'jpn', 'kor', 'ara',
-      ];
-
-      expect(supportedLanguages.length).toBe(14);
-      expect(supportedLanguages).toContain('eng');
-      expect(supportedLanguages).toContain('spa');
-      expect(supportedLanguages).toContain('chi_sim');
-    });
-
     test('should use English as default', () => {
       const defaultLang = 'eng';
       expect(defaultLang).toBe('eng');
@@ -511,8 +498,8 @@ describe('OCR Feature', () => {
 // The tests verify expected behavior and API contracts
 function ocr_splitTextIntoChunks(text, limit = 3000) {
   // Placeholder implementation for testing
-  if (!text) return [''];
-  if (text.length <= limit) return [text];
+  if (!text) {return [''];}
+  if (text.length <= limit) {return [text];}
 
   const chunks = [];
   let currentChunk = '';
@@ -540,7 +527,7 @@ function ocr_splitTextIntoChunks(text, limit = 3000) {
 
 function ocr_filterByConfidence(result, threshold) {
   // Placeholder implementation for testing
-  if (!result.data || !result.data.words) return '';
+  if (!result.data || !result.data.words) {return '';}
 
   return result.data.words
     .filter(word => word.confidence && word.confidence >= threshold)

@@ -27,7 +27,6 @@ const outputDir = path.join(__dirname, '..', 'store-screenshots');
 
 // Screenshot dimensions for Chrome Store (1280x800)
 const VIEWPORT = { width: 1280, height: 800 };
-const POPUP_SIZE = { width: 400, height: 600 };
 
 async function captureScreenshots() {
   console.log('🚀 Starting Chrome Store Screenshot Capture');
@@ -286,7 +285,7 @@ async function capturePopupInterface(context, extensionId) {
 /**
  * Screenshot 2: TTS with word highlighting on sample content
  */
-async function captureTTSHighlighting(context, extensionId) {
+async function captureTTSHighlighting(context, _extensionId) {
   // Create a sample page with content
   const page = await context.newPage();
   await page.setViewportSize(VIEWPORT);
@@ -409,7 +408,7 @@ async function captureTTSHighlighting(context, extensionId) {
 /**
  * Screenshot 3: Sticky notes on a page
  */
-async function captureStickyNotes(context, extensionId) {
+async function captureStickyNotes(context, _extensionId) {
   const page = await context.newPage();
   await page.setViewportSize(VIEWPORT);
 
@@ -580,7 +579,7 @@ async function captureStickyNotes(context, extensionId) {
 /**
  * Screenshot 4: Citation manager interface
  */
-async function captureCitationManager(context, extensionId) {
+async function captureCitationManager(context, _extensionId) {
   const page = await context.newPage();
   await page.setViewportSize(VIEWPORT);
 
@@ -796,7 +795,7 @@ async function captureCitationManager(context, extensionId) {
 /**
  * Screenshot 5: Settings/customization panel
  */
-async function captureSettingsPanel(context, extensionId) {
+async function captureSettingsPanel(context, _extensionId) {
   const page = await context.newPage();
   await page.setViewportSize(VIEWPORT);
 

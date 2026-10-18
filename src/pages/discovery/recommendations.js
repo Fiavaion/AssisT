@@ -4,6 +4,8 @@
  * and generates personalized recommendations
  */
 
+import { applySettingWrites } from '../../utils/setting-writes.js';
+import { enableWrites } from './feature-tools.js';
 import { QUESTIONS, FEATURES, CATEGORIES } from './questions.js';
 
 /**
@@ -63,8 +65,10 @@ export const PRESETS = {
     name: 'Sensory Sensitive',
     icon: '🌙',
     description: 'Reduces visual strain with dark mode, color overlays, and motion reduction.',
+    // Dark Mode used to head this list. The feature no longer exists in the extension (see the
+    // note in questions.js), and it wrote the same setting as Colour Overlay anyway, so the
+    // preset gives a light-sensitive student exactly what it always did.
     features: [
-      'darkModeEnabled',
       'screenOverlayEnabled',
       'reducedMotionEnabled',
       'mediaControlEnabled',
@@ -275,41 +279,20 @@ export function createProfile(scores) {
   };
 }
 
-// Maps quiz settingKey values → dot-path within assist_settings
-// Special cases: dyslexiaEnabled→dyslexiaMode, citationsEnabled→citation (singular)
-const SETTING_KEY_MAP = {
-  ttsEnabled: 'tts.enabled',
-  sttEnabled: 'stt.enabled',
-  textCustomizationEnabled: 'textCustomization.enabled',
-  readingGuideEnabled: 'readingGuide.enabled',
-  focusModeEnabled: 'focusMode.enabled',
-  readingModeEnabled: 'readingMode.enabled',
-  dyslexiaEnabled: 'dyslexiaMode.enabled',
-  screenOverlayEnabled: 'screenOverlay.enabled',
-  reducedMotionEnabled: 'reducedMotion.enabled',
-  pomodoroEnabled: 'pomodoro.enabled',
-  mediaControlEnabled: 'mediaControl.enabled',
-  annotationsEnabled: 'annotations.enabled',
-  citationsEnabled: 'citation.enabled',
-  highlightMenuEnabled: 'highlightMenu.enabled',
-  simplifyEnabled: 'simplify.enabled',
-  readingProgressEnabled: 'readingProgress.enabled',
-  translationEnabled: 'translation.enabled',
-  dictionaryEnabled: 'dictionary.enabled',
-  textStatsEnabled: 'textStats.enabled',
-  darkModeEnabled: 'screenOverlay.enabled',
-};
-
-function applyNestedPath(obj, dotPath, value) {
-  const keys = dotPath.split('.');
-  let node = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    if (!node[keys[i]] || typeof node[keys[i]] !== 'object') {
-      node[keys[i]] = {};
-    }
-    node = node[keys[i]];
-  }
-  node[keys[keys.length - 1]] = value;
+/**
+ * Give a student the features their answers asked for.
+ *
+ * The one place the quiz writes settings. Both `applyProfile` and `applyPreset` come through here,
+ * so the two can never drift apart, and neither of them knows a settings path: `enableWrites`
+ * resolves every quiz key through the popup's tool registry, which is where the paths, the stores,
+ * the mirrored keys and the `ui_visibility` keys are declared and kept true.
+ *
+ * @param {string[]} settingKeys - quiz keys to switch on
+ * @param {Object} extra - what else to store alongside (the profile, or the preset's name)
+ * @returns {Promise<void>}
+ */
+async function enableFeatures(settingKeys, extra) {
+  await applySettingWrites(enableWrites(settingKeys), extra);
 }
 
 /**
@@ -321,21 +304,7 @@ export async function applyProfile(profile) {
   if (typeof chrome === 'undefined' || !chrome.storage) {
     return;
   }
-
-  const result = await chrome.storage.local.get('assist_settings');
-  const settings = result.assist_settings || {};
-
-  profile.enabledFeatures.forEach(settingKey => {
-    const path = SETTING_KEY_MAP[settingKey];
-    if (path) {
-      applyNestedPath(settings, path, true);
-    }
-  });
-
-  await chrome.storage.local.set({
-    assist_settings: settings,
-    discoveryProfile: profile,
-  });
+  await enableFeatures(profile.enabledFeatures, { discoveryProfile: profile });
 }
 
 /**
@@ -381,19 +350,5 @@ export async function applyPreset(preset) {
   if (typeof chrome === 'undefined' || !chrome.storage) {
     return;
   }
-
-  const result = await chrome.storage.local.get('assist_settings');
-  const settings = result.assist_settings || {};
-
-  preset.features.forEach(settingKey => {
-    const path = SETTING_KEY_MAP[settingKey];
-    if (path) {
-      applyNestedPath(settings, path, true);
-    }
-  });
-
-  await chrome.storage.local.set({
-    assist_settings: settings,
-    discoveryPreset: preset.name,
-  });
+  await enableFeatures(preset.features, { discoveryPreset: preset.name });
 }

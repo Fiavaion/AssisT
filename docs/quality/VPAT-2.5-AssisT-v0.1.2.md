@@ -8,7 +8,7 @@
 
 **Contact Information:** `accessibility@fiavaion.com` — Fiavaion, Ireland. Website: <https://fiavaion.com/products/assist/>. The legal person behind the Fiavaion trading name is identifiable on written request to the contact address above; this ensures funders, HEIs, and procurement offices can confirm counterparty identity without placing the maintainer's personal name in public documentation.
 
-**Notes:** This VPAT is an internal self-assessment prepared by the project maintainer based on the accompanying [WCAG 2.2 AA audit](./WCAG_2.2_AA_AUDIT.md) dated 2025-10-13, updated for product version 0.1.2. It is published in good faith to support adoption decisions. External third-party validation is planned and will be republished as a superseding VPAT. Readers acting on procurement decisions are invited to contact the address above with questions or to report accessibility issues.
+**Notes:** This VPAT is an internal self-assessment prepared by the project maintainer based on a WCAG 2.2 AA audit dated 2025-10-13, updated for product version 0.1.2. It is published in good faith to support adoption decisions. External third-party validation is planned and will be republished as a superseding VPAT. Readers acting on procurement decisions are invited to contact the address above with questions or to report accessibility issues.
 
 **Evaluation Methods Used:**
 
@@ -165,7 +165,7 @@ The following items are tracked for closure before version 1.0 and will be refle
 3. **SC 3.2.6 Consistent Help:** Add a persistent help affordance (proposed: "?" icon in the popup header and a help link in the advanced-options footer).
 4. **SC 4.1.3 Status Messages:** Add `aria-busy` to dynamic content regions during load and AI-inference states.
 5. **Screen-reader validation:** Complete manual testing with NVDA (Windows), JAWS (Windows), and VoiceOver (macOS). Publish findings.
-6. **Third-party audit:** Commission an independent accessibility review (candidate funding route: Enterprise Ireland Innovation Voucher partnered with an Irish HEI accessibility research centre).
+6. **Third-party audit:** Commission an independent accessibility review, partnered with an Irish HEI accessibility research centre.
 7. **Content-script coverage:** Extend automated Pa11y coverage to content-script–injected UI (mic button, reading guide, focus overlay).
 
 ---
@@ -191,5 +191,4 @@ We aim to acknowledge reports within 5 working days.
 
 ---
 
-**Source audit:** [WCAG_2.2_AA_AUDIT.md](./WCAG_2.2_AA_AUDIT.md)
 **Copyright:** © 2026 Fiavaion. This VPAT is published under the [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/) licence; the AssisT product itself is distributed under the [European Union Public Licence v1.2 (EUPL-1.2)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12) — see repository `LICENSE`.

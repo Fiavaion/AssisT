@@ -22,7 +22,7 @@ let lastHref = typeof window !== 'undefined' ? window.location.href : '';
  */
 export function onPageChange(callback) {
   listeners.add(callback);
-  if (!observing) startObserving();
+  if (!observing) {startObserving();}
   return () => { listeners.delete(callback); };
 }
 
@@ -43,7 +43,7 @@ function checkNavigation() {
 }
 
 function startObserving() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
   observing = true;
 
   window.addEventListener('popstate', checkNavigation);

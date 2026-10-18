@@ -53,8 +53,6 @@ function applyBranding() {
 
   const brandingConfig = JSON.parse(fs.readFileSync(BRANDING_CONFIG_PATH, 'utf8'));
   const brand = brandingConfig[variant];
-  const otherVariant = variant === 'ncad' ? 'assist' : 'ncad';
-  const otherBrand = brandingConfig[otherVariant];
 
   if (!brand) {
     console.error(`[Branding] ERROR: No branding config found for variant "${variant}"`);

@@ -18,9 +18,53 @@
 
 import { textStatsEngine } from './textStats.js';
 import { Z } from '../../utils/z-index.js';
+import { placeInRail, releaseFromRail } from '../../utils/corner-slots.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+
+/**
+ * The badge's own colours.
+ *
+ * Every one of these was picked by eye and overnight release testing measured what that costs: the
+ * "Text Stats" heading came out at 3.28:1, "View Details" at 3.29:1, and "⚡ Speed Read" sat on a
+ * gradient whose light end gave white text 3.66:1 - all three under the 4.5:1 that SC 1.4.3 asks of
+ * text this size. The badge is injected into somebody else's page, so it cannot borrow a contrast
+ * from the page's own palette: the ratios have to be a property of these values, which is what
+ * tests/unit/textStats/badge-contrast.test.js grades them on. Any change here has to hold the
+ * heading and both buttons at 4.5:1 on both the light and the dark badge, the gradient at its
+ * lightest stop included.
+ *
+ * `ink` is the text laid on `accent` when accent is the background: a mid blue cannot carry white
+ * text and also read as text on a near-black surface, so the dark badge uses a dark ink on its
+ * accent rather than a second, darker accent.
+ */
+export const BADGE_COLORS = Object.freeze({
+  light: Object.freeze({
+    surface: 'rgba(255, 255, 255, 0.95)',
+    opaqueSurface: '#ffffff',
+    text: '#333333',
+    secondary: '#666666',
+    border: '#15589e',
+    divider: '#e0e0e0',
+    accent: '#15589e',
+    ink: '#ffffff',
+  }),
+  dark: Object.freeze({
+    surface: '#1e2330',
+    opaqueSurface: '#1e2330',
+    text: '#e4e6eb',
+    secondary: '#9ba3af',
+    border: '#3a4353',
+    divider: '#3a4353',
+    accent: '#6b8dd6',
+    ink: '#0a1020',
+  }),
+  /** Both stops carry white text; the lighter one is what the ratio depends on. */
+  speedReadGradient: Object.freeze(['#4c5bd4', '#764ba2']),
+  speedReadInk: '#ffffff',
+});
 
 /**
  * Text Statistics UI Manager
@@ -35,6 +79,9 @@ export class TextStatsUI {
     this.autoUpdate = true;
     this.updateDebounceTimer = null;
     this.lastAnalysis = null;
+    // Set while the detailed-statistics dialog is open; calling it closes the focus trap and
+    // hands the keyboard back to whatever opened the dialog.
+    this.releaseModalFocus = null;
   }
 
   /**
@@ -78,28 +125,31 @@ export class TextStatsUI {
       document.body.classList.contains('dark-mode') ||
       document.documentElement.classList.contains('dark-mode');
 
+    // Placement comes from the shared corner rail below - see src/utils/corner-slots.js.
+    // The badge is the base of the bottom-right rail; the companion cards stack above it
+    // rather than over it, which is what used to happen.
+    const palette = isDarkMode ? BADGE_COLORS.dark : BADGE_COLORS.light;
+
     this.badge.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: ${isDarkMode ? '#1e2330' : 'rgba(255, 255, 255, 0.95)'};
-      border: 2px solid ${isDarkMode ? '#3a4353' : '#4a90e2'};
+      background: ${palette.surface};
+      border: 2px solid ${palette.border};
       border-radius: 8px;
       padding: 12px 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       font-size: 14px;
-      color: ${isDarkMode ? '#e4e6eb' : '#333'};
+      color: ${palette.text};
       box-shadow: 0 4px 12px rgba(0, 0, 0, ${isDarkMode ? '0.5' : '0.15'});
       cursor: pointer;
-      z-index: 999998;
+      z-index: ${Z.CONTROLS};
       transition: all 0.3s ease;
       min-width: 200px;
       display: ${this.badgeVisible ? 'block' : 'none'};
     `;
 
-    const titleColor = isDarkMode ? '#6b8dd6' : '#4a90e2';
-    const secondaryColor = isDarkMode ? '#9ba3af' : '#666';
-    const borderColor = isDarkMode ? '#3a4353' : '#e0e0e0';
+    const titleColor = palette.accent;
+    const secondaryColor = palette.secondary;
+    const borderColor = palette.divider;
+    const [gradientFrom, gradientTo] = BADGE_COLORS.speedReadGradient;
 
     this.badge.innerHTML = sanitizeHTML(`
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -121,12 +171,12 @@ export class TextStatsUI {
           <button
             id="assist-textstats-speed-read-badge"
             aria-label="Speed read this text"
-            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%; font-weight: 600;"
+            style="background: linear-gradient(135deg, ${gradientFrom} 0%, ${gradientTo} 100%); color: ${BADGE_COLORS.speedReadInk}; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%; font-weight: 600;"
           >⚡ Speed Read</button>
           <button
             id="assist-textstats-details"
             aria-label="View detailed statistics"
-            style="background: ${titleColor}; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%;"
+            style="background: ${palette.accent}; color: ${palette.ink}; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%;"
           >View Details</button>
         </div>
       </div>
@@ -145,13 +195,13 @@ export class TextStatsUI {
 
     // Close button
     const closeBtn = this.badge.querySelector('#assist-textstats-close');
-    attachInteractiveHandler(closeBtn, 'TextStats Badge Close', () => {
+    attachAccessibleHandler(closeBtn, 'TextStats Badge Close', () => {
       this.hideBadge();
     });
 
     // Speed Read button (on badge) - Calls new modular RSVP API
     const speedReadBadgeBtn = this.badge.querySelector('#assist-textstats-speed-read-badge');
-    attachInteractiveHandler(speedReadBadgeBtn, 'TextStats Badge Speed Read', () => {
+    attachAccessibleHandler(speedReadBadgeBtn, 'TextStats Badge Speed Read', () => {
       const text = document.body.innerText || '';
 
       if (window.assistFeatures?.rsvp) {
@@ -169,11 +219,12 @@ export class TextStatsUI {
 
     // Details button
     const detailsBtn = this.badge.querySelector('#assist-textstats-details');
-    attachInteractiveHandler(detailsBtn, 'TextStats View Details', () => {
+    attachAccessibleHandler(detailsBtn, 'TextStats View Details', () => {
       this.showModal();
     });
 
     document.body.appendChild(this.badge);
+    placeInRail(this.badge, 'text-stats-badge');
   }
 
   /**
@@ -231,7 +282,7 @@ export class TextStatsUI {
             <button id="assist-textstats-scope-selection" class="scope-btn" data-scope="selection" style="flex: 1; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; background: white; cursor: pointer; font-size: 14px;">
               Selected Text
             </button>
-            <button id="assist-textstats-scope-page" class="scope-btn active" data-scope="page" style="flex: 1; padding: 8px; border: 2px solid #4a90e2; border-radius: 6px; background: #e3f2fd; cursor: pointer; font-size: 14px; color: #4a90e2; font-weight: 600;">
+            <button id="assist-textstats-scope-page" class="scope-btn active" data-scope="page" style="flex: 1; padding: 8px; border: 2px solid ${BADGE_COLORS.light.accent}; border-radius: 6px; background: #e3f2fd; cursor: pointer; font-size: 14px; color: ${BADGE_COLORS.light.accent}; font-weight: 600;">
               Current Page
             </button>
             <button id="assist-textstats-scope-document" class="scope-btn" data-scope="document" style="flex: 1; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; background: white; cursor: pointer; font-size: 14px;">
@@ -244,7 +295,7 @@ export class TextStatsUI {
         <div id="assist-textstats-progress-container" style="margin-bottom: 24px; display: none;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <span style="font-weight: 600; color: #666;">Target Progress</span>
-            <span id="assist-textstats-progress-percentage" style="font-weight: 600; color: #4a90e2;">0%</span>
+            <span id="assist-textstats-progress-percentage" style="font-weight: 600; color: ${BADGE_COLORS.light.accent};">0%</span>
           </div>
           <div style="background: #e0e0e0; height: 12px; border-radius: 6px; overflow: hidden;">
             <div id="assist-textstats-progress-bar" style="height: 100%; width: 0%; background: #4caf50; transition: width 0.3s ease, background 0.3s ease;"></div>
@@ -296,11 +347,11 @@ export class TextStatsUI {
         <div style="display: flex; gap: 12px; margin-bottom: 12px;">
           <button
             id="assist-textstats-speed-read"
-            style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;"
+            style="flex: 1; padding: 12px; background: linear-gradient(135deg, ${BADGE_COLORS.speedReadGradient[0]} 0%, ${BADGE_COLORS.speedReadGradient[1]} 100%); color: ${BADGE_COLORS.speedReadInk}; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;"
           >⚡ Speed Read</button>
           <button
             id="assist-textstats-refresh"
-            style="flex: 1; padding: 12px; background: #4a90e2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;"
+            style="flex: 1; padding: 12px; background: ${BADGE_COLORS.light.accent}; color: ${BADGE_COLORS.light.ink}; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;"
           >Refresh Stats</button>
         </div>
         <div style="display: flex; gap: 12px;">
@@ -316,11 +367,14 @@ export class TextStatsUI {
     const modalClose = this.modal.querySelector('#assist-textstats-modal-close');
     const modalDone = this.modal.querySelector('#assist-textstats-modal-done');
 
-    attachInteractiveHandler(modalClose, 'TextStats Modal Close', () => this.hideModal());
-    attachInteractiveHandler(modalDone, 'TextStats Modal Done', () => this.hideModal());
+    attachAccessibleHandler(modalClose, 'TextStats Modal Close', () => this.hideModal());
+    attachAccessibleHandler(modalDone, 'TextStats Modal Done', () => this.hideModal());
 
-    // Click outside to close
-    this.modal.addEventListener('click', e => {
+    // A press on the backdrop dismisses. Deliberately a plain mousedown listener and not
+    // attachInteractiveHandler: that helper calls preventDefault() and stopPropagation() for every
+    // press anywhere inside the overlay, which would cancel text selection in the statistics panel.
+    // The target check keeps a press on the panel itself from closing the dialog.
+    this.modal.addEventListener('mousedown', e => {
       if (e.target === this.modal) {
         this.hideModal();
       }
@@ -329,7 +383,7 @@ export class TextStatsUI {
     // Scope buttons
     const scopeButtons = this.modal.querySelectorAll('.scope-btn');
     scopeButtons.forEach(btn => {
-      attachInteractiveHandler(btn, `TextStats Scope: ${btn.dataset.scope}`, () => {
+      attachAccessibleHandler(btn, `TextStats Scope: ${btn.dataset.scope}`, () => {
         this.currentScope = btn.dataset.scope;
         scopeButtons.forEach(b => {
           b.style.border = '2px solid #e0e0e0';
@@ -337,9 +391,9 @@ export class TextStatsUI {
           b.style.color = '#333';
           b.style.fontWeight = 'normal';
         });
-        btn.style.border = '2px solid #4a90e2';
+        btn.style.border = `2px solid ${BADGE_COLORS.light.accent}`;
         btn.style.background = '#e3f2fd';
-        btn.style.color = '#4a90e2';
+        btn.style.color = BADGE_COLORS.light.accent;
         btn.style.fontWeight = '600';
         this.updateStats();
       });
@@ -347,12 +401,14 @@ export class TextStatsUI {
 
     // Speed Read button (on modal) - Calls new modular RSVP API
     const speedReadBtn = this.modal.querySelector('#assist-textstats-speed-read');
-    attachInteractiveHandler(speedReadBtn, 'TextStats Modal Speed Read', () => {
+    attachAccessibleHandler(speedReadBtn, 'TextStats Modal Speed Read', () => {
       const text = this.getTextForScope();
 
       if (window.assistFeatures?.rsvp) {
-        window.assistFeatures.rsvp.start(text);
+        // Close first: hideModal hands the keyboard back to the badge, and doing that after the
+        // reader has opened would pull focus straight back out of it.
         this.hideModal();
+        window.assistFeatures.rsvp.start(text);
       } else {
         console.warn('[TextStats] RSVP feature not loaded');
         if (window.showToast) {
@@ -365,7 +421,7 @@ export class TextStatsUI {
 
     // Refresh button
     const refreshBtn = this.modal.querySelector('#assist-textstats-refresh');
-    attachInteractiveHandler(refreshBtn, 'TextStats Refresh', () => this.updateStats());
+    attachAccessibleHandler(refreshBtn, 'TextStats Refresh', () => this.updateStats());
 
     document.body.appendChild(this.modal);
   }
@@ -508,6 +564,8 @@ export class TextStatsUI {
     if (this.badge) {
       this.badge.style.display = 'block';
       this.badgeVisible = true;
+      // Retake the base of the rail, so anything stacked above it moves up to make room.
+      placeInRail(this.badge, 'text-stats-badge');
       this.updateStats();
     }
   }
@@ -519,6 +577,8 @@ export class TextStatsUI {
     if (this.badge) {
       this.badge.style.display = 'none';
       this.badgeVisible = false;
+      // A hidden control holds no space; the rail closes up behind it.
+      placeInRail(this.badge, 'text-stats-badge');
     }
   }
 
@@ -534,28 +594,77 @@ export class TextStatsUI {
   }
 
   /**
-   * Show modal
+   * Show modal.
+   *
+   * The overlay covers the whole viewport, so a dialog that cannot be dismissed with the keyboard
+   * is a keyboard trap that also blocks every click on the page behind it (SC 2.1.2) — which is
+   * exactly how this shipped. trapFocus supplies the Escape route, the Tab containment and the
+   * focus restore; the same helper the citation, OCR, annotation and popup dialogs use.
    */
   showModal() {
-    if (this.modal) {
-      this.modal.style.display = 'flex';
-      this.updateStats();
-
-      // Focus modal for accessibility
-      const closeBtn = this.modal.querySelector('#assist-textstats-modal-close');
-      if (closeBtn) {
-        closeBtn.focus();
-      }
+    if (!this.modal) {
+      return;
     }
+
+    // Already open (the keyboard shortcut works whether or not the dialog is up): refresh the
+    // figures rather than laying a second focus trap over the first.
+    if (this.releaseModalFocus) {
+      this.updateStats();
+      return;
+    }
+
+    this.modal.style.display = 'flex';
+    this.updateStats();
+
+    this.releaseModalFocus = trapFocus(this.modal, {
+      onEscape: () => this.hideModal(),
+      initialFocus: this.modal.querySelector('#assist-textstats-modal-close'),
+    });
   }
 
   /**
-   * Hide modal
+   * Hide modal and hand the keyboard back to the control that opened it.
    */
   hideModal() {
-    if (this.modal) {
-      this.modal.style.display = 'none';
+    if (!this.modal) {
+      return;
     }
+
+    this.modal.style.display = 'none';
+
+    const release = this.releaseModalFocus;
+    this.releaseModalFocus = null;
+    if (release) {
+      release();
+    }
+    this.returnFocusToBadge();
+  }
+
+  /**
+   * Put the keyboard back on the badge's "View Details" button, whichever way the dialog was opened.
+   *
+   * trapFocus hands focus back to whatever held it when the dialog opened, and after a mouse press
+   * that is nothing: the shared event helper calls preventDefault() on mousedown, which is exactly
+   * what cancels the browser's own focus-on-press, so the trigger never held focus and the restore
+   * left the keyboard on BODY - the student was returned to the top of the page (SC 2.4.3). Real
+   * Chrome showed it; jsdom cannot, because it does not focus on a press in the first place.
+   *
+   * The button is looked up now rather than remembered: the badge rewrites its own markup as the
+   * figures change, so a reference taken when the dialog opened can be a detached node.
+   */
+  returnFocusToBadge() {
+    if (!this.badge || this.badge.style.display === 'none') {
+      // The badge went with the dialog - Speed Read hides it - so whatever opens next takes the
+      // keyboard; pulling focus onto something off screen would be worse than leaving it.
+      return;
+    }
+    const target = this.badge.querySelector('#assist-textstats-details') || this.badge;
+    if (target === this.badge && !this.badge.hasAttribute('tabindex')) {
+      // The badge is a status region, not a control: focusable for this hand-back only, never in
+      // the tab order.
+      this.badge.setAttribute('tabindex', '-1');
+    }
+    target.focus();
   }
 
   /**
@@ -631,10 +740,14 @@ export class TextStatsUI {
    */
   destroy() {
     if (this.badge) {
+      releaseFromRail('text-stats-badge');
       this.badge.remove();
       this.badge = null;
     }
     if (this.modal) {
+      // Release the trap before the node goes: otherwise the keyboard is left on a detached
+      // element and never returns to the page.
+      this.hideModal();
       this.modal.remove();
       this.modal = null;
     }
@@ -703,18 +816,6 @@ export const textStatsUI = new TextStatsUI();
           textStatsUI.showBadge();
         } else {
           textStatsUI.hideBadge();
-        }
-      }
-    });
-
-    // Direct message listener - handles case where storage value hasn't changed
-    // so chrome.storage.onChanged doesn't fire (e.g. minimize clutter pressed twice)
-    chrome.runtime.onMessage.addListener(message => {
-      if (message.type === 'MINIMIZE_CLUTTER_UPDATE') {
-        if (message.state) {
-          textStatsUI?.hideBadge();
-        } else {
-          textStatsUI?.showBadge();
         }
       }
     });

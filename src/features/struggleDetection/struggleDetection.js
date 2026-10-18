@@ -19,11 +19,17 @@
  * - Show contextual help
  * - Track difficult concepts for review
  *
+ * CONSENT. Every one of those signals is a measurement of how hard a student is finding the page,
+ * so this is off until they switch it on in the popup. While it is off no listener is attached and
+ * no signal is counted; switching it off in a tab that is already open stops it there and then and
+ * discards what it had gathered. It used to default to on, start itself from the content script,
+ * and have no control anywhere to stop it.
+ *
  * @module features/struggleDetection
  */
 
 import { showToast } from '../../core/ui/toast.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 
 let struggle_isTracking = false;
@@ -32,8 +38,12 @@ let struggle_currentStruggleScore = 0;
 let struggle_lastAssistanceTime = 0;
 let struggle_difficultConcepts = [];
 
+/** The chrome.storage.local key holding the student's opt-in. Absent means off. */
+const STRUGGLE_SETTINGS_KEY = 'struggleDetectionSettings';
+
 const struggle_settings = {
-  enabled: true,
+  // Off until the student asks for it. Nothing here is measured on their behalf.
+  enabled: false,
   sensitivity: 'medium', // 'low' | 'medium' | 'high'
   showNotifications: true,
   assistanceDelay: 30000, // Min time between assistance offers (ms)
@@ -262,6 +272,12 @@ function struggle_trackElementView(element) {
  * @param {HTMLElement} [element] - Related element
  */
 function struggle_trackToolUsage(tool, element = null) {
+  // Not merely "is the feature on": tracking stops the moment consent is withdrawn, and a tool
+  // used after that must leave no trace even though this function is still on the window API.
+  if (!struggle_isTracking) {
+    return;
+  }
+
   switch (tool) {
     case 'simplify':
       struggle_tracking.simplificationRequests++;
@@ -319,7 +335,6 @@ function struggle_updateScore() {
   const newScore = struggle_calculateScore();
   struggle_currentStruggleScore = newScore;
 
-  // Check if we should offer assistance
   if (struggle_settings.showNotifications && newScore >= 50) {
     const timeSinceLastAssist = Date.now() - struggle_lastAssistanceTime;
 
@@ -374,8 +389,10 @@ function struggle_showAssistancePanel(message, action) {
   struggle_panel = document.createElement('div');
   struggle_panel.id = 'assist-struggle-panel';
 
-  struggle_panel.innerHTML = sanitizeHTML(`
-    <style>
+  // The panel's own CSS goes in as an element, not through the sanitiser: DOMPurify drops a
+  // <style> that leads its markup, which left this panel as loose text at the foot of the page.
+  const style = document.createElement('style');
+  style.textContent = `
       #assist-struggle-panel {
         position: fixed;
         bottom: 20px;
@@ -508,8 +525,9 @@ function struggle_showAssistancePanel(message, action) {
         height: 100%;
         transition: width 0.3s, background 0.3s;
       }
-    </style>
+  `;
 
+  struggle_panel.innerHTML = sanitizeHTML(`
     <div class="struggle-header">
       <div class="struggle-title">
         <span>🤔</span>
@@ -530,32 +548,43 @@ function struggle_showAssistancePanel(message, action) {
       </div>
     </div>
   `);
+  struggle_panel.prepend(style);
 
   document.body.appendChild(struggle_panel);
 
   // Event listeners
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     struggle_panel.querySelector('.struggle-close'),
     'Struggle Detection Close Button',
     () => struggle_dismissPanel()
   );
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     struggle_panel.querySelector('#struggle-dismiss'),
     'Struggle Detection Dismiss Button',
     () => struggle_dismissPanel()
   );
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     struggle_panel.querySelector('#struggle-accept'),
     'Struggle Detection Accept Button',
     () => struggle_acceptHelp(action)
   );
 
-  // Auto-dismiss after 15 seconds
-  setTimeout(() => {
-    if (struggle_panel) {
-      struggle_dismissPanel();
-    }
-  }, 15000);
+  // Auto-dismiss after 15 seconds, paused while hovered or focused (SC 2.2.1)
+  let dismissTimer = null;
+  const armDismiss = () => {
+    clearTimeout(dismissTimer);
+    dismissTimer = setTimeout(() => {
+      if (struggle_panel) {
+        struggle_dismissPanel();
+      }
+    }, 15000);
+  };
+  const pauseDismiss = () => clearTimeout(dismissTimer);
+  struggle_panel.addEventListener('mouseenter', pauseDismiss);
+  struggle_panel.addEventListener('focusin', pauseDismiss);
+  struggle_panel.addEventListener('mouseleave', armDismiss);
+  struggle_panel.addEventListener('focusout', armDismiss);
+  armDismiss();
 }
 
 /**
@@ -638,7 +667,16 @@ function struggle_showReview() {
   showToast?.(`Concepts to review: ${concepts}`);
 }
 
+let struggle_listenersAttached = false;
+
 function struggle_setupListeners() {
+  // Attached once per page. `struggle_isTracking` is what actually gates them, so switching the
+  // feature off and on again does not leave a second observer behind.
+  if (struggle_listenersAttached) {
+    return;
+  }
+  struggle_listenersAttached = true;
+
   // Scroll tracking
   let scrollTimeout = null;
   window.addEventListener(
@@ -714,6 +752,8 @@ function struggle_startTracking() {
 function struggle_stopTracking() {
   struggle_isTracking = false;
   struggle_dismissPanel();
+  // Consent withdrawn means the signals go too, not just the watching.
+  struggle_reset();
 
   console.log('[StruggleDetection] Tracking stopped');
 }
@@ -750,10 +790,8 @@ function struggle_reset() {
   console.log('[StruggleDetection] Tracking reset');
 }
 
-function struggle_init() {
-  console.log('[StruggleDetection] Initializing...');
-
-  // Register to window
+async function struggle_initialize() {
+  // Registered whether or not the feature is on, so a caller gets a no-op rather than an error.
   if (!window.assistFeatures) {
     window.assistFeatures = {};
   }
@@ -765,43 +803,47 @@ function struggle_init() {
     showReview: struggle_showReview,
     reset: struggle_reset,
     trackToolUsage: struggle_trackToolUsage,
+    isEnabled: () => struggle_settings.enabled,
     settings: struggle_settings,
   };
 
-  // Load settings
-  chrome.storage.local.get(['struggleDetectionSettings'], result => {
-    if (result.struggleDetectionSettings) {
-      Object.assign(struggle_settings, result.struggleDetectionSettings);
-    }
+  try {
+    const stored = await chrome.storage.local.get(STRUGGLE_SETTINGS_KEY);
+    struggle_applySettings(stored?.[STRUGGLE_SETTINGS_KEY]);
+  } catch (error) {
+    // An unreadable store is not consent.
+    console.error('[StruggleDetection] Could not read the opt-in:', error);
+  }
 
-    // Auto-start if enabled
-    if (struggle_settings.enabled) {
-      struggle_startTracking();
-    }
-  });
-
-  // Listen for settings changes
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.struggleDetectionSettings) {
-      Object.assign(struggle_settings, changes.struggleDetectionSettings.newValue);
-
-      if (struggle_settings.enabled && !struggle_isTracking) {
-        struggle_startTracking();
-      } else if (!struggle_settings.enabled && struggle_isTracking) {
-        struggle_stopTracking();
-      }
+    if (area === 'local' && changes[STRUGGLE_SETTINGS_KEY]) {
+      struggle_applySettings(changes[STRUGGLE_SETTINGS_KEY].newValue);
     }
   });
+}
 
-  console.log('[StruggleDetection] Initialized');
+/**
+ * Apply the stored opt-in, in a tab that is already open.
+ * @param {Object} [next] - the stored settings object
+ */
+function struggle_applySettings(next) {
+  Object.assign(struggle_settings, next || {});
+  struggle_settings.enabled = next?.enabled === true;
+
+  if (struggle_settings.enabled && !struggle_isTracking) {
+    struggle_startTracking();
+  } else if (!struggle_settings.enabled && struggle_isTracking) {
+    struggle_stopTracking();
+  }
 }
 
 // Auto-initialize
 if (typeof window !== 'undefined') {
-  struggle_init();
+  struggle_initialize();
 }
 
 export {
+  struggle_initialize,
   struggle_startTracking,
   struggle_stopTracking,
   struggle_getMetrics,

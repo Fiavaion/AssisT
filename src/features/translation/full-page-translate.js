@@ -23,11 +23,25 @@
  * - Uses translation API via window.assistFeatures.translation
  * - Stores original text in data-original-text attribute
  *
+ * Consent (ADR 0006): a whole page is its own question, `pageTranslation`, because it sends far more
+ * than a selection and on a course page that can include other people's names. It is asked once,
+ * before anything is sent, with a sample of what the page holds. Only text the student can see is
+ * sent: nothing hidden, nothing aria-hidden, none of AssisT's own interface.
+ *
  * @module features/translation/full-page-translate
  */
 
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { Z } from '../../utils/z-index.js';
+import { getConsent } from '../../utils/consent.js';
+import { askForConsent } from '../../utils/consent-panel.js';
+
+/** What a student is told when they chose not to send the page. */
+const PAGE_DECLINED_MESSAGE =
+  'Nothing was sent. You chose not to use MyMemory to translate the whole page.';
+
+/** How many passages the consent sample is drawn from. */
+const SAMPLE_PASSAGES = 3;
 
 let fullPageTranslate_isTranslated = false;
 let fullPageTranslate_progressModal = null;
@@ -188,7 +202,7 @@ function fullPageTranslate_createRevertButton() {
     button.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
   };
 
-  attachInteractiveHandler(button, 'Full Page Translate Revert Button', () =>
+  attachAccessibleHandler(button, 'Full Page Translate Revert Button', () =>
     fullPageTranslate_revert()
   );
 
@@ -222,8 +236,47 @@ function fullPageTranslate_hideRevertButton() {
 }
 
 /**
- * Gets all translatable text nodes in the document
- * Skips script, style, code, and interactive elements
+ * Whether an element hides its text from a sighted student, or is AssisT's own interface.
+ * @param {Element} element
+ * @returns {boolean}
+ */
+function fullPageTranslate_isHiddenOrOwn(element) {
+  if (
+    element.hasAttribute('hidden') ||
+    element.hasAttribute('inert') ||
+    element.getAttribute('aria-hidden') === 'true' ||
+    element.hasAttribute('data-no-translate') ||
+    element.hasAttribute('data-assist-consent-panel') ||
+    (typeof element.id === 'string' && element.id.startsWith('assist-')) ||
+    [...element.classList].some(name => name.startsWith('assist-'))
+  ) {
+    return true;
+  }
+  const style = window.getComputedStyle(element);
+  if (
+    style.display === 'none' ||
+    style.visibility === 'hidden' ||
+    style.visibility === 'collapse'
+  ) {
+    return true;
+  }
+  // Chrome answers for what the rules above cannot see: content-visibility, a zero opacity, and
+  // text clipped to nothing for screen readers only.
+  if (typeof element.checkVisibility === 'function') {
+    if (!element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) {
+      return true;
+    }
+    const box = element.getBoundingClientRect();
+    if (box.width <= 1 && box.height <= 1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Gets the text nodes a sighted student can see on the page.
+ * Skips script, style, code and form controls, hidden and aria-hidden content, and AssisT's own UI.
  *
  * @returns {Array<Node>} Array of text nodes
  */
@@ -246,44 +299,35 @@ function fullPageTranslate_getTextNodes() {
     'TEXTAREA',
     'SELECT',
     'BUTTON',
+    'TEMPLATE',
   ]);
+  /** @type {Map<Element, boolean>} each element's verdict, so a deep page is walked once */
+  const excluded = new Map();
+  const isExcluded = element => {
+    if (!element || element === document.body) {
+      return false;
+    }
+    if (!excluded.has(element)) {
+      excluded.set(
+        element,
+        skipTags.has(element.tagName.toUpperCase()) ||
+          fullPageTranslate_isHiddenOrOwn(element) ||
+          isExcluded(element.parentElement)
+      );
+    }
+    return excluded.get(element);
+  };
 
-  // Use TreeWalker for efficient traversal
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: function (node) {
-        // Skip empty or whitespace-only text nodes
-        if (!node.textContent || !node.textContent.trim()) {
-          return NodeFilter.FILTER_REJECT;
-        }
-
-        // Skip if parent is a skip tag
-        let parent = node.parentElement;
-        while (parent) {
-          if (skipTags.has(parent.tagName)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          // Skip elements with data-no-translate attribute
-          if (parent.hasAttribute('data-no-translate')) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          parent = parent.parentElement;
-        }
-
-        // Only accept text nodes with substantial content (more than 2 chars)
-        if (node.textContent.trim().length < 3) {
-          return NodeFilter.FILTER_REJECT;
-        }
-
-        return NodeFilter.FILTER_ACCEPT;
-      },
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const text = node.textContent ? node.textContent.trim() : '';
+      // Only text nodes with substantial content (more than 2 chars)
+      if (text.length < 3 || isExcluded(node.parentElement)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
     },
-    false
-  );
+  });
 
   let node;
   while ((node = walker.nextNode())) {
@@ -295,12 +339,37 @@ function fullPageTranslate_getTextNodes() {
 }
 
 /**
+ * Whether the student allows this page to be sent: asked once, before anything is sent, with a
+ * sample of what the page holds. After an earlier no, pressing Translate Page is the student
+ * asking, so the question comes back saying so, with Allow in it.
+ *
+ * @param {Array<Node>} textNodes - what would be sent
+ * @returns {Promise<boolean>}
+ */
+async function fullPageTranslate_isAllowed(textNodes) {
+  const state = await getConsent('pageTranslation');
+  if (state === 'granted') {
+    return true;
+  }
+  const passages = textNodes.map(node => node.textContent.trim().replace(/\s+/g, ' '));
+  const words = passages.join(' ').split(' ').filter(Boolean).length;
+  const count = passages.length === 1 ? '1 passage' : `${passages.length} passages`;
+  const answer = await askForConsent('pageTranslation', {
+    detail: passages.slice(0, SAMPLE_PASSAGES).join(' / '),
+    detailLabel: `This page has ${count} of visible text, about ${words} words. It starts:`,
+    declinedBefore: state === 'declined',
+  });
+  return answer === 'granted';
+}
+
+/**
  * Translates an array of text nodes in batches
  *
  * @param {Array<Node>} textNodes - Text nodes to translate
  * @param {string} targetLang - Target language code
  * @param {string} sourceLang - Source language code (default: 'auto')
- * @returns {Promise<void>}
+ * @returns {Promise<string|null>} the explanation when the student has not allowed MyMemory and
+ *   nothing was sent, otherwise null
  */
 async function fullPageTranslate_translateNodes(textNodes, targetLang, sourceLang = 'auto') {
   console.log(`[FullPageTranslate] Translating ${textNodes.length} nodes to ${targetLang}`);
@@ -312,6 +381,10 @@ async function fullPageTranslate_translateNodes(textNodes, targetLang, sourceLan
   }
 
   let processedNodes = 0;
+  let declined = null;
+  // The first passage sent may ask, and is asked about only when Chrome does not hold MyMemory's
+  // host (ADR 0009: a yes without it is no consent). Every later passage never asks.
+  let firstSent = true;
 
   // Process each node sequentially to avoid rate limiting (was causing HTTP 429 errors)
   for (let i = 0; i < textNodes.length; i++) {
@@ -334,8 +407,19 @@ async function fullPageTranslate_translateNodes(textNodes, targetLang, sourceLan
         continue;
       }
 
-      // Translate
-      const result = await translationAPI.translate(originalText, targetLang, sourceLang);
+      // Translate. The student has already answered for the whole page, so a refusal here (the
+      // answer withdrawn mid-run) ends the run rather than asking again per passage.
+      const result = await translationAPI.translate(originalText, targetLang, sourceLang, {
+        destination: 'pageTranslation',
+        ask: firstSent,
+      });
+      firstSent = false;
+
+      // The student said no to sending the page: one refusal answers for the whole page.
+      if (result.consentDeclined) {
+        declined = result.error;
+        break;
+      }
 
       if (result.error) {
         console.warn(`[FullPageTranslate] Translation error: ${result.error}`);
@@ -367,6 +451,7 @@ async function fullPageTranslate_translateNodes(textNodes, targetLang, sourceLan
   }
 
   console.log('[FullPageTranslate] Translation complete');
+  return declined;
 }
 
 /**
@@ -388,23 +473,36 @@ async function fullPageTranslate_translate(targetLang = 'en', sourceLang = 'auto
   }
 
   try {
-    // Show progress modal
-    fullPageTranslate_showProgressModal();
-
     // Get all text nodes
     const textNodes = fullPageTranslate_getTextNodes();
 
     if (textNodes.length === 0) {
       console.warn('[FullPageTranslate] No text nodes found');
-      fullPageTranslate_hideProgressModal();
       if (window.showToast) {
         window.showToast('No translatable text found on this page');
       }
       return;
     }
 
+    if (!(await fullPageTranslate_isAllowed(textNodes))) {
+      if (window.showToast) {
+        window.showToast(PAGE_DECLINED_MESSAGE);
+      }
+      return;
+    }
+
+    // Show progress modal
+    fullPageTranslate_showProgressModal();
+
     // Translate all nodes
-    await fullPageTranslate_translateNodes(textNodes, targetLang, sourceLang);
+    const declined = await fullPageTranslate_translateNodes(textNodes, targetLang, sourceLang);
+    if (declined) {
+      fullPageTranslate_hideProgressModal();
+      if (window.showToast) {
+        window.showToast(declined);
+      }
+      return;
+    }
 
     // Mark as translated
     fullPageTranslate_isTranslated = true;
@@ -491,13 +589,4 @@ if (typeof window !== 'undefined') {
   };
 
   console.log('[FullPageTranslate] Module loaded');
-}
-
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    fullPageTranslate_translate,
-    fullPageTranslate_revert,
-    fullPageTranslate_getTextNodes,
-  };
 }

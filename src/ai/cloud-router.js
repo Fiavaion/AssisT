@@ -7,39 +7,35 @@
  * All features send CLOUD_LLM_GENERATE → service worker → this router.
  * The router reads cloudProvider from storage and dispatches accordingly.
  *
+ * Nothing is sent to a provider the student has not allowed (ADR 0006). The consent check is here,
+ * in the one place every cloud request passes, read fresh from storage on every request, so a
+ * withdrawal in the popup stops the very next one. Consent is recorded where the student saves a
+ * key (the popup's AI panel and the AI setup page), beside wording that names the provider.
+ *
+ * Anthropic, OpenAI, Google Gemini and Perplexity are optional host permissions (ADR 0006, and
+ * ADR 0007 for Gemini), requested in the same click that saves their key. A request to one of them
+ * whose permission Chrome does not hold is refused here too, before anything is sent, with the
+ * words a student needs to give it. That is
+ * also how an install from before the change finds out: its consent carried over, its permission
+ * did not, and the popup's AI Assist panel offers the button that asks Chrome for it.
+ *
  * @module ai/cloud-router
  */
 
 import { claudeGenerate } from './claude-client.js';
-import { openaiGenerate, fetchOpenAIModels } from './openai-client.js';
-import { geminiGenerate, fetchGeminiModels } from './google-client.js';
-import { perplexityGenerate, fetchPerplexityModels } from './perplexity-client.js';
+import { openaiGenerate } from './openai-client.js';
+import { geminiGenerate } from './google-client.js';
+import { perplexityGenerate } from './perplexity-client.js';
 import { getSecureAPIKey } from '../core/storage/secure-key-storage.js';
-import { resolveModel, getHardcodedFallbackModels } from './model-registry.js';
-
-const MODELS_CACHE_VERSION = 2;
+import { resolveModel } from './model-registry.js';
+import { DESTINATIONS, hasConsent } from '../utils/consent.js';
+import { holdsHostPermissions } from '../utils/host-permissions.js';
 
 const PROVIDERS = {
-  anthropic: {
-    generate: claudeGenerate,
-    fetchModels: fetchAnthropicModels,
-    name: 'Anthropic',
-  },
-  openai: {
-    generate: openaiGenerate,
-    fetchModels: fetchOpenAIModelsWithKey,
-    name: 'OpenAI',
-  },
-  google: {
-    generate: geminiGenerate,
-    fetchModels: fetchGeminiModelsWithKey,
-    name: 'Google',
-  },
-  perplexity: {
-    generate: perplexityGenerate,
-    fetchModels: fetchPerplexityModelsWrapper,
-    name: 'Perplexity',
-  },
+  anthropic: { generate: claudeGenerate, name: 'Anthropic' },
+  openai: { generate: openaiGenerate, name: 'OpenAI' },
+  google: { generate: geminiGenerate, name: 'Google' },
+  perplexity: { generate: perplexityGenerate, name: 'Perplexity' },
 };
 
 /**
@@ -60,11 +56,14 @@ export async function cloudGenerate(prompt, options = {}) {
     );
   }
 
+  await assertConsent(provider);
+  await assertHostPermission(provider);
+
   console.log(
     `[CloudRouter] Routing to ${providerConfig.name} (model: ${options.model || 'default'})`
   );
 
-  // Resolve model keys (e.g., 'sonnet-4.6') to actual API model IDs via registry
+  // Resolve model keys (e.g., 'sonnet-5.5') to actual API model IDs via registry
   if (options.model) {
     options.model = resolveModel(provider, options.model);
   }
@@ -79,83 +78,73 @@ export async function cloudGenerate(prompt, options = {}) {
 export async function checkCloudAvailability() {
   const provider = await getActiveProvider();
   const hasKey = await getSecureAPIKey(provider);
+  const allowed = await hasConsent(provider);
+  const reachable = await holdsHostPermissions([provider]);
+
+  let reason = null;
+  if (!hasKey) {
+    reason = 'API key not configured';
+  } else if (!allowed) {
+    reason = notAllowedMessage(provider);
+  } else if (!reachable) {
+    reason = noPermissionMessage(provider);
+  }
 
   return {
-    available: !!hasKey,
+    available: !!hasKey && allowed && reachable,
     provider,
     providerName: PROVIDERS[provider]?.name || provider,
-    reason: hasKey ? null : 'API key not configured',
+    reason,
+    needsApiKey: !hasKey,
+    needsHostPermission: !!hasKey && allowed && !reachable,
   };
 }
 
 /**
- * Fetch available models for a specific provider
- * @param {string} provider - Provider name
- * @param {string} [apiKey] - Optional API key (fetched from storage if not provided)
- * @returns {Promise<Array<{id: string, name: string, description: string}>>}
+ * What a student is told when a provider has not been allowed, and where to allow it.
+ * @param {string} provider
+ * @returns {string}
  */
-export async function cloudFetchModels(provider, apiKey = null) {
-  const providerConfig = PROVIDERS[provider];
+function notAllowedMessage(provider) {
+  const service = DESTINATIONS[provider]?.service || provider;
+  return (
+    `You have not allowed AssisT to send text to ${service}, so nothing was sent. ` +
+    `Open the AssisT popup, go to AI Assist, and press "Allow access to ${service}".`
+  );
+}
 
-  if (!providerConfig) {
-    throw new Error(`Unknown provider: ${provider}`);
-  }
+/**
+ * What a student is told when Chrome does not hold the provider's optional host permission.
+ * @param {string} provider
+ * @returns {string}
+ */
+function noPermissionMessage(provider) {
+  const service = DESTINATIONS[provider]?.service || provider;
+  return (
+    `Chrome has not given AssisT access to ${service}, so nothing was sent. ` +
+    `Open the AssisT popup, go to AI Assist, and press "Allow access to ${service}".`
+  );
+}
 
-  const key = apiKey || (await getSecureAPIKey(provider));
-  if (!key) {
-    throw new Error(`No API key configured for ${providerConfig.name}`);
-  }
-
-  console.log(`[CloudRouter] Fetching models for ${providerConfig.name}`);
-
-  try {
-    const models = await providerConfig.fetchModels(key);
-
-    // Cache the results
-    await cacheModels(provider, models);
-
-    return models;
-  } catch (error) {
-    console.warn(`[CloudRouter] Model fetch failed for ${provider}:`, error.message);
-
-    // Try to return cached models as fallback
-    const cached = await getCachedModels(provider);
-    if (cached && cached.length > 0) {
-      console.log(`[CloudRouter] Using cached models for ${provider}`);
-      return cached;
-    }
-
-    // Return hardcoded fallbacks
-    return getHardcodedFallback(provider);
+/**
+ * Refuse, before anything is sent, a provider the student has not allowed.
+ * @param {string} provider
+ * @returns {Promise<void>}
+ */
+async function assertConsent(provider) {
+  if (!(await hasConsent(provider))) {
+    throw new Error(notAllowedMessage(provider));
   }
 }
 
 /**
- * Get cached models for a provider (if available)
+ * Refuse, before anything is sent, a provider whose optional host permission is not held.
  * @param {string} provider
- * @returns {Promise<Array|null>}
+ * @returns {Promise<void>}
  */
-export async function getCachedModels(provider) {
-  try {
-    const key = `cloudModels_${provider}`;
-    const result = await chrome.storage.local.get(key);
-    const cached = result[key];
-
-    if (cached && cached.models && cached.timestamp) {
-      // Invalidate if cache version doesn't match
-      if (cached.version !== MODELS_CACHE_VERSION) {
-        return null;
-      }
-      // Cache valid for 24 hours
-      const age = Date.now() - cached.timestamp;
-      if (age < 24 * 60 * 60 * 1000) {
-        return cached.models;
-      }
-    }
-    return null;
-  } catch {
-    // storage unavailable — caller falls back to live fetch
-    return null;
+async function assertHostPermission(provider) {
+  if (!(await holdsHostPermissions([provider]))) {
+    throw new Error(noPermissionMessage(provider));
   }
 }
 
@@ -172,75 +161,7 @@ async function getActiveProvider() {
   }
 }
 
-/**
- * Cache fetched models in storage
- * @param {string} provider
- * @param {Array} models
- */
-async function cacheModels(provider, models) {
-  try {
-    const key = `cloudModels_${provider}`;
-    await chrome.storage.local.set({
-      [key]: {
-        models,
-        timestamp: Date.now(),
-        version: MODELS_CACHE_VERSION,
-      },
-    });
-  } catch (error) {
-    console.warn('[CloudRouter] Failed to cache models:', error.message);
-  }
-}
-
-/**
- * Fetch Anthropic models (hardcoded — no listing API).
- * Uses model-registry as the single source of truth.
- * @returns {Promise<Array<{id: string, name: string, description: string}>>}
- */
-async function fetchAnthropicModels() {
-  return getHardcodedFallbackModels('anthropic');
-}
-
-/**
- * Wrapper for OpenAI model fetching (injects API key)
- * @param {string} apiKey
- * @returns {Promise<Array>}
- */
-async function fetchOpenAIModelsWithKey(apiKey) {
-  return fetchOpenAIModels(apiKey);
-}
-
-/**
- * Wrapper for Gemini model fetching (injects API key)
- * @param {string} apiKey
- * @returns {Promise<Array>}
- */
-async function fetchGeminiModelsWithKey(apiKey) {
-  return fetchGeminiModels(apiKey);
-}
-
-/**
- * Wrapper for Perplexity model fetching (no key needed)
- * @returns {Promise<Array>}
- */
-async function fetchPerplexityModelsWrapper() {
-  return fetchPerplexityModels();
-}
-
-/**
- * Hardcoded fallback models when API fetch fails.
- * Delegates to model-registry — the single source of truth.
- * @param {string} provider
- * @returns {Array<{id: string, name: string, description: string}>}
- */
-function getHardcodedFallback(provider) {
-  const models = getHardcodedFallbackModels(provider);
-  return models.length > 0 ? models : getHardcodedFallbackModels('anthropic');
-}
-
 export default {
   cloudGenerate,
-  cloudFetchModels,
   checkCloudAvailability,
-  getCachedModels,
 };

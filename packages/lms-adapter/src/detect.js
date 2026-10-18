@@ -61,11 +61,11 @@ export async function detectLMS({ url, useDOMHints = true } = {}) {
     }
   }
 
-  if (!useDOMHints || typeof document === 'undefined') return null;
+  if (!useDOMHints || typeof document === 'undefined') {return null;}
 
   for (const [platform, checks] of Object.entries(DOM_FINGERPRINTS)) {
     try {
-      if (checks.some(fn => fn())) return platform;
+      if (checks.some(fn => fn())) {return platform;}
     } catch {
       // DOM not ready or selector threw — skip
     }
@@ -84,38 +84,38 @@ export async function detectLMS({ url, useDOMHints = true } = {}) {
 export async function detectPageType(platform, { url } = {}) {
   const href = url ?? (typeof window !== 'undefined' ? window.location.href : '');
 
-  if (platform === 'canvas') return detectCanvasPageType(href);
-  if (platform === 'moodle') return detectMoodlePageType(href);
-  if (platform === 'classroom') return detectClassroomPageType(href);
+  if (platform === 'canvas') {return detectCanvasPageType(href);}
+  if (platform === 'moodle') {return detectMoodlePageType(href);}
+  if (platform === 'classroom') {return detectClassroomPageType(href);}
   return 'unknown';
 }
 
 // ─── Platform-specific page-type helpers ──────────────────────────────────────
 
 function detectCanvasPageType(href) {
-  if (/\/assignments\/\d+/.test(href)) return 'assignment';
-  if (/\/quizzes\/\d+/.test(href)) return 'quiz';
-  if (/\/discussion_topics\/\d+/.test(href)) return 'discussion';
-  if (/\/modules/.test(href)) return 'module';
-  if (/\/pages\//.test(href)) return 'page';
-  if (/\/grades/.test(href)) return 'gradebook';
-  if (/\/syllabus/.test(href)) return 'syllabus';
-  if (/\/courses\/\d+$/.test(href) || /\/courses\/\d+\?/.test(href)) return 'course-home';
+  if (/\/assignments\/\d+/.test(href)) {return 'assignment';}
+  if (/\/quizzes\/\d+/.test(href)) {return 'quiz';}
+  if (/\/discussion_topics\/\d+/.test(href)) {return 'discussion';}
+  if (/\/modules/.test(href)) {return 'module';}
+  if (/\/pages\//.test(href)) {return 'page';}
+  if (/\/grades/.test(href)) {return 'gradebook';}
+  if (/\/syllabus/.test(href)) {return 'syllabus';}
+  if (/\/courses\/\d+$/.test(href) || /\/courses\/\d+\?/.test(href)) {return 'course-home';}
   return 'unknown';
 }
 
 function detectMoodlePageType(href) {
-  if (/\/mod\/assign\/view\.php/.test(href)) return 'assignment';
-  if (/\/mod\/quiz\/view\.php/.test(href)) return 'quiz';
-  if (/\/mod\/forum\//.test(href)) return 'discussion';
-  if (/\/mod\/page\//.test(href)) return 'page';
-  if (/\/course\/view\.php/.test(href)) return 'course-home';
-  if (/\/grade\/report\//.test(href)) return 'gradebook';
+  if (/\/mod\/assign\/view\.php/.test(href)) {return 'assignment';}
+  if (/\/mod\/quiz\/view\.php/.test(href)) {return 'quiz';}
+  if (/\/mod\/forum\//.test(href)) {return 'discussion';}
+  if (/\/mod\/page\//.test(href)) {return 'page';}
+  if (/\/course\/view\.php/.test(href)) {return 'course-home';}
+  if (/\/grade\/report\//.test(href)) {return 'gradebook';}
   return 'unknown';
 }
 
 function detectClassroomPageType(href) {
-  if (/\/a\/[A-Za-z0-9_-]+/.test(href)) return 'assignment';
-  if (/\/c\/[A-Za-z0-9_-]+$/.test(href)) return 'course-home';
+  if (/\/a\/[A-Za-z0-9_-]+/.test(href)) {return 'assignment';}
+  if (/\/c\/[A-Za-z0-9_-]+$/.test(href)) {return 'course-home';}
   return 'unknown';
 }

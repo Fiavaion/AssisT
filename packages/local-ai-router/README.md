@@ -1,6 +1,6 @@
 # @fiavaion/local-ai-router
 
-> **Status: Initial scaffolding — NLnet NGI0 Commons Fund Phase 1 deliverable**
+> **Status: Initial scaffolding**
 
 Four-mode local-AI routing for Manifest V3 browser extensions. Routes across Ollama, WebLLM (WebGPU in-browser), Chrome Prompt API (Gemini Nano), and cloud providers — with automatic degradation and MV3 service-worker lifecycle awareness.
 
@@ -43,4 +43,4 @@ EUPL-1.2 — the European Commission's recommended licence for public-sector sof
 
 ## Part of
 
-[AssisT](https://github.com/Fiavaion/AssisT) — open-source, privacy-first accessibility AI for higher-education VLEs. Funded in part by NLnet NGI0 Commons Fund.
+[AssisT](https://github.com/Fiavaion/AssisT) — open-source, privacy-first accessibility AI for higher-education VLEs.

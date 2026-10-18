@@ -9,6 +9,13 @@
   /* Colors - Dark Mode (High contrast) */
   --color-primary: #60a5fa;
   --color-primary-hover: #93c5fd;
+  /*
+   * Text laid ON the primary colour. The primary is a light blue so it reads as text and as a
+   * border on this page's dark ground, and no light blue can also carry white text: white on it
+   * measures 2.54:1, which is what overnight release testing found on the quiz's own "Start"
+   * button. Dark ink on the same blue gives 7.5:1, and 10.5:1 on the hover shade.
+   */
+  --color-on-primary: #0a1020;
   --color-primary-light: #1e3a8a;
   --color-secondary: #94a3b8;
   --color-secondary-hover: #cbd5e1;
@@ -121,7 +128,7 @@ body {
   left: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
   border-radius: var(--radius-sm);
   z-index: 1000;
 }
@@ -256,7 +263,7 @@ body {
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -888,7 +895,7 @@ body {
 .btn-preset {
   width: 100%;
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
   padding: var(--space-md) var(--space-lg);
   font-size: var(--font-size-base);
   font-weight: 600;
@@ -967,4 +974,17 @@ body {
   .preset-icon {
     font-size: 3rem;
   }
+}
+
+/* ============================================================
+   Help — SC 3.2.6 Consistent Help: last in the page header, as in the popup
+   ============================================================ */
+.page-help-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-md);
+}
+
+.page-help {
+  text-decoration: none;
 }

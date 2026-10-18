@@ -4,13 +4,72 @@
  * Stores user preferences locally for privacy
  */
 
+import { applySettingWrites } from './setting-writes.js';
+
+/** True for an object literal — not an array, a Date, or null. */
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Returns a new object with `override`'s values laid over `base`, recursing only where both sides
+ * are plain objects. Nothing in either argument is mutated.
+ */
+function deepMerge(base, override) {
+  const merged = {};
+
+  for (const key of Object.keys(base)) {
+    merged[key] = isPlainObject(base[key]) ? deepMerge(base[key], {}) : base[key];
+  }
+
+  for (const key of Object.keys(override)) {
+    const incoming = override[key];
+    merged[key] =
+      isPlainObject(merged[key]) && isPlainObject(incoming)
+        ? deepMerge(merged[key], incoming)
+        : isPlainObject(incoming)
+          ? deepMerge(incoming, {})
+          : incoming;
+  }
+
+  return merged;
+}
+
+/**
+ * Rewrites values an older version stored in a shape the defaults no longer declare, so the merge
+ * can fill them in. The merge keeps any stored non-object over a default object, which is right for
+ * a student's choice and wrong for an old shape: the value would survive and every reader of its
+ * options would get undefined.
+ *
+ * - `canvasIntegration.quizHelper` was a bare boolean before the quiz helper had options. It
+ *   becomes `{ enabled: <that boolean> }`, so a student who had it on keeps it on and the options
+ *   take their defaults.
+ *
+ * @param {Object} stored the stored settings object; not mutated
+ * @returns {Object} the same object when nothing needed upgrading, otherwise an upgraded copy
+ */
+function upgradeStored(stored) {
+  const quizHelper = stored.canvasIntegration?.quizHelper;
+  if (typeof quizHelper !== 'boolean') {
+    return stored;
+  }
+  return {
+    ...stored,
+    canvasIntegration: { ...stored.canvasIntegration, quizHelper: { enabled: quizHelper } },
+  };
+}
+
 export class StorageManager {
   static STORAGE_KEYS = {
     SETTINGS: 'assist_settings',
-    USER_PROFILE: 'assist_user_profile',
-    LAST_SYNC: 'assist_last_sync',
   };
 
+  /**
+   * The shape of the settings, and the value of every branch on a fresh install.
+   *
+   * This is the one place a default lives. Nothing hands this object out or writes into it —
+   * `withDefaults()` copies it — so a caller cannot leave a stale value behind for the next one.
+   */
   static DEFAULT_SETTINGS = {
     tts: {
       enabled: false,
@@ -32,35 +91,10 @@ export class StorageManager {
       autoCapitalize: true, // Capitalize first word of sentences
       punctuationCommands: true, // Voice punctuation ("period", "comma")
       floatingButton: true, // Show mic button on text field focus
-    },
-    waiAdapt: {
-      textSpacing: {
-        enabled: false,
-        lineHeight: 1.5,
-        paragraphSpacing: 2.0,
-        letterSpacing: 0.12,
-        wordSpacing: 0.16,
-      },
-      focusMode: {
-        enabled: false,
-        hideExtraneous: true,
-        simplifyNavigation: true,
-      },
-      numericSimplification: {
-        enabled: false,
-        useText: true,
-        useGraphics: false,
-      },
-      typography: {
-        font: 'system',
-        fontSize: 16,
-        useOpenDyslexic: false,
-      },
-      colorScheme: {
-        mode: 'default',
-        backgroundColor: '#FFFFFF',
-        textColor: '#000000',
-        contrast: 'normal',
+      vocabulary: {
+        autoLearn: true, // Learn a word the student keeps correcting
+        enabledPresets: [], // Subject word lists: 'medical' | 'legal' | 'academic' | 'stem'
+        customWords: [], // [{ word, phonetic }] the student added
       },
     },
     accessibility: {
@@ -95,75 +129,54 @@ export class StorageManager {
       autoActivateReadingMode: true,
       filterNoise: true,
       upscaleFactor: 1.5,
+      offlineAccuracy: false, // Opt-in image preprocessing (changes recognition output)
+      autoTTS: false, // Read the result aloud unprompted: opt-in, it can talk over a screen reader
+    },
+    // Maths Support tools — opt-in accommodation set for dyscalculic students
+    maths: {
+      enabled: false, // Master toggle
+      calculator: true, // Floating calculator + scratchpad (when enabled)
+      numberFormat: false, // Group large numbers + screen-reader-correct labels
+      placeValue: false, // Colour place-value groups when formatting
+    },
+    // Citation manager — default ON and visible from 1.0.
+    citation: {
+      enabled: true,
     },
     // Sprint 4 Features
     canvasIntegration: {
-      enabled: false, // Default OFF - user will test post-launch
+      enabled: true, // Default ON from 1.0
       assignmentReader: true, // Auto-reader for Canvas assignments
-      quizHelper: false, // Future: Quiz content extraction
+      quizHelper: {
+        enabled: false,
+        readAnswers: true, // Read the answer options after the question
+        autoRead: false, // Read each question on arrival by keyboard navigation
+        highlightQuestion: true,
+        highlightColor: '#4A90E2',
+        keyboardNavigation: true,
+      },
       keyboardNav: false, // Future: Keyboard navigation enhancements
     },
     // Sprint 9 Features - Multi-Platform LMS Support
     moodleIntegration: {
-      enabled: false, // Default OFF - EXPERIMENTAL feature
+      enabled: true, // Default ON from 1.0
       assignmentReader: true, // Auto-reader for Moodle assignments
       forumReader: true, // Read forum posts
       pageReader: true, // Read page resources
       quizHelper: false, // Future: Quiz content extraction
     },
     googleClassroomIntegration: {
-      enabled: false, // Default OFF - EXPERIMENTAL feature
+      enabled: true, // Default ON from 1.0
       assignmentReader: true, // Auto-reader for Google Classroom assignments
       streamReader: true, // Read stream posts/announcements
       classworkReader: true, // Read classwork items
     },
-    // Local LLM Integration (AssisT LLM Edition)
-    localLLM: {
-      enabled: false, // Master toggle for all AI features
-      baseUrl: 'http://localhost:11434', // Ollama default URL
-      preferredModel: 'llama3.2', // Default model for most tasks
-      fastModel: 'phi3:mini', // Model for quick responses
-      visionModel: 'llava', // Model for image understanding
-      // Individual feature toggles
-      features: {
-        smartSummarization: true, // AI-powered text summaries
-        textSimplification: true, // Semantic text simplification
-        cognitiveProfile: true, // Cognitive Twin learning
-        struggleDetection: true, // Proactive help triggers
-        socraticTutor: true, // Guided questioning mode
-        assignmentAnalyzer: true, // Assignment breakdown
-        citationAnalyzer: true, // Source evaluation
-        visionAnalysis: true, // Image/page understanding
-        knowledgeGraph: true, // Annotation linking
-        adaptiveRSVP: true, // Intelligent RSVP timing
-        predictiveLoading: true, // Pre-load content
-      },
-      // Cognitive profile settings
-      cognitiveProfile: {
-        persistence: '6months', // 'session' | '1month' | '6months' | '1year' | 'permanent'
-        lastCleared: null,
-        exportEnabled: true,
-      },
-      // Privacy settings (enforced)
-      privacy: {
-        neverSendToCloud: true, // Cannot be disabled
-        clearContextAfterSession: false, // Clear conversation context after session
-        noPersonalDataInPrompts: true, // Sanitize prompts
-        localProcessingOnly: true, // Enforced - no cloud APIs
-      },
-      // Performance settings
-      performance: {
-        cacheResponses: true, // Cache identical requests
-        cacheTTL: 300000, // 5 minutes cache duration
-        maxConcurrentRequests: 2, // Limit parallel AI requests
-        timeoutMs: 30000, // Request timeout
-      },
-      // UI preferences
-      ui: {
-        showAIIndicator: true, // Show when AI is processing
-        showFallbackMessages: true, // Notify when using fallbacks
-        compactMode: false, // Reduce AI UI footprint
-      },
+    // Popup section visibility — LMS + Citations surface by default from 1.0.
+    ui_visibility: {
+      show_citations: true,
+      show_canvas_integration: true,
+      show_moodle_integration: true,
+      show_google_classroom_integration: true,
     },
   };
 
@@ -176,14 +189,13 @@ export class StorageManager {
 
       if (!existing[this.STORAGE_KEYS.SETTINGS]) {
         await chrome.storage.local.set({
-          [this.STORAGE_KEYS.SETTINGS]: this.DEFAULT_SETTINGS,
-          [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
+          [this.STORAGE_KEYS.SETTINGS]: this.withDefaults(null),
         });
 
         console.log('[Storage] Default settings initialized');
       }
 
-      return this.DEFAULT_SETTINGS;
+      return this.withDefaults(null);
     } catch (error) {
       console.error('[Storage] Failed to initialize defaults:', error);
       throw error;
@@ -191,59 +203,56 @@ export class StorageManager {
   }
 
   /**
-   * Get all user settings
+   * Every setting the student has, with every branch present.
+   *
+   * The stored object is whatever the version that wrote it happened to know about, so an install
+   * upgraded from 0.9.3 has no `maths`, `citation` or `ui_visibility` branch at all. Readers in the
+   * popup dereference those branches, and an undefined one there took the whole popup down with it
+   * — every control on screen and none of them working. Merging the stored object over the defaults
+   * closes that off at the source. An added branch is exactly what the merge supplies; a value whose
+   * shape changed is not, and is upgraded first — see upgradeStored().
    */
   static async getSettings() {
     try {
       const result = await chrome.storage.local.get(this.STORAGE_KEYS.SETTINGS);
-      return result[this.STORAGE_KEYS.SETTINGS] || this.DEFAULT_SETTINGS;
+      return this.withDefaults(result[this.STORAGE_KEYS.SETTINGS]);
     } catch (error) {
       console.error('[Storage] Failed to get settings:', error);
-      return this.DEFAULT_SETTINGS;
+      return this.withDefaults(null);
     }
   }
 
   /**
-   * Update specific setting
+   * Merges a stored settings object over the defaults, deeply.
+   *
+   * The stored value always wins where it has one, including `false` and `0` — those are choices a
+   * student made, not gaps. Only a genuinely absent key takes the default. Branches the defaults do
+   * not describe (appearance, annotations, the AI keys) are carried through untouched, and arrays
+   * and other non-plain values replace rather than merge, so a saved list is never spliced together
+   * with a default one.
+   *
+   * @param {*} stored value read out of chrome.storage, of any shape
+   * @returns {Object} a fresh object safe for the caller to mutate
+   */
+  static withDefaults(stored) {
+    return deepMerge(this.DEFAULT_SETTINGS, upgradeStored(isPlainObject(stored) ? stored : {}));
+  }
+
+  /**
+   * Update specific setting at a dotted path.
+   *
+   * The merge and the write belong to the shared settings writer, which re-reads immediately before
+   * it writes: two realms store settings here, and a copy of this merge in every caller is how one
+   * realm's write comes to discard another's. It also creates the branches a path needs, which the
+   * merge that used to live here did not.
    */
   static async updateSetting(path, value) {
     try {
-      const settings = await this.getSettings();
-      const keys = path.split('.');
-
-      let current = settings;
-      for (let i = 0; i < keys.length - 1; i++) {
-        current = current[keys[i]];
-      }
-      current[keys[keys.length - 1]] = value;
-
-      await chrome.storage.local.set({
-        [this.STORAGE_KEYS.SETTINGS]: settings,
-        [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
-      });
-
-      console.log('[Storage] Setting updated:', path, value);
-      return settings;
+      await applySettingWrites([{ path, value }]);
+      console.log('[Storage] Setting updated:', path);
+      return this.getSettings();
     } catch (error) {
       console.error('[Storage] Failed to update setting:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Save complete settings object
-   */
-  static async saveSettings(settings) {
-    try {
-      await chrome.storage.local.set({
-        [this.STORAGE_KEYS.SETTINGS]: settings,
-        [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
-      });
-
-      console.log('[Storage] Settings saved');
-      return settings;
-    } catch (error) {
-      console.error('[Storage] Failed to save settings:', error);
       throw error;
     }
   }
@@ -253,55 +262,15 @@ export class StorageManager {
    */
   static async resetToDefaults() {
     try {
+      const defaults = this.withDefaults(null);
       await chrome.storage.local.set({
-        [this.STORAGE_KEYS.SETTINGS]: this.DEFAULT_SETTINGS,
-        [this.STORAGE_KEYS.LAST_SYNC]: Date.now(),
+        [this.STORAGE_KEYS.SETTINGS]: defaults,
       });
 
       console.log('[Storage] Settings reset to defaults');
-      return this.DEFAULT_SETTINGS;
+      return defaults;
     } catch (error) {
       console.error('[Storage] Failed to reset settings:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Export settings for backup (FERPA-compliant - no PII)
-   */
-  static async exportSettings() {
-    try {
-      const settings = await this.getSettings();
-      const exportData = {
-        version: '1.0',
-        timestamp: new Date().toISOString(),
-        settings: settings,
-      };
-
-      return JSON.stringify(exportData, null, 2);
-    } catch (error) {
-      console.error('[Storage] Failed to export settings:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Import settings from backup
-   */
-  static async importSettings(jsonString) {
-    try {
-      const importData = JSON.parse(jsonString);
-
-      if (!importData.settings) {
-        throw new Error('Invalid import format');
-      }
-
-      await this.saveSettings(importData.settings);
-      console.log('[Storage] Settings imported successfully');
-
-      return importData.settings;
-    } catch (error) {
-      console.error('[Storage] Failed to import settings:', error);
       throw error;
     }
   }

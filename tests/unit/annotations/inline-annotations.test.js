@@ -18,6 +18,9 @@ import {
   initializeInlineAnnotations
 } from '../../../src/features/annotations/inline-annotations.js';
 import * as storageAdapter from '../../../src/features/annotations/storage-adapter.js';
+import * as tagManager from '../../../src/features/annotations/tag-manager.js';
+import { ANNOTATION_COLORS } from '../../../src/features/annotations/annotation-colors.js';
+import { Z } from '../../../src/utils/z-index.js';
 
 // Extend chrome API mocks (setup.js provides base mock)
 // Add onChanged listener which is needed by inline-annotations.js
@@ -345,7 +348,7 @@ describe('XPath Utilities', () => {
 
     // Mock getXPath function behavior
     const getXPath = (el) => {
-      if (el.id) return `//*[@id="${el.id}"]`;
+      if (el.id) {return `//*[@id="${el.id}"]`;}
       return '/html/body/div';
     };
 
@@ -358,8 +361,8 @@ describe('XPath Utilities', () => {
 
     // Mock getXPath function behavior
     const getXPath = (el) => {
-      if (el.id) return `//*[@id="${el.id}"]`;
-      if (el === document.body) return '/html/body';
+      if (el.id) {return `//*[@id="${el.id}"]`;}
+      if (el === document.body) {return '/html/body';}
       return '/html/body/p[1]';
     };
 
@@ -368,7 +371,7 @@ describe('XPath Utilities', () => {
 
   test('should handle body element XPath', () => {
     const getXPath = (el) => {
-      if (el === document.body) return '/html/body';
+      if (el === document.body) {return '/html/body';}
       return '/html/body/*';
     };
 
@@ -504,17 +507,6 @@ describe('Annotation Rendering', () => {
     expect(span.getAttribute('role')).toBe('mark');
   });
 
-  test('should apply color theme to highlight', () => {
-    const span = document.createElement('span');
-    const yellowTheme = { bg: 'rgba(254, 243, 199, 0.5)', border: '#fbbf24' };
-
-    span.style.backgroundColor = yellowTheme.bg;
-    span.style.borderBottom = `2px solid ${yellowTheme.border}`;
-
-    expect(span.style.backgroundColor).toBe('rgba(254, 243, 199, 0.5)');
-    expect(span.style.borderBottom).toContain('#fbbf24');
-  });
-
   test('should make highlight keyboard accessible', () => {
     const span = document.createElement('span');
     span.setAttribute('tabindex', '0');
@@ -567,7 +559,7 @@ describe('Error Handling', () => {
 
   test('should handle missing container element', () => {
     // Mock element lookup that returns null
-    const getElementByXPath = (xpath) => null;
+    const getElementByXPath = (_xpath) => null;
 
     const result = getElementByXPath('/html/body/nonexistent');
     expect(result).toBeNull();
@@ -591,5 +583,154 @@ describe('Error Handling', () => {
         comment: 'Comment'
       })
     ).resolves.toBeDefined();
+  });
+});
+
+describe('Highlight visibility and editing (live DOM path)', () => {
+  let mockAdapter;
+  let created;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    // resetMocks wipes the factory implementation before every test — restore it here.
+    tagManager.createTagInput.mockImplementation(() => ({ getTags: () => [] }));
+    document.body.innerHTML =
+      '<div id="c"><p id="p">This is test text for annotations.</p></div>';
+
+    created = null;
+    mockAdapter = {
+      create: jest.fn(async data => {
+        created = { ...data, id: 42 };
+        return created;
+      }),
+      update: jest.fn(async () => {}),
+      delete: jest.fn(async () => {}),
+      getByUrl: jest.fn().mockResolvedValue([])
+    };
+    storageAdapter.getStorageAdapter = jest.fn(() => mockAdapter);
+    chrome.storage.local.get.mockImplementation((keys, callback) => {
+      callback({ annotationStorageMode: 'local' });
+    });
+
+    await initializeInlineAnnotations();
+  });
+
+  /** Drive the modal the way the highlight menu does, then press Save. */
+  async function annotateSelection({ comment = '', color = null } = {}) {
+    const paragraph = document.getElementById('p');
+    const range = document.createRange();
+    range.setStart(paragraph.firstChild, 8);
+    range.setEnd(paragraph.firstChild, 17);
+
+    const position = getPositionFromRange(range.cloneRange());
+    openAnnotationModal(null, 'test text', position, range.cloneRange());
+
+    const modal = document.querySelector('.assist-annotation-modal-overlay');
+    modal.querySelector('#annotation-comment').value = comment;
+    if (color) {
+      modal
+        .querySelector(`.assist-annotation-color-option[data-color="${color}"]`)
+        .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    }
+    modal
+      .querySelector('.assist-annotation-btn-save')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    return document.querySelector('.assist-inline-annotation');
+  }
+
+  test('paints the highlight with the shared palette, not a near-invisible wash', async () => {
+    const span = await annotateSelection({ comment: 'Check this' });
+
+    expect(span).toBeTruthy();
+    expect(span.style.backgroundColor).toBe(ANNOTATION_COLORS.yellow.fill);
+    expect(span.style.borderBottom).toContain(ANNOTATION_COLORS.yellow.border);
+  });
+
+  test('honours the colour chosen in the picker', async () => {
+    const span = await annotateSelection({ comment: 'Blue one', color: 'blue' });
+
+    expect(span.style.backgroundColor).toBe(ANNOTATION_COLORS.blue.fill);
+    expect(span.style.borderBottom).toContain(ANNOTATION_COLORS.blue.border);
+  });
+
+  test('leaves motion and cursor to the stylesheet so media queries can override them', async () => {
+    const span = await annotateSelection();
+
+    expect(span.style.transition).toBe('');
+  });
+
+  test('activating a highlight opens the edit modal', async () => {
+    const span = await annotateSelection({ comment: 'Original comment' });
+
+    span.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const modal = document.querySelector('.assist-annotation-modal-overlay');
+    expect(modal).toBeTruthy();
+    expect(modal.querySelector('#annotation-modal-title').textContent).toBe('Edit Annotation');
+    expect(modal.querySelector('#annotation-comment').value).toBe('Original comment');
+    expect(modal.querySelector('.assist-annotation-btn-delete')).toBeTruthy();
+  });
+
+  test('an edited annotation shows its new comment, not the one it was created with', async () => {
+    const span = await annotateSelection({ comment: 'Original comment' });
+
+    span.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const editModal = document.querySelector('.assist-annotation-modal-overlay');
+    editModal.querySelector('#annotation-comment').value = 'Revised comment';
+    editModal
+      .querySelector('.assist-annotation-color-option[data-color="green"]')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    editModal
+      .querySelector('.assist-annotation-btn-save')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(span.style.backgroundColor).toBe(ANNOTATION_COLORS.green.fill);
+    expect(span.getAttribute('aria-label')).toBe('Annotation: Revised comment');
+
+    span.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    const tooltip = document.querySelector('.assist-annotation-tooltip');
+    expect(tooltip.querySelector('.assist-annotation-tooltip-comment').textContent).toBe(
+      'Revised comment'
+    );
+
+    span.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    span.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const reopened = document.querySelector('.assist-annotation-modal-overlay');
+    expect(reopened.querySelector('#annotation-comment').value).toBe('Revised comment');
+  });
+});
+
+describe('Injected stylesheet', () => {
+  test('respects forced colors and reduced motion', () => {
+    const css = document.getElementById('assist-inline-annotation-styles').textContent;
+
+    expect(css).toContain('@media (forced-colors: active)');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+
+    // The fill and underline are inline styles, and a style attribute outranks a normal
+    // rule in this sheet, so the forced-colors override only lands if it is !important.
+    const forcedColors = css.slice(css.indexOf('@media (forced-colors: active)'));
+    expect(forcedColors).toContain('background-color: Mark !important');
+    expect(forcedColors).toContain('border-bottom: 3px solid MarkText !important');
+  });
+
+  test('leaves the I-beam on highlighted text — it is selectable prose, not a button', () => {
+    const css = document.getElementById('assist-inline-annotation-styles').textContent;
+    const highlightRule = css.slice(
+      css.indexOf('.assist-inline-annotation {'),
+      css.indexOf('.assist-inline-annotation:hover')
+    );
+
+    expect(highlightRule).not.toContain('cursor');
+  });
+
+  test('layers the modal from the shared scale, not a raw z-index', () => {
+    const css = document.getElementById('assist-inline-annotation-styles').textContent;
+
+    expect(css).toContain(`z-index: ${Z.MODAL}`);
+    expect(css).not.toContain('999998');
   });
 });

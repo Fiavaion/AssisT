@@ -7,9 +7,12 @@ import {
   exportAsCSV,
   exportAsBibTeX,
   exportAsRIS,
-  parseRIS,
-  parseBibTeX,
+  looksLikeCSL,
+  exportCitations,
 } from '../../../src/features/citations/citation-export.js';
+// The parsers live in citation-interchange.js; here they are the other half of a round-trip —
+// what we write must be what we can read back.
+import { parseBibTeX, parseRIS } from '../../../src/features/citations/citation-interchange.js';
 
 // Mock citation data
 const mockCitations = [
@@ -228,133 +231,205 @@ describe('Citation Export Module', () => {
       const erCount = (result.match(/ER\s+-\s/g) || []).length;
       expect(erCount).toBe(2);
     });
-  });
 
-  describe('parseRIS', () => {
-    const sampleRIS = `TY  - JOUR
-AU  - Smith, John
-AU  - Doe, Jane
-TI  - Parsed Article Title
-PY  - 2024
-JO  - Test Journal
-VL  - 10
-IS  - 2
-SP  - 50
-EP  - 75
-DO  - 10.9999/test
-UR  - https://example.com/parsed
-KW  - keyword1
-KW  - keyword2
-ER  -
+    describe('a value with line breaks stays on its tag line', () => {
+      // Zotero and EndNote read one tag per physical line; a stray line inside a value is either
+      // dropped or read as garbage, so the rest of that field is lost from the record.
+      const tagLine = /^[A-Z][A-Z0-9] {2}- /;
+      const broken = 'first line\r\nsecond line\nthird line';
+      const cases = [
+        ['title', { title: broken }, 'TI'],
+        ['notes', { notes: broken }, 'N1'],
+        ['container', { journal: broken }, 'JO'],
+        ['publisher', { publisher: broken }, 'PB'],
+        ['place', { place: broken }, 'CY'],
+        ['edition', { edition: broken }, 'ET'],
+        ['author', { authors: ['Smith,\nJohn'] }, 'AU'],
+        ['editor', { editors: ['Doe,\nJane'] }, 'A2'],
+        ['tag', { tags: ['two\nlines'] }, 'KW'],
+      ];
 
-TY  - BOOK
-AU  - Johnson, Mike
-TI  - Parsed Book Title
-PY  - 2023
-PB  - Test Publisher
-ER  - `;
-
-    test('should parse multiple RIS records', () => {
-      const result = parseRIS(sampleRIS);
-
-      expect(result).toHaveLength(2);
-    });
-
-    test('should parse journal article correctly', () => {
-      const result = parseRIS(sampleRIS);
-      const article = result[0];
-
-      expect(article.type).toBe('journal-article');
-      expect(article.title).toBe('Parsed Article Title');
-      expect(article.authors).toHaveLength(2);
-      expect(article.year).toBe('2024');
-      expect(article.journal).toBe('Test Journal');
-    });
-
-    test('should convert author format', () => {
-      const result = parseRIS(sampleRIS);
-
-      expect(result[0].authors).toContain('John Smith');
-      expect(result[0].authors).toContain('Jane Doe');
-    });
-
-    test('should combine start and end pages', () => {
-      const result = parseRIS(sampleRIS);
-
-      expect(result[0].pages).toBe('50-75');
-    });
-
-    test('should parse keywords as tags', () => {
-      const result = parseRIS(sampleRIS);
-
-      expect(result[0].tags).toContain('keyword1');
-      expect(result[0].tags).toContain('keyword2');
-    });
-
-    test('should parse DOI', () => {
-      const result = parseRIS(sampleRIS);
-
-      expect(result[0].doi).toBe('10.9999/test');
-    });
-
-    test('should handle empty content', () => {
-      const result = parseRIS('');
-
-      expect(result).toEqual([]);
+      test.each(cases)('%s', (_name, fields, tag) => {
+        const result = exportAsRIS([{ type: 'book', title: 'A title', ...fields }]);
+        const lines = result.split('\n');
+        lines.forEach(line => expect(line).toMatch(tagLine));
+        const value = lines.find(line => line.startsWith(`${tag}  - `));
+        expect(value).not.toMatch(/[\r\n]/);
+        expect(value).toMatch(/(first line second line third line|Smith, John|Doe, Jane|two lines)$/);
+      });
     });
   });
 
-  describe('parseBibTeX', () => {
-    // Note: The BibTeX parser uses regex that expects specific format
-    // Testing that the parser handles various inputs gracefully
-
-    test('should handle empty content', () => {
-      const result = parseBibTeX('');
-
-      expect(result).toEqual([]);
-    });
-
-    test('should handle malformed content gracefully', () => {
-      const result = parseBibTeX('not valid bibtex');
-
-      expect(result).toEqual([]);
-    });
-
-    test('should handle content without closing brace gracefully', () => {
-      const result = parseBibTeX('@article{key, title = {Test}');
-
-      // Parser should not crash, may return empty or partial
-      expect(Array.isArray(result)).toBe(true);
-    });
-
-    test('should return array for any input', () => {
-      const inputs = ['', 'random text', '@misc{}', '@article{key}'];
-
-      for (const input of inputs) {
-        const result = parseBibTeX(input);
-        expect(Array.isArray(result)).toBe(true);
-      }
+  describe('BibTeX values with line breaks', () => {
+    // A braced BibTeX value may legally span lines, so no text is lost; the round trip proves
+    // that the note comes back whole.
+    test('a multi-line note round-trips through the importer intact', () => {
+      const bib = exportAsBibTeX([{ type: 'book', title: 'A title', notes: 'one\ntwo\n\nthree' }]);
+      const [record] = parseBibTeX(bib);
+      expect(record.notes.replace(/\s+/g, ' ')).toBe('one two three');
     });
   });
 
   describe('Round-trip export/import', () => {
-    test('RIS should preserve data through export and import', () => {
-      const exported = exportAsRIS([mockCitations[0]]);
-      const imported = parseRIS(exported);
+    // A student who exports their library and re-imports it must get the same references back —
+    // every field the styles read, not just the title. The parsers themselves are covered in
+    // citation-interchange.test.js.
+    const throughBibTeX = citation => parseBibTeX(exportAsBibTeX([citation]))[0];
+    const throughRIS = citation => parseRIS(exportAsRIS([citation]))[0];
 
-      expect(imported).toHaveLength(1);
-      expect(imported[0].title).toBe(mockCitations[0].title);
-      expect(imported[0].year).toBe(mockCitations[0].year);
-      expect(imported[0].doi).toBe(mockCitations[0].doi);
+    const chapter = {
+      title: 'Reading in the disciplines',
+      authors: ['Roe, Richard'],
+      type: 'chapter',
+      publicationDate: '2015',
+      publisher: 'Academic Press',
+      siteName: 'The Handbook of Literacy',
+      isbn: '978-0-00-000000-0',
+      accessDate: '2026-09-04',
+      extra: {
+        editors: ['Smith, Ann', 'Jones, Bob'],
+        edition: '2',
+        place: 'London',
+        pages: '10-20',
+      },
+    };
+
+    const thesis = {
+      title: 'Adaptive reading tools in higher education',
+      authors: ['Ni Bhriain, Aoife'],
+      type: 'thesis',
+      publicationDate: '2021',
+      url: 'https://example.edu/theses/42',
+      accessDate: '2026-09-04',
+      extra: {
+        institution: 'University of Dublin',
+        thesisType: "Master's thesis",
+        place: 'Dublin',
+      },
+    };
+
+    test('a journal article survives both formats whole', () => {
+      for (const imported of [throughBibTeX(mockCitations[0]), throughRIS(mockCitations[0])]) {
+        expect(imported.type).toBe('journal');
+        expect(imported.title).toBe('Test Article Title');
+        expect(imported.authors).toEqual(['Smith, John', 'Doe, Jane']);
+        expect(imported.publicationDate).toBe('2024');
+        expect(imported.siteName).toBe('Journal of Testing');
+        expect(imported.extra.volume).toBe('15');
+        expect(imported.extra.issue).toBe('3');
+        expect(imported.extra.pages).toBe('100-120');
+        expect(imported.doi).toBe('10.1234/test.123');
+        expect(imported.tags).toEqual(['testing', 'research']);
+        expect(imported.accessDate).toBe('2024-11-26');
+      }
     });
 
-    test('BibTeX export should produce valid format', () => {
-      const exported = exportAsBibTeX([mockCitations[0]]);
-
-      // Verify export format contains expected BibTeX structure
-      expect(exported).toContain('@article{');
-      expect(exported).toContain('title = {');
-      expect(exported).toContain(mockCitations[0].title);
+    test('a chapter keeps its container, editors, edition and place', () => {
+      for (const imported of [throughBibTeX(chapter), throughRIS(chapter)]) {
+        expect(imported.type).toBe('chapter');
+        expect(imported.title).toBe('Reading in the disciplines');
+        expect(imported.siteName).toBe('The Handbook of Literacy');
+        expect(imported.extra.editors).toEqual(['Smith, Ann', 'Jones, Bob']);
+        expect(imported.extra.edition).toBe('2');
+        expect(imported.extra.place).toBe('London');
+        expect(imported.extra.pages).toBe('10-20');
+        expect(imported.isbn).toBe('978-0-00-000000-0');
+      }
     });
+
+    test('a thesis keeps its degree and awarding institution', () => {
+      for (const imported of [throughBibTeX(thesis), throughRIS(thesis)]) {
+        expect(imported.type).toBe('thesis');
+        expect(imported.authors).toEqual(['Ni Bhriain, Aoife']);
+        expect(imported.publicationDate).toBe('2021');
+        expect(imported.extra.institution).toBe('University of Dublin');
+      }
+      // Only BibTeX has a field for the degree; RIS states the institution alone.
+      expect(throughBibTeX(thesis).extra.thesisType).toBe("Master's thesis");
+      expect(throughBibTeX(thesis).extra.place).toBe('Dublin');
+    });
+
+    test('a month is not lost, and a year alone never gains an invented day', () => {
+      const dated = { ...mockCitations[0], year: undefined, publicationDate: '2024-03' };
+      expect(throughBibTeX(dated).publicationDate).toBe('2024-03');
+      expect(throughRIS(dated).publicationDate).toBe('2024-03');
+      expect(throughRIS(mockCitations[1]).publicationDate).toBe('2023');
+    });
+
+    test('the parsers are unshaken by empty and malformed files', () => {
+      expect(parseRIS('')).toEqual([]);
+      expect(parseBibTeX('')).toEqual([]);
+      expect(parseBibTeX('not valid bibtex')).toEqual([]);
+      expect(parseBibTeX('@article{key, title = {Test}')).toHaveLength(1);
+      for (const input of ['random text', '@misc{}', '@article{key}']) {
+        expect(parseBibTeX(input)).toEqual([]);
+      }
+    });
+  });
+
+});
+
+describe('looksLikeCSL (CSL-vs-native import routing)', () => {
+  it('detects a bare CSL array by capitalised keys / CSL-only fields', () => {
+    expect(looksLikeCSL([{ type: 'article-journal', title: 'X', DOI: '10.1/x' }])).toBe(true);
+    expect(looksLikeCSL([{ type: 'webpage', title: 'X', URL: 'https://x' }])).toBe(true);
+    expect(looksLikeCSL([{ type: 'book', title: 'X', issued: { 'date-parts': [[2020]] } }])).toBe(
+      true
+    );
+  });
+
+  it('detects a CSL { items: [...] } wrapper and a single CSL item', () => {
+    expect(looksLikeCSL({ items: [{ title: 'X', 'container-title': 'Journal' }] })).toBe(true);
+    expect(looksLikeCSL({ title: 'X', 'assist:extras': { type: 'journal' } })).toBe(true);
+  });
+
+  it("does NOT match AssisT's native shape (lowercase doi/url, string authors)", () => {
+    expect(looksLikeCSL([{ title: 'X', url: 'https://x', doi: '10.1/x', authors: ['Smith, J.'] }])).toBe(
+      false
+    );
+    expect(looksLikeCSL({ citations: [{ title: 'X', url: 'https://x' }] })).toBe(false);
+  });
+
+  it('is false for empty / non-object input', () => {
+    expect(looksLikeCSL([])).toBe(false);
+    expect(looksLikeCSL(null)).toBe(false);
+    expect(looksLikeCSL('nope')).toBe(false);
+  });
+});
+
+describe('plain-text export', () => {
+  beforeEach(() => {
+    // downloadFile() needs an object-URL factory; jsdom has none.
+    global.URL.createObjectURL = jest.fn(() => 'blob:test');
+    global.URL.revokeObjectURL = jest.fn();
+  });
+
+  const written = () =>
+    new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsText(global.URL.createObjectURL.mock.calls[0][0]);
+    });
+
+  const BOOK = {
+    id: 'b1',
+    type: 'book',
+    title: 'A book',
+    authors: ['Roe, Jane'],
+    publisher: 'Pub House',
+    publicationDate: '2020',
+  };
+
+  it('formats the bibliography in the style the student chose, not Harvard', async () => {
+    await exportCitations('txt', [BOOK], 'apa7');
+    expect(await written()).toBe('Roe, J. (2020). A book. Pub House.');
+  });
+
+  it('MLA and Chicago too', async () => {
+    await exportCitations('txt', [BOOK], 'mla9');
+    expect(await written()).toBe('Roe, Jane. A book. Pub House, 2020.');
+    global.URL.createObjectURL.mockClear();
+    await exportCitations('txt', [BOOK], 'chicago17');
+    expect(await written()).toBe('Roe, Jane. 2020. A book. Pub House.');
   });
 });

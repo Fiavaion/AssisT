@@ -72,6 +72,8 @@ class RSVPController {
    * @param {object} options - Optional configuration
    * @param {number} options.wpm - Words per minute (default: 300)
    * @param {boolean} options.autoPlay - Start playing immediately (default: true)
+   * @param {HTMLElement|null} [options.returnFocus] - Where focus goes when the overlay closes
+   *   and the control it was started from has gone (the highlight menu removes itself first).
    * @returns {boolean} Success status
    */
   start(text, options = {}) {
@@ -98,7 +100,7 @@ class RSVPController {
     }
 
     // Show UI
-    this.ui.show();
+    this.ui.show({ returnFocus: options.returnFocus || null });
     this.isActive = true;
 
     // Update UI with initial state

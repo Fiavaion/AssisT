@@ -14,8 +14,9 @@
  * @module features/studyPathGenerator
  */
 
+import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML, sanitizeText } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
@@ -23,8 +24,16 @@ import {
   generateWithAI,
   getSuccessStatusMessage,
   getUnavailableStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
+import { getProfileAddendum } from '../companion/profile-addendum.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
+import { Z } from '../../utils/z-index.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
 const SPG_PANEL_CSS = `
   #assist-spg-panel {
@@ -40,7 +49,7 @@ const SPG_PANEL_CSS = `
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.25);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    z-index: 999998;
+    z-index: ${Z.MODAL};
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -135,14 +144,15 @@ const SPG_PANEL_CSS = `
     display: flex;
     align-items: center;
     gap: 12px;
-    cursor: pointer;
   }
 
   .spg-topic-header:hover {
     background: rgba(0,0,0,0.02);
   }
 
+  /* The circle is the label; the checkbox itself lies over it, invisible but focusable. */
   .spg-topic-checkbox {
+    position: relative;
     width: 24px;
     height: 24px;
     border: 2px solid #ccc;
@@ -154,10 +164,65 @@ const SPG_PANEL_CSS = `
     flex-shrink: 0;
   }
 
+  .spg-topic-done {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .spg-topic-checkbox:focus-within {
+    outline: 3px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  .spg-topic-tick {
+    visibility: hidden;
+  }
+
   .spg-topic.completed .spg-topic-checkbox {
     background: #4CAF50;
     border-color: #4CAF50;
     color: white;
+  }
+
+  .spg-topic.completed .spg-topic-tick {
+    visibility: visible;
+  }
+
+  .spg-topic-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .spg-topic-toggle:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  .spg-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .spg-topic-info {
@@ -165,6 +230,7 @@ const SPG_PANEL_CSS = `
   }
 
   .spg-topic-title {
+    display: block;
     font-weight: 600;
     font-size: 15px;
     margin-bottom: 4px;
@@ -285,6 +351,10 @@ const SPG_PANEL_CSS = `
     margin: 0 auto 20px;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .spg-spinner { animation: none; }
+  }
+
   @keyframes spg-spin {
     to { transform: rotate(360deg); }
   }
@@ -358,7 +428,13 @@ const SPG_PANEL_CSS = `
     color: #e65100;
   }
 
-  .spg-status[data-assist-clickable]:hover {
+  .spg-status [data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+
+  .spg-status [data-assist-clickable]:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
     text-decoration: underline;
   }
 
@@ -423,6 +499,9 @@ function spg_injectStyles() {
 }
 
 let spg_panel = null;
+let spg_releaseFocus = null;
+let spg_returnFocus = null;
+let spg_requestId = 0;
 let spg_isLoading = false;
 let spg_currentPath = null;
 let spg_progress = {};
@@ -432,6 +511,24 @@ const spg_settings = {
   difficultyPreference: 'balanced', // easy-first, hard-first, balanced
   includeReview: true,
 };
+
+/**
+ * Tell the student something in the panel's own status region.
+ *
+ * A native alert() freezes the tab and takes the keyboard outside the dialog's focus trap, so
+ * the panel says it where the panel already says everything else (SC 2.1.2).
+ *
+ * @param {string} message - One plain sentence.
+ */
+function spg_showMessage(message) {
+  const statusBar = spg_panel?.querySelector('#spg-status');
+  if (statusBar) {
+    statusBar.className = 'spg-status visible error';
+    statusBar.textContent = message;
+  } else {
+    showToast(message);
+  }
+}
 
 /**
  * Generate study path from content
@@ -445,16 +542,21 @@ async function spg_generatePath(text) {
 
   spg_isLoading = true;
   spg_updateLoadingState(true);
+  const requestId = ++spg_requestId;
 
   // Get current AI mode
   const modeInfo = await getAIMode('studyPathGenerator');
   const availability = await checkAIAvailable(modeInfo);
 
+  if (requestId !== spg_requestId) {
+    return null;
+  }
+
   if (!availability.available) {
     spg_isLoading = false;
     spg_updateLoadingState(false);
     if (availability.needsApiKey) {
-      spg_showApiKeyWarning();
+      spg_showApiKeyWarning(availability.provider);
       return null;
     }
     // Show status bar and fall back to heuristic
@@ -463,7 +565,7 @@ async function spg_generatePath(text) {
       setAIStatusBar(statusBar, availability, 'spg-status');
     }
     const fallback = spg_heuristicGenerate(text);
-    fallback._generatedBy = `Heuristic (${getUnavailableStatusMessage(availability)})`;
+    fallback._generatedBy = `Built on this device, without AI (${getUnavailableStatusMessage(availability)})`;
     spg_currentPath = fallback;
     spg_displayPath(fallback);
     return fallback;
@@ -521,19 +623,28 @@ Rules:
   try {
     // Local: 1200 — a 4-6 topic JSON plan is ~500-800 tokens; 1200 is safe headroom.
     // Cloud: 8192 for full fidelity (API imposes its own limits).
-    const aiResult = await generateWithAI(prompt, modeInfo, {
-      maxTokens: modeInfo.isLocal ? 1200 : 8192,
-      temperature: 0.4,
-      feature: 'studyPathGenerator',
-      noCache: true,
-    });
+    const profileAddendum = await getProfileAddendum();
+    const aiResult = await generateWithAI(
+      profileAddendum ? `${profileAddendum.trim()}\n\n${prompt}` : prompt,
+      modeInfo,
+      {
+        maxTokens: modeInfo.isLocal ? 1200 : 8192,
+        temperature: 0.4,
+        feature: 'studyPathGenerator',
+        noCache: true,
+        // Asked in words alone, a reasoning model (qwen3:4b, measured) thinks until the budget
+        // runs out and never writes the plan. At the decoder it answers directly.
+        format: 'json',
+      }
+    );
+
+    if (requestId !== spg_requestId) {
+      return null;
+    }
 
     if (aiResult && aiResult.text) {
       console.log(`[StudyPathGenerator] AI response received (${modeInfo.displayLabel})`);
-      console.log(
-        '[StudyPathGenerator] Raw response (first 500 chars):',
-        aiResult.text?.substring(0, 500)
-      );
+      debugLog('[StudyPathGenerator] Raw response:', aiResult.text);
 
       let rawData = aiResult.text || '';
 
@@ -583,27 +694,40 @@ Rules:
     // Fallback to heuristic generation
     console.log('[StudyPathGenerator] Using heuristic generation');
     const fallback = spg_heuristicGenerate(text);
-    fallback._generatedBy = 'Heuristic (AI unavailable)';
+    fallback._generatedBy = 'Built on this device, without AI';
     spg_currentPath = fallback;
     spg_displayPath(fallback);
     return fallback;
   } catch (error) {
     console.error('[StudyPathGenerator] Generation failed:', error);
+    if (requestId !== spg_requestId) {
+      return null;
+    }
+
+    const reason = getFailureMessage(error);
+    const statusBar = spg_panel?.querySelector('#spg-status');
+    if (statusBar) {
+      statusBar.className = 'spg-status visible error';
+      statusBar.textContent = `⚠️ ${reason}`;
+    }
+
     const fallback = spg_heuristicGenerate(text);
-    fallback._generatedBy = 'Heuristic (AI parse error — retry)';
+    fallback._generatedBy = 'Built on this device, without AI';
     spg_currentPath = fallback;
     spg_displayPath(fallback);
     return fallback;
   } finally {
-    spg_isLoading = false;
-    spg_updateLoadingState(false);
+    if (requestId === spg_requestId) {
+      spg_isLoading = false;
+      spg_updateLoadingState(false);
+    }
   }
 }
 
 /**
  * Show warning when cloud mode is selected but no API key is configured
  */
-function spg_showApiKeyWarning() {
+function spg_showApiKeyWarning(provider) {
   const contentArea = spg_panel?.querySelector('.spg-content');
   if (!contentArea) {
     return;
@@ -615,7 +739,7 @@ function spg_showApiKeyWarning() {
       <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
       <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="spg-generate-btn" id="spg-open-settings" style="background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);">
@@ -634,19 +758,14 @@ function spg_showApiKeyWarning() {
   // Attach handlers for buttons
   const openSettingsBtn = contentArea.querySelector('#spg-open-settings');
   if (openSettingsBtn) {
-    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
-      // Open the popup's advanced options
+    attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
       chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-      // Also show an alert with instructions
-      alert(
-        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-      );
     });
   }
 
   const useLocalBtn = contentArea.querySelector('#spg-use-local');
   if (useLocalBtn) {
-    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+    attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
       // Switch to local mode
       await chrome.storage.local.set({ aiMode: 'local' });
       console.log('[StudyPathGenerator] Switched to local AI mode');
@@ -676,12 +795,12 @@ function spg_showEmptyState() {
   // Re-attach generate button handler
   const generateBtn = contentArea.querySelector('#spg-generate');
   if (generateBtn) {
-    attachInteractiveHandler(generateBtn, 'Study Path Generate Button', () => {
+    attachAccessibleHandler(generateBtn, 'Study Path Generate Button', () => {
       const selection = window.getSelection().toString().trim();
       if (selection && selection.length > 100) {
         spg_generatePath(selection);
       } else {
-        alert('Please select more text (at least 100 characters) to generate a study path.');
+        spg_showMessage('Select more text (at least 100 characters) to generate a study path.');
       }
     });
   }
@@ -876,7 +995,8 @@ function spg_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-spg-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Study Path Generator');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'spg-title');
   panel.tabIndex = -1;
 
   // CSS is injected into document.head via spg_injectStyles()
@@ -884,12 +1004,12 @@ function spg_createPanel() {
   panel.innerHTML = `
     <div class="spg-header">
       <div class="spg-header-info">
-        <h3>📚 Study Path</h3>
+        <h3 id="spg-title">📚 Study Path</h3>
         <div class="spg-header-meta" id="spg-header-meta">Generate a personalized learning path</div>
       </div>
       <button class="spg-close" aria-label="Close">&times;</button>
     </div>
-    <div class="spg-status" id="spg-status"></div>
+    <div class="spg-status" id="spg-status" role="status"></div>
     <div class="spg-content">
       <div class="spg-loading" id="spg-loading" style="display: none;">
         <div class="spg-spinner"></div>
@@ -974,32 +1094,6 @@ function spg_buildCopyText(path) {
 let spg_utterance = null;
 
 /**
- * Wait for speechSynthesis voices to be available
- * @returns {Promise<SpeechSynthesisVoice[]>}
- */
-function spg_ensureVoicesLoaded() {
-  return new Promise(resolve => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      resolve(voices);
-      return;
-    }
-    const onChanged = () => {
-      const loaded = window.speechSynthesis.getVoices();
-      if (loaded.length > 0) {
-        window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
-        resolve(loaded);
-      }
-    };
-    window.speechSynthesis.addEventListener('voiceschanged', onChanged);
-    setTimeout(() => {
-      window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
-      resolve(window.speechSynthesis.getVoices());
-    }, 2000);
-  });
-}
-
-/**
  * Read all study path text aloud using TTS
  * @param {Object} path
  * @param {HTMLElement} btn
@@ -1014,26 +1108,7 @@ async function spg_readAll(path, btn) {
   }
 
   const text = spg_buildCopyText(path);
-  spg_utterance = new SpeechSynthesisUtterance(text);
-
-  try {
-    // Correct storage: assist_settings lives in chrome.storage.local
-    const stored = await chrome.storage.local.get(['assist_settings']);
-    const tts = stored.assist_settings?.tts || {};
-    spg_utterance.rate = tts.rate || 1.0;
-    spg_utterance.pitch = tts.pitch || 1.0;
-    spg_utterance.volume = tts.volume || 1.0;
-    if (tts.voice && tts.voice !== 'default') {
-      // Wait for voices to be available before matching by name
-      const voices = await spg_ensureVoicesLoaded();
-      const match = voices.find(v => v.name === tts.voice);
-      if (match) {
-        spg_utterance.voice = match;
-      }
-    }
-  } catch {
-    // Use browser defaults if storage fails
-  }
+  spg_utterance = await createSavedUtterance(text);
 
   btn.classList.add('active');
   btn.textContent = '⏹ Stop';
@@ -1097,18 +1172,24 @@ function spg_displayPath(path) {
           topic => `
       <div class="spg-topic ${topic.completed ? 'completed' : ''}" data-id="${topic.id}">
         <div class="spg-topic-header">
-          <div class="spg-topic-checkbox">${topic.completed ? '✓' : ''}</div>
-          <div class="spg-topic-info">
-            <div class="spg-topic-title">${topic.title}</div>
-            <div class="spg-topic-meta">
-              <span>${topic.estimatedMinutes} min</span>
-              <span class="spg-topic-badge ${topic.difficulty}">${topic.difficulty}</span>
-              ${topic.prerequisites.length > 0 ? `<span>Requires: Topic ${topic.prerequisites.join(', ')}</span>` : ''}
-            </div>
-          </div>
-          <div class="spg-topic-expand">▼</div>
+          <label class="spg-topic-checkbox">
+            <input type="checkbox" class="spg-topic-done" ${topic.completed ? 'checked' : ''}>
+            <span class="spg-topic-tick" aria-hidden="true">✓</span>
+            <span class="spg-sr-only">Mark ${topic.title} as done</span>
+          </label>
+          <button type="button" class="spg-topic-toggle" aria-expanded="false" aria-controls="spg-topic-details-${topic.id}">
+            <span class="spg-topic-info">
+              <span class="spg-topic-title">${topic.title}</span>
+              <span class="spg-topic-meta">
+                <span>${topic.estimatedMinutes} min</span>
+                <span class="spg-topic-badge ${topic.difficulty}">${topic.difficulty}</span>
+                ${topic.prerequisites.length > 0 ? `<span>Requires: Topic ${topic.prerequisites.join(', ')}</span>` : ''}
+              </span>
+            </span>
+            <span class="spg-topic-expand" aria-hidden="true">▼</span>
+          </button>
         </div>
-        <div class="spg-topic-details">
+        <div class="spg-topic-details" id="spg-topic-details-${topic.id}">
           <div class="spg-detail-section">
             <h5>Description</h5>
             <div class="spg-detail-list">${topic.description}</div>
@@ -1156,28 +1237,24 @@ function spg_displayPath(path) {
 
     // Add event listeners
     topicsEl.querySelectorAll('.spg-topic').forEach(el => {
-      const header = el.querySelector('.spg-topic-header');
-      const checkbox = el.querySelector('.spg-topic-checkbox');
+      const toggle = el.querySelector('.spg-topic-toggle');
+      const checkbox = el.querySelector('.spg-topic-done');
       const topicId = parseInt(el.dataset.id);
 
       // Toggle expand
-      attachInteractiveHandler(header, 'Study Path Topic Header', e => {
-        if (!e.target.closest('.spg-topic-checkbox')) {
-          el.classList.toggle('expanded');
-        }
+      attachAccessibleHandler(toggle, 'Study Path Topic Header', () => {
+        const expanded = el.classList.toggle('expanded');
+        toggle.setAttribute('aria-expanded', String(expanded));
       });
 
-      // Toggle completion
-      attachInteractiveHandler(checkbox, 'Study Path Topic Checkbox', e => {
-        e.stopPropagation();
-        if (el.classList.contains('completed')) {
-          spg_markIncomplete(topicId);
-          el.classList.remove('completed');
-          checkbox.textContent = '';
-        } else {
+      // Toggle completion. A checkbox listens for `change` and nothing else: the shared helper
+      // cancels the mousedown that flips it, and the keyboard flips it without a mousedown at all.
+      checkbox.addEventListener('change', () => {
+        el.classList.toggle('completed', checkbox.checked);
+        if (checkbox.checked) {
           spg_markComplete(topicId);
-          el.classList.add('completed');
-          checkbox.textContent = '✓';
+        } else {
+          spg_markIncomplete(topicId);
         }
       });
     });
@@ -1194,7 +1271,7 @@ function spg_displayPath(path) {
   // Wire up Copy All and Read All buttons
   const copyBtn = document.getElementById('spg-copy-all-btn');
   if (copyBtn) {
-    attachInteractiveHandler(copyBtn, 'Study Path Copy All', async () => {
+    attachAccessibleHandler(copyBtn, 'Study Path Copy All', async () => {
       const text = spg_buildCopyText(path);
       try {
         await navigator.clipboard.writeText(text);
@@ -1214,7 +1291,7 @@ function spg_displayPath(path) {
 
   const readBtn = document.getElementById('spg-read-all-btn');
   if (readBtn) {
-    attachInteractiveHandler(readBtn, 'Study Path Read All', () => {
+    attachAccessibleHandler(readBtn, 'Study Path Read All', () => {
       spg_readAll(path, readBtn);
     });
   }
@@ -1274,6 +1351,14 @@ function spg_show(text = null) {
     spg_panel.remove();
   }
 
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  spg_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
+
   // Inject CSS into document head (prevents style loss from innerHTML operations)
   spg_injectStyles();
 
@@ -1286,17 +1371,17 @@ function spg_show(text = null) {
   // Setup event handlers
   const closeBtn = spg_panel.querySelector('.spg-close');
   if (closeBtn) {
-    attachInteractiveHandler(closeBtn, 'Study Path Close Button', spg_hide);
+    attachAccessibleHandler(closeBtn, 'Study Path Close Button', spg_hide);
   }
 
   const generateBtn = document.getElementById('spg-generate-btn');
   if (generateBtn) {
-    attachInteractiveHandler(generateBtn, 'Study Path Generate Button', () => {
+    attachAccessibleHandler(generateBtn, 'Study Path Generate Button', () => {
       const selection = text || window.getSelection().toString().trim();
       if (selection && selection.length > 100) {
         spg_generatePath(selection);
       } else {
-        alert('Please select more text (at least 100 characters) to generate a study path.');
+        spg_showMessage('Select more text (at least 100 characters) to generate a study path.');
       }
     });
   }
@@ -1306,31 +1391,31 @@ function spg_show(text = null) {
     spg_generatePath(text);
   }
 
-  // Escape to close
-  document.addEventListener('keydown', spg_handleKeydown);
-
-  spg_panel.focus();
+  spg_releaseFocus = trapFocus(spg_panel, {
+    onEscape: spg_hide,
+    initialFocus: spg_panel.querySelector('.spg-close'),
+  });
 }
 
 /**
  * Hide the panel
  */
 function spg_hide() {
+  // Abandon a generation in flight: its path would paint into elements that have gone.
+  spg_requestId += 1;
+  spg_isLoading = false;
+
+  if (spg_releaseFocus) {
+    spg_releaseFocus();
+    spg_releaseFocus = null;
+  }
   if (spg_panel) {
     spg_panel.remove();
     spg_panel = null;
   }
-  document.removeEventListener('keydown', spg_handleKeydown);
-}
 
-/**
- * Handle keyboard events
- * @param {KeyboardEvent} e
- */
-function spg_handleKeydown(e) {
-  if (e.key === 'Escape' && spg_panel) {
-    spg_hide();
-  }
+  returnFocusAfterDialog(spg_returnFocus);
+  spg_returnFocus = null;
 }
 
 /**

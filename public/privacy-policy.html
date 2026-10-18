@@ -52,12 +52,12 @@
 
         .header-badge .tagline {
             margin: 4px 0 0 0;
-            color: #3eb8b8;
+            color: #0a7a7a;
             font-size: 0.95em;
         }
 
         .meta {
-            color: #7f8c8d;
+            color: #52585a;
             margin-bottom: 30px;
             font-size: 0.9em;
             padding: 15px;
@@ -168,7 +168,7 @@
 
         .data-status.none {
             background: #d4edda;
-            color: #28a745;
+            color: #1a5c2e;
         }
 
         /* Permission table */
@@ -196,7 +196,7 @@
         .permission-name {
             font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
             font-size: 0.9em;
-            color: #3eb8b8;
+            color: #002d2d;
             font-weight: 600;
         }
 
@@ -232,8 +232,8 @@
         }
 
         a {
-            color: #3eb8b8;
-            text-decoration: none;
+            color: #0a7a7a;
+            text-decoration: underline;
         }
 
         a:hover {
@@ -292,7 +292,7 @@
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 0.9em;
-            color: #4caf50;
+            color: #205e2c;
             font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
         }
 
@@ -348,48 +348,48 @@
         </div>
 
         <div class="meta">
-            <strong>Last Updated:</strong> May 15, 2026<br>
-            <strong>Effective Date:</strong> February 24, 2026<br>
-            <strong>Version:</strong> 0.9.0
+            <strong>Last Updated:</strong> September 26, 2026<br>
+            <strong>Effective Date:</strong> April 12, 2026<br>
+            <strong>Version:</strong> 1.0.0
         </div>
 
         <div class="tldr-box">
-            <h3>Privacy at a Glance</h3>
+            <h3>Privacy at a glance</h3>
             <ul>
-                <li><strong>No data collection:</strong> We don't track you or collect personal information</li>
-                <li><strong>Local-only storage:</strong> Your settings, notes, and citations stay on your device</li>
-                <li><strong>No external servers:</strong> AssisT has no backend—all processing happens locally</li>
-                <li><strong>AI privacy options:</strong> Choose between local AI (Ollama), browser AI (WebLLM — runs in your browser tab), cloud AI (your own API key), or no AI at all</li>
-                <li><strong>You control third-party services:</strong> Translation providers are optional and you choose which to use</li>
-                <li><strong>FERPA/COPPA/GDPR compliant:</strong> Designed for educational use with student privacy as the priority</li>
-                <li><strong>Open source:</strong> Our code is transparent and auditable on GitHub</li>
+                <li><strong>Nothing leaves your device until you say yes.</strong> AssisT asks about each online service separately, in setup or the first time a feature needs it, and remembers your answer</li>
+                <li><strong>No data collection by us:</strong> we don't track you, and there is no Fiavaion server to send anything to</li>
+                <li><strong>Local-only storage:</strong> your settings, notes, citations, and consent answers stay on your device</li>
+                <li><strong>Every service named:</strong> the full list of services AssisT can reach, and exactly what each receives, is below &mdash; nothing outside that list is contacted</li>
+                <li><strong>AI privacy options:</strong> local AI (Ollama) and in-browser AI (WebLLM) never send your text anywhere; cloud AI only sends it if you choose a provider and save your own key</li>
+                <li><strong>Change your mind any time:</strong> every consent answer and saved key can be reviewed and revoked in the popup, under Advanced Options &gt; Your data</li>
+                <li><strong>Open source:</strong> our code is transparent and auditable on GitHub</li>
             </ul>
         </div>
 
         <h2>1. Overview</h2>
-        <p>AssisT is a Chrome browser extension that provides accessibility features for students and learners. This privacy policy explains exactly what data AssisT accesses, stores, and (in limited cases) transmits—and what it never does.</p>
-        <p>We built AssisT with a fundamental principle: <strong>your educational data belongs to you</strong>. We don't need it, don't want it, and have designed the extension so we never receive it.</p>
+        <p>AssisT is a Chrome browser extension that provides accessibility features for students and learners. This policy explains exactly what data AssisT accesses, stores, and, in the specific cases listed below, sends to an outside service &mdash; and what it never does.</p>
+        <p>Your educational data is yours. We don't need it and haven't built anything for AssisT to send it to us: there is no Fiavaion server that receives it.</p>
 
         <hr>
 
-        <h2>2. What Data We Collect</h2>
-        <p><strong>We collect nothing.</strong> AssisT operates entirely on your local device and does not collect, store, or transmit any personal information to Fiavaion or any third party we control.</p>
+        <h2>2. What data we collect</h2>
+        <p><strong>We collect nothing.</strong> AssisT has no server of its own, so nothing you do in the extension reaches Fiavaion.</p>
 
         <div class="data-table">
             <div class="data-row">
-                <span class="data-type">Usage Analytics</span>
+                <span class="data-type">Usage analytics</span>
                 <span class="data-status none">None collected</span>
             </div>
             <div class="data-row">
-                <span class="data-type">Personal Information</span>
+                <span class="data-type">Personal information</span>
                 <span class="data-status none">None collected</span>
             </div>
             <div class="data-row">
-                <span class="data-type">Browsing History</span>
+                <span class="data-type">Browsing history</span>
                 <span class="data-status none">None collected</span>
             </div>
             <div class="data-row">
-                <span class="data-type">Account/Login</span>
+                <span class="data-type">Account or login</span>
                 <span class="data-status none">Not required</span>
             </div>
             <div class="data-row">
@@ -400,51 +400,149 @@
 
         <hr>
 
-        <h2>3. What Data Is Stored Locally</h2>
-        <p>AssisT stores the following data <strong>on your device only</strong> using Chrome's secure local storage API (<code>chrome.storage.local</code>). Settings do not sync across devices.</p>
+        <h2>3. Consent: nothing leaves your device until you say yes</h2>
+        <p>Every request AssisT makes to an outside service is checked against one rule: has the student said yes to that specific service. Until they have, the request is refused and nothing is sent.</p>
 
-        <h3>3.1 User Preferences (chrome.storage.local)</h3>
-        <ul>
-            <li>Feature toggles (which features are enabled/disabled)</li>
-            <li>Text-to-Speech settings (voice, speed, pitch, highlight colors)</li>
-            <li>Speech-to-Text settings (language, auto-punctuation mode, confidence threshold)</li>
-            <li>Visual settings (font choice, spacing, dark mode preset, overlay colors)</li>
-            <li>Keyboard shortcut customizations</li>
-            <li>Selected user profile (ADHD, Dyslexia, etc.)</li>
-            <li>Text customization sync preference (whether to apply settings to all open tabs or current tab only)</li>
-            <li>Translation language preferences (last-used source and target language, recently-used languages list)</li>
-            <li>AI model preferences and cloud mode preference</li>
-        </ul>
-        <p><strong>Note:</strong> All preferences are stored locally on your device only. Nothing is sent to Fiavaion.</p>
+        <h3>3.1 How you are asked</h3>
+        <p>The first-run setup asks about the services your own choices would use, one question per service, with Allow and Don't allow. If you skip setup, you are asked the same question the first time you use a feature that needs it. A skipped question is not a yes. Declining is never a dead end: a dictionary or translation you decline still explains itself rather than doing nothing.</p>
 
-        <h3>3.2 User-Created Content</h3>
-        <ul>
-            <li><strong>Annotations &amp; Sticky Notes:</strong> Notes you create are stored locally in IndexedDB, organized by the webpage URL where you created them</li>
-            <li><strong>Citations:</strong> Bibliography entries and citation projects you create are stored locally</li>
-            <li><strong>Custom Vocabulary:</strong> Words you add to your Speech-to-Text dictionary</li>
-        </ul>
+        <h3>3.2 How you change your mind</h3>
+        <p>Every answer is listed under <strong>Advanced Options &gt; Your data</strong>, in the AssisT popup. You can flip any answer at any time, and it takes effect on the very next request, not the next time you reload the page. The same screen lists and removes any AI keys you have saved.</p>
 
-        <h3>3.3 Temporary Processing Data</h3>
-        <ul>
-            <li><strong>OCR Results:</strong> Text extracted from images is held in memory only during your session and is not persisted</li>
-            <li><strong>Translation Cache:</strong> Recent translations may be cached briefly (5 minutes) to improve performance; this cache is cleared automatically</li>
-            <li><strong>Reading Progress:</strong> How far you've scrolled on a page (stored per-domain, locally only)</li>
-        </ul>
-
-        <h3>3.4 Optional API Keys</h3>
-        <p>If you choose to use cloud AI features (Anthropic, Google, OpenAI, or Perplexity), you may provide API keys. These are:</p>
-        <ul>
-            <li>Stored locally on your device only using AES-256 encryption</li>
-            <li>Never transmitted to Fiavaion</li>
-            <li>Sent only to the service provider you configured, when you use that feature</li>
-            <li>Encrypted at rest using Chrome's secure storage with AES-256-GCM</li>
-            <li>Deletable at any time through the extension settings</li>
-        </ul>
+        <h3>3.3 What is never asked about</h3>
+        <p>Nothing about how you use AssisT, or how it thinks you are getting on, is ever sent to a third party as part of that question. Your consent answers themselves stay on your device and are never included in a settings export.</p>
 
         <hr>
 
-        <h2>4. Chrome Permissions Explained</h2>
-        <p>AssisT requests the following Chrome permissions. Here's exactly why each is needed:</p>
+        <h2>4. Every service AssisT can reach, and what it receives</h2>
+        <p>This is the complete list. If a service is not named here, AssisT does not contact it.</p>
+
+        <div class="service-card">
+            <h4>Free Dictionary API</h4>
+            <ul>
+                <li><strong>Data sent:</strong> the word or short phrase you select for a lookup. If you press play on a pronunciation, the audio also loads from this service</li>
+                <li><strong>When:</strong> required for the Dictionary feature; asked about once, gates every lookup after</li>
+                <li><strong>Website:</strong> <a href="https://dictionaryapi.dev/" target="_blank" rel="noopener noreferrer">dictionaryapi.dev</a></li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>MyMemory</h4>
+            <ul>
+                <li><strong>Data sent:</strong> the text you ask to translate, and the two language codes. With Translate Page, all the visible text of the page (never hidden text or AssisT's own controls), which on a course page can include other people's names</li>
+                <li><strong>When:</strong> the only translation provider AssisT uses; no API key needed. Translating a selection and Translate Page are asked about separately</li>
+                <li><strong>Privacy policy:</strong> <a href="https://mymemory.translated.net/doc/usagelimits.php" target="_blank" rel="noopener noreferrer">mymemory.translated.net</a></li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Crossref</h4>
+            <ul>
+                <li><strong>Data sent:</strong> a DOI (a code like <code>10.1000/xyz123</code>)</li>
+                <li><strong>When:</strong> a citation already has a DOI, or you add a source by DOI. Crossref sends back the publication details AssisT fills the citation in with</li>
+                <li><strong>Website:</strong> <a href="https://www.crossref.org/operations-and-sustainability/privacy/" target="_blank" rel="noopener noreferrer">crossref.org</a></li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>jsDelivr (text-recognition language files)</h4>
+            <ul>
+                <li><strong>Data sent:</strong> only a request for one public language file. No image and no text from the page is sent</li>
+                <li><strong>When:</strong> the first time Read from Images is used in a language other than English, after you allow it. English is built into AssisT and needs nothing. Each language is downloaded once and kept inside AssisT on your device</li>
+                <li><strong>Website:</strong> <a href="https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net" target="_blank" rel="noopener noreferrer">jsdelivr.com</a></li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Semantic Scholar</h4>
+            <ul>
+                <li><strong>Data sent:</strong> up to 120 characters of a citation's title</li>
+                <li><strong>When:</strong> only if you turn on online citation checking, which is off by default and asks you twice &mdash; once for a Chrome permission to reach the site, and once for consent to send the title</li>
+                <li><strong>Website:</strong> <a href="https://www.semanticscholar.org/product/api" target="_blank" rel="noopener noreferrer">semanticscholar.org</a></li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Google speech recognition (dictation)</h4>
+            <ul>
+                <li><strong>Data sent:</strong> the sound of your voice while dictation or the sticky-note microphone is listening, so that it can be turned into text</li>
+                <li><strong>When:</strong> these use Chrome's own speech recognition, which is a Google service. AssisT asks before the first time either of them starts, and starts nothing without a yes</li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Google speech recognition (lecture capture)</h4>
+            <ul>
+                <li><strong>Data sent:</strong> everything the microphone hears while lecture capture is on. That is the sound of the room, including other people's voices such as your lecturer and classmates, so that it can be turned into captions and notes</li>
+                <li><strong>When:</strong> the lecture companion uses the same Google service as dictation, but it is asked about separately, because it hears more than you. A yes to dictation is not a yes to lecture capture. AssisT asks before the first time you start it, and starts nothing without a yes</li>
+            </ul>
+        </div>
+
+        <div class="service-card">
+            <h4>Online read-aloud voices</h4>
+            <ul>
+                <li><strong>Data sent:</strong> the text being read aloud, to Google (or Microsoft, for its online voices), which turns it into speech</li>
+                <li><strong>When:</strong> only if you pick an online voice in the voice picker. Read-aloud uses a voice on your device by default, and the picker labels every online voice with who it sends the text to</li>
+            </ul>
+        </div>
+
+        <h3>4.1 Cloud AI providers</h3>
+        <p>If you choose cloud AI and save your own API key for one of these, the text you ask an AI feature about is sent to that provider. Saving the key, or pressing <strong>Allow access</strong> for that provider in the popup, is how you say yes; removing the key under Your data withdraws consent immediately.</p>
+        <ul>
+            <li>Anthropic (Claude)</li>
+            <li>OpenAI (ChatGPT)</li>
+            <li>Google Gemini</li>
+            <li>Perplexity</li>
+        </ul>
+        <p>Each provider is subject to its own privacy policy once your request reaches it. AssisT is not an intermediary: your browser talks to the provider directly, and we never see or store what is sent.</p>
+
+        <h3>4.2 Local AI: nothing leaves the device</h3>
+        <ul>
+            <li><strong>Ollama</strong> runs on your own computer, reached over the loopback address (<code>localhost</code>). AssisT asks Chrome for permission to reach it, but no student text goes anywhere else</li>
+            <li><strong>WebLLM</strong> (in-browser AI) downloads a model's weights once from Hugging Face, then runs entirely in your browser tab. The code that runs the model is built into AssisT and is never downloaded. After the download, no student text leaves the device</li>
+        </ul>
+
+        <div class="important-box">
+            <strong>Important:</strong> Fiavaion does not receive, store, or have access to anything sent to the services above. When you use cloud AI, translation, or citation lookups, the request goes directly from your browser to that service &mdash; we are not in the middle of it.
+        </div>
+
+        <hr>
+
+        <h2>5. What is stored, and where</h2>
+        <p>Everything AssisT stores lives in Chrome's own storage on your device (<code>chrome.storage.local</code>, and, for citations and annotations, IndexedDB). None of it syncs to a Fiavaion server, because there isn't one.</p>
+
+        <h3>5.1 Settings and preferences</h3>
+        <ul>
+            <li>Feature toggles, and which features are on or off</li>
+            <li>Text-to-Speech settings (voice, speed, pitch, highlight colours)</li>
+            <li>Speech-to-Text settings (language, punctuation mode)</li>
+            <li>Visual settings (font, spacing, dark mode, overlay colours)</li>
+            <li>Keyboard shortcut customisations</li>
+            <li>Your chosen profile (ADHD, Dyslexia, and so on)</li>
+            <li>Translation language preferences</li>
+            <li>AI mode and model preferences</li>
+        </ul>
+
+        <h3>5.2 Content you create</h3>
+        <ul>
+            <li><strong>Annotations and sticky notes:</strong> stored locally, organised by the page you created them on</li>
+            <li><strong>Citations:</strong> bibliography entries and citation projects, stored locally</li>
+            <li><strong>Custom vocabulary:</strong> words you add to your Speech-to-Text dictionary</li>
+        </ul>
+
+        <h3>5.3 Consent answers</h3>
+        <p>Your yes or no to each service listed in Section 4, stored locally, and excluded from settings exports on purpose.</p>
+
+        <h3>5.4 Saved AI keys</h3>
+        <p>If you save a key for a cloud AI provider, it is encrypted with a key derived from a random identifier generated on your device and stored alongside it. This is worth being plain about: it protects a saved key from casual inspection, such as someone glancing at storage in DevTools or opening a settings export. It does <strong>not</strong> protect the key from someone who can read the extension's own storage on that computer, because everything needed to decrypt it sits in that same storage. If you use AssisT on a shared or public computer, remove your keys under <strong>Your data</strong> when you are finished.</p>
+
+        <h3>5.5 Settings export</h3>
+        <p>Exporting your settings, to move to a new computer or keep as a backup, never includes an AI key or a consent answer. Only preferences travel; the export is built from a fixed list of setting names, not a copy of everything in storage, so a credential can't be added to it by accident.</p>
+
+        <hr>
+
+        <h2>6. Chrome permissions explained</h2>
+        <p>AssisT requests the following Chrome permissions. Here is exactly why each is needed:</p>
 
         <div class="permission-table">
             <div class="permission-row">
@@ -467,9 +565,13 @@
                 <div class="permission-name">scripting</div>
                 <div class="permission-reason">Inject accessibility features (TTS controls, reading guides, etc.) into web pages</div>
             </div>
+            <div class="permission-row">
+                <div class="permission-name">offscreen</div>
+                <div class="permission-reason">Run in-browser AI (WebLLM) and other on-device work that needs a page context the background script does not have</div>
+            </div>
         </div>
 
-        <h3>4.1 Default Website Access</h3>
+        <h3>6.1 Default website access</h3>
         <p>By default, AssisT only runs on these educational platforms:</p>
         <ul>
             <li><code>*.instructure.com</code> and <code>*.canvas.com</code> (Canvas LMS)</li>
@@ -477,249 +579,105 @@
             <li><code>classroom.google.com</code> (Google Classroom)</li>
             <li><code>docs.google.com</code> (Google Docs)</li>
         </ul>
-        <p>On these sites, AssisT can read page content to provide accessibility features. <strong>This content is processed locally and is never sent to external servers</strong> (except when you explicitly use optional third-party services as described below).</p>
+        <p>On these sites, AssisT can read page content to provide accessibility features. This content is processed locally and is never sent to an outside service except the ones named in Section 4, and only once you have said yes to that one.</p>
 
-        <h3>4.2 Optional: Enable Everywhere</h3>
+        <h3>6.2 Optional: enable everywhere</h3>
         <p>You may choose to grant AssisT permission to run on all websites. This is:</p>
         <ul>
-            <li><strong>Completely optional</strong>—AssisT works fully on educational sites without it</li>
-            <li><strong>Requested only when you click "Enable Everywhere"</strong>—never automatically</li>
-            <li><strong>Revocable at any time</strong> in Chrome Settings → Extensions → AssisT → Site access</li>
+            <li><strong>Completely optional</strong> &mdash; AssisT works fully on educational sites without it</li>
+            <li><strong>Requested only when you choose "Enable Everywhere"</strong> &mdash; never automatically</li>
+            <li><strong>Revocable at any time</strong> in Chrome Settings &rarr; Extensions &rarr; AssisT &rarr; Site access</li>
         </ul>
-        <p>When enabled, AssisT can provide accessibility features on any website. The same privacy guarantees apply: content is processed locally and never sent to external servers.</p>
+        <p>The services in Section 4 that need their own host permission are requested the same way: none is requested at install. Each one (Dictionary, Translation, Crossref, jsDelivr, Semantic Scholar, Ollama's loopback address, and the cloud AI providers in Section 4.1) is requested only when you allow that service or save a key, in the same step as the consent question. Withdrawing your consent under Your data gives the permission back.</p>
 
         <hr>
 
-        <h2>5. Third-Party Services (Optional)</h2>
-        <p>AssisT includes optional integrations with third-party services. These are <strong>disabled by default</strong> and only activated when you explicitly enable and configure them.</p>
-
-        <h3>5.1 Translation Services</h3>
-        <p>For text translation, you can choose from these providers:</p>
-
-        <div class="service-card">
-            <h4>MyMemory (Default)</h4>
-            <ul>
-                <li><strong>API Key Required:</strong> No</li>
-                <li><strong>Data Sent:</strong> Text you select for translation</li>
-                <li><strong>Privacy Policy:</strong> <a href="https://mymemory.translated.net/doc/usagelimits.php" target="_blank" rel="noopener noreferrer">mymemory.translated.net</a></li>
-            </ul>
-        </div>
-
-        <div class="service-card">
-            <h4>DeepL (Optional)</h4>
-            <ul>
-                <li><strong>API Key Required:</strong> Yes (you provide your own)</li>
-                <li><strong>Data Sent:</strong> Text you select for translation</li>
-                <li><strong>Privacy Policy:</strong> <a href="https://www.deepl.com/privacy" target="_blank" rel="noopener noreferrer">deepl.com/privacy</a></li>
-            </ul>
-        </div>
-
-        <div class="service-card">
-            <h4>Azure Translator (Optional)</h4>
-            <ul>
-                <li><strong>API Key Required:</strong> Yes (you provide your own)</li>
-                <li><strong>Data Sent:</strong> Text you select for translation</li>
-                <li><strong>Privacy Policy:</strong> <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener noreferrer">Microsoft Privacy Statement</a></li>
-            </ul>
-        </div>
-
-        <h3>5.2 Dictionary Service</h3>
-        <p>Word definitions are fetched from the Free Dictionary API:</p>
-        <ul>
-            <li><strong>Data Sent:</strong> The single word you look up</li>
-            <li><strong>Website:</strong> <a href="https://dictionaryapi.dev/" target="_blank" rel="noopener noreferrer">dictionaryapi.dev</a></li>
-        </ul>
-
-        <h3>5.3 AI Features</h3>
-        <p>AssisT offers <strong>four distinct AI modes</strong>, giving you full control over privacy vs. capability trade-offs:</p>
-
-        <div class="service-card">
-            <h4>Mode 1: Off</h4>
-            <ul>
-                <li><strong>Privacy:</strong> No AI processing occurs</li>
-                <li><strong>Data Sent:</strong> None</li>
-                <li><strong>Best For:</strong> Users who don't need AI features or want to minimize resource usage</li>
-                <li>All other 35+ accessibility features still work perfectly</li>
-            </ul>
-        </div>
-
-        <div class="service-card">
-            <h4>Mode 2: Local AI (Ollama)</h4>
-            <ul>
-                <li><strong>Privacy:</strong> 100% Private - No cloud processing</li>
-                <li><strong>Data Sent:</strong> None - Runs entirely on your computer</li>
-                <li><strong>Requirements:</strong> Ollama installation (free)</li>
-                <li><strong>Best For:</strong> Maximum privacy, offline access, FERPA/HIPAA compliance</li>
-                <li>Models: phi3:mini (2GB), llama3.2 (5GB), llava (4.7GB for image understanding)</li>
-            </ul>
-        </div>
-
-        <div class="service-card">
-            <h4>Mode 3: Browser AI (WebLLM)</h4>
-            <ul>
-                <li><strong>Privacy:</strong> 100% Private — AI runs in your browser tab via WebGPU</li>
-                <li><strong>Data Sent:</strong> None — All processing happens locally in browser memory</li>
-                <li><strong>Requirements:</strong> WebGPU-capable browser (Chrome 113+)</li>
-                <li><strong>Best For:</strong> No-install private AI, works offline after model download</li>
-                <li>8 models available (1B to 8B parameters), downloaded once and cached locally</li>
-                <li>No external API calls during inference</li>
-            </ul>
-        </div>
-
-        <div class="service-card">
-            <h4>Mode 4: Cloud AI (Your API Key)</h4>
-            <ul>
-                <li><strong>Privacy:</strong> Data sent to your chosen provider (not Fiavaion)</li>
-                <li><strong>Data Sent:</strong> Selected text sent to the cloud AI provider you configure</li>
-                <li><strong>Requirements:</strong> Your own API key from one of the supported providers</li>
-                <li><strong>Supported Providers:</strong>
-                    <ul>
-                        <li>Google (Gemini 2.5 Flash, Flash-Lite, Pro) — free API key available</li>
-                        <li>Anthropic (Claude Haiku 4.5, Sonnet 4.6, Opus 4.6)</li>
-                        <li>OpenAI (GPT-4o mini, GPT-4o, o1)</li>
-                        <li>Perplexity (Sonar, Sonar Pro)</li>
-                    </ul>
-                </li>
-                <li>You pay per use directly to your chosen provider</li>
-                <li>API keys stored locally using AES-256-GCM encryption, never sent to Fiavaion</li>
-                <li>Subject to your chosen provider's privacy policy</li>
-            </ul>
-        </div>
-
-        <div class="important-box">
-            <strong>Important:</strong> Fiavaion does not receive, store, or have access to any data processed by third-party services or local AI. When you use cloud AI or translation services, data goes directly from your browser to the service provider—we are not an intermediary.
-        </div>
-
-        <hr>
-
-        <h2>6. What AssisT Never Does</h2>
+        <h2>7. What AssisT never does</h2>
         <ul>
             <li>Collect or store personal information</li>
             <li>Track your browsing activity</li>
             <li>Use analytics or tracking services</li>
             <li>Share data with advertisers</li>
-            <li>Sell or monetize user data</li>
+            <li>Sell or monetise user data</li>
             <li>Require account creation or login</li>
-            <li>Transmit data to Fiavaion servers (we have no servers receiving user data)</li>
-            <li>Access pages you don't visit (we don't run in the background on other sites)</li>
+            <li>Transmit data to a Fiavaion server (we have none that receives user data)</li>
+            <li>Contact a service not named in Section 4</li>
         </ul>
 
         <hr>
 
-        <h2>7. Educational Privacy Compliance</h2>
+        <h2>8. Students and children</h2>
+        <p>AssisT is built for students, including students under 13. We do not collect personal information from anyone, there is no account to create, and there is no data gathered that would call for a parent's consent in the first place.</p>
+        <p>If your school deploys AssisT for its students, we are glad to talk through exactly what is described in this policy with whoever there needs to sign off on it.</p>
 
-        <h3>7.1 FERPA Compliance (United States)</h3>
-        <p>AssisT is designed for use in educational settings and complies with the Family Educational Rights and Privacy Act:</p>
+        <hr>
+
+        <h2>9. Information for institutions and data protection officers</h2>
+        <p>We are not going to describe AssisT as certified compliant with FERPA, COPPA, or GDPR. What we can tell you, precisely, is what data moves, when, and to whom: that is Section 4 above, in full. If your institution needs that read against a specific legal requirement, your own data protection officer is better placed to make that judgement than we are, and this policy is written to give them what they need to do it:</p>
         <ul>
-            <li><strong>No student records collected:</strong> We never receive or store education records</li>
-            <li><strong>Local processing only:</strong> Student work is processed in the browser, not on external servers</li>
-            <li><strong>No third-party data sharing:</strong> We do not share any data with third parties</li>
-            <li><strong>Institutional control:</strong> Schools can deploy AssisT without creating data-sharing agreements with Fiavaion</li>
+            <li>No student education record is ever collected or stored by Fiavaion, because there is no Fiavaion server to store it on</li>
+            <li>Everything is processed in the student's own browser, on their own device</li>
+            <li>Data reaches a third party only for the specific, named reasons in Section 4, and only after the student has consented to that one service</li>
+            <li>A school can deploy AssisT without a data-sharing agreement with Fiavaion, because there is no data flow to Fiavaion to cover</li>
         </ul>
 
-        <h3>7.2 COPPA Compliance (Children Under 13)</h3>
-        <p>AssisT complies with the Children's Online Privacy Protection Act:</p>
+        <h3>9.1 European users</h3>
+        <p>Because AssisT has no server receiving personal data, most of the obligations GDPR places on a data controller do not arise here. What we can offer instead is full local control:</p>
         <ul>
-            <li>We do not collect personal information from any user, including children</li>
-            <li>No account creation required</li>
-            <li>Parental consent is not required because no data is collected</li>
+            <li><strong>Access:</strong> view everything stored via the extension's own screens, or Chrome DevTools (Application &rarr; Storage)</li>
+            <li><strong>Rectification:</strong> edit any stored preference or content through the extension</li>
+            <li><strong>Erasure:</strong> delete data through the extension's own controls, or remove it all by uninstalling</li>
+            <li><strong>Portability:</strong> export your settings, annotations, and citations as files</li>
+            <li><strong>Objection:</strong> disable any feature, or uninstall, at any time</li>
         </ul>
+        <p>If you believe your data protection rights have been affected, contact us first at info@fiavaion.com. EU/EEA residents may also contact their local <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener noreferrer">Data Protection Authority</a>; UK residents may contact the <a href="https://ico.org.uk/" target="_blank" rel="noopener noreferrer">Information Commissioner's Office</a>.</p>
 
-        <h3>7.3 HIPAA Considerations</h3>
-        <p>While AssisT is not a healthcare application, its local-only architecture means it can be safely used:</p>
+        <hr>
+
+        <h2>10. Data security</h2>
         <ul>
-            <li>No protected health information (PHI) is transmitted externally</li>
-            <li>All processing remains on the user's device</li>
-            <li>Users in healthcare education settings can use AssisT without HIPAA concerns related to the extension itself</li>
+            <li><strong>HTTPS only:</strong> every request to a service in Section 4 uses a secure HTTPS connection</li>
+            <li><strong>Saved AI keys are encrypted at rest</strong>, as described in Section 5.4</li>
+            <li><strong>No server to breach:</strong> because there is no Fiavaion server holding student data, there is no Fiavaion database of it to be exposed</li>
+            <li><strong>Content sanitisation:</strong> AssisT uses DOMPurify to sanitise HTML content and prevent cross-site scripting</li>
         </ul>
 
         <hr>
 
-        <h2>8. GDPR Compliance (European Users)</h2>
-        <p>For users in the European Economic Area, United Kingdom, and Switzerland:</p>
-
-        <h3>8.1 Lawful Basis</h3>
-        <p>Since AssisT does not collect or process personal data on external servers, most GDPR provisions for data controllers do not apply. For local storage:</p>
+        <h2>11. Your choices</h2>
         <ul>
-            <li><strong>Consent:</strong> You explicitly choose to save settings and create content</li>
-            <li><strong>Legitimate Interest:</strong> Local storage is necessary to provide the accessibility features you request</li>
-        </ul>
-
-        <h3>8.2 Your Rights</h3>
-        <ul>
-            <li><strong>Access:</strong> View all stored data via extension settings or Chrome DevTools (Application → Storage)</li>
-            <li><strong>Rectification:</strong> Edit any stored preferences or content through the extension</li>
-            <li><strong>Erasure:</strong> Delete all data by clearing extension storage or uninstalling</li>
-            <li><strong>Portability:</strong> Export your settings, annotations, and citations as JSON files</li>
-            <li><strong>Objection:</strong> Disable any feature or uninstall at any time</li>
-        </ul>
-
-        <h3>8.3 Data Retention</h3>
-        <ul>
-            <li><strong>Preferences:</strong> Retained until you clear them or uninstall</li>
-            <li><strong>Annotations/Citations:</strong> Retained until you delete them or uninstall</li>
-            <li><strong>Temporary data:</strong> Cleared when you close the browser or automatically after short periods</li>
-        </ul>
-
-        <h3>8.4 International Transfers</h3>
-        <p>AssisT does not transfer data internationally. If you use third-party translation services, those providers may process data according to their own policies.</p>
-
-        <hr>
-
-        <h2>9. Data Security</h2>
-        <ul>
-            <li><strong>Local encryption:</strong> Chrome's storage APIs use your operating system's encryption</li>
-            <li><strong>No network exposure:</strong> Since data stays local, there's no risk of interception in transit to our servers</li>
-            <li><strong>HTTPS only:</strong> Any third-party API calls use secure HTTPS connections</li>
-            <li><strong>Content sanitization:</strong> AssisT uses DOMPurify to sanitize HTML content and prevent XSS attacks</li>
+            <li><strong>Review or change any consent answer:</strong> Advanced Options &gt; Your data, in the popup</li>
+            <li><strong>Remove a saved AI key:</strong> same screen</li>
+            <li><strong>Disable a feature:</strong> toggle it off in the popup at any time</li>
+            <li><strong>Delete annotations or citations:</strong> remove them from their own panels</li>
+            <li><strong>Revoke site access:</strong> change permissions in Chrome Settings &rarr; Extensions</li>
+            <li><strong>Uninstall:</strong> removes everything Chrome stored for the extension</li>
         </ul>
 
         <hr>
 
-        <h2>10. Your Choices</h2>
+        <h2>12. Changes to this policy</h2>
+        <p>We may update this policy as the extension changes. Changes will be:</p>
         <ul>
-            <li><strong>Disable features:</strong> Toggle any feature off in the extension popup</li>
-            <li><strong>Clear stored data:</strong> Use the "Reset Settings" button in the extension</li>
-            <li><strong>Delete annotations:</strong> Remove individual notes or clear all via the Annotations panel</li>
-            <li><strong>Remove API keys:</strong> Delete saved keys in Settings → Translation</li>
-            <li><strong>Revoke site access:</strong> Change permissions in Chrome Settings → Extensions</li>
-            <li><strong>Uninstall:</strong> Removing the extension deletes all locally stored data</li>
-        </ul>
-
-        <hr>
-
-        <h2>11. Changes to This Policy</h2>
-        <p>We may update this policy to reflect new features or legal requirements. Changes will be:</p>
-        <ul>
-            <li>Posted at <a href="https://www.fiavaion.com/products/assist/privacy">fiavaion.com/products/assist/privacy</a></li>
+            <li>Posted here and at <a href="https://www.fiavaion.com/products/assist/privacy" target="_blank" rel="noopener noreferrer">fiavaion.com/products/assist/privacy</a></li>
             <li>Noted in the extension's changelog on GitHub</li>
-            <li>Indicated by updating the "Last Updated" date above</li>
+            <li>Marked by updating the "Last Updated" date above</li>
         </ul>
-        <p>Material changes that affect your rights will be announced in the extension update notes.</p>
+        <p>A change to what data is sent, or to whom, will always be called out in the extension's update notes, not left to this date alone.</p>
 
         <hr>
 
-        <h2>12. Contact Us</h2>
-        <p>Questions about this privacy policy or AssisT's data practices:</p>
+        <h2>13. Contact us</h2>
+        <p>Questions about this policy or AssisT's data practices:</p>
         <ul>
             <li><strong>Email:</strong> <a href="mailto:info@fiavaion.com">info@fiavaion.com</a></li>
-            <li><strong>GitHub:</strong> <a href="https://github.com/fiavaion/AssisT/issues" target="_blank" rel="noopener noreferrer">github.com/fiavaion/AssisT/issues</a></li>
-            <li><strong>Documentation:</strong> <a href="https://www.fiavaion.com/docs/assist">fiavaion.com/docs/assist</a></li>
-        </ul>
-
-        <hr>
-
-        <h2>13. Complaints</h2>
-        <p>If you believe your data protection rights have been violated:</p>
-        <ul>
-            <li><strong>Contact us first:</strong> <a href="mailto:info@fiavaion.com">info@fiavaion.com</a></li>
-            <li><strong>EU/EEA residents:</strong> You may lodge a complaint with your local Data Protection Authority (<a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener noreferrer">find your DPA</a>)</li>
-            <li><strong>UK residents:</strong> Contact the <a href="https://ico.org.uk/" target="_blank" rel="noopener noreferrer">Information Commissioner's Office</a></li>
+            <li><strong>GitHub:</strong> <a href="https://github.com/Fiavaion/AssisT/issues" target="_blank" rel="noopener noreferrer">github.com/Fiavaion/AssisT/issues</a></li>
+            <li><strong>Documentation:</strong> <a href="https://www.fiavaion.com/docs/assist" target="_blank" rel="noopener noreferrer">fiavaion.com/docs/assist</a></li>
         </ul>
 
         <div class="summary-box">
             <h3>Summary</h3>
-            <p>AssisT is built with privacy at its core. We don't collect your data, don't want your data, and have architected the extension so we never receive your data. Everything runs locally on your device. Your educational content stays yours.</p>
+            <p>AssisT runs on your device. We don't collect your data, we haven't built anywhere for it to go, and the only times anything leaves your browser are the ones named in Section 4, each behind your own yes. Your educational content stays yours.</p>
             <p class="agreement">
                 <strong>By using AssisT, you acknowledge that you have read and understood this privacy policy.</strong>
             </p>

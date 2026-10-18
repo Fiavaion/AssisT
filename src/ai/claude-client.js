@@ -2,7 +2,7 @@
  * Claude API Client for AssisT Cloud AI Mode
  *
  * Provides integration with Anthropic's Claude API for cloud-based
- * AI processing. Supports Claude 4.5/4.6 models (Opus, Sonnet, Haiku).
+ * AI processing, with the models listed in model-registry.js (Opus, Sonnet, Haiku).
  *
  * Features:
  * - Multi-model support with feature-specific defaults
@@ -40,11 +40,11 @@ export const CLOUD_MODELS = REGISTRY.anthropic.models;
 export const FEATURE_DEFAULT_MODELS = REGISTRY.anthropic.featureDefaults;
 
 /**
- * Default generation options
+ * Default generation options. No temperature: Claude Opus 4.7 and every later model reject
+ * sampling parameters with a 400, and every model in the registry is one of those.
  */
 const DEFAULT_OPTIONS = {
   maxTokens: 1024,
-  temperature: 0.7,
   timeout: 60000, // 60 seconds
   maxRetries: 2,
 };
@@ -128,9 +128,8 @@ export async function checkCloudAvailability() {
  *
  * @param {string} prompt - The prompt to send
  * @param {Object} options - Generation options
- * @param {string} options.model - Model key from CLOUD_MODELS (e.g., 'sonnet-4.5')
+ * @param {string} options.model - Model key from CLOUD_MODELS (e.g., 'sonnet-5.5')
  * @param {number} options.maxTokens - Maximum tokens to generate
- * @param {number} options.temperature - Sampling temperature (0-1)
  * @param {string} options.feature - Feature name for usage tracking
  * @param {boolean} options.noCache - Skip cache lookup
  * @returns {Promise<{content: string, usage: Object}>}
@@ -138,8 +137,8 @@ export async function checkCloudAvailability() {
 export async function claudeGenerate(prompt, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  // Resolve model ID — accept both internal keys ('sonnet-4.6') and actual IDs ('claude-sonnet-4-6')
-  const modelKey = opts.model || 'sonnet-4.6';
+  // Resolve model ID — accept both internal keys ('sonnet-5.5') and actual IDs ('claude-sonnet-5-5')
+  const modelKey = opts.model || REGISTRY.anthropic.defaultModel;
   const modelConfig = CLOUD_MODELS[modelKey];
   let modelId;
 
@@ -193,7 +192,6 @@ export async function claudeGenerate(prompt, options = {}) {
       body: JSON.stringify({
         model: modelId,
         max_tokens: opts.maxTokens,
-        temperature: opts.temperature,
         ...(opts.system ? { system: opts.system } : {}),
         messages: [
           {
@@ -282,7 +280,7 @@ export async function claudeGenerate(prompt, options = {}) {
  * @returns {string} Model key
  */
 export function getDefaultModelForFeature(featureName) {
-  return FEATURE_DEFAULT_MODELS[featureName] || 'sonnet-4.6';
+  return FEATURE_DEFAULT_MODELS[featureName] || REGISTRY.anthropic.defaultModel;
 }
 
 /**

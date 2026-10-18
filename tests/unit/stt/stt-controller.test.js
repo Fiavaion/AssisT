@@ -12,6 +12,13 @@
  * @file stt-controller.test.js
  */
 
+// This suite is about the controller's own behaviour; the dictation question it asks before
+// starting is covered in dictation-consent.test.js, so here the student has already said yes.
+jest.mock('../../../src/utils/dictation-consent.js', () => ({
+  allowDictation: () => true,
+  onDictationWithdrawn: () => () => {},
+}));
+
 import { STTController } from '../../../src/engines/stt/stt-controller.js';
 
 // Mock webkitSpeechRecognition
@@ -160,6 +167,49 @@ describe('STTController', () => {
       expect(controller.onEnd).toBe(onEnd);
       expect(controller.onResult).toBe(onResult);
       expect(controller.onError).toBe(onError);
+    });
+
+    it('defaults onCitationTrigger to a no-op that never suppresses', () => {
+      controller = new STTController({});
+      expect(controller.onCitationTrigger('any words')).toBe(false);
+    });
+  });
+
+  // ==========================================
+  // Citation voice-capture suppression
+  // ==========================================
+  describe('Citation voice-capture trigger', () => {
+    /** Build a final-result event the way the Web Speech API delivers one. */
+    function finalEvent(text) {
+      const alt = { transcript: text, confidence: 0.9 };
+      const result = [alt];
+      result.isFinal = true;
+      return { resultIndex: 0, results: [result] };
+    }
+
+    it('suppresses insertion of a transcript the citation hook consumes', () => {
+      const onCitationTrigger = jest.fn().mockReturnValue(true);
+      controller = new STTController({ onCitationTrigger });
+      controller.targetElement = mockElement;
+      controller.isPaused = false;
+
+      controller.handleResult(finalEvent('cite this'));
+
+      expect(onCitationTrigger).toHaveBeenCalledWith('cite this');
+      // The trigger phrase must NOT be dictated into the document.
+      expect(mockElement.value).toBe('');
+    });
+
+    it('inserts the transcript as normal when the hook does not consume it', () => {
+      const onCitationTrigger = jest.fn().mockReturnValue(false);
+      controller = new STTController({ onCitationTrigger });
+      controller.targetElement = mockElement;
+      controller.isPaused = false;
+
+      controller.handleResult(finalEvent('the actual sentence'));
+
+      expect(onCitationTrigger).toHaveBeenCalledWith('the actual sentence');
+      expect(mockElement.value).toContain('actual sentence');
     });
   });
 
@@ -331,7 +381,9 @@ describe('STTController', () => {
     });
 
     it('should handle multiple punctuation commands', () => {
-      const result = controller.processPunctuationCommands('hello period how are you question mark');
+      const result = controller.processPunctuationCommands(
+        'hello period how are you question mark'
+      );
       expect(result).toBe('hello. how are you?');
     });
 
@@ -403,6 +455,84 @@ describe('STTController', () => {
     it('should handle null element gracefully', () => {
       // Should not throw
       expect(() => controller.insertText(null, 'test')).not.toThrow();
+    });
+  });
+
+  // ==========================================
+  // Canvas's Rich Content Editor: a same-origin iframe whose body is the essay
+  // ==========================================
+
+  describe('Insertion into an editor iframe', () => {
+    let frame;
+    let doc;
+    let body;
+
+    beforeEach(() => {
+      controller = new STTController();
+      frame = document.createElement('iframe');
+      document.body.appendChild(frame);
+      doc = frame.contentDocument;
+      body = doc.body;
+      body.className = 'mce-content-body';
+      body.setAttribute('contenteditable', 'true');
+      // jsdom does not reflect contenteditable into these; Chrome does.
+      body.contentEditable = 'true';
+      body.isContentEditable = true;
+      body.appendChild(doc.createTextNode('Essay start. '));
+
+      // The caret sits at the end of what the student wrote, in the EDITOR's own selection.
+      const selection = frame.contentWindow.getSelection();
+      const range = doc.createRange();
+      range.setStart(body.firstChild, body.firstChild.length);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    });
+
+    afterEach(() => {
+      frame.remove();
+      delete document.execCommand;
+    });
+
+    it("goes in through the editor document's own insertText, so its undo and saved copy include it", () => {
+      doc.execCommand = jest.fn(() => true);
+      document.execCommand = jest.fn(() => true);
+
+      controller.insertText(body, 'hello there');
+
+      expect(doc.execCommand).toHaveBeenCalledWith('insertText', false, 'hello there');
+      expect(document.execCommand).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the caret in the editor's document when insertText is refused", () => {
+      doc.execCommand = jest.fn(() => false);
+      const inputs = [];
+      body.addEventListener('input', e => inputs.push(e));
+
+      controller.insertText(body, 'hello there');
+
+      expect(body.textContent).toBe('Essay start. hello there');
+      expect(inputs).toHaveLength(1);
+    });
+
+    it('inserts at the editor caret with nodes of the editor document when there is no insertText', () => {
+      controller.insertText(body, 'hello there');
+
+      expect(body.textContent).toBe('Essay start. hello there');
+      // Only the student's words: no wrapper, no marker, nothing of AssisT's.
+      expect(body.children).toHaveLength(0);
+      body.childNodes.forEach(node => expect(node.ownerDocument).toBe(doc));
+    });
+
+    it("applies a spoken format command to the editor's document, not the page's", () => {
+      doc.execCommand = jest.fn(() => true);
+      document.execCommand = jest.fn(() => true);
+      controller.targetElement = body;
+
+      controller.executeFormat({ format: 'bold' });
+
+      expect(doc.execCommand).toHaveBeenCalledWith('bold', false, null);
+      expect(document.execCommand).not.toHaveBeenCalled();
     });
   });
 
@@ -769,6 +899,102 @@ describe('STTController', () => {
       expect(onError).toHaveBeenCalled();
 
       global.webkitSpeechRecognition = original;
+    });
+  });
+
+  // ==========================================
+  // Pending start / abort and student-facing errors
+  // ==========================================
+
+  describe('Pending start and stop', () => {
+    beforeEach(() => {
+      controller = new STTController();
+    });
+
+    it('reports a pending start until onstart fires', () => {
+      controller.recognition.start = jest.fn(); // never fires onstart
+
+      expect(controller.startListening(mockElement)).toBe(true);
+      expect(controller.isStarting).toBe(true);
+      expect(controller.isRecording).toBe(false);
+    });
+
+    it('aborts a pending start when stopped, and a following start works', () => {
+      const abort = jest.fn();
+      controller.recognition.start = jest.fn();
+      controller.recognition.abort = abort;
+
+      controller.startListening(mockElement);
+      expect(controller.stopListening()).toBe(true);
+      expect(abort).toHaveBeenCalledTimes(1);
+      expect(controller.isStarting).toBe(false);
+
+      expect(controller.startListening(mockElement)).toBe(true);
+      expect(controller.isStarting).toBe(true);
+    });
+
+    it('does not start twice while a start is still pending', () => {
+      const start = jest.fn();
+      controller.recognition.start = start;
+
+      controller.startListening(mockElement);
+      expect(controller.startListening(mockElement)).toBe(false);
+      expect(start).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears the pending flag when recognition errors', () => {
+      controller.recognition.start = jest.fn();
+      controller.startListening(mockElement);
+
+      controller.handleError({ error: 'not-allowed', message: 'x' });
+
+      expect(controller.isStarting).toBe(false);
+    });
+  });
+
+  describe('Student-facing error messages', () => {
+    let onError;
+
+    beforeEach(() => {
+      onError = jest.fn();
+      controller = new STTController({ onError });
+    });
+
+    it('tells the student how to allow the microphone', () => {
+      controller.handleError({ error: 'not-allowed', message: '' });
+
+      const message = onError.mock.calls[0][0].message;
+      expect(message).toMatch(/address bar/i);
+      expect(message).toMatch(/microphone/i);
+    });
+
+    it('never leaks an unknown error code to the student', () => {
+      controller.handleError({ error: 'some-internal-code', message: '' });
+
+      const message = onError.mock.calls[0][0].message;
+      expect(message).not.toMatch(/some-internal-code/);
+      expect(message).toMatch(/voice typing/i);
+    });
+
+    it('stays quiet when recognition was aborted on purpose', () => {
+      controller.handleError({ error: 'aborted', message: '' });
+
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('never surfaces a raw DOMException from start()', () => {
+      controller.recognition.start = jest.fn(() => {
+        const error = new Error(
+          "Failed to execute 'start' on 'SpeechRecognition': recognition has already started."
+        );
+        error.name = 'InvalidStateError';
+        throw error;
+      });
+
+      expect(controller.startListening(mockElement)).toBe(false);
+      if (onError.mock.calls.length > 0) {
+        expect(onError.mock.calls[0][0].message).not.toMatch(/SpeechRecognition|DOMException/);
+      }
     });
   });
 });

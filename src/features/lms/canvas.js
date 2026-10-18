@@ -14,6 +14,10 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
+import { StorageManager } from '../../utils/storage-manager.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { isCanvasPage } from '../../adapters/lms-detect.js';
+import { joinForSpeech, readAloud } from './lms-read-aloud.js';
 
 /**
  * Global state for Canvas integration
@@ -38,29 +42,25 @@ export let canvas_fabElement = null;
 let CanvasAdapter = null;
 
 /**
- * Reference to the TTS readText function from content-simple.js
- * @type {Function|null}
- */
-let readTextFunction = null;
-
-/**
- * Reference to the settings object from content-simple.js
- * @type {Object|null}
- */
-let settingsObject = null;
-
-/**
- * Dynamically loads the Canvas adapter module
+ * Loads the Canvas adapter, but only on a Canvas page
  * @async
  * @function canvas_loadAdapter
- * @returns {Promise<Object|null>} The loaded Canvas adapter module or null on failure
- * @description Lazy-loads the Canvas adapter only when Canvas integration is enabled.
+ * @returns {Promise<Object|null>} The loaded Canvas adapter module, or null off Canvas / on failure
+ * @description The page check comes first and is the reason this is the only gate: every entry point
+ * goes through here, so a page that is not Canvas never fetches the adapter chunk and never logs.
+ * The import is a plain specifier so Vite bundles the adapter into assets/ — the previous
+ * `chrome.runtime.getURL('src/adapters/canvas-adapter.js')` loaded a raw copy of the source, whose
+ * own imports had to exist as raw files beside it, and one of them did not.
  * Caches the adapter after first load to avoid repeated imports.
  */
 export async function canvas_loadAdapter() {
+  if (!isCanvasPage()) {
+    return null;
+  }
+
   if (!CanvasAdapter) {
     try {
-      CanvasAdapter = await import(chrome.runtime.getURL('src/adapters/canvas-adapter.js'));
+      CanvasAdapter = await import('../../adapters/canvas-adapter.js');
       console.log('[Canvas] Adapter loaded');
     } catch (error) {
       console.error('[Canvas] Failed to load adapter:', error);
@@ -76,7 +76,7 @@ export async function canvas_loadAdapter() {
  * @returns {Promise<void>}
  * @description Main initialization function that:
  * 1. Verifies Canvas integration is enabled
- * 2. Loads the Canvas adapter
+ * 2. Loads the Canvas adapter, which no-ops off Canvas
  * 3. Detects the current Canvas page type
  * 4. Waits for Canvas content to load
  * 5. Initializes appropriate features (e.g., Assignment Reader, Quiz Helper)
@@ -86,14 +86,9 @@ export async function canvas_initialize() {
     return;
   }
 
+  // Off Canvas, loadAdapter returns null without importing anything.
   const adapter = await canvas_loadAdapter();
   if (!adapter) {
-    return;
-  }
-
-  // Check if on Canvas page
-  if (!adapter.isCanvasPage()) {
-    console.log('[Canvas] Not a Canvas page, skipping');
     return;
   }
 
@@ -133,7 +128,7 @@ export async function canvas_initializeAssignmentReader() {
     return;
   }
 
-  console.log('[Canvas] Assignment detected:', assignment.title);
+  console.log('[Canvas] Assignment detected');
 
   // Create FAB button
   canvas_fabElement = adapter.createCanvasFAB({
@@ -148,37 +143,22 @@ export async function canvas_initializeAssignmentReader() {
 }
 
 /**
- * Reads assignment content using TTS functionality
+ * Reads assignment content aloud.
  * @function canvas_readAssignment
  * @param {Object} assignment - Assignment data extracted from Canvas page
  * @param {string} assignment.title - Title of the assignment
  * @param {string} assignment.text - Main content text of the assignment
  * @param {HTMLElement} assignment.element - DOM element containing the assignment
- * @returns {void}
- * @description Combines assignment title and content into full text and triggers
- * TTS reading with synchronized highlighting. Validates that TTS is enabled before
- * attempting to read.
+ * @returns {boolean} true if reading started
+ * @description Hands the assignment to the shared read-aloud path, the same one Moodle and Google
+ * Classroom use, so a refusal reads the same on every platform.
  */
 export function canvas_readAssignment(assignment) {
-  if (!settingsObject || !settingsObject.enabled) {
-    showToast('⚠️ Enable TTS in the extension popup first');
-    return;
-  }
-
-  console.log('[Canvas] Reading assignment:', assignment.title);
-  showToast('📖 Reading: ' + assignment.title);
-
-  // Read title first
-  const titleText = assignment.title;
-  const contentText = assignment.text;
-  const fullText = titleText + '. ' + contentText;
-
-  // Use existing TTS functionality
-  if (readTextFunction) {
-    readTextFunction(fullText, assignment.element);
-  } else {
-    console.error('[Canvas] readText function not initialized');
-  }
+  return readAloud({
+    text: joinForSpeech([assignment.title, assignment.text]),
+    element: assignment.element,
+    announcement: `Reading: ${assignment.title || 'this assignment'}`,
+  });
 }
 
 /**
@@ -196,18 +176,22 @@ export function canvas_removeFAB() {
 }
 
 /**
- * Initializes the Canvas module with required dependencies
- * @function initializeCanvasModule
- * @param {Function} readText - The TTS readText function from content-simple.js
- * @param {Object} settings - The settings object from content-simple.js
- * @returns {void}
- * @description Must be called by content-simple.js to provide necessary dependencies
- * before Canvas features can be used.
+ * Tear down everything this module injected into the page (FAB + quiz-helper
+ * listeners). Safe to call on any page. Used by the SPA-navigation handler so
+ * stale controls from the previous route don't linger.
  */
-export function initializeCanvasModule(readText, settings) {
-  readTextFunction = readText;
-  settingsObject = settings;
-  console.log('[Canvas] Module initialized with dependencies');
+export function canvas_cleanup() {
+  canvas_removeFAB();
+  quizHelper_cleanup();
+}
+
+/**
+ * Re-detect the current page and re-mount Canvas features after an SPA navigation.
+ * Cleans up first so nothing is duplicated; no-ops off Canvas / when disabled.
+ */
+export async function canvas_reinit() {
+  canvas_cleanup();
+  await canvas_initialize();
 }
 
 /**
@@ -216,6 +200,8 @@ export function initializeCanvasModule(readText, settings) {
 let quizHelper_enabled = false;
 let quizHelper_questions = [];
 let quizHelper_currentIndex = -1;
+/** The read-aloud button injectUI added to each question, with its handler cleanup. */
+let quizHelper_buttons = [];
 const quizHelper_settings = {
   readAnswers: true,
   autoRead: false,
@@ -281,41 +267,49 @@ function quizHelper_injectUI() {
     // Add data attribute for tracking
     element.dataset.quizQuestionIndex = index;
 
-    // Add hover effect
-    element.style.cursor = 'pointer';
-    element.style.transition = 'all 0.3s ease';
-
-    // Add border to indicate clickable
-    element.style.border = `2px dashed ${quizHelper_settings.highlightColor}40`;
-    element.style.borderRadius = '8px';
-    element.style.padding = '12px';
-    element.style.marginBottom = '16px';
-
-    // Add click handler
-    element.addEventListener('click', e => {
-      // Don't interfere with actual quiz interaction (radio buttons, etc.)
-      if (e.target.matches('input, label, button')) {
-        return;
-      }
-
-      e.stopPropagation();
-      quizHelper_readQuestion(index);
-    });
-
-    // Add hover effects
-    element.addEventListener('mouseenter', () => {
-      if (quizHelper_currentIndex !== index) {
-        element.style.border = `2px solid ${quizHelper_settings.highlightColor}80`;
-        element.style.backgroundColor = `${quizHelper_settings.highlightColor}10`;
-      }
-    });
-
-    element.addEventListener('mouseleave', () => {
-      if (quizHelper_currentIndex !== index) {
-        element.style.border = `2px dashed ${quizHelper_settings.highlightColor}40`;
-        element.style.backgroundColor = '';
-      }
-    });
+    // The affordance is this button and nothing else. It used to be the question container: a
+    // dashed border in the highlight colour and a pointer cursor, which is a colour-only cue
+    // (SC 1.4.1) that a keyboard could not reach at all (SC 2.1.1), painted over a quiz a student
+    // is being marked on. The button says in words what it does, it is in the tab order, and it
+    // answers Enter and Space. The container is deliberately NOT given role="button": it holds the
+    // answer radios, and a button role wrapping them would both mislead assistive technology and
+    // swallow the Space press that picks an answer.
+    // A settings change re-runs this over the same question elements, so the button is added only
+    // once — the same stacking bug the listener tracking below exists to stop.
+    const readBtn =
+      element.querySelector('.assist-quiz-read-btn') || document.createElement('button');
+    const isNewButton = !readBtn.isConnected;
+    readBtn.type = 'button';
+    readBtn.className = 'assist-quiz-read-btn';
+    readBtn.textContent = '🔊 Read this question aloud';
+    readBtn.setAttribute('aria-label', `Read question ${question.number} aloud`);
+    readBtn.style.cssText = [
+      'display:inline-flex',
+      'align-items:center',
+      'gap:6px',
+      'margin:0 0 10px',
+      'padding:6px 12px',
+      'font:inherit',
+      'font-size:13px',
+      'line-height:1.4',
+      'color:inherit',
+      'background:transparent',
+      'border:2px solid currentColor',
+      'border-radius:6px',
+      'cursor:pointer',
+    ].join(';');
+    if (isNewButton) {
+      element.insertBefore(readBtn, element.firstChild);
+      quizHelper_buttons.push({
+        button: readBtn,
+        cleanup: attachAccessibleHandler(
+          readBtn,
+          `Quiz question ${question.number}`,
+          () => quizHelper_readQuestion(index),
+          { enableVisualFeedback: false }
+        ),
+      });
+    }
   });
 
   console.log('[QuizHelper] UI injected for', quizHelper_questions.length, 'questions');
@@ -332,13 +326,7 @@ function quizHelper_readQuestion(index) {
     return;
   }
 
-  if (!settingsObject || !settingsObject.enabled) {
-    showToast('⚠️ Enable TTS in the extension popup first');
-    return;
-  }
-
   const question = quizHelper_questions[index];
-  quizHelper_currentIndex = index;
 
   // Build text to read
   let textToRead = `Question ${question.number}: ${question.text}`;
@@ -351,22 +339,25 @@ function quizHelper_readQuestion(index) {
     });
   }
 
-  console.log('[QuizHelper] Reading question', question.number);
+  // The highlight and the scroll are only worth doing if reading actually starts, so the shared
+  // path is asked first: it announces the reading, or says plainly why there is none.
+  if (
+    !readAloud({
+      text: textToRead,
+      element: question.element,
+      announcement: `Reading question ${question.number}`,
+    })
+  ) {
+    return;
+  }
 
-  // Highlight question
+  quizHelper_currentIndex = index;
+
   if (quizHelper_settings.highlightQuestion) {
     quizHelper_highlightQuestion(question.element);
   }
 
-  // Scroll to question smoothly
   question.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-  // Read using TTS
-  if (readTextFunction) {
-    readTextFunction(textToRead, question.element);
-  } else {
-    console.error('[QuizHelper] readText function not initialized');
-  }
 }
 
 /**
@@ -376,10 +367,10 @@ function quizHelper_readQuestion(index) {
  * @returns {void}
  */
 function quizHelper_highlightQuestion(element) {
-  // Remove previous highlights
+  // Only one question is being read, so every other one goes back to the page's own styling.
   quizHelper_questions.forEach(q => {
     if (q.element && q.element !== element) {
-      q.element.style.border = `2px dashed ${quizHelper_settings.highlightColor}40`;
+      q.element.style.border = '';
       q.element.style.backgroundColor = '';
       q.element.style.boxShadow = '';
     }
@@ -500,16 +491,18 @@ function quizHelper_navigateToQuestion(index) {
 function quizHelper_cleanup() {
   // Remove event listeners
   document.removeEventListener('keydown', quizHelper_handleKeyPress);
+  quizHelper_buttons.forEach(({ button, cleanup }) => {
+    cleanup();
+    button.remove();
+  });
+  quizHelper_buttons = [];
 
-  // Remove visual indicators
+  // Take the reading highlight back off, and leave the page as it was found.
   quizHelper_questions.forEach(q => {
     if (q.element) {
       q.element.style.border = '';
-      q.element.style.cursor = '';
       q.element.style.backgroundColor = '';
       q.element.style.boxShadow = '';
-      q.element.style.padding = '';
-      q.element.style.marginBottom = '';
       delete q.element.dataset.quizQuestionIndex;
     }
   });
@@ -520,17 +513,10 @@ function quizHelper_cleanup() {
   console.log('[QuizHelper] Cleanup complete');
 }
 
-/** @type {Object} Default settings for Canvas integration */
+/** @type {Object} Settings for Canvas integration when nothing is stored */
 const DEFAULT_SETTINGS = {
   enabled: false,
-  quizHelper: {
-    enabled: false,
-    readAnswers: true,
-    autoRead: false,
-    highlightQuestion: true,
-    highlightColor: '#4A90E2',
-    keyboardNavigation: true,
-  },
+  quizHelper: StorageManager.DEFAULT_SETTINGS.canvasIntegration.quizHelper,
 };
 
 /**
@@ -542,39 +528,40 @@ function applySettings(settings, isInit = false) {
   const wasEnabled = canvas_enabled;
   const newEnabled = settings.enabled || false;
 
-  // Load Quiz Helper settings
-  const qhSettings = settings.quizHelper;
+  // The branch arrives as stored, which for an older install can be `quizHelper: false`. The
+  // settings merge upgrades that and fills every option the stored object lacks.
+  const qhSettings = StorageManager.withDefaults({ canvasIntegration: settings }).canvasIntegration
+    .quizHelper;
   const wasQHEnabled = quizHelper_enabled;
 
-  if (typeof qhSettings === 'object') {
-    quizHelper_settings.readAnswers = qhSettings.readAnswers !== false;
-    quizHelper_settings.autoRead = qhSettings.autoRead || false;
-    quizHelper_settings.highlightQuestion = qhSettings.highlightQuestion !== false;
-    quizHelper_settings.highlightColor =
-      qhSettings.highlightColor || DEFAULT_SETTINGS.quizHelper.highlightColor;
-    quizHelper_settings.keyboardNavigation = qhSettings.keyboardNavigation !== false;
-  }
+  quizHelper_settings.readAnswers = qhSettings.readAnswers !== false;
+  quizHelper_settings.autoRead = qhSettings.autoRead === true;
+  quizHelper_settings.highlightQuestion = qhSettings.highlightQuestion !== false;
+  quizHelper_settings.highlightColor =
+    qhSettings.highlightColor || DEFAULT_SETTINGS.quizHelper.highlightColor;
+  quizHelper_settings.keyboardNavigation = qhSettings.keyboardNavigation !== false;
 
   // Handle Canvas integration enable/disable
   if (newEnabled && !wasEnabled) {
     canvas_enabled = true;
     canvas_initialize();
-    if (!isInit) {
+    // Announced only on this platform: the setting is shared, so a change made anywhere reaches
+    // every tab, and a message about another LMS is noise to a student who is not on it.
+    if (!isInit && isCanvasPage()) {
       showToast('🎓 Canvas Integration enabled');
     }
   } else if (!newEnabled && wasEnabled) {
     canvas_enabled = false;
     canvas_removeFAB();
     quizHelper_cleanup();
-    if (!isInit) {
+    if (!isInit && isCanvasPage()) {
       showToast('Canvas Integration disabled');
     }
   }
 
   // Handle Quiz Helper settings updates (only if Canvas is enabled)
-  if (qhSettings && canvas_enabled) {
-    const newQHEnabled =
-      typeof qhSettings === 'object' ? qhSettings.enabled || false : qhSettings || false;
+  if (canvas_enabled) {
+    const newQHEnabled = qhSettings.enabled === true;
 
     if (newQHEnabled && !wasQHEnabled) {
       quizHelper_enabled = true;
@@ -582,7 +569,7 @@ function applySettings(settings, isInit = false) {
     } else if (!newQHEnabled && wasQHEnabled) {
       quizHelper_enabled = false;
       quizHelper_cleanup();
-      if (!isInit) {
+      if (!isInit && isCanvasPage()) {
         showToast('Quiz Helper disabled');
       }
     } else if (newQHEnabled && wasQHEnabled && !isInit) {
@@ -591,11 +578,7 @@ function applySettings(settings, isInit = false) {
       canvas_initializeQuizHelper();
     }
 
-    if (typeof qhSettings !== 'object') {
-      quizHelper_enabled = qhSettings || false;
-    } else {
-      quizHelper_enabled = newQHEnabled;
-    }
+    quizHelper_enabled = newQHEnabled;
   }
 
   console.log(

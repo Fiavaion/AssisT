@@ -7,24 +7,21 @@
  *
  * Usage:
  *   node scripts/cws-publish.js               # upload only (draft)
- *   node scripts/cws-publish.js --publish      # upload + submit for review
+ *   node scripts/cws-publish.js --publish      # upload + submit for review (all users)
  *   npm run cws:upload
  *   npm run cws:publish
  *   npm run release    # build + upload + publish in one step
  *
  * One-time setup: copy .env.example → .env and fill in your credentials.
- * See docs/CWS_PUBLISH_SETUP.md for how to obtain them.
+ * .env.example says where each value comes from.
  */
 
 import 'dotenv/config';
 import chromeWebstoreUpload from 'chrome-webstore-upload';
+import { ZipArchive } from 'archiver';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-const archiver = require('archiver');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -32,18 +29,22 @@ const ROOT = path.join(__dirname, '..');
 // ── CLI flags ────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const shouldPublish = args.includes('--publish');
-const target = args.includes('--trusted-testers') ? 'trustedTesters' : 'default';
 
 // ── Credentials ───────────────────────────────────────────────────────────────
-const { CWS_EXTENSION_ID, CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN } = process.env;
+const { CWS_EXTENSION_ID, CWS_PUBLISHER_ID, CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN } =
+  process.env;
 
-const missing = ['CWS_EXTENSION_ID', 'CWS_CLIENT_ID', 'CWS_CLIENT_SECRET', 'CWS_REFRESH_TOKEN'].filter(
-  k => !process.env[k]
-);
+const missing = [
+  'CWS_EXTENSION_ID',
+  'CWS_PUBLISHER_ID',
+  'CWS_CLIENT_ID',
+  'CWS_CLIENT_SECRET',
+  'CWS_REFRESH_TOKEN',
+].filter(k => !process.env[k]);
 if (missing.length) {
   console.error(`\nMissing environment variables: ${missing.join(', ')}`);
   console.error('Copy .env.example → .env and fill in your credentials.');
-  console.error('See docs/CWS_PUBLISH_SETUP.md for setup instructions.\n');
+  console.error('.env.example says where each value comes from.\n');
   process.exit(1);
 }
 
@@ -57,7 +58,7 @@ function createZip(version) {
   const zipPath = path.join(ROOT, `assist-v${version}.zip`);
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
 
     output.on('close', () => {
       const kb = Math.round(archive.pointer() / 1024);
@@ -102,6 +103,7 @@ async function main() {
   console.log('2. Uploading to Chrome Web Store...');
   const store = chromeWebstoreUpload({
     extensionId: CWS_EXTENSION_ID,
+    publisherId: CWS_PUBLISHER_ID,
     clientId: CWS_CLIENT_ID,
     clientSecret: CWS_CLIENT_SECRET,
     refreshToken: CWS_REFRESH_TOKEN,
@@ -109,7 +111,8 @@ async function main() {
 
   let uploadResult;
   try {
-    uploadResult = await store.uploadExisting(fs.createReadStream(zipPath));
+    // The v2 API can answer IN_PROGRESS while it unpacks a large package; wait up to two minutes.
+    uploadResult = await store.uploadExisting(fs.createReadStream(zipPath), undefined, 120);
   } catch (err) {
     cleanup(zipPath);
     console.error('\nUpload error:', err.message);
@@ -118,9 +121,10 @@ async function main() {
 
   cleanup(zipPath);
 
-  if (uploadResult.uploadState !== 'SUCCESS') {
-    console.error(`\nUpload failed (${uploadResult.uploadState}):`);
-    (uploadResult.itemError || []).forEach(e => console.error(' -', e.error_detail));
+  if (uploadResult.uploadState !== 'SUCCEEDED') {
+    console.error(`\nUpload not accepted (${uploadResult.uploadState}):`);
+    console.error(JSON.stringify(uploadResult, null, 2));
+    console.error('Check the item in the developer dashboard for the reason.');
     process.exit(1);
   }
   console.log(`  Upload: ${uploadResult.uploadState} ✓`);
@@ -132,20 +136,23 @@ async function main() {
     return;
   }
 
-  const targetLabel = target === 'trustedTesters' ? 'trusted testers' : 'all users';
-  console.log(`3. Submitting for review (target: ${targetLabel})...`);
+  console.log('3. Submitting for review...');
 
   let publishResult;
   try {
-    publishResult = await store.publish(target);
+    publishResult = await store.publish('DEFAULT_PUBLISH');
   } catch (err) {
     console.error('\nPublish error:', err.message);
     process.exit(1);
   }
 
-  const status = publishResult.status || [];
-  if (status.includes('OK')) {
-    console.log('  Published ✓ — Google review usually takes a few hours for code-only updates.\n');
+  if (publishResult.warningInfo) {
+    console.warn('  Warnings:', JSON.stringify(publishResult.warningInfo, null, 2));
+  }
+  if (['PENDING_REVIEW', 'STAGED', 'PUBLISHED'].includes(publishResult.state)) {
+    console.log(
+      `  Submitted ✓ (${publishResult.state}). Follow the review in the developer dashboard.\n`
+    );
   } else {
     console.error('\nPublish response:', JSON.stringify(publishResult, null, 2));
     process.exit(1);

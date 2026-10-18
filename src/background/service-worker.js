@@ -7,7 +7,52 @@
 import browser from '../core/browser-api.js';
 import { StorageManager } from '../utils/storage-manager.js';
 import { MessageRouter } from '../utils/message-router.js';
+import { sanitizeError } from '../utils/sanitize-error.js';
+import { getOllamaBaseUrl, hasOllamaPermission } from '../utils/ollama-url.js';
+import {
+  askOllama,
+  answersWithThinkingOff,
+  findInstalledTag,
+  matchesModelFamily,
+  pickVisionModel,
+  DEFAULT_CHAT_MODEL,
+  RECOMMENDED_PULL_MODEL,
+  VISION_MODEL,
+  REASONED_WITHOUT_ANSWER_MESSAGE,
+} from '../utils/ollama-models.js';
+import { createOllamaModelChooser } from '../ai/ollama-model-choice.js';
 import { checkGeminiAvailability, generateText as geminiGenerateText } from '../ai/nano-client.js';
+import { handleMindMapMessage } from './mindmap-handlers.js';
+import { handlePopupOpenMessage } from './popup-open-handler.js';
+import { handleThirdPartyMessage } from './third-party-requests.js';
+import { handleConsentWindowMessage, handleConsentWindowClosed } from './consent-window.js';
+import { debugLog } from '../utils/debug-log.js';
+import {
+  resetUnchosenOcrAutoPlay,
+  forgetTextCustomizationSyncSwitch,
+  withdrawAzureSpeech,
+  withdrawTranslationKeyField,
+  resetUnchosenOnlineVoice,
+  forgetNewExperienceSwitch,
+  forgetClassicPopupLayout,
+  forgetStuckReaderSwitch,
+  markSettingsMigrationsDone,
+} from '../utils/settings-migrations.js';
+
+/**
+ * Tag on broadcasts the service worker sends to every extension context, so that its own listener
+ * can recognise them and stop before the message router. Without it, a download's progress ticks
+ * were logged as unknown message types.
+ */
+const BACKGROUND_BROADCAST_SOURCE = 'assist-background';
+
+/**
+ * Chooses the local model when the student has not picked one, from what Ollama reports installed,
+ * with the list cached briefly. See src/ai/ollama-model-choice.js.
+ */
+const ollamaModelChooser = createOllamaModelChooser({
+  listModels: () => checkOllamaAvailability(),
+});
 
 self.addEventListener('unhandledrejection', event => {
   console.error('[AssisT SW] Unhandled promise rejection:', event.reason);
@@ -88,11 +133,6 @@ function validateURL(url, options = {}) {
     const blockedHostnames = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
 
     if (blockedHostnames.includes(hostname)) {
-      // Allow localhost for local Ollama server
-      // URL.port returns string, handle both string and number comparison
-      if (hostname === 'localhost' && (parsed.port === '11434' || parsed.port === 11434)) {
-        return { valid: true }; // Ollama API
-      }
       return { valid: false, error: 'Internal network URLs blocked' };
     }
 
@@ -112,85 +152,31 @@ function validateURL(url, options = {}) {
   return { valid: false, error: `Unsupported protocol: ${parsed.protocol}` };
 }
 
-/**
- * Return a generic error message safe to forward to content scripts.
- * Full error detail is always logged in the service worker console.
- * @param {Error} err
- * @returns {string}
- */
-function sanitizeError(err) {
-  const msg = err?.message ?? String(err) ?? 'Unknown error';
-  console.error('[AssisT] sanitizeError — full error:', err);
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-    return 'Network error — check your internet connection';
-  }
-  if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('AbortError')) {
-    return 'Request timed out — try again';
-  }
-  if (msg.includes('RESOURCE_EXHAUSTED')) {
-    return 'Gemini API quota unavailable — your API key does not have active quota. Check your plan at console.cloud.google.com.';
-  }
-  if (msg.includes('quota') || msg.includes('rate') || msg.includes('429')) {
-    return 'API rate limit reached — wait a moment then try again';
-  }
-  if (
-    msg.includes('API key') ||
-    msg.includes('Unauthorized') ||
-    msg.includes('401') ||
-    msg.includes('403') ||
-    msg.includes('INVALID_ARGUMENT')
-  ) {
-    return `API key error — ${msg}`;
-  }
-  return msg;
-}
-
 // Cloud AI imports
-import { claudeGenerate } from '../ai/claude-client.js';
-import { REGISTRY } from '../ai/model-registry.js';
-
-import { cloudGenerate, cloudFetchModels, checkCloudAvailability } from '../ai/cloud-router.js';
-import { saveSecureAPIKey } from '../core/storage/secure-key-storage.js';
-
-// WebLLM — static data helpers only (no WebGPU needed in service worker)
+import { cloudGenerate, checkCloudAvailability } from '../ai/cloud-router.js';
+import { saveSecureAPIKey, migrateLegacyKeys } from '../core/storage/secure-key-storage.js';
 import {
-  getAvailableModels as getWebLLMModels,
-  getCachedModels as getWebLLMCachedModels,
-} from '../ai/webllm-client.js';
+  CITATION_DB_OP,
+  CITATION_OFFSCREEN_RESPONSE,
+  OFFSCREEN_READY,
+  OFFSCREEN_STORAGE_GET,
+  OFFSCREEN_STORAGE_SET,
+  OFFSCREEN_DOCUMENT_PATH,
+} from '../config/citation-messages.js';
+import { createOffscreenHost } from './offscreen-host.js';
+import { authorizeOffscreenStorageRequest } from '../pages/assist-offscreen/offscreen-storage.js';
 
-// ── WebLLM Offscreen Document helpers ────────────────────────────────────────
-// WebGPU is unavailable in service workers; all model operations run in a
-// hidden offscreen page and communicate back via chrome.runtime.sendMessage.
+// ── Shared offscreen document helpers ────────────────────────────────────────
+// Chrome permits only ONE offscreen document per extension. A single shared document
+// (src/pages/assist-offscreen) hosts both the canonical citation Dexie DB (extension origin, fixing
+// the per-website siloing bug) and WebLLM/WebGPU inference (unavailable in service workers). Both
+// relays call the one idempotent creator below.
 
-const WEBLLM_OFFSCREEN_URL = 'src/pages/webllm-offscreen/offscreen.html';
 const pendingWebLLMRequests = new Map();
 let _webllmReqCounter = 0;
 
-async function ensureWebLLMOffscreen() {
-  const url = chrome.runtime.getURL(WEBLLM_OFFSCREEN_URL);
-  try {
-    const existing = await chrome.runtime.getContexts({
-      contextTypes: ['OFFSCREEN_DOCUMENT'],
-      documentUrls: [url],
-    });
-    if (existing.length > 0) {
-      return;
-    }
-  } catch {
-    // getContexts not available on older Chrome — attempt create and ignore AlreadyExists
-  }
-  try {
-    await chrome.offscreen.createDocument({
-      url: WEBLLM_OFFSCREEN_URL,
-      reasons: ['WORKERS'],
-      justification: 'WebLLM model inference via WebGPU',
-    });
-  } catch (err) {
-    if (!err.message?.includes('Only a single')) {
-      throw err;
-    }
-  }
-}
+const offscreenHost = createOffscreenHost({ chrome, url: OFFSCREEN_DOCUMENT_PATH });
+const ensureAssistOffscreen = () => offscreenHost.ensure();
 
 function sendToOffscreen(action, payload = {}) {
   return new Promise(async (resolve, reject) => {
@@ -204,13 +190,57 @@ function sendToOffscreen(action, payload = {}) {
       resolve(result);
     });
     try {
-      await ensureWebLLMOffscreen();
+      await ensureAssistOffscreen();
+      // A send that fails never produces a reply, so fail the caller now rather than leaving it
+      // to wait out the full timeout for an answer that cannot come.
       chrome.runtime
         .sendMessage({ ...payload, action, target: 'offscreen-webllm', requestId })
-        .catch(() => {});
+        .catch(err => {
+          if (pendingWebLLMRequests.delete(requestId)) {
+            clearTimeout(timer);
+            reject(err);
+          }
+        });
     } catch (err) {
       clearTimeout(timer);
       pendingWebLLMRequests.delete(requestId);
+      reject(err);
+    }
+  });
+}
+
+// ── Citation store offscreen relay ───────────────────────────────────────────
+// Content scripts and the popup call the RPC client → CITATION_DB_OP (handled in the onMessage
+// listener) → here → the offscreen citation handler → reply matched back by requestId.
+
+const pendingCitationRequests = new Map();
+let _citationReqCounter = 0;
+
+function sendToCitationOffscreen(action, args = []) {
+  return new Promise(async (resolve, reject) => {
+    const requestId = `cit_${++_citationReqCounter}`;
+    const timer = setTimeout(() => {
+      pendingCitationRequests.delete(requestId);
+      reject(new Error('Citation offscreen request timed out'));
+    }, 25_000);
+    pendingCitationRequests.set(requestId, result => {
+      clearTimeout(timer);
+      resolve(result);
+    });
+    try {
+      await ensureAssistOffscreen();
+      // Same as the WebLLM relay: a failed send means no reply will ever arrive, so fail now.
+      chrome.runtime
+        .sendMessage({ target: 'offscreen-citations', action, requestId, args })
+        .catch(err => {
+          if (pendingCitationRequests.delete(requestId)) {
+            clearTimeout(timer);
+            reject(err);
+          }
+        });
+    } catch (err) {
+      clearTimeout(timer);
+      pendingCitationRequests.delete(requestId);
       reject(err);
     }
   });
@@ -250,55 +280,107 @@ setupContextMenus();
 chrome.runtime.onInstalled.addListener(async details => {
   console.log('[AssisT] Extension installed:', details.reason);
 
-  if (details.reason === 'install') {
-    // Initialize default settings on first install
-    await StorageManager.initializeDefaults();
+  // Pages already open at this moment, including the very first page of a brand-new install and the
+  // Canvas page a student was reading, never produced a tab event this worker was listening for, so
+  // offer AssisT to them now. Started first and awaited last: the sweep needs none of the setup
+  // below, and waiting for it made those pages wait seconds under load.
+  const sweep = injectIntoOpenTabs(`extension ${details.reason}`);
+  try {
+    if (details.reason === 'install') {
+      // Initialize default settings on first install
+      await StorageManager.initializeDefaults();
 
-    console.log('[AssisT] Installation complete! Opening AI setup wizard...');
+      // Nothing here came from an earlier version, so no update migration may ever treat a choice
+      // the student makes from now on as a leftover to reset.
+      try {
+        await markSettingsMigrationsDone();
+      } catch (err) {
+        console.warn('[AssisT] Settings migrations not marked done:', err.message);
+      }
 
-    // Open AI setup wizard on first install
-    // Guard: only open if onboarding hasn't been completed (safety net for re-installs)
-    const storage = await chrome.storage.local.get('onboardingComplete');
-    if (!storage.onboardingComplete) {
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('src/pages/ai-setup/ai-setup.html'),
-      });
+      console.log('[AssisT] Installation complete! Opening the welcome front door...');
+
+      // First run opens the welcome front door, where AI setup and Discover your tools are two of
+      // the guides on offer. Skipped when onboarding already finished (a re-install keeps storage).
+      const storage = await chrome.storage.local.get('onboardingComplete');
+      if (!storage.onboardingComplete) {
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('src/pages/welcome/welcome.html'),
+        });
+      }
     }
-  }
 
-  if (details.reason === 'update') {
-    console.log('[AssisT] Extension updated from', details.previousVersion);
+    if (details.reason === 'update') {
+      console.log('[AssisT] Extension updated from', details.previousVersion);
 
-    // SECURITY: Migrate legacy plain-text API keys and auto-rotate if needed
-    // Note: This is a best-effort operation - may not work in all service worker contexts
-    try {
-      const { migrateLegacyKeys, autoRotateIfNeeded } = await import(
-        '../core/storage/secure-key-storage.js'
-      );
-
-      // Migrate any legacy plain-text keys
-      const stats = await migrateLegacyKeys();
-      if (stats.migrated > 0) {
-        console.log(`[AssisT] Migrated ${stats.migrated} credentials to encrypted storage`);
-      }
-
-      // Auto-rotate keys if rotation interval has passed
-      const rotationResult = await autoRotateIfNeeded();
-      if (rotationResult.rotated) {
-        console.log(`[AssisT] Auto-rotated ${rotationResult.keysRotated} credentials`);
-      }
-    } catch (err) {
-      // This can fail in service worker context if the module uses browser-only APIs
-      // It's not critical - security features will work when accessed from popup/content scripts
-      if (err.message?.includes('window') || err.message?.includes('document')) {
-        console.log('[AssisT] Security module uses browser APIs - will initialize in page context');
-      } else {
+      // SECURITY: encrypt legacy plain-text API keys and delete the keys of withdrawn providers.
+      // Imported statically: Chrome refuses import() in a service worker.
+      try {
+        const stats = await migrateLegacyKeys();
+        if (stats.migrated > 0) {
+          console.log(`[AssisT] Migrated ${stats.migrated} credentials to encrypted storage`);
+        }
+      } catch (err) {
         console.warn('[AssisT] Security initialization skipped:', err.message);
       }
-    }
-  }
 
-  // Context menus are now set up in setupContextMenus() above
+      try {
+        if (await resetUnchosenOcrAutoPlay()) {
+          console.log('[AssisT] OCR auto-play set to its new default, off');
+        }
+      } catch (err) {
+        console.warn('[AssisT] OCR auto-play default not applied:', err.message);
+      }
+
+      try {
+        await forgetTextCustomizationSyncSwitch();
+      } catch (err) {
+        console.warn('[AssisT] Text Customization switch cleanup skipped:', err.message);
+      }
+
+      try {
+        await withdrawAzureSpeech();
+      } catch (err) {
+        console.warn('[AssisT] Azure Speech cleanup skipped:', err.message);
+      }
+
+      try {
+        await withdrawTranslationKeyField();
+      } catch (err) {
+        console.warn('[AssisT] Translation key field cleanup skipped:', err.message);
+      }
+
+      try {
+        if (await resetUnchosenOnlineVoice()) {
+          console.log('[AssisT] Read-aloud voice set back to the automatic choice');
+        }
+      } catch (err) {
+        console.warn('[AssisT] Read-aloud voice reset skipped:', err.message);
+      }
+
+      try {
+        await forgetNewExperienceSwitch();
+      } catch (err) {
+        console.warn('[AssisT] "Try the new AssisT" switch cleanup skipped:', err.message);
+      }
+
+      try {
+        await forgetClassicPopupLayout();
+      } catch (err) {
+        console.warn('[AssisT] Classic popup layout cleanup skipped:', err.message);
+      }
+
+      try {
+        await forgetStuckReaderSwitch();
+      } catch (err) {
+        console.warn('[AssisT] Stuck-reader switch cleanup skipped:', err.message);
+      }
+    }
+
+    // Context menus are now set up in setupContextMenus() above
+  } finally {
+    await sweep;
+  }
 });
 
 // Context menu click handler
@@ -324,7 +406,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   if (info.menuItemId === 'describe-image') {
-    console.log('[AssisT] Context menu "Describe Image" clicked', info.srcUrl);
+    console.log('[AssisT] Context menu "Describe Image" clicked');
+    debugLog('[AssisT] Describe Image srcUrl:', info.srcUrl);
 
     // Send message to content script to describe the image
     try {
@@ -353,6 +436,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // Citation DB operations from content scripts / popup — relay to the canonical store in the shared
+  // offscreen document. The reply is the offscreen handler's { ok, result?, error? } envelope.
+  if (message.type === CITATION_DB_OP) {
+    sendToCitationOffscreen(message.op, message.args || [])
+      .then(result => sendResponse(result))
+      .catch(err => sendResponse({ ok: false, error: err?.message || String(err) }));
+    return true; // async response
+  }
+
+  // Open the full-page citation library — the only citation library surface.
+  if (message.type === 'OPEN_CITATION_LIBRARY' || message.action === 'OPEN_CITATION_LIBRARY') {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('src/pages/citation-library/library.html'),
+    });
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Open the citation how-to guide — its own tab, like the library and the discovery quiz.
+  if (message.type === 'OPEN_CITATION_GUIDE' || message.action === 'OPEN_CITATION_GUIDE') {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('src/pages/citation-guide/guide.html'),
+    });
+    sendResponse({ success: true });
+    return false;
+  }
+
+  // Mind map: open the editor, capture a highlight, map a page, list maps for the picker.
+  // The worker owns the writes because a capture can come from any page (see mindmap-handlers.js).
+  if (handleMindMapMessage(message, sender, sendResponse)) {
+    return true; // async response
+  }
+
+  // Every request to a third-party service (dictionary, translation, CrossRef, Semantic Scholar)
+  // goes through here, behind the student's consent for that service (ADR 0006).
+  if (handleThirdPartyMessage(message, sendResponse)) {
+    return true; // async response
+  }
+
+  // A page feature's first-use question for a service that needs a Chrome host is asked in an
+  // extension window, the only place its Allow can ask Chrome (ADR 0009).
+  if (handleConsentWindowMessage(message, sender, sendResponse)) {
+    return true; // async response
+  }
+
   // Handle opening discovery quiz page
   if (message.action === 'OPEN_DISCOVERY_QUIZ') {
     chrome.tabs.create({
@@ -363,12 +491,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Handle opening demo page
-  if (message.action === 'OPEN_DEMO_PAGE') {
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('src/pages/demo/demo.html'),
-    });
-    sendResponse({ success: true });
-    return false;
+
+  // The AI panels' Open Settings button, and the setup wizard handing back when it finishes.
+  if (handlePopupOpenMessage(message, sendResponse)) {
+    return true; // async response
   }
 
   // Handle opening AI setup page (dedicated setup wizard)
@@ -379,6 +505,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
     return false;
   }
+
+  // Handle opening the unified onboarding front door (new experience).
 
   // System assessment: ping Ollama from service worker (pages can't access localhost)
   if (message.action === 'SYSTEM_ASSESS_OLLAMA') {
@@ -481,7 +609,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    console.log('[AssisT] Fetching image:', message.url);
+    console.log('[AssisT] Fetching image');
 
     const fetchOptions = isFileUrl
       ? { signal: AbortSignal.timeout(30000) }
@@ -517,81 +645,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
-  // ── Citation online verification ──────────────────────────────────────────
-  // Fetches only the DOI or a short title string — no surrounding student text.
-  // CrossRef is tried first (DOI lookup); Semantic Scholar is the title fallback.
-  if (message.action === 'CITATION_VERIFY_ONLINE') {
-    (async () => {
-      const { doi, searchText } = message;
-      let result = null;
-
-      try {
-        // 1. CrossRef by DOI (most precise — resolves to exact paper metadata)
-        if (doi) {
-          const resp = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
-            headers: { 'User-Agent': 'AssisT-Extension/0.9' },
-            signal: AbortSignal.timeout(10000),
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.status === 'ok' && data.message) {
-              const m = data.message;
-              result = {
-                found: true,
-                source: 'crossref',
-                doi: m.DOI,
-                title: Array.isArray(m.title) ? m.title[0] : m.title || '',
-                authors: m.author
-                  ? m.author.map(a => `${a.given || ''} ${a.family || ''}`.trim()).join(', ')
-                  : '',
-                year: m.published?.['date-parts']?.[0]?.[0] ?? null,
-                journal: Array.isArray(m['container-title'])
-                  ? m['container-title'][0]
-                  : m['container-title'] || '',
-                url: m.URL || `https://doi.org/${m.DOI}`,
-              };
-            }
-          }
-        }
-
-        // 2. Semantic Scholar title search (fallback when no DOI)
-        if (!result && searchText) {
-          const query = searchText
-            .substring(0, 120)
-            .replace(/[^\w\s]/g, ' ')
-            .trim();
-          const resp = await fetch(
-            `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&fields=title,authors,year,venue,externalIds&limit=1`,
-            { signal: AbortSignal.timeout(10000) }
-          );
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.data && data.data.length > 0) {
-              const p = data.data[0];
-              result = {
-                found: true,
-                source: 'semanticscholar',
-                doi: p.externalIds?.DOI || null,
-                title: p.title || '',
-                authors: p.authors ? p.authors.map(a => a.name).join(', ') : '',
-                year: p.year || null,
-                journal: p.venue || '',
-                url: p.externalIds?.DOI
-                  ? `https://doi.org/${p.externalIds.DOI}`
-                  : `https://www.semanticscholar.org/paper/${p.paperId}`,
-              };
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('[AssisT] Citation verification error:', err.message);
-      }
-
-      sendResponse(result || { found: false });
-    })();
-    return true; // Keep channel open for async response
-  }
-
   // Handle PDF fetch requests (for local file:// URLs that content scripts can't access)
   if (message.action === 'FETCH_PDF') {
     // SECURITY: Validate URL - allow file:// for local PDFs, but validate http/https
@@ -606,7 +659,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    console.log('[AssisT] Fetching PDF:', message.url);
+    console.log('[AssisT] Fetching PDF');
 
     fetch(message.url, { signal: AbortSignal.timeout(60000) })
       .then(response => {
@@ -632,151 +685,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Handle PDF scroll requests (for Chrome PDF viewer where content scripts don't run)
-  if (message.action === 'SCROLL_PDF') {
-    const tabId = sender.tab?.id || message.tabId;
-
-    if (!tabId) {
-      sendResponse({ success: false, error: 'No tab ID provided' });
-      return false;
-    }
-
-    // Handle special PAGE_DOWN command for multi-page PDF capture
-    if (message.scrollY === 'PAGE_DOWN') {
-      chrome.scripting
-        .executeScript({
-          target: { tabId: tabId },
-          func: () => {
-            console.log('[PDF Page Down] Simulating Page Down keypress');
-
-            // Try multiple methods to trigger page navigation
-
-            // Method 1: Dispatch actual keyboard event (Page Down key)
-            const pageDownEvent = new KeyboardEvent('keydown', {
-              key: 'PageDown',
-              code: 'PageDown',
-              keyCode: 34,
-              which: 34,
-              bubbles: true,
-              cancelable: true,
-            });
-            document.dispatchEvent(pageDownEvent);
-
-            // Method 2: Try arrow down multiple times (one page worth)
-            for (let i = 0; i < 10; i++) {
-              const arrowDownEvent = new KeyboardEvent('keydown', {
-                key: 'ArrowDown',
-                code: 'ArrowDown',
-                keyCode: 40,
-                which: 40,
-                bubbles: true,
-                cancelable: true,
-              });
-              document.dispatchEvent(arrowDownEvent);
-            }
-
-            // Method 3: Try scrollBy as fallback
-            window.scrollBy(0, window.innerHeight);
-
-            const newY = window.scrollY;
-            console.log('[PDF Page Down] Result scroll position:', newY);
-            return newY;
-          },
-        })
-        .then(results => {
-          const actualScrollY =
-            results && results[0] && results[0].result !== undefined ? results[0].result : -1;
-          console.log('[AssisT] PDF Page Down result:', actualScrollY);
-          sendResponse({ success: true, actualScrollY });
-        })
-        .catch(error => {
-          console.error('[AssisT] PDF Page Down failed:', error);
-          sendResponse({ success: false, error: sanitizeError(error) });
-        });
-
-      return true; // Keep channel open for async response
-    }
-
-    // Handle numeric scroll position (legacy support)
-    chrome.scripting
-      .executeScript({
-        target: { tabId: tabId },
-        func: scrollY => {
-          console.log('[PDF Scroll Injection] Attempting to scroll to', scrollY);
-          console.log(
-            '[PDF Scroll Injection] Initial state - window.scrollY:',
-            window.scrollY,
-            'docElement.scrollTop:',
-            document.documentElement.scrollTop
-          );
-
-          // Try window.scrollTo first
-          window.scrollTo(0, scrollY);
-          console.log('[PDF Scroll Injection] After window.scrollTo:', window.scrollY);
-
-          // Try scrollingElement (best practice for cross-browser compatibility)
-          if (window.scrollY === 0 && scrollY > 0 && document.scrollingElement) {
-            console.log('[PDF Scroll Injection] Trying document.scrollingElement');
-            document.scrollingElement.scrollTop = scrollY;
-            console.log(
-              '[PDF Scroll Injection] After scrollingElement:',
-              document.scrollingElement.scrollTop
-            );
-          }
-
-          // Try documentElement
-          if (window.scrollY === 0 && scrollY > 0) {
-            console.log('[PDF Scroll Injection] Trying document.documentElement');
-            document.documentElement.scrollTop = scrollY;
-            console.log(
-              '[PDF Scroll Injection] After documentElement:',
-              document.documentElement.scrollTop
-            );
-          }
-
-          // Try body
-          if (window.scrollY === 0 && scrollY > 0 && document.body) {
-            console.log('[PDF Scroll Injection] Trying document.body');
-            document.body.scrollTop = scrollY;
-            console.log('[PDF Scroll Injection] After body:', document.body?.scrollTop);
-          }
-
-          // Try scrollBy as last resort
-          if (window.scrollY === 0 && scrollY > 0) {
-            console.log('[PDF Scroll Injection] Trying window.scrollBy');
-            window.scrollBy(0, scrollY);
-            console.log('[PDF Scroll Injection] After scrollBy:', window.scrollY);
-          }
-
-          const actualScroll =
-            window.scrollY ||
-            document.documentElement.scrollTop ||
-            document.scrollingElement?.scrollTop ||
-            document.body?.scrollTop ||
-            0;
-          console.log('[PDF Scroll Injection] Final scroll position:', actualScroll);
-          console.log(
-            '[PDF Scroll Injection] ScrollHeight:',
-            document.documentElement.scrollHeight,
-            'ClientHeight:',
-            document.documentElement.clientHeight
-          );
-          return actualScroll;
-        },
-        args: [message.scrollY],
-      })
-      .then(results => {
-        const actualScrollY =
-          results && results[0] && results[0].result !== undefined ? results[0].result : -1;
-        console.log('[AssisT] PDF scroll injection result:', actualScrollY);
-        sendResponse({ success: true, actualScrollY });
-      })
-      .catch(error => {
-        console.error('[AssisT] PDF scroll failed:', error);
-        sendResponse({ success: false, error: sanitizeError(error) });
-      });
-
-    return true; // Keep channel open for async response
-  }
 
   // Check if local LLM (Ollama) is available
   if (message.action === 'LOCAL_LLM_CHECK') {
@@ -787,42 +695,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Handle LLM mode change notifications (informational only, storage already updated by popup)
-  if (message.action === 'LOCAL_LLM_MODE_CHANGED') {
-    console.log('[AssisT] Local LLM mode changed:', message.enabled ? 'enabled' : 'disabled');
-    sendResponse({ success: true });
-    return false;
-  }
-
-  if (message.action === 'CLOUD_MODE_CHANGED') {
-    console.log('[AssisT] Cloud mode changed:', message.enabled ? 'enabled' : 'disabled');
-    sendResponse({ success: true });
-    return false;
-  }
 
   // Set VRAM tier (Demo Mode)
-  if (message.action === 'SET_VRAM_TIER') {
-    const tier = message.tier || '8gb';
-    const validTiers = ['auto', '2gb', '4gb', '8gb', '12gb', '16gb', '24gb'];
-    if (validTiers.includes(tier)) {
-      currentVramTier = tier;
-      console.log(`[LLM Bridge] VRAM tier set to: ${tier} (default model: ${getDefaultModel()})`);
-      sendResponse({ success: true, tier, defaultModel: getDefaultModel() });
-    } else {
-      sendResponse({ success: false, error: `Invalid tier: ${tier}` });
-    }
-    return true;
-  }
 
   // Get current VRAM tier
-  if (message.action === 'GET_VRAM_TIER') {
-    sendResponse({
-      success: true,
-      tier: currentVramTier,
-      defaultModel: getDefaultModel(),
-      fallbackModels: getTierFallbackModels(),
-    });
-    return true;
-  }
 
   // Set model preference for a task type
   if (message.action === 'SET_MODEL_PREFERENCE') {
@@ -838,10 +714,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Get model preferences
-  if (message.action === 'GET_MODEL_PREFERENCES') {
-    sendResponse({ success: true, preferences: userModelPreferences });
-    return false;
-  }
 
   // Generate text with local LLM
   if (message.action === 'LOCAL_LLM_GENERATE') {
@@ -854,26 +726,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         let options = message.options || {};
 
-        // User's explicit model preference always wins.
-        // Task routing only runs as a fallback when the user hasn't chosen a model.
+        // The student's explicit choice always wins. With no choice stored, the model is picked
+        // from what Ollama reports installed — asking for a model nobody has is what used to end
+        // in a silent extractive fallback.
         const stored = await chrome.storage.local.get('ollamaModel');
-        if (stored.ollamaModel) {
-          options = { ...options, model: stored.ollamaModel };
-        } else if (message.taskType || options.taskType) {
-          // No user preference — use task routing to find best available model
-          try {
-            const status = await checkOllamaAvailability();
-            if (status.available && status.models.length > 0) {
-              const taskType = message.taskType || options.taskType;
-              const routing = getOptimalModelForTask(taskType, options.level, status.models);
-              options = { ...options, model: routing.model };
-              console.log(
-                `[LLM Generate] Task "${taskType}" → ${routing.model} (${routing.reason})`
-              );
-            }
-          } catch (availErr) {
-            console.warn('[LLM Generate] Model routing skipped:', availErr.message);
-          }
+        const taskType = message.taskType || options.taskType || 'default';
+        let choice;
+        try {
+          choice = await ollamaModelChooser.chooseModel({
+            storedModel: stored.ollamaModel,
+            resolvePreferred: chatModels =>
+              getOptimalModelForTask(taskType, options.level, chatModels).model,
+          });
+        } catch (availErr) {
+          console.warn('[LLM Generate] Model routing skipped:', availErr.message);
+          choice = { model: null };
+        }
+
+        // Nothing installed can generate text. Say so instead of sending a request that fails.
+        if (choice.error) {
+          sendResponse({ success: false, error: choice.error });
+          return;
+        }
+        if (choice.model) {
+          options = { ...options, model: choice.model };
+          console.log(`[LLM Generate] Task "${taskType}" → ${choice.model}`);
         }
 
         const result = await ollamaGenerate(message.prompt, options);
@@ -888,7 +765,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({
           success: false,
           error: isTimeout
-            ? 'Local AI timed out. Your hardware may be too slow for this request. Try a smaller model (phi3:mini or llama3.2:3b) or switch to Browser AI (WebLLM) in the popup.'
+            ? `Local AI timed out. Your hardware may be too slow for this request. Try the smaller model ${RECOMMENDED_PULL_MODEL} or switch to Browser AI (WebLLM) in the popup.`
             : sanitizeError(error),
         });
       } finally {
@@ -899,44 +776,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Task-optimized generation - routes to best model for the task
-  if (message.action === 'LOCAL_LLM_TASK_GENERATE') {
-    (async () => {
-      try {
-        // Get available models
-        const status = await checkOllamaAvailability();
-        if (!status.available) {
-          return sendResponse({ success: false, error: 'Ollama not available' });
-        }
-
-        // Get optimal model for this task
-        const taskType = message.taskType || 'default';
-        const level = message.level || null;
-        const routing = getOptimalModelForTask(taskType, level, status.models);
-
-        console.log(`[LLM Routing] Task "${taskType}" (${level || 'default'}) → ${routing.model}`);
-        console.log(`[LLM Routing] Reason: ${routing.reason}`);
-
-        // Generate with the optimal model
-        const result = await ollamaGenerate(message.prompt, {
-          ...message.options,
-          model: routing.model,
-        });
-
-        sendResponse({
-          success: true,
-          data: result,
-          routing: {
-            model: routing.model,
-            reason: routing.reason,
-            matched: routing.matched,
-          },
-        });
-      } catch (error) {
-        sendResponse({ success: false, error: sanitizeError(error) });
-      }
-    })();
-    return true;
-  }
 
   // Vision model generation
   if (message.action === 'LOCAL_LLM_VISION') {
@@ -953,23 +792,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.runtime
         .sendMessage({
           type: 'LLM_INSTALL_PROGRESS',
+          source: BACKGROUND_BROADCAST_SOURCE,
           modelName: message.modelName,
           progress,
         })
         .catch(() => {}); // Ignore if no listeners
     })
-      .then(() => sendResponse({ success: true }))
+      .then(() => {
+        // A model has just arrived; the cached /api/tags list no longer describes the machine.
+        ollamaModelChooser.forget();
+        sendResponse({ success: true });
+      })
       .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
 
   // Get available models
-  if (message.action === 'LOCAL_LLM_GET_MODELS') {
-    getOllamaModels()
-      .then(models => sendResponse({ success: true, models }))
-      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
-    return true;
-  }
 
   // Check if cloud mode is available
   if (message.action === 'CLOUD_LLM_CHECK') {
@@ -987,7 +825,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
     saveSecureAPIKey(provider, apiKey)
-      .then(() => sendResponse({ success: true }))
+      .then(saved =>
+        sendResponse(
+          saved ? { success: true } : { success: false, error: 'The key could not be stored' }
+        )
+      )
       .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
     return true;
   }
@@ -1025,30 +867,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Fetch available models for a provider (dynamic list)
-  if (message.action === 'CLOUD_FETCH_MODELS') {
-    cloudFetchModels(message.provider, message.apiKey)
-      .then(models => sendResponse({ success: true, models }))
-      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
-    return true;
-  }
 
   // Get cloud models list — returns models from model-registry
-  if (message.action === 'CLOUD_LLM_GET_MODELS') {
-    sendResponse({
-      success: true,
-      models: REGISTRY.anthropic.models,
-      featureDefaults: REGISTRY.anthropic.featureDefaults,
-    });
-    return false;
-  }
 
   // Run a single benchmark test
-  if (message.action === 'BENCHMARK_RUN_TEST') {
-    runBenchmarkTest(message)
-      .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: sanitizeError(error) }));
-    return true;
-  }
 
   // Handle Gemini Nano availability check
   if (message.action === 'GEMINI_LLM_CHECK') {
@@ -1107,6 +929,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // Storage on behalf of the offscreen document. That realm has no `chrome.storage` object at all —
+  // only `chrome.runtime` — so the citation projection, the migration flag and the WebLLM model
+  // memory all pass through here. The gate (sender must be our offscreen document, key must be one
+  // of the four it owns) lives beside the client in offscreen-storage.js.
+  if (message.action === OFFSCREEN_STORAGE_GET || message.action === OFFSCREEN_STORAGE_SET) {
+    const request = authorizeOffscreenStorageRequest(message, sender, {
+      extensionId: chrome.runtime.id,
+      offscreenUrl: OFFSCREEN_DOCUMENT_PATH,
+    });
+    if (!request.ok) {
+      console.warn('[AssisT Security] Refused an offscreen storage request:', request.error);
+      sendResponse(request);
+      return false;
+    }
+    (async () => {
+      try {
+        const result =
+          request.action === OFFSCREEN_STORAGE_GET
+            ? await chrome.storage.local.get(request.keys)
+            : await chrome.storage.local.set(request.items);
+        sendResponse({ ok: true, result: result ?? null });
+      } catch (error) {
+        sendResponse({ ok: false, error: sanitizeError(error) });
+      }
+    })();
+    return true; // async response
+  }
+
+  // The offscreen document has bound its listener; requests waiting on creation may go.
+  if (message.action === OFFSCREEN_READY) {
+    offscreenHost.markReady();
+    return false;
+  }
+
+  // Citation DB responses from the offscreen handler — resolve the matching pending request.
+  if (message.action === CITATION_OFFSCREEN_RESPONSE) {
+    const { requestId, ...result } = message;
+    const resolve = pendingCitationRequests.get(requestId);
+    if (resolve) {
+      pendingCitationRequests.delete(requestId);
+      resolve(result);
+    }
+    return false;
+  }
+
+  // The service worker's own broadcasts come back to it. A download ticks progress many times a
+  // second, and with no branch here each tick fell through to MessageRouter.route and logged
+  // "Unknown message type". Same shape as the offscreen guard below.
+  if (message.type === 'LLM_INSTALL_PROGRESS' && message.source === BACKGROUND_BROADCAST_SOURCE) {
+    return false;
+  }
+
   // Progress / completion broadcasts from offscreen — already received by all extension
   // contexts directly, so there's nothing for the service worker to do here.
   if (
@@ -1116,101 +990,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // Proxy fetch: the offscreen document cannot reach external URLs directly.
-  // It sends this message; the SW fetches the URL and caches it in 'tvmjs'
-  // (web-llm's own cache name). Both share the same cache because they share
-  // the same extension origin (chrome-extension://[id]).
-  if (message.action === 'PROXY_FETCH_TO_CACHE') {
-    const { url } = message;
-    console.log('[WebLLM-SW] PROXY_FETCH_TO_CACHE received:', url?.slice(0, 120));
-    if (!url || typeof url !== 'string') {
-      console.error('[WebLLM-SW] PROXY_FETCH_TO_CACHE: missing/invalid url');
-      sendResponse({ success: false, error: 'Invalid URL' });
-      return false;
-    }
-    (async () => {
-      try {
-        const cache = await caches.open('tvmjs');
-        const existing = await cache.match(url);
-        if (existing) {
-          console.log('[WebLLM-SW] Cache HIT (skipping fetch):', url.slice(0, 80));
-          sendResponse({ success: true, fromCache: true });
-          return;
-        }
-        console.log('[WebLLM-SW] Fetching:', url.slice(0, 80));
-        const response = await fetch(url);
-        console.log(
-          '[WebLLM-SW] Fetch response:',
-          response.status,
-          response.statusText,
-          url.slice(0, 80)
-        );
-        if (!response.ok) {
-          console.error('[WebLLM-SW] Non-OK response:', response.status, url.slice(0, 80));
-          sendResponse({
-            success: false,
-            error: `HTTP ${response.status}: ${response.statusText}`,
-          });
-          return;
-        }
-        console.log('[WebLLM-SW] Caching response for:', url.slice(0, 80));
-        await cache.put(url, response);
-        console.log('[WebLLM-SW] Cached OK:', url.slice(0, 80));
-        sendResponse({ success: true });
-      } catch (err) {
-        console.error(
-          '[WebLLM-SW] PROXY_FETCH_TO_CACHE error:',
-          err.message,
-          'for:',
-          url?.slice(0, 80)
-        );
-        sendResponse({ success: false, error: err.message || 'Fetch failed' });
-      }
-    })();
-    return true; // keep channel open during async fetch
-  }
-
   // Check WebLLM/WebGPU availability
-  if (message.action === 'WEBLLM_CHECK') {
-    (async () => {
-      try {
-        const result = await sendToOffscreen('WEBLLM_CHECK');
-        sendResponse(result);
-      } catch (error) {
-        sendResponse({
-          success: false,
-          available: false,
-          status: 'error',
-          error: sanitizeError(error),
-        });
-      }
-    })();
-    return true;
-  }
 
   // Get available WebLLM models (static data — no offscreen needed)
-  if (message.action === 'WEBLLM_GET_MODELS') {
-    try {
-      const models = getWebLLMModels();
-      sendResponse({ success: true, models });
-    } catch (error) {
-      sendResponse({ success: false, error: sanitizeError(error) });
-    }
-    return false;
-  }
 
   // Get cached (already downloaded) WebLLM models
-  if (message.action === 'WEBLLM_GET_CACHED') {
-    (async () => {
-      try {
-        const cachedModelKeys = await getWebLLMCachedModels();
-        sendResponse({ success: true, cachedModels: Array.from(cachedModelKeys) });
-      } catch {
-        sendResponse({ success: true, cachedModels: [] });
-      }
-    })();
-    return true;
-  }
 
   // Initialize WebLLM with specific model
   if (message.action === 'WEBLLM_INITIALIZE') {
@@ -1271,17 +1055,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Unload WebLLM model (free memory)
-  if (message.action === 'WEBLLM_UNLOAD') {
-    (async () => {
-      try {
-        const result = await sendToOffscreen('WEBLLM_UNLOAD');
-        sendResponse(result);
-      } catch (error) {
-        sendResponse({ success: false, error: sanitizeError(error) });
-      }
-    })();
-    return true;
-  }
 
   // Clear all WebLLM cached model data
   if (message.action === 'WEBLLM_CLEAR_CACHE') {
@@ -1303,10 +1076,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // WebLLM vision support (future enhancement)
-  if (message.action === 'WEBLLM_VISION') {
-    sendResponse({ success: false, error: 'Vision models not yet supported in WebLLM mode' });
-    return false;
-  }
 
   // Route other messages through MessageRouter
   MessageRouter.route(message, sender)
@@ -1316,21 +1085,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // Keep message channel open for async response
 });
 
-const OLLAMA_BASE_URL = 'http://localhost:11434';
-
 /**
- * Fetch wrapper for Ollama API with CORS handling and helpful error messages
+ * Fetch wrapper for Ollama API with CORS handling and helpful error messages.
+ * The endpoint is resolved per call from settings (default localhost, or an
+ * institution's central Ollama server) — see src/utils/ollama-url.js.
  * @param {string} endpoint - API endpoint (e.g., '/api/tags', '/api/generate')
  * @param {object} options - Fetch options (method, body, signal, etc.)
  * @returns {Promise<Response>} - Fetch response
  * @throws {Error} - With user-friendly error messages for common issues
  */
 async function ollamaFetch(endpoint, options = {}) {
-  const url = `${OLLAMA_BASE_URL}${endpoint}`;
+  const baseUrl = await getOllamaBaseUrl();
+  const url = `${baseUrl}${endpoint}`;
 
-  // http://localhost:11434 is declared in host_permissions, which grants the
-  // service worker an explicit CORS bypass for Ollama. Do not set mode:'cors'
-  // explicitly — let Chrome use its default so the host_permissions grant applies.
+  // Every Ollama origin — the loopback default included — is an optional host permission, asked
+  // for when the student turns local AI on (ADR 0002). Without the grant this fetch fails as a
+  // plain network error, which reads exactly like Ollama not running and sends people off
+  // restarting a server that was fine. So check first and say what is actually wrong.
+  if (!(await hasOllamaPermission(baseUrl))) {
+    const error = new Error(
+      `AssisT does not have permission to reach local AI at ${baseUrl} yet. ` +
+        'Open the AssisT popup, choose Local AI, and select Allow when Chrome asks.'
+    );
+    error.code = 'no-permission';
+    throw error;
+  }
+
+  // The grant also gives the service worker an explicit CORS bypass for Ollama. Do not set
+  // mode:'cors' explicitly — let Chrome use its default so the grant applies.
   const fetchOptions = {
     ...options,
     headers: {
@@ -1352,7 +1134,7 @@ async function ollamaFetch(endpoint, options = {}) {
   } catch (error) {
     // Network errors (Ollama not running or unreachable)
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Cannot connect to Ollama. Is Ollama running? (localhost:11434)');
+      throw new Error(`Cannot connect to Ollama. Is Ollama running? (${baseUrl})`);
     }
     // Re-throw our custom errors or other errors
     throw error;
@@ -1377,7 +1159,7 @@ async function checkOllamaAvailability() {
     if (response.ok) {
       const data = await response.json();
       const models = data.models?.map(m => m.name) || [];
-      const visionAvailable = models.some(m => m.includes('llava') || m.includes('bakllava'));
+      const visionAvailable = Boolean(pickVisionModel(models));
 
       console.log('[LLM Bridge] Ollama available. Models:', models);
 
@@ -1390,6 +1172,17 @@ async function checkOllamaAvailability() {
   } catch (error) {
     if (error.name !== 'AbortError') {
       console.log('[LLM Bridge] Ollama not available:', error.message);
+    }
+    // A missing host permission is not "Ollama is offline", and telling a student to start a
+    // server that is already running is worse than saying nothing. Name the real cause.
+    if (error.code === 'no-permission') {
+      return {
+        available: false,
+        models: [],
+        visionAvailable: false,
+        needsPermission: true,
+        message: error.message,
+      };
     }
   }
 
@@ -1412,14 +1205,10 @@ async function findInstalledModel(requestedModel) {
       return requestedModel; // Return as-is, will fail with clear error
     }
 
-    // Check for exact match first
-    if (status.models.includes(requestedModel)) {
-      return requestedModel;
-    }
-
-    // Check for match with :latest tag
-    if (status.models.includes(`${requestedModel}:latest`)) {
-      return `${requestedModel}:latest`;
+    // The same model under any of its names, e.g. qwen3.5:9b installed as qwen3.5:latest
+    const sameModel = findInstalledTag(status.models, requestedModel);
+    if (sameModel) {
+      return sameModel;
     }
 
     // Check for any model starting with the requested name
@@ -1433,10 +1222,7 @@ async function findInstalledModel(requestedModel) {
     }
 
     // Try fallback models based on current VRAM tier
-    const tierFallback = getTierFallbackModels();
-    console.log(`[LLM Bridge] Using ${currentVramTier} tier fallback models:`, tierFallback);
-
-    for (const fallback of tierFallback) {
+    for (const fallback of FALLBACK_MODELS) {
       const fallbackMatch = status.models.find(
         m => m === fallback || m.startsWith(`${fallback}:`) || m.startsWith(fallback)
       );
@@ -1537,56 +1323,58 @@ const MODEL_OPTIMIZATION_PROFILES = {
 };
 
 /**
- * Task-to-Model Routing Configuration
- * Routes each feature type to optimal models based on benchmarked strengths
+ * Task-to-Model Routing Configuration: which installed model each feature prefers, best first.
+ *
+ * qwen3.5 leads everywhere: with thinking off it answers directly and quickly (measured on Ollama
+ * 0.33.3: about a second for a short answer, 136 tokens for the tutor's JSON). The small qwen3
+ * model AssisT offers follows. The rest are models students installed from earlier versions, kept
+ * so their AssisT still picks a sensible one. Names are matched by family (matchesModelFamily), so
+ * the qwen3 entry also matches a qwen3:4b or qwen3:8b the student already has.
  */
+const OFFERED_MODELS = [DEFAULT_CHAT_MODEL, RECOMMENDED_PULL_MODEL];
 const TASK_OPTIMAL_MODELS = {
-  // Speed-critical tasks → smaller, faster models
+  // Speed-critical tasks: a small model that does not think first beats a larger one that does.
   summarization: {
-    priority: ['llama3.2:3b', 'llama3.2', 'phi3:mini', 'gemma3:4b'],
+    priority: [DEFAULT_CHAT_MODEL, 'llama3.2:3b', 'gemma3:4b', RECOMMENDED_PULL_MODEL],
     reason: 'Summarization benefits from fast inference; quality differences minimal',
   },
-  // Formatting tasks → structured output
   assignmentBreakdown: {
-    priority: ['qwen3:8b-q4_K_M', 'gemma3:4b', 'mistral:7b-instruct'],
-    reason: 'Qwen3 and Gemma produce reliable structured output',
+    priority: [...OFFERED_MODELS, 'gemma3:4b', 'mistral:7b-instruct'],
+    reason: 'Structured output',
   },
   textSimplification: {
     basic: {
-      priority: ['llama3.2:3b', 'phi3:mini', 'gemma3:4b'],
+      priority: [DEFAULT_CHAT_MODEL, 'llama3.2:3b', 'gemma3:4b', RECOMMENDED_PULL_MODEL],
       reason: 'Basic simplification needs speed over complexity',
     },
     moderate: {
-      priority: ['gemma3:4b', 'qwen3:8b-q4_K_M', 'mistral:7b-instruct'],
+      priority: [...OFFERED_MODELS, 'gemma3:4b', 'mistral:7b-instruct'],
       reason: 'Moderate simplification needs balanced capability',
     },
     academic: {
-      priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
+      priority: [...OFFERED_MODELS, 'mistral:7b-instruct', 'gemma3:4b'],
       reason: 'Academic simplification needs strong reasoning + vocabulary',
     },
   },
-  // Structured JSON extraction → Qwen3 has best JSON compliance at 8B
   knowledgeGraph: {
-    priority: ['gemma3:4b', 'llama3.2:3b', 'mistral:7b-instruct', 'qwen3:8b-q4_K_M'],
-    reason: 'Mistral 7B: fast structured JSON without thinking overhead; gemma3:4b fallback',
+    priority: [DEFAULT_CHAT_MODEL, 'gemma3:4b', 'llama3.2:3b', 'mistral:7b-instruct'],
+    reason: 'Structured JSON without thinking overhead',
   },
-  // Reasoning-heavy tasks → Qwen3 excels
   socraticTutor: {
-    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
+    priority: [...OFFERED_MODELS, 'mistral:7b-instruct', 'gemma3:4b'],
     reason: 'Socratic questioning requires strong reasoning/pedagogy',
   },
   citationAnalyzer: {
-    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
+    priority: [...OFFERED_MODELS, 'mistral:7b-instruct', 'gemma3:4b'],
     reason: 'Citation analysis requires analytical reasoning',
   },
   studyPathGenerator: {
-    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b'],
+    priority: [...OFFERED_MODELS, 'mistral:7b-instruct', 'gemma3:4b'],
     reason: 'Study path generation needs structured planning capability',
   },
-  // Default fallback
   default: {
-    priority: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b', 'llama3.2:3b'],
-    reason: 'Qwen3 as primary default for best instruction following',
+    priority: [...OFFERED_MODELS, 'mistral:7b-instruct', 'gemma3:4b', 'llama3.2:3b'],
+    reason: 'The models AssisT offers first, then earlier installs',
   },
 };
 
@@ -1667,10 +1455,9 @@ function getOptimalModelForTask(taskType, level = null, availableModels = []) {
 
   // Find first matching installed model
   for (const preferredModel of taskConfig.priority) {
-    const match = availableModels.find(
-      m =>
-        m === preferredModel || m.startsWith(`${preferredModel}:`) || m.startsWith(preferredModel)
-    );
+    // Family-aware: the priority lists name the tags the project measured against, and a student
+    // has whatever size and quantisation they pulled.
+    const match = availableModels.find(m => matchesModelFamily(m, preferredModel));
     if (match) {
       return {
         model: match,
@@ -1707,12 +1494,6 @@ function getModelProfile(model) {
   return MODEL_OPTIMIZATION_PROFILES['default'];
 }
 
-/**
- * VRAM Tier Configuration
- * Allows demo mode to simulate different hardware capabilities
- */
-let currentVramTier = '8gb'; // Default to 8GB tier
-
 // User model preferences by task type (general, academic, vision, code)
 let userModelPreferences = {
   general: 'auto',
@@ -1729,186 +1510,25 @@ let userModelPreferences = {
   }
 })();
 
-const VRAM_TIER_MODELS = {
-  auto: {
-    default: 'qwen3:8b-q4_K_M',
-    fallback: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'gemma3:4b', 'llama3.2:3b', 'phi3:mini'],
-  },
-  '2gb': {
-    default: 'phi3:mini',
-    fallback: ['phi3:mini', 'llama3.2', 'llama3.2:1b', 'tinyllama'],
-  },
-  '4gb': {
-    default: 'gemma3:4b',
-    fallback: ['gemma3:4b', 'qwen3:4b', 'llama3.2:3b', 'llama3.2', 'phi3:mini'],
-  },
-  '8gb': {
-    default: 'qwen3:8b-q4_K_M',
-    fallback: ['qwen3:8b-q4_K_M', 'mistral:7b-instruct', 'mistral:7b', 'gemma3:4b', 'llama3.2:3b'],
-  },
-  '12gb': {
-    default: 'llama3.1:8b',
-    fallback: ['llama3.1:8b', 'mixtral:8x7b', 'mistral:7b-instruct', 'qwen2.5:7b'],
-  },
-  '16gb': {
-    default: 'qwen2.5:14b',
-    fallback: ['qwen2.5:14b', 'llama3.1:70b-q4', 'llama3.1:8b', 'mixtral:8x7b'],
-  },
-  '24gb': {
-    default: 'llama3.1:70b',
-    fallback: ['llama3.1:70b', 'mixtral:8x22b', 'qwen2.5:14b', 'llama3.1:8b'],
-  },
-};
-
 /**
- * Get the default model for the current VRAM tier
+ * Installed models to fall back on, best first, when the one asked for is not installed. The two
+ * AssisT offers come first; the rest are models students installed from earlier versions.
  */
-function getDefaultModel() {
-  const tierConfig = VRAM_TIER_MODELS[currentVramTier] || VRAM_TIER_MODELS['8gb'];
-  return tierConfig.default;
-}
-
-/**
- * Get the fallback model list for the current VRAM tier
- */
-function getTierFallbackModels() {
-  const tierConfig = VRAM_TIER_MODELS[currentVramTier] || VRAM_TIER_MODELS['8gb'];
-  return tierConfig.fallback;
-}
-
-/**
- * Benchmark prompts for each feature
- */
-const BENCHMARK_PROMPTS = {
-  textSimplification: (text, level) => {
-    const prompts = {
-      basic: `Simplify this text for someone with reading difficulties. Use very simple words and short sentences:\n\n${text}\n\nSimplified version:`,
-      moderate: `Simplify this academic text while keeping important terms. Add brief definitions in parentheses for difficult words:\n\n${text}\n\nSimplified version:`,
-      academic: `Improve the readability of this academic text while preserving scholarly vocabulary. Add definitions for complex terms:\n\n${text}\n\nImproved version:`,
-    };
-    return prompts[level] || prompts.moderate;
-  },
-
-  summarization: (text, level) => {
-    const prompts = {
-      brief: `Summarize this text in 1-2 sentences:\n\n${text}\n\nSummary:`,
-      moderate: `Provide a clear summary of this text in 3-4 sentences, capturing the main points:\n\n${text}\n\nSummary:`,
-      detailed: `Provide a comprehensive summary of this text, including key details and supporting points:\n\n${text}\n\nDetailed summary:`,
-    };
-    return prompts[level] || prompts.brief;
-  },
-
-  socraticTutor: text =>
-    `You are a Socratic tutor. Generate 3-4 thought-provoking questions to help a student understand this text deeply. Focus on comprehension, analysis, and critical thinking:\n\n${text}\n\nQuestions:`,
-
-  assignmentBreakdown: text =>
-    `Break down this assignment into clear, actionable steps. Include estimated time for each step and key requirements:\n\n${text}\n\nBreakdown:`,
-
-  citationAnalyzer: text =>
-    `Analyze this text or source for credibility. Assess: source type, potential bias, key claims, and reliability. Provide a credibility score (1-10):\n\n${text}\n\nAnalysis:`,
-};
-
-/**
- * Run a single benchmark test
- * @param {Object} params - Test parameters
- * @returns {Promise<Object>} Test result
- */
-async function runBenchmarkTest(params) {
-  const { feature, model, isCloud, text, level } = params;
-
-  // Build the prompt
-  const promptBuilder = BENCHMARK_PROMPTS[feature];
-  if (!promptBuilder) {
-    return { success: false, error: `Unknown feature: ${feature}` };
-  }
-
-  const prompt =
-    typeof promptBuilder === 'function'
-      ? level
-        ? promptBuilder(text, level)
-        : promptBuilder(text)
-      : promptBuilder;
-
-  const maxTokens = feature === 'summarization' ? 300 : 600;
-
-  try {
-    let result;
-
-    if (isCloud) {
-      // Cloud model (Claude API)
-      result = await claudeGenerate(prompt, {
-        model: model,
-        maxTokens,
-        temperature: 0.3,
-      });
-
-      return {
-        success: true,
-        data: result.content,
-        tokens: result.usage?.output_tokens || 0,
-        model: model,
-        isCloud: true,
-      };
-    } else {
-      // Local model (Ollama) - use model-specific optimization profile
-      const profile = getModelProfile(model);
-      console.log(`[Benchmark] Using optimized profile for ${model}:`, {
-        num_ctx: profile.num_ctx,
-        temperature: profile.temperature,
-      });
-
-      const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-        method: 'POST',
-        signal: AbortSignal.timeout(120000),
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: model,
-          prompt: prompt,
-          stream: false,
-          options: {
-            num_ctx: profile.num_ctx, // Key optimization
-            num_predict: maxTokens,
-            temperature: profile.temperature,
-            top_p: profile.top_p,
-            top_k: profile.top_k,
-            repeat_penalty: profile.repeat_penalty,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Ollama error: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      return {
-        success: true,
-        data: data.response,
-        tokens: data.eval_count || 0,
-        model: model,
-        isCloud: false,
-        evalDuration: data.eval_duration,
-        totalDuration: data.total_duration,
-      };
-    }
-  } catch (error) {
-    console.error('[Benchmark] Test failed:', error);
-    return {
-      success: false,
-      error: error.message,
-      model: model,
-      isCloud: isCloud,
-    };
-  }
-}
+const FALLBACK_MODELS = [
+  DEFAULT_CHAT_MODEL,
+  RECOMMENDED_PULL_MODEL,
+  'gemma3:4b',
+  'llama3.1:8b',
+  'mistral:7b',
+  'llama3.2:3b',
+];
 
 /**
  * Generate text with Ollama (Optimized)
  * Uses model-specific profiles for num_ctx, temperature, etc.
  */
 async function ollamaGenerate(prompt, options = {}) {
-  const requestedModel = options.model || getDefaultModel();
+  const requestedModel = options.model || DEFAULT_CHAT_MODEL;
   const model = await findInstalledModel(requestedModel);
 
   // Get model-specific optimization profile
@@ -1918,79 +1538,77 @@ async function ollamaGenerate(prompt, options = {}) {
     temperature: options.temperature ?? profile.temperature,
   });
 
-  console.log(`[LLM Bridge] Sending request to Ollama...`);
-
-  let response;
-  try {
-    response = await ollamaFetch('/api/generate', {
-      method: 'POST',
-      model: model, // Pass model for better error messages
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: false,
-        // format:'json' forces Ollama to emit JSON-only output at the inference level
-        ...(options.format ? { format: options.format } : {}),
-        options: {
-          // Core optimization: reduced context window for speed
-          num_ctx: options.num_ctx ?? profile.num_ctx,
-          // Model-specific temperature (can be overridden)
-          temperature: options.temperature ?? profile.temperature,
-          // Token prediction limit
-          num_predict: options.maxTokens ?? 500,
-          // Additional optimizations from profile
-          top_p: profile.top_p,
-          top_k: profile.top_k,
-          repeat_penalty: profile.repeat_penalty,
-        },
-      }),
-      signal: AbortSignal.timeout(options.timeout || 60000),
-    });
-  } catch (fetchError) {
-    console.error(`[LLM Bridge] Fetch error:`, fetchError.message);
-    throw fetchError;
-  }
-
-  console.log(`[LLM Bridge] Response status: ${response.status}`);
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '');
-    console.error(`[LLM Bridge] Request failed: ${response.status} ${errorText}`);
-    throw new Error(`Ollama request failed: ${response.status} ${errorText}`);
-  }
-
-  const data = await response.json();
-  console.log(`[LLM Bridge] Response received, length: ${data.response?.length || 0} chars`);
-
-  // Parse JSON if requested
-  if (options.format === 'json') {
+  // The request body and the one retry with thinking off are decided in one tested place
+  // (askOllama); what they rest on was measured against the running Ollama.
+  const send = async body => {
+    console.log(`[LLM Bridge] Sending request to Ollama...`);
+    let response;
     try {
-      // Strip <think>...</think> blocks emitted by reasoning models (e.g. qwen3)
-      const raw = data.response.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : raw;
-      // Find JSON object in case there's any leading text remaining
-      const jsonObjMatch = jsonStr.match(/\{[\s\S]*\}/);
-      return JSON.parse(jsonObjMatch ? jsonObjMatch[0] : jsonStr.trim());
-    } catch {
-      return { raw: data.response, parseError: true };
+      response = await ollamaFetch('/api/generate', {
+        method: 'POST',
+        model: model, // Pass model for better error messages
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(options.timeout || 60000),
+      });
+    } catch (fetchError) {
+      console.error(`[LLM Bridge] Fetch error:`, fetchError.message);
+      throw fetchError;
     }
+
+    console.log(`[LLM Bridge] Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      console.error(`[LLM Bridge] Request failed: ${response.status} ${errorText}`);
+      throw new Error(`Ollama request failed: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log(`[LLM Bridge] Response received, length: ${data.response?.length || 0} chars`);
+    return data;
+  };
+
+  // Separate the answer from any reasoning ONCE, for every caller and both output shapes, because
+  // everything past this line treats what it holds as the model's answer. A model that thought
+  // until it ran out of room has already had one more go with thinking off by this point.
+  const { answer, problem, retried } = await askOllama({ model, prompt, options, profile, send });
+  if (retried) {
+    console.warn(`[LLM Bridge] ${model} reasoned past its budget; retried with thinking off`);
   }
 
-  // Validate response is not empty
-  if (!data.response || data.response.trim().length === 0) {
+  if (problem) {
+    // Two different failures, and telling them apart is the difference between a student retrying
+    // forever and a student changing the one setting that would have fixed it.
+    if (problem === 'reasoned-without-answering') {
+      console.warn(`[LLM Bridge] ${model} reasoned past its budget without answering`);
+      throw new Error(REASONED_WITHOUT_ANSWER_MESSAGE);
+    }
     console.warn('[LLM Bridge] Ollama returned empty response');
     throw new Error('Model produced no output - prompt may be unclear or model may be overloaded');
   }
 
-  return data.response;
+  // Parse JSON if requested
+  if (options.format === 'json') {
+    try {
+      const jsonMatch = answer.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : answer;
+      // Find JSON object in case there's any leading text remaining
+      const jsonObjMatch = jsonStr.match(/\{[\s\S]*\}/);
+      return JSON.parse(jsonObjMatch ? jsonObjMatch[0] : jsonStr.trim());
+    } catch {
+      return { raw: answer, parseError: true };
+    }
+  }
+
+  return answer;
 }
 
 /**
  * Vision model generation with Ollama
  */
 async function ollamaVision(imageBase64, prompt, options = {}) {
-  const requestedModel = options.model || 'llava';
+  const status = await checkOllamaAvailability();
+  const requestedModel = options.model || pickVisionModel(status.models) || VISION_MODEL;
   const model = await findInstalledModel(requestedModel);
 
   const response = await ollamaFetch('/api/generate', {
@@ -2001,6 +1619,9 @@ async function ollamaVision(imageBase64, prompt, options = {}) {
       prompt,
       images: [imageBase64],
       stream: false,
+      // Measured: qwen3.5 describes an image in about a second with thinking off, and spends
+      // 650 tokens thinking first without it.
+      ...(answersWithThinkingOff(model) ? { think: false } : {}),
       options: {
         temperature: options.temperature ?? 0.5,
         num_predict: options.maxTokens ?? 1000,
@@ -2103,14 +1724,6 @@ async function ollamaInstallModel(modelName, onProgress = null) {
   return true;
 }
 
-/**
- * Get list of available models
- */
-async function getOllamaModels() {
-  const status = await checkOllamaAvailability();
-  return status.models;
-}
-
 // Tab activation listener for context-aware features
 chrome.tabs.onActivated.addListener(async activeInfo => {
   try {
@@ -2173,6 +1786,54 @@ function isSystemPage(url) {
 }
 
 /**
+ * Tabs with an injection attempt in flight.
+ *
+ * Every caller that puts the content script into a page goes through `withTabInjectionGuard`, so a
+ * tab finishing loading and a catch-up sweep cannot both reach the same tab at the same moment.
+ * Nothing in the page stops a second evaluation, so a duplicate means two of every listener and two
+ * of every floating control.
+ *
+ * Losing the map to a worker shutdown costs nothing: the worst case is a fresh attempt, and the
+ * first thing an attempt does is ask the page whether the script is already there.
+ *
+ * Each entry holds the attempt to run once the current one finishes, if another caller arrived
+ * meanwhile.
+ */
+const injecting = new Map();
+
+/**
+ * Run injection attempts for a tab one at a time, and never drop one.
+ *
+ * A caller that arrives while an attempt is running for the tab is queued, not turned away: the
+ * page may have navigated and finished loading again, and the attempt in flight may have gone into
+ * the page it replaced. Turned away, that page never got AssisT. Only the latest queued attempt
+ * runs, since it carries the newest view of the tab, and it starts by asking the page whether the
+ * script is already there, so a queued attempt never adds a second copy. It runs inside the first
+ * caller's await, which keeps the worker alive until it is done.
+ *
+ * @param {number} tabId
+ * @param {() => Promise<void>} attempt
+ */
+async function withTabInjectionGuard(tabId, attempt) {
+  const running = injecting.get(tabId);
+  if (running) {
+    running.next = attempt;
+    return;
+  }
+  const entry = { next: attempt };
+  injecting.set(tabId, entry);
+  try {
+    while (entry.next) {
+      const current = entry.next;
+      entry.next = null;
+      await current();
+    }
+  } finally {
+    injecting.delete(tabId);
+  }
+}
+
+/**
  * Inject content script into a tab if user has <all_urls> permission
  * and the tab is not an LMS site (which auto-loads via manifest)
  */
@@ -2220,7 +1881,7 @@ async function maybeInjectContentScript(tabId, url) {
 
   // Inject the content script
   try {
-    console.log('[AssisT] Auto-injecting content script into tab:', tabId, 'URL:', url);
+    console.log('[AssisT] Auto-injecting content script into tab:', tabId);
     await chrome.scripting.executeScript({
       target: { tabId },
       files: [contentScriptPath],
@@ -2232,65 +1893,121 @@ async function maybeInjectContentScript(tabId, url) {
 }
 
 /**
- * Tab update listener - automatically inject content script on non-LMS sites
- * when user has <all_urls> permission
+ * Catch up on pages that were already open when something changed.
  *
- * Uses debouncing to prevent rapid-fire injections during bulk tab operations
- * (e.g., session restore with 20+ tabs)
+ * A page only gets AssisT when it loads, so a page already sitting open at the moment of an install,
+ * an update, a browser restart, or the student granting access to all sites has already missed its
+ * chance. Without this, the answer to "I just installed it and nothing happens" is "reload the page",
+ * which is not an answer.
+ *
+ * Two kinds of tab need different treatment, and the difference is the permission:
+ *
+ * - A learning platform page is matched by the manifest, so no permission is needed and none is held
+ *   at install time. `maybeInjectContentScript` deliberately skips these, because normally the
+ *   browser handles them. On an already-open tab nobody has handled them, so they are injected here
+ *   directly. This is the Success Metric path: a student who installs AssisT while looking at a
+ *   Canvas assignment should see the reader without touching the address bar.
+ * - Any other page needs access to all sites, which is optional and, on a fresh install, not yet
+ *   granted. Those go through `maybeInjectContentScript`, which checks the permission, skips system
+ *   pages, and asks the page whether the script is already there before adding it again.
+ *
+ * @param {string} reason - for the log, so a student's console says why this happened.
  */
-const injectionQueue = new Set();
-const injectionTimers = new Map();
-const DEBOUNCE_MS = 100;
+async function injectIntoOpenTabs(reason) {
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({});
+  } catch {
+    return;
+  }
 
+  const candidates = tabs.filter(tab => tab.id && tab.url && !isSystemPage(tab.url));
+  if (candidates.length === 0) {
+    return;
+  }
+
+  const contentScriptPath = chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];
+  console.log(`[AssisT] Catching up on ${candidates.length} open tabs (${reason})`);
+
+  for (const tab of candidates) {
+    // One at a time, and never a tab someone else is already injecting: each is cheap, and a slow
+    // tab must not hold up the rest.
+    await withTabInjectionGuard(tab.id, async () => {
+      if (isLmsSite(tab.url)) {
+        if (!contentScriptPath) {
+          return;
+        }
+        // Already there? Then leave it alone: a second copy means two of every control.
+        try {
+          const answer = await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+          if (answer?.loaded || answer?.success) {
+            return;
+          }
+        } catch {
+          // No answer means nothing is listening yet, which is what we are here to fix.
+        }
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: [contentScriptPath],
+          });
+        } catch (error) {
+          console.log('[AssisT] Could not reach tab', tab.id, ':', error.message);
+        }
+        return;
+      }
+      await maybeInjectContentScript(tab.id, tab.url);
+    });
+  }
+}
+
+// A restart leaves every restored tab without AssisT until it is reloaded, so sweep them.
+chrome.runtime.onStartup.addListener(async () => {
+  await injectIntoOpenTabs('browser started');
+});
+
+/**
+ * Tab update listener: on a site the manifest does not match, AssisT's own script has to be put
+ * into the page from here, once the student has granted access to all sites.
+ *
+ * The work happens INSIDE the listener, awaited, and never on a timer. This worker is not a page:
+ * the browser keeps it alive while an event it handed us is still being awaited, and shuts it down
+ * once we stop. A `setTimeout` is not something it waits for, so a timer armed here and due in
+ * 100ms is simply lost if the shutdown lands first — which it often does, because a page finishing
+ * loading is usually the last thing asked of this worker. That was a real defect, not a theoretical
+ * one: on the same article, injection worked three times and never happened at all twice, with
+ * nothing logged and nothing said to the student, because the timer died with the worker.
+ *
+ * Duplicate suppression is `withTabInjectionGuard`, the one in-flight set every caller shares, so a
+ * catch-up sweep running at the same moment cannot inject this tab a second time.
+ */
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Only inject when page has finished loading
   if (changeInfo.status !== 'complete') {
     return;
   }
 
-  // Prevent duplicate injections for the same tab
-  if (injectionQueue.has(tabId)) {
-    console.log('[AssisT] Tab', tabId, 'already queued for injection, skipping');
-    return;
-  }
-
-  // Mark tab as queued
-  injectionQueue.add(tabId);
-
-  // Clear any existing timer for this tab
-  if (injectionTimers.has(tabId)) {
-    clearTimeout(injectionTimers.get(tabId));
-  }
-
-  // Debounce: Wait 100ms before injecting (in case of rapid page changes)
-  const timer = setTimeout(async () => {
+  await withTabInjectionGuard(tabId, async () => {
+    // Re-read the tab: on a fast redirect the url handed to the listener can already be stale,
+    // and injecting against the wrong origin is worse than not injecting.
+    let url = tab?.url;
     try {
-      await maybeInjectContentScript(tabId, tab.url);
-    } finally {
-      // Clean up tracking
-      injectionQueue.delete(tabId);
-      injectionTimers.delete(tabId);
+      const fresh = await chrome.tabs.get(tabId);
+      url = fresh?.url || url;
+    } catch {
+      // Tab closed while we were asking — fall back to the url the event carried.
     }
-  }, DEBOUNCE_MS);
-
-  injectionTimers.set(tabId, timer);
-});
-
-// Handle extension icon click (if popup is disabled)
-chrome.action.onClicked.addListener(async tab => {
-  console.log('[AssisT] Extension icon clicked on tab:', tab.id);
-
-  // Send message to content script to toggle AssisT panel
-  chrome.tabs.sendMessage(tab.id, {
-    type: 'TOGGLE_ASSIST_PANEL',
+    await maybeInjectContentScript(tabId, url);
   });
 });
 
 /**
  * Permission Change Handlers
  *
- * Simple approach: Permission grant just logs success.
- * Content script injection happens on-demand from popup via INJECT_CONTENT_SCRIPT message.
+ * Granting access to all sites catches up every page already open, through the same sweep an
+ * install and a browser restart use — one path, one in-flight guard, so a sweep and a tab that has
+ * just finished loading cannot put the script into the same page twice. The student then sees the
+ * confirmation on the page they are looking at.
  */
 
 // Listen for permission changes, inject content scripts, show toast
@@ -2300,58 +2017,11 @@ chrome.permissions.onAdded.addListener(async permissions => {
     console.log('[AssisT] ✓ All-sites permission granted - injecting content scripts');
 
     try {
-      // Get all open tabs and inject content script into non-LMS sites
-      const allTabs = await chrome.tabs.query({});
+      // Read the active tab before the sweep, so the confirmation lands on the page the student was
+      // looking at when they granted it.
       const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 
-      // Get content script path from manifest (do once, not per tab)
-      const manifest = chrome.runtime.getManifest();
-      const contentScriptPath = manifest.content_scripts?.[0]?.js?.[0];
-
-      if (!contentScriptPath) {
-        console.error('[AssisT] Content script path not found in manifest');
-        return;
-      }
-
-      // Filter eligible tabs upfront
-      const eligibleTabs = allTabs.filter(
-        tab => tab.id && tab.url && !isSystemPage(tab.url) && !isLmsSite(tab.url)
-      );
-
-      console.log(
-        `[AssisT] Injecting content script into ${eligibleTabs.length} eligible tabs (${allTabs.length} total)`
-      );
-
-      // Inject into all eligible tabs using chunked parallelization
-      // Process 10 tabs at a time to avoid overwhelming Chrome
-      const CHUNK_SIZE = 10;
-      let successCount = 0;
-      let failCount = 0;
-
-      for (let i = 0; i < eligibleTabs.length; i += CHUNK_SIZE) {
-        const chunk = eligibleTabs.slice(i, i + CHUNK_SIZE);
-
-        // Process this chunk in parallel
-        await Promise.all(
-          chunk.map(tab =>
-            chrome.scripting
-              .executeScript({
-                target: { tabId: tab.id },
-                files: [contentScriptPath],
-              })
-              .then(() => {
-                successCount++;
-                console.log('[AssisT] ✓ Content script injected into tab:', tab.id);
-              })
-              .catch(err => {
-                failCount++;
-                console.log('[AssisT] Could not inject into tab', tab.id, ':', err.message);
-              })
-          )
-        );
-      }
-
-      console.log(`[AssisT] Injection complete: ${successCount} success, ${failCount} failed`);
+      await injectIntoOpenTabs('all-sites granted');
 
       // Show success toast on active tab
       if (activeTab?.id) {
@@ -2435,6 +2105,13 @@ chrome.permissions.onAdded.addListener(async permissions => {
 
 chrome.permissions.onRemoved.addListener(permissions => {
   console.log('[AssisT] Permissions removed:', permissions);
+});
+
+// A consent window closed without an answer: the page that asked hears "no answer" (ADR 0009).
+chrome.windows.onRemoved.addListener(windowId => {
+  handleConsentWindowClosed(windowId).catch(error => {
+    console.error('[AssisT] Could not close out a consent question:', error);
+  });
 });
 
 console.log('[AssisT] Background service worker initialized');

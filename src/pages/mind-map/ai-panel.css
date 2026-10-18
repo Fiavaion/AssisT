@@ -1,0 +1,102 @@
+/*
+ * AI panel: the contents of the right dock's AI tab.
+ *
+ * Layout only — the palette, the font, the button family and the focus ring are the page's, in
+ * mindmap.css. It used to be a popover hanging off a toolbar button with a palette of its own; it
+ * is now a region in the dock that a student can Tab out of, so nothing here positions anything.
+ * The busy and unavailable states are carried by text rather than by colour (SC 1.4.1).
+ */
+
+.mm-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  color: var(--mm-body, #33414a);
+}
+
+.mm-ai:focus {
+  outline: none;
+}
+
+.mm-ai__status {
+  margin: 0;
+  color: var(--mm-body, #33414a);
+}
+
+.mm-ai__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mm-line, #d2d7c9);
+}
+
+.mm-ai__heading {
+  margin: 0;
+  color: var(--mm-strong, #1f2a30);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.mm-ai__check {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 20 px plus the margin clears the 24 px minimum target on its shortest side (SC 2.5.8). */
+.mm-ai__check input,
+.mm-ai__suggestion input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 2px;
+}
+
+.mm-ai__result:empty {
+  display: none;
+}
+
+.mm-ai__result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mm-line, #d2d7c9);
+}
+
+.mm-ai__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mm-ai__suggestion {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+.mm-ai__preview {
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--mm-radius-sm, 6px);
+  background: var(--mm-accent-soft, rgba(67, 98, 107, 0.12));
+}
+
+.mm-ai__busy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mm-ai__busyText {
+  margin: 0;
+}

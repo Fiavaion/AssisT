@@ -61,7 +61,7 @@ jest.mock('dexie', () => {
       this.annotations = mockDb.annotations;
     }
 
-    version(num) {
+    version(_num) {
       return {
         stores: jest.fn(() => this)
       };
@@ -108,7 +108,7 @@ describe('LocalStorageAdapter', () => {
         callback({ assist_annotations: { annotations: [], nextId: 1 } });
       });
 
-      chrome.storage.local.set.mockImplementation((data, callback) => {
+      chrome.storage.local.set.mockImplementation((_data, callback) => {
         callback();
       });
 
@@ -439,7 +439,7 @@ describe('LocalStorageAdapter', () => {
         callback({ assist_annotations: { annotations: [], nextId: 1 } });
       });
 
-      chrome.storage.local.set.mockImplementation((data, callback) => {
+      chrome.storage.local.set.mockImplementation((_data, _callback) => {
         const error = new Error('Storage quota exceeded');
         chrome.runtime.lastError = error;
         throw error; // Trigger rejection

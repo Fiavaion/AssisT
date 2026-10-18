@@ -6,8 +6,8 @@ AssisT is an actively developed Chrome extension. Security fixes are provided fo
 
 | Version         | Supported |
 | --------------- | --------- |
-| 0.1.x (current) | Yes       |
-| < 0.1.0         | No        |
+| 1.0.x (current) | Yes       |
+| < 1.0.0         | No        |
 
 ## Reporting a vulnerability
 
@@ -17,7 +17,7 @@ Report security issues privately to `security@fiavaion.com`. Include:
 
 - A description of the issue and why it is a security concern.
 - Reproduction steps or proof-of-concept code.
-- The AssisT version (Popup → About).
+- The AssisT version (shown on `chrome://extensions`).
 - The browser, operating system, and any relevant extension configuration (for example, which AI mode was enabled).
 - Whether the issue affects the extension itself, a dependency, or a specific integration (Canvas, Moodle, Google Classroom).
 
@@ -46,11 +46,11 @@ Out of scope:
 
 ## Privacy and data handling
 
-AssisT is architected for **local-first, zero-transmission operation where possible**. See the product [privacy policy](https://fiavaion.com/products/assist/privacy) and the [VPAT](docs/quality/VPAT-2.5-AssisT-v0.1.2.md) for the published privacy posture. Brief summary:
+AssisT is architected for **local-first, zero-transmission operation where possible**. See the product [privacy policy](https://fiavaion.com/products/assist/privacy) and the [VPAT](docs/quality/VPAT-2.5-AssisT-v0.9.3.md) (the latest published report; a 1.0.0 report will follow) for the published privacy posture. Brief summary:
 
-- **Ollama, WebLLM, and Chrome Prompt API** AI modes process all data on-device. No external transmission.
-- **Cloud AI modes** (optional, user-enabled) transmit the prompt content you submit to the selected third-party provider. API keys are encrypted locally using AES-GCM-256 with PBKDF2 key derivation (100,000 iterations, OWASP-aligned).
-- AssisT does not implement analytics, telemetry, crash reporting, or tracking of any kind. The only network requests are (a) the LMS host page you are viewing, and (b) whichever AI provider the user has explicitly selected.
+- **Ollama, WebLLM, and Chrome Prompt API** AI modes process all data on-device. No external transmission, apart from the one-time download of a WebLLM model's weights (from Hugging Face; the model libraries ship in the package, ADR 0010) and the loopback request Ollama needs to reach `localhost`.
+- **Cloud AI modes** (optional, user-enabled) transmit the prompt content you submit to the selected third-party provider. API keys are encrypted locally using AES-GCM-256 with PBKDF2 key derivation (100,000 iterations).
+- AssisT does not implement analytics, telemetry, crash reporting, or tracking of any kind. Apart from the LMS page the student is viewing, every network request needs the student's consent for that specific destination first (see `src/utils/consent.js`): Free Dictionary (word lookups), MyMemory (translation, and separately, Translate Page), Crossref and, if enabled, Semantic Scholar (citation lookups), jsDelivr (the OCR language file for a language other than English; no image or text is sent), Chrome's own speech recognition for dictation (a Google service, since AssisT has none of its own), and whichever cloud AI provider the student has explicitly selected. Read-aloud uses voices on the device unless the student picks an online voice, which the voice picker labels as sending the text to Google. The full list, and exactly what each receives, is in the [privacy policy](https://fiavaion.com/products/assist/privacy).
 
 If you observe AssisT transmitting data inconsistent with the above, treat it as a security issue and report it.
 

@@ -29,7 +29,7 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { Z } from '../../utils/z-index.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
 
@@ -143,7 +143,7 @@ const pomodoro_settings = {
   autoStartWork: false,
   showNotifications: true,
   playSound: true,
-  position: 'bottom-left',
+  position: 'top-right',
 };
 
 /** @type {Object} Default settings for Pomodoro Timer */
@@ -157,7 +157,7 @@ const DEFAULT_SETTINGS = {
   autoStartWork: false,
   showNotifications: true,
   playSound: true,
-  position: 'bottom-left',
+  position: 'top-right',
 };
 
 /**
@@ -204,28 +204,45 @@ function pomodoro_injectStyles() {
 
     /* Minimized State */
     .assist-pomodoro-widget.minimized {
-      padding: 10px 16px;
+      padding: 6px 10px;
       min-width: auto;
       border-radius: 24px;
-      cursor: pointer;
     }
 
-    .assist-pomodoro-widget.minimized .pomodoro-main-content {
-      display: none;
+    /* Which half of the widget is showing is driven by the hidden attribute in JS, not by CSS
+       alone: a control hidden only by display:none in a stylesheet stays in the tab order of
+       any page whose own CSS wins the cascade, and the restore button must be reachable when
+       it is showing and unreachable when it is not. */
+    .assist-pomodoro-widget [hidden] {
+      display: none !important;
     }
 
-    .assist-pomodoro-widget.minimized .pomodoro-minimized-view {
-      display: flex !important;
-    }
-
-    /* Minimized View */
-    .pomodoro-minimized-view {
-      display: none;
+    /* Minimized View - the restore button */
+    #pomodoro-restore-btn {
+      display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
+      min-height: 32px;
+      min-width: 88px;
+      padding: 4px 12px;
+      /* A control's own boundary has to clear 3:1 against the surface behind it (SC 1.4.11). The
+         earlier rgba(60, 60, 90, 0.35) measured about 1.9:1 on this near-white widget, so the only
+         thing marking the minimised timer as a button was almost invisible. */
+      border: 1px solid #6b6b8a;
+      border-radius: 20px;
+      background: transparent;
+      font-family: inherit;
       font-size: 14px;
       font-weight: 600;
       color: #333;
+      cursor: pointer;
+    }
+
+    /* A visible focus indicator on every control, including the restore button. */
+    #assist-pomodoro-container button:focus-visible {
+      outline: 3px solid #1d4ed8;
+      outline-offset: 2px;
     }
 
     .pomodoro-minimized-view .session-dot {
@@ -484,14 +501,24 @@ function pomodoro_createUI() {
   // Create widget HTML
   pomodoro_uiElement.innerHTML = sanitizeHTML(`
     <div class="assist-pomodoro-widget">
-      <!-- Minimized View -->
-      <div class="pomodoro-minimized-view">
+      <!-- Minimized View: the only way back once the timer is minimised, so it is a real button
+           in the tab order and not a div that answers to the mouse alone. -->
+      <button
+        type="button"
+        class="pomodoro-minimized-view"
+        id="pomodoro-restore-btn"
+        aria-label="Restore Pomodoro timer"
+        title="Restore Pomodoro timer"
+        aria-expanded="false"
+        aria-controls="pomodoro-main-content"
+        hidden
+      >
         <span class="session-dot ${pomodoro_currentSession === 'work' ? '' : 'break'}"></span>
         <span class="time-text">00:00</span>
-      </div>
+      </button>
 
       <!-- Main Content -->
-      <div class="pomodoro-main-content">
+      <div class="pomodoro-main-content" id="pomodoro-main-content">
         <!-- Header -->
         <div class="pomodoro-header">
           <h3 class="pomodoro-title">
@@ -499,7 +526,7 @@ function pomodoro_createUI() {
             <span>Pomodoro Timer</span>
           </h3>
           <div class="pomodoro-controls">
-            <button class="pomodoro-icon-btn" id="pomodoro-minimize-btn" aria-label="Minimize" title="Minimize">
+            <button class="pomodoro-icon-btn" id="pomodoro-minimize-btn" aria-label="Minimize" title="Minimize" aria-expanded="true" aria-controls="pomodoro-main-content">
               ➖
             </button>
             <button class="pomodoro-icon-btn" id="pomodoro-close-btn" aria-label="Close" title="Close">
@@ -543,6 +570,13 @@ function pomodoro_createUI() {
     </div>
   `);
 
+  // The sanitizer drops the bare `hidden` attribute from the markup above, so the starting state
+  // is set here: the timer opens expanded, with the restore button out of the tab order.
+  const restoreBtn = pomodoro_uiElement.querySelector('#pomodoro-restore-btn');
+  if (restoreBtn) {
+    restoreBtn.hidden = true;
+  }
+
   document.body.appendChild(pomodoro_uiElement);
 
   // Initialize timer display
@@ -582,7 +616,7 @@ function pomodoro_attachEventListeners() {
   // Start/Pause button
   const startBtn = pomodoro_uiElement.querySelector('#pomodoro-start-btn');
   if (startBtn) {
-    attachInteractiveHandler(startBtn, 'Pomodoro Start/Pause Button', () => {
+    attachAccessibleHandler(startBtn, 'Pomodoro Start/Pause Button', () => {
       if (pomodoro_timerInterval) {
         pomodoro_pauseTimer();
       } else {
@@ -594,25 +628,25 @@ function pomodoro_attachEventListeners() {
   // Reset button
   const resetBtn = pomodoro_uiElement.querySelector('#pomodoro-reset-btn');
   if (resetBtn) {
-    attachInteractiveHandler(resetBtn, 'Pomodoro Reset Button', pomodoro_resetTimer);
+    attachAccessibleHandler(resetBtn, 'Pomodoro Reset Button', pomodoro_resetTimer);
   }
 
   // Skip button
   const skipBtn = pomodoro_uiElement.querySelector('#pomodoro-skip-btn');
   if (skipBtn) {
-    attachInteractiveHandler(skipBtn, 'Pomodoro Skip Button', pomodoro_skipSession);
+    attachAccessibleHandler(skipBtn, 'Pomodoro Skip Button', pomodoro_skipSession);
   }
 
   // Minimize button
   const minimizeBtn = pomodoro_uiElement.querySelector('#pomodoro-minimize-btn');
   if (minimizeBtn) {
-    attachInteractiveHandler(minimizeBtn, 'Pomodoro Minimize Button', pomodoro_toggleMinimize);
+    attachAccessibleHandler(minimizeBtn, 'Pomodoro Minimize Button', pomodoro_toggleMinimize);
   }
 
   // Close button
   const closeBtn = pomodoro_uiElement.querySelector('#pomodoro-close-btn');
   if (closeBtn) {
-    attachInteractiveHandler(closeBtn, 'Pomodoro Close Button', pomodoro_disable);
+    attachAccessibleHandler(closeBtn, 'Pomodoro Close Button', pomodoro_disable);
   }
 
   // Drag functionality
@@ -621,14 +655,10 @@ function pomodoro_attachEventListeners() {
     header.addEventListener('mousedown', pomodoro_handleDragStart);
   }
 
-  // Click to expand when minimized
-  const widget = pomodoro_uiElement.querySelector('.assist-pomodoro-widget');
-  if (widget) {
-    attachInteractiveHandler(widget, 'Pomodoro Widget Expand', e => {
-      if (pomodoro_isMinimized && e.target === widget) {
-        pomodoro_toggleMinimize();
-      }
-    });
+  // Restore button - the way back from the minimised state, by mouse or by Enter/Space.
+  const restoreBtn = pomodoro_uiElement.querySelector('#pomodoro-restore-btn');
+  if (restoreBtn) {
+    attachAccessibleHandler(restoreBtn, 'Pomodoro Restore Button', pomodoro_toggleMinimize);
   }
 }
 
@@ -996,14 +1026,34 @@ function pomodoro_toggleMinimize() {
 
   pomodoro_isMinimized = !pomodoro_isMinimized;
   const widget = pomodoro_uiElement.querySelector('.assist-pomodoro-widget');
+  const mainContent = pomodoro_uiElement.querySelector('.pomodoro-main-content');
+  const restoreBtn = pomodoro_uiElement.querySelector('#pomodoro-restore-btn');
+  const minimizeBtn = pomodoro_uiElement.querySelector('#pomodoro-minimize-btn');
 
   if (widget) {
-    if (pomodoro_isMinimized) {
-      widget.classList.add('minimized');
-    } else {
-      widget.classList.remove('minimized');
-    }
+    widget.classList.toggle('minimized', pomodoro_isMinimized);
   }
+  if (mainContent) {
+    mainContent.hidden = pomodoro_isMinimized;
+  }
+  if (restoreBtn) {
+    restoreBtn.hidden = !pomodoro_isMinimized;
+  }
+  // Both controls govern the timer body, so both report its state: whichever one the student is on
+  // says whether the timer they are controlling is open or collapsed.
+  if (minimizeBtn) {
+    minimizeBtn.setAttribute('aria-expanded', String(!pomodoro_isMinimized));
+  }
+  if (restoreBtn) {
+    restoreBtn.setAttribute('aria-expanded', String(!pomodoro_isMinimized));
+  }
+
+  // Hand the focus to whichever control is now on screen. Without this the student's focus is
+  // sitting on a button that has just been hidden, which drops them back to the top of the page.
+  const nextFocus = pomodoro_isMinimized ? restoreBtn : minimizeBtn;
+  nextFocus?.focus?.();
+
+  showToast(pomodoro_isMinimized ? 'Pomodoro timer minimised' : 'Pomodoro timer restored');
 
   console.log(`[Pomodoro] ${pomodoro_isMinimized ? 'Minimized' : 'Expanded'}`);
 }

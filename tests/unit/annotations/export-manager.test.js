@@ -783,7 +783,7 @@ describe('Date Formatting', () => {
   test('should handle invalid timestamp', () => {
     // Mock formatDate behavior for invalid date
     const formatDate = (timestamp) => {
-      if (!timestamp) return 'Unknown';
+      if (!timestamp) {return 'Unknown';}
       try {
         return new Date(timestamp).toLocaleString();
       } catch {

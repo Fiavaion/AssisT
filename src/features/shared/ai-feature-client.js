@@ -16,6 +16,9 @@
  */
 
 import { REGISTRY, getFeatureDefault } from '../../ai/model-registry.js';
+import { stripThinking } from '../../utils/ollama-models.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { CLOUD_AI_DESTINATIONS, DESTINATIONS } from '../../utils/consent.js';
 
 const WEBLLM_KEYS = new Set(Object.keys(REGISTRY.webllm.models));
 
@@ -32,7 +35,7 @@ export function isWebLLMModel(modelKey) {
 /**
  * @typedef {Object} AIMode
  * @property {'cloud'|'local'|'webllm'|'gemini'|'off'} aiMode - Raw value from storage
- * @property {string} modelKey  - Resolved model key (e.g. 'llama-3.2-1b', 'haiku-4.5', 'local')
+ * @property {string} modelKey  - Resolved model key (e.g. 'llama-3.2-1b', 'haiku-5.5', 'local')
  * @property {string} [provider] - Cloud provider key when isCloud === true
  * @property {boolean} isCloud  - True only for cloud providers (Anthropic, OpenAI, Google, Perplexity)
  * @property {boolean} isWebLLM - True for browser-native WebLLM/WebGPU models
@@ -53,9 +56,9 @@ export function isWebLLMModel(modelKey) {
  */
 // ── Per-feature model override: short name → registry key mapping ─────────────
 const FEATURE_MODEL_KEY_MAP = {
-  haiku: 'haiku-4.5',
-  sonnet: 'sonnet-4.6',
-  opus: 'opus-4.6',
+  haiku: 'haiku-5.5',
+  sonnet: 'sonnet-5.5',
+  opus: 'opus-5.5',
 };
 
 export async function getAIMode(featureName = 'summarization') {
@@ -95,13 +98,13 @@ export async function getAIMode(featureName = 'summarization') {
       const featureOverride = result[`featureModel_${featureName}`];
       if (autoSelect) {
         // Auto-select ON: user's dropdown model is always respected — never override with feature defaults
-        modelKey = result.cloudModel || 'haiku-4.5';
+        modelKey = result.cloudModel || 'haiku-5.5';
       } else if (featureOverride && featureOverride !== 'auto' && provider === 'anthropic') {
         // Auto-select OFF + per-feature override explicitly set
         modelKey = FEATURE_MODEL_KEY_MAP[featureOverride] || featureOverride;
       } else {
         // Auto-select OFF, no per-feature override: use feature-optimal model
-        modelKey = getFeatureDefault(provider, featureName) || result.cloudModel || 'haiku-4.5';
+        modelKey = getFeatureDefault(provider, featureName) || result.cloudModel || 'haiku-5.5';
       }
       return {
         aiMode: 'cloud',
@@ -176,7 +179,21 @@ export async function getAIMode(featureName = 'summarization') {
  * @property {boolean} needsApiKey    - True if a cloud API key must be configured
  * @property {boolean} needsOllama    - True if Ollama must be started
  * @property {boolean} needsWebLLMInit - True if the WebLLM model must be initialised
+ * @property {string}  [provider]     - The cloud provider, when a key is missing
  */
+
+/**
+ * The sentence an "API Key Required" screen shows, naming the provider the student chose.
+ *
+ * @param {string} [provider] - Cloud provider id from `availability.provider`
+ * @returns {string}
+ */
+export function missingKeyMessage(provider) {
+  if (CLOUD_AI_DESTINATIONS.includes(provider)) {
+    return `Please add your ${DESTINATIONS[provider].service} API key to use cloud features.`;
+  }
+  return 'Please add an API key for your AI provider to use cloud features.';
+}
 
 /**
  * Check whether the current AI mode is available and ready to use.
@@ -208,6 +225,17 @@ export async function checkAIAvailable(modeInfo) {
           needsWebLLMInit: false,
         };
       }
+      // The key is there but something else is not (consent, or Chrome's permission to reach the
+      // provider): the router's own sentence says what, and how to fix it.
+      if (response?.success && response.needsApiKey === false && response.reason) {
+        return {
+          available: false,
+          reason: response.reason,
+          needsApiKey: false,
+          needsOllama: false,
+          needsWebLLMInit: false,
+        };
+      }
       return {
         available: false,
         reason:
@@ -215,6 +243,7 @@ export async function checkAIAvailable(modeInfo) {
         needsApiKey: true,
         needsOllama: false,
         needsWebLLMInit: false,
+        provider: modeInfo.provider,
       };
     } catch {
       return {
@@ -223,6 +252,7 @@ export async function checkAIAvailable(modeInfo) {
         needsApiKey: true,
         needsOllama: false,
         needsWebLLMInit: false,
+        provider: modeInfo.provider,
       };
     }
   }
@@ -241,7 +271,7 @@ export async function checkAIAvailable(modeInfo) {
       }
       return {
         available: false,
-        reason: 'Browser AI model not loaded — tap to open AI settings and load a model.',
+        reason: 'Browser AI model not loaded. Open AI settings to finish setting up.',
         needsApiKey: false,
         needsOllama: false,
         needsWebLLMInit: true,
@@ -249,7 +279,7 @@ export async function checkAIAvailable(modeInfo) {
     } catch {
       return {
         available: false,
-        reason: 'Browser AI not ready — tap to open AI settings and load a model.',
+        reason: 'Browser AI not ready. Open AI settings to finish setting up.',
         needsApiKey: false,
         needsOllama: false,
         needsWebLLMInit: true,
@@ -259,7 +289,9 @@ export async function checkAIAvailable(modeInfo) {
 
   if (modeInfo.isGemini) {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'GEMINI_NANO_CHECK' });
+      // GEMINI_LLM_CHECK is the probe the worker answers; the popup uses the same one. This sent a
+      // name nothing handled, so Nano could never report itself available to any feature.
+      const response = await chrome.runtime.sendMessage({ action: 'GEMINI_LLM_CHECK' });
       if (response?.available) {
         return {
           available: true,
@@ -338,15 +370,85 @@ export async function checkAIAvailable(modeInfo) {
  */
 
 /**
+ * Extract a JSON object from a model's string output. Strips reasoning `<think>` blocks and Markdown
+ * code fences, tolerates leading/trailing prose, and repairs trailing commas. Returns null if no
+ * parseable object is found.
+ * @param {string} str
+ * @returns {Object|null}
+ */
+export function extractJsonObject(str) {
+  if (typeof str !== 'string') {
+    return null;
+  }
+  const cleaned = str.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const body = (fence ? fence[1] : cleaned).trim();
+  const obj = body.match(/\{[\s\S]*\}/);
+  if (!obj) {
+    return null;
+  }
+  const candidate = obj[0].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Normalise a raw provider payload into a consistent `{ text, json }`:
+ *   - `text` is ALWAYS a string.
+ *   - `json` is the parsed object when `wantJson`, else null.
+ * Handles all three payload shapes a provider can return: a string, an already-parsed object (the
+ * local Ollama service worker pre-parses `format:'json'`), and the `{ raw, parseError }` shape the
+ * service worker returns when its own parse fails.
+ * @param {string|Object} payload
+ * @param {boolean} wantJson
+ * @returns {{text: string, json: Object|null}}
+ */
+function normalisePayload(payload, wantJson) {
+  if (payload && typeof payload === 'object') {
+    if (payload.parseError) {
+      const raw = typeof payload.raw === 'string' ? payload.raw : '';
+      return { text: raw, json: wantJson ? extractJsonObject(raw) : null };
+    }
+    // Already-parsed JSON object (only produced when JSON was requested).
+    let text = '';
+    try {
+      text = JSON.stringify(payload);
+    } catch {
+      text = '';
+    }
+    return { text, json: payload };
+  }
+  // A reasoning model reached through ANY mode narrates in the same body: WebLLM runs qwen3 as
+  // readily as Ollama does. Strip here so the contract's text is the answer whatever served it.
+  const text =
+    typeof payload === 'string'
+      ? stripThinking(payload)
+      : payload === null || payload === undefined
+        ? ''
+        : String(payload);
+  return { text, json: wantJson ? extractJsonObject(text) : null };
+}
+
+/**
  * Generate text using the current AI mode.
  *
  * Routes to the correct service-worker action based on modeInfo. Throws on
  * failure so callers can implement their own fallback / error display logic.
  *
+ * CONTRACT: `text` is ALWAYS a string, in every mode. When `format:'json'` is requested, `json`
+ * holds the parsed object (or null if it could not be parsed) — parsed centrally here, once, for
+ * ALL modes. This is deliberate: providers differ (the local Ollama service worker pre-parses
+ * `format:'json'` and returns an object, cloud/webllm/gemini return a raw string), and normalising
+ * here means callers never have to type-check `text` per mode. When `format` is not 'json', `json`
+ * is null. See the citation-analyser regression (2026-07-01) for why this matters.
+ *
  * @param {string}        prompt
  * @param {AIMode}        modeInfo - Result of getAIMode()
  * @param {GenerateOptions} [options={}]
- * @returns {Promise<{text: string, isCloud: boolean, isWebLLM: boolean, isGemini: boolean, isLocal: boolean}>}
+ * @returns {Promise<{text: string, json: Object|null, isCloud: boolean, isWebLLM: boolean, isGemini: boolean, isLocal: boolean}>}
  */
 export async function generateWithAI(prompt, modeInfo, options = {}) {
   const {
@@ -361,6 +463,7 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
     num_ctx,
   } = options;
 
+  const wantJson = format === 'json';
   let response;
 
   if (modeInfo.isGemini) {
@@ -370,13 +473,8 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
       options: { temperature, topK: 40 },
     });
     if (response?.success) {
-      return {
-        text: response.text,
-        isCloud: false,
-        isWebLLM: false,
-        isGemini: true,
-        isLocal: false,
-      };
+      const { text, json } = normalisePayload(response.text, wantJson);
+      return { text, json, isCloud: false, isWebLLM: false, isGemini: true, isLocal: false };
     }
     throw new Error(response?.error || 'Gemini Nano generation failed');
   }
@@ -388,13 +486,8 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
       options: { maxTokens, temperature },
     });
     if (response?.success) {
-      return {
-        text: response.data,
-        isCloud: false,
-        isWebLLM: true,
-        isGemini: false,
-        isLocal: false,
-      };
+      const { text, json } = normalisePayload(response.data, wantJson);
+      return { text, json, isCloud: false, isWebLLM: true, isGemini: false, isLocal: false };
     }
     if (response?.requiresInit) {
       throw new Error('Browser AI model not loaded — open AI settings to load a model.');
@@ -416,13 +509,8 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
       },
     });
     if (response?.success) {
-      return {
-        text: response.data,
-        isCloud: true,
-        isWebLLM: false,
-        isGemini: false,
-        isLocal: false,
-      };
+      const { text, json } = normalisePayload(response.data, wantJson);
+      return { text, json, isCloud: true, isWebLLM: false, isGemini: false, isLocal: false };
     }
     throw new Error(response?.error || 'Cloud AI generation failed');
   }
@@ -441,13 +529,8 @@ export async function generateWithAI(prompt, modeInfo, options = {}) {
       },
     });
     if (response?.success) {
-      return {
-        text: response.data,
-        isCloud: false,
-        isWebLLM: false,
-        isGemini: false,
-        isLocal: true,
-      };
+      const { text, json } = normalisePayload(response.data, wantJson);
+      return { text, json, isCloud: false, isWebLLM: false, isGemini: false, isLocal: true };
     }
     throw new Error(response?.error || 'Local AI generation failed');
   }
@@ -491,38 +574,68 @@ export function getUnavailableStatusMessage(availability) {
 /**
  * Set a status bar element to reflect AI unavailability.
  *
- * When `needsWebLLMInit` is true the bar becomes clickable — clicking it sends
- * OPEN_AI_SETUP so the user lands directly in the AI setup wizard. The bar
- * also gets a hover underline (via `data-assist-clickable` attribute) to
- * signal interactivity. The caller is responsible for adding the
- * `data-assist-clickable` CSS rule to their panel styles:
+ * When `needsWebLLMInit` is true the message is offered as a control that opens the AI setup
+ * wizard (OPEN_AI_SETUP): a `role="button"` element inside the status bar, focusable, and wired
+ * with `attachAccessibleHandler` so Enter and Space work as well as the pointer. It lives inside
+ * the bar rather than on it because the bar is the panel's `role="status"` live region, and giving
+ * the bar itself a button role would stop its messages being announced. Anything that rewrites
+ * the bar, this function included, removes the control; the handler's cleanup is kept on the bar
+ * and run before the bar is redrawn. The control carries `data-assist-clickable`, and each panel
+ * styles it:
  *
- *   [data-assist-clickable]:hover { text-decoration: underline; }
+ *   .<baseClass> [data-assist-clickable]:hover { text-decoration: underline; }
+ *   .<baseClass> [data-assist-clickable]:focus-visible { outline: ... }
  *
  * @param {HTMLElement}    statusBar    - The status-bar element to update
  * @param {AIAvailability} availability - Result of checkAIAvailable()
  * @param {string}         baseClass    - The element's base CSS class (e.g. 'assist-summary-status')
  */
 export function setAIStatusBar(statusBar, availability, baseClass) {
+  if (typeof statusBar._aiActionCleanup === 'function') {
+    statusBar._aiActionCleanup();
+  }
+  statusBar._aiActionCleanup = null;
+
   statusBar.className = `${baseClass} visible`;
-  statusBar.textContent = getUnavailableStatusMessage(availability);
+  const message = getUnavailableStatusMessage(availability);
 
-  // Clean up any previous click handler
-  if (statusBar._aiClickHandler) {
-    statusBar.removeEventListener('click', statusBar._aiClickHandler);
-    statusBar._aiClickHandler = null;
+  if (!availability.needsWebLLMInit) {
+    statusBar.textContent = message;
+    return;
   }
 
-  if (availability.needsWebLLMInit) {
-    statusBar.style.cursor = 'pointer';
-    statusBar.title = 'Open AI settings';
-    statusBar.setAttribute('data-assist-clickable', '');
-    const handler = () => chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' });
-    statusBar._aiClickHandler = handler;
-    statusBar.addEventListener('click', handler);
-  } else {
-    statusBar.style.cursor = '';
-    statusBar.title = '';
-    statusBar.removeAttribute('data-assist-clickable');
-  }
+  const action = document.createElement('span');
+  action.setAttribute('role', 'button');
+  action.setAttribute('tabindex', '0');
+  action.setAttribute('data-assist-clickable', '');
+  action.title = 'Open AI settings';
+  action.style.cursor = 'pointer';
+  action.textContent = message;
+  statusBar.replaceChildren(action);
+  statusBar._aiActionCleanup = attachAccessibleHandler(action, 'Open AI settings', () =>
+    chrome.runtime.sendMessage({ action: 'OPEN_AI_SETUP' })
+  );
+}
+
+/**
+ * The sentence to show the student when an AI request fails.
+ *
+ * The service worker rejects with a plain, actionable sentence — which model to install and
+ * where — and that sentence is the whole reason for showing a failure instead of quietly
+ * dropping to an on-device answer. Anything that is not a plain sentence (a DOMException, a
+ * stack, an empty or missing message) is replaced with wording the student can act on.
+ *
+ * Lives here because all eight AI feature panels need exactly this, and all eight had a
+ * byte-identical private copy of it.
+ *
+ * @param {unknown} error - Whatever the request threw.
+ * @returns {string} One sentence, safe to show.
+ */
+export function getFailureMessage(error) {
+  const message =
+    error && typeof error.message === 'string' && !(error instanceof DOMException)
+      ? error.message.split(/\r?\n/)[0].trim()
+      : '';
+
+  return message || 'The AI request did not finish. Check your AI settings and try again.';
 }

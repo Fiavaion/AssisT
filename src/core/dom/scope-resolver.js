@@ -192,6 +192,149 @@ function collectPageText() {
 }
 
 /**
+ * A leaf is either a whole text-block element or a slice of one,
+ * `{ element, start, end }`, where the offsets index `element.textContent`.
+ * Character offsets (unlike Range boundaries) survive the highlighter wrapping
+ * and unwrapping the block's text nodes, so a restarted read still lines up.
+ */
+export function leafSlice(leaf) {
+  if (leaf instanceof HTMLElement) {
+    return { element: leaf, start: 0, end: leaf.textContent.length };
+  }
+  return leaf;
+}
+
+/** The words a leaf contributes to the speech text. */
+export function leafText(leaf) {
+  const { element, start, end } = leafSlice(leaf);
+  return element.textContent.slice(start, end).trim();
+}
+
+function isInsideEditable(el) {
+  return (
+    el.isContentEditable === true ||
+    !!el.closest('[contenteditable]:not([contenteditable="false"])')
+  );
+}
+
+function blockOf(textNode) {
+  const parent = textNode.parentElement;
+  return (
+    parent.closest(TEXT_LEAF_SELECTOR) ||
+    parent.closest(PARAGRAPH_ANCESTOR_TAGS.join(',')) ||
+    parent
+  );
+}
+
+function commonAncestor(elements) {
+  let ancestor = elements[0];
+  while (!elements.every(el => ancestor.contains(el))) {
+    ancestor = ancestor.parentElement;
+  }
+  return ancestor;
+}
+
+/**
+ * Resolve a selection Range to { element, text, leaves } for reading aloud.
+ *
+ * Only the selected characters are read: the first and last text nodes are
+ * clipped to the range offsets, and a range that ends at offset 0 of the next
+ * block (what a triple-click produces) contributes nothing from that block.
+ * Each block the selection touches becomes one slice leaf, in document order,
+ * and `element` is the tightest element holding them all.
+ *
+ * Selected text inside an editable region is still read, but with `leaves`
+ * null so the highlighter never rewraps a student's draft.
+ *
+ * @param {Range} range
+ * @returns {{element: HTMLElement, text: string, leaves: Object[]|null} | null}
+ */
+export function resolveSelectionTarget(range) {
+  const root = range.commonAncestorContainer;
+  const textNodes = [];
+  if (root.nodeType === Node.TEXT_NODE) {
+    textNodes.push(root);
+  } else {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (range.intersectsNode(node)) {
+        textNodes.push(node);
+      }
+    }
+  }
+
+  const pieces = [];
+  for (const node of textNodes) {
+    const start = node === range.startContainer ? range.startOffset : 0;
+    const end = node === range.endContainer ? range.endOffset : node.length;
+    if (end > start && node.parentElement) {
+      pieces.push({ node, start, end });
+    }
+  }
+  if (pieces.length === 0) {
+    return null;
+  }
+
+  const readable = pieces.filter(({ node }) => !isInsideEditable(node.parentElement));
+  if (readable.length === 0) {
+    const text = range.toString().trim();
+    const elements = pieces.map(({ node }) => node.parentElement);
+    return text ? { element: commonAncestor(elements), text, leaves: null } : null;
+  }
+
+  // Whitespace between blocks (source indentation) belongs to the container,
+  // and would otherwise make the container absorb every paragraph below.
+  const worded = readable.filter(({ node, start, end }) => /\S/.test(node.data.slice(start, end)));
+  if (worded.length === 0) {
+    return null;
+  }
+
+  // A block that contains another touched block (direct text beside a nested
+  // paragraph) absorbs it, so no text is wrapped twice.
+  const blocks = worded.map(({ node }) => blockOf(node));
+  const unique = [...new Set(blocks)];
+  const outermost = new Map(
+    unique.map(block => [
+      block,
+      unique.reduce((outer, b) => (b.contains(outer) ? b : outer), block),
+    ])
+  );
+
+  const offsets = new Map();
+  const offsetWithin = (element, textNode) => {
+    if (!offsets.has(textNode)) {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+      let offset = 0;
+      let node;
+      while ((node = walker.nextNode())) {
+        offsets.set(node, offset);
+        offset += node.length;
+      }
+    }
+    return offsets.get(textNode);
+  };
+
+  const leaves = [];
+  worded.forEach(({ node, start, end }, i) => {
+    const element = outermost.get(blocks[i]);
+    const nodeOffset = offsetWithin(element, node);
+    const last = leaves[leaves.length - 1];
+    if (last && last.element === element) {
+      last.end = nodeOffset + end;
+    } else {
+      leaves.push({ element, start: nodeOffset + start, end: nodeOffset + end });
+    }
+  });
+
+  return {
+    element: commonAncestor(leaves.map(leaf => leaf.element)),
+    text: leaves.map(leafText).join('\n\n'),
+    leaves,
+  };
+}
+
+/**
  * Resolve the clicked element to a readable target based on scope.
  *
  * @param {HTMLElement} clickedEl - the element the user clicked

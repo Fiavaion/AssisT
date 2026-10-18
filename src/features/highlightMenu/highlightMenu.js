@@ -19,13 +19,26 @@
  * @module features/highlightMenu
  */
 
-import { attachQuietHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { captureFromSelection } from '../mindMap/capture.js';
+import { createCardFromSelection } from '../flashcards/flashcards-ui.js';
+import { COMPANION_STORAGE_KEY } from '../companion/companion-settings.js';
+import { selectionContainer } from '../../utils/dialog-return-focus.js';
+import { showToast } from '../../core/ui/toast.js';
 
 let highlightMenu_toolbar = null;
 let highlightMenu_selectedText = '';
 let highlightMenu_selectionRange = null;
 let highlightMenu_autoHideTimeout = null;
 let highlightMenu_currentFocusIndex = 0;
+let highlightMenu_returnFocus = null; // where keyboard focus was before Tab entered the menu
+let highlightMenu_announceTimeout = null;
+/**
+ * The buttons activate on mousedown, but the menu is shown from a document-level mouseup.
+ * Without this, the mouseup that completes the very same click found the selection still in
+ * place and put the menu straight back — over the RSVP overlay it had just opened.
+ */
+let highlightMenu_suppressNextSelection = false;
 const highlightMenu_settings = {
   enabled: true,
   compactMode: true, // Compact mode (icons only) vs descriptive mode (icons + labels)
@@ -34,12 +47,16 @@ const highlightMenu_settings = {
   showTranslate: true,
   showAnnotate: true,
   showSaveCitation: true, // Save selected text as citation
+  showMindMap: true, // Send selected text to a mind map
   showSummarize: true, // AI summarization (LLM Edition)
   showSimplify: true, // AI text simplification (LLM Edition)
   showBreakdown: true, // AI assignment breakdown (LLM Edition)
   showSocraticTutor: true, // AI Socratic questioning (LLM Edition)
   showKnowledgeGraph: true, // AI knowledge graph visualization
   showSpeedRead: true, // RSVP speed reading (modular system)
+  showFlashcard: true, // Make a spaced-repetition card from the selection
+  mindMapEnabled: true, // assist_settings.mindMap.enabled — the student's own switch, default on
+  flashcardsEnabled: true, // companionFeatures.flashcards — the student's own switch, default on
   showCitationAnalyzer: true, // AI citation/source analysis
   showMultiDocCompare: true, // Multi-document comparison
   showStudyPath: true, // Study path generator
@@ -50,13 +67,58 @@ const highlightMenu_settings = {
   webllmEnabled: false, // Browser AI (WebLLM) enabled
 };
 
+/** AssisT surfaces named by id or by a marker attribute; any element inside one is AssisT's. */
+const HIGHLIGHT_MENU_ASSIST_SURFACES =
+  '[id^="assist-"], [data-assist-consent-panel], [data-assist-consent-window-note]';
+
+/** Reading Mode's copy of the article is the page's text, shown larger: the menu works there. */
+const HIGHLIGHT_MENU_READING_SURFACE = '#assist-reading-mode-content';
+
+/**
+ * Is this node part of AssisT's own UI rather than the page? Most surfaces carry an `assist-`
+ * id; the rest (sticky notes, the action tray, the mic button, the LMS buttons) are named only
+ * by an `assist-` class on their root, which sits directly on <body>.
+ *
+ * @param {Node|null} node
+ * @returns {boolean}
+ */
+function highlightMenu_isAssistUI(node) {
+  const element = node instanceof Element ? node : node?.parentElement;
+  if (!element || element.closest(HIGHLIGHT_MENU_READING_SURFACE)) {
+    return false;
+  }
+  if (element.closest(HIGHLIGHT_MENU_ASSIST_SURFACES)) {
+    return true;
+  }
+  let root = element;
+  while (root.parentElement && root.parentElement !== document.body) {
+    root = root.parentElement;
+  }
+  return (
+    root.parentElement === document.body &&
+    Array.from(root.classList).some(name => name.startsWith('assist-'))
+  );
+}
+
 /**
  * Handles text selection (mouseup event)
  *
- * @param {MouseEvent} _event - Mouse event (unused)
+ * @param {MouseEvent|KeyboardEvent} event - The mouseup or keyup that may have made a selection
  */
-function highlightMenu_handleSelection(_event) {
+function highlightMenu_handleSelection(event) {
   if (!highlightMenu_settings.enabled) {
+    return;
+  }
+
+  // An action has just run on this click: its own mouseup must not re-open the menu.
+  if (highlightMenu_suppressNextSelection) {
+    highlightMenu_suppressNextSelection = false;
+    return;
+  }
+
+  // The menu is for the page's text. A press inside AssisT's own UI (Speed Read keeps the page
+  // selection while its buttons are used) or words selected inside a panel never open it.
+  if (highlightMenu_isAssistUI(event?.target)) {
     return;
   }
 
@@ -73,6 +135,15 @@ function highlightMenu_handleSelection(_event) {
   // Hide toolbar if no text selected
   if (!text || text.length === 0) {
     highlightMenu_hide();
+    return;
+  }
+
+  // Only a selection wholly inside AssisT's UI is AssisT's. Chrome ends a triple-click at the start
+  // of whatever follows the paragraph, which on a course page is often AssisT's capture bar.
+  if (
+    highlightMenu_isAssistUI(selection.anchorNode) &&
+    highlightMenu_isAssistUI(selection.focusNode)
+  ) {
     return;
   }
 
@@ -328,12 +399,35 @@ function highlightMenu_createToolbar() {
       index: buttonIndex++,
     });
   }
+  // Offered only while the mind map is switched on: with it off the button used to send the
+  // note into a feature that was not there and the student saw nothing happen at all.
+  if (highlightMenu_settings.showMindMap && highlightMenu_settings.mindMapEnabled) {
+    allButtons.push({
+      icon: '🧠',
+      label: 'Map',
+      fullLabel: 'Add to mind map',
+      handler: highlightMenu_handleAddToMindMap,
+      index: buttonIndex++,
+    });
+  }
   if (highlightMenu_settings.showSpeedRead) {
     allButtons.push({
       icon: '⚡',
       label: 'Speed',
       fullLabel: 'Speed Read (RSVP)',
       handler: highlightMenu_handleSpeedRead,
+      index: buttonIndex++,
+    });
+  }
+  // The only route into flashcards for a student who has none yet: the floating "Cards ready"
+  // card mounts only once a card is due, so without this entry a fresh profile could never make
+  // a first card. Offered only while the support is switched on.
+  if (highlightMenu_settings.showFlashcard && highlightMenu_settings.flashcardsEnabled) {
+    allButtons.push({
+      icon: '🃏',
+      label: 'Card',
+      fullLabel: 'Make a flashcard',
+      handler: highlightMenu_handleFlashcard,
       index: buttonIndex++,
     });
   }
@@ -484,12 +578,56 @@ function highlightMenu_createButton(icon, shortLabel, fullLabel, onClick, index)
   labelSpan.textContent = shortLabel;
   button.appendChild(labelSpan);
 
-  // Attach event handler using shared utility (provides race-condition prevention, logging, error handling)
-  attachQuietHandler(button, `HighlightMenu ${fullLabel}`, () => {
-    onClick();
-  });
+  // Mousedown (with preventDefault, so the page selection survives) plus Enter/Space.
+  attachAccessibleHandler(
+    button,
+    `HighlightMenu ${fullLabel}`,
+    event => {
+      onClick();
+      // Only a mouse press has a mouseup still to come; after Enter or Space the student's
+      // next mouse selection must open the menu.
+      if (event.type === 'keydown') {
+        highlightMenu_suppressNextSelection = false;
+      }
+    },
+    { enableVisualFeedback: false }
+  );
 
   return button;
+}
+
+/**
+ * Speaks a short message to screen readers through a visually hidden polite
+ * status region that lives outside the menu, so rebuilding the menu does not
+ * re-announce it. The text is written a tick after the region exists, so a
+ * region created on this call is still announced. An empty message clears it,
+ * so the next opening is a change that gets announced.
+ *
+ * @param {string} message - Text to announce, or '' to clear
+ */
+function highlightMenu_announce(message) {
+  clearTimeout(highlightMenu_announceTimeout);
+  let region = document.getElementById('assist-hm-status');
+  if (!region && !message) {
+    return;
+  }
+  if (!region) {
+    region = document.createElement('div');
+    region.id = 'assist-hm-status';
+    region.setAttribute('role', 'status');
+    region.setAttribute('aria-live', 'polite');
+    region.style.cssText =
+      'position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;' +
+      'overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
+    document.body.appendChild(region);
+  }
+  if (!message) {
+    region.textContent = '';
+    return;
+  }
+  highlightMenu_announceTimeout = setTimeout(() => {
+    region.textContent = message;
+  }, 50);
 }
 
 /**
@@ -498,9 +636,11 @@ function highlightMenu_createButton(icon, shortLabel, fullLabel, onClick, index)
  * @param {DOMRect} selectionRect - Selection bounding rectangle
  */
 function highlightMenu_show(selectionRect) {
-  // Remove existing toolbar
+  // Remove existing toolbar; a menu that was already open is not announced again
   if (highlightMenu_toolbar) {
     highlightMenu_toolbar.remove();
+  } else {
+    highlightMenu_announce('AssisT tools available. Press Tab to use them, Escape to close.');
   }
 
   // Create new toolbar
@@ -514,6 +654,9 @@ function highlightMenu_show(selectionRect) {
       highlightMenu_autoHideTimeout = null;
     }
   };
+
+  // A keyboard user inside the menu gets as long as they need (SC 2.2.1).
+  highlightMenu_toolbar.addEventListener('focusin', highlightMenu_toolbar.onmouseenter);
 
   // Resume auto-hide when mouse leaves toolbar
   highlightMenu_toolbar.onmouseleave = () => {
@@ -565,17 +708,24 @@ function highlightMenu_show(selectionRect) {
 }
 
 /**
- * Hides the toolbar
+ * Hides the toolbar. If keyboard focus was inside it, focus goes back to where it was before
+ * the student entered the menu; a dialog an action opens afterwards still takes focus itself.
  */
 function highlightMenu_hide() {
   if (highlightMenu_toolbar) {
+    const focusWasInside = highlightMenu_toolbar.contains(document.activeElement);
     highlightMenu_toolbar.remove();
     highlightMenu_toolbar = null;
+    if (focusWasInside && highlightMenu_returnFocus?.isConnected) {
+      highlightMenu_returnFocus.focus({ preventScroll: true });
+    }
   }
 
   highlightMenu_selectedText = '';
   highlightMenu_selectionRange = null;
   highlightMenu_currentFocusIndex = 0;
+  highlightMenu_returnFocus = null;
+  highlightMenu_announce('');
 
   if (highlightMenu_autoHideTimeout) {
     clearTimeout(highlightMenu_autoHideTimeout);
@@ -584,7 +734,53 @@ function highlightMenu_hide() {
 }
 
 /**
- * Handles keyboard navigation within the toolbar
+ * Hides the toolbar after one of its actions has run, and keeps it hidden for the rest of
+ * that click. The selection survives the action (RSVP reads it, the citation keeps it), so
+ * the mouseup completing the press would otherwise be read as a brand new selection.
+ */
+function highlightMenu_dismiss() {
+  highlightMenu_suppressNextSelection = true;
+  highlightMenu_hide();
+}
+
+/**
+ * Say something to the student about an action they just took.
+ *
+ * Forced past the "minimize clutter" setting: these are answers to something the student did,
+ * not feature chatter, and the toast's role="status" is the only way the words are announced.
+ *
+ * @param {string} message - One plain sentence.
+ */
+function highlightMenu_tell(message) {
+  showToast(message, 4000, { force: true });
+}
+
+/**
+ * Hand the selection over to an action that opens a dialog.
+ *
+ * The menu goes first, before the dialog exists: it used to float over the Annotation and
+ * Translation dialogs and Tab walked straight out of the dialog onto its buttons. Hiding the
+ * menu clears the stored selection, so the text and a clone of the range are taken first, and
+ * the element the selection sits in travels with them — that is where the dialog puts focus
+ * back, since the button that opened it is gone by the time the dialog closes.
+ *
+ * @param {(text: string, range: Range|null, returnFocus: HTMLElement|null) => void} action
+ */
+function highlightMenu_openDialog(action) {
+  const text = highlightMenu_selectedText;
+  const range = highlightMenu_selectionRange ? highlightMenu_selectionRange.cloneRange() : null;
+  const returnFocus = selectionContainer(range);
+
+  highlightMenu_dismiss();
+
+  action(text, range, returnFocus);
+}
+
+/**
+ * Keyboard support, following the WAI-ARIA toolbar pattern: Tab enters the menu on its
+ * current button, arrow keys and Home/End move inside it, Enter and Space activate (bound on
+ * each button), Tab or Escape leaves. Keys pressed outside the menu are left to the page, so
+ * Shift+Arrow can keep extending the selection.
  *
  * @param {KeyboardEvent} event - Keyboard event
  */
@@ -594,182 +790,235 @@ function highlightMenu_handleKeyboardNav(event) {
   }
 
   const buttons = Array.from(highlightMenu_toolbar.querySelectorAll('.assist-hm-btn'));
-  const totalButtons = buttons.length;
+  if (buttons.length === 0) {
+    return;
+  }
+  const inside = highlightMenu_toolbar.contains(document.activeElement);
 
-  if (totalButtons === 0) {
+  if (event.key === 'Escape') {
+    if (inside) {
+      event.preventDefault();
+    }
+    highlightMenu_hide();
     return;
   }
 
-  let handled = false;
-
-  switch (event.key) {
-    case 'Tab':
+  if (!inside) {
+    if (event.key === 'Tab' && !event.shiftKey) {
       event.preventDefault();
-      if (event.shiftKey) {
-        // Shift+Tab: move backward
-        highlightMenu_currentFocusIndex =
-          (highlightMenu_currentFocusIndex - 1 + totalButtons) % totalButtons;
-      } else {
-        // Tab: move forward
-        highlightMenu_currentFocusIndex = (highlightMenu_currentFocusIndex + 1) % totalButtons;
-      }
-      handled = true;
-      break;
-
-    case 'ArrowRight':
-      event.preventDefault();
-      highlightMenu_currentFocusIndex = (highlightMenu_currentFocusIndex + 1) % totalButtons;
-      handled = true;
-      break;
-
-    case 'ArrowLeft':
-      event.preventDefault();
-      highlightMenu_currentFocusIndex =
-        (highlightMenu_currentFocusIndex - 1 + totalButtons) % totalButtons;
-      handled = true;
-      break;
-
-    case 'Escape':
-      event.preventDefault();
-      highlightMenu_hide();
-      handled = true;
-      break;
-
-    case 'Enter':
-    case ' ':
-      // Let the focused button handle the event
-      break;
+      highlightMenu_returnFocus = document.activeElement;
+      highlightMenu_focusButton(buttons, highlightMenu_currentFocusIndex);
+    }
+    return;
   }
 
-  if (handled) {
-    // Update tabindex and focus
-    buttons.forEach((btn, idx) => {
-      if (idx === highlightMenu_currentFocusIndex) {
-        btn.setAttribute('tabindex', '0');
-        btn.focus();
-      } else {
-        btn.setAttribute('tabindex', '-1');
-      }
-    });
+  const next = (highlightMenu_currentFocusIndex + 1) % buttons.length;
+  const previous = (highlightMenu_currentFocusIndex - 1 + buttons.length) % buttons.length;
+  const moves = {
+    ArrowRight: next,
+    ArrowDown: next,
+    ArrowLeft: previous,
+    ArrowUp: previous,
+    Home: 0,
+    End: buttons.length - 1,
+  };
+
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    highlightMenu_hide();
+  } else if (event.key in moves) {
+    event.preventDefault();
+    highlightMenu_focusButton(buttons, moves[event.key]);
   }
 }
 
 /**
- * Handles TTS action
+ * Roving tabindex: exactly one button is in the tab order, and it gets focus.
+ *
+ * @param {HTMLElement[]} buttons - Toolbar buttons in order
+ * @param {number} index - Button to focus
+ */
+function highlightMenu_focusButton(buttons, index) {
+  highlightMenu_currentFocusIndex = index;
+  buttons.forEach((btn, idx) => btn.setAttribute('tabindex', idx === index ? '0' : '-1'));
+  buttons[index].focus();
+}
+
+/**
+ * Opens the menu for a selection made from the keyboard (Shift+Arrow, Shift+Home/End,
+ * Ctrl/Cmd+A), without moving focus.
+ *
+ * @param {KeyboardEvent} event - Keyboard event
+ */
+function highlightMenu_handleKeyboardSelection(event) {
+  if (highlightMenu_toolbar?.contains(document.activeElement)) {
+    return;
+  }
+  const extendsSelection =
+    event.shiftKey && /^(Arrow(Left|Right|Up|Down)|Home|End|PageUp|PageDown)$/.test(event.key);
+  const selectsAll = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a';
+  if (extendsSelection || selectsAll) {
+    highlightMenu_handleSelection(event);
+  }
+}
+
+/**
+ * Reads the selected words aloud through the content script's selection
+ * reader, which highlights them word by word in the tightest block holding them.
  */
 function highlightMenu_handleTTS() {
-  console.log('[HighlightMenu] TTS action triggered');
-
-  // Check if TTS is available via readText function in content-simple.js
-  if (typeof window.readText === 'function') {
-    // Create a temporary element to pass to readText
-    // Since we're reading selected text, we'll use the selection range
-    let targetElement = document.body;
-
-    // Try to get the element that contains the selection
-    if (highlightMenu_selectionRange) {
-      const container = highlightMenu_selectionRange.commonAncestorContainer;
-      // If it's a text node, get its parent element
-      targetElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
-    }
-
-    window.readText(highlightMenu_selectedText, targetElement);
-  } else {
-    console.warn('[HighlightMenu] TTS not available');
-    alert('TTS feature not available. Please reload the page.');
+  if (typeof window.readSelection !== 'function') {
+    highlightMenu_tell('Read Aloud is not ready on this page yet. Reload the page and try again.');
+  } else if (!highlightMenu_selectionRange || !window.readSelection(highlightMenu_selectionRange)) {
+    highlightMenu_tell('There is no readable text in that selection to read aloud.');
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Dictionary action
  */
 function highlightMenu_handleDictionary() {
-  // Check if dictionary feature is available
-  if (window.assistFeatures?.dictionary?.lookup) {
-    window.assistFeatures.dictionary.lookup(highlightMenu_selectedText);
-  } else {
-    console.warn('[HighlightMenu] Dictionary feature not loaded');
-    alert('Dictionary feature not available. Please reload the page.');
-  }
-
-  highlightMenu_hide();
+  highlightMenu_openDialog((text, range, returnFocus) => {
+    if (window.assistFeatures?.dictionary?.lookup) {
+      window.assistFeatures.dictionary.lookup(text, { returnFocus });
+    } else {
+      highlightMenu_tell(
+        'The dictionary is not ready on this page yet. Reload the page and try again.'
+      );
+    }
+  });
 }
 
 /**
  * Handles Translate action
  */
 function highlightMenu_handleTranslate() {
-  console.log('[HighlightMenu] Translate action triggered');
-
-  // Check if translation UI is available
-  if (window.assistFeatures?.translationUI) {
-    // Pass no explicit language args so translationUI uses last-used pair from storage
-    window.assistFeatures.translationUI.openModal(highlightMenu_selectedText);
-  } else {
-    console.warn('[HighlightMenu] Translation UI not loaded');
-    alert('Translation feature not available. Please reload the page.');
-  }
-
-  highlightMenu_hide();
+  highlightMenu_openDialog((text, range, returnFocus) => {
+    if (window.assistFeatures?.translationUI) {
+      // No explicit language args: the dialog uses the pair the student last chose.
+      window.assistFeatures.translationUI.openModal(text, null, null, { returnFocus });
+    } else {
+      highlightMenu_tell(
+        'Translation is not ready on this page yet. Reload the page and try again.'
+      );
+    }
+  });
 }
 
 /**
  * Handles Annotate action
  */
 function highlightMenu_handleAnnotate() {
-  console.log('[HighlightMenu] Annotate action triggered');
+  highlightMenu_openDialog((text, range) => {
+    if (!window.assistFeatures?.inlineAnnotations) {
+      highlightMenu_tell(
+        'Annotations are not ready on this page yet. Reload the page and try again.'
+      );
+      return;
+    }
 
-  // Check if inline annotations feature is available
-  if (window.assistFeatures?.inlineAnnotations) {
     const { openAnnotationModal, getPositionFromRange } = window.assistFeatures.inlineAnnotations;
 
-    // Get position data from current selection
-    if (highlightMenu_selectionRange) {
-      const clonedRange = highlightMenu_selectionRange.cloneRange();
-      const position = getPositionFromRange(clonedRange);
-      openAnnotationModal(null, highlightMenu_selectedText, position, clonedRange);
-    } else {
-      console.warn('[HighlightMenu] No selection range available');
-      alert('Please select text again to annotate.');
+    if (!range) {
+      highlightMenu_tell('Select the text again to annotate it.');
+      return;
     }
-  } else {
-    console.warn('[HighlightMenu] Inline Annotations feature not loaded');
-    alert('Annotations feature not available. Please reload the page.');
-  }
 
-  highlightMenu_hide();
+    // The dialog derives its own focus return from the range it is handed.
+    openAnnotationModal(null, text, getPositionFromRange(range), range);
+  });
 }
 
 /**
  * Handles Save Citation action — saves selected text + page metadata to citation manager
  */
 function highlightMenu_handleSaveCitation() {
-  console.log('[HighlightMenu] Save Citation action triggered');
-
-  if (window.assistFeatures?.citation) {
-    window.assistFeatures.citation
-      .saveCitationFromCurrentPage(highlightMenu_selectedText)
-      .catch(err => {
+  highlightMenu_openDialog(text => {
+    if (window.assistFeatures?.citation) {
+      window.assistFeatures.citation.saveCitationFromCurrentPage(text).catch(err => {
         if (!err.message?.includes('cancelled')) {
           console.error('[HighlightMenu] Citation save error:', err);
         }
       });
-  } else {
-    console.warn('[HighlightMenu] Citation feature not loaded');
-    alert('Citation feature not available. Please reload the page.');
-  }
+    } else {
+      highlightMenu_tell(
+        'Citations are not ready on this page yet. Reload the page and try again.'
+      );
+    }
+  });
+}
 
-  highlightMenu_hide();
+/**
+ * Handles Add to mind map — sends the selection to the service worker, which appends it to the
+ * student's chosen map (or the Inbox) and answers with the map it landed in.
+ *
+ * The node text is the short label a branch can carry; the full selection travels alongside as the
+ * quote, so the student can see the words they picked without the branch becoming a paragraph.
+ * `captureFromSelection` shapes both — a selection off a page carries the page's line breaks, and
+ * a label is one line.
+ */
+function highlightMenu_handleAddToMindMap() {
+  const { text, quote } = captureFromSelection(highlightMenu_selectedText);
+
+  chrome.runtime
+    .sendMessage({
+      type: 'MINDMAP_ADD_NODE',
+      text,
+      quote,
+      url: location.href,
+      title: document.title,
+    })
+    .then(response => {
+      // Said in words, every time. The only sign it had worked used to be a console line,
+      // and window.showToast is not there on every page the content script runs on.
+      if (response?.success) {
+        highlightMenu_tell(`Added to your mind map ${response.mapTitle || 'Inbox'}.`);
+      } else {
+        // response.error is the developer's message; the student gets a sentence.
+        console.error('[HighlightMenu] Mind map add failed:', response?.error);
+        highlightMenu_tell('Could not add that to a mind map. Try again.');
+      }
+    })
+    .catch(error => {
+      console.error('[HighlightMenu] Mind map add error:', error);
+      highlightMenu_tell('Could not add that to a mind map. Try again.');
+    });
+
+  highlightMenu_dismiss();
+}
+
+/**
+ * Handles Make a flashcard — turns the selected words into a spaced-repetition card.
+ *
+ * The text is taken before the menu goes away: dismissing it clears the page selection, so the
+ * card builder is handed the words rather than left to read a selection that no longer exists.
+ * The answer is said in words either way, because a card lands in storage with nothing on screen
+ * to show for it.
+ */
+function highlightMenu_handleFlashcard() {
+  const text = highlightMenu_selectedText;
+  highlightMenu_dismiss();
+
+  createCardFromSelection(text)
+    .then(result => {
+      highlightMenu_tell(
+        result.created
+          ? 'Card saved — it will come up for review.'
+          : result.reason || 'Could not make a card from those words.'
+      );
+    })
+    .catch(error => {
+      console.error('[HighlightMenu] Flashcard create error:', error);
+      highlightMenu_tell('Could not make a card from those words.');
+    });
 }
 
 /**
  * Handles Summarize action (AI-powered summarization)
  */
 function highlightMenu_handleSummarize() {
-  console.log('[HighlightMenu] Summarize action triggered');
-
   // Check if summarization feature is available
   if (window.assistFeatures?.summarization) {
     // Get selection rectangle for positioning
@@ -779,23 +1028,16 @@ function highlightMenu_handleSummarize() {
 
     window.assistFeatures.summarization.start(highlightMenu_selectedText, rect);
   } else {
-    console.warn('[HighlightMenu] Summarization feature not loaded');
-    if (window.showToast) {
-      window.showToast('Summarization feature not available. Enable LLM Edition.');
-    } else {
-      alert('Summarization feature not available. Please enable LLM Edition.');
-    }
+    highlightMenu_tell('Summarize is not ready on this page yet. Reload the page and try again.');
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Simplify action (AI-powered text simplification)
  */
 function highlightMenu_handleSimplify() {
-  console.log('[HighlightMenu] Simplify action triggered');
-
   // Check if text simplification feature is available
   if (window.assistFeatures?.textSimplification) {
     // Get selection rectangle for positioning
@@ -805,23 +1047,18 @@ function highlightMenu_handleSimplify() {
 
     window.assistFeatures.textSimplification.start(highlightMenu_selectedText, rect);
   } else {
-    console.warn('[HighlightMenu] Text Simplification feature not loaded');
-    if (window.showToast) {
-      window.showToast('Text Simplification feature not available.');
-    } else {
-      alert('Text Simplification feature not available. Please reload the page.');
-    }
+    highlightMenu_tell(
+      'Simplify Text is not ready on this page yet. Reload the page and try again.'
+    );
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Breakdown action (AI-powered assignment breakdown)
  */
 function highlightMenu_handleBreakdown() {
-  console.log('[HighlightMenu] Breakdown action triggered');
-
   // Check if assignment breakdown feature is available
   if (window.assistFeatures?.assignmentBreakdown) {
     // Get selection rectangle for positioning
@@ -831,142 +1068,109 @@ function highlightMenu_handleBreakdown() {
 
     window.assistFeatures.assignmentBreakdown.start(highlightMenu_selectedText, rect);
   } else {
-    console.warn('[HighlightMenu] Assignment Breakdown feature not loaded');
-    if (window.showToast) {
-      window.showToast('Assignment Breakdown feature not available.');
-    } else {
-      alert('Assignment Breakdown feature not available. Please reload the page.');
-    }
+    highlightMenu_tell(
+      'Assignment Breakdown is not ready on this page yet. Reload the page and try again.'
+    );
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Socratic Tutor action (AI-powered questioning)
  */
 function highlightMenu_handleSocraticTutor() {
-  console.log('[HighlightMenu] Socratic Tutor action triggered');
-
   // Check if socratic tutor feature is available
   if (window.assistFeatures?.socraticTutor) {
     window.assistFeatures.socraticTutor.start(highlightMenu_selectedText);
   } else {
-    console.warn('[HighlightMenu] Socratic Tutor feature not loaded');
-    if (window.showToast) {
-      window.showToast('Socratic Tutor feature not available.');
-    } else {
-      alert('Socratic Tutor feature not available. Please reload the page.');
-    }
+    highlightMenu_tell(
+      'Socratic Tutor is not ready on this page yet. Reload the page and try again.'
+    );
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Knowledge Graph action (concept visualization)
  */
 function highlightMenu_handleKnowledgeGraph() {
-  console.log('[HighlightMenu] Knowledge Graph action triggered');
-
   // Check if knowledge graph feature is available
   if (window.assistFeatures?.knowledgeGraph) {
     window.assistFeatures.knowledgeGraph.start(highlightMenu_selectedText);
   } else {
-    console.warn('[HighlightMenu] Knowledge Graph feature not loaded');
-    if (window.showToast) {
-      window.showToast('Knowledge Graph feature not available.');
-    } else {
-      alert('Knowledge Graph feature not available. Please reload the page.');
-    }
+    highlightMenu_tell(
+      'Knowledge Graph is not ready on this page yet. Reload the page and try again.'
+    );
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Speed Read action (RSVP) - Calls new modular RSVP API
  */
 function highlightMenu_handleSpeedRead() {
-  console.log('[HighlightMenu] Speed Read (RSVP) action triggered');
-
-  if (window.assistFeatures?.rsvp) {
-    window.assistFeatures.rsvp.start(highlightMenu_selectedText);
-  } else {
-    console.warn('[HighlightMenu] RSVP feature not loaded');
-    if (window.showToast) {
-      window.showToast('Speed Read feature not available. Please reload the page.');
+  // A full-screen modal, so it goes through openDialog like the others: the menu is taken down
+  // first and the overlay is told where to put focus back, since this button will be gone.
+  highlightMenu_openDialog((text, _range, returnFocus) => {
+    if (window.assistFeatures?.rsvp) {
+      window.assistFeatures.rsvp.start(text, { returnFocus });
     } else {
-      alert('Speed Read feature not available. Please reload the page.');
+      highlightMenu_tell(
+        'Speed Read is not ready on this page yet. Reload the page and try again.'
+      );
     }
-  }
-
-  highlightMenu_hide();
+  });
 }
 
 /**
  * Handles Citation Analyzer action (AI source evaluation)
  */
 function highlightMenu_handleCitationAnalyzer() {
-  console.log('[HighlightMenu] Citation Analyzer action triggered');
-
   // Check if citation analyzer feature is available
   if (window.assistFeatures?.citationAnalyzer) {
     window.assistFeatures.citationAnalyzer.start(highlightMenu_selectedText);
   } else {
-    console.warn('[HighlightMenu] Citation Analyzer feature not loaded');
-    if (window.showToast) {
-      window.showToast('Citation Analyzer feature not available.');
-    } else {
-      alert('Citation Analyzer feature not available. Please reload the page.');
-    }
+    highlightMenu_tell(
+      'Citation Analyzer is not ready on this page yet. Reload the page and try again.'
+    );
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Multi-Document Compare action (add selection to comparison)
  */
 function highlightMenu_handleMultiDocCompare() {
-  console.log('[HighlightMenu] Multi-Doc Compare action triggered');
-
   // Check if multi-doc compare feature is available
   if (window.assistFeatures?.multiDocCompare) {
     // Show panel with current selection added
     window.assistFeatures.multiDocCompare.show(highlightMenu_selectedText);
   } else {
-    console.warn('[HighlightMenu] Multi-Document Compare feature not loaded');
-    if (window.showToast) {
-      window.showToast('Multi-Document Compare feature not available.');
-    } else {
-      alert('Multi-Document Compare feature not available. Please reload the page.');
-    }
+    highlightMenu_tell(
+      'Compare Documents is not ready on this page yet. Reload the page and try again.'
+    );
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
  * Handles Study Path Generator action (generate learning path from content)
  */
 function highlightMenu_handleStudyPath() {
-  console.log('[HighlightMenu] Study Path Generator action triggered');
-
   // Check if study path generator feature is available
   if (window.assistFeatures?.studyPathGenerator) {
     // Show panel and generate path from selected text
     window.assistFeatures.studyPathGenerator.show(highlightMenu_selectedText);
   } else {
-    console.warn('[HighlightMenu] Study Path Generator feature not loaded');
-    if (window.showToast) {
-      window.showToast('Study Path Generator feature not available.');
-    } else {
-      alert('Study Path Generator feature not available. Please reload the page.');
-    }
+    highlightMenu_tell('Study Path is not ready on this page yet. Reload the page and try again.');
   }
 
-  highlightMenu_hide();
+  highlightMenu_dismiss();
 }
 
 /**
@@ -978,11 +1182,16 @@ function highlightMenu_init() {
   // Add mouseup listener for text selection
   document.addEventListener('mouseup', highlightMenu_handleSelection);
 
-  // Add keyboard navigation listener
+  // Add keyboard navigation listener, and open the menu for keyboard selections
   document.addEventListener('keydown', highlightMenu_handleKeyboardNav);
+  document.addEventListener('keyup', highlightMenu_handleKeyboardSelection);
 
   // Hide toolbar when clicking outside (bubble phase - runs AFTER button handlers)
   document.addEventListener('mousedown', e => {
+    // A press that did not come from a menu button starts a fresh gesture, so any
+    // suppression left over from a keyboard activation ends here.
+    highlightMenu_suppressNextSelection = false;
+
     // Don't hide if clicking on the toolbar or its buttons
     // Note: If button handler called stopPropagation(), this won't run
     if (highlightMenu_toolbar && !highlightMenu_toolbar.contains(e.target)) {
@@ -994,6 +1203,8 @@ function highlightMenu_init() {
   chrome.storage.local.get(
     [
       'highlightMenuSettings',
+      'assist_settings',
+      COMPANION_STORAGE_KEY,
       'aiMode',
       'llmEnabled',
       'cloudModeEnabled',
@@ -1003,8 +1214,17 @@ function highlightMenu_init() {
     result => {
       if (result.highlightMenuSettings) {
         Object.assign(highlightMenu_settings, result.highlightMenuSettings);
-        console.log('[HighlightMenu] Settings loaded:', highlightMenu_settings);
+        console.log(
+          '[HighlightMenu] Settings loaded:',
+          Object.keys(highlightMenu_settings).join(', ')
+        );
       }
+
+      highlightMenu_settings.mindMapEnabled = result.assist_settings?.mindMap?.enabled !== false;
+      // Companion toggles default ON, so an absent key is on — same reading as
+      // companion-settings.js applies when it merges its defaults.
+      highlightMenu_settings.flashcardsEnabled =
+        result[COMPANION_STORAGE_KEY]?.flashcards !== false;
 
       // Derive AI enabled states from unified aiMode OR legacy flags
       // This ensures compatibility with both old and new storage patterns
@@ -1040,7 +1260,26 @@ function highlightMenu_init() {
     if (area === 'local') {
       if (changes.highlightMenuSettings) {
         Object.assign(highlightMenu_settings, changes.highlightMenuSettings.newValue);
-        console.log('[HighlightMenu] Settings updated:', highlightMenu_settings);
+        console.log(
+          '[HighlightMenu] Settings updated:',
+          Object.keys(highlightMenu_settings).join(', ')
+        );
+      }
+      if (changes.assist_settings) {
+        highlightMenu_settings.mindMapEnabled =
+          changes.assist_settings.newValue?.mindMap?.enabled !== false;
+        // Rebuilt on the next selection, so the item matches the switch straight away.
+        if (highlightMenu_toolbar) {
+          highlightMenu_hide();
+        }
+      }
+      if (changes[COMPANION_STORAGE_KEY]) {
+        highlightMenu_settings.flashcardsEnabled =
+          changes[COMPANION_STORAGE_KEY].newValue?.flashcards !== false;
+        // Rebuilt on the next selection, so the item matches the switch straight away.
+        if (highlightMenu_toolbar) {
+          highlightMenu_hide();
+        }
       }
       if (changes.llmEnabled) {
         highlightMenu_settings.llmEnabled = changes.llmEnabled.newValue;
@@ -1109,6 +1348,7 @@ function highlightMenu_init() {
     show: highlightMenu_show,
     hide: highlightMenu_hide,
     settings: highlightMenu_settings,
+    cleanup: highlightMenu_cleanup,
   };
 
   console.log('[HighlightMenu] Feature initialized');
@@ -1122,20 +1362,10 @@ function highlightMenu_cleanup() {
   highlightMenu_hide();
   document.removeEventListener('mouseup', highlightMenu_handleSelection);
   document.removeEventListener('keydown', highlightMenu_handleKeyboardNav);
+  document.removeEventListener('keyup', highlightMenu_handleKeyboardSelection);
 }
 
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {
   highlightMenu_init();
-}
-
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    highlightMenu_init,
-    highlightMenu_cleanup,
-    highlightMenu_show,
-    highlightMenu_hide,
-    highlightMenu_handleSelection,
-  };
 }

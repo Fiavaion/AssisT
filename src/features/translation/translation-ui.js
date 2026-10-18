@@ -22,16 +22,22 @@
  * - Self-contained module following Feature Isolation Pattern
  * - All functions prefixed with 'translationUI_' to avoid naming conflicts
  * - Uses translation API via window.assistFeatures.translation
- * - Uses TTS controller via window.assistFeatures.tts or window.readText
+ * - Reads text aloud through the shared speech helper, in the text's own language
  *
  * @module features/translation/translation-ui
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
 import { Z } from '../../utils/z-index.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog } from '../../utils/dialog-return-focus.js';
+import { createDeclinedNotice } from '../../utils/consent-panel.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
 let translationUI_modal = null;
+let translationUI_releaseFocus = null;
+let translationUI_returnFocus = null;
 let translationUI_recentLanguages = [];
 let translationUI_currentSourceLang = 'auto';
 let translationUI_currentTargetLang = 'en';
@@ -195,7 +201,7 @@ function translationUI_createModal(originalText, translatedText = '') {
   `;
   closeButton.onmouseenter = () => (closeButton.style.background = '#e0e0e0');
   closeButton.onmouseleave = () => (closeButton.style.background = 'none');
-  attachInteractiveHandler(closeButton, 'Translation Close Button', () =>
+  attachAccessibleHandler(closeButton, 'Translation Close Button', () =>
     translationUI_closeModal()
   );
 
@@ -293,7 +299,7 @@ function translationUI_createModal(originalText, translatedText = '') {
   `;
   translateButton.onmouseenter = () => (translateButton.style.background = '#2563eb');
   translateButton.onmouseleave = () => (translateButton.style.background = '#3b82f6');
-  attachInteractiveHandler(translateButton, 'Translation Translate Button', () =>
+  attachAccessibleHandler(translateButton, 'Translation Translate Button', () =>
     translationUI_handleTranslate()
   );
 
@@ -316,8 +322,25 @@ function translationUI_createModal(originalText, translatedText = '') {
   footer.appendChild(targetContainer);
   footer.appendChild(translateButton);
 
+  /*
+   * Anything that goes wrong is said here, in a sentence, and announced. It used to be painted
+   * into the result box in red - silent to a screen reader, and the student was handed the
+   * provider's own words with "Error:" in front of them.
+   */
+  const message = document.createElement('p');
+  message.id = 'assist-translation-message';
+  message.setAttribute('role', 'alert');
+  message.style.cssText = `
+    margin: 0;
+    padding: 0 20px;
+    color: #b91c1c;
+    font-size: 14px;
+    line-height: 1.5;
+  `;
+
   modalContent.appendChild(header);
   modalContent.appendChild(body);
+  modalContent.appendChild(message);
   modalContent.appendChild(footer);
   modal.appendChild(modalContent);
 
@@ -387,10 +410,14 @@ function translationUI_createColumn(label, text, type, langCode) {
 
   // Store reference to textarea ID for accessing current text
   const textareaId = `assist-translation-${type}-text`;
-  attachInteractiveHandler(ttsButton, 'Translation TTS Button', () => {
+  // The language chosen now, not when the dialog opened: the student may have picked another.
+  const languageSelectId =
+    type === 'translated' ? 'assist-translation-target-lang' : 'assist-translation-source-lang';
+  attachAccessibleHandler(ttsButton, 'Translation TTS Button', () => {
     const textarea = document.getElementById(textareaId);
     const currentText = textarea ? textarea.textContent : text;
-    translationUI_speakText(currentText, langCode);
+    const chosen = document.getElementById(languageSelectId)?.value;
+    translationUI_speakText(currentText, chosen || langCode);
   });
 
   actions.appendChild(ttsButton);
@@ -421,7 +448,7 @@ function translationUI_createColumn(label, text, type, langCode) {
       copyButton.style.background = 'none';
       copyButton.style.transform = 'scale(1)';
     };
-    attachInteractiveHandler(copyButton, 'Translation Copy Button', () =>
+    attachAccessibleHandler(copyButton, 'Translation Copy Button', () =>
       translationUI_copyToClipboard(text)
     );
 
@@ -530,13 +557,15 @@ function translationUI_createLanguageSelector(id, selectedLang, includeAutoDetec
  * @param {string} targetLang - Target language code (default: 'en')
  * @returns {void}
  */
-function translationUI_openModal(selectedText, sourceLang = null, targetLang = null) {
+function translationUI_openModal(selectedText, sourceLang = null, targetLang = null, options = {}) {
   console.log('[TranslationUI] Opening modal');
 
   // Close existing modal if any
   if (translationUI_modal) {
     translationUI_closeModal();
   }
+
+  translationUI_returnFocus = options.returnFocus || null;
 
   // Use persisted last-used languages if no explicit override provided
   translationUI_currentSourceLang = sourceLang || translationUI_currentSourceLang;
@@ -546,13 +575,18 @@ function translationUI_openModal(selectedText, sourceLang = null, targetLang = n
   translationUI_modal = translationUI_createModal(selectedText, '');
   document.body.appendChild(translationUI_modal);
 
-  // Auto-translate if source language is not auto-detect
-  if (sourceLang !== 'auto') {
-    setTimeout(() => translationUI_handleTranslate(), 100);
-  }
+  // aria-modal="true" says the rest of the page is unavailable, so Tab has to stay inside and
+  // Escape has to work from anywhere in the dialog (SC 2.1.2, SC 2.4.3). The highlight menu
+  // that opened this is already gone, so there is no opener to hand focus back to on close -
+  // the element the selection sits in is used instead.
+  translationUI_releaseFocus = trapFocus(translationUI_modal, {
+    onEscape: () => translationUI_closeModal(),
+    initialFocus: translationUI_modal.querySelector('#assist-translation-translate-btn'),
+  });
 
-  // Add keyboard listener for Escape key
-  document.addEventListener('keydown', translationUI_handleKeydown);
+  // Translate straight away. A pair that is already the same language costs nothing: the API
+  // answers it without a request, and the student reads why in the dialog.
+  setTimeout(() => translationUI_handleTranslate(), 100);
 }
 
 /**
@@ -561,28 +595,68 @@ function translationUI_openModal(selectedText, sourceLang = null, targetLang = n
  * @returns {void}
  */
 function translationUI_closeModal() {
-  console.log('[TranslationUI] Closing modal');
-
-  if (translationUI_modal) {
-    translationUI_modal.remove();
-    translationUI_modal = null;
+  if (!translationUI_modal) {
+    return;
   }
 
-  // Remove keyboard listener
-  document.removeEventListener('keydown', translationUI_handleKeydown);
+  console.log('[TranslationUI] Closing modal');
+
+  // Release first: the trap restores focus while the dialog is still there to move away from.
+  if (translationUI_releaseFocus) {
+    translationUI_releaseFocus();
+    translationUI_releaseFocus = null;
+  }
+
+  translationUI_modal.remove();
+  translationUI_modal = null;
+
+  returnFocusAfterDialog(translationUI_returnFocus);
+  translationUI_returnFocus = null;
 }
 
 /**
- * Handles keyboard events in modal
+ * The student-facing name of a language code.
  *
- * @param {KeyboardEvent} event - Keyboard event
+ * @param {string} code - Language code, e.g. 'en'.
+ * @returns {string} Language name, or the code itself if the dialog does not offer it.
+ */
+function translationUI_languageName(code) {
+  return LANGUAGES.find(lang => lang.code === code)?.name || code;
+}
+
+/**
+ * Show or clear the dialog's message.
+ *
+ * @param {string} message - One plain sentence, or '' to clear it.
  * @returns {void}
  */
-function translationUI_handleKeydown(event) {
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    translationUI_closeModal();
+function translationUI_setMessage(message) {
+  const region = document.getElementById('assist-translation-message');
+  if (region) {
+    region.textContent = message;
   }
+  document.getElementById('assist-translation-consent')?.remove();
+}
+
+/**
+ * The student chose not to send text to MyMemory: say that nothing was sent, and offer Allow
+ * right here, which records the yes and runs the same translation again.
+ *
+ * @returns {void}
+ */
+function translationUI_showDeclined() {
+  translationUI_setMessage('');
+  const region = document.getElementById('assist-translation-message');
+  if (!region) {
+    return;
+  }
+  const notice = createDeclinedNotice('translation', {
+    onAllowed: () => translationUI_handleTranslate(),
+  });
+  notice.id = 'assist-translation-consent';
+  notice.setAttribute('role', 'alert');
+  notice.style.cssText = 'padding: 0 20px; color: #1a1a1a; font-size: 14px;';
+  region.after(notice);
 }
 
 /**
@@ -633,6 +707,7 @@ async function translationUI_handleTranslate() {
   translateButton.style.cursor = 'not-allowed';
   translatedTextEl.textContent = 'Translating...';
   translatedTextEl.style.color = '#3b82f6';
+  translationUI_setMessage('');
 
   try {
     // Call translation API
@@ -643,23 +718,40 @@ async function translationUI_handleTranslate() {
 
     const result = await translationAPI.translate(originalText, targetLang, sourceLang);
 
-    if (result.error) {
-      translatedTextEl.textContent = `Error: ${result.error}`;
-      translatedTextEl.style.color = '#ef4444';
+    if (result.sameLanguage) {
+      // Named, because "two distinct languages" means nothing to someone who chose neither.
+      translationUI_setMessage(
+        `This text is already in ${translationUI_languageName(targetLang)}. ` +
+          'Pick another language to translate it into.'
+      );
+      translatedTextEl.textContent = 'Nothing to translate yet.';
+      translatedTextEl.style.color = '#999';
+    } else if (result.consentDeclined) {
+      translationUI_showDeclined();
+      translatedTextEl.textContent = 'Nothing to translate yet.';
+      translatedTextEl.style.color = '#999';
+    } else if (result.error) {
+      translationUI_setMessage(result.error);
+      translatedTextEl.textContent = 'Nothing to translate yet.';
+      translatedTextEl.style.color = '#999';
     } else if (result.translatedText) {
+      translationUI_setMessage('');
       translatedTextEl.textContent = result.translatedText;
       translatedTextEl.style.color = '#333';
 
       // Add to recent languages
       translationUI_addToRecentLanguages(targetLang);
     } else {
-      translatedTextEl.textContent = 'Translation failed';
-      translatedTextEl.style.color = '#ef4444';
+      translationUI_setMessage('Translation failed. Try again in a moment.');
+      translatedTextEl.textContent = 'Nothing to translate yet.';
+      translatedTextEl.style.color = '#999';
     }
   } catch (error) {
+    // The message on a thrown error is developer text; the student gets a sentence.
     console.error('[TranslationUI] Translation error:', error);
-    translatedTextEl.textContent = `Error: ${error.message}`;
-    translatedTextEl.style.color = '#ef4444';
+    translationUI_setMessage('Translation is not working just now. Try again in a moment.');
+    translatedTextEl.textContent = 'Nothing to translate yet.';
+    translatedTextEl.style.color = '#999';
   } finally {
     // Re-enable button
     translateButton.disabled = false;
@@ -694,34 +786,28 @@ async function translationUI_addToRecentLanguages(langCode) {
 }
 
 /**
- * Speaks text using TTS with specified language
+ * Reads text aloud in the language it is written in, with the student's saved voice settings
+ * (the shared speech helper picks a voice for that language, on the device where it can).
  *
  * @param {string} text - Text to speak
- * @param {string} langCode - Language code (e.g., 'en', 'es', 'fr')
- * @returns {void}
+ * @param {string} langCode - Language code (e.g., 'en', 'es', 'fr'); 'auto' means not known
+ * @returns {Promise<void>}
  */
-function translationUI_speakText(text, langCode) {
-  console.log(`[TranslationUI] Speaking text in ${langCode}: "${text.substring(0, 50)}..."`);
-
+async function translationUI_speakText(text, langCode) {
   if (!text || text === 'Click Translate to see result...') {
     console.warn('[TranslationUI] No text to speak');
     return;
   }
-
-  // Try to use existing TTS controller
-  if (window.readText && typeof window.readText === 'function') {
-    // Create a temporary element for TTS
-    const tempElement = document.createElement('div');
-    tempElement.textContent = text;
-    window.readText(text, tempElement);
-  } else if (window.speechSynthesis) {
-    // Fallback to basic speech synthesis
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = langCode;
-    window.speechSynthesis.speak(utterance);
-  } else {
+  if (!window.speechSynthesis) {
     console.error('[TranslationUI] TTS not available');
+    return;
   }
+  console.log(`[TranslationUI] Speaking ${text.length} characters in ${langCode}`);
+
+  const lang = langCode && langCode !== 'auto' ? langCode : undefined;
+  const utterance = await createSavedUtterance(text, lang ? { lang } : {});
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
 }
 
 /**
@@ -771,15 +857,4 @@ if (typeof window !== 'undefined') {
   };
 
   console.log('[TranslationUI] Module loaded');
-}
-
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    translationUI_init,
-    translationUI_openModal,
-    translationUI_closeModal,
-    translationUI_speakText,
-    translationUI_copyToClipboard,
-  };
 }

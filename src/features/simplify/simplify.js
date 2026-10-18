@@ -105,7 +105,7 @@ function simplify_generateCSS() {
     /* Pop-up and Overlay Removal */
     [class*="popup"]:not([role="dialog"]):not([aria-modal="true"]),
     [class*="pop-up"],
-    [class*="overlay"]:not(.assist-):not([data-assist]),
+    [class*="overlay"]:not([class*="assist-"]):not([data-assist]),
     [class*="modal"]:not([role="dialog"]):not([aria-modal="true"]),
     [class*="lightbox"],
     [id*="popup"],

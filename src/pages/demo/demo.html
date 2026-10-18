@@ -7,8 +7,11 @@
     <link rel="stylesheet" href="demo.css" />
   </head>
   <body>
-    <!-- AssisT Demo Banner -->
-    <div class="assist-banner" role="banner">
+    <!-- AssisT Demo Banner. A complementary landmark, not a second banner: the page's own
+         <header> below is the banner, and two of them leaves a screen-reader user choosing between
+         identical landmarks. Keeping a landmark of some kind also keeps this notice out of the
+         no-man's-land outside every landmark. -->
+    <aside class="assist-banner" aria-label="AssisT demo notice">
       <div class="banner-content">
         <span class="banner-icon" aria-hidden="true">🎯</span>
         <span class="banner-text">
@@ -18,7 +21,7 @@
           Close Demo
         </button>
       </div>
-    </div>
+    </aside>
 
     <!-- Site Header -->
     <header class="site-header">

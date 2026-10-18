@@ -1,35 +1,40 @@
 /**
  * Translation API Integration
  *
- * Provides multi-language translation using LibreTranslate (free, no API key)
- * and Google Translate (requires API key) as fallback.
+ * Translates text with MyMemory (free, no API key), through the service worker and behind the
+ * student's answer (ADR 0006). A selection and a whole page are separate questions: the caller
+ * names which it is sending.
  *
  * Features:
- * - Primary: LibreTranslate (free, open-source, no API key required)
- * - Fallback: Google Translate (requires API key from user settings)
- * - Language detection using LibreTranslate /detect endpoint
  * - Response caching (7 days, max 100 translations, LRU eviction)
  * - 30+ language support
- * - Network error handling with retry logic
+ * - Long text split into pieces MyMemory accepts
  * - Quota management and user-friendly error messages
  *
  * Architecture:
  * - Self-contained module following Feature Isolation Pattern
  * - All functions prefixed with 'translation_' to avoid naming conflicts
- * - Uses raw fetch API (no external libraries)
  *
  * @module features/translation
  */
 
+import { requestThirdParty } from '../../utils/third-party-client.js';
+
+/**
+ * MyMemory is reached through the service worker, once the student has allowed it (ADR 0006);
+ * the worker builds the request, so no address lives here.
+ */
 const API_CONFIG = {
   mymemory: {
-    baseUrl: 'https://api.mymemory.translated.net',
-    endpoints: {
-      translate: '/get',
-    },
     requiresKey: false,
     dailyLimit: 10000, // 10,000 words/day per IP (free)
   },
+};
+
+/** What a student is told when they chose not to send text to MyMemory, by what was being sent. */
+const DECLINED_MESSAGES = {
+  translation: 'Nothing was sent. You chose not to use MyMemory to translate text.',
+  pageTranslation: 'Nothing was sent. You chose not to use MyMemory to translate the whole page.',
 };
 
 let translation_settings = {
@@ -39,7 +44,6 @@ let translation_settings = {
 };
 
 let translation_cache = {}; // In-memory cache (synced to storage)
-let translation_supportedLanguages = null; // Cached language list
 let translation_isInitialized = false;
 
 /**
@@ -62,7 +66,7 @@ async function translation_init() {
 
     if (result.translationSettings) {
       translation_settings = { ...translation_settings, ...result.translationSettings };
-      console.log('[Translation] Settings loaded:', translation_settings);
+      console.log('[Translation] Settings loaded:', Object.keys(translation_settings).join(', '));
     }
 
     if (result.translationCache) {
@@ -79,8 +83,6 @@ async function translation_init() {
 
     window.assistFeatures.translation = {
       translate: translation_translate,
-      detectLanguage: translation_detectLanguage,
-      getSupportedLanguages: translation_getSupportedLanguages,
       getApiConfig: translation_getApiConfig,
       clearCache: translation_clearCache,
       getCacheStats: translation_getCacheStats,
@@ -254,109 +256,6 @@ function translation_getCacheStats() {
 }
 
 /**
- * Detects the language of the given text using LibreTranslate
- *
- * @param {string} text - Text to detect language for
- * @returns {Promise<Object>} Detection result with language code and confidence
- * @throws {Error} If detection fails
- */
-async function translation_detectLanguage(text) {
-  console.log(`[Translation] Detecting language for: "${text.substring(0, 50)}..."`);
-
-  try {
-    const response = await fetch(
-      `${API_CONFIG.libre.baseUrl}${API_CONFIG.libre.endpoints.detect}`,
-      {
-        method: 'POST',
-        signal: AbortSignal.timeout(10000),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ q: text }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    if (data.detections && data.detections.length > 0) {
-      const topDetection = data.detections[0];
-      console.log(
-        `[Translation] Language detected: ${topDetection.language} (confidence: ${topDetection.confidence})`
-      );
-      return topDetection;
-    } else {
-      throw new Error('No language detections returned');
-    }
-  } catch (error) {
-    console.error('[Translation] Language detection failed:', error);
-    throw new Error(`Language detection failed: ${error.message}`);
-  }
-}
-
-/**
- * Gets supported languages from LibreTranslate
- * Results are cached to avoid repeated API calls
- *
- * @returns {Promise<Array>} Array of language objects {code, name}
- */
-async function translation_getSupportedLanguages() {
-  // Return cached list if available
-  if (translation_supportedLanguages) {
-    console.log(
-      `[Translation] Using cached language list (${translation_supportedLanguages.length} languages)`
-    );
-    return translation_supportedLanguages;
-  }
-
-  console.log('[Translation] Fetching supported languages...');
-
-  try {
-    const response = await fetch(
-      `${API_CONFIG.libre.baseUrl}${API_CONFIG.libre.endpoints.languages}`,
-      { signal: AbortSignal.timeout(10000) }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const languages = await response.json();
-    translation_supportedLanguages = languages;
-
-    console.log(`[Translation] Supported languages loaded: ${languages.length} languages`);
-    return languages;
-  } catch (error) {
-    console.error('[Translation] Failed to load supported languages:', error);
-
-    // Return fallback list of common languages
-    console.log('[Translation] Using fallback language list');
-    const fallbackLanguages = [
-      { code: 'en', name: 'English' },
-      { code: 'es', name: 'Spanish' },
-      { code: 'fr', name: 'French' },
-      { code: 'de', name: 'German' },
-      { code: 'it', name: 'Italian' },
-      { code: 'pt', name: 'Portuguese' },
-      { code: 'nl', name: 'Dutch' },
-      { code: 'pl', name: 'Polish' },
-      { code: 'ru', name: 'Russian' },
-      { code: 'zh', name: 'Chinese' },
-      { code: 'ja', name: 'Japanese' },
-      { code: 'ko', name: 'Korean' },
-      { code: 'ar', name: 'Arabic' },
-      { code: 'hi', name: 'Hindi' },
-    ];
-
-    translation_supportedLanguages = fallbackLanguages;
-    return fallbackLanguages;
-  }
-}
-
-/**
  * Translates text using MyMemory Translation API (completely free, no API key required)
  *
  * MyMemory provides 10,000 words/day per IP address for free
@@ -367,10 +266,12 @@ async function translation_getSupportedLanguages() {
  * @param {string} text - Text to translate
  * @param {string} targetLang - Target language code (ISO 639-1, e.g. 'es', 'fr')
  * @param {string} sourceLang - Source language code (default: 'en')
+ * @param {{destination: string, ask: boolean}} request - what is being sent, and whether an
+ *   unanswered question may open the consent panel
  * @returns {Promise<Object>} Translation result {translatedText, engine, fromCache}
  * @throws {Error} If translation fails
  */
-async function translation_translateWithMyMemory(text, targetLang, sourceLang = 'en') {
+async function translation_translateWithMyMemory(text, targetLang, sourceLang, request) {
   console.log(`[Translation] MyMemory: ${sourceLang} → ${targetLang}`);
 
   // MyMemory has a 500 character limit - split long texts into chunks
@@ -378,7 +279,7 @@ async function translation_translateWithMyMemory(text, targetLang, sourceLang = 
 
   if (text.length <= MAX_CHUNK_SIZE) {
     // Single request for short texts
-    return await translation_translateChunkWithMyMemory(text, targetLang, sourceLang);
+    return await translation_translateChunkWithMyMemory(text, targetLang, sourceLang, request);
   }
 
   // Split into chunks by sentences to maintain context
@@ -389,7 +290,12 @@ async function translation_translateWithMyMemory(text, targetLang, sourceLang = 
   const translatedChunks = [];
   for (let i = 0; i < chunks.length; i++) {
     console.log(`[Translation] Translating chunk ${i + 1}/${chunks.length}`);
-    const result = await translation_translateChunkWithMyMemory(chunks[i], targetLang, sourceLang);
+    const result = await translation_translateChunkWithMyMemory(
+      chunks[i],
+      targetLang,
+      sourceLang,
+      request
+    );
     translatedChunks.push(result.translatedText);
 
     // Small delay between requests to avoid rate limiting
@@ -414,52 +320,31 @@ async function translation_translateWithMyMemory(text, targetLang, sourceLang = 
  * @param {string} text - Text chunk to translate
  * @param {string} targetLang - Target language code
  * @param {string} sourceLang - Source language code
+ * @param {{destination: string, ask: boolean}} request - see translation_translateWithMyMemory
  * @returns {Promise<Object>} Translation result
  * @throws {Error} If translation fails
  */
-async function translation_translateChunkWithMyMemory(text, targetLang, sourceLang) {
-  // MyMemory uses "source|target" format for langpair
-  const langpair = `${sourceLang}|${targetLang}`;
+async function translation_translateChunkWithMyMemory(text, targetLang, sourceLang, request) {
+  // The worker keeps the provider's own wording ("PLEASE SELECT TWO DISTINCT LANGUAGES" was once
+  // shown to a student verbatim) in its console and answers with a code; the student gets a
+  // sentence written for them.
+  const reply = await requestThirdParty(
+    request.destination,
+    { text, source: sourceLang, target: targetLang },
+    { detail: text, ask: request.ask }
+  );
 
-  // Build URL with query parameters
-  const url = `${API_CONFIG.mymemory.baseUrl}${API_CONFIG.mymemory.endpoints.translate}?q=${encodeURIComponent(text)}&langpair=${langpair}`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    signal: AbortSignal.timeout(15000),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  if (!reply.success) {
+    const error = new Error(reply.error || reply.code);
+    error.code = reply.code;
+    throw error;
   }
 
-  const data = await response.json();
-
-  // Debug: Log the full response
-  console.log('[Translation] MyMemory API response:', JSON.stringify(data, null, 2));
-
-  // Check for quota exceeded
-  if (data.quotaFinished === true) {
-    throw new Error('QUOTA_EXCEEDED');
-  }
-
-  // Check response status
-  if (data.responseStatus !== 200) {
-    throw new Error(`Translation failed: ${data.responseDetails || 'Unknown error'}`);
-  }
-
-  // MyMemory returns 'translatedText' field
-  const translatedText = data.translatedText || data.responseData?.translatedText;
-
-  if (!translatedText) {
-    console.error('[Translation] No translatedText in response. Full response:', data);
-    throw new Error('No translated text in response');
-  }
-
-  console.log(`[Translation] MyMemory success: ${translatedText.substring(0, 50)}...`);
+  const translatedText = reply.data.translatedText;
+  console.log(`[Translation] MyMemory success: ${translatedText.length} characters`);
 
   return {
-    translatedText: translatedText,
+    translatedText,
     engine: 'mymemory',
     fromCache: false,
   };
@@ -522,9 +407,17 @@ function translation_splitTextIntoChunks(text, maxChunkSize) {
  * @param {string} text - Text to translate
  * @param {string} targetLang - Target language code (e.g., 'es', 'fr', 'de')
  * @param {string} sourceLang - Source language code (default: 'en')
+ * @param {Object} [options]
+ * @param {'translation'|'pageTranslation'} [options.destination='translation'] - a selection, or a
+ *   passage of a whole page (each has its own answer)
+ * @param {boolean} [options.ask=true] - false when the student has already been asked (Translate
+ *   Page asks once for the whole page before it starts)
  * @returns {Promise<Object>} Translation result {translatedText, engine, fromCache, error}
  */
-async function translation_translate(text, targetLang, sourceLang = 'en') {
+async function translation_translate(text, targetLang, sourceLang = 'en', options = {}) {
+  const destination = options.destination === 'pageTranslation' ? 'pageTranslation' : 'translation';
+  const ask = options.ask !== false;
+
   // Initialize if needed
   if (!translation_isInitialized) {
     await translation_init();
@@ -535,8 +428,22 @@ async function translation_translate(text, targetLang, sourceLang = 'en') {
     sourceLang = 'en';
   }
 
+  // Nothing to translate, so nothing is sent. On the default settings this is the common case:
+  // "Auto-detect" resolves to English and the target is English too, and the provider answered
+  // that with an error a student was left to interpret.
+  if (sourceLang === targetLang) {
+    console.log(`[Translation] Same language (${targetLang}) — no request sent`);
+    return {
+      translatedText: null,
+      engine: 'mymemory',
+      fromCache: false,
+      sameLanguage: true,
+      error: 'That text is already in the language you picked. Choose another language for it.',
+    };
+  }
+
   console.log(
-    `[Translation] Translating: "${text.substring(0, 50)}..." (${sourceLang} → ${targetLang})`
+    `[Translation] Translating ${text.length} characters (${sourceLang} → ${targetLang})`
   );
 
   // Check cache first
@@ -552,27 +459,41 @@ async function translation_translate(text, targetLang, sourceLang = 'en') {
 
   // Translate using MyMemory (free, no API key required)
   try {
-    const result = await translation_translateWithMyMemory(text, targetLang, sourceLang);
+    const result = await translation_translateWithMyMemory(text, targetLang, sourceLang, {
+      destination,
+      ask,
+    });
 
     // Cache the result
     await translation_cacheTranslation(text, targetLang, result.translatedText, result.engine);
 
     return result;
   } catch (error) {
-    console.error(`[Translation] MyMemory translation failed:`, error.message);
+    if (error.code === 'consent-declined' || error.code === 'consent-unasked') {
+      return {
+        translatedText: null,
+        engine: 'mymemory',
+        fromCache: false,
+        consentDeclined: true,
+        error: DECLINED_MESSAGES[destination],
+      };
+    }
+
+    console.error(`[Translation] MyMemory translation failed:`, error.code, error.message);
 
     // Return user-friendly error message
     let errorMessage;
 
-    if (error.message === 'QUOTA_EXCEEDED') {
+    if (error.code === 'quota-exceeded') {
       errorMessage = 'Daily translation limit reached (10,000 words). Please try again tomorrow.';
-    } else if (
-      error.message.includes('NetworkError') ||
-      error.message.includes('Failed to fetch')
-    ) {
+    } else if (error.code === 'network') {
       errorMessage = 'Translation failed. Check your internet connection and try again.';
     } else {
-      errorMessage = `Translation failed: ${error.message}`;
+      // One sentence, whatever went wrong. The detail is already in the console above; putting
+      // it in the message doubled this function's own prefix onto the provider's wording.
+      errorMessage =
+        'Translation failed. The service could not translate that text — try a shorter ' +
+        'selection or another language.';
     }
 
     return {
@@ -595,7 +516,7 @@ async function translation_updateSettings(newSettings) {
 
   try {
     await chrome.storage.local.set({ translationSettings: translation_settings });
-    console.log('[Translation] Settings updated:', translation_settings);
+    console.log('[Translation] Settings updated:', Object.keys(translation_settings).join(', '));
   } catch (error) {
     console.error('[Translation] Failed to save settings:', error);
   }
@@ -626,17 +547,4 @@ if (typeof window !== 'undefined') {
   translation_init().catch(error => {
     console.error('[Translation] Auto-initialization failed:', error);
   });
-}
-
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    translation_init,
-    translation_translate,
-    translation_detectLanguage,
-    translation_getSupportedLanguages,
-    translation_getApiConfig,
-    translation_clearCache,
-    translation_getCacheStats,
-  };
 }

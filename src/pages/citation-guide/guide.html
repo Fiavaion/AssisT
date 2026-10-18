@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AssisT — How to use citations</title>
+    <link rel="stylesheet" href="guide.css" />
+  </head>
+  <body>
+    <a class="guide-skip" href="#guide-main">Skip to the guide</a>
+
+    <header class="guide-banner">
+      <div class="guide-banner__inner">
+        <p class="guide-eyebrow">Citations</p>
+        <h1 class="guide-title">Saving, writing and checking your sources</h1>
+        <p class="guide-lede">
+          AssisT keeps every source you save in one library, formats it in the style your course
+          asks for, and copies it into your work the way you need it. Everything on this page works
+          with AI switched off — the two places AI is optional are marked.
+        </p>
+        <button id="btn-guide-open-library" type="button" class="guide-btn guide-btn--primary">
+          Open your citation library
+        </button>
+        <p id="guide-status" class="guide-status" role="status" aria-live="polite"></p>
+      </div>
+    </header>
+
+    <div class="guide-layout">
+      <nav class="guide-contents" aria-labelledby="guide-contents-heading">
+        <h2 id="guide-contents-heading" class="guide-contents__heading">On this page</h2>
+        <ol class="guide-contents__list">
+          <li><a href="#saving">Saving a source</a></li>
+          <li><a href="#form">The six-step form</a></li>
+          <li><a href="#check">The “Is this right?” check</a></li>
+          <li><a href="#library">Your library</a></li>
+          <li><a href="#copying">Copying into your essay</a></li>
+          <li><a href="#essay-check">Checking your essay</a></li>
+          <li><a href="#collections">Collections and tags</a></li>
+          <li><a href="#files">Importing, exporting, duplicates</a></li>
+          <li><a href="#ai">The optional AI parts</a></li>
+          <li><a href="#privacy">Where your citations live</a></li>
+        </ol>
+      </nav>
+
+      <main id="guide-main" class="guide-main" tabindex="-1">
+        <section id="saving" class="guide-section" aria-labelledby="saving-h">
+          <h2 id="saving-h">Saving a source</h2>
+          <p>
+            There is no single right way in. Use whichever one fits what your hands are already
+            doing — they all save the same citation.
+          </p>
+
+          <h3>From the page you are reading</h3>
+          <ul class="guide-list">
+            <li>
+              <strong>The capture bar.</strong> When Citations is switched on, a small bar sits on
+              the page with <strong>Cite this source</strong> on it. One press saves the page —
+              there is no form to fill in first.
+            </li>
+            <li>
+              <strong>Select the words first.</strong> Anything you have highlighted when you save
+              is kept as <em>the source’s exact words</em>, marked as a quote rather than as your
+              own note. That is what stops quoted text drifting into an essay unattributed.
+            </li>
+            <li>
+              <strong>Right-click.</strong> <strong>Save Citation</strong> is in the browser’s own
+              context menu, on a page, a link or a selection.
+            </li>
+            <li>
+              <strong>The highlight menu.</strong> Select text and press <strong>📌 Cite</strong>
+              (“Save as Citation”). This appears when the highlight menu is on and that button is
+              among the ones you have chosen to show.
+            </li>
+            <li>
+              <strong>The keyboard.</strong> <kbd>Alt</kbd> + <kbd>C</kbd> saves the page and any
+              selection, without touching the mouse.
+            </li>
+            <li>
+              <strong>The popup.</strong> <strong>📚 Save Citation</strong> in the Citations section
+              saves whatever tab you are on.
+            </li>
+          </ul>
+
+          <h3>Hands-free, by voice</h3>
+          <p>
+            Press <strong>Voice capture</strong> on the capture bar while dictation is running, then
+            say <strong>“cite this”</strong>, <strong>“capture source”</strong> or
+            <strong>“save citation”</strong>. AssisT snapshots where you are reading and opens the
+            form. The phrase itself is not typed into whatever you were dictating.
+          </p>
+          <details class="guide-details">
+            <summary>Nothing happens when I say it</summary>
+            <p>
+              Voice capture rides on AssisT’s dictation, so speech-to-text has to be running first
+              and the <strong>Voice capture</strong> button has to be pressed in — it reads “Voice
+              capture on” when it is. Turning Citations off releases it again.
+            </p>
+          </details>
+
+          <h3>When the page cannot be read</h3>
+          <ul class="guide-list">
+            <li>
+              <strong>Add by DOI.</strong> In the library, paste a DOI or a doi.org link into
+              <strong>Add by DOI</strong> and press <strong>Add</strong>. AssisT looks the details
+              up and shows them to you before anything is saved. Useful for a paywalled article, or
+              a DOI copied off a reading list.
+            </li>
+            <li>
+              <strong>New citation.</strong> Also in the library — the same form, blank, for when
+              you are working from something that is not on screen at all.
+            </li>
+          </ul>
+
+          <h3>What happens straight after you save</h3>
+          <p>
+            A tray appears at the corner of the page. It names the source, says where it went, and
+            gives you the verdict on it — plus <strong>Undo</strong> if you did not mean it, and
+            <strong>Edit</strong> (or <strong>Fix</strong>, when something needs attention) to open
+            the form at the exact question that needs answering. Saving the same page twice tells
+            you it is already saved and offers to edit the one you have.
+          </p>
+        </section>
+
+        <section id="form" class="guide-section" aria-labelledby="form-h">
+          <h2 id="form-h">The six-step form</h2>
+          <p>
+            You only meet the form when you choose to — pressing Edit or Fix, adding by DOI, or
+            starting a new citation by hand. It asks one thing at a time, in plain words:
+          </p>
+          <ol class="guide-steps">
+            <li><strong>What</strong> — the title, and what kind of source it is.</li>
+            <li><strong>Who</strong> — the author or authors, one per line. Blank is fine.</li>
+            <li><strong>When</strong> — the year. A year on its own is enough.</li>
+            <li><strong>Where</strong> — a link or DOI, and the site, journal or publisher.</li>
+            <li>
+              <strong>Notes</strong> — the source’s exact words, the page or spot they came from,
+              and, in your own words, why you saved it.
+            </li>
+            <li><strong>Check</strong> — how the citation will read, and anything worth fixing.</li>
+          </ol>
+          <p>
+            <strong>Save is on every step.</strong> The title is the only thing genuinely required,
+            so you can stop as soon as the citation is good enough and come back later. Nothing asks
+            you to confirm: saving just saves, cancelling just cancels, and the tray gives you the
+            way back.
+          </p>
+          <details class="guide-details">
+            <summary>Why the Notes step is worth the extra half-minute</summary>
+            <p>
+              The page number and the exact sentence are the two things nobody can reconstruct at
+              two in the morning. Filling them in while the source is still open in front of you
+              means the quote, its page and its citation later travel together in a single copy —
+              see
+              <a href="#copying">Copying into your essay</a>.
+            </p>
+          </details>
+        </section>
+
+        <section id="check" class="guide-section" aria-labelledby="check-h">
+          <h2 id="check-h">The “Is this right?” check</h2>
+          <p>
+            Every citation carries a verdict — a colour, an icon and a word, so it never depends on
+            seeing colour: <strong>✓ Looks right</strong>, <strong>! Check this</strong> or
+            <strong>✕ Needs fixing</strong>. It runs on your device, instantly, with no AI and no
+            internet.
+          </p>
+          <p>It only speaks up about things that are genuinely wrong:</p>
+          <ul class="guide-list">
+            <li>a missing title;</li>
+            <li>no author, or an “author” that looks like an email address or a whole sentence;</li>
+            <li>
+              a date it cannot read a year out of, no year at all, or a year that cannot be right;
+            </li>
+            <li>no link and no DOI, so nobody could find the source;</li>
+            <li>a journal article with no journal named.</li>
+          </ul>
+          <p>
+            It will not nag you about how you typed a name — the formatters handle
+            <span class="guide-nowrap">“Darwin, Charles”</span> and
+            <span class="guide-nowrap">“Charles Darwin”</span> alike. On the Check step, each
+            flagged item is a link back to the step that fixes it.
+          </p>
+        </section>
+
+        <section id="library" class="guide-section" aria-labelledby="library-h">
+          <h2 id="library-h">Your library</h2>
+          <p>
+            The library opens in its own tab — from <strong>📚 Library</strong> in the popup, or
+            from the button at the top of this page. Everything you have ever saved is here,
+            whatever site you saved it from.
+          </p>
+
+          <h3>Finding things</h3>
+          <ul class="guide-list">
+            <li><strong>Search</strong> matches titles, authors and tags as you type.</li>
+            <li><strong>Sort</strong> by newest, title A–Z, author A–Z or year.</li>
+            <li>
+              The rail down the left filters by collection or tag — see
+              <a href="#collections">Collections and tags</a>.
+            </li>
+          </ul>
+
+          <h3>Choosing a style</h3>
+          <p>
+            The style buttons rewrite every reference at once, and your choice is remembered between
+            sessions. Four are built in:
+          </p>
+          <ul class="guide-list guide-list--tight">
+            <li>Harvard (Cite Them Right)</li>
+            <li>APA 7th edition</li>
+            <li>MLA 9th edition</li>
+            <li>Chicago 17th (author–date)</li>
+          </ul>
+          <p>
+            As you move between them the preview shows exactly what changed, so switching style the
+            week before a deadline is a glance rather than a re-read.
+          </p>
+
+          <h3>What a citation card shows</h3>
+          <p>
+            The title, a summary line, the finished reference in the current style, the source’s
+            words with the page they came from, your own note, and the verdict. Removing a card is
+            undoable for eight seconds, and your keyboard focus moves to the neighbouring card
+            rather than being dropped.
+          </p>
+        </section>
+
+        <section id="copying" class="guide-section" aria-labelledby="copying-h">
+          <h2 id="copying-h">Copying into your essay</h2>
+          <p>
+            There are three copy buttons because they do three different jobs. Each copies with
+            formatting for a word processor and as plain text for anywhere that will not take it, so
+            one paste works in Google Docs, Word online or a bare text box.
+          </p>
+          <dl class="guide-defs">
+            <dt>Copy reference</dt>
+            <dd>The full entry for your reference list, italics and hanging indent included.</dd>
+            <dt>Copy in-text</dt>
+            <dd>
+              The short form that goes after the sentence you just wrote —
+              <span class="guide-nowrap">(Smith, 2023, p. 24)</span>. The page is included when you
+              saved a quote with one.
+            </dd>
+            <dt>Copy quote + citation</dt>
+            <dd>
+              The source’s words in quote marks <em>with</em> the in-text citation attached. This
+              button only exists on citations where you saved a quote — the whole point is that the
+              words and the credit cannot arrive separately.
+            </dd>
+          </dl>
+          <p>
+            <strong>Copy bibliography</strong> in the header copies the whole visible list at once,
+            alphabetised. Visible is the operative word: if you are filtered to one collection or a
+            search, that is what you get.
+          </p>
+        </section>
+
+        <section id="essay-check" class="guide-section" aria-labelledby="essay-check-h">
+          <h2 id="essay-check-h">Checking your essay</h2>
+          <p>
+            <strong>Check your essay</strong> opens a box to paste your text into. AssisT reads the
+            citations out of your writing and compares them against your library in both directions:
+          </p>
+          <ul class="guide-list">
+            <li>
+              sources you cited but have no reference for — with a nudge when your library holds a
+              near-miss, like the same author under a different year, or a spelling slip;
+            </li>
+            <li>references sitting in your list that you never actually cited.</li>
+          </ul>
+          <p>
+            That mismatch is the thing markers check first, and it is checked entirely on your
+            device — your essay is never sent anywhere, and no AI is involved.
+          </p>
+        </section>
+
+        <section id="collections" class="guide-section" aria-labelledby="collections-h">
+          <h2 id="collections-h">Collections and tags</h2>
+          <p>
+            The rail down the left of the library is where a citation’s collection and tags are
+            used. A collection is meant to be one assignment or module, so that a library built over
+            three years can be narrowed to the eight sources this essay is about.
+          </p>
+          <h3>Making a collection</h3>
+          <p>
+            <strong>New collection</strong> at the top of the rail asks for a name — the assignment
+            or the module — and, if it helps later, a line about what it is for. The button is there
+            before you have any collections at all, so the first one is never hidden behind
+            something else.
+          </p>
+
+          <h3>Putting a source in one</h3>
+          <ul class="guide-list">
+            <li>
+              <strong>As you save it.</strong> The <strong>Notes</strong> step of the save wizard
+              has a <strong>Collection</strong> menu, next to the box for tags.
+            </li>
+            <li>
+              <strong>Afterwards.</strong> Every card in the library carries a
+              <strong>Collection</strong> menu of its own. Most sources are saved while you are
+              reading, before you know which essay they belong to, so filing later is the ordinary
+              way round — and it is one change on the card, not a trip back through the wizard.
+            </li>
+            <li>
+              <strong>No collection</strong> in either menu takes a source back out again. It stays
+              in your library either way.
+            </li>
+          </ul>
+
+          <h3>Narrowing the list</h3>
+          <ul class="guide-list">
+            <li>
+              <strong>Collections</strong> are listed with a count each; pressing one filters the
+              list to it, and the one you are in is ticked.
+            </li>
+            <li>
+              <strong>Tags</strong> below them filter the same way. Type them in the
+              <strong>Notes</strong> step of the wizard, separated by commas — or let them arrive
+              with an imported <span class="guide-nowrap">.ris</span> or
+              <span class="guide-nowrap">.bib</span> file, whose keywords become tags.
+            </li>
+            <li><strong>All citations</strong> at the top clears both and shows everything.</li>
+            <li>
+              After you save, the tray names where the citation landed — the collection’s name, or
+              <strong>Library</strong> when it is not in one.
+            </li>
+          </ul>
+
+          <h3>Renaming and deleting</h3>
+          <p>
+            Each collection row carries its own rename and delete control, named after the
+            collection they act on.
+          </p>
+          <p class="guide-callout">
+            <strong>Deleting a collection never deletes what is in it.</strong> The sources move
+            back to your library, and the message says how many did. There is no confirmation box to
+            get past, because <strong>Undo</strong> sits in that same message for a few seconds and
+            puts the collection back with everything that was in it.
+          </p>
+        </section>
+
+        <section id="files" class="guide-section" aria-labelledby="files-h">
+          <h2 id="files-h">Importing, exporting and duplicates</h2>
+
+          <h3>Bringing sources in</h3>
+          <p>
+            <strong>Import…</strong> reads a <span class="guide-nowrap">.ris</span>,
+            <span class="guide-nowrap">.bib</span>, <span class="guide-nowrap">.csl</span> or
+            <span class="guide-nowrap">.json</span> file — the export format of Zotero, Mendeley,
+            EndNote and most library catalogues. Imported sources join what you already have, and
+            one unreadable entry in a file does not stop the rest arriving.
+          </p>
+
+          <h3>Taking them out</h3>
+          <p>
+            <strong>Export as</strong> writes the library as BibTeX, RIS, CSL-JSON, CSV or AssisT’s
+            own JSON. The first four carry a quote you captured, and its page, as a note, so they
+            reach Zotero and EndNote too. AssisT’s JSON is your backup: through Import it brings
+            back every source with your quotes, pages, notes and tags. It does not carry your
+            collections, and imported sources count as newly saved.
+          </p>
+
+          <h3>Duplicates</h3>
+          <p>
+            <strong>Remove duplicates</strong> finds the same source saved twice — matching on DOI
+            first, then link, then title with author and year — tells you how many it found, and
+            waits for you to agree before removing anything. Where the copies hold different work —
+            a quote, a page, a note or a tag only one of them has — it keeps one copy with all of
+            it, and the spare copies go to Recently removed. Copies that disagree (two different
+            quotes, say) are left as they are, and it tells you which ones to sort out.
+          </p>
+        </section>
+
+        <section id="ai" class="guide-section" aria-labelledby="ai-h">
+          <h2 id="ai-h">The optional AI parts</h2>
+          <p>
+            Everything above is deterministic: it runs the same way every time, on your device, with
+            AI switched fully off. Two extras appear only once you have set an AI mode up, and
+            nothing stops working when you have not.
+          </p>
+          <ul class="guide-list">
+            <li>
+              <strong>Analyse with AI</strong> on a citation card gives a plain-language read on the
+              source — <em>Strong source</em>, <em>Use with care</em>, <em>Weak source</em> or
+              <em>Unclear</em> — with a short summary and the things worth weighing. It is there to
+              show its reasoning, not to hand down a verdict; the judgement stays yours.
+            </li>
+            <li>
+              <strong>The verification badge</strong> appears on citations that have a DOI and
+              checks it against CrossRef. Sources without a DOI — most web pages — simply do not
+              carry one, rather than carrying a permanent “not checked”.
+            </li>
+          </ul>
+          <details class="guide-details">
+            <summary>What the “Verify citations online” switch does</summary>
+            <p>
+              That switch, next to Citations in the popup, belongs to a different tool: the source
+              evaluation panel you open from the highlight menu with <strong>⚖️ Cite</strong>
+              (“Analyze Citation”). Turning it on lets that panel look sources up against CrossRef
+              and Semantic Scholar. It does not change anything in your library.
+            </p>
+          </details>
+        </section>
+
+        <section id="privacy" class="guide-section" aria-labelledby="privacy-h">
+          <h2 id="privacy-h">Where your citations live</h2>
+          <p>
+            They are stored by the extension on this computer, not by the websites you save them
+            from — which is why a source saved on your college’s site and one saved from a news
+            article turn up in the same library. They stay there when you close the tab, and they
+            are not uploaded anywhere.
+          </p>
+          <p>
+            Three things reach the internet, and only when you ask them to: looking a DOI up (which
+            sends the DOI and nothing else), the verification badge, and the AI analysis. Saving,
+            formatting, copying and the essay check all work with the network off entirely.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <footer class="guide-footer">
+      <p class="guide-footer__text">
+        Ready to try it? Save something you are reading, then come back to your library.
+      </p>
+      <button id="btn-guide-open-library-footer" type="button" class="guide-btn guide-btn--primary">
+        Open your citation library
+      </button>
+    </footer>
+
+    <script type="module" src="./guide.js"></script>
+  </body>
+</html>

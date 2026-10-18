@@ -1,0 +1,704 @@
+/**
+ * Welcome / Onboarding Page Styles
+ * WCAG 2.2 AA — calm, low-stimulation design for neurodivergent users.
+ * Shares the same CSS custom-property token set as discovery.css and ai-setup.css.
+ */
+
+/* ============================================================
+   CSS Variables — Dark mode by default (matches project convention)
+   ============================================================ */
+:root {
+  /* Colours */
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93c5fd;
+  --color-primary-light: #1e3a8a;
+  --color-secondary: #94a3b8;
+  --color-success: #4ade80;
+  --color-success-bg: #14532d;
+  --color-warning: #fbbf24;
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-2: #263548;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-border: #334155;
+  --color-focus: #60a5fa;
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.375rem;
+  --font-size-2xl: 1.75rem;
+  --line-height: 1.6;
+
+  /* Borders & radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+
+  /* Animation */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+}
+
+/* ============================================================
+   Reduced-motion — SC 2.3.3
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   Forced-colours — the checkbox and the step borders must survive
+   ============================================================ */
+@media (forced-colors: active) {
+  .track-choice {
+    border: 1px solid ButtonText;
+  }
+  .btn-primary,
+  .btn-destructive {
+    border: 2px solid ButtonText;
+  }
+  .hub-step,
+  .consent-choice {
+    border: 1px solid ButtonText;
+  }
+  .track-warning,
+  .hub-step__warning {
+    border: 1px solid ButtonText;
+  }
+}
+
+/* ============================================================
+   Reset & base
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  color: var(--color-text);
+  background-color: var(--color-background);
+  min-height: 100vh;
+}
+
+/* ============================================================
+   Accessibility helpers
+   ============================================================ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link — SC 2.4.1 */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-primary);
+  color: #000;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  z-index: 1000;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: var(--space-md);
+}
+
+/* Focus ring — SC 2.4.7 / 2.4.11 */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.welcome-container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  flex: 1;
+}
+
+.welcome-view[hidden] {
+  display: none;
+}
+
+/* ============================================================
+   View header
+   ============================================================ */
+.welcome-header {
+  text-align: center;
+}
+
+.welcome-logo {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--space-sm);
+  line-height: 1;
+}
+
+.welcome-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-sm);
+  line-height: 1.3;
+}
+
+.welcome-subtitle {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.welcome-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   The guide picker — real checkboxes in a labelled group
+   ============================================================ */
+.track-fieldset {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.track-fieldset > legend {
+  padding: 0 0 var(--space-xs);
+}
+
+.track-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Checkbox and label side by side; the description sits under both. */
+.track-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--space-md);
+  row-gap: var(--space-xs);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.track-choice:hover,
+.track-choice:focus-within {
+  border-color: var(--color-primary);
+}
+
+.track-choice--destructive {
+  border-left: 4px solid var(--color-warning);
+}
+
+/* A native checkbox, drawn large enough to hit — SC 2.5.8 */
+.track-choice__input {
+  width: 1.5rem;
+  height: 1.5rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* The label carries the target size: 44px tall including its padding. */
+.track-choice__label {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-xs) 0;
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.track-choice__desc {
+  grid-column: 2;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* The note about a selection that contradicts itself */
+.track-warning {
+  padding: var(--space-md);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.track-warning[hidden] {
+  display: none;
+}
+
+.intent-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* ============================================================
+   Buttons — SC 2.5.8 (target ≥24×24, 44px here) / 4.1.3
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 44px;
+  min-width: 44px;
+  text-decoration: none;
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #000;
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: var(--color-secondary);
+}
+
+/* Clean setup: marked out from the ordinary steps, without shouting */
+.btn-destructive {
+  border-color: var(--color-warning);
+}
+
+.btn-destructive:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: var(--color-warning);
+}
+
+.btn-text {
+  background: transparent;
+  color: var(--color-primary);
+  border-color: transparent;
+  font-size: var(--font-size-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.btn-text:hover:not(:disabled) {
+  background: var(--color-primary-light);
+}
+
+.btn-large {
+  padding: var(--space-md) var(--space-2xl);
+  font-size: var(--font-size-lg);
+  min-width: 200px;
+}
+
+/* ============================================================
+   Hub view (checklist)
+   ============================================================ */
+.hub-checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: 0;
+}
+
+.hub-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  /* min-height guards text-spacing — SC 1.4.12 */
+  min-height: 64px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.hub-step--done {
+  border-color: var(--color-success);
+}
+
+.hub-step__status-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  width: 1.5rem;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.hub-step__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.hub-step__label {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.hub-step__desc,
+.hub-step__waiting {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.hub-step__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+/* Skip and Back. Quiet, but never hidden: they are the only way out of a step a student
+   cannot finish, so they keep a full 44 px target and the page's ordinary focus ring. */
+.hub-step__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.hub-step__nav .btn {
+  min-height: 44px;
+}
+
+/* A skipped step is finished, but it is not done — the border says so without relying on the
+   colour alone, which the "(skipped)" word in the label carries for everyone else. */
+.hub-step--skipped {
+  border-color: var(--color-border);
+  border-style: dashed;
+}
+
+/* Said before anything is switched off, so it must read as plainly as the step itself. */
+.hub-step__warning {
+  padding: var(--space-md);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.hub-step__file-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.hub-step__file-input {
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  padding: var(--space-sm);
+  min-height: 44px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.hub-step__result:empty {
+  display: none;
+}
+
+.import-result {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  padding: var(--space-sm) 0;
+}
+
+.import-result--ok {
+  color: var(--color-success);
+}
+
+.btn-setup {
+  font-size: var(--font-size-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* ============================================================
+   The consent step: one question per online service (ADR 0006).
+   No fixed heights anywhere, so text spacing can grow (SC 1.4.12).
+   ============================================================ */
+.consent-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.consent-step__intro {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* Allow all / Don't allow any: ordinary secondary buttons, wrapping on a narrow window. */
+.consent-step__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.consent-step__bulk-status {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* Out of the layout until it has something to say, but still in the page for screen readers. */
+.consent-step__bulk-status:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.consent-choice {
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
+  min-width: 0;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.consent-choice:focus-within {
+  border-color: var(--color-primary);
+}
+
+/* Floated so the title sits inside the card as its heading, not cut into the top border. */
+.consent-choice__name {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--space-xs);
+  padding: 0;
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.consent-choice__what {
+  clear: both;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.consent-choice__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-lg);
+}
+
+.consent-choice__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* A native radio, drawn large enough to hit; the label carries the 44 px target (SC 2.5.8). */
+.consent-choice__option input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.consent-choice__label {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+/* ============================================================
+   Hub "All set!" completion panel
+   ============================================================ */
+.hub-complete {
+  text-align: center;
+  padding: var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-top: var(--space-md);
+  animation: fadeIn var(--transition-base) ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hub-complete[hidden] {
+  display: none;
+}
+
+.hub-complete-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--space-md);
+  line-height: 1;
+}
+
+.hub-complete-heading {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-sm);
+}
+
+.hub-complete-text {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-lg);
+  line-height: 1.6;
+  max-width: 40ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 480px) {
+  .welcome-container {
+    padding: var(--space-md);
+  }
+
+  .track-choice {
+    padding: var(--space-md);
+  }
+
+  .intent-actions {
+    width: 100%;
+  }
+
+  .btn-large {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* ============================================================
+   Help — SC 3.2.6 Consistent Help: last in the page header, as in the popup
+   ============================================================ */
+.page-help-bar {
+  display: flex;
+  justify-content: flex-end;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-lg) 0;
+}
+
+.page-help {
+  text-decoration: none;
+}

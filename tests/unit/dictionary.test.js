@@ -33,13 +33,13 @@ if (!global.chrome) {
           callback({ dictionarySettings: { enabled: true, cacheSize: 100 } });
         }),
         set: jest.fn((data, callback) => {
-          if (callback) callback();
+          if (callback) {callback();}
         }),
         remove: jest.fn((keys, callback) => {
-          if (callback) callback();
+          if (callback) {callback();}
         }),
         clear: jest.fn((callback) => {
-          if (callback) callback();
+          if (callback) {callback();}
         }),
       },
     },

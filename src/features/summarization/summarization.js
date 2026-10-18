@@ -21,17 +21,28 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
   checkAIAvailable,
   generateWithAI,
   getSuccessStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
+import { getProfileAddendum } from '../companion/profile-addendum.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
+import { Z } from '../../utils/z-index.js';
+import { getReadingLevelAddendum } from '../companion/reading-level.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
 let summarization_panel = null;
+let summarization_releaseFocus = null;
+let summarization_returnFocus = null;
+let summarization_requestId = 0;
 let summarization_isLoading = false;
 let summarization_currentText = '';
 let summarization_currentSummary = '';
@@ -195,12 +206,15 @@ function summarization_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-summarization-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Text Summary');
   panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'assist-summary-title');
+  // Focusable so the dialog itself can hold the keyboard: `.focus()` on a plain div does
+  // nothing, which is how this panel shipped with Escape unreachable.
+  panel.setAttribute('tabindex', '-1');
 
   panel.innerHTML = sanitizeHTML(`
     <div class="assist-summary-header">
-      <span class="assist-summary-title">Summary</span>
+      <span class="assist-summary-title" id="assist-summary-title">Summary</span>
       <div class="assist-summary-controls">
         <select class="assist-summary-level" aria-label="Summary detail level">
           <option value="brief">Brief</option>
@@ -210,8 +224,8 @@ function summarization_createPanel() {
         <button class="assist-summary-close" aria-label="Close summary" title="Close (Esc)">×</button>
       </div>
     </div>
-    <div class="assist-summary-status"></div>
-    <div class="assist-summary-content" aria-live="polite">
+    <div class="assist-summary-status" role="status"></div>
+    <div class="assist-summary-content">
       <p class="assist-summary-placeholder">Select text and click summarize...</p>
     </div>
     <div class="assist-summary-actions">
@@ -230,7 +244,7 @@ function summarization_createPanel() {
   summarization_injectStyles();
 
   const closeBtn = panel.querySelector('.assist-summary-close');
-  attachInteractiveHandler(closeBtn, 'Summarization Close Button', summarization_hide);
+  attachAccessibleHandler(closeBtn, 'Summarization Close Button', summarization_hide);
 
   const levelSelect = panel.querySelector('.assist-summary-level');
   levelSelect.value = summarization_settings.defaultLevel;
@@ -242,13 +256,13 @@ function summarization_createPanel() {
   });
 
   const copyBtn = panel.querySelector('.assist-summary-copy');
-  attachInteractiveHandler(copyBtn, 'Summarization Copy Button', summarization_copy);
+  attachAccessibleHandler(copyBtn, 'Summarization Copy Button', summarization_copy);
 
   const speakBtn = panel.querySelector('.assist-summary-speak');
-  attachInteractiveHandler(speakBtn, 'Summarization Speak Button', summarization_speak);
+  attachAccessibleHandler(speakBtn, 'Summarization Speak Button', summarization_speak);
 
   const regenerateBtn = panel.querySelector('.assist-summary-regenerate');
-  attachInteractiveHandler(regenerateBtn, 'Summarization Regenerate Button', () => {
+  attachAccessibleHandler(regenerateBtn, 'Summarization Regenerate Button', () => {
     if (summarization_currentText) {
       summarization_summarize(summarization_currentText, summarization_settings.defaultLevel);
     }
@@ -272,14 +286,17 @@ function summarization_injectStyles() {
       top: 100px;
       right: 20px;
       width: 380px;
-      max-width: calc(100vw - 40px);
+      /* Fits a 320px screen (SC 1.4.10): 100% of a fixed box excludes the scrollbar, which 100vw
+         includes, and border-box keeps padding and border inside the cap. */
+      box-sizing: border-box;
+      max-width: calc(100% - 40px);
       max-height: 500px;
       background: #ffffff;
       color: #333;
       border: 1px solid #e0e0e0;
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-      z-index: 999998;
+      z-index: ${Z.MODAL};
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
       display: flex;
@@ -360,7 +377,13 @@ function summarization_injectStyles() {
       color: #e65100;
     }
 
-    .assist-summary-status[data-assist-clickable]:hover {
+    .assist-summary-status [data-assist-clickable]:hover {
+      text-decoration: underline;
+    }
+
+    .assist-summary-status [data-assist-clickable]:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
       text-decoration: underline;
     }
 
@@ -404,6 +427,10 @@ function summarization_injectStyles() {
 
     @keyframes assist-spin {
       to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .assist-summary-spinner { animation: none; }
     }
 
     .assist-summary-text {
@@ -463,17 +490,15 @@ function summarization_injectStyles() {
       margin-left: 8px;
     }
 
-    .assist-summary-fallback-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: #ff9800;
-      color: white;
-      font-size: 10px;
-      font-weight: 600;
-      border-radius: 10px;
-      margin-left: 8px;
+    .assist-summary-fallback-note {
+      margin: 0 0 8px 0;
+      padding: 8px 10px;
+      background: #fff3e0;
+      color: #8a4b00;
+      border-left: 3px solid #ff9800;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     .assist-summary-cloud-badge {
@@ -634,6 +659,14 @@ function summarization_show(selectionRect = null) {
     summarization_panel.remove();
   }
 
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  summarization_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
+
   summarization_panel = summarization_createPanel();
   document.body.appendChild(summarization_panel);
 
@@ -664,24 +697,51 @@ function summarization_show(selectionRect = null) {
     summarization_panel.style.right = 'auto';
   }
 
-  document.addEventListener('keydown', summarization_handleKeydown);
-  summarization_panel.focus();
+  summarization_releaseFocus = trapFocus(summarization_panel, {
+    onEscape: summarization_hide,
+    initialFocus: summarization_panel.querySelector('.assist-summary-close'),
+  });
 }
 
 function summarization_hide() {
+  // Abandon anything in flight: its result must not paint into a panel the student has closed.
+  summarization_requestId += 1;
+  summarization_isLoading = false;
+
+  if (summarization_releaseFocus) {
+    summarization_releaseFocus();
+    summarization_releaseFocus = null;
+  }
+
   if (summarization_panel) {
     summarization_panel.remove();
     summarization_panel = null;
   }
 
-  document.removeEventListener('keydown', summarization_handleKeydown);
-  summarization_isLoading = false;
+  returnFocusAfterDialog(summarization_returnFocus);
+  summarization_returnFocus = null;
 }
 
-function summarization_handleKeydown(e) {
-  if (e.key === 'Escape') {
-    summarization_hide();
-  }
+const SUMMARY_LENGTHS = {
+  brief: 'Summarize in 1-2 sentences, capturing only the main point:',
+  moderate: 'Summarize the key points in a short paragraph (3-4 sentences):',
+  detailed:
+    'Provide a comprehensive summary with main points and supporting details (5-7 sentences):',
+};
+
+/**
+ * The summary prompt: length, then the profile and reading-level addenda, then the passage.
+ * "Reply with only the summary" comes after the passage, where a small local model still has it in
+ * view; without it llama3.2:3b opened most summaries by repeating the instruction back.
+ *
+ * @param {string} level - brief, moderate or detailed; anything else is brief
+ * @param {string} text - the passage
+ * @param {string} addenda - extra instructions, each led by a blank line, or ''
+ * @returns {string}
+ */
+function summarization_buildPrompt(level, text, addenda) {
+  const length = SUMMARY_LENGTHS[level] || SUMMARY_LENGTHS.brief;
+  return `${length}${addenda}\n\n${text}\n\nReply with only the summary, with no opening line.\n\nSummary:`;
 }
 
 async function summarization_summarize(text, level = 'brief') {
@@ -691,6 +751,7 @@ async function summarization_summarize(text, level = 'brief') {
 
   summarization_currentText = text;
   summarization_isLoading = true;
+  const requestId = ++summarization_requestId;
 
   const contentArea = summarization_panel?.querySelector('.assist-summary-content');
   const statusBar = summarization_panel?.querySelector('.assist-summary-status');
@@ -717,6 +778,10 @@ async function summarization_summarize(text, level = 'brief') {
 
     const availability = await checkAIAvailable(modeInfo);
 
+    if (requestId !== summarization_requestId) {
+      return;
+    }
+
     if (!availability.available) {
       summarization_isLoading = false;
       actionBtns?.forEach(btn => {
@@ -724,7 +789,7 @@ async function summarization_summarize(text, level = 'brief') {
       });
 
       if (availability.needsApiKey) {
-        summarization_showApiKeyWarning();
+        summarization_showApiKeyWarning(availability.provider);
         return;
       }
 
@@ -744,14 +809,8 @@ async function summarization_summarize(text, level = 'brief') {
       return;
     }
 
-    // Build level-aware prompt
-    const levelPrompts = {
-      brief: 'Summarize in 1-2 sentences, capturing only the main point:',
-      moderate: 'Summarize the key points in a short paragraph (3-4 sentences):',
-      detailed:
-        'Provide a comprehensive summary with main points and supporting details (5-7 sentences):',
-    };
-    const prompt = `${levelPrompts[level] || levelPrompts.brief}\n\n${text}\n\nSummary:`;
+    const addenda = `${await getProfileAddendum()}${await getReadingLevelAddendum('summary')}`;
+    const prompt = summarization_buildPrompt(level, text, addenda);
     // Cloud: full budget. Local: cap at 600 — "5-7 sentences" is ~200 tokens;
     // 600 is generous headroom without risking the ~30s Chrome sendMessage window.
     const cloudMax = level === 'detailed' ? 1500 : level === 'moderate' ? 800 : 400;
@@ -762,6 +821,9 @@ async function summarization_summarize(text, level = 'brief') {
       temperature: 0.5,
       feature: 'summarization',
     });
+    if (requestId !== summarization_requestId) {
+      return;
+    }
     summary = result.text;
     isAI = true;
 
@@ -782,24 +844,29 @@ async function summarization_summarize(text, level = 'brief') {
   } catch (error) {
     console.error('[Summarization] Error:', error);
 
+    const reason = getFailureMessage(error);
     const fallbackSummary = summarization_fallback(text, level);
     summarization_currentSummary = fallbackSummary;
 
     if (contentArea) {
       contentArea.innerHTML = sanitizeHTML(`
+        <p class="assist-summary-fallback-note">
+          This summary was picked out of the text on this device, without AI.
+        </p>
         <p class="assist-summary-text">${escapeHtml(fallbackSummary)}</p>
-        <span class="assist-summary-fallback-badge">Basic</span>
       `);
     }
     if (statusBar) {
-      statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
+      statusBar.textContent = `⚠️ ${reason}`;
       statusBar.className = 'assist-summary-status visible error';
     }
   } finally {
-    summarization_isLoading = false;
-    actionBtns?.forEach(btn => {
-      btn.disabled = false;
-    });
+    if (requestId === summarization_requestId) {
+      summarization_isLoading = false;
+      actionBtns?.forEach(btn => {
+        btn.disabled = false;
+      });
+    }
   }
 }
 
@@ -828,8 +895,9 @@ function summarization_speak() {
     const contentArea = summarization_panel?.querySelector('.assist-summary-content');
     window.readText(summarization_currentSummary, contentArea || document.body);
   } else {
-    const utterance = new SpeechSynthesisUtterance(summarization_currentSummary);
-    window.speechSynthesis.speak(utterance);
+    createSavedUtterance(summarization_currentSummary).then(utterance =>
+      window.speechSynthesis.speak(utterance)
+    );
   }
 }
 
@@ -839,7 +907,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function summarization_showApiKeyWarning() {
+function summarization_showApiKeyWarning(provider) {
   const contentArea = summarization_panel?.querySelector('.assist-summary-content');
   if (!contentArea) {
     return;
@@ -851,7 +919,7 @@ function summarization_showApiKeyWarning() {
       <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
       <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="summary-open-settings" style="
@@ -881,17 +949,14 @@ function summarization_showApiKeyWarning() {
 
   const openSettingsBtn = contentArea.querySelector('.summary-open-settings');
   if (openSettingsBtn) {
-    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+    attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
       chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-      alert(
-        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-      );
     });
   }
 
   const useLocalBtn = contentArea.querySelector('.summary-use-local');
   if (useLocalBtn) {
-    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+    attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
       await chrome.storage.local.set({ aiMode: 'local' });
       console.log('[Summarization] Switched to local AI mode');
       summarization_showEmptyState();
@@ -943,14 +1008,20 @@ function summarization_init() {
   chrome.storage.local.get(['summarizationSettings'], result => {
     if (result.summarizationSettings) {
       Object.assign(summarization_settings, result.summarizationSettings);
-      console.log('[Summarization] Settings loaded:', summarization_settings);
+      console.log(
+        '[Summarization] Settings loaded:',
+        Object.keys(summarization_settings).join(', ')
+      );
     }
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.summarizationSettings) {
       Object.assign(summarization_settings, changes.summarizationSettings.newValue);
-      console.log('[Summarization] Settings updated:', summarization_settings);
+      console.log(
+        '[Summarization] Settings updated:',
+        Object.keys(summarization_settings).join(', ')
+      );
     }
   });
 
@@ -967,5 +1038,6 @@ export {
   summarization_show,
   summarization_hide,
   summarization_summarize,
+  summarization_buildPrompt,
   summarization_settings,
 };

@@ -23,4 +23,7 @@ export const Z = {
   MODAL: 100400,
   TOAST: 100500,
   FOCUS: 100600,
+  // The drawn replacement for the system cursor. It stands in for the pointer itself, so it
+  // must clear every layer the host page could ever stack: the largest value CSS accepts.
+  POINTER: 2147483647,
 };

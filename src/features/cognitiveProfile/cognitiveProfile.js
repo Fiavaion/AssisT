@@ -9,7 +9,13 @@
  * - Learns reading speed preferences
  * - Identifies subject strengths/weaknesses
  * - Adapts AI prompts based on profile
- * - Privacy-focused: all data stored locally
+ *
+ * CONSENT. This feature records how a student uses their supports — how many times they asked for
+ * simpler text, how many words were read to them, how many days in a row they came back. That is a
+ * record of somebody's difficulty reading, so it is off until the student switches it on in the
+ * popup, and while it is off nothing is read from storage, nothing is written to it, and no
+ * interaction is counted. It used to default to on and write `assist_cognitive_profile` on the
+ * first page load, with no control anywhere to stop it.
  *
  * @module features/cognitiveProfile
  */
@@ -17,13 +23,23 @@
 import { showToast } from '../../core/ui/toast.js';
 import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import {
+  PROFILE_KEY,
+  PROFILE_SETTINGS_KEY,
+  eraseProfileData,
+  isProfileEnabled,
+} from './profile-storage.js';
 
 let profile_data = null;
 let profile_panel = null;
+/** Release the panel's focus trap; set while the panel is open, null while it is shut. */
+let profile_releaseFocus = null;
 
 const profile_settings = {
-  enabled: true,
+  // Off until the student asks for it. Nothing here is recorded on their behalf.
+  enabled: false,
   trackInteractions: true,
   adaptResponses: true,
   showProfileBadge: true,
@@ -100,27 +116,27 @@ const DEFAULT_PROFILE = {
   },
 };
 
-const STORAGE_KEY = 'assist_cognitive_profile';
+const STORAGE_KEY = PROFILE_KEY;
 
 /**
  * Load profile from storage
  * @returns {Promise<Object>}
  */
 async function profile_load() {
+  if (!profile_settings.enabled) {
+    return null;
+  }
+
   try {
     const result = await chrome.storage.local.get(STORAGE_KEY);
 
+    // Over a fresh copy, never over DEFAULT_PROFILE itself: the counters are incremented in place,
+    // and spreading the shared object meant `DEFAULT_PROFILE.stats` climbed with every interaction,
+    // so the next record started at somebody else's numbers.
     if (result[STORAGE_KEY]) {
-      profile_data = { ...DEFAULT_PROFILE, ...result[STORAGE_KEY] };
+      profile_data = { ...profile_freshRecord(), ...result[STORAGE_KEY] };
     } else {
-      profile_data = {
-        ...DEFAULT_PROFILE,
-        meta: {
-          ...DEFAULT_PROFILE.meta,
-          createdAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-        },
-      };
+      profile_data = profile_freshRecord();
       await profile_save();
     }
 
@@ -132,7 +148,7 @@ async function profile_load() {
     return profile_data;
   } catch (error) {
     console.error('[CognitiveProfile] Failed to load profile:', error);
-    profile_data = { ...DEFAULT_PROFILE };
+    profile_data = profile_freshRecord();
     return profile_data;
   }
 }
@@ -142,7 +158,7 @@ async function profile_load() {
  * @returns {Promise<void>}
  */
 async function profile_save() {
-  if (!profile_data) {
+  if (!profile_settings.enabled || !profile_data) {
     return;
   }
 
@@ -162,7 +178,7 @@ async function profile_save() {
  * @param {Object} data - Interaction data
  */
 async function profile_trackInteraction(feature, data = {}) {
-  if (!profile_settings.trackInteractions || !profile_data) {
+  if (!profile_settings.enabled || !profile_settings.trackInteractions || !profile_data) {
     return;
   }
 
@@ -228,7 +244,7 @@ async function profile_trackInteraction(feature, data = {}) {
  * @param {string} type - Feedback type: 'positive' | 'negative' | 'regenerate' | 'simpler' | 'detailed'
  */
 async function profile_trackFeedback(type) {
-  if (!profile_data) {
+  if (!profile_settings.enabled || !profile_data) {
     return;
   }
 
@@ -312,7 +328,7 @@ function profile_getDominantStyle() {
  * @returns {string}
  */
 function profile_getRecommendedComplexity(feature) {
-  if (!profile_data || !profile_settings.adaptResponses) {
+  if (!profile_settings.enabled || !profile_data || !profile_settings.adaptResponses) {
     return 'moderate';
   }
 
@@ -333,7 +349,7 @@ function profile_getRecommendedComplexity(feature) {
  * @returns {Object}
  */
 function profile_getPromptModifiers() {
-  if (!profile_data || !profile_settings.adaptResponses) {
+  if (!profile_settings.enabled || !profile_data || !profile_settings.adaptResponses) {
     return {};
   }
 
@@ -378,10 +394,16 @@ function profile_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-profile-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Cognitive Profile');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', 'What AssisT has recorded about how you work');
+  // Focus opens on the dialog itself so its name and its first sentence are announced before the
+  // student is dropped on a control; Tab from there walks the panel's own buttons.
+  panel.setAttribute('tabindex', '-1');
 
-  panel.innerHTML = sanitizeHTML(`
-    <style>
+  // The panel's own CSS goes in as an element, not through the sanitiser: DOMPurify drops a
+  // <style> that leads its markup, which left this panel as loose text at the foot of the page.
+  const style = document.createElement('style');
+  style.textContent = `
       #assist-profile-panel {
         position: fixed;
         top: 50%;
@@ -455,71 +477,39 @@ function profile_createPanel() {
         letter-spacing: 0.5px;
       }
 
-      .assist-profile-stats {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-      }
-
-      .assist-profile-stat {
-        background: #f8f9fa;
-        padding: 12px;
-        border-radius: 8px;
-        text-align: center;
-      }
-
-      .assist-profile-stat-value {
-        font-size: 24px;
-        font-weight: 700;
-        color: #333;
-      }
-
-      .assist-profile-stat-label {
-        font-size: 11px;
-        color: #666;
-        margin-top: 4px;
-      }
-
-      .assist-profile-style {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 16px;
-        border-radius: 12px;
-        text-align: center;
-      }
-
-      .assist-profile-style-icon {
-        font-size: 32px;
-        margin-bottom: 8px;
-      }
-
-      .assist-profile-style-label {
+      .assist-profile-lead {
+        margin: 0 0 16px;
         font-size: 14px;
-        opacity: 0.9;
+        line-height: 1.6;
+        color: #1f2933;
       }
 
-      .assist-profile-style-name {
-        font-size: 18px;
-        font-weight: 600;
-        margin-top: 4px;
+      .assist-profile-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
       }
 
-      .assist-profile-preferences {
-        background: #f8f9fa;
-        padding: 16px;
-        border-radius: 12px;
-      }
-
-      .assist-profile-pref-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 0;
+      .assist-profile-list li {
+        padding: 10px 0;
         border-bottom: 1px solid #eee;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #1f2933;
       }
 
-      .assist-profile-pref-item:last-child {
+      .assist-profile-list li:last-child {
         border-bottom: none;
+      }
+
+      .assist-profile-note {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #3d4852;
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px 14px;
       }
 
       .assist-profile-controls {
@@ -557,88 +547,228 @@ function profile_createPanel() {
         background: #5a6fd6;
       }
 
-      .assist-profile-streak {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-        color: #333;
-        padding: 12px 16px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 20px;
-      }
+  `;
 
-      .assist-profile-streak-icon {
-        font-size: 28px;
-      }
-
-      .assist-profile-streak-info {
-        flex: 1;
-      }
-
-      .assist-profile-streak-days {
-        font-size: 20px;
-        font-weight: 700;
-      }
-
-      .assist-profile-streak-label {
-        font-size: 12px;
-        opacity: 0.8;
-      }
-    </style>
-
+  panel.innerHTML = sanitizeHTML(`
     <div class="assist-profile-header">
       <div class="assist-profile-title">
-        <span>🧠</span>
-        <span>Your Learning Profile</span>
+        <span aria-hidden="true">📓</span>
+        <span>What AssisT has recorded</span>
       </div>
-      <button class="assist-profile-close" aria-label="Close">&times;</button>
+      <button
+        class="assist-profile-close"
+        data-testid="profile-panel-close"
+        aria-label="Close this record"
+      >&times;</button>
     </div>
 
     <div class="assist-profile-content">
-      <!-- Content will be rendered dynamically -->
+      <!-- Written afresh each time the panel opens. -->
     </div>
 
     <div class="assist-profile-controls">
       <button class="assist-profile-btn assist-profile-btn-danger" id="assist-profile-reset">
-        🗑️ Reset Profile
+        🗑️ Start this record again
       </button>
       <button class="assist-profile-btn assist-profile-btn-primary" id="assist-profile-close-btn">
         Done
       </button>
     </div>
   `);
+  panel.prepend(style);
 
   // Close button
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('.assist-profile-close'),
     'Cognitive Profile Close Button',
     () => profile_hide()
   );
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('#assist-profile-close-btn'),
     'Cognitive Profile Close Bottom Button',
     () => profile_hide()
   );
 
-  // Reset button
-  attachInteractiveHandler(
-    panel.querySelector('#assist-profile-reset'),
-    'Cognitive Profile Reset Button',
-    async () => {
-      if (confirm('Reset your learning profile? This cannot be undone.')) {
-        await profile_reset();
-        profile_renderContent();
-        showToast?.('Profile reset') || alert('Profile reset');
-      }
+  // Reset button. Two presses rather than a native confirm(): this panel holds focus, and a
+  // browser-level dialog opened from inside it freezes the page and takes the keyboard somewhere the
+  // trap cannot follow. The annotations editor moved off confirm() for the same reason.
+  const reset = panel.querySelector('#assist-profile-reset');
+  const resetLabel = reset?.textContent || 'Start this record again';
+  let resetArmed = false;
+
+  function disarmReset() {
+    resetArmed = false;
+    if (reset) {
+      reset.textContent = resetLabel;
+      reset.removeAttribute('aria-describedby');
     }
-  );
+  }
+
+  attachAccessibleHandler(reset, 'Cognitive Profile Reset Button', async () => {
+    if (!resetArmed) {
+      resetArmed = true;
+      reset.textContent = 'Press again to clear it for good';
+      showToast?.(
+        'This cannot be undone. Press again to clear the record, or move away to keep it.'
+      );
+      return;
+    }
+    disarmReset();
+    await profile_reset();
+    profile_renderContent();
+    showToast?.('Cleared. AssisT starts noticing again from now on.');
+  });
+
+  // Moving away from the button is the way out: nothing is cleared unless the second press lands.
+  reset?.addEventListener('blur', disarmReset);
 
   return panel;
 }
 
+/** 12400 -> "12,400". A student reads thousands with separators. */
+function profile_plainNumber(value) {
+  return String(Math.max(0, Math.round(Number(value) || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 /**
- * Render profile content
+ * One line per thing that was counted, each saying what it counts.
+ *
+ * Only counts that actually happened are listed: a column of zeroes tells a student nothing and
+ * reads as a form they failed to fill in. Every counter the record actually keeps has a line here,
+ * though — the panel says this is everything, so leaving the feedback counts and the style tally out
+ * of it, as an earlier version did, made that sentence untrue.
+ *
+ * @returns {string[]}
+ */
+function profile_recordLines() {
+  const stats = profile_data.stats || {};
+  const lines = [];
+  const count = (value, singular, plural) => {
+    const n = Number(value) || 0;
+    if (n > 0) {
+      lines.push(`${profile_plainNumber(n)} ${n === 1 ? singular : plural}`);
+    }
+  };
+
+  count(stats.summarizationsUsed, 'time you asked for a summary', 'times you asked for a summary');
+  count(
+    stats.simplificationsUsed,
+    'time you asked for simpler wording',
+    'times you asked for simpler wording'
+  );
+  count(
+    stats.breakdownsUsed,
+    'time you asked for a task to be broken into steps',
+    'times you asked for a task to be broken into steps'
+  );
+  count(
+    stats.tutorQuestionsAsked,
+    'question you worked through with the tutor',
+    'questions you worked through with the tutor'
+  );
+  count(stats.imagesDescribed, 'picture was described to you', 'pictures were described to you');
+  count(stats.wordsRead, 'word was read aloud to you', 'words were read aloud to you');
+
+  const streak = Number(stats.streakDays) || 0;
+  if (streak > 0) {
+    lines.push(
+      streak === 1 ? 'You have used AssisT today' : `You have used AssisT ${streak} days in a row`
+    );
+  }
+
+  const speed = Number(profile_data.reading?.preferredSpeed);
+  if (speed > 0 && speed !== 1) {
+    lines.push(`You usually have things read to you at ${speed.toFixed(1)} times normal speed`);
+  }
+
+  // What you said about the answers you were given. These decide the length and shape of the next
+  // one, so they are as much part of the record as the counts above.
+  const feedback = profile_data.feedback || {};
+  count(
+    feedback.positiveResponses,
+    'time you said an answer helped',
+    'times you said an answer helped'
+  );
+  count(
+    feedback.negativeResponses,
+    'time you said an answer did not help',
+    'times you said an answer did not help'
+  );
+  count(
+    feedback.regenerateRequests,
+    'time you asked for an answer to be written again',
+    'times you asked for an answer to be written again'
+  );
+  count(
+    feedback.complexityDecreases,
+    'time you asked for something simpler',
+    'times you asked for something simpler'
+  );
+  count(
+    feedback.complexityIncreases,
+    'time you asked for more detail',
+    'times you asked for more detail'
+  );
+
+  // The tally AssisT reads as a learning style. The highest of these is what shapes an AI answer,
+  // so it is shown as a count rather than as a label pinned on the student.
+  const styles = profile_data.learningStyle || {};
+  count(styles.visual, 'time a picture was the way in', 'times a picture was the way in');
+  count(
+    styles.stepByStep,
+    'hint you took in a step-by-step walk-through',
+    'hints you took in step-by-step walk-throughs'
+  );
+  count(styles.conceptual, 'time the big picture came first', 'times the big picture came first');
+  count(styles.examples, 'worked example you asked for', 'worked examples you asked for');
+
+  // The level last chosen per tool, which is what AssisT offers next time.
+  const complexity = profile_data.complexity || {};
+  const levelNames = {
+    summarization: 'summaries',
+    simplification: 'simpler wording',
+    breakdown: 'task breakdowns',
+    tutor: 'the tutor',
+  };
+  for (const [tool, level] of Object.entries(complexity)) {
+    if (level && level !== 'moderate' && levelNames[tool]) {
+      lines.push(`You last chose "${level}" for ${levelNames[tool]}`);
+    }
+  }
+
+  return lines;
+}
+
+/**
+ * What AssisT does with the record, in the same plain words as the record itself.
+ * @returns {string}
+ */
+function profile_useSentence() {
+  const complexity = profile_getRecommendedComplexity('default');
+  const length =
+    complexity === 'simple'
+      ? 'shorter, simpler answers'
+      : complexity === 'detailed'
+        ? 'longer answers with more of the detail'
+        : 'answers of about average length';
+
+  const shape = {
+    visual: ' It reaches for pictures and comparisons you can see.',
+    stepByStep: ' It puts things in numbered steps.',
+    conceptual: ' It gives you the big picture before the detail.',
+    examples: ' It gives you a real example to go with the explanation.',
+    balanced: '',
+  }[profile_getDominantStyle()];
+
+  return `Because of this, AssisT writes you ${length}.${shape || ''}`;
+}
+
+/**
+ * Write the panel's contents: what was counted, what AssisT does with it, and where it is kept.
+ *
+ * Deliberately sentences rather than a grid of counters. The panel used to read as a developer's
+ * dashboard — "Total Interactions", "Words Processed", "Learning Style: Conceptual Thinker" — which
+ * is no use to a student deciding whether they are content to be recorded.
  */
 function profile_renderContent() {
   if (!profile_panel || !profile_data) {
@@ -650,96 +780,78 @@ function profile_renderContent() {
     return;
   }
 
-  const style = profile_getDominantStyle();
-  const styleInfo = {
-    visual: { icon: '👁️', name: 'Visual Learner' },
-    stepByStep: { icon: '📋', name: 'Sequential Learner' },
-    conceptual: { icon: '💭', name: 'Conceptual Thinker' },
-    examples: { icon: '📚', name: 'Example-Based Learner' },
-    balanced: { icon: '⚖️', name: 'Balanced Learner' },
-  };
-
-  const currentStyle = styleInfo[style] || styleInfo.balanced;
+  const lines = profile_recordLines();
+  // "Never sent anywhere" was not true: with Personalised AI on, `profile-addendum.js` puts a
+  // sentence about how this student likes things explained into every cloud AI prompt. The counts
+  // themselves stay here; what they add up to does leave, and the panel now says so.
+  const kept =
+    'The counts above are kept on this device. One thing does leave it: while Personalised AI is ' +
+    'on, a short line about how you like things explained — something like "prefers step-by-step, ' +
+    'keep it short" — is sent with your question to whichever AI you have chosen. Nothing you read, ' +
+    'typed or dictated, and none of these counts, is sent with it. Switch Personalised AI off in ' +
+    'the AssisT popup and nothing about you leaves this device. You can delete the whole record at ' +
+    'any time, from the popup or with the button below.';
 
   content.innerHTML = sanitizeHTML(`
+    <p class="assist-profile-lead">
+      ${
+        lines.length === 0
+          ? 'Nothing has been recorded yet. Once you start using the reading and writing tools, what you asked for will be listed here.'
+          : 'This is everything AssisT has noticed about how you work.'
+      }
+    </p>
+
     ${
-      profile_data.stats.streakDays > 0
-        ? `
-      <div class="assist-profile-streak">
-        <div class="assist-profile-streak-icon">🔥</div>
-        <div class="assist-profile-streak-info">
-          <div class="assist-profile-streak-days">${profile_data.stats.streakDays} Day${profile_data.stats.streakDays > 1 ? 's' : ''}</div>
-          <div class="assist-profile-streak-label">Learning Streak</div>
-        </div>
-      </div>
-    `
+      lines.length > 0
+        ? `<div class="assist-profile-section">
+             <ul class="assist-profile-list">
+               ${lines.map(line => `<li>${line}</li>`).join('')}
+             </ul>
+           </div>
+           <div class="assist-profile-section">
+             <p class="assist-profile-note">${profile_useSentence()}</p>
+           </div>`
         : ''
     }
 
     <div class="assist-profile-section">
-      <div class="assist-profile-style">
-        <div class="assist-profile-style-icon">${currentStyle.icon}</div>
-        <div class="assist-profile-style-label">Your Learning Style</div>
-        <div class="assist-profile-style-name">${currentStyle.name}</div>
-      </div>
-    </div>
-
-    <div class="assist-profile-section">
-      <div class="assist-profile-section-title">📊 Usage Statistics</div>
-      <div class="assist-profile-stats">
-        <div class="assist-profile-stat">
-          <div class="assist-profile-stat-value">${profile_data.stats.totalInteractions}</div>
-          <div class="assist-profile-stat-label">Total Interactions</div>
-        </div>
-        <div class="assist-profile-stat">
-          <div class="assist-profile-stat-value">${profile_data.stats.summarizationsUsed}</div>
-          <div class="assist-profile-stat-label">Summaries</div>
-        </div>
-        <div class="assist-profile-stat">
-          <div class="assist-profile-stat-value">${profile_data.stats.simplificationsUsed}</div>
-          <div class="assist-profile-stat-label">Simplifications</div>
-        </div>
-        <div class="assist-profile-stat">
-          <div class="assist-profile-stat-value">${profile_data.stats.breakdownsUsed}</div>
-          <div class="assist-profile-stat-label">Breakdowns</div>
-        </div>
-        <div class="assist-profile-stat">
-          <div class="assist-profile-stat-value">${profile_data.stats.tutorQuestionsAsked}</div>
-          <div class="assist-profile-stat-label">Tutor Sessions</div>
-        </div>
-        <div class="assist-profile-stat">
-          <div class="assist-profile-stat-value">${Math.round(profile_data.stats.wordsRead / 1000)}K</div>
-          <div class="assist-profile-stat-label">Words Processed</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="assist-profile-section">
-      <div class="assist-profile-section-title">🎯 Preferences</div>
-      <div class="assist-profile-preferences">
-        <div class="assist-profile-pref-item">
-          <span>Complexity Level</span>
-          <strong>${profile_getRecommendedComplexity('default')}</strong>
-        </div>
-        <div class="assist-profile-pref-item">
-          <span>Reading Speed</span>
-          <strong>${profile_data.reading.preferredSpeed.toFixed(1)}x</strong>
-        </div>
-      </div>
+      <p class="assist-profile-note">${kept}</p>
     </div>
   `);
 }
 
 /**
- * Show the profile panel
+ * Show the panel that says what has been recorded.
+ *
+ * Opened from the popup's "See what is recorded" button (over COGNITIVE_PROFILE_SHOW) and from the
+ * window API. It is a modal dialog, so focus moves into it, Tab stays inside it, Escape shuts it
+ * and focus goes back where it came from — `trapFocus` does all four.
  */
 function profile_show() {
+  if (!profile_settings.enabled || !profile_data) {
+    // An empty panel would read as a broken feature. Say what is actually true instead.
+    showToast?.(
+      'Your record is switched off, so nothing is being kept about how you work. Turn it on in the ' +
+        'AssisT popup to use it.'
+    );
+    return false;
+  }
+
   if (!profile_panel) {
     profile_panel = profile_createPanel();
     document.body.appendChild(profile_panel);
   }
   profile_renderContent();
   profile_panel.style.display = 'flex';
+
+  // A second open with the panel already up must not stack traps: the first is released before
+  // the second is taken, so the "previously focused" element the student goes back to is theirs.
+  profile_releaseFocus?.();
+  profile_releaseFocus = trapFocus(profile_panel, {
+    onEscape: profile_hide,
+    initialFocus: profile_panel,
+  });
+  return true;
 }
 
 /**
@@ -749,20 +861,44 @@ function profile_hide() {
   if (profile_panel) {
     profile_panel.style.display = 'none';
   }
+  // Releasing returns focus to whatever had it before the panel opened (SC 2.4.3).
+  profile_releaseFocus?.();
+  profile_releaseFocus = null;
+}
+
+/**
+ * Take the panel out of the page altogether, releasing its focus trap first so focus lands
+ * somewhere real rather than on a node that is no longer in the document.
+ */
+function profile_removePanel() {
+  profile_releaseFocus?.();
+  profile_releaseFocus = null;
+  if (profile_panel) {
+    profile_panel.remove();
+    profile_panel = null;
+  }
+}
+
+/**
+ * An empty record, dated now.
+ *
+ * Deep-copied, because every counter on it is incremented in place: a shallow spread would have
+ * `stats` and `feedback` pointing at DEFAULT_PROFILE, and the "defaults" would climb.
+ *
+ * @returns {Object}
+ */
+function profile_freshRecord() {
+  const fresh = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+  fresh.meta.createdAt = new Date().toISOString();
+  fresh.meta.lastUpdated = new Date().toISOString();
+  return fresh;
 }
 
 /**
  * Reset profile to defaults
  */
 async function profile_reset() {
-  profile_data = {
-    ...DEFAULT_PROFILE,
-    meta: {
-      ...DEFAULT_PROFILE.meta,
-      createdAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-    },
-  };
+  profile_data = profile_freshRecord();
   await profile_save();
 }
 
@@ -789,13 +925,51 @@ async function profile_updatePreference(category, key, value) {
   await profile_save();
 }
 
-async function profile_init() {
-  console.log('[CognitiveProfile] Initializing...');
+/**
+ * Forget the recorded profile, in storage and in memory.
+ *
+ * Called from the popup by message when the student asks for their record to be deleted, and
+ * offered on the window API so the panel's own button and a test can reach the same path.
+ *
+ * @returns {Promise<string[]>} the storage keys that were removed
+ */
+async function profile_erase() {
+  const removed = await eraseProfileData();
+  profile_removePanel();
+  // Deleting the record is not withdrawing consent. While the opt-in is still on, recording has to
+  // carry on from empty: leaving this null stopped it until the page was reloaded, and made "See
+  // what is recorded" answer that the record was switched off, which it was not.
+  profile_data = profile_settings.enabled ? profile_freshRecord() : null;
+  return removed;
+}
 
-  // Load profile from storage
-  await profile_load();
+/**
+ * Apply a change to the opt-in, in a tab that is already open.
+ *
+ * Switching off has to take effect here and now — a student who withdraws consent and then keeps
+ * reading must not have the rest of that page recorded — so the profile in memory goes with it.
+ *
+ * @param {Object} [next] - the stored settings object
+ */
+async function profile_applySettings(next) {
+  const wasEnabled = profile_settings.enabled;
+  Object.assign(profile_settings, next || {});
+  profile_settings.enabled = next?.enabled === true;
 
-  // Register to window
+  if (profile_settings.enabled && !wasEnabled) {
+    await profile_load();
+  } else if (!profile_settings.enabled && wasEnabled) {
+    profile_data = null;
+    // Taken out of the page rather than hidden: a panel of ours left in the student's document
+    // after they switched the feature off is the thing "off" is supposed to mean.
+    profile_removePanel();
+  }
+}
+
+async function profile_initialize() {
+  // The window API is registered whether or not the feature is on, so every consumer
+  // (`profile-addendum.js`, the knowledge graph) keeps calling the same functions and simply gets
+  // nothing back. An absent API would mean each of them needed its own fallback.
   if (!window.assistFeatures) {
     window.assistFeatures = {};
   }
@@ -811,18 +985,63 @@ async function profile_init() {
     getDominantStyle: profile_getDominantStyle,
     updatePreference: profile_updatePreference,
     reset: profile_reset,
+    erase: profile_erase,
+    isEnabled: () => profile_settings.enabled,
     settings: profile_settings,
   };
 
-  console.log('[CognitiveProfile] Initialized');
+  profile_settings.enabled = await isProfileEnabled();
+
+  if (profile_settings.enabled) {
+    await profile_load();
+  }
+
+  // Sent by the popup's "See what is recorded" button (profile-record-button.js). The panel belongs
+  // to the page, not the popup: the popup closes itself once the page has answered, so focus can
+  // move into the dialog.
+  chrome.runtime?.onMessage?.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'COGNITIVE_PROFILE_SHOW') {
+      return false;
+    }
+    // Answered synchronously: nothing here awaits, and the popup needs the answer before it
+    // closes itself.
+    sendResponse(
+      profile_show()
+        ? { success: true }
+        : {
+            success: false,
+            reason: 'Your record is switched off, so nothing is being kept about how you work.',
+          }
+    );
+    return false;
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') {
+      return;
+    }
+    if (changes[PROFILE_SETTINGS_KEY]) {
+      profile_applySettings(changes[PROFILE_SETTINGS_KEY].newValue);
+    }
+    // The popup deletes the record straight out of storage. Drop our copy of it, and — while the
+    // opt-in is still on — start an empty one, so this tab keeps recording instead of going quiet
+    // until it is reloaded.
+    if (changes[STORAGE_KEY] && changes[STORAGE_KEY].newValue === undefined) {
+      profile_data = profile_settings.enabled ? profile_freshRecord() : null;
+      profile_removePanel();
+    }
+  });
 }
 
 // Auto-initialize
 if (typeof window !== 'undefined') {
-  profile_init();
+  profile_initialize();
 }
 
 export {
+  profile_initialize,
+  profile_erase,
+  profile_getDominantStyle,
   profile_show,
   profile_hide,
   profile_get,

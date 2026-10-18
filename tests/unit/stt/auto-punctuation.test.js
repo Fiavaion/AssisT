@@ -172,7 +172,6 @@ describe('AutoPunctuator', () => {
       const result = punctuator.process('I want to go but', { isFinal: true });
       // Conjunction detection requires last word to be conjunction
       // 'but' is the last word here, so should trigger
-      const hasConjunction = result.analysis.signals.some(s => s.includes('conjunction'));
       // May or may not trigger based on configuration
       expect(result.analysis.signals).toBeDefined();
     });

@@ -54,15 +54,24 @@ export async function showToast(message, duration = 2000, options = {}) {
     existing.remove();
   }
 
-  // Create new toast element
+  // Create new toast element.
+  //
+  // role="status" is the toast's only live route: it carries the implicit aria-live="polite" a
+  // status region has, stated explicitly for older screen readers, and aria-atomic so the whole
+  // short message is read rather than the words that changed. One element, one announcement.
+  //
+  // The blue is Material Blue 800 rather than 500: white text on the old rgba(33, 150, 243, 0.95)
+  // measured about 3:1 against a white page, below WCAG 2.2 SC 1.4.3's 4.5:1 for 14px text.
   const toast = document.createElement('div');
   toast.id = 'assist-toast';
-  toast.textContent = message;
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('aria-live', 'polite');
+  toast.setAttribute('aria-atomic', 'true');
   toast.style.cssText = `
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: rgba(33, 150, 243, 0.95);
+    background: rgba(21, 101, 192, 0.95);
     color: white;
     padding: 12px 24px;
     border-radius: 8px;
@@ -73,7 +82,11 @@ export async function showToast(message, duration = 2000, options = {}) {
     font-family: -apple-system, system-ui, sans-serif;
   `;
 
+  // Insert the live region first, then write into it: a region that is already in the
+  // accessibility tree when its text changes is announced reliably, one whose text arrives with
+  // it may not be.
   document.body.appendChild(toast);
+  toast.textContent = message;
 
   // Auto-remove after duration
   setTimeout(() => {

@@ -13,6 +13,10 @@
  * @requires core/ui/toast (if you need notifications)
  */
 
+// Every settings write goes through the shared writer — see featureName_saveSetting() below.
+// Paths here are relative to src/features/yourFeature/, where this file gets copied to.
+import { applySettingWrites } from '../../utils/setting-writes.js';
+
 // Import utilities if needed
 // import { showToast } from '../../core/ui/toast.js';
 
@@ -238,12 +242,31 @@ chrome.storage.onChanged.addListener(changes => {
 });
 
 /**
+ * Persist one of this feature's settings.
+ *
+ * NEVER read `assist_settings`, change a branch and write the whole object back. The popup and the
+ * content script both store settings, so a whole-object write built from an earlier read discards
+ * whatever the other realm saved in between — that is how a student's voice and spacing get reset by
+ * a toggle they flipped somewhere else. `applySettingWrites` does the read, the merge and the write
+ * in one place, and creates the branches a dotted path needs.
+ *
+ * @param {string} path - a dotted path under this feature's key, e.g. 'exampleSetting'
+ * @param {*} value
+ * @returns {Promise<void>}
+ */
+async function featureName_saveSetting(path, value) {
+  // TEMPLATE: replace 'featureName' with your feature's settings key.
+  await applySettingWrites([{ path: `featureName.${path}`, value }]);
+}
+
+/**
  * Export functions that other modules might need
  * (Usually not needed for self-contained features)
  */
 export {
   featureName_initialize,
   featureName_cleanup,
+  featureName_saveSetting,
   // Add other exports if needed
 };
 
@@ -281,6 +304,7 @@ SAFETY CHECKLIST:
 ✅ Feature is self-contained (doesn't modify global state)
 ✅ Cleanup function removes all event listeners
 ✅ Chrome storage listeners handle real-time updates
+✅ Every settings write goes through applySettingWrites() — never a whole-object read-modify-write
 ✅ Console logs help debugging
 ✅ Follows existing code patterns
 
@@ -289,6 +313,7 @@ COMMON PATTERNS TO FOLLOW:
 - Log to console with [FeatureName] prefix
 - Clean up properly in cleanup() function
 - Handle enable/disable in storage listener
+- Persist settings with applySettingWrites(), never chrome.storage.local.set({ assist_settings })
 - Don't modify the settings object from content-simple.js
 - Don't modify the readText function
 

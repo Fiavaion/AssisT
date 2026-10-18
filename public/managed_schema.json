@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "institutionKey": {
+      "title": "AssisT institution customization key",
+      "description": "A signed AssisT institution key that applies your institution's cosmetic interface (name and colours) automatically on managed browsers. Supplied by the institution; the extension verifies it and grants no additional capability.",
+      "type": "string"
+    }
+  }
+}

@@ -25,7 +25,7 @@ describe('TextStats', () => {
       await textStats.initialize({
         enabled: false,
         targetWordCount: 500,
-        readingSpeed: 250
+        readingSpeed: 250,
       });
       expect(textStats.enabled).toBe(false);
       expect(textStats.targetWordCount).toBe(500);
@@ -370,5 +370,67 @@ describe('TextStats', () => {
       const stats = textStats.analyzeText('Test @#$% test');
       expect(stats.words).toBe(2);
     });
+  });
+});
+
+describe('TextStatsUI badge controls', () => {
+  let TextStatsUI;
+  let resetRails;
+  let ui;
+
+  beforeAll(async () => {
+    // The module self-initialises on import; give it storage to read and let it settle so the
+    // auto-created badge does not leak into these cases.
+    chrome.storage.local.get.mockResolvedValue({});
+    ({ TextStatsUI } = await import('../../src/features/textStats/textStats-ui.js'));
+    ({ resetRails } = await import('../../src/utils/corner-slots.js'));
+  });
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    resetRails();
+    chrome.storage.local.get.mockResolvedValue({});
+    chrome.storage.local.set.mockResolvedValue(undefined);
+    ui = new TextStatsUI();
+    ui.createBadge();
+  });
+
+  afterEach(() => {
+    ui.destroy();
+  });
+
+  test('the badge sits at the base of the bottom-right rail', () => {
+    expect(ui.badge.style.position).toBe('fixed');
+    expect(ui.badge.style.right).toBe('16px');
+    expect(ui.badge.style.bottom).toBe('16px');
+  });
+
+  test.each([
+    ['#assist-textstats-close', 'Enter'],
+    ['#assist-textstats-close', ' '],
+  ])('%s answers %s from the keyboard, not the mouse alone', (selector, key) => {
+    const button = ui.badge.querySelector(selector);
+    button.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    expect(ui.badgeVisible).toBe(false);
+    expect(ui.badge.style.display).toBe('none');
+  });
+
+  test('View details opens the stats modal from the keyboard', () => {
+    ui.createModal();
+    const details = ui.badge.querySelector('#assist-textstats-details');
+    details.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    );
+    expect(ui.modal.style.display).toBe('flex');
+  });
+
+  test('the modal Done button closes it from the keyboard', () => {
+    ui.createModal();
+    ui.showModal();
+    const done = ui.modal.querySelector('#assist-textstats-modal-done');
+    done.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    );
+    expect(ui.modal.style.display).toBe('none');
   });
 });

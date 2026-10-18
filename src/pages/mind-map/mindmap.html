@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AssisT — Mind Map</title>
+    <link rel="stylesheet" href="mindmap.css" />
+  </head>
+  <body>
+    <a class="assist-mm-skip" href="#assist-mm-main">Skip to your maps</a>
+
+    <header class="assist-mm-header">
+      <p class="assist-mm-header__brand">
+        <span class="assist-mm-header__logo" aria-hidden="true">🧭</span>
+        <span class="assist-mm-header__name">AssisT</span>
+        <!--
+          Beta is said in a word, never in a colour or an icon alone (SC 1.4.1). Beside the brand,
+          the word on its own would be ambiguous read aloud, so the hidden half names what is
+          early; Help says what that means and where to tell us about it.
+        -->
+        <span class="assist-mm-header__beta"
+          >Beta<span class="assist-mm-visually-hidden">: mind maps are still being built</span>
+        </span>
+      </p>
+
+      <h1 class="assist-mm-title" id="assist-mm-title">
+        <label class="assist-mm-visually-hidden" for="assist-mm-title-input">Map title</label>
+        <input
+          type="text"
+          id="assist-mm-title-input"
+          class="assist-mm-title__input"
+          autocomplete="off"
+          spellcheck="false"
+          hidden
+        />
+        <span class="assist-mm-title__static" id="assist-mm-title-static">Your mind maps</span>
+      </h1>
+
+      <!--
+        The save state belongs beside the title it describes. It used to sit in a footer bar at the
+        far end of the page, where a student watching their own words appear had to look away from
+        them to find out whether the map had been written.
+      -->
+      <p class="assist-mm-status" id="assist-mm-status"></p>
+
+      <div class="assist-mm-header__actions">
+        <button type="button" class="assist-mm-button" id="assist-mm-reload" hidden>
+          Reload this map
+        </button>
+        <div id="assist-mm-file-host"></div>
+        <button type="button" class="assist-mm-button" id="assist-mm-help" data-destination="help">
+          Help
+        </button>
+      </div>
+    </header>
+
+    <div class="assist-mm-banner" id="assist-mm-banner" hidden>
+      <p class="assist-mm-banner__text" id="assist-mm-banner-text"></p>
+      <button type="button" class="assist-mm-button" id="assist-mm-banner-dismiss">Dismiss</button>
+    </div>
+
+    <main class="assist-mm-main" id="assist-mm-main" tabindex="-1">
+      <div class="assist-mm-library" id="assist-mm-library-host" hidden></div>
+
+      <div class="assist-mm-editor" id="assist-mm-editor" hidden>
+        <div class="assist-mm-toolbar" role="toolbar" aria-label="Map tools">
+          <button
+            type="button"
+            class="assist-mm-button assist-mm-button--quiet"
+            id="assist-mm-outline-toggle"
+            aria-expanded="true"
+            aria-controls="assist-mm-outline-region"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">☰</span>
+            <span class="assist-mm-button__label">Hide outline</span>
+          </button>
+
+          <span
+            class="assist-mm-toolbar__divider"
+            role="separator"
+            aria-orientation="vertical"
+          ></span>
+
+          <!--
+            A command that cannot act right now says so with `aria-disabled` and a sentence, not
+            with the `disabled` attribute: `disabled` takes the button out of the tab order, so
+            the student most in need of the explanation never reaches the button refusing them.
+            The sentence is written by `refreshToolbar`, into the span each button describes
+            itself by, and said again if the button is pressed anyway.
+          -->
+          <button
+            type="button"
+            class="assist-mm-button"
+            id="assist-mm-undo"
+            aria-disabled="true"
+            aria-describedby="assist-mm-undo-why"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">↺</span>Undo
+          </button>
+          <span class="assist-mm-visually-hidden" id="assist-mm-undo-why"></span>
+          <button
+            type="button"
+            class="assist-mm-button"
+            id="assist-mm-redo"
+            aria-disabled="true"
+            aria-describedby="assist-mm-redo-why"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">↻</span>Redo
+          </button>
+          <span class="assist-mm-visually-hidden" id="assist-mm-redo-why"></span>
+
+          <span
+            class="assist-mm-toolbar__divider"
+            role="separator"
+            aria-orientation="vertical"
+          ></span>
+
+          <button
+            type="button"
+            class="assist-mm-button"
+            id="assist-mm-new-child"
+            aria-disabled="true"
+            aria-describedby="assist-mm-new-child-why"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">＋</span>Child
+          </button>
+          <span class="assist-mm-visually-hidden" id="assist-mm-new-child-why"></span>
+          <button
+            type="button"
+            class="assist-mm-button"
+            id="assist-mm-new-sibling"
+            aria-disabled="true"
+            aria-describedby="assist-mm-new-sibling-why"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">＋</span>Sibling
+          </button>
+          <span class="assist-mm-visually-hidden" id="assist-mm-new-sibling-why"></span>
+          <button
+            type="button"
+            class="assist-mm-button assist-mm-button--danger"
+            id="assist-mm-delete"
+            aria-disabled="true"
+            aria-describedby="assist-mm-delete-why"
+          >
+            Delete
+          </button>
+          <span class="assist-mm-visually-hidden" id="assist-mm-delete-why"></span>
+
+          <span
+            class="assist-mm-toolbar__divider"
+            role="separator"
+            aria-orientation="vertical"
+          ></span>
+
+          <!--
+            Focus is a state rather than an act, so it says `aria-pressed` — pressed while one branch
+            is on screen, and pressing it again brings the whole map back. Nothing about the map
+            changes either way: it is a view, and the trail below the toolbar is what says where the
+            branch sits.
+          -->
+          <button
+            type="button"
+            class="assist-mm-button"
+            id="assist-mm-focus"
+            aria-pressed="false"
+            aria-disabled="true"
+            aria-describedby="assist-mm-focus-why"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">⌖</span>Focus<span
+              class="assist-mm-visually-hidden"
+            >
+              on this branch</span
+            >
+          </button>
+          <span class="assist-mm-visually-hidden" id="assist-mm-focus-why"></span>
+
+          <span
+            class="assist-mm-toolbar__divider"
+            role="separator"
+            aria-orientation="vertical"
+          ></span>
+
+          <label class="assist-mm-toolbar__label" for="assist-mm-layout">Layout</label>
+          <select class="assist-mm-select" id="assist-mm-layout">
+            <option value="map">Map: branches both ways</option>
+            <option value="tree">Tree: left to right</option>
+          </select>
+
+          <span class="assist-mm-toolbar__spacer" aria-hidden="true"></span>
+
+          <button
+            type="button"
+            class="assist-mm-button"
+            id="assist-mm-ai"
+            aria-pressed="false"
+            aria-controls="assist-mm-panel-ai"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">🤖</span>AI
+          </button>
+
+          <div class="assist-mm-toolbar__slot" id="assist-mm-read-host"></div>
+
+          <button
+            type="button"
+            class="assist-mm-button"
+            id="assist-mm-study"
+            aria-pressed="false"
+            aria-controls="assist-mm-panel-study"
+          >
+            <span class="assist-mm-button__icon" aria-hidden="true">🎯</span>Study
+          </button>
+
+          <span
+            class="assist-mm-toolbar__divider"
+            role="separator"
+            aria-orientation="vertical"
+          ></span>
+
+          <button
+            type="button"
+            class="assist-mm-button assist-mm-button--quiet"
+            id="assist-mm-dock-toggle"
+            aria-expanded="true"
+            aria-controls="assist-mm-dock"
+          >
+            <span class="assist-mm-button__label">Hide details</span>
+          </button>
+        </div>
+
+        <!--
+          The trail back to the centre of the map, filled in only while one branch is on screen. A
+          row of its own between the toolbar and the workspace: inside `role="toolbar"` it would
+          break the promise that strip makes about the keyboard (one tab stop, the arrows to move
+          along it), and inside the canvas it would sit over the picture and, below 900px, over the
+          zoom cluster.
+        -->
+        <div id="assist-mm-crumbs-host"></div>
+
+        <div class="assist-mm-workspace" id="assist-mm-layout-grid">
+          <section
+            class="assist-mm-dock assist-mm-dock--outline"
+            id="assist-mm-outline-region"
+            aria-labelledby="assist-mm-outline-heading"
+          >
+            <div class="assist-mm-dock__head">
+              <h2 class="assist-mm-dock__title" id="assist-mm-outline-heading">Outline</h2>
+              <label class="assist-mm-visually-hidden" for="assist-mm-find">Find in this map</label>
+              <input
+                type="search"
+                id="assist-mm-find"
+                class="assist-mm-find"
+                placeholder="Find in this map"
+              />
+              <!--
+                What the box found, in a line of its own under it: "2 matches", "Match 1 of 2",
+                "No matches". The seen half only — like the toast, and for the same reason. The
+                sentence itself goes to #assist-mm-live, so no `aria-live` and no `role="status"`
+                here: a second live route would say the news twice. The line is always in the
+                document, so a search starting or ending moves nothing in the outline below it.
+              -->
+              <p class="assist-mm-find-status" id="assist-mm-find-status"></p>
+            </div>
+            <div class="assist-mm-dock__body" id="assist-mm-outline-host"></div>
+          </section>
+
+          <div
+            class="assist-mm-separator"
+            id="assist-mm-separator"
+            role="separator"
+            tabindex="0"
+            aria-label="Outline width"
+            aria-orientation="vertical"
+            aria-valuemin="240"
+            aria-valuemax="720"
+            aria-valuenow="300"
+            aria-valuetext="300 pixels"
+          ></div>
+
+          <section
+            class="assist-mm-canvas"
+            id="assist-mm-canvas-host"
+            aria-label="Map view"
+          ></section>
+
+          <aside class="assist-mm-dock assist-mm-dock--details" id="assist-mm-dock">
+            <div class="assist-mm-dock__tabs" role="tablist" aria-label="Map panels">
+              <button
+                type="button"
+                class="assist-mm-tab"
+                role="tab"
+                id="assist-mm-tab-details"
+                aria-controls="assist-mm-panel-details"
+                aria-selected="true"
+              >
+                Details
+              </button>
+              <button
+                type="button"
+                class="assist-mm-tab"
+                role="tab"
+                id="assist-mm-tab-ai"
+                aria-controls="assist-mm-panel-ai"
+                aria-selected="false"
+                tabindex="-1"
+              >
+                AI
+              </button>
+              <button
+                type="button"
+                class="assist-mm-tab"
+                role="tab"
+                id="assist-mm-tab-study"
+                aria-controls="assist-mm-panel-study"
+                aria-selected="false"
+                tabindex="-1"
+              >
+                Study
+              </button>
+            </div>
+
+            <div
+              class="assist-mm-dock__panel"
+              role="tabpanel"
+              id="assist-mm-panel-details"
+              aria-labelledby="assist-mm-tab-details"
+              tabindex="-1"
+            >
+              <div id="assist-mm-inspector-host"></div>
+            </div>
+            <div
+              class="assist-mm-dock__panel"
+              role="tabpanel"
+              id="assist-mm-panel-ai"
+              aria-labelledby="assist-mm-tab-ai"
+              tabindex="-1"
+              hidden
+            >
+              <div id="assist-mm-ai-host"></div>
+            </div>
+            <div
+              class="assist-mm-dock__panel"
+              role="tabpanel"
+              id="assist-mm-panel-study"
+              aria-labelledby="assist-mm-tab-study"
+              tabindex="-1"
+              hidden
+            >
+              <div id="assist-mm-study-host"></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </main>
+
+    <div class="assist-mm-visually-hidden" id="assist-mm-live" aria-live="polite"></div>
+    <!--
+      The toast is the seen half only. It is written while `hidden`, and a live region nobody can
+      see is a live region nothing is announced from, so `showToast` says the same words in
+      #assist-mm-live above. A `role="status"` here as well would risk saying them twice.
+    -->
+    <p class="assist-mm-toast" id="assist-mm-toast" hidden></p>
+    <div id="assist-mm-dialog-host"></div>
+
+    <script type="module" src="mindmap.js"></script>
+  </body>
+</html>

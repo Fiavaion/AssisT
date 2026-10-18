@@ -33,6 +33,8 @@
 // === IMPORTS ===
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
+import { isMoodlePage } from '../../adapters/lms-detect.js';
+import { joinForSpeech, readAloud } from './lms-read-aloud.js';
 
 // === MODULE STATE ===
 
@@ -57,35 +59,27 @@ let moodle_fabElement = null;
  */
 let MoodleAdapter = null;
 
-/**
- * Reference to the global settings object from content-simple.js
- * This is accessed via window scope to avoid circular dependencies
- * @type {Object}
- * @private
- */
-let settings = null;
-
-/**
- * Reference to the readText function from content-simple.js
- * This is accessed via window scope to avoid circular dependencies
- * @type {Function}
- * @private
- */
-let readText = null;
-
 // === ADAPTER LOADING ===
 
 /**
- * Dynamically loads the Moodle Adapter module
+ * Loads the Moodle Adapter, but only on a Moodle page
  * @async
  * @function moodle_loadAdapter
- * @returns {Promise<Object|null>} The loaded MoodleAdapter module or null on failure
- * @description Lazy-loads the Moodle adapter only when needed to reduce initial bundle size
+ * @returns {Promise<Object|null>} The loaded MoodleAdapter module, or null off Moodle / on failure
+ * @description The page check comes first and is the reason this is the only gate: every entry point
+ * goes through here, so a page that is not Moodle never fetches the adapter chunk and never logs.
+ * The import is a plain specifier so Vite bundles the adapter into assets/ — the previous
+ * `chrome.runtime.getURL('src/adapters/moodle-adapter.js')` loaded a raw copy of the source, whose
+ * own imports had to exist as raw files beside it, and one of them did not.
  */
 export async function moodle_loadAdapter() {
+  if (!isMoodlePage()) {
+    return null;
+  }
+
   if (!MoodleAdapter) {
     try {
-      MoodleAdapter = await import(chrome.runtime.getURL('src/adapters/moodle-adapter.js'));
+      MoodleAdapter = await import('../../adapters/moodle-adapter.js');
       console.log('[Moodle] Adapter loaded');
     } catch (error) {
       console.error('[Moodle] Failed to load adapter:', error);
@@ -102,7 +96,7 @@ export async function moodle_loadAdapter() {
  * @function moodle_initialize
  * @description
  * - Checks if Moodle integration is enabled
- * - Loads the Moodle adapter
+ * - Loads the Moodle adapter, which no-ops off Moodle
  * - Detects the current Moodle page type (assignment, forum, page)
  * - Initializes appropriate reader features with FAB buttons
  * @fires moodle_initializeAssignmentReader
@@ -114,14 +108,9 @@ export async function moodle_initialize() {
     return;
   }
 
+  // Off Moodle, loadAdapter returns null without importing anything.
   const adapter = await moodle_loadAdapter();
   if (!adapter) {
-    return;
-  }
-
-  // Check if on Moodle page
-  if (!adapter.isMoodlePage()) {
-    console.log('[Moodle] Not a Moodle page, skipping');
     return;
   }
 
@@ -165,7 +154,7 @@ export async function moodle_initializeAssignmentReader() {
     return;
   }
 
-  console.log('[Moodle] Assignment detected:', assignment.title);
+  console.log('[Moodle] Assignment detected');
 
   // Create FAB button
   moodle_fabElement = adapter.createMoodleFAB({
@@ -237,7 +226,7 @@ export async function moodle_initializePageReader() {
     return;
   }
 
-  console.log('[Moodle] Page resource detected:', page.title);
+  console.log('[Moodle] Page resource detected');
 
   // Create FAB button
   moodle_fabElement = adapter.createMoodleFAB({
@@ -254,78 +243,43 @@ export async function moodle_initializePageReader() {
 // === READING ACTIONS ===
 
 /**
- * Read Moodle content using TTS
+ * Read Moodle content aloud.
  * @function moodle_readContent
  * @param {Object} content - Content object to read
  * @param {string} content.title - Content title
  * @param {string} content.text - Content body text
  * @param {HTMLElement} content.element - Associated DOM element for highlighting
- * @description
- * - Validates TTS is enabled in extension settings
- * - Combines title and text for natural speech output
- * - Delegates to global readText function for TTS processing
- * @requires settings.enabled - TTS master toggle must be true
+ * @returns {boolean} true if reading started
+ * @description Builds the spoken text from whatever the page supplied and hands it to the shared
+ * read-aloud path, which refuses with a plain reason when read-aloud is off or the page is empty.
  */
 export function moodle_readContent(content) {
-  // Access global settings from content-simple.js
-  if (!settings) {
-    settings = window.assistSettings || { enabled: false };
-  }
-
-  // Access global readText from content-simple.js
-  if (!readText) {
-    readText = window.assistReadText;
-  }
-
-  if (!settings.enabled) {
-    showToast('⚠️ Enable TTS in the extension popup first');
-    return;
-  }
-
-  console.log('[Moodle] Reading content:', content.title);
-  showToast('📖 Reading: ' + content.title);
-
-  const fullText = content.title + '. ' + content.text;
-  readText(fullText, content.element);
+  return readAloud({
+    text: joinForSpeech([content.title, content.text]),
+    element: content.element,
+    announcement: `Reading: ${content.title || 'this page'}`,
+  });
 }
 
 /**
- * Read forum posts using TTS
+ * Read forum posts aloud.
  * @function moodle_readPosts
  * @param {Array<Object>} posts - Array of forum post objects
  * @param {string} posts[].author - Post author name
  * @param {string} posts[].content - Post content text
  * @param {HTMLElement} posts[].element - Associated DOM element for highlighting
- * @description
- * - Validates TTS is enabled in extension settings
- * - Combines multiple posts with author attribution
- * - Adds "Next post" separators for natural speech flow
- * - Delegates to global readText function for TTS processing
- * @requires settings.enabled - TTS master toggle must be true
+ * @returns {boolean} true if reading started
+ * @description Posts with no text of their own are dropped rather than spoken as an empty turn, so a
+ * thread of attachments reports "nothing to read" instead of reciting author names into silence.
  */
 export function moodle_readPosts(posts) {
-  // Access global settings from content-simple.js
-  if (!settings) {
-    settings = window.assistSettings || { enabled: false };
-  }
+  const spoken = (posts || []).filter(post => post && post.content && post.content.trim());
 
-  // Access global readText from content-simple.js
-  if (!readText) {
-    readText = window.assistReadText;
-  }
-
-  if (!settings.enabled) {
-    showToast('⚠️ Enable TTS in the extension popup first');
-    return;
-  }
-
-  console.log('[Moodle] Reading', posts.length, 'forum posts');
-  showToast(`💬 Reading ${posts.length} forum posts`);
-
-  // Combine all posts
-  const fullText = posts.map(post => `${post.author} says: ${post.content}`).join('. Next post. ');
-
-  readText(fullText, posts[0].element);
+  return readAloud({
+    text: spoken.map(post => `${post.author} says: ${post.content.trim()}`).join('. Next post. '),
+    element: spoken.length > 0 ? spoken[0].element : null,
+    announcement: `Reading ${spoken.length} forum ${spoken.length === 1 ? 'post' : 'posts'}`,
+  });
 }
 
 // === CLEANUP ===
@@ -340,6 +294,22 @@ export function moodle_removeFAB() {
     moodle_fabElement.remove();
     moodle_fabElement = null;
   }
+}
+
+/**
+ * Tear down what this module injected (the FAB). Safe to call on any page.
+ */
+export function moodle_cleanup() {
+  moodle_removeFAB();
+}
+
+/**
+ * Re-detect the current page and re-mount Moodle features after an SPA navigation.
+ * Cleans up first so nothing is duplicated; no-ops off Moodle / when disabled.
+ */
+export async function moodle_reinit() {
+  moodle_cleanup();
+  await moodle_initialize();
 }
 
 // === SETTINGS MANAGEMENT ===
@@ -361,13 +331,15 @@ function applySettings(settings, isInit = false) {
   if (newEnabled && !wasEnabled) {
     moodle_enabled = true;
     moodle_initialize();
-    if (!isInit) {
+    // Announced only on this platform: the setting is shared, so a change made anywhere reaches
+    // every tab, and a message about another LMS is noise to a student who is not on it.
+    if (!isInit && isMoodlePage()) {
       showToast('📚 Moodle Integration enabled');
     }
   } else if (!newEnabled && wasEnabled) {
     moodle_enabled = false;
     moodle_removeFAB();
-    if (!isInit) {
+    if (!isInit && isMoodlePage()) {
       showToast('Moodle Integration disabled');
     }
   }
@@ -385,12 +357,5 @@ initFeatureSettings(
   settings => applySettings(settings, true),
   settings => applySettings(settings, false)
 );
-
-// === GLOBAL EXPORTS FOR WINDOW SCOPE ===
-// Export key functions to window for access by other modules if needed
-if (typeof window !== 'undefined') {
-  window.moodleInitialize = moodle_initialize;
-  window.moodleRemoveFAB = moodle_removeFAB;
-}
 
 console.log('[Moodle] Module loaded');

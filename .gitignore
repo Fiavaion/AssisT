@@ -1,62 +1,30 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
 
-# Build outputs (only .vite/ should exist - see CLAUDE.md)
+# Institution signing: the PRIVATE key must never be committed (the public key is bundled in src).
+# The real private key lives outside this repo; these patterns are defence-in-depth in case
+# `scripts/issue-institution-key.mjs genkey` is ever pointed at a repo-relative path.
+secrets/
+*private-key*.jwk
+
+# Build output (Chrome loads the extension from .vite/)
+.vite/
 dist/
 build/
-Output/
-AssisT_submission/
 *.crx
 *.zip
 *.extensionpkg
 
-# Obsolete build directories (DO NOT CREATE - legacy from old build systems)
-AssistLLM/
-AssistV2a/
-FG_build/
-Ident/
-
-# Test coverage & results
+# Test coverage and results
 coverage/
 .nyc_output/
 test-results/
 playwright-report/
-test-output.txt
-build-output.txt
 
 # Environment variables
 .env
 .env.local
 .env.*.local
-
-# Claude/AI Development Config & Temp Files
-.claude/
-tmpclaude-*
-task-agent-config.json
-CLAUDE.md
-claude.md
-projectmemory.md
-
-# Development tooling (local only)
-.husky/
-commitlint.config.cjs
-push.sh
-scripts/push.sh
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# YouTube automation secrets & output
-GAAD_launch/tools/client_secrets.json
-GAAD_launch/tools/token.json
-GAAD_launch/tools/output/
 
 # Logs
 logs/
@@ -65,80 +33,29 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+nul
+
 # Temporary files
 tmp/
 temp/
 *.tmp
-nul
 
-# OS files
-Thumbs.db
-
-# Vite build output
-.vite/
-
-# === Development & Testing Assets (not needed in repo) ===
-# Generated marketing/promo assets
-generated-assets/
-store-screenshots/
-
-# Reference images for development
-REfImages/
-TestingImages/
-
-# Benchmark results (regeneratable)
-benchmark/
-
-# Feature development materials
-FeaturePass_*/
-
-# Prototypes and experiments
-prototypes/
-
-# Test/demo HTML files (standalone, not part of extension)
-demo-all-ai-features.html
-test-ai-features.html
-test-page.html
-start-ollama-cors.bat
-
-# === Project Documentation (internal, except docs/quality which is public) ===
+# Only these docs folders are published
 docs/*
 !docs/quality/
+!docs/adr/
 
-# === Legacy directories archived to ~/.claude/archive/AssisT/ ===
-# These folders were removed from the repo on 2026-04-19 pre-public-flip.
-# Gitignored so they can't be re-added by accident.
-00_Planning/
-AssisT_0_1_*/
-src/_archive/
-src/pages/testing/
+# CSL style and locale cache for scripts/csl-crosscheck.mjs (CC BY-SA files, never committed)
+.cache/csl/
 
-# === Husky git-hook scripts (keep tracked — needed for commit-lint + pre-commit) ===
-# The .husky/ pattern above ignores the whole folder; these exceptions let
-# the two hook scripts stay tracked for contributors to get the same hooks.
-!.husky/commit-msg
-!.husky/pre-commit
-
-# === Private contact / identity files (hybrid naming policy) ===
-# Legal identity behind the "Fiavaion" trading name is held privately,
-# disclosed to funders / HEIs on written request. Must never be committed.
-CONTACT.private.md
-*.private.md
-*.private.txt
-
-# === Funding / grant proposal drafts ===
-# Drafts contain pre-submission budget negotiations and unconfirmed
-# partner-HEI candidates. Gitignored pre-submission. A committed
-# "submitted" folder can be added after the proposal lands.
-docs/funding/
-CWS_SUBMISSION_CHECKLIST.md
-
-# === Promo / launch / marketing (never in the code repo) ===
-# Launch decks, conference slides, narration scripts, cost analyses,
-# personal media, third-party logos, video-upload + OAuth tooling.
-GAAD_launch/
-assist-tutorials/
-
-# === Accidental temp / scratch files ===
-*tmp*js_ref*.txt
-*tmp*html_ids*.txt
+# WebLLM model libraries, downloaded and checked at build time (scripts/webllm-model-libs.js,
+# ADR 0010). Third-party compiled code, 45 MB per library version, never committed.
+.cache/webllm-libs/

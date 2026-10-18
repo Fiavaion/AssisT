@@ -6,7 +6,12 @@
  */
 
 import { sanitizeHTML } from '../utils/sanitize.js';
-import { attachInteractiveHandler } from '../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../utils/event-handlers.js';
+import { isMoodlePage } from './lms-detect.js';
+
+// Detection lives in lms-detect.js because the feature module has to answer it before it
+// loads this adapter; it stays part of the adapter's own surface.
+export { isMoodlePage };
 
 /**
  * Moodle page types
@@ -22,28 +27,6 @@ export const MoodlePageType = {
   MODULE: 'module',
   OTHER: 'other',
 };
-
-/**
- * Check if current page is a Moodle LMS page
- * @returns {boolean} True if on Moodle domain
- */
-export function isMoodlePage() {
-  const hostname = window.location.hostname;
-
-  // Check for common Moodle domains
-  const moodlePatterns = [/moodle/i, /\.lms\./, /learning\./, /elearning\./];
-
-  // Check if body has Moodle-specific classes
-  const hasMoodleClass =
-    document.body?.classList.contains('pagelayout-standard') ||
-    document.body?.classList.contains('path-mod-') ||
-    document.body?.classList.contains('dir-ltr') ||
-    document.querySelector('meta[name="Moodle"]') !== null ||
-    document.querySelector('.page-footer-content-container') !== null ||
-    document.getElementById('page-wrapper') !== null;
-
-  return moodlePatterns.some(pattern => pattern.test(hostname)) || hasMoodleClass;
-}
 
 /**
  * Detect the type of Moodle page
@@ -413,7 +396,7 @@ export function createMoodleFAB(options = {}) {
     fab.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
   });
 
-  attachInteractiveHandler(fab, 'Moodle FAB', onClick, { enableVisualFeedback: false });
+  attachAccessibleHandler(fab, 'Moodle FAB', onClick, { enableVisualFeedback: false });
 
   return fab;
 }

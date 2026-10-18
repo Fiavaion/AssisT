@@ -14,6 +14,15 @@ if (typeof global.structuredClone !== 'function') {
   global.structuredClone = val => v8.deserialize(v8.serialize(val));
 }
 
+// jsdom does not expose TextEncoder/TextDecoder, which are standard globals in real extension
+// contexts (service worker, content script, extension pages). Provide Node's implementations so
+// modules that encode/decode bytes (e.g. the institution key parser) run under jsdom.
+if (typeof global.TextEncoder !== 'function' || typeof global.TextDecoder !== 'function') {
+  const { TextEncoder, TextDecoder } = require('node:util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
 // DOMPurify requires window to be set — make it available for sanitize.js in jsdom
 const DOMPurify = require('dompurify');
 global.window.DOMPurify = DOMPurify;

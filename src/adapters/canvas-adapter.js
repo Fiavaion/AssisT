@@ -6,7 +6,12 @@
  */
 
 import { sanitizeHTML } from '../utils/sanitize.js';
-import { attachInteractiveHandler } from '../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../utils/event-handlers.js';
+import { isCanvasPage } from './lms-detect.js';
+
+// Detection lives in lms-detect.js because the feature module has to answer it before it
+// loads this adapter; it stays part of the adapter's own surface.
+export { isCanvasPage };
 
 /**
  * Canvas page types
@@ -23,25 +28,6 @@ export const CanvasPageType = {
 };
 
 /**
- * Check if current page is a Canvas LMS page
- * @returns {boolean} True if on Canvas domain
- */
-export function isCanvasPage() {
-  const hostname = window.location.hostname;
-
-  // Check for common Canvas domains
-  const canvasPatterns = [/\.instructure\.com$/, /\.canvas\./, /canvas\./];
-
-  // Check if body has Canvas-specific classes
-  const hasCanvasClass =
-    document.body?.classList.contains('course-menu-expanded') ||
-    document.body?.classList.contains('primary-nav-expanded') ||
-    document.getElementById('application') !== null;
-
-  return canvasPatterns.some(pattern => pattern.test(hostname)) || hasCanvasClass;
-}
-
-/**
  * Detect the type of Canvas page
  * @returns {string} Page type from CanvasPageType enum
  */
@@ -52,8 +38,8 @@ export function detectCanvasPageType() {
 
   const pathname = window.location.pathname;
 
-  // Assignment page
-  if (pathname.includes('/assignments/') && !pathname.includes('/assignments$')) {
+  // Assignment detail page (e.g. /assignments/123) — not the /assignments/ index.
+  if (pathname.includes('/assignments/') && !pathname.endsWith('/assignments/')) {
     return CanvasPageType.ASSIGNMENT;
   }
 
@@ -321,7 +307,7 @@ export function createCanvasFAB(options = {}) {
     fab.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
   });
 
-  attachInteractiveHandler(fab, 'Canvas FAB', onClick, { enableVisualFeedback: false });
+  attachAccessibleHandler(fab, 'Canvas FAB', onClick, { enableVisualFeedback: false });
 
   return fab;
 }

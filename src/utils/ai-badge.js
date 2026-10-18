@@ -15,6 +15,8 @@
  * @module utils/ai-badge
  */
 
+import { resolveModel } from '../ai/model-registry.js';
+
 const PROVIDER_NAMES = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
@@ -22,23 +24,18 @@ const PROVIDER_NAMES = {
   perplexity: 'Perplexity',
 };
 
-// Map from full Anthropic model IDs and short keys → display names
+// Anthropic API IDs → display names
 const ANTHROPIC_MODEL_NAMES = {
-  // Short keys (used internally)
-  'haiku-4.5': 'Haiku',
-  'sonnet-4.6': 'Sonnet',
-  'opus-4.6': 'Opus',
-  // Full API IDs (stored by popup when user selects from fetched list)
-  'claude-haiku-4-5-20251001': 'Haiku',
-  'claude-sonnet-4-6': 'Sonnet',
-  'claude-opus-4-6': 'Opus',
+  'claude-haiku-5-5': 'Haiku',
+  'claude-sonnet-5-5': 'Sonnet',
+  'claude-opus-5-5': 'Opus',
 };
 
 /**
- * Get a human-readable display name for an Anthropic model ID or key.
+ * Get a human-readable display name for an Anthropic API model ID.
  * Falls back to a cleaned-up version of the raw model string.
  *
- * @param {string} modelId - Full API ID (e.g. 'claude-sonnet-4-6') or short key (e.g. 'sonnet-4.6')
+ * @param {string} modelId - Full API ID (e.g. 'claude-sonnet-5-5')
  * @returns {string}
  */
 function getAnthropicModelName(modelId) {
@@ -56,20 +53,22 @@ function getAnthropicModelName(modelId) {
 }
 
 /**
- * Get a short display name for any provider's model.
+ * Get a short display name for any provider's model: the one a request will actually go to, so a
+ * saved model that has been replaced is named as its replacement.
  * For non-Anthropic providers, uses the raw model ID since it's already user-readable
- * (e.g. 'gpt-4o', 'gemini-2.0-flash', 'sonar-pro').
+ * (e.g. 'gpt-4o', 'gemini-3.8-flash', 'sonar-pro').
  *
  * @param {string} provider - Provider key ('anthropic', 'openai', 'google', 'perplexity')
- * @param {string} modelId - Model ID from storage
+ * @param {string} modelId - Model key or ID from storage
  * @returns {string}
  */
 function getModelDisplayName(provider, modelId) {
+  const resolved = modelId ? resolveModel(provider, modelId) : modelId;
   if (provider === 'anthropic') {
-    return getAnthropicModelName(modelId);
+    return getAnthropicModelName(resolved);
   }
   // For other providers: the model ID is already a readable string
-  return modelId || 'Default';
+  return resolved || 'Default';
 }
 
 /**
@@ -139,7 +138,7 @@ export async function getAIBadgeInfo() {
  * Generate consistent badge HTML for the current AI mode.
  *
  * @param {'cloud'|'local'|'webllm'|'off'|'fallback'} mode - AI mode
- * @param {string} label - Display label (e.g. 'Anthropic: Sonnet 4.6', 'Local AI', 'Browser: Llama 3.2 1B')
+ * @param {string} label - Display label (e.g. 'Anthropic: Sonnet', 'Local AI', 'Browser: Llama 3.2 1B')
  * @returns {string} HTML string (safe to inject via sanitizeHTML)
  */
 export function renderAIBadge(mode, label) {

@@ -1,7 +1,7 @@
 /**
  * Image Understanding Feature
  *
- * Uses AI vision models (LLaVA) to describe images, read text in photos,
+ * Uses AI vision models (cloud, or a local Ollama model such as qwen3.5) to describe images, read text in photos,
  * and explain diagrams. Essential for making visual content accessible.
  *
  * Features:
@@ -17,7 +17,11 @@
 import { showToast } from '../../core/ui/toast.js';
 import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML as _sanitizeHTML, sanitizeURL } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
+import { VISION_MODEL } from '../../utils/ollama-models.js';
+import { REGISTRY } from '../../ai/model-registry.js';
 
 let imageUI_panel = null;
 let imageUI_currentImage = null;
@@ -28,14 +32,6 @@ const imageUI_settings = {
   descriptionLevel: 'detailed', // 'brief' | 'detailed' | 'comprehensive'
   includeTextExtraction: true,
   autoReadDescription: false,
-};
-
-// TTS settings - pre-loaded voice object for reliable TTS (same pattern as StickyNotes)
-const imageUI_ttsSettings = {
-  voice: null, // SpeechSynthesisVoice object
-  rate: 1.0,
-  pitch: 1.0,
-  volume: 1.0,
 };
 
 /**
@@ -125,7 +121,7 @@ async function imageUI_getBase64(img) {
 async function imageUI_captureFromUrl(url) {
   // First, try fetching through background script (handles CORS)
   try {
-    console.log('[ImageUnderstanding] Fetching image via background script:', url);
+    console.log('[ImageUnderstanding] Fetching image via background script');
     const response = await chrome.runtime.sendMessage({
       action: 'FETCH_IMAGE',
       url: url,
@@ -169,11 +165,11 @@ async function imageUI_getAIMode() {
     const result = await chrome.storage.local.get(['aiMode', 'cloudModel', 'cloudProvider']);
     return {
       mode: result.aiMode || 'off',
-      cloudModel: result.cloudModel || 'claude-sonnet-4-6',
+      cloudModel: result.cloudModel || REGISTRY.anthropic.defaultModel,
       cloudProvider: result.cloudProvider || 'anthropic',
     };
   } catch {
-    return { mode: 'off', cloudModel: 'claude-sonnet-4-6', cloudProvider: 'anthropic' };
+    return { mode: 'off', cloudModel: REGISTRY.anthropic.defaultModel, cloudProvider: 'anthropic' };
   }
 }
 
@@ -191,7 +187,7 @@ async function imageUI_checkCloudAvailable() {
 }
 
 /**
- * Check if local vision model (LLaVA) is available.
+ * Check if a local model that can read images is installed.
  * @returns {Promise<boolean>}
  */
 async function imageUI_checkLocalVision() {
@@ -263,10 +259,12 @@ async function imageUI_describe(base64Image, prompt) {
     );
   }
 
-  // Local mode: use Ollama/LLaVA
+  // Local mode: an Ollama model that can read images
   const localAvailable = await imageUI_checkLocalVision();
   if (!localAvailable) {
-    throw new Error('Vision model (LLaVA) is not available. Run: ollama pull llava');
+    throw new Error(
+      `No local vision model that can read images is installed. Run: ollama pull ${VISION_MODEL}`
+    );
   }
 
   const response = await chrome.runtime.sendMessage({
@@ -530,17 +528,17 @@ function imageUI_createPanel() {
   `;
 
   // Close button
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('.assist-image-close'),
     'Image Understanding Close Button',
     () => imageUI_hide()
   );
 
-  // Read aloud button - uses pre-loaded TTS settings (same pattern as StickyNotes)
-  attachInteractiveHandler(
+  // Read aloud button
+  attachAccessibleHandler(
     panel.querySelector('#assist-image-read'),
     'Image Understanding Read Button',
-    () => {
+    async () => {
       console.log('[ImageUnderstanding] Read Aloud clicked');
 
       if (!imageUI_currentDescription) {
@@ -553,26 +551,14 @@ function imageUI_createPanel() {
         window.speechSynthesis.cancel();
       }
 
-      // Create utterance with pre-loaded TTS settings
-      const utterance = new SpeechSynthesisUtterance(imageUI_currentDescription);
-      utterance.rate = imageUI_ttsSettings.rate;
-      utterance.pitch = imageUI_ttsSettings.pitch;
-      utterance.volume = imageUI_ttsSettings.volume;
-
-      if (imageUI_ttsSettings.voice) {
-        utterance.voice = imageUI_ttsSettings.voice;
-        console.log('[ImageUnderstanding] Using voice:', imageUI_ttsSettings.voice.name);
-      } else {
-        console.log('[ImageUnderstanding] No voice loaded, using system default');
-      }
-
-      window.speechSynthesis.speak(utterance);
+      // The student's own voice settings, read when they ask, so a change in the popup is heard.
+      window.speechSynthesis.speak(await createSavedUtterance(imageUI_currentDescription));
       console.log('[ImageUnderstanding] TTS started');
     }
   );
 
   // Copy button
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('#assist-image-copy'),
     'Image Understanding Copy Button',
     async () => {
@@ -588,7 +574,7 @@ function imageUI_createPanel() {
   );
 
   // More detail button
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     panel.querySelector('#assist-image-detailed'),
     'Image Understanding Detail Button',
     () => {
@@ -636,17 +622,10 @@ function imageUI_renderResult(description, imageUrl, isAI = true, modelLabel = '
 
   imageUI_currentDescription = description;
 
-  // Auto-read if enabled - uses pre-loaded TTS settings
+  // Auto-read if enabled
   if (imageUI_settings.autoReadDescription && isAI) {
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(description);
-      utterance.rate = imageUI_ttsSettings.rate;
-      utterance.pitch = imageUI_ttsSettings.pitch;
-      utterance.volume = imageUI_ttsSettings.volume;
-      if (imageUI_ttsSettings.voice) {
-        utterance.voice = imageUI_ttsSettings.voice;
-      }
-      window.speechSynthesis.speak(utterance);
+    setTimeout(async () => {
+      window.speechSynthesis.speak(await createSavedUtterance(description));
     }, 500);
   }
 }
@@ -661,14 +640,13 @@ function imageUI_renderError(message) {
     return;
   }
 
-  const isLocalError =
-    message.includes('LLaVA') || message.includes('ollama') || message.includes('vision model');
+  const isLocalError = message.includes('ollama') || message.includes('vision model');
   const hint = isLocalError
     ? `<div class="assist-image-no-vision">
         <div class="assist-image-no-vision-title">💡 Vision Model Required</div>
         <div class="assist-image-no-vision-text">
-          To use local image understanding, install the LLaVA vision model:<br>
-          <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">ollama pull llava</code><br>
+          To use local image understanding, install a model that can read images:<br>
+          <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">ollama pull ${VISION_MODEL}</code><br>
           Or enable Cloud AI in Advanced Options → AI tab.
         </div>
       </div>`
@@ -799,7 +777,8 @@ function imageUI_setupContextMenu() {
   chrome.runtime?.onMessage?.addListener((message, sender, sendResponse) => {
     // Handle both action and type for compatibility
     if (message.action === 'DESCRIBE_IMAGE' || message.type === 'DESCRIBE_IMAGE') {
-      console.log('[ImageUnderstanding] Received DESCRIBE_IMAGE message', message.imageUrl);
+      console.log('[ImageUnderstanding] Received DESCRIBE_IMAGE message');
+      debugLog('[ImageUnderstanding] imageUrl:', message.imageUrl);
 
       // Try to find the actual <img> element on the page first (avoids fetch issues with file:// URLs)
       let targetImg = window._assistLastRightClickedImage || null;
@@ -837,11 +816,6 @@ function imageUI_init() {
   // Setup context menu handling
   imageUI_setupContextMenu();
 
-  // Load TTS settings (voice, rate, pitch, volume) - fire and forget with logging
-  imageUI_loadTTSSettings().catch(err => {
-    console.error('[ImageUnderstanding] Failed to load TTS settings:', err);
-  });
-
   // Register to window
   if (!window.assistFeatures) {
     window.assistFeatures = {};
@@ -856,97 +830,6 @@ function imageUI_init() {
   };
 
   console.log('[ImageUnderstanding] Initialized');
-}
-
-/**
- * Ensure speech synthesis voices are loaded
- * @returns {Promise<SpeechSynthesisVoice[]>} Available voices
- */
-function imageUI_ensureVoicesLoaded() {
-  return new Promise(resolve => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      resolve(voices);
-    } else {
-      const onVoicesChanged = () => {
-        const loadedVoices = window.speechSynthesis.getVoices();
-        if (loadedVoices.length > 0) {
-          window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-          resolve(loadedVoices);
-        }
-      };
-      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-
-      // Fallback timeout
-      setTimeout(() => {
-        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-        resolve(window.speechSynthesis.getVoices());
-      }, 2000);
-    }
-  });
-}
-
-/**
- * Load TTS settings from extension storage (same pattern as StickyNotes)
- * Pre-loads voice object for reliable TTS
- */
-async function imageUI_loadTTSSettings() {
-  console.log('[ImageUnderstanding] Loading TTS settings...');
-
-  // First, ensure voices are loaded
-  const voices = await imageUI_ensureVoicesLoaded();
-  console.log('[ImageUnderstanding] Voices available:', voices.length);
-
-  // Get TTS settings from storage
-  return new Promise(resolve => {
-    chrome.storage.local.get(['assist_settings'], result => {
-      const tts = result.assist_settings?.tts;
-
-      // Load rate/pitch/volume from settings if available
-      if (tts) {
-        imageUI_ttsSettings.rate = tts.rate || 1.0;
-        imageUI_ttsSettings.pitch = tts.pitch || 1.0;
-        imageUI_ttsSettings.volume = tts.volume || 1.0;
-
-        // Try to load voice by name from storage
-        if (tts.voice && tts.voice !== 'default') {
-          const voice = voices.find(v => v.name === tts.voice);
-          if (voice) {
-            imageUI_ttsSettings.voice = voice;
-            console.log('[ImageUnderstanding] Loaded TTS voice from settings:', voice.name);
-          } else {
-            console.warn('[ImageUnderstanding] Stored voice not found:', tts.voice);
-          }
-        }
-      }
-
-      // ALWAYS try fallback if no voice loaded yet - Find Google UK English Female
-      if (!imageUI_ttsSettings.voice && voices.length > 0) {
-        const fallbackVoice =
-          voices.find(
-            v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
-          ) ||
-          voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
-          voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
-
-        if (fallbackVoice) {
-          imageUI_ttsSettings.voice = fallbackVoice;
-          console.log('[ImageUnderstanding] Using fallback voice:', fallbackVoice.name);
-        } else {
-          console.warn('[ImageUnderstanding] No suitable voice found in', voices.length, 'voices');
-        }
-      }
-
-      console.log('[ImageUnderstanding] TTS ready:', {
-        voice: imageUI_ttsSettings.voice?.name || 'system default',
-        rate: imageUI_ttsSettings.rate,
-        pitch: imageUI_ttsSettings.pitch,
-        volume: imageUI_ttsSettings.volume,
-      });
-
-      resolve();
-    });
-  });
 }
 
 // Auto-initialize

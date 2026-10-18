@@ -17,7 +17,7 @@
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 /**
  * Tag color palette
@@ -423,7 +423,7 @@ export function createTagPill(tagName, onRemove = null) {
     removeBtn.setAttribute('aria-label', `Remove tag ${tagName}`);
     removeBtn.setAttribute('type', 'button');
 
-    attachInteractiveHandler(removeBtn, 'Tag Remove Button', e => {
+    attachAccessibleHandler(removeBtn, 'Tag Remove Button', e => {
       e.stopPropagation();
       onRemove();
     });

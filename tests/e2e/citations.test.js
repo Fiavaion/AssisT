@@ -1,72 +1,107 @@
 /**
- * E2E Tests for Citation System - STREAMLINED
- * Tests core citation functionality only
+ * The citation library, from a cold start.
  *
- * Full test suite backup: tests/e2e-full-suite-backup/citations.test.js
- * Restore with: bash tests/e2e/restore-full-suite.sh
+ * On a fresh profile the offscreen document that owns the citation database does not exist yet.
+ * The library's first requests create it, and they must survive the gap between the document
+ * existing and its listener being bound. Before the ready handshake, a fresh install saw
+ * "Sorry — the citation library could not load" every time.
  */
 
 import { test, expect } from './extension-fixture.js';
 
-test.describe('Citation UI Controls - Core', () => {
-  test('should display citation section in popup', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
+const LIBRARY = extensionId => `chrome-extension://${extensionId}/src/pages/citation-library/library.html`;
 
-    const citationSection = popupPage.locator('#citation-section');
-    await expect(citationSection).toBeVisible();
+test.describe('citation library', () => {
+  test('opens on a fresh profile and shows the empty library, not the failure notice', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('console', m => {
+      if (m.type() === 'error') {
+        errors.push(m.text());
+      }
+    });
+
+    await page.goto(LIBRARY(extensionId));
+
+    await expect(page.getByRole('button', { name: /new collection/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('could not load')).toHaveCount(0);
+    expect(errors.filter(e => /Receiving end|failed to start/.test(e))).toEqual([]);
   });
 
-  test('should show citation options when enabled', async ({ popupPage }) => {
-    await popupPage.waitForLoadState('domcontentloaded');
-    await popupPage.waitForTimeout(500);
+  test('a second tab on the same library loads, and sees a record saved in the first without a reload', async ({
+    context,
+    extensionId,
+  }) => {
+    const first = await context.newPage();
+    await first.goto(LIBRARY(extensionId));
+    await expect(first.getByRole('button', { name: /new collection/i })).toBeVisible({ timeout: 15000 });
 
-    const citationToggle = popupPage.locator('[data-testid="citation-toggle"]');
-    await citationToggle.scrollIntoViewIfNeeded();
-    await citationToggle.check({ force: true });
+    const second = await context.newPage();
+    await second.goto(LIBRARY(extensionId));
+    await expect(second.getByRole('button', { name: /new collection/i })).toBeVisible({ timeout: 15000 });
 
-    await popupPage.waitForTimeout(500);
-
-    const optionsContainer = popupPage.locator('#citation-options-container');
-    await expect(optionsContainer).not.toHaveClass(/hidden/);
+    await first.evaluate(() =>
+      chrome.runtime.sendMessage({
+        type: 'CITATION_DB_OP',
+        op: 'CIT_ADD',
+        args: [
+          {
+            type: 'website',
+            url: 'https://example.org/live',
+            title: 'Saved in the other tab',
+            authors: ['Example, Eve'],
+            publicationDate: '2024',
+            accessDate: '2026-09-04',
+            extra: {},
+            tags: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ],
+      })
+    );
+    await expect(second.getByText('Saved in the other tab').first()).toBeVisible({ timeout: 10000 });
   });
-});
 
-// Skipped tests - restore full suite if needed
-test.describe('Citation UI Controls - Extended', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
+  test('records survive the offscreen document being torn down', async ({ context, extensionId }) => {
+    const page = await context.newPage();
+    await page.goto(LIBRARY(extensionId));
+    await expect(page.getByRole('button', { name: /new collection/i })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(() =>
+      chrome.runtime.sendMessage({
+        type: 'CITATION_DB_OP',
+        op: 'CIT_ADD',
+        args: [
+          {
+            type: 'website',
+            url: 'https://example.org/durable',
+            title: 'Still here after a reload',
+            authors: ['Example, Eve'],
+            publicationDate: '2024',
+            accessDate: '2026-09-04',
+            extra: {},
+            tags: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ],
+      })
+    );
+    await expect(page.getByText('Still here after a reload').first()).toBeVisible({ timeout: 10000 });
 
-  test('should have citation toggle switch', async ({ popupPage }) => {});
-  test('should display Save Citation button when enabled', async ({ popupPage }) => {});
-  test('should display Citation Manager button when enabled', async ({ popupPage }) => {});
-  test('should display Projects button when enabled', async ({ popupPage }) => {});
-});
+    // Chrome tears the offscreen document down when it is idle. The database outlives it and
+    // the next request must recreate it and wait for it to listen, exactly as on a cold start.
+    await page.close();
+    const [worker] = context.serviceWorkers();
+    await worker.evaluate(() => chrome.offscreen.closeDocument());
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-test.describe('Citation Quick View Panel', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
-
-  test('should have expand/collapse button', async ({ popupPage }) => {});
-  test('should toggle quick view panel on button click', async ({ popupPage }) => {});
-  test('should show citation count badge', async ({ popupPage }) => {});
-});
-
-test.describe('Citation Accessibility', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
-
-  test('should have proper ARIA labels on citation controls', async ({ popupPage }) => {});
-  test('should have keyboard accessible citation controls', async ({ popupPage }) => {});
-  test('should have proper aria-expanded on expand button', async ({ popupPage }) => {});
-});
-
-test.describe('Citation Toggle State Persistence', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
-
-  test('should persist citation enabled state', async ({ popupPage }) => {});
-});
-
-test.describe('Citation Section Layout', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
-
-  test('should have proper section structure', async ({ popupPage }) => {});
-  test('should have description text when enabled', async ({ popupPage }) => {});
+    const after = await context.newPage();
+    await after.goto(LIBRARY(extensionId));
+    await expect(after.getByText('Still here after a reload').first()).toBeVisible({ timeout: 15000 });
+  });
 });

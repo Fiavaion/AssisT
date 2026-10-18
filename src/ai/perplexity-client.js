@@ -18,22 +18,6 @@ const DEFAULT_OPTIONS = {
   maxRetries: 2,
 };
 
-// Perplexity has no model listing API — hardcoded list
-const PERPLEXITY_MODELS = [
-  { id: 'sonar', name: 'Sonar (Recommended)', description: 'Best for everyday tasks' },
-  { id: 'sonar-pro', name: 'Sonar Pro (Most Capable)', description: 'Most capable with citations' },
-  {
-    id: 'sonar-reasoning',
-    name: 'Sonar Reasoning',
-    description: 'Advanced reasoning with chain-of-thought',
-  },
-  {
-    id: 'sonar-reasoning-pro',
-    name: 'Sonar Reasoning Pro',
-    description: 'Best reasoning with citations',
-  },
-];
-
 /**
  * Generate text using Perplexity chat completions API (OpenAI-compatible)
  * @param {string} prompt - The prompt to send
@@ -118,15 +102,6 @@ export async function perplexityGenerate(prompt, options = {}) {
   }
 }
 
-/**
- * Get available Perplexity models (hardcoded — no listing API)
- * @returns {Promise<Array<{id: string, name: string, description: string}>>}
- */
-export async function fetchPerplexityModels() {
-  return [...PERPLEXITY_MODELS];
-}
-
 export default {
   perplexityGenerate,
-  fetchPerplexityModels,
 };

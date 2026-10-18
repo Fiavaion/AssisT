@@ -21,6 +21,8 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
+import { isGoogleClassroomPage } from '../../adapters/lms-detect.js';
+import { joinForSpeech, readAloud } from './lms-read-aloud.js';
 
 /**
  * Flag indicating whether Google Classroom integration is enabled
@@ -41,21 +43,25 @@ let googleClassroom_fabElement = null;
 let GoogleClassroomAdapter = null;
 
 /**
- * Dynamically loads the Google Classroom Adapter module
+ * Loads the Google Classroom Adapter, but only on a Google Classroom page
  *
- * The adapter is loaded on-demand to avoid unnecessary module loading
- * when Google Classroom integration is disabled or not on a GC page.
+ * The page check comes first and is the reason this is the only gate: every entry point goes
+ * through here, so a page that is not Classroom never fetches the adapter chunk and never logs.
+ * The import is a plain specifier so Vite bundles the adapter into assets/ — the previous
+ * `chrome.runtime.getURL('src/adapters/google-classroom-adapter.js')` loaded a raw copy of the
+ * source, whose own imports had to exist as raw files beside it, and one of them did not.
  *
  * @async
- * @returns {Promise<Object|null>} The adapter module or null on failure
- * @throws {Error} If adapter file cannot be loaded
+ * @returns {Promise<Object|null>} The adapter module, or null off Classroom / on failure
  */
 async function googleClassroom_loadAdapter() {
+  if (!isGoogleClassroomPage()) {
+    return null;
+  }
+
   if (!GoogleClassroomAdapter) {
     try {
-      GoogleClassroomAdapter = await import(
-        chrome.runtime.getURL('src/adapters/google-classroom-adapter.js')
-      );
+      GoogleClassroomAdapter = await import('../../adapters/google-classroom-adapter.js');
       console.log('[GoogleClassroom] Adapter loaded');
     } catch (error) {
       console.error('[GoogleClassroom] Failed to load adapter:', error);
@@ -69,10 +75,9 @@ async function googleClassroom_loadAdapter() {
  *
  * Workflow:
  * 1. Check if integration is enabled
- * 2. Load the Google Classroom adapter
- * 3. Detect if current page is a Google Classroom page
- * 4. Identify page type (Assignment, Stream, Classwork)
- * 5. Initialize appropriate reader features
+ * 2. Load the Google Classroom adapter, which no-ops off Classroom
+ * 3. Identify page type (Assignment, Stream, Classwork)
+ * 4. Initialize appropriate reader features
  *
  * @async
  * @returns {Promise<void>}
@@ -82,14 +87,9 @@ async function googleClassroom_initialize() {
     return;
   }
 
+  // Off Classroom, loadAdapter returns null without importing anything.
   const adapter = await googleClassroom_loadAdapter();
   if (!adapter) {
-    return;
-  }
-
-  // Check if on Google Classroom page
-  if (!adapter.isGoogleClassroomPage()) {
-    console.log('[GoogleClassroom] Not a Google Classroom page, skipping');
     return;
   }
 
@@ -130,7 +130,7 @@ async function googleClassroom_initializeAssignmentReader() {
     return;
   }
 
-  console.log('[GoogleClassroom] Assignment detected:', assignment.title);
+  console.log('[GoogleClassroom] Assignment detected');
 
   // Create FAB button
   googleClassroom_fabElement = adapter.createGoogleClassroomFAB({
@@ -215,106 +215,69 @@ async function googleClassroom_initializeClassworkReader() {
 }
 
 /**
- * Reads Google Classroom content using TTS
+ * Reads Google Classroom content aloud.
  *
- * Combines title and content text, then passes to the global readText
- * function for TTS processing and synchronized highlighting.
+ * Builds the spoken text from whatever the page supplied and hands it to the shared read-aloud path,
+ * which refuses with a plain reason when read-aloud is off or the page holds nothing to speak.
  *
  * @param {Object} content - Content object from adapter
  * @param {string} content.title - Content title
  * @param {string} content.text - Content body text
  * @param {HTMLElement} content.element - DOM element for highlighting
- * @returns {void}
+ * @returns {boolean} true if reading started
  */
 function googleClassroom_readContent(content) {
-  // Check if TTS is enabled globally (via window.assistSettings from content-simple.js)
-  if (window.assistSettings && !window.assistSettings.enabled) {
-    showToast('⚠️ Enable TTS in the extension popup first');
-    return;
-  }
-
-  console.log('[GoogleClassroom] Reading content:', content.title);
-  showToast('📖 Reading: ' + content.title);
-
-  const fullText = content.title + '. ' + content.text;
-
-  // Call global readText function from content-simple.js (via window.assistReadText)
-  if (window.assistReadText) {
-    window.assistReadText(fullText, content.element);
-  } else {
-    console.error('[GoogleClassroom] readText function not available');
-  }
+  return readAloud({
+    text: joinForSpeech([content.title, content.text]),
+    element: content.element,
+    announcement: `Reading: ${content.title || 'this page'}`,
+  });
 }
 
 /**
- * Reads multiple stream posts using TTS
+ * Reads multiple stream posts aloud.
  *
- * Combines all posts into a single text string with separators,
- * then triggers TTS reading.
+ * Posts with no text of their own are dropped rather than spoken as an empty turn, so a stream of
+ * bare attachments reports "nothing to read" instead of reciting separators into silence.
  *
  * @param {Array<Object>} posts - Array of post objects from adapter
  * @param {string} posts[].title - Post title (optional)
  * @param {string} posts[].content - Post content
  * @param {HTMLElement} posts[].element - DOM element for highlighting
- * @returns {void}
+ * @returns {boolean} true if reading started
  */
 function googleClassroom_readPosts(posts) {
-  // Check if TTS is enabled globally (via window.assistSettings from content-simple.js)
-  if (window.assistSettings && !window.assistSettings.enabled) {
-    showToast('⚠️ Enable TTS in the extension popup first');
-    return;
-  }
+  const spoken = (posts || []).filter(post => post && post.content && post.content.trim());
 
-  console.log('[GoogleClassroom] Reading', posts.length, 'stream posts');
-  showToast(`📢 Reading ${posts.length} posts`);
-
-  // Combine all posts with separators
-  const fullText = posts
-    .map(post => `${post.title || 'Post'}. ${post.content}`)
-    .join('. Next post. ');
-
-  // Call global readText function from content-simple.js (via window.assistReadText)
-  if (window.assistReadText) {
-    window.assistReadText(fullText, posts[0].element);
-  } else {
-    console.error('[GoogleClassroom] readText function not available');
-  }
+  return readAloud({
+    text: spoken
+      .map(post => joinForSpeech([post.title || 'Post', post.content]))
+      .join('. Next post. '),
+    element: spoken.length > 0 ? spoken[0].element : null,
+    announcement: `Reading ${spoken.length} ${spoken.length === 1 ? 'post' : 'posts'}`,
+  });
 }
 
 /**
- * Reads multiple classwork items using TTS
- *
- * Combines all classwork items (type, title, due date) into a single
- * text string, then triggers TTS reading.
+ * Reads multiple classwork items aloud.
  *
  * @param {Array<Object>} items - Array of classwork objects from adapter
  * @param {string} items[].type - Item type (Assignment, Quiz, Material)
  * @param {string} items[].title - Item title
  * @param {string} items[].dueDate - Due date string (optional)
  * @param {HTMLElement} items[].element - DOM element for highlighting
- * @returns {void}
+ * @returns {boolean} true if reading started
  */
 function googleClassroom_readClasswork(items) {
-  // Check if TTS is enabled globally (via window.assistSettings from content-simple.js)
-  if (window.assistSettings && !window.assistSettings.enabled) {
-    showToast('⚠️ Enable TTS in the extension popup first');
-    return;
-  }
+  const spoken = (items || []).filter(item => item && item.title && item.title.trim());
 
-  console.log('[GoogleClassroom] Reading', items.length, 'classwork items');
-  showToast(`📚 Reading ${items.length} classwork items`);
-
-  // Combine all items with type and due date info
-  const fullText = items
-    .map(item => `${item.type}: ${item.title}. Due: ${item.dueDate || 'No due date'}.`)
-    .join(' ');
-
-  // Call global readText function from content-simple.js (via window.assistReadText)
-  if (window.assistReadText) {
-    window.assistReadText(fullText, items[0].element);
-  } else {
-    console.error('[GoogleClassroom] readText function not available');
-  }
+  return readAloud({
+    text: spoken
+      .map(item => `${item.type}: ${item.title.trim()}. Due: ${item.dueDate || 'No due date'}.`)
+      .join(' '),
+    element: spoken.length > 0 ? spoken[0].element : null,
+    announcement: `Reading ${spoken.length} classwork ${spoken.length === 1 ? 'item' : 'items'}`,
+  });
 }
 
 /**
@@ -330,6 +293,22 @@ function googleClassroom_removeFAB() {
     googleClassroom_fabElement.remove();
     googleClassroom_fabElement = null;
   }
+}
+
+/**
+ * Tear down what this module injected (the FAB). Safe to call on any page.
+ */
+function googleClassroom_cleanup() {
+  googleClassroom_removeFAB();
+}
+
+/**
+ * Re-detect the current page and re-mount Classroom features after an SPA navigation.
+ * Cleans up first so nothing is duplicated; no-ops off Classroom / when disabled.
+ */
+async function googleClassroom_reinit() {
+  googleClassroom_cleanup();
+  await googleClassroom_initialize();
 }
 
 /**
@@ -364,13 +343,15 @@ function applySettings(settings, isInit = false) {
   if (newEnabled && !wasEnabled) {
     googleClassroom_enabled = true;
     googleClassroom_initialize();
-    if (!isInit) {
+    // Announced only on this platform: the setting is shared, so a change made anywhere reaches
+    // every tab, and a message about another LMS is noise to a student who is not on it.
+    if (!isInit && isGoogleClassroomPage()) {
       showToast('🎒 Google Classroom Integration enabled');
     }
   } else if (!newEnabled && wasEnabled) {
     googleClassroom_enabled = false;
     googleClassroom_removeFAB();
-    if (!isInit) {
+    if (!isInit && isGoogleClassroomPage()) {
       showToast('Google Classroom Integration disabled');
     }
   }
@@ -405,4 +386,6 @@ export {
   googleClassroom_readPosts,
   googleClassroom_readClasswork,
   googleClassroom_removeFAB,
+  googleClassroom_cleanup,
+  googleClassroom_reinit,
 };

@@ -218,7 +218,7 @@ class DexieStorageAdapter extends BaseStorageAdapter {
       const annotations = await this.db.annotations.where('url').equals(url).toArray();
       return annotations;
     } catch (error) {
-      console.error(`[DexieAdapter] Error getting annotations for URL ${url}:`, error);
+      console.error('[DexieAdapter] Error getting annotations for a page:', error);
       throw error;
     }
   }
@@ -434,7 +434,7 @@ class LocalStorageAdapter extends BaseStorageAdapter {
       const filtered = annotations.filter(ann => ann.url === url);
       return filtered;
     } catch (error) {
-      console.error(`[LocalAdapter] Error getting annotations for URL ${url}:`, error);
+      console.error('[LocalAdapter] Error getting annotations for a page:', error);
       throw error;
     }
   }

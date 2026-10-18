@@ -46,9 +46,13 @@
  * @requires features/lms/canvas
  * @requires features/lms/moodle
  * @requires features/lms/googleClassroom
- * @see {@link https://github.com/anthropics/claude-code} - Built with Claude Code
  */
 
+// MUST stay the first import: it aborts the whole content script on a document that is itself a
+// writing surface, before any feature module can put UI into the student's essay field.
+// See src/content/editable-document-guard.js for why the check cannot live in this file's body.
+import './editable-document-guard.js';
+import { watchForEditableDocument, removeInjectedAssistUI } from './utils/editable-document.js';
 import DOMPurify from 'dompurify';
 import { showToast } from '../core/ui/toast.js';
 import {
@@ -60,8 +64,20 @@ import {
   pauseHighlighting,
   resumeHighlighting,
 } from '../core/dom/highlighting.js';
-import { resolveReadingTarget } from '../core/dom/scope-resolver.js';
-import { registerShortcut, reloadShortcuts } from '../utils/keyboard-shortcuts.js';
+import {
+  resolveReadingTarget,
+  resolveSelectionTarget,
+  leafSlice,
+  leafText,
+} from '../core/dom/scope-resolver.js';
+import { extractMainContent } from '../core/content/readPage.js';
+import {
+  registerShortcut,
+  reloadShortcuts,
+  isFocusedControl,
+} from '../utils/keyboard-shortcuts.js';
+import { applySettingWrites } from '../utils/setting-writes.js';
+import { chooseVoice, pageLanguage, resolveSpeech } from '../utils/speech-voice.js';
 
 // Make DOMPurify globally available for web_accessible_resources
 window.DOMPurify = DOMPurify;
@@ -73,10 +89,11 @@ import '../features/focusMode/focusMode.js'; // Self-initializing module with Ch
 import '../features/customCursor/custom-cursor.js'; // Self-initializing custom cursor for better visibility
 import '../features/magnifyingLens/magnifying-lens.js'; // Self-initializing magnifying lens for content magnification
 import '../features/stt/stt.js'; // Self-initializing module with Chrome storage listeners
-import '../features/ocr/ocr.js'; // Self-initializing OCR module with Tesseract.js lazy loading
+import { ocr_cleanup } from '../features/ocr/ocr.js'; // Self-initializing OCR module with Tesseract.js lazy loading
+import '../features/maths/maths-feature.js'; // Self-initializing maths tools (calculator FAB + number formatting), lazy chunks
 import '../features/highlightMenu/highlightMenu.js'; // Self-initializing highlight menu with text selection actions
 import '../features/readingMode/readingMode.js'; // Self-initializing reading mode with Mozilla Readability
-import '../features/dictionary/dictionary.js'; // Self-initializing dictionary lookup with Free Dictionary API
+import { dictionary_cleanup } from '../features/dictionary/dictionary.js'; // Self-initializing dictionary lookup with Free Dictionary API
 import '../features/translation/translation-api.js'; // Self-initializing translation API with LibreTranslate and Google Translate support
 import '../features/translation/translation-ui.js'; // Self-initializing translation UI modal with TTS and clipboard integration
 import '../features/translation/full-page-translate.js'; // Self-initializing full-page translation with DOM traversal and batch translation
@@ -103,9 +120,30 @@ import '../features/struggleDetection/struggleDetection.js'; // Self-initializin
 import '../features/citationAnalyzer/citationAnalyzer.js'; // Self-initializing AI citation analysis for source evaluation
 import '../features/multiDocCompare/multiDocCompare.js'; // Self-initializing multi-document comparison
 import '../features/studyPathGenerator/studyPathGenerator.js'; // Self-initializing study path generator
-import { initializeCanvasModule } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
-import '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
-import '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
+import { initializeLmsReadAloud } from '../features/lms/lms-read-aloud.js'; // The one read-aloud path all three LMS integrations use
+import { canvas_reinit } from '../features/lms/canvas.js'; // Self-initializing module with Chrome storage listeners
+import { moodle_reinit } from '../features/lms/moodle.js'; // Self-initializing module with Chrome storage listeners
+import { googleClassroom_reinit } from '../features/lms/googleClassroom.js'; // Self-initializing module with Chrome storage listeners
+import {
+  companion_reinit,
+  companion_cleanup,
+  companion_openLectureNotes,
+} from '../features/companion/companion-init.js'; // Self-initializing companion features (per-feature toggles)
+import { assistOverlayIsOpen } from '../utils/assist-overlay-state.js';
+
+/**
+ * Re-detect the page and re-mount the LMS integrations after an SPA navigation.
+ * Each reinit cleans up its own stale FAB/listeners first and no-ops off its LMS,
+ * so calling all three on every route change is safe.
+ */
+function reinitLmsModules() {
+  Promise.allSettled([
+    canvas_reinit(),
+    moodle_reinit(),
+    googleClassroom_reinit(),
+    companion_reinit(),
+  ]).catch(() => {});
+}
 
 // This section manages the core TTS state and configuration.
 // TTS is the foundation service provided by the orchestrator to all feature modules.
@@ -115,6 +153,9 @@ let currentUtterance = null;
 let currentElement = null;
 let currentText = '';
 let currentLeaves = null; // text-leaf elements wrapped for word-by-word; preserved across restart-on-rate-change
+let currentElementInlineStyle = null; // currentElement's style attribute before the read (null = it had none)
+let currentShowsOnPage = true; // false: the voice reads and nothing is drawn on the page
+let pendingReadStart = null; // the timer that starts a read once Chrome has settled after cancel
 let isPaused = false; // Manual pause state tracker
 // Note: currentHighlight and wordHighlightInterval moved to src/core/dom/highlighting.js
 
@@ -214,24 +255,25 @@ function warmUpSpeechSynthesis() {
 }
 
 /**
- * Load available voices and set default preferred voice
- * Preference order: Google UK Female > UK Female > Any English Female
+ * The voice name the student saved (`assist_settings.tts.voice`), kept apart from the resolved
+ * voice object: on a cold start the settings arrive before Chrome has published its voices, and
+ * the name has to survive until they do.
+ * @type {string|undefined}
  */
+let savedVoiceName;
+
+/** Point settings.voice at the saved voice, or at a device voice for the page when none is saved. */
+function resolveVoice() {
+  settings.voice = chooseVoice(synth.getVoices(), {
+    savedName: savedVoiceName,
+    lang: pageLanguage(),
+  });
+}
+
+/** Runs when the engine publishes (or changes) its voices. */
 function loadVoices() {
   const voices = synth.getVoices();
-
-  // Try to find Google UK Female
-  const preferredVoice =
-    voices.find(
-      v => v.name.includes('Google') && v.name.includes('UK') && v.name.includes('Female')
-    ) ||
-    voices.find(v => v.lang.startsWith('en-GB') && v.name.toLowerCase().includes('female')) ||
-    voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('female'));
-
-  if (preferredVoice && !settings.voice) {
-    settings.voice = preferredVoice;
-    console.log('[AssisT] Default voice:', preferredVoice.name);
-  }
+  resolveVoice();
 
   // Warm up speech synthesis after voices are loaded
   if (voices.length > 0 && !synthWarmedUp) {
@@ -243,44 +285,38 @@ function loadVoices() {
 if (synth.getVoices().length > 0) {
   loadVoices();
 }
-synth.addEventListener('voiceschanged', loadVoices);
-
-// Store listener references so they can be removed on SPA navigation
-
-let _clickHandler = null;
-let _keydownHandler = null;
-let _storageHandler = null;
-let _voicesChangedHandler = loadVoices;
+/**
+ * The document-level listeners this script owns, so an in-page navigation can take every one of
+ * them down and put every one of them back. They are named function declarations further down and
+ * are referenced here by name, deliberately. An earlier design kept them in variables that cleanup
+ * set to null and re-init then handed straight back to addEventListener, which registers nothing
+ * when given null: click-to-read and every keyboard shortcut died on the first navigation inside
+ * Canvas, and the popstate path never re-registered anything at all.
+ */
+function installGlobalListeners() {
+  chrome.storage.onChanged.addListener(onSettingsChanged);
+  synth.addEventListener('voiceschanged', loadVoices);
+  document.addEventListener('click', onDocumentClick, true);
+  document.addEventListener('keydown', onDocumentKeydown, true);
+}
 
 /**
- * Remove all global event listeners registered by this content script.
- * Called before re-initialization on SPA navigation.
+ * Take down everything installGlobalListeners put up, release what features hold on to, and reset
+ * the reading state. Runs before re-initialisation on SPA navigation.
  */
 function cleanupContentScript() {
-  if (_clickHandler) {
-    document.removeEventListener('click', _clickHandler, true);
-    _clickHandler = null;
-  }
-  if (_keydownHandler) {
-    document.removeEventListener('keydown', _keydownHandler, true);
-    _keydownHandler = null;
-  }
-  if (_storageHandler) {
-    chrome.storage.onChanged.removeListener(_storageHandler);
-    _storageHandler = null;
-  }
-  if (_voicesChangedHandler) {
-    synth.removeEventListener('voiceschanged', _voicesChangedHandler);
-  }
-  // Cancel any active speech
-  if (synth && (synth.speaking || synth.paused)) {
-    synth.cancel();
-  }
-  currentUtterance = null;
-  currentElement = null;
-  currentText = '';
-  currentLeaves = null;
-  isPaused = false;
+  chrome.storage.onChanged.removeListener(onSettingsChanged);
+  synth.removeEventListener('voiceschanged', loadVoices);
+  document.removeEventListener('click', onDocumentClick, true);
+  document.removeEventListener('keydown', onDocumentKeydown, true);
+
+  // Features holding more than DOM: a live Tesseract worker, an open lookup panel.
+  ocr_cleanup();
+  dictionary_cleanup();
+
+  // Cancelling the voice is not enough: the word wrappers, the highlight and the outline are on
+  // the page the student is leaving and nothing else will take them off.
+  stopReading();
   console.log('[AssisT] Content script cleaned up for SPA navigation');
 }
 
@@ -306,19 +342,12 @@ chrome.storage.local.get('assist_settings', result => {
         ? ttsSettings.wordHighlightSpeed
         : settings.wordHighlightSpeed;
     settings.readingScope = ttsSettings.readingScope || settings.readingScope;
-    settings.rate = ttsSettings.rate || settings.rate;
-    settings.pitch = ttsSettings.pitch || settings.pitch;
-    settings.volume = ttsSettings.volume || settings.volume;
-
-    // Load voice by name
-    if (ttsSettings.voice && ttsSettings.voice !== 'default') {
-      const voices = synth.getVoices();
-      const voice = voices.find(v => v.name === ttsSettings.voice);
-      if (voice && voice.name !== settings.voice?.name) {
-        settings.voice = voice;
-        console.log('[AssisT] Voice loaded from settings:', voice.name);
-      }
-    }
+    const speech = resolveSpeech(ttsSettings, []);
+    settings.rate = speech.rate;
+    settings.pitch = speech.pitch;
+    settings.volume = speech.volume;
+    savedVoiceName = ttsSettings.voice;
+    resolveVoice();
 
     console.log('[AssisT] Settings loaded, TTS enabled:', settings.enabled);
   } else {
@@ -331,7 +360,7 @@ chrome.storage.local.get('assist_settings', result => {
 
 // Listen for settings updates (debounced to prevent loops)
 let updateTimeout = null;
-_storageHandler = changes => {
+function onSettingsChanged(changes) {
   if (changes.assist_settings && updateTimeout === null) {
     updateTimeout = setTimeout(() => {
       // Re-register all shortcuts if the user changed their key bindings
@@ -364,52 +393,40 @@ _storageHandler = changes => {
             ? ttsSettings.wordHighlightSpeed
             : settings.wordHighlightSpeed;
         settings.readingScope = ttsSettings.readingScope || settings.readingScope;
-        settings.rate = ttsSettings.rate || settings.rate;
-        settings.pitch = ttsSettings.pitch || settings.pitch;
-        settings.volume = ttsSettings.volume || settings.volume;
+        const speech = resolveSpeech(ttsSettings, []);
+        settings.rate = speech.rate;
+        settings.pitch = speech.pitch;
+        settings.volume = speech.volume;
 
         // If TTS was disabled, stop any current speech and clean up highlights
         if (!settings.enabled && oldTTSEnabled) {
-          if (synth.speaking) {
-            synth.cancel();
-          }
-          cleanupWordByWord(currentElement);
-          removeHighlight();
-          removeElementHighlight(currentElement);
-          if (currentElement) {
-            currentElement.style.outline = '';
-            currentElement.style.outlineOffset = '';
-          }
-          currentUtterance = null;
-          currentElement = null;
-          currentText = '';
-          currentLeaves = null;
-          isPaused = false;
+          stopReading();
           console.log('[AssisT] TTS disabled, speech stopped and highlights cleared');
         }
 
-        // Update voice only if changed
-        if (
-          ttsSettings.voice &&
-          ttsSettings.voice !== 'default' &&
-          ttsSettings.voice !== settings.voice?.name
-        ) {
-          const voices = synth.getVoices();
-          const voice = voices.find(v => v.name === ttsSettings.voice);
-          if (voice) {
-            settings.voice = voice;
-            console.log('[AssisT] Voice updated:', voice.name);
-          }
+        if (ttsSettings.voice !== savedVoiceName) {
+          savedVoiceName = ttsSettings.voice;
+          resolveVoice();
         }
 
         // If highlighting was disabled, remove current highlight
-        if (!settings.highlightEnabled && oldHighlightEnabled && currentElement) {
+        if (
+          !settings.highlightEnabled &&
+          oldHighlightEnabled &&
+          currentElement &&
+          currentShowsOnPage
+        ) {
           removeElementHighlight(currentElement);
           console.log('[AssisT] Highlighting disabled');
         }
 
         // If highlighting was enabled, add highlight to current element
-        if (settings.highlightEnabled && !oldHighlightEnabled && currentElement) {
+        if (
+          settings.highlightEnabled &&
+          !oldHighlightEnabled &&
+          currentElement &&
+          currentShowsOnPage
+        ) {
           highlightElement(currentElement, settings);
           console.log('[AssisT] Highlighting enabled');
         }
@@ -418,7 +435,8 @@ _storageHandler = changes => {
         if (
           settings.highlightEnabled &&
           (settings.highlightColor !== oldColor || settings.highlightOpacity !== oldOpacity) &&
-          currentElement
+          currentElement &&
+          currentShowsOnPage
         ) {
           highlightElement(currentElement, settings);
         }
@@ -435,10 +453,11 @@ _storageHandler = changes => {
           const element = currentElement;
           const text = currentText;
           const leaves = currentLeaves;
+          const showOnPage = currentShowsOnPage;
 
           synth.cancel();
           setTimeout(() => {
-            readText(text, element, leaves);
+            readText(text, element, leaves, { showOnPage });
             if (wasPaused) {
               setTimeout(() => synth.pause(), 100);
             }
@@ -448,20 +467,168 @@ _storageHandler = changes => {
       updateTimeout = null;
     }, 100);
   }
-};
-chrome.storage.onChanged.addListener(_storageHandler);
+}
 
-// ✂️ EXTRACTED: removeHighlight() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
+// ✂️ EXTRACTED: removeHighlight() moved to src/core/dom/highlighting.js
 
-// ✂️ EXTRACTED: hexToRgba() moved to src/core/utils/color.js (Phase 1, Step 2)
+// ✂️ EXTRACTED: hexToRgba() moved to src/core/utils/color.js
 
-// ✂️ EXTRACTED: highlightElement() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
+// ✂️ EXTRACTED: highlightElement() moved to src/core/dom/highlighting.js
 
-// ✂️ EXTRACTED: highlightWordByWord() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
+// ✂️ EXTRACTED: highlightWordByWord() moved to src/core/dom/highlighting.js
 
-// ✂️ EXTRACTED: cleanupWordByWord() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
+// ✂️ EXTRACTED: cleanupWordByWord() moved to src/core/dom/highlighting.js
 
-// ✂️ EXTRACTED: removeElementHighlight() moved to src/core/dom/highlighting.js (Phase 1, Step 3)
+// ✂️ EXTRACTED: removeElementHighlight() moved to src/core/dom/highlighting.js
+
+/**
+ * The inline properties a read writes on the element being read: the blue reading outline here,
+ * the highlight background and its transition in highlighting.js. Cleanup rewrites only these, so
+ * an inline style another feature set during the read is left alone.
+ */
+const READING_STYLE_PROPERTIES = ['outline', 'outlineOffset', 'backgroundColor', 'transition'];
+
+/**
+ * Put `element`'s style attribute back exactly as the page had it — `originalStyle` is the
+ * attribute's value before the read, null meaning there was no style attribute at all, in which
+ * case the attribute is removed rather than left behind empty. A read that leaves style="" or a
+ * stray `transition: background-color 0.2s` has changed the student's page and not changed it back.
+ *
+ * @param {HTMLElement|null} element
+ * @param {string|null} originalStyle
+ */
+function restoreElementStyle(element, originalStyle) {
+  if (!element) {
+    return;
+  }
+  for (const property of READING_STYLE_PROPERTIES) {
+    element.style[property] = '';
+  }
+  if (originalStyle) {
+    const asAuthored = document.createElement('div');
+    asAuthored.setAttribute('style', originalStyle);
+    for (const property of READING_STYLE_PROPERTIES) {
+      if (asAuthored.style[property]) {
+        element.style[property] = asAuthored.style[property];
+      }
+    }
+  }
+  if (!element.getAttribute('style')) {
+    element.removeAttribute('style');
+  }
+}
+
+/**
+ * Take the reading UI off the page: word wrappers unwrapped, highlight and outline gone, the
+ * element's own inline style restored. The element and its style are passed in rather than read
+ * from module state, because an utterance's end/error handler may run when a newer read already
+ * owns that state.
+ *
+ * @param {HTMLElement|null} element
+ * @param {string|null} originalStyle
+ */
+function clearReadingUI(element, originalStyle) {
+  cleanupWordByWord(element);
+  removeHighlight();
+  removeElementHighlight(element);
+  restoreElementStyle(element, originalStyle);
+}
+
+/**
+ * Stop reading, and leave the page as it was found. This is the ONE path out of a read — the popup
+ * switch, the stop shortcut, Escape, an SPA navigation and the start of the next read all come
+ * through here, because Chrome's cancel arrives as an async "canceled" error far too late to be
+ * what unwraps the word spans. Safe to call when nothing is being read.
+ *
+ * @param {Object} [options]
+ * @param {string} [options.toast] - confirmation to show the student.
+ * @returns {void}
+ */
+function stopReading({ toast } = {}) {
+  // A read still waiting out its settle delay is stopped too. Started later, it would snapshot
+  // the outline another read had drawn as the page's own style and restore that for good.
+  clearTimeout(pendingReadStart);
+  pendingReadStart = null;
+  if (synth && (synth.speaking || synth.paused)) {
+    synth.cancel();
+  }
+  clearReadingUI(currentElement, currentElementInlineStyle);
+  currentUtterance = null;
+  currentElement = null;
+  currentText = '';
+  currentLeaves = null;
+  currentElementInlineStyle = null;
+  isPaused = false;
+  if (toast) {
+    showToast(toast);
+  }
+}
+
+/**
+ * Is a read in progress — speaking, or paused part-way through? A paused read is ours to know
+ * about: currentUtterance outlives the pause, while Chrome's synth.paused can stay true with
+ * nothing queued, and read-aloud must not claim Escape on the strength of that.
+ *
+ * @returns {boolean}
+ */
+function isReading() {
+  return Boolean(currentUtterance) || Boolean(synth && synth.speaking);
+}
+
+/**
+ * AssisT overlays that own the Escape key while they are on screen. AssisT's dialogs are found
+ * by assistOverlayIsOpen(); these are named because they are not all dialogs.
+ */
+const ESCAPE_OWNING_OVERLAYS =
+  '#assist-rsvp-overlay, #assist-highlight-menu, #assist-knowledge-graph';
+
+/**
+ * Where focus means Escape is someone else's: an AssisT surface (the consent panel's dialog is in
+ * a closed shadow root, so focus reads as its host), or any dialog the student is working in.
+ */
+const ESCAPE_OWNING_FOCUS =
+  '[id^="assist-"], [data-assist-consent-panel], [role="dialog"], [role="alertdialog"], dialog';
+
+/**
+ * Is this element, and every ancestor of it, actually rendered? A closed AssisT panel is often
+ * still in the DOM, so presence alone says nothing about who owns the keyboard.
+ *
+ * @param {HTMLElement} element
+ * @returns {boolean}
+ */
+function isElementOnScreen(element) {
+  for (let node = element; node instanceof HTMLElement; node = node.parentElement) {
+    const style = window.getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden') {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Does something other than read-aloud own Escape right now — an open AssisT dialog or overlay,
+ * an AssisT panel the student is focused inside (the annotation sidebar and the calculator handle
+ * Escape on themselves), or a page dialog holding focus? A page dialog that is merely in the DOM,
+ * such as a cookie banner left behind, does not: Escape is the one key that stops a read.
+ *
+ * @returns {boolean}
+ */
+function escapeBelongsToOtherUI() {
+  const focused = document.activeElement;
+  if (
+    focused &&
+    focused !== document.body &&
+    typeof focused.closest === 'function' &&
+    focused.closest(ESCAPE_OWNING_FOCUS)
+  ) {
+    return true;
+  }
+  return (
+    assistOverlayIsOpen() ||
+    Array.from(document.querySelectorAll(ESCAPE_OWNING_OVERLAYS)).some(isElementOnScreen)
+  );
+}
 
 /**
  * Read text aloud using TTS with synchronized highlighting
@@ -471,6 +638,9 @@ chrome.storage.onChanged.addListener(_storageHandler);
  *
  * @param {string} text - Text to read aloud
  * @param {HTMLElement} element - DOM element to highlight while reading
+ * @param {Object[]|null} [leaves] - scope-resolver leaves, for word-by-word highlighting
+ * @param {Object} [options]
+ * @param {boolean} [options.showOnPage=true] - false reads without drawing anything on the page
  * @returns {void}
  *
  * @example
@@ -481,7 +651,7 @@ chrome.storage.onChanged.addListener(_storageHandler);
  * // From Canvas module
  * readTextFunction(assignmentText, assignmentElement);
  */
-function readText(text, element, leaves) {
+function readText(text, element, leaves, { showOnPage = true } = {}) {
   console.log('[AssisT][readText] ========== READ TEXT CALLED ==========');
   console.log('[AssisT][readText] Text length:', text?.length);
   console.log('[AssisT][readText] Element:', element?.tagName);
@@ -491,7 +661,13 @@ function readText(text, element, leaves) {
 
   // Defensive checks
   if (!text || typeof text !== 'string' || text.trim() === '') {
-    console.error('[AssisT][readText] ❌ INVALID TEXT:', text);
+    console.error(
+      '[AssisT][readText] ❌ INVALID TEXT (type:',
+      typeof text,
+      'length:',
+      text?.length,
+      ')'
+    );
     return;
   }
 
@@ -514,17 +690,10 @@ function readText(text, element, leaves) {
     highlightEnabled: settings.highlightEnabled,
   });
 
-  // Cancel previous speech if any
-  if (synth && (synth.speaking || synth.paused)) {
-    console.log(
-      '[AssisT][readText] Cancelling previous speech (speaking:',
-      synth.speaking,
-      'paused:',
-      synth.paused,
-      ')'
-    );
-    synth.cancel();
-  }
+  // End the previous read here and now, through the one cleanup path: its word wrappers and
+  // highlight have to be off the page before this read wraps the same DOM, and waiting for
+  // Chrome's async "canceled" error to do it is what left highlights stranded.
+  stopReading();
 
   // Also resume if paused (some browsers need this)
   if (synth.paused) {
@@ -534,19 +703,23 @@ function readText(text, element, leaves) {
 
   // Wait for cancel to complete - Chrome needs a bit more time
   console.log('[AssisT][readText] Setting 100ms timeout before speaking...');
-  setTimeout(() => {
+  pendingReadStart = setTimeout(() => {
+    pendingReadStart = null;
     console.log('[AssisT][readText] Inside timeout - preparing to speak');
     currentElement = element;
+    currentShowsOnPage = showOnPage;
+    // Snapshot before the outline goes on, so the stop can restore the attribute byte for byte.
+    currentElementInlineStyle = element.getAttribute('style');
     currentText = text;
     currentLeaves = Array.isArray(leaves) && leaves.length > 0 ? leaves : null;
     isPaused = false; // Reset pause state
 
-    console.log('[AssisT][readText] Reading:', text.substring(0, 50) + '...');
+    console.log('[AssisT][readText] Reading', text.length, 'characters');
 
-    // Add outline
-    element.style.outline = '2px solid #2196F3';
-    element.style.outlineOffset = '2px';
-    console.log('[AssisT][readText] Applied outline to element');
+    if (showOnPage) {
+      element.style.outline = '2px solid #2196F3';
+      element.style.outlineOffset = '2px';
+    }
 
     // Create utterance FIRST so onboundary/onstart can be attached by the
     // word-by-word highlighter for true sync with the speaking voice.
@@ -556,6 +729,9 @@ function readText(text, element, leaves) {
     currentUtterance.pitch = settings.pitch;
     currentUtterance.volume = settings.volume;
 
+    // Resolved again at speak time: the page's language may have changed on an in-page navigation,
+    // and an engine can publish its voices without firing voiceschanged.
+    resolveVoice();
     if (settings.voice) {
       currentUtterance.voice = settings.voice;
       console.log('[AssisT][readText] Set voice to:', settings.voice.name);
@@ -564,7 +740,7 @@ function readText(text, element, leaves) {
     }
 
     console.log('[AssisT][readText] Utterance created:', {
-      text: currentUtterance.text?.substring(0, 30),
+      textLength: currentUtterance.text?.length,
       rate: currentUtterance.rate,
       pitch: currentUtterance.pitch,
       volume: currentUtterance.volume,
@@ -584,7 +760,9 @@ function readText(text, element, leaves) {
       Array.isArray(leaves) &&
       leaves.length > 0;
 
-    if (canDoWordByWord) {
+    if (!showOnPage) {
+      console.log('[AssisT][readText] Reading without drawing on the page');
+    } else if (canDoWordByWord) {
       const autoScroll = settings.readingScope && settings.readingScope !== 'paragraph';
       console.log(
         '[AssisT][readText] Using word-by-word highlighting (autoScroll=' + autoScroll + ')'
@@ -607,6 +785,7 @@ function readText(text, element, leaves) {
     // not tear down the new run.
     const owningUtterance = currentUtterance;
     const owningElement = currentElement;
+    const owningElementInlineStyle = currentElementInlineStyle;
 
     // Clean up on end
     currentUtterance.onend = () => {
@@ -615,17 +794,12 @@ function readText(text, element, leaves) {
         return;
       }
       console.log('[AssisT][readText] >>> UTTERANCE ONEND <<<');
-      cleanupWordByWord(owningElement);
-      removeHighlight();
-      removeElementHighlight(owningElement);
-      if (owningElement) {
-        owningElement.style.outline = '';
-        owningElement.style.outlineOffset = '';
-      }
+      clearReadingUI(owningElement, owningElementInlineStyle);
       currentUtterance = null;
       currentElement = null;
       currentText = '';
       currentLeaves = null;
+      currentElementInlineStyle = null;
       isPaused = false;
       console.log('[AssisT][readText] Reading complete and cleaned up');
       // Advance the speech queue if a chunked read is in progress.
@@ -642,11 +816,11 @@ function readText(text, element, leaves) {
       const isBenign = benignErrors.includes(event.error);
 
       if (currentUtterance !== owningUtterance) {
-        // Stale: a newer utterance owns the module state. Just clear the
-        // outline on our own element (no shared-state mutation).
-        if (owningElement) {
-          owningElement.style.outline = '';
-          owningElement.style.outlineOffset = '';
+        // Stale: a newer utterance owns the module state. Restore our own element (no shared-state
+        // mutation) — unless the newer read is reading that same element, whose outline and
+        // highlight are not ours to take off.
+        if (owningElement && owningElement !== currentElement) {
+          restoreElementStyle(owningElement, owningElementInlineStyle);
         }
         if (!isBenign) {
           console.warn('[AssisT][readText] Stale onerror (non-benign):', event.error);
@@ -660,16 +834,12 @@ function readText(text, element, leaves) {
         console.warn('[AssisT][readText] Speech error:', event.error);
       }
 
-      cleanupWordByWord(owningElement);
-      removeHighlight();
-      removeElementHighlight(owningElement);
-      if (owningElement) {
-        owningElement.style.outline = '';
-        owningElement.style.outlineOffset = '';
-      }
+      clearReadingUI(owningElement, owningElementInlineStyle);
+      currentUtterance = null;
       currentElement = null;
       currentText = '';
       currentLeaves = null;
+      currentElementInlineStyle = null;
       isPaused = false;
     };
 
@@ -710,10 +880,13 @@ if (typeof readText !== 'function') {
   console.error('[AssisT] readText is not a function - dependency injection will fail');
 }
 
-// Canvas module needs readText function and settings object
-// ⚠️ CRITICAL: If you change readText signature or settings structure,
-// update initializeCanvasModule() in canvas.js accordingly
-initializeCanvasModule(readText, settings);
+// Canvas, Moodle and Google Classroom all read aloud through one injected dependency. Moodle and
+// Classroom used to look for window.assistSettings / window.assistReadText, which nothing set, so
+// read-aloud was dead on both; a content script's window is shared with the host page, so the
+// dependency is handed over here instead of published as a global.
+// ⚠️ CRITICAL: If you change the readText signature or the settings structure, update
+// initializeLmsReadAloud() in features/lms/lms-read-aloud.js accordingly.
+initializeLmsReadAloud(readText, settings);
 
 // CHUNKED READING — splits long texts for Chrome's SpeechSynthesis
 // Chrome silently fails for utterances > ~4000 chars with network voices.
@@ -728,14 +901,14 @@ function _drainQueue() {
     return;
   }
   _queueRunning = true;
-  const { text, element, leaves } = _speechQueue.shift();
+  const { text, element, leaves, options } = _speechQueue.shift();
   // Patch onend so we can advance the queue when this chunk finishes.
   // We do this by temporarily overriding _queueOnEnd before calling readText.
   _pendingQueueNext = () => {
     _queueRunning = false;
     _drainQueue();
   };
-  readText(text, element, leaves);
+  readText(text, element, leaves, options);
 }
 
 let _pendingQueueNext = null;
@@ -746,11 +919,12 @@ function _splitAndQueueLeaves(resolvedElement, leaves) {
   let currentLen = 0;
 
   for (const leaf of leaves) {
-    const leafText = leaf.textContent?.trim() || '';
-    const addLen = currentLen === 0 ? leafText.length : leafText.length + 2; // +2 for '\n\n'
+    const text = leafText(leaf);
+    const addLen = currentLen === 0 ? text.length : text.length + 2; // +2 for '\n\n'
     if (currentLen > 0 && currentLen + addLen > MAX_UTTERANCE_CHARS) {
-      const text = currentLeaves.map(l => l.textContent.trim()).join('\n\n');
-      chunks.push({ text, element: currentLeaves[0], leaves: [...currentLeaves] });
+      const chunkText = currentLeaves.map(leafText).join('\n\n');
+      const element = leafSlice(currentLeaves[0]).element;
+      chunks.push({ text: chunkText, element, leaves: [...currentLeaves] });
       currentLeaves = [];
       currentLen = 0;
     }
@@ -758,34 +932,52 @@ function _splitAndQueueLeaves(resolvedElement, leaves) {
     currentLen += addLen;
   }
   if (currentLeaves.length > 0) {
-    const text = currentLeaves.map(l => l.textContent.trim()).join('\n\n');
-    chunks.push({ text, element: currentLeaves[0], leaves: [...currentLeaves] });
+    const chunkText = currentLeaves.map(leafText).join('\n\n');
+    const element = leafSlice(currentLeaves[0]).element;
+    chunks.push({ text: chunkText, element, leaves: [...currentLeaves] });
   }
   return chunks;
 }
 
-function readChunked(resolved) {
+function readChunked(resolved, options) {
   const { text, element, leaves } = resolved;
   if (!leaves || text.length <= MAX_UTTERANCE_CHARS) {
     // Short enough for a single utterance — no chunking needed.
-    readText(text, element, leaves);
+    readText(text, element, leaves, options);
     return;
   }
   const chunks = _splitAndQueueLeaves(element, leaves);
   if (chunks.length <= 1) {
-    readText(text, element, leaves);
+    readText(text, element, leaves, options);
     return;
   }
   showToast(`📖 Reading ${chunks.length} sections...`);
-  _speechQueue = chunks;
+  _speechQueue = chunks.map(chunk => ({ ...chunk, options }));
   _queueRunning = false;
   _drainQueue();
+}
+
+/**
+ * Read the words in a selection Range aloud in the student's voice and speed, chunked like
+ * reading on click. With the Read Aloud feature on they are highlighted as the student's
+ * settings ask; with it off the highlight menu still reads them, and draws nothing on the page.
+ *
+ * @param {Range} range
+ * @returns {boolean} false when the selection holds nothing readable
+ */
+function readSelection(range) {
+  const resolved = resolveSelectionTarget(range);
+  if (!resolved) {
+    return false;
+  }
+  readChunked(resolved, { showOnPage: settings.enabled });
+  return true;
 }
 
 // Main click detection for reading text on click
 
 // Click handler - Detects clicks on readable elements and triggers TTS
-_clickHandler = e => {
+function onDocumentClick(e) {
   console.log('[AssisT][Click] ========== CLICK EVENT ==========');
   console.log('[AssisT][Click] Target:', e.target.tagName, e.target.className);
   console.log('[AssisT][Click] settings.enabled:', settings.enabled);
@@ -825,21 +1017,34 @@ _clickHandler = e => {
   } else {
     console.log('[AssisT][Click] No readable text element found');
   }
-};
-document.addEventListener('click', _clickHandler, true);
+}
 
 // Keyboard controls for TTS playback (Space, +, -)
 
 // Keyboard shortcuts - Space (pause/resume), +/- (speed control)
-_keydownHandler = e => {
+function onDocumentKeydown(e) {
   // Skip if typing in input fields
   const target = e.target;
   if (target.matches('input, textarea, [contenteditable="true"]')) {
     return;
   }
 
-  // Space - pause/resume
-  if (e.key === ' ' || e.code === 'Space') {
+  // Escape - stop reading. A student who has started a read needs one key that ends it without
+  // hunting for the popup; SC 2.1.1 wants it reachable from the keyboard alone. Escape is only
+  // ours while a read is running and no AssisT dialog, overlay or panel has a prior claim on it —
+  // outside that the key is passed straight through untouched.
+  if (e.key === 'Escape') {
+    if (!isReading() || escapeBelongsToOtherUI()) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    stopReading({ toast: '⏹️ Stopped' });
+    return;
+  }
+
+  // Space - pause/resume, unless a focused control (button, link, menu...) owns Space
+  if ((e.key === ' ' || e.code === 'Space') && !isFocusedControl(target)) {
     // Only handle if we have an active utterance
     if (currentUtterance) {
       e.preventDefault();
@@ -886,10 +1091,11 @@ _keydownHandler = e => {
       const text = currentText;
       const element = currentElement;
       const leaves = currentLeaves;
+      const showOnPage = currentShowsOnPage;
       const wasPaused = synth.paused;
       synth.cancel();
       setTimeout(() => {
-        readText(text, element, leaves);
+        readText(text, element, leaves, { showOnPage });
         if (wasPaused) {
           setTimeout(() => synth.pause(), 100);
         }
@@ -910,10 +1116,11 @@ _keydownHandler = e => {
       const text = currentText;
       const element = currentElement;
       const leaves = currentLeaves;
+      const showOnPage = currentShowsOnPage;
       const wasPaused = synth.paused;
       synth.cancel();
       setTimeout(() => {
-        readText(text, element, leaves);
+        readText(text, element, leaves, { showOnPage });
         if (wasPaused) {
           setTimeout(() => synth.pause(), 100);
         }
@@ -923,8 +1130,9 @@ _keydownHandler = e => {
 
   // OCR keyboard shortcut is now dynamically registered via shortcuts manager
   // See initialization code below this event listener
-};
-document.addEventListener('keydown', _keydownHandler, true); // Use capture phase for better priority
+}
+
+installGlobalListeners();
 
 // Register dynamic keyboard shortcuts from shortcuts manager
 registerShortcut('ocr_activate', () => {
@@ -958,36 +1166,25 @@ registerShortcut('tts_play_pause', () => {
 
 // TTS stop
 registerShortcut('tts_stop', () => {
-  if (synth.speaking || currentUtterance) {
-    synth.cancel();
-    cleanupWordByWord(currentElement);
-    removeHighlight();
-    removeElementHighlight(currentElement);
-    if (currentElement) {
-      currentElement.style.outline = '';
-      currentElement.style.outlineOffset = '';
-    }
-    currentUtterance = null;
-    currentElement = null;
-    currentText = '';
-    currentLeaves = null;
-    isPaused = false;
-    showToast('⏹️ Stopped');
+  if (isReading()) {
+    stopReading({ toast: '⏹️ Stopped' });
   }
 });
 
-// Toggle storage setting helper — flips a boolean in assist_settings
-function _toggleStorageSetting(featureKey, subKey = 'enabled', label = '') {
-  chrome.storage.local.get('assist_settings', result => {
-    const s = result.assist_settings || {};
-    const feature = s[featureKey] || {};
-    const wasEnabled = feature[subKey] || false;
-    feature[subKey] = !wasEnabled;
-    s[featureKey] = feature;
-    chrome.storage.local.set({ assist_settings: s }, () => {
-      showToast(feature[subKey] ? `✅ ${label} on` : `${label} off`);
-    });
-  });
+// Toggle storage setting helper — flips a boolean in assist_settings. The read decides which way to
+// flip; the write goes through the shared writer, so it merges rather than storing this page's whole
+// snapshot back over whatever the popup saved in the meantime.
+async function _toggleStorageSetting(featureKey, subKey = 'enabled', label = '') {
+  // Nothing awaits this — it is a shortcut handler — so a failed read must not surface as an
+  // unhandled rejection the student sees nothing about.
+  try {
+    const result = await chrome.storage.local.get('assist_settings');
+    const enabled = !(result.assist_settings?.[featureKey]?.[subKey] || false);
+    await applySettingWrites([{ path: `${featureKey}.${subKey}`, value: enabled }]);
+    showToast(enabled ? `✅ ${label} on` : `${label} off`);
+  } catch (error) {
+    console.error(`[AssisT] Could not toggle ${featureKey}.${subKey}:`, error);
+  }
 }
 
 registerShortcut('focus_mode_toggle', () =>
@@ -1023,6 +1220,35 @@ registerShortcut('citation_save', () => {
     window.assistFeatures.citation.saveCitationFromCurrentPage(selectedText).catch(() => {});
   }
 });
+
+// The map library is an extension page, so this goes to the service worker rather than opening
+// anything from the page itself. A sleeping worker rejects rather than answering, and an
+// unhandled rejection in the student's page console helps nobody.
+registerShortcut('open_mind_map', () => {
+  chrome.runtime.sendMessage({ type: 'OPEN_MIND_MAP' }).catch(() => {});
+});
+
+/** How much page text a map may be built from — the cap the mind-map contract puts on source.text. */
+const MINDMAP_TEXT_LIMIT = 12000;
+
+/**
+ * The page's h1-h3 in document order, as {level, text}.
+ *
+ * This is the deterministic skeleton a map is built from before any AI is involved, so it must be
+ * the page's own headings: an empty heading says nothing, and AssisT's injected panels carry
+ * headings of their own that are not part of the document the student is reading.
+ *
+ * @returns {Array<{level: number, text: string}>}
+ */
+function collectPageHeadings() {
+  return Array.from(document.querySelectorAll('h1, h2, h3'))
+    .filter(heading => !heading.closest('[id^="assist-"], [class*="assist-"]'))
+    .map(heading => ({
+      level: Number(heading.tagName.charAt(1)),
+      text: heading.textContent.trim(),
+    }))
+    .filter(heading => heading.text.length > 0);
+}
 
 // Initialize the Dyslexia Mode feature module
 dyslexia_initialize();
@@ -1069,31 +1295,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case 'disable':
           settings.enabled = false;
-          if (synth.speaking) {
-            synth.cancel();
-          }
-          cleanupWordByWord(currentElement);
-          removeHighlight();
-          removeElementHighlight(currentElement);
-          if (currentElement) {
-            currentElement.style.outline = '';
-            currentElement.style.outlineOffset = '';
-          }
-          currentUtterance = null;
-          currentElement = null;
-          currentText = '';
-          currentLeaves = null;
-          isPaused = false;
+          stopReading();
           console.log('[AssisT] TTS disabled via direct command, highlights cleared');
           break;
 
         case 'setVoice':
           if (ttsData.voice) {
-            const voices = synth.getVoices();
-            const voice = voices.find(v => v.name === ttsData.voice);
-            if (voice) {
-              settings.voice = voice;
-            }
+            savedVoiceName = ttsData.voice;
+            resolveVoice();
           }
           break;
 
@@ -1163,18 +1372,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               'main, article, [role="main"], .content, #content, body'
             );
             if (mainContent) {
-              const text = mainContent.innerText;
-              if (text) {
-                readText(text, mainContent, null);
-              }
+              const readPlain = () => {
+                const text = mainContent.innerText;
+                if (text) {
+                  readText(text, mainContent, null);
+                }
+              };
+              // Math-aware read: when the page has equations, speak them as structured maths
+              // ("x squared plus 1") instead of the character-soup innerText gives, flowing through
+              // the same synchronized-highlight path as plain reading. The maths engine is
+              // lazy-loaded only when math is present; the mathReadAloud companion toggle can turn
+              // the behaviour off; any failure falls back to the plain read.
+              import('../features/companion/companion-settings.js')
+                .then(cs => cs.isCompanionEnabled('mathReadAloud'))
+                .then(mathEnabled => {
+                  if (!mathEnabled) {
+                    readPlain();
+                    return undefined;
+                  }
+                  return import('../features/maths/math-speech.js')
+                    .then(m => m.buildReadableText(mainContent))
+                    .then(mathText => {
+                      if (mathText) {
+                        readText(mathText, mainContent, null);
+                      } else {
+                        readPlain();
+                      }
+                    });
+                })
+                .catch(readPlain);
             }
           }
           break;
 
         case 'stop':
-          synth.cancel();
-          cleanupWordByWord(currentElement);
-          removeHighlight();
+          stopReading();
           break;
 
         case 'pause':
@@ -1195,8 +1427,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'READING_MODE_TOGGLE':
       // Toggle reading mode using the exported function from readingMode module
       if (window.assistFeatures && window.assistFeatures.readingMode) {
-        window.assistFeatures.readingMode.toggle();
-        sendResponse({ success: true, active: window.assistFeatures.readingMode.isActive() });
+        // Answer once the toggle has settled: entering waits on extraction, so asking straight
+        // away reported "closed" while it was opening.
+        const readingMode = window.assistFeatures.readingMode;
+        readingMode
+          .toggle()
+          .then(() => sendResponse({ success: true, active: readingMode.isActive() }));
       } else {
         console.error('[AssisT] Reading Mode feature not available');
         sendResponse({ success: false, error: 'Reading Mode not initialized' });
@@ -1275,7 +1511,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ])
           .then(citation => {
             clearTimeout(_citationTimerId);
-            console.log('[AssisT] Citation saved successfully:', citation);
+            console.log('[AssisT] Citation saved successfully');
             sendResponse({ success: true, citation });
           })
           .catch(error => {
@@ -1291,17 +1527,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'OPEN_BIBLIOGRAPHY_MANAGER':
-      // Open the bibliography manager modal
-      console.log('[AssisT] Opening Bibliography Manager from popup button');
+      console.log('[AssisT] Opening citation library from popup button');
       if (window.assistFeatures && window.assistFeatures.citation) {
         window.assistFeatures.citation
-          .openBibliographyManager()
+          .openLibrary()
           .then(() => {
-            console.log('[AssisT] Bibliography Manager opened');
+            console.log('[AssisT] Citation library opened');
             sendResponse({ success: true });
           })
           .catch(error => {
-            console.error('[AssisT] Bibliography Manager error:', error);
+            console.error('[AssisT] Citation library error:', error);
             sendResponse({ success: false, error: error.message });
           });
         return true; // Will respond asynchronously
@@ -1311,26 +1546,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
-    case 'OPEN_PROJECT_MANAGER':
-      // Open the project manager modal
-      console.log('[AssisT] Opening Project Manager from popup button');
-      if (window.assistFeatures && window.assistFeatures.citation) {
-        window.assistFeatures.citation
-          .openProjectManager()
-          .then(() => {
-            console.log('[AssisT] Project Manager opened');
-            sendResponse({ success: true });
-          })
-          .catch(error => {
-            console.error('[AssisT] Project Manager error:', error);
-            sendResponse({ success: false, error: error.message });
-          });
-        return true; // Will respond asynchronously
-      } else {
-        console.error('[AssisT] Citation feature not available');
-        sendResponse({ success: false, error: 'Citation not initialized' });
-      }
-      break;
+    case 'OPEN_LECTURE_NOTES':
+      // The popup's "Start lecture captions". Any page this script runs on, not only an LMS.
+      companion_openLectureNotes()
+        .then(opened =>
+          sendResponse(
+            opened ? { success: true } : { success: false, error: 'Lecture companion is off' }
+          )
+        )
+        .catch(error => {
+          console.error('[AssisT] Lecture notes did not open:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true; // Will respond asynchronously
 
     case 'GET_CITATIONS':
       // Get all citations and projects for popup panel
@@ -1360,8 +1588,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
+    case 'MINDMAP_MAP_PAGE': {
+      // The map is built and stored by the service worker, which owns the database. All the
+      // content script can contribute is what only the page knows: its text and its headings.
+      const { text: pageText } = extractMainContent();
+      chrome.runtime
+        .sendMessage({
+          type: 'MINDMAP_MAP_PAGE',
+          url: location.href,
+          title: document.title,
+          text: pageText.slice(0, MINDMAP_TEXT_LIMIT),
+          headings: collectPageHeadings(),
+        })
+        .then(response => sendResponse(response || { success: false, error: 'No response' }))
+        .catch(error => {
+          console.error('[AssisT] Mind map page capture failed:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true; // Will respond asynchronously
+    }
+
     case 'GET_STT_STATS':
-      // Phase 2.7 - S.4: Get STT confidence statistics from popup
+      // Get STT confidence statistics from popup
       if (
         window.assistFeatures &&
         window.assistFeatures.stt &&
@@ -1428,7 +1676,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
             break;
           case 'getStats':
-            // Phase 2.7 - S.4: Get confidence feedback statistics
+            // Get confidence feedback statistics
             if (sttFeature.controller && sttFeature.controller.getConfidenceStats) {
               const stats = sttFeature.controller.getConfidenceStats();
               sendResponse({ success: true, stats });
@@ -1445,7 +1693,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
             break;
           case 'updateConfidenceConfig':
-            // Phase 2.7 - S.4: Update confidence feedback settings
+            // Update confidence feedback settings
             if (sttFeature.controller && sttFeature.controller.updateConfidenceFeedbackConfig) {
               sttFeature.controller.updateConfidenceFeedbackConfig(message.config || {});
               sendResponse({ success: true });
@@ -1454,7 +1702,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
             break;
           case 'resetSession':
-            // Phase 2.7 - S.4: Reset confidence session
+            // Reset confidence session
             if (sttFeature.controller && sttFeature.controller.resetConfidenceSession) {
               sttFeature.controller.resetConfidenceSession();
               sendResponse({ success: true });
@@ -1481,72 +1729,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       break;
 
-    case 'MINIMIZE_CLUTTER_UPDATE':
-      // Hide or show on-page UI overlays (textStats badge, etc.)
-      {
-        const badge = document.getElementById('assist-textstats-badge');
-        if (badge) {
-          badge.style.display = message.state ? 'none' : '';
-        }
-        sendResponse({ success: true });
-      }
-      break;
-
-    case 'UPDATE_SETTINGS':
-      // Handle settings broadcast from message-router (background script)
-      // This is sent when popup updates settings and background broadcasts to content scripts
-      console.log('[AssisT] Settings update received from background');
-      if (message.settings) {
-        // Settings are handled by chrome.storage.onChanged listener
-        // This message is just a notification that settings were updated
-        sendResponse({ success: true });
-      } else {
-        sendResponse({ success: true, note: 'No settings in message' });
-      }
-      break;
-
-    case 'LOCAL_TEXT_CUSTOMIZATION':
-      // Apply text customization only to THIS tab, without touching shared storage.
-      // Used when the popup's "Apply to all windows" toggle is OFF.
-      console.log('[AssisT] Applying local-only text customization');
-      if (window.assistFeatures && window.assistFeatures.textCustomization) {
-        window.assistFeatures.textCustomization.applySettings(message.settings);
-        sendResponse({ success: true });
-      } else {
-        console.warn('[AssisT] textCustomization feature not available for local apply');
-        sendResponse({ success: false, error: 'textCustomization not initialized' });
-      }
-      break;
-
-    case 'CLEAR_TEXT_CUSTOMIZATION':
-      // Remove all text customization from THIS tab.
-      // Sent to all OTHER tabs when the sync toggle is switched OFF.
-      console.log('[AssisT] Clearing text customization on this tab');
-      if (window.assistFeatures && window.assistFeatures.textCustomization) {
-        window.assistFeatures.textCustomization.remove();
-        sendResponse({ success: true });
-      } else {
-        sendResponse({ success: false, error: 'textCustomization not initialized' });
-      }
-      break;
-
     default:
-      // Handle undefined or unknown message types gracefully
-      if (message.type === undefined) {
-        // Silently ignore messages without a type (e.g., from other extensions or browser)
-        console.log('[AssisT] Ignoring message without type property');
-        sendResponse({ success: true, ignored: true });
-      } else {
-        console.warn('[AssisT] Unknown message type:', message.type);
-        sendResponse({ success: false, error: 'Unknown message type' });
-      }
+      // Not ours: feature modules register their own listeners (the learning record, the
+      // annotation sidebar, image descriptions). Chrome keeps only the first reply, and this
+      // router is registered first, so answering here would drop the feature's own answer.
+      return false;
   }
 
   return true; // Keep message channel open for async response
 });
 
-// Expose readText function for Highlight Menu TTS integration
+// readText serves features that read their own text; the Highlight Menu reads a selection.
 window.readText = readText;
+window.readSelection = readSelection;
 
 // Expose showToast function for copy notifications
 if (typeof showToast !== 'undefined') {
@@ -1558,31 +1753,81 @@ console.log('[AssisT] Ready! Click any paragraph to read it.');
 // Canvas and Moodle are SPAs — detect navigation via title changes
 // and popstate so we can clean up + re-register listeners.
 let _lastUrl = location.href;
+
+/**
+ * Is this URL change nothing but a jump within the same document — a table-of-contents anchor, a
+ * "skip to content" link?
+ *
+ * @param {string} from
+ * @param {string} to
+ * @returns {boolean}
+ */
+function isSameDocumentJump(from, to) {
+  try {
+    const before = new URL(from);
+    const after = new URL(to);
+    return (
+      before.origin === after.origin &&
+      before.pathname === after.pathname &&
+      before.search === after.search
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * React to a URL change.
+ *
+ * A hash jump is not a navigation: the document is untouched, so tearing the content script down
+ * would stop a read the student is in the middle of and drop every listener for the sake of a
+ * scroll. The LMS integrations are still asked to re-detect, because Google Classroom does route by
+ * hash and each reinit no-ops when nothing changed for it.
+ */
+function onLocationChange() {
+  const previousUrl = _lastUrl;
+  _lastUrl = location.href;
+
+  if (isSameDocumentJump(previousUrl, _lastUrl)) {
+    console.log('[AssisT] Same-document jump, keeping listeners and any read in progress');
+    reinitLmsModules();
+    return;
+  }
+
+  console.log('[AssisT] SPA navigation detected, cleaning up listeners');
+  cleanupContentScript();
+  installGlobalListeners();
+  // Re-detect + re-mount LMS integrations for the new route.
+  reinitLmsModules();
+}
+
 const _navObserver = new MutationObserver(() => {
   if (location.href !== _lastUrl) {
-    _lastUrl = location.href;
-    console.log('[AssisT] SPA navigation detected, cleaning up listeners');
-    cleanupContentScript();
-    // Re-register listeners after cleanup
-    _storageHandler = changes => {
-      if (changes.assist_settings && updateTimeout === null) {
-        updateTimeout = setTimeout(() => {
-          // Settings change re-applied via existing logic captured in closure
-          updateTimeout = null;
-        }, 100);
-      }
-    };
-    chrome.storage.onChanged.addListener(_storageHandler);
-    synth.addEventListener('voiceschanged', loadVoices);
-    _voicesChangedHandler = loadVoices;
-    document.addEventListener('click', _clickHandler, true);
-    document.addEventListener('keydown', _keydownHandler, true);
+    onLocationChange();
   }
 });
 _navObserver.observe(document, { subtree: true, childList: true });
 window.addEventListener('popstate', () => {
   if (location.href !== _lastUrl) {
-    _lastUrl = location.href;
-    cleanupContentScript();
+    onLocationChange();
   }
 });
+
+/**
+ * The document became a writing surface after AssisT had already loaded — an editor set
+ * `contenteditable` on the body once its own scripts ran. Everything AssisT put on the page is
+ * now inside the student's essay field, so take it all back off and stop running here.
+ *
+ * Paired with the load-time abort in src/content/editable-document-guard.js: one check, both
+ * orders. The teardown order matters — the features release their own listeners, observers and
+ * storage handles first, then the sweep removes any container they left behind.
+ */
+function teardownForEditableDocument() {
+  console.log('[AssisT] This document became an editor surface — removing AssisT from it');
+  _navObserver.disconnect();
+  cleanupContentScript();
+  companion_cleanup();
+  removeInjectedAssistUI();
+}
+
+watchForEditableDocument(teardownForEditableDocument);

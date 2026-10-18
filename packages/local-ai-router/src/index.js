@@ -5,7 +5,7 @@
  * Degradation order: Ollama → WebLLM → Chrome Prompt API → cloud fallback.
  *
  * Extraction status (May 2026): scaffolding in place; full extraction from
- * AssisT src/ai/ is the NLnet-funded deliverable. The router, availability
+ * AssisT src/ai/ is still to come. The router, availability
  * checks, and all four provider transports are functional at this stage.
  * WebLLM engine lifecycle (model download/init) is retained in AssisT's
  * MV3 service worker and will be extracted with the full v1.0 library release.

@@ -1,49 +1,28 @@
 /**
- * E2E Tests for User Profiles Feature (Sprint 7) - STREAMLINED
- * Tests core profile functionality only
- *
- * Full test suite backup: tests/e2e-full-suite-backup/user-profiles.test.js
- * Restore with: bash tests/e2e/restore-full-suite.sh
+ * User profiles live in Advanced Options → Preferences. An earlier version of this spec looked for
+ * a profile selector in the main popup, a surface that was removed; the feature itself is intact.
  */
 
 import { test, expect } from './extension-fixture.js';
 
+async function openPreferences(popupPage) {
+  // The gear in the popup's header.
+  await popupPage.locator('#btn-options-compact').click();
+  await popupPage.locator('.modal-tab[data-tab="preferences"]').click();
+  return popupPage.locator('#tab-preferences');
+}
+
 test.describe('User Profiles - Core', () => {
-  test('should show profile selector dropdown', async ({ popupPage }) => {
-    const profileSelect = popupPage.locator('[data-testid="profile-select"]');
-    await expect(profileSelect).toBeVisible();
+  test('the Preferences tab shows the profile selector', async ({ popupPage }) => {
+    const prefs = await openPreferences(popupPage);
+    await expect(prefs.locator('#modal-profile-select')).toBeVisible();
   });
 
-  test('should have default profiles available', async ({ popupPage }) => {
-    const profileSelect = popupPage.locator('[data-testid="profile-select"]');
-
-    const options = await profileSelect.locator('option').allTextContents();
-
-    const profileText = options.join(' ');
-    expect(profileText).toContain('Default');
-    expect(profileText.toLowerCase()).toContain('reading');
+  test('default profiles are available', async ({ popupPage }) => {
+    const prefs = await openPreferences(popupPage);
+    const options = await prefs.locator('#modal-profile-select option').allTextContents();
+    const text = options.join(' ');
+    expect(text).toContain('Default');
+    expect(text.toLowerCase()).toContain('reading');
   });
-});
-
-// Skipped tests - restore full suite if needed
-test.describe('User Profiles - Extended', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
-
-  test('should have Save Profile button', async ({ popupPage }) => {});
-  test('should switch between profiles', async ({ popupPage }) => {});
-});
-
-test.describe('Profile Management', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
-
-  test('should open advanced options modal', async ({ popupPage }) => {});
-  test('should have export profiles button in modal', async ({ popupPage }) => {});
-  test('should have import profiles button in modal', async ({ popupPage }) => {});
-});
-
-test.describe('Profile Profiles', () => {
-  test.skip(true, 'Extended tests skipped - restore full suite if needed');
-
-  test('should apply Reading Mode settings', async ({ popupPage }) => {});
-  test('should apply Quiz Mode settings', async ({ popupPage }) => {});
 });

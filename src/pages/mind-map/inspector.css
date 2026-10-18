@@ -1,0 +1,232 @@
+/*
+ * Inspector: the fields a single outline row cannot hold.
+ *
+ * Layout only. The palette, the font, the button family and the focus ring are the page's, declared
+ * once in mindmap.css — this pane used to carry a light-only palette of its own and was bridged
+ * back to the page's tokens, which is how one page ended up with three button styles.
+ *
+ * Every control is a real labelled form control, so the pane needs no ARIA of its own beyond the
+ * name on the form. Colour is chosen from a radio group where each option carries a swatch AND its
+ * name, because a student who cannot tell the swatches apart must still be able to say "green".
+ */
+
+.mm-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  color: var(--mm-body, #33414a);
+}
+
+.mm-inspector__title {
+  margin: 0;
+  color: var(--mm-strong, #1f2a30);
+  font-size: 1rem;
+}
+
+.mm-inspector__empty {
+  margin: 0;
+  color: var(--mm-muted, #5b655c);
+}
+
+.mm-inspector__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mm-inspector__fields:disabled {
+  opacity: 0.6;
+}
+
+.mm-inspector__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mm-inspector__field label,
+.mm-inspector__group legend,
+.mm-inspector__linksTitle {
+  color: var(--mm-strong, #1f2a30);
+  font-weight: 600;
+}
+
+.mm-inspector__group {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--mm-line, #d2d7c9);
+  border-radius: var(--mm-radius-sm, 6px);
+}
+
+/*
+ * One column of rows, not three.
+ *
+ * Three columns put "Inherit" and its radio in 90 pixels and the label collided with the control
+ * next to it — "Inheri○", "Green○" — at the dock's own width, before any text-spacing preference or
+ * zoom was applied at all. A row per colour cannot collide however wide the words become (SC 1.4.12),
+ * and the whole row is the target, which clears 24px on its shortest side (SC 2.5.8).
+ */
+.mm-inspector__colours {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mm-inspector__colour {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--mm-radius-sm, 6px);
+  cursor: pointer;
+}
+
+.mm-inspector__colour:hover {
+  background: var(--mm-accent-soft, rgba(67, 98, 107, 0.12));
+}
+
+.mm-inspector__colour input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 2px;
+}
+
+.mm-inspector__swatch {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1px solid var(--mm-line-strong, #6f7869);
+  border-radius: 4px;
+}
+
+/*
+ * "Move to…": the way to move a node without a drag. Its controls are the page's ordinary labelled
+ * fields, stacked, because every one of them has a label long enough to wrap at the dock's width
+ * and at any text-spacing preference (SC 1.4.12).
+ */
+.mm-inspector__move {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/*
+ * Why a control cannot act, in words. Visible as well as announced: the toolbar hides its reasons in
+ * a described span and says them in a toast, and there is no toast in this panel to say them with.
+ * Empty when the node can be moved, so it takes no room at all.
+ */
+.mm-inspector__why:empty,
+.mm-inspector__mixed:empty {
+  display: none;
+}
+
+.mm-inspector__why,
+.mm-inspector__mixed {
+  margin: 0;
+  color: var(--mm-muted, #5b655c);
+}
+
+/*
+ * What a control is showing for several nodes at once, when they do not agree. A sentence rather
+ * than a third visual state, so it is read in order by a screen reader and needs no key to explain
+ * it; `indeterminate` and aria-checked="mixed" carry the same fact to assistive technology.
+ */
+.mm-inspector__mixed {
+  font-style: italic;
+}
+
+/* Why the one-node fields are away while a set is selected. */
+.mm-inspector__setNote {
+  margin: 0 0 4px;
+  color: var(--mm-muted, #5b655c);
+}
+
+.mm-inspector__moveButton,
+.mm-inspector__focusButton {
+  align-self: flex-start;
+}
+
+/* A view rather than an edit, so it sits above the fields that write, with its reason over it. */
+.mm-inspector__focusField {
+  align-items: flex-start;
+}
+
+.mm-inspector__symbolRow,
+.mm-inspector__linkForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.mm-inspector__quickPick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mm-inspector__check {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+.mm-inspector__check input {
+  width: 20px;
+  height: 20px;
+  margin: 2px;
+}
+
+.mm-inspector__links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mm-inspector__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mm-inspector__sourceLink,
+.mm-inspector a {
+  color: var(--mm-accent, #43626b);
+}
+
+/*
+ * The citation row: the picker, a Clear button and the in-text form of whatever is linked. The
+ * reference is text rather than an icon or a colour, so a student can read what they linked to
+ * without opening the citation library (SC 1.4.1).
+ */
+.mm-inspector__citationRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mm-inspector__citationRef {
+  margin: 0;
+  color: var(--mm-body, #33414a);
+  font-style: italic;
+}
+
+@media (forced-colors: active) {
+  .mm-inspector__swatch {
+    border-color: CanvasText;
+    forced-color-adjust: none;
+  }
+}

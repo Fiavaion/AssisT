@@ -167,6 +167,8 @@ function progress_updateProgress() {
     fillElement.style.width = percentage + '%';
   }
 
+  progress_barElement.setAttribute('aria-valuenow', String(Math.round(percentage)));
+
   // Update percentage text if enabled
   if (progress_settings.showPercentage && progress_percentElement) {
     progress_percentElement.textContent = Math.round(percentage) + '%';
@@ -301,6 +303,14 @@ function progress_createBar() {
   // Create container
   progress_barElement = document.createElement('div');
   progress_barElement.id = 'assist-reading-progress-container';
+  // How far through a long page a student is is information, not decoration: the bar is the only
+  // thing carrying it, so it carries it for a screen reader too. Not focusable — a progressbar is
+  // read where it sits and has nothing to operate.
+  progress_barElement.setAttribute('role', 'progressbar');
+  progress_barElement.setAttribute('aria-label', 'Reading progress');
+  progress_barElement.setAttribute('aria-valuemin', '0');
+  progress_barElement.setAttribute('aria-valuemax', '100');
+  progress_barElement.setAttribute('aria-valuenow', '0');
 
   // Create fill bar
   const fillElement = document.createElement('div');
@@ -311,6 +321,8 @@ function progress_createBar() {
   progress_percentElement = document.createElement('span');
   progress_percentElement.id = 'assist-reading-progress-percent';
   progress_percentElement.textContent = '0%';
+  // The same number the progressbar above already reports; reading it twice is noise.
+  progress_percentElement.setAttribute('aria-hidden', 'true');
 
   // Append to body
   document.body.appendChild(progress_barElement);

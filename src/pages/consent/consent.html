@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AssisT: a question about an online service</title>
+    <link rel="stylesheet" href="consent.css" />
+  </head>
+  <body>
+    <header class="consent-header">
+      <p class="consent-brand">AssisT</p>
+      <a
+        class="consent-help"
+        href="../help/help.html"
+        target="_blank"
+        rel="noopener"
+        data-destination="help"
+        aria-label="Help (opens in a new tab)"
+        >Help</a
+      >
+    </header>
+
+    <main id="consent-main" class="consent-main" aria-labelledby="consent-title">
+      <h1 id="consent-title" class="consent-title"></h1>
+      <div id="consent-body" class="consent-body"></div>
+      <div id="consent-actions" class="consent-actions"></div>
+      <p id="consent-status" class="consent-status" role="status"></p>
+    </main>
+
+    <script type="module" src="consent.js"></script>
+  </body>
+</html>

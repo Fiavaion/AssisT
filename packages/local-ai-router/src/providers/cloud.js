@@ -21,8 +21,8 @@ const ENDPOINTS = {
  * @returns {{ available: boolean, reason: string | null }}
  */
 export function checkCloudAvailability({ provider = 'anthropic', apiKey } = {}) {
-  if (!apiKey) return { available: false, reason: `No API key configured for ${provider}` };
-  if (!ENDPOINTS[provider]) return { available: false, reason: `Unknown cloud provider: ${provider}` };
+  if (!apiKey) {return { available: false, reason: `No API key configured for ${provider}` };}
+  if (!ENDPOINTS[provider]) {return { available: false, reason: `Unknown cloud provider: ${provider}` };}
   return { available: true, reason: null };
 }
 
@@ -40,15 +40,15 @@ export async function cloudGenerate(prompt, {
   systemPrompt,
   timeout = 30000,
 } = {}) {
-  if (!apiKey) throw new Error(`API key required for cloud provider: ${provider}`);
+  if (!apiKey) {throw new Error(`API key required for cloud provider: ${provider}`);}
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
   try {
-    if (provider === 'anthropic') return await anthropicGenerate(prompt, { apiKey, model, maxTokens, temperature, systemPrompt, signal: controller.signal });
-    if (provider === 'google') return await googleGenerate(prompt, { apiKey, model, maxTokens, temperature, systemPrompt, signal: controller.signal });
-    if (provider === 'openai') return await openaiGenerate(prompt, { apiKey, model, maxTokens, temperature, systemPrompt, signal: controller.signal });
+    if (provider === 'anthropic') {return await anthropicGenerate(prompt, { apiKey, model, maxTokens, temperature, systemPrompt, signal: controller.signal });}
+    if (provider === 'google') {return await googleGenerate(prompt, { apiKey, model, maxTokens, temperature, systemPrompt, signal: controller.signal });}
+    if (provider === 'openai') {return await openaiGenerate(prompt, { apiKey, model, maxTokens, temperature, systemPrompt, signal: controller.signal });}
     throw new Error(`Unknown provider: ${provider}`);
   } finally {
     clearTimeout(id);
@@ -73,8 +73,8 @@ async function anthropicGenerate(prompt, { apiKey, model = 'claude-sonnet-4-6', 
     signal,
   });
 
-  if (res.status === 429) throw Object.assign(new Error('Rate limited'), { statusCode: 429, retryable: true });
-  if (!res.ok) throw Object.assign(new Error(`Anthropic API error: ${res.status}`), { statusCode: res.status });
+  if (res.status === 429) {throw Object.assign(new Error('Rate limited'), { statusCode: 429, retryable: true });}
+  if (!res.ok) {throw Object.assign(new Error(`Anthropic API error: ${res.status}`), { statusCode: res.status });}
 
   const data = await res.json();
   return {
@@ -101,8 +101,8 @@ async function googleGenerate(prompt, { apiKey, model, maxTokens, temperature, s
     signal,
   });
 
-  if (res.status === 429) throw Object.assign(new Error('Rate limited'), { statusCode: 429, retryable: true });
-  if (!res.ok) throw Object.assign(new Error(`Google AI error: ${res.status}`), { statusCode: res.status });
+  if (res.status === 429) {throw Object.assign(new Error('Rate limited'), { statusCode: 429, retryable: true });}
+  if (!res.ok) {throw Object.assign(new Error(`Google AI error: ${res.status}`), { statusCode: res.status });}
 
   const data = await res.json();
   return { text: data.candidates?.[0]?.content?.parts?.[0]?.text ?? '', usage: null };
@@ -110,7 +110,7 @@ async function googleGenerate(prompt, { apiKey, model, maxTokens, temperature, s
 
 async function openaiGenerate(prompt, { apiKey, model = 'gpt-4o-mini', maxTokens, temperature, systemPrompt, signal }) {
   const messages = [];
-  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  if (systemPrompt) {messages.push({ role: 'system', content: systemPrompt });}
   messages.push({ role: 'user', content: prompt });
 
   const res = await fetch(ENDPOINTS.openai, {
@@ -120,8 +120,8 @@ async function openaiGenerate(prompt, { apiKey, model = 'gpt-4o-mini', maxTokens
     signal,
   });
 
-  if (res.status === 429) throw Object.assign(new Error('Rate limited'), { statusCode: 429, retryable: true });
-  if (!res.ok) throw Object.assign(new Error(`OpenAI error: ${res.status}`), { statusCode: res.status });
+  if (res.status === 429) {throw Object.assign(new Error('Rate limited'), { statusCode: 429, retryable: true });}
+  if (!res.ok) {throw Object.assign(new Error(`OpenAI error: ${res.status}`), { statusCode: res.status });}
 
   const data = await res.json();
   return {

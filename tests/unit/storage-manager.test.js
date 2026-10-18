@@ -12,11 +12,11 @@ describe('StorageManager', () => {
     jest.clearAllMocks();
 
     // Setup default mock behavior
-    chrome.storage.local.get.mockImplementation((keys) => {
+    chrome.storage.local.get.mockImplementation((_keys) => {
       return Promise.resolve({});
     });
 
-    chrome.storage.local.set.mockImplementation((items) => {
+    chrome.storage.local.set.mockImplementation((_items) => {
       return Promise.resolve();
     });
   });
@@ -24,8 +24,10 @@ describe('StorageManager', () => {
   describe('Constants and Defaults', () => {
     test('should have correct storage keys', () => {
       expect(StorageManager.STORAGE_KEYS.SETTINGS).toBe('assist_settings');
-      expect(StorageManager.STORAGE_KEYS.USER_PROFILE).toBe('assist_user_profile');
-      expect(StorageManager.STORAGE_KEYS.LAST_SYNC).toBe('assist_last_sync');
+    });
+
+    test('declares no key it does not read back', () => {
+      expect(Object.keys(StorageManager.STORAGE_KEYS)).toEqual(['SETTINGS']);
     });
 
     test('should have comprehensive default settings', () => {
@@ -33,7 +35,7 @@ describe('StorageManager', () => {
 
       expect(defaults).toHaveProperty('tts');
       expect(defaults).toHaveProperty('stt');
-      expect(defaults).toHaveProperty('waiAdapt');
+      expect(defaults).toHaveProperty('ocr');
       expect(defaults).toHaveProperty('accessibility');
       expect(defaults).toHaveProperty('textCustomization');
       expect(defaults).toHaveProperty('readingGuide');
@@ -60,6 +62,56 @@ describe('StorageManager', () => {
       expect(spacing.wordSpacing).toBeGreaterThanOrEqual(0.16); // WCAG min
       expect(spacing.paragraphSpacing).toBeGreaterThanOrEqual(2.0); // WCAG min
     });
+
+    test('declares the Canvas quiz helper in the shape canvas.js and the popup read, and off', () => {
+      expect(StorageManager.DEFAULT_SETTINGS.canvasIntegration.quizHelper).toEqual({
+        enabled: false,
+        readAnswers: true,
+        autoRead: false,
+        highlightQuestion: true,
+        highlightColor: '#4A90E2',
+        keyboardNavigation: true,
+      });
+    });
+
+    test('declares the speech-to-text vocabulary branch the popup reads', () => {
+      expect(StorageManager.DEFAULT_SETTINGS.stt.vocabulary).toEqual({
+        autoLearn: true,
+        enabledPresets: [],
+        customWords: [],
+      });
+    });
+  });
+
+  describe('a Canvas quiz helper stored by an older version', () => {
+    // Before the quiz helper had options it was stored as a bare boolean. The merge alone would keep
+    // that boolean over the declared object, and every reader of quizHelper.<option> would get
+    // undefined, so withDefaults() upgrades it first.
+    test('a stored false becomes the declared object, still off', () => {
+      const settings = StorageManager.withDefaults({ canvasIntegration: { quizHelper: false } });
+
+      expect(settings.canvasIntegration.quizHelper).toEqual(
+        StorageManager.DEFAULT_SETTINGS.canvasIntegration.quizHelper
+      );
+      expect(settings.canvasIntegration.quizHelper.enabled).toBe(false);
+    });
+
+    test('a stored true keeps the student’s choice: on, with the declared options', () => {
+      const settings = StorageManager.withDefaults({ canvasIntegration: { quizHelper: true } });
+
+      expect(settings.canvasIntegration.quizHelper).toEqual({
+        ...StorageManager.DEFAULT_SETTINGS.canvasIntegration.quizHelper,
+        enabled: true,
+      });
+    });
+
+    test('the stored object handed in is left as it was', () => {
+      const stored = { canvasIntegration: { enabled: true, quizHelper: false } };
+
+      StorageManager.withDefaults(stored);
+
+      expect(stored).toEqual({ canvasIntegration: { enabled: true, quizHelper: false } });
+    });
   });
 
   describe('initializeDefaults()', () => {
@@ -69,8 +121,7 @@ describe('StorageManager', () => {
       const result = await StorageManager.initializeDefaults();
 
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
-        assist_settings: StorageManager.DEFAULT_SETTINGS,
-        assist_last_sync: expect.any(Number)
+        assist_settings: StorageManager.DEFAULT_SETTINGS
       });
       expect(result).toEqual(StorageManager.DEFAULT_SETTINGS);
     });
@@ -93,29 +144,26 @@ describe('StorageManager', () => {
       await expect(StorageManager.initializeDefaults()).rejects.toThrow('Storage error');
     });
 
-    test('should set last sync timestamp', async () => {
+    test('writes the settings key and nothing else', async () => {
       chrome.storage.local.get.mockResolvedValue({});
-      const beforeTime = Date.now();
 
       await StorageManager.initializeDefaults();
 
-      const setCall = chrome.storage.local.set.mock.calls[0][0];
-      expect(setCall.assist_last_sync).toBeGreaterThanOrEqual(beforeTime);
-      expect(setCall.assist_last_sync).toBeLessThanOrEqual(Date.now());
+      expect(Object.keys(chrome.storage.local.set.mock.calls[0][0])).toEqual(['assist_settings']);
     });
   });
 
   describe('getSettings()', () => {
     test('should retrieve stored settings', async () => {
-      const mockSettings = { tts: { enabled: true, voice: 'Test Voice' } };
       chrome.storage.local.get.mockResolvedValue({
-        assist_settings: mockSettings
+        assist_settings: { tts: { enabled: true, voice: 'Test Voice' } }
       });
 
       const result = await StorageManager.getSettings();
 
       expect(chrome.storage.local.get).toHaveBeenCalledWith('assist_settings');
-      expect(result).toEqual(mockSettings);
+      expect(result.tts.enabled).toBe(true);
+      expect(result.tts.voice).toBe('Test Voice');
     });
 
     test('should return defaults if no settings found', async () => {
@@ -137,7 +185,7 @@ describe('StorageManager', () => {
 
   describe('updateSetting()', () => {
     test('should update top-level setting', async () => {
-      const currentSettings = { ...StorageManager.DEFAULT_SETTINGS };
+      const currentSettings = structuredClone(StorageManager.DEFAULT_SETTINGS);
       chrome.storage.local.get.mockResolvedValue({
         assist_settings: currentSettings
       });
@@ -146,11 +194,10 @@ describe('StorageManager', () => {
 
       const setCall = chrome.storage.local.set.mock.calls[0][0];
       expect(setCall.assist_settings.tts.enabled).toBe(true);
-      expect(setCall.assist_last_sync).toBeDefined();
     });
 
     test('should update nested setting with dot notation', async () => {
-      const currentSettings = { ...StorageManager.DEFAULT_SETTINGS };
+      const currentSettings = structuredClone(StorageManager.DEFAULT_SETTINGS);
       chrome.storage.local.get.mockResolvedValue({
         assist_settings: currentSettings
       });
@@ -162,15 +209,15 @@ describe('StorageManager', () => {
     });
 
     test('should update deeply nested setting', async () => {
-      const currentSettings = { ...StorageManager.DEFAULT_SETTINGS };
+      const currentSettings = structuredClone(StorageManager.DEFAULT_SETTINGS);
       chrome.storage.local.get.mockResolvedValue({
         assist_settings: currentSettings
       });
 
-      await StorageManager.updateSetting('waiAdapt.textSpacing.lineHeight', 2.0);
+      await StorageManager.updateSetting('stt.vocabulary.autoLearn', true);
 
       const setCall = chrome.storage.local.set.mock.calls[0][0];
-      expect(setCall.assist_settings.waiAdapt.textSpacing.lineHeight).toBe(2.0);
+      expect(setCall.assist_settings.stt.vocabulary.autoLearn).toBe(true);
     });
 
     test('should preserve other settings when updating one', async () => {
@@ -188,20 +235,17 @@ describe('StorageManager', () => {
       expect(setCall.assist_settings.tts.enabled).toBe(true);
       expect(setCall.assist_settings.tts.voice).toBe('Test Voice');
       expect(setCall.assist_settings.tts.rate).toBe(1.5);
-      expect(setCall.assist_settings.stt).toEqual({ enabled: false });
+      expect(setCall.assist_settings.stt.enabled).toBe(false);
     });
 
-    test('should update last sync timestamp', async () => {
-      const currentSettings = { ...StorageManager.DEFAULT_SETTINGS };
+    test('writes only the settings key', async () => {
       chrome.storage.local.get.mockResolvedValue({
-        assist_settings: currentSettings
+        assist_settings: structuredClone(StorageManager.DEFAULT_SETTINGS)
       });
-      const beforeTime = Date.now();
 
       await StorageManager.updateSetting('tts.enabled', true);
 
-      const setCall = chrome.storage.local.set.mock.calls[0][0];
-      expect(setCall.assist_last_sync).toBeGreaterThanOrEqual(beforeTime);
+      expect(Object.keys(chrome.storage.local.set.mock.calls[0][0])).toEqual(['assist_settings']);
     });
 
     test('should throw error if update fails', async () => {
@@ -215,46 +259,12 @@ describe('StorageManager', () => {
     });
   });
 
-  describe('saveSettings()', () => {
-    test('should save complete settings object', async () => {
-      const newSettings = {
-        tts: { enabled: true },
-        stt: { enabled: false }
-      };
-
-      const result = await StorageManager.saveSettings(newSettings);
-
-      expect(chrome.storage.local.set).toHaveBeenCalledWith({
-        assist_settings: newSettings,
-        assist_last_sync: expect.any(Number)
-      });
-      expect(result).toEqual(newSettings);
-    });
-
-    test('should update last sync timestamp', async () => {
-      const beforeTime = Date.now();
-
-      await StorageManager.saveSettings({ test: 'data' });
-
-      const setCall = chrome.storage.local.set.mock.calls[0][0];
-      expect(setCall.assist_last_sync).toBeGreaterThanOrEqual(beforeTime);
-    });
-
-    test('should throw error if save fails', async () => {
-      chrome.storage.local.set.mockRejectedValue(new Error('Write failed'));
-
-      await expect(StorageManager.saveSettings({}))
-        .rejects.toThrow('Write failed');
-    });
-  });
-
   describe('resetToDefaults()', () => {
     test('should reset all settings to defaults', async () => {
       await StorageManager.resetToDefaults();
 
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
-        assist_settings: StorageManager.DEFAULT_SETTINGS,
-        assist_last_sync: expect.any(Number)
+        assist_settings: StorageManager.DEFAULT_SETTINGS
       });
     });
 
@@ -272,145 +282,159 @@ describe('StorageManager', () => {
     });
   });
 
-  describe('exportSettings()', () => {
-    test('should export settings as JSON string', async () => {
-      const mockSettings = { tts: { enabled: true } };
+  describe('getSettings() merges over the defaults', () => {
+    /**
+     * What a 0.9.3 install actually has on disk: the branches that existed then, with the
+     * student's own values in them, and nothing at all for maths, citation or ui_visibility.
+     */
+    const storedFrom093 = () => ({
+      tts: {
+        enabled: true,
+        voice: 'Microsoft Aria Online (Natural) - English (Ireland)',
+        rate: 1.35,
+        pitch: 1.0,
+        volume: 0.8,
+        highlightEnabled: true,
+        highlightColor: '#B3E5FC',
+        highlightOpacity: 0.5,
+        autoStart: false,
+      },
+      stt: { enabled: true, language: 'en-IE' },
+      textCustomization: { enabled: true, fontFamily: 'opendyslexic' },
+      focusMode: { enabled: true, boxWidth: 500 },
+      accessibility: { keyboardShortcuts: true },
+      canvasIntegration: { enabled: true, assignmentReader: true },
+    });
+
+    test('fills in every branch the stored object never had', async () => {
+      chrome.storage.local.get.mockResolvedValue({ assist_settings: storedFrom093() });
+
+      const settings = await StorageManager.getSettings();
+
+      // The three reads that crashed the popup on an upgraded install.
+      expect(settings.maths.enabled).toBe(false);
+      expect(settings.citation.enabled).toBe(true);
+      expect(settings.citation.verifyOnline).toBeUndefined();
+      expect(settings.ui_visibility.show_citations).toBe(true);
+      expect(settings.ocr.enabled).toBe(false);
+      expect(settings.readingGuide.lineThickness).toBe(3);
+      expect(settings.googleClassroomIntegration.enabled).toBe(true);
+    });
+
+    test('every branch of the defaults survives the merge', async () => {
+      chrome.storage.local.get.mockResolvedValue({ assist_settings: storedFrom093() });
+
+      const settings = await StorageManager.getSettings();
+
+      for (const branch of Object.keys(StorageManager.DEFAULT_SETTINGS)) {
+        expect(settings[branch]).toBeDefined();
+      }
+    });
+
+    test('never overwrites a value the student set', async () => {
+      chrome.storage.local.get.mockResolvedValue({ assist_settings: storedFrom093() });
+
+      const settings = await StorageManager.getSettings();
+
+      expect(settings.tts.rate).toBe(1.35);
+      expect(settings.tts.voice).toBe('Microsoft Aria Online (Natural) - English (Ireland)');
+      expect(settings.tts.volume).toBe(0.8);
+      expect(settings.stt.language).toBe('en-IE');
+      expect(settings.textCustomization.fontFamily).toBe('opendyslexic');
+    });
+
+    test('keeps a stored false, which a naive merge would treat as missing', async () => {
       chrome.storage.local.get.mockResolvedValue({
-        assist_settings: mockSettings
+        assist_settings: { citation: { enabled: false }, canvasIntegration: { enabled: false } },
       });
 
-      const result = await StorageManager.exportSettings();
-      const parsed = JSON.parse(result);
+      const settings = await StorageManager.getSettings();
 
-      expect(parsed).toHaveProperty('version');
-      expect(parsed).toHaveProperty('timestamp');
-      expect(parsed).toHaveProperty('settings');
-      expect(parsed.settings).toEqual(mockSettings);
+      expect(settings.citation.enabled).toBe(false);
+      expect(settings.canvasIntegration.enabled).toBe(false);
+      // Siblings the student never touched still come from the defaults.
+      expect(settings.canvasIntegration.assignmentReader).toBe(true);
     });
 
-    test('should include version in export', async () => {
+    test('merges the deep branches, not just the top level', async () => {
       chrome.storage.local.get.mockResolvedValue({
-        assist_settings: StorageManager.DEFAULT_SETTINGS
+        assist_settings: {
+          readingGuide: { lineOpacity: 0.4 },
+          stt: { vocabulary: { autoLearn: false, enabledPresets: ['medical'] } },
+          canvasIntegration: { quizHelper: { autoRead: true } },
+        },
       });
 
-      const result = await StorageManager.exportSettings();
-      const parsed = JSON.parse(result);
+      const settings = await StorageManager.getSettings();
 
-      expect(parsed.version).toBe('1.0');
+      expect(settings.readingGuide.lineOpacity).toBe(0.4);
+      expect(settings.readingGuide.lineThickness).toBe(3);
+      expect(settings.stt.vocabulary.autoLearn).toBe(false);
+      expect(settings.stt.vocabulary.enabledPresets).toEqual(['medical']);
+      expect(settings.stt.vocabulary.customWords).toEqual([]);
+      expect(settings.stt.language).toBe('en-US');
+      // Three levels down: the stored option wins, its siblings come from the defaults.
+      expect(settings.canvasIntegration.quizHelper.autoRead).toBe(true);
+      expect(settings.canvasIntegration.quizHelper.highlightColor).toBe('#4A90E2');
+      expect(settings.canvasIntegration.quizHelper.enabled).toBe(false);
+      expect(settings.canvasIntegration.assignmentReader).toBe(true);
     });
 
-    test('should include ISO timestamp', async () => {
+    test('keeps branches the defaults know nothing about', async () => {
       chrome.storage.local.get.mockResolvedValue({
-        assist_settings: StorageManager.DEFAULT_SETTINGS
+        assist_settings: {
+          appearance: { debug_mode: true },
+          annotations: { storageMode: 'sync' },
+          favouriteTools: ['tts', 'citations'],
+        },
       });
 
-      const result = await StorageManager.exportSettings();
-      const parsed = JSON.parse(result);
+      const settings = await StorageManager.getSettings();
 
-      expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/); // ISO 8601 format
+      expect(settings.appearance.debug_mode).toBe(true);
+      expect(settings.annotations.storageMode).toBe('sync');
+      expect(settings.favouriteTools).toEqual(['tts', 'citations']);
     });
 
-    test('should format JSON with indentation', async () => {
+    test('a stored array replaces the default, it is not merged into it', async () => {
       chrome.storage.local.get.mockResolvedValue({
-        assist_settings: { test: 'data' }
+        assist_settings: { maths: { enabled: true } },
       });
 
-      const result = await StorageManager.exportSettings();
+      const settings = await StorageManager.getSettings();
 
-      // JSON.stringify with 2-space indent creates newlines
-      expect(result).toContain('\n');
-      expect(result).toContain('  ');
-    });
-
-    test('should be FERPA-compliant (no PII)', async () => {
-      chrome.storage.local.get.mockResolvedValue({
-        assist_settings: StorageManager.DEFAULT_SETTINGS
+      expect(settings.maths).toEqual({
+        enabled: true,
+        calculator: true,
+        numberFormat: false,
+        placeValue: false,
       });
-
-      const result = await StorageManager.exportSettings();
-      const parsed = JSON.parse(result);
-
-      // Verify no common PII fields exist
-      const jsonString = JSON.stringify(parsed).toLowerCase();
-      expect(jsonString).not.toContain('name');
-      expect(jsonString).not.toContain('email');
-      expect(jsonString).not.toContain('student');
-      expect(jsonString).not.toContain('user');
     });
 
-    test('should return default settings if export fails to get settings', async () => {
-      // getSettings() catches errors and returns defaults, so export will succeed with defaults
-      chrome.storage.local.get.mockRejectedValue(new Error('Export failed'));
+    test('hands back a fresh object, so a caller cannot edit the defaults', async () => {
+      chrome.storage.local.get.mockResolvedValue({ assist_settings: { tts: { rate: 2 } } });
 
-      const result = await StorageManager.exportSettings();
-      const parsed = JSON.parse(result);
+      const settings = await StorageManager.getSettings();
+      settings.tts.voice = 'mutated';
+      settings.maths.enabled = true;
 
-      expect(parsed.settings).toEqual(StorageManager.DEFAULT_SETTINGS);
-    });
-  });
-
-  describe('importSettings()', () => {
-    test('should import valid settings JSON', async () => {
-      const exportData = {
-        version: '1.0',
-        timestamp: new Date().toISOString(),
-        settings: { tts: { enabled: true } }
-      };
-      const jsonString = JSON.stringify(exportData);
-
-      const result = await StorageManager.importSettings(jsonString);
-
-      expect(chrome.storage.local.set).toHaveBeenCalledWith({
-        assist_settings: exportData.settings,
-        assist_last_sync: expect.any(Number)
-      });
-      expect(result).toEqual(exportData.settings);
+      expect(StorageManager.DEFAULT_SETTINGS.tts.voice).toBe('default');
+      expect(StorageManager.DEFAULT_SETTINGS.maths.enabled).toBe(false);
     });
 
-    test('should reject invalid JSON format', async () => {
-      const invalidJson = 'not valid json';
+    test('a corrupt stored value falls back to the defaults', async () => {
+      chrome.storage.local.get.mockResolvedValue({ assist_settings: 'not an object' });
 
-      await expect(StorageManager.importSettings(invalidJson))
-        .rejects.toThrow();
-    });
+      const settings = await StorageManager.getSettings();
 
-    test('should reject JSON without settings property', async () => {
-      const invalidData = JSON.stringify({
-        version: '1.0',
-        timestamp: new Date().toISOString()
-        // Missing settings property
-      });
-
-      await expect(StorageManager.importSettings(invalidData))
-        .rejects.toThrow('Invalid import format');
-    });
-
-    test('should handle import with legacy version', async () => {
-      const legacyData = {
-        version: '0.9',
-        settings: { tts: { enabled: false } }
-      };
-
-      const result = await StorageManager.importSettings(JSON.stringify(legacyData));
-
-      expect(result).toEqual(legacyData.settings);
-    });
-
-    test('should throw error if save fails during import', async () => {
-      chrome.storage.local.set.mockRejectedValue(new Error('Save failed'));
-      const validData = JSON.stringify({
-        settings: { test: 'data' }
-      });
-
-      await expect(StorageManager.importSettings(validData))
-        .rejects.toThrow('Save failed');
+      expect(settings).toEqual(StorageManager.DEFAULT_SETTINGS);
     });
   });
 
   describe('FERPA Compliance', () => {
     test('should only use local storage, never sync storage', async () => {
       await StorageManager.getSettings();
-      await StorageManager.saveSettings({});
+      await StorageManager.updateSetting('tts.enabled', true);
 
       expect(chrome.storage.local.get).toHaveBeenCalled();
       expect(chrome.storage.local.set).toHaveBeenCalled();
@@ -434,7 +458,7 @@ describe('StorageManager', () => {
     test('should handle quota exceeded errors', async () => {
       chrome.storage.local.set.mockRejectedValue(new Error('QuotaExceededError'));
 
-      await expect(StorageManager.saveSettings({}))
+      await expect(StorageManager.updateSetting('tts.enabled', true))
         .rejects.toThrow('QuotaExceededError');
     });
 

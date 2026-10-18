@@ -1,0 +1,93 @@
+/*
+ * File menu: one button, one menu, one hidden file input.
+ *
+ * Layout only — the palette, the font, the button family and the focus ring are the page's, in
+ * mindmap.css. The menu is a real button plus `role="menu"` rather than a `<details>` or a hover
+ * panel, because it has to be reachable and dismissable from the keyboard alone (SC 2.1.1, 2.1.2).
+ */
+
+.mm-file {
+  position: relative;
+  display: inline-block;
+}
+
+.mm-file__menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  /* Anchored to the button's right edge: the button sits at the end of the header, so a menu
+     growing rightwards would run past a narrow viewport and force sideways scrolling. */
+  right: 0;
+  display: flex;
+  min-width: 220px;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--mm-line-strong, #6f7869);
+  border-radius: var(--mm-radius, 8px);
+  background: var(--mm-surface, #fbfaf6);
+  box-shadow: var(--mm-shadow, 0 1px 2px rgba(31, 42, 48, 0.14));
+}
+
+.mm-file__item {
+  min-height: 32px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--mm-radius-sm, 6px);
+  background: transparent;
+  color: var(--mm-strong, #1f2a30);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mm-file__item:hover {
+  background: var(--mm-accent-soft, rgba(67, 98, 107, 0.12));
+}
+
+/* The exports, gathered. A column, so the group's items sit in the menu's one column with it. */
+.mm-file__group {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--mm-line, #d2d7c9);
+}
+
+.mm-file__group-label {
+  padding: 4px 10px;
+  color: var(--mm-muted, #4a5560);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* What an export costs, under the item it belongs to. Read to a screen reader as that item's
+   description (aria-describedby), so the words are not a second thing to walk past in the menu. */
+.mm-file__hint {
+  max-width: 34ch;
+  padding: 0 10px 6px;
+  color: var(--mm-muted, #4a5560);
+  font-size: 0.8em;
+  line-height: 1.35;
+}
+
+.mm-file__separator {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--mm-line, #d2d7c9);
+}
+
+.mm-file__file {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  .mm-file__item:hover {
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .mm-file__group {
+    border-top: 1px solid CanvasText;
+  }
+}

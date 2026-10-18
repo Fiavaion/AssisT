@@ -9,14 +9,38 @@
  * @module pages/ai-setup/ai-setup
  */
 
-import { assess } from './system-detector.js';
+import { assess, describeRam } from './system-detector.js';
+
+/** How the scan names each kind of GPU, after the name the browser gives it. */
+const GPU_CLASS_LABELS = {
+  discrete: ' — separate graphics card',
+  apple: ' — Apple chip',
+  integrated: ' — built-in graphics',
+};
 import { recommend, getModeInfo, buildSystemPromptFromProfile } from './recommendation-engine.js';
-import { attachAccessibleHandler, attachDelegatedHandler } from '../../utils/event-handlers.js';
-import { getCompatibleModels } from './ollama-catalog.js';
+import {
+  attachAccessibleHandler,
+  attachAccessibleDelegatedHandler,
+} from '../../utils/event-handlers.js';
+import {
+  filterChatModels,
+  pickDefaultChatModel,
+  isReasoningModel,
+} from '../../utils/ollama-models.js';
+import { getCompatibleModels, isCatalogModelInstalled } from './ollama-catalog.js';
+import { ollamaPanelState } from './ollama-status.js';
+import { ensureOllamaPermission } from '../../utils/ollama-url.js';
+import { resolveAiMode } from './setup-mode.js';
+import { DESTINATIONS, describeCloudConsent, recordConsent } from '../../utils/consent.js';
+import {
+  originsFor,
+  requestHostPermissions,
+  holdsHostPermissions,
+} from '../../utils/host-permissions.js';
+import { REGISTRY, getHardcodedFallbackModels, resolveModel } from '../../ai/model-registry.js';
 
 // ─── WebLLM Model Data ────────────────────────────────────────────────────────
-// Inlined here: ai-setup is a web_accessible_resource (files copied verbatim,
-// not bundled), so imports outside src/pages/ai-setup/ and src/utils/ fail.
+// Inlined here, as the model list the setup page shows.
 const WEBLLM_REGISTRY = {
   defaultModel: 'llama-3.2-1b',
   models: {
@@ -113,12 +137,18 @@ const state = {
   step: 0,
   assessment: null,
   recommendation: null,
-  selectedMode: 'cloud',
+  // Shown by the Configure screen; only persisted once modeConfirmed is true (see setup-mode.js).
+  selectedMode: null,
+  modeConfirmed: false,
   profile: { verbosity: 'moderate', readingLevel: 'standard', modality: 'both' },
-  features: {},
   testPassed: false,
   taskModels: {}, // per-task WebLLM model overrides
 };
+
+/** Record that the student has committed to the mode currently on screen. */
+function confirmMode() {
+  state.modeConfirmed = true;
+}
 
 const STEPS = [
   { id: 'screen-welcome', name: 'Welcome' },
@@ -127,61 +157,9 @@ const STEPS = [
   { id: 'screen-setup', name: 'Configure' },
   { id: 'screen-needs', name: 'Your Needs' },
   { id: 'screen-test', name: 'AI Test' },
-  { id: 'screen-features', name: 'Features' },
   { id: 'screen-done', name: 'Done' },
 ];
 const TOTAL_STEPS = STEPS.length - 1; // Welcome is step 0, not counted
-
-const ALL_FEATURES = [
-  {
-    key: 'summarization',
-    name: 'AI Summarisation',
-    desc: 'Condense long texts into key points',
-    always: true,
-  },
-  {
-    key: 'textSimplification',
-    name: 'Text Simplification',
-    desc: 'Rewrite complex text in plain language',
-    always: true,
-  },
-  {
-    key: 'assignmentBreakdown',
-    name: 'Assignment Breakdown',
-    desc: 'Break complex tasks into manageable steps',
-    verbosity: ['moderate', 'brief'],
-  },
-  {
-    key: 'socraticTutor',
-    name: 'Socratic Tutor',
-    desc: 'Get guided hints rather than direct answers',
-    verbosity: ['detailed', 'moderate'],
-  },
-  {
-    key: 'studyPathGenerator',
-    name: 'Study Path Generator',
-    desc: 'Create a personalised learning roadmap',
-    verbosity: ['detailed'],
-  },
-  {
-    key: 'citationAnalyzer',
-    name: 'Citation Analyser',
-    desc: 'Verify and format academic references',
-    readingLevel: ['standard', 'advanced'],
-  },
-  {
-    key: 'knowledgeGraph',
-    name: 'Knowledge Graph',
-    desc: 'Visualise connections between concepts',
-    modality: ['visual', 'both'],
-  },
-  {
-    key: 'multiDocCompare',
-    name: 'Multi-Document Compare',
-    desc: 'Find similarities and differences across sources',
-    readingLevel: ['advanced', 'standard'],
-  },
-];
 
 function showScreen(index) {
   state.step = index;
@@ -217,8 +195,7 @@ function showScreen(index) {
     2: initRecommend,
     3: initSetup,
     5: initTest,
-    6: initFeatures,
-    7: initDone,
+    6: initDone,
   };
   if (inits[index]) {
     inits[index]();
@@ -228,6 +205,11 @@ function showScreen(index) {
 const nextScreen = () => showScreen(state.step + 1);
 const prevScreen = () => showScreen(Math.max(0, state.step - 1));
 const skipToEnd = () => {
+  // Skipping the wizard means opting out of AI. Anything the student never committed to (the
+  // pre-selected recommendation, the initial default) is discarded rather than switched on.
+  if (!state.modeConfirmed) {
+    state.selectedMode = 'off';
+  }
   saveSettings();
   showScreen(STEPS.length - 1);
 };
@@ -248,23 +230,31 @@ async function initScan() {
 
     setScanItem(
       'webgpu',
-      webgpu.supported ? `${webgpu.gpuName || 'WebGPU'} (${webgpu.tier})` : 'Not supported',
+      webgpu.supported
+        ? `${webgpu.gpuName || 'WebGPU'}${GPU_CLASS_LABELS[webgpu.gpuClass] || ''}`
+        : 'Not supported',
       webgpu.supported ? '✅' : '❌'
     );
 
     setScanItem(
       'memory',
-      `${memory.ramGB}GB RAM`,
+      describeRam(memory.ramGB),
       memory.ramGB >= 4 ? '✅' : memory.ramGB >= 2 ? '⚠️' : '❌'
     );
 
-    setScanItem(
-      'ollama',
-      ollama.available
-        ? `Running — ${ollama.models.length} model${ollama.models.length !== 1 ? 's' : ''}`
-        : 'Not running',
-      ollama.available ? '✅' : '➖'
-    );
+    if (ollama.available) {
+      setScanItem(
+        'ollama',
+        `Running — ${ollama.models.length} model${ollama.models.length !== 1 ? 's' : ''}`,
+        '✅'
+      );
+    } else if (ollama.needsPermission) {
+      // The scan cannot tell whether Ollama is up until it is allowed to look, so it must not
+      // claim that it is down.
+      setScanItem('ollama', 'Needs your permission to check', '⚠️');
+    } else {
+      setScanItem('ollama', 'Not running', '➖');
+    }
 
     const nanoLabels = {
       ready: 'Available',
@@ -307,10 +297,20 @@ function setScanItem(id, value, status) {
   }
 }
 
+/**
+ * Removes the mode chooser's delegated handler. Configure → Back → Configure re-runs
+ * initRecommend(), which empties the container but not the container itself, so without
+ * this the listener stacks and one press confirms the mode once per visit.
+ */
+let modeChooserCleanup = null;
+
 function initRecommend() {
   if (!state.assessment) {
     return;
   }
+
+  modeChooserCleanup?.();
+  modeChooserCleanup = null;
 
   state.recommendation = recommend(state.assessment);
   state.selectedMode = state.recommendation.recommended;
@@ -356,18 +356,30 @@ function initRecommend() {
   });
 
   // Wire selection via delegated handler (dynamic content)
-  attachDelegatedHandler(container, '.mode-option', 'Mode Selection', (_e, btn) => {
-    container.querySelectorAll('.mode-option').forEach(el => {
-      el.classList.remove('selected');
-      el.setAttribute('aria-checked', 'false');
-    });
-    btn.classList.add('selected');
-    btn.setAttribute('aria-checked', 'true');
-    state.selectedMode = btn.dataset.mode;
-  });
+  modeChooserCleanup = attachAccessibleDelegatedHandler(
+    container,
+    '.mode-option',
+    'Mode Selection',
+    (_e, btn) => {
+      container.querySelectorAll('.mode-option').forEach(el => {
+        el.classList.remove('selected');
+        el.setAttribute('aria-checked', 'false');
+      });
+      btn.classList.add('selected');
+      btn.setAttribute('aria-checked', 'true');
+      state.selectedMode = btn.dataset.mode;
+      confirmMode();
+    }
+  );
 }
 
 function initSetup() {
+  // The scan can fail before initRecommend() pre-selects anything. Fall back to the cloud panel so
+  // Configure is never blank — presentation only, so skipping from here still resolves to 'off'.
+  if (!state.selectedMode) {
+    state.selectedMode = 'cloud';
+  }
+
   ['cloud', 'webllm', 'ollama', 'nano', 'off'].forEach(p => {
     const el = document.getElementById(`panel-${p}`);
     if (el) {
@@ -423,6 +435,10 @@ function updateApiKeyLink(provider) {
   if (link) {
     link.href = links[provider] || '#';
   }
+  const note = document.getElementById('cloud-consent-note');
+  if (note) {
+    note.textContent = describeCloudConsent(provider);
+  }
   renderCloudModelOptions(provider);
 }
 
@@ -438,16 +454,12 @@ function renderCloudModelOptions(provider) {
     return;
   }
 
-  const GOOGLE_MODEL_OPTIONS = [
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Recommended — Free)' },
-    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Free)' },
-    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Most Capable)' },
-  ];
-  select.innerHTML = GOOGLE_MODEL_OPTIONS.map(
-    m => `<option value="${m.id}">${m.name}</option>`
-  ).join('');
+  select.innerHTML = getHardcodedFallbackModels('google')
+    .map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`)
+    .join('');
 
-  const saved = state.cloudModel || 'gemini-2.5-flash';
+  // A saved model that has been replaced is shown, and saved, as its replacement.
+  const saved = resolveModel('google', state.cloudModel || REGISTRY.google.defaultModel);
   if (select.querySelector(`option[value="${saved}"]`)) {
     select.value = saved;
   }
@@ -468,9 +480,35 @@ function renderOllamaPanel() {
   const statusEl = document.getElementById('ollama-status-display');
   const modelsSection = document.getElementById('ollama-models-section');
   const installSteps = document.getElementById('ollama-install-steps');
+  const permissionStep = document.getElementById('ollama-permission-step');
   const ollama = state.assessment?.ollama;
 
-  if (ollama?.available && ollama.models.length > 0) {
+  // A missing host permission is its own state. It is not "Ollama is not running", and the two
+  // need opposite actions from the student: one press of Allow here, versus going away to
+  // install and start a server that may well already be running.
+  if (ollamaPanelState(ollama) === 'needs-permission') {
+    if (statusEl) {
+      statusEl.innerHTML =
+        '<span class="status-badge warning">⚠️ AssisT needs permission to reach Ollama</span>';
+    }
+    if (modelsSection) {
+      modelsSection.hidden = true;
+    }
+    if (installSteps) {
+      installSteps.hidden = true;
+    }
+    if (permissionStep) {
+      permissionStep.hidden = false;
+    }
+    renderOllamaModelCatalog([], false);
+    return;
+  }
+
+  if (permissionStep) {
+    permissionStep.hidden = true;
+  }
+
+  if (ollamaPanelState(ollama) === 'ready') {
     if (statusEl) {
       statusEl.innerHTML = `<span class="status-badge success">✅ Ollama is running — ${ollama.models.length} model${ollama.models.length > 1 ? 's' : ''} installed</span>`;
     }
@@ -478,9 +516,21 @@ function renderOllamaPanel() {
       modelsSection.hidden = false;
       const select = document.getElementById('ollama-model-select');
       if (select) {
-        select.innerHTML = ollama.models
-          .map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`)
-          .join('');
+        // Embeddings-only models (e.g. nomic-embed-text) can't generate text —
+        // exclude them so "Test Your AI" can't pick one and hit a 400.
+        const chatModels = filterChatModels(ollama.models);
+        if (chatModels.length > 0) {
+          const defaultModel = pickDefaultChatModel(ollama.models);
+          select.innerHTML = chatModels
+            .map(
+              m =>
+                `<option value="${escapeHtml(m)}"${m === defaultModel ? ' selected' : ''}>${escapeHtml(m)}</option>`
+            )
+            .join('');
+        } else {
+          select.innerHTML =
+            '<option value="">No text-generation model installed — download one below</option>';
+        }
       }
     }
     if (installSteps) {
@@ -515,13 +565,15 @@ function renderOllamaModelCatalog(installedModels, hasOllama) {
   container.hidden = false;
 
   const ramGB = state.assessment?.memory?.ramGB || navigator.deviceMemory || 4;
-  const installSet = new Set(installedModels.map(m => m.toLowerCase().split(':')[0]));
-  const compatible = getCompatibleModels(ramGB);
+  const compatible = getCompatibleModels(ramGB, {
+    graphicsMemoryGB: state.assessment?.graphicsMemoryGB ?? null,
+    installed: installedModels,
+  });
 
   const heading = hasOllama ? 'Get more models' : 'Download a model to get started';
   const subtext = hasOllama
-    ? `Add models to your Ollama library. Showing models that fit your system (${ramGB} GB RAM).`
-    : `Once Ollama is running, download a model. Showing models that fit your system (${ramGB} GB RAM).`;
+    ? `Add models to your Ollama library. Showing models that fit your system (${describeRam(ramGB)}).`
+    : `Once Ollama is running, download a model. Showing models that fit your system (${describeRam(ramGB)}).`;
 
   container.innerHTML = '';
 
@@ -536,8 +588,7 @@ function renderOllamaModelCatalog(installedModels, hasOllama) {
   container.appendChild(list);
 
   compatible.forEach(model => {
-    const baseName = model.name.split(':')[0];
-    const isInstalled = installSet.has(baseName) || installSet.has(model.name.toLowerCase());
+    const isInstalled = isCatalogModelInstalled(model, installedModels);
 
     const card = document.createElement('div');
     card.className = `ollama-model-card${isInstalled ? ' installed' : ''}`;
@@ -549,7 +600,7 @@ function renderOllamaModelCatalog(installedModels, hasOllama) {
       </div>
       <p class="ollama-model-desc">${escapeHtml(model.description)}</p>
       <div class="ollama-model-footer">
-        <span class="ollama-model-meta">${escapeHtml(model.size)} · ${model.ramRequired} GB RAM</span>
+        <span class="ollama-model-meta">${escapeHtml(model.size)} download</span>
         <span class="ollama-model-action"></span>
       </div>
       <div class="ollama-model-progress" hidden>
@@ -584,7 +635,7 @@ function renderOllamaModelCatalog(installedModels, hasOllama) {
 
 /**
  * Trigger an Ollama model pull and update the card with live progress.
- * @param {string}      modelName  Ollama model tag, e.g. 'llama3.1:8b'.
+ * @param {string}      modelName  Ollama model tag, e.g. 'qwen3.5:9b'.
  * @param {HTMLElement} cardEl     The .ollama-model-card element.
  */
 function downloadOllamaModel(modelName, cardEl) {
@@ -661,8 +712,9 @@ function renderOllamaTaskModels(installedModels) {
   }
   container.hidden = false;
 
-  const defaultModel = installedModels[0] || '';
-  const opts = installedModels
+  const chatModels = filterChatModels(installedModels);
+  const defaultModel = pickDefaultChatModel(installedModels);
+  const opts = chatModels
     .map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`)
     .join('');
 
@@ -1024,21 +1076,36 @@ function runAITest() {
     // Large quantised or full-precision models need significantly longer first-token latency.
     const ollamaModelEl = document.getElementById('ollama-model-select');
     const modelKey = (ollamaModelEl?.value || '').toLowerCase();
+
+    // Reasoning models think before answering, and both the time they take and the room they need
+    // follow from that rather than from their size, so the same fact sets the timeout and the token
+    // budget below.
+    const reasoning = isReasoningModel(modelKey);
+
     const timeoutMs = (() => {
-      // Very large models: 34b+ or f16/fp16/16bit full-precision weights
-      if (/:(34b|70b|72b|110b)|[_:-](f16|fp16|16bit)/.test(modelKey)) {
-        return 180_000;
-      }
-      // Large models: 13b–33b or q8 quantisation
-      if (/:(13b|14b|16b|20b|30b|32b|33b)|[_:-]q8/.test(modelKey)) {
-        return 120_000;
-      }
-      // Medium models: 7b–12b
-      if (/:(7b|8b|9b|10b|11b|12b)/.test(modelKey)) {
-        return 60_000;
-      }
-      // Small models (default): 1b–6b or cloud
-      return 30_000;
+      // How long the model is likely to take is two separate questions, so answer both and take
+      // whichever is longer.
+      //
+      // Size sets a floor: bigger weights mean slower first tokens, especially on a cold load.
+      const bySize = (() => {
+        if (/:(34b|70b|72b|110b)|[_:-](f16|fp16|16bit)/.test(modelKey)) {
+          return 180_000;
+        }
+        if (/:(13b|14b|16b|20b|30b|32b|33b)|[_:-]q8/.test(modelKey)) {
+          return 120_000;
+        }
+        if (/:(7b|8b|9b|10b|11b|12b)/.test(modelKey)) {
+          return 60_000;
+        }
+        return 30_000;
+      })();
+
+      // Reasoning sets its own floor, independent of size: latency is governed by how much the
+      // model chooses to reason rather than by parameter count, so a 4b reasoning model routinely
+      // takes longer than a 9b ordinary one. Judging them on size alone failed the setup test
+      // against a model that was answering perfectly well, which reads to a student as "the AI is
+      // broken".
+      return reasoning ? Math.max(bySize, 120_000) : bySize;
     })();
 
     const timeoutSec = Math.round(timeoutMs / 1000);
@@ -1049,9 +1116,15 @@ function runAITest() {
       });
     }, timeoutMs);
 
+    // The worker widens this for a reasoning model, which needs room to narrate before it answers.
     const testOptions = { feature: 'summarization', maxTokens: 150 };
-    if (state.cloudModel) {
+    if (mode === 'cloud' && state.cloudModel) {
       testOptions.model = state.cloudModel;
+    } else if (mode === 'local' && modelKey) {
+      // Test the model the student actually chose. Without this the request falls back to the
+      // worker's tier default, so the timeout was calculated for one model while another answered,
+      // and picking a different model in the dropdown changed nothing about what was tested.
+      testOptions.model = ollamaModelEl.value;
     }
     chrome.runtime.sendMessage({ action, prompt: TEST_PROMPT, options: testOptions }, response => {
       clearTimeout(timer);
@@ -1063,61 +1136,6 @@ function runAITest() {
         resolve({ success: false, error: response?.error || 'Empty response from AI' });
       }
     });
-  });
-}
-
-function initFeatures() {
-  const container = document.getElementById('feature-recs');
-  if (!container) {
-    return;
-  }
-  container.innerHTML = '';
-
-  const p = state.profile;
-
-  const shown = ALL_FEATURES.filter(f => {
-    if (f.always) {
-      return true;
-    }
-    if (f.modality && !f.modality.includes(p.modality)) {
-      return false;
-    }
-    if (f.readingLevel && !f.readingLevel.includes(p.readingLevel)) {
-      return false;
-    }
-    if (f.verbosity && !f.verbosity.includes(p.verbosity)) {
-      return false;
-    }
-    return true;
-  });
-
-  shown.forEach(f => {
-    if (state.features[f.key] === undefined) {
-      state.features[f.key] = true;
-    }
-  });
-
-  shown.forEach(f => {
-    const isOn = state.features[f.key] !== false;
-    const checkId = `feat-${f.key}`;
-
-    const div = document.createElement('div');
-    div.className = 'feature-rec-item';
-    div.innerHTML = `
-      <div class="feature-rec-info">
-        <div class="feature-rec-name">${escapeHtml(f.name)}</div>
-        <div class="feature-rec-desc">${escapeHtml(f.desc)}</div>
-      </div>
-      <label class="toggle" for="${checkId}" aria-label="Enable ${escapeHtml(f.name)}">
-        <input type="checkbox" id="${checkId}" ${isOn ? 'checked' : ''} />
-        <span class="toggle-track" aria-hidden="true"></span>
-      </label>`;
-
-    div.querySelector('input').addEventListener('change', e => {
-      state.features[f.key] = e.target.checked;
-    });
-
-    container.appendChild(div);
   });
 }
 
@@ -1133,9 +1151,8 @@ function initDone() {
 
 async function saveSettings() {
   const settings = {
-    aiMode: state.selectedMode || 'cloud',
+    aiMode: resolveAiMode(state),
     userProfile: state.profile,
-    enabledFeatures: state.features,
     systemPromptPrefix: buildSystemPromptFromProfile(state.profile),
     aiSetupComplete: true,
     onboardingComplete: true,
@@ -1153,16 +1170,23 @@ async function saveSettings() {
       settings.cloudModel = modelEl.value;
       state.cloudModel = modelEl.value;
     }
-    if (keyEl?.value?.trim()) {
+    // A key is stored only once Chrome holds the provider's host permission, which the Verify and
+    // Continue clicks ask for (requestCloudHostAccess): a key the extension may not use is not kept.
+    if (keyEl?.value?.trim() && (await holdsHostPermissions([settings.aiProvider]))) {
       // Save via service worker so it uses encrypted storage (secure_apikey_{provider})
       // ai-setup is a web_accessible_resource and cannot import secure-key-storage directly
       // MUST await the response — key must be written before runAITest() reads it
-      await new Promise(resolve => {
+      const saved = await new Promise(resolve => {
         chrome.runtime.sendMessage(
           { action: 'SAVE_API_KEY', provider: settings.aiProvider, apiKey: keyEl.value.trim() },
           resolve
         );
       });
+      // Saving the key, beside the wording that names the provider, is the student's yes to it
+      // (ADR 0006); the cloud router sends nothing to a provider without one.
+      if (saved?.success) {
+        await recordConsent(settings.aiProvider, true);
+      }
     }
   }
 
@@ -1185,6 +1209,24 @@ async function saveSettings() {
 
   await chrome.storage.local.set(settings);
   console.log('[AISetup] Settings saved:', settings.aiMode);
+}
+
+/**
+ * Ask Chrome for the chosen cloud provider's host (ADR 0006: Anthropic, OpenAI and Perplexity;
+ * ADR 0007: Google Gemini). Must be called straight from the click, before anything is awaited:
+ * Chrome prompts only inside the gesture.
+ * @returns {Promise<boolean>} true when the host is held afterwards, or none was needed
+ */
+function requestCloudHostAccess() {
+  const provider = document.getElementById('cloud-provider-select')?.value || 'anthropic';
+  return requestHostPermissions(originsFor([provider]));
+}
+
+/** What the student is told when Chrome was refused the provider's host. */
+function hostRefusedMessage(action) {
+  const provider = document.getElementById('cloud-provider-select')?.value || 'anthropic';
+  const service = DESTINATIONS[provider]?.service || provider;
+  return `Chrome did not give AssisT access to ${service}, so the key was not saved. Press ${action} again and choose Allow.`;
 }
 
 function verifyApiKey() {
@@ -1210,8 +1252,15 @@ function verifyApiKey() {
   if (pattern && !pattern.test(key)) {
     setStatus(statusEl, 'error', `This doesn't look like a ${provider} key — check and try again`);
   } else {
-    setStatus(statusEl, 'success', '✅ Format looks correct — key saved');
-    saveSettings(); // Persist optimistically
+    requestCloudHostAccess().then(granted => {
+      if (!granted) {
+        setStatus(statusEl, 'error', hostRefusedMessage('Verify'));
+        return;
+      }
+      setStatus(statusEl, 'success', '✅ Format looks correct — key saved');
+      confirmMode(); // Entering a working key is a commitment to this mode
+      saveSettings(); // Persist optimistically
+    });
   }
 }
 
@@ -1227,15 +1276,53 @@ async function recheckOllama() {
     statusEl.innerHTML = '<span class="status-badge checking">⏳ Checking…</span>';
   }
 
+  const permissionResult = document.getElementById('ollama-permission-result');
+
   return new Promise(resolve => {
     chrome.runtime.sendMessage({ action: 'SYSTEM_ASSESS_OLLAMA' }, response => {
-      if (response?.available && state.assessment) {
-        state.assessment.ollama = { available: true, models: response.models || [] };
+      if (state.assessment) {
+        // Record the whole answer, the permission flag included — recording only the happy
+        // case left a stale "not detected" on screen after a student granted access.
+        state.assessment.ollama = {
+          available: response?.available === true,
+          models: response?.models || [],
+          needsPermission: response?.needsPermission === true,
+        };
+      }
+      if (permissionResult && response?.available === true) {
+        permissionResult.textContent = '';
       }
       renderOllamaPanel();
       resolve();
     });
   });
+}
+
+/**
+ * Ask Chrome for the Ollama host permission, then look again.
+ *
+ * Chrome only shows the prompt inside a user gesture, so this runs straight from the button's
+ * handler. A refusal is a normal answer, not an error: say what it means and leave the button
+ * there to try again.
+ *
+ * @returns {Promise<void>}
+ */
+async function requestOllamaAccess() {
+  const resultEl = document.getElementById('ollama-permission-result');
+  const granted = await ensureOllamaPermission();
+
+  if (!granted) {
+    if (resultEl) {
+      resultEl.textContent =
+        'Permission was not given, so AssisT still cannot reach Ollama. You can press Allow again, or pick a different AI option.';
+    }
+    return;
+  }
+
+  if (resultEl) {
+    resultEl.textContent = 'Permission granted. Checking Ollama…';
+  }
+  await recheckOllama();
 }
 
 function initiateModelDownload() {
@@ -1292,6 +1379,7 @@ function initiateModelDownload() {
     // Persist the chosen mode and model immediately so the user doesn't have to
     // manually activate WebLLM in the popup after returning from the wizard.
     state.selectedMode = 'webllm';
+    confirmMode();
     chrome.storage.local.set({ aiMode: 'webllm', webllmModel: modelKey });
     renderWebLLMPanel();
   };
@@ -1418,7 +1506,23 @@ function wireButtons() {
   attachAccessibleHandler($('btn-recommend-skip'), 'Rec Skip', skipToEnd);
 
   attachAccessibleHandler($('btn-setup-back'), 'Setup Back', prevScreen);
-  attachAccessibleHandler($('btn-setup-next'), 'Setup Continue', nextScreen);
+  attachAccessibleHandler($('btn-setup-next'), 'Setup Continue', () => {
+    // Continuing past Configure commits to the mode on screen, so a later "Skip" on the
+    // optional Needs/Test steps keeps it rather than switching AI off.
+    confirmMode();
+    const keyEntered = !!document.getElementById('api-key-input')?.value?.trim();
+    if (state.selectedMode !== 'cloud' || !keyEntered) {
+      nextScreen();
+      return;
+    }
+    requestCloudHostAccess().then(granted => {
+      if (granted) {
+        nextScreen();
+        return;
+      }
+      setStatus(document.getElementById('api-key-status'), 'error', hostRefusedMessage('Continue'));
+    });
+  });
   attachAccessibleHandler($('btn-setup-skip'), 'Setup Skip', skipToEnd);
 
   attachAccessibleHandler($('btn-toggle-key'), 'Toggle Key Visibility', toggleKeyVisibility);
@@ -1436,6 +1540,7 @@ function wireButtons() {
   );
 
   attachAccessibleHandler($('btn-recheck-ollama'), 'Recheck Ollama', recheckOllama);
+  attachAccessibleHandler($('btn-allow-ollama'), 'Allow AssisT to use Ollama', requestOllamaAccess);
 
   document.querySelectorAll('.answer-option').forEach(btn => {
     attachAccessibleHandler(btn, `Answer ${btn.dataset.group}:${btn.dataset.value}`, () => {
@@ -1459,14 +1564,15 @@ function wireButtons() {
   attachAccessibleHandler($('btn-test-skip'), 'Test Skip', skipToEnd);
   attachAccessibleHandler($('btn-rerun-test'), 'Rerun Test', initTest);
 
-  attachAccessibleHandler($('btn-features-back'), 'Features Back', prevScreen);
-  attachAccessibleHandler($('btn-features-skip'), 'Features Skip', skipToEnd);
-  attachAccessibleHandler($('btn-features-apply'), 'Apply Features', () => {
-    saveSettings();
-    showScreen(STEPS.length - 1);
-  });
-
   attachAccessibleHandler($('btn-done-open'), 'Open AssisT', () => {
+    // When launched as an onboarding step (?onboarding=1), return to the welcome
+    // front door so the orchestrator can mark this track done and continue.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('onboarding') === '1' && chrome?.runtime?.getURL) {
+      window.location.href =
+        chrome.runtime.getURL('src/pages/welcome/welcome.html') + '?resume=1&done=ai-setup';
+      return;
+    }
     // Signal popup to open (best-effort; may not work in all contexts)
     chrome.runtime.sendMessage({ action: 'OPEN_POPUP' }, () => {
       /* ignore errors */
@@ -1502,16 +1608,16 @@ function escapeHtml(str) {
 
 async function init() {
   const stored = await new Promise(resolve => {
-    chrome.storage.local.get(['aiMode', 'userProfile', 'enabledFeatures'], resolve);
+    chrome.storage.local.get(['aiMode', 'userProfile'], resolve);
   });
   if (stored.aiMode) {
+    // A stored mode is a choice already made on a previous run — re-running the wizard and
+    // skipping it should leave that choice alone rather than silently switching AI off.
     state.selectedMode = stored.aiMode;
+    confirmMode();
   }
   if (stored.userProfile) {
     Object.assign(state.profile, stored.userProfile);
-  }
-  if (stored.enabledFeatures) {
-    state.features = stored.enabledFeatures;
   }
 
   wireButtons();

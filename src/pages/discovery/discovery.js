@@ -12,7 +12,7 @@ import {
   calculateBestPreset,
   applyPreset,
 } from './recommendations.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
 
 // Note: sanitizeHTML removed - all HTML content is extension-controlled
 // (hardcoded in questions.js, no user input) - safe for Chrome Web Store
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', init);
 function init() {
   cacheElements();
   bindEvents();
-  showScreen('welcome');
+  showScreen('welcome', { focus: false });
   updateProgress();
 }
 
@@ -213,7 +213,21 @@ function bindEvents() {
   document.addEventListener('keydown', handleKeyboard);
 }
 
-function showScreen(screenName) {
+/**
+ * Swap in a screen and take the student with it.
+ *
+ * The focus half matters as much as the visual half. "Retake quiz" used to drop focus on BODY and
+ * leave the page scrolled to where the results had been, because a heading is not focusable
+ * without `tabindex="-1"` and the `focus()` call here quietly did nothing. The tabindex is set
+ * where the focus is taken, so a screen added later cannot forget it.
+ *
+ * @param {string} screenName
+ * @param {{focus?: boolean}} [options] - focus the new screen's heading. Off for the first paint,
+ *   so loading the page does not skip a keyboard user past the top of it.
+ */
+function showScreen(screenName, options = {}) {
+  const { focus = true } = options;
+
   Object.entries(elements.screens).forEach(([name, element]) => {
     if (element) {
       element.classList.toggle('active', name === screenName);
@@ -222,11 +236,20 @@ function showScreen(screenName) {
   state.currentScreen = screenName;
 
   const activeScreen = elements.screens[screenName];
-  if (activeScreen) {
-    const heading = activeScreen.querySelector('h1, h2');
-    if (heading) {
-      heading.focus();
-    }
+  if (!activeScreen || !focus) {
+    return;
+  }
+
+  const heading = activeScreen.querySelector('h1, h2');
+  if (!heading) {
+    return;
+  }
+  if (!heading.hasAttribute('tabindex')) {
+    heading.setAttribute('tabindex', '-1');
+  }
+  heading.focus();
+  if (typeof activeScreen.scrollIntoView === 'function') {
+    activeScreen.scrollIntoView({ block: 'start' });
   }
 }
 
@@ -274,8 +297,10 @@ function startQuiz() {
   console.log(
     `[Discovery] Starting ${state.quizMode} quiz with ${state.activeQuestions.length} questions`
   );
-  showScreen('questions');
+  // The question goes in before the screen is shown, because showing it moves focus to that
+  // heading and an empty heading announces nothing.
   renderQuestion();
+  showScreen('questions');
   updateProgress();
 }
 
@@ -531,7 +556,7 @@ function renderResults() {
   });
 
   elements.recommendationsContainer.querySelectorAll('.expand-btn').forEach(btn => {
-    attachInteractiveHandler(btn, 'Discovery Recommendation Expand Button', e => {
+    attachAccessibleHandler(btn, 'Discovery Recommendation Expand Button', e => {
       const card = e.target.closest('.recommendation-card');
       const details = card.querySelector('.card-details');
       const isExpanded = btn.getAttribute('aria-expanded') === 'true';
@@ -651,7 +676,7 @@ async function applyAndClose() {
     showSuccessMessage('Your settings have been applied!');
 
     setTimeout(() => {
-      window.close();
+      finishOnboardingOrClose();
     }, 1500);
   } catch (error) {
     console.error('[Discovery] Failed to apply profile:', error);
@@ -677,12 +702,26 @@ async function applyPresetAndClose() {
     showSuccessMessage(`${preset.name} preset applied!`);
 
     setTimeout(() => {
-      window.close();
+      finishOnboardingOrClose();
     }, 1500);
   } catch (error) {
     console.error('[Discovery] Failed to apply preset:', error);
     alert('There was an error applying the preset. Please try again.');
   }
+}
+
+/**
+ * After applying settings, either return to the onboarding front door (when this
+ * quiz was launched as an onboarding step via ?onboarding=1) or close the tab.
+ */
+function finishOnboardingOrClose() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('onboarding') === '1' && typeof chrome !== 'undefined' && chrome.runtime) {
+    window.location.href =
+      chrome.runtime.getURL('src/pages/welcome/welcome.html') + '?resume=1&done=discover';
+    return;
+  }
+  window.close();
 }
 
 function openDemoPage() {
@@ -722,6 +761,10 @@ function handleKeyboard(e) {
   if (state.currentScreen !== 'questions') {
     return;
   }
+  // Enter on the Help link opens Help; it must not also move the quiz on.
+  if (e.target instanceof Element && e.target.closest('.page-help-bar')) {
+    return;
+  }
 
   const question = state.activeQuestions[state.currentQuestion];
   const currentAnswer = state.responses.primary[question?.id];
@@ -748,6 +791,11 @@ function handleKeyboard(e) {
       break;
 
     case 'Enter':
+      // A button or link answers Enter itself, with a click. Treating that Enter as "Next" as well
+      // sent Enter on Back forward and then back again, so the student went nowhere.
+      if (e.target instanceof Element && e.target.closest('button, a[href]')) {
+        break;
+      }
       if (!elements.btnNext?.disabled) {
         goNext();
       }

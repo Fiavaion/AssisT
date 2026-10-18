@@ -19,7 +19,8 @@
 import { showToast } from '../../core/ui/toast.js';
 import { Z } from '../../utils/z-index.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { debugLog } from '../../utils/debug-log.js';
 import { injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
@@ -27,14 +28,21 @@ import {
   generateWithAI,
   getUnavailableStatusMessage,
   getSuccessStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
 import * as d3Force from 'd3-force';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
 import * as d3Drag from 'd3-drag';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
 
 let graph_panel = null;
+let graph_releaseFocus = null;
+let graph_returnFocus = null;
+let graph_requestId = 0;
 let graph_data = null;
 let graph_svg = null;
 let graph_container = null;
@@ -155,7 +163,9 @@ async function graph_extractFromText(text, modeInfo) {
   try {
     console.log(`[KnowledgeGraph] Calling AI for extraction (${modeInfo.displayLabel})...`);
 
-    // Pass system prompt for cloud, format:'json' for local
+    // format:'json' on both paths: locally it constrains the decoder to JSON, and everywhere it has
+    // the shared client parse the reply into `json`. The comment here used to promise that for
+    // local mode and the option was never actually passed, so the `.json` branch below was dead.
     const aiResult = await generateWithAI(
       prompt,
       modeInfo,
@@ -166,26 +176,27 @@ async function graph_extractFromText(text, modeInfo) {
             temperature: 0.3,
             feature: 'knowledgeGraph',
             noCache: true,
+            format: 'json',
           }
-        : { maxTokens, temperature: 0.3, feature: 'knowledgeGraph', timeout: 55000, num_ctx: 2048 }
+        : {
+            maxTokens,
+            temperature: 0.3,
+            feature: 'knowledgeGraph',
+            timeout: 55000,
+            num_ctx: 2048,
+            format: 'json',
+          }
     );
 
     console.log('[KnowledgeGraph] AI response received');
 
-    if (aiResult && aiResult.text) {
-      // Service-worker pre-parses JSON when format:'json' is used — handle object directly
-      if (typeof aiResult.text === 'object' && aiResult.text !== null) {
-        if (aiResult.text.parseError) {
-          console.error(
-            '[KnowledgeGraph] Service-worker JSON parse failed, raw:',
-            aiResult.text.raw?.substring(0, 200)
-          );
-          throw new Error('Service-worker could not parse AI JSON response');
-        }
-        console.log('[KnowledgeGraph] Received pre-parsed JSON object from service-worker');
-        return graph_validateAndEnhance(aiResult.text);
-      }
+    // The shared client returns a parsed object in `json` when format:'json' is requested.
+    if (aiResult && aiResult.json) {
+      console.log('[KnowledgeGraph] Using pre-parsed JSON from AI client');
+      return graph_validateAndEnhance(aiResult.json);
+    }
 
+    if (aiResult && aiResult.text) {
       let jsonStr = aiResult.text;
       console.log('[KnowledgeGraph] Raw AI data:', jsonStr);
 
@@ -209,7 +220,8 @@ async function graph_extractFromText(text, modeInfo) {
         const candidate = jsonStr.substring(braceStart);
         try {
           const data = JSON.parse(candidate);
-          console.log('[KnowledgeGraph] Parsed JSON successfully:', data);
+          console.log('[KnowledgeGraph] Parsed JSON successfully');
+          debugLog('[KnowledgeGraph] Parsed data:', data);
           return graph_validateAndEnhance(data);
         } catch (parseErr) {
           console.warn('[KnowledgeGraph] JSON truncated, attempting repair...');
@@ -236,7 +248,13 @@ async function graph_extractFromText(text, modeInfo) {
   } catch (error) {
     console.error('[KnowledgeGraph] AI extraction failed:', error);
     console.log('[KnowledgeGraph] Falling back to simple extraction');
-    return graph_validateAndEnhance(graph_simpleExtract(text));
+
+    // The rule-based graph is better than nothing, but it used to be handed back as though the
+    // AI had produced it — the student saw "built" and no hint that the AI never ran. The reason
+    // travels with the graph so the panel can say so.
+    const graph = graph_validateAndEnhance(graph_simpleExtract(text));
+    graph.withoutAI = getFailureMessage(error);
+    return graph;
   }
 }
 
@@ -975,6 +993,10 @@ const GRAPH_PANEL_CSS = `
     animation: kg-spin 1s linear infinite;
     margin: 0 auto 16px;
   }
+  @media (prefers-reduced-motion: reduce) {
+    .kg-spinner { animation: none; }
+  }
+
   @keyframes kg-spin {
     to { transform: rotate(360deg); }
   }
@@ -1043,9 +1065,16 @@ const GRAPH_PANEL_CSS = `
     opacity: 0.8;
     margin-bottom: 6px;
   }
-  [data-assist-clickable]:hover {
-    text-decoration: underline;
+  .kg-fallback-note {
+    margin: 0;
+    padding: 8px 20px;
+    background: #fff3e0;
+    color: #8a4b00;
+    border-bottom: 1px solid #ffe0b2;
+    font-size: 13px;
+    line-height: 1.5;
   }
+
   .kg-status {
     padding: 8px 20px;
     background: #f5f5f5;
@@ -1062,7 +1091,13 @@ const GRAPH_PANEL_CSS = `
     background: #fff3e0;
     color: #e65100;
   }
-  .kg-status[data-assist-clickable]:hover {
+  .kg-status [data-assist-clickable]:hover {
+    text-decoration: underline;
+  }
+
+  .kg-status [data-assist-clickable]:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
     text-decoration: underline;
   }
   .kg-status.success {
@@ -1095,12 +1130,15 @@ async function graph_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-knowledge-graph';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Knowledge Graph');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'kg-title');
+  // Focusable so the dialog itself can hold the keyboard: `.focus()` on a plain div does nothing.
+  panel.setAttribute('tabindex', '-1');
 
   // HTML structure only - CSS is injected separately
   panel.innerHTML = sanitizeHTML(`
     <div class="kg-header">
-      <div class="kg-title">
+      <div class="kg-title" id="kg-title">
         <span>🕸️</span>
         <span>Knowledge Graph</span>
       </div>
@@ -1110,7 +1148,10 @@ async function graph_createPanel() {
         <button class="kg-close" aria-label="Close">&times;</button>
       </div>
     </div>
-    <div class="kg-status" id="kg-status"></div>
+    <div class="kg-status" id="kg-status" role="status"></div>
+    <p class="kg-fallback-note" id="kg-fallback-note" style="display: none;">
+      This map was built on this device from the words in the text, without AI.
+    </p>
 
     <div class="kg-svg-container">
       <svg class="kg-svg" id="kg-svg">
@@ -1181,38 +1222,31 @@ async function graph_initSVG() {
   graph_initZoom();
 
   // Button events
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     graph_panel.querySelector('.kg-close'),
     'Knowledge Graph Close Button',
     graph_hide
   );
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     graph_panel.querySelector('#kg-export'),
     'Knowledge Graph Export Button',
     graph_export
   );
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     graph_panel.querySelector('#kg-reset'),
     'Knowledge Graph Reset View Button',
     graph_resetView
   );
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     graph_panel.querySelector('#kg-zoom-in'),
     'Knowledge Graph Zoom In Button',
     graph_zoomIn
   );
-  attachInteractiveHandler(
+  attachAccessibleHandler(
     graph_panel.querySelector('#kg-zoom-out'),
     'Knowledge Graph Zoom Out Button',
     graph_zoomOut
   );
-
-  // ESC to close
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && graph_panel && graph_panel.style.display !== 'none') {
-      graph_hide();
-    }
-  });
 }
 
 /**
@@ -1272,7 +1306,7 @@ async function graph_show() {
       background: 'white',
       borderRadius: '16px',
       boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-      zIndex: '999998',
+      zIndex: String(Z.MODAL),
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       display: 'flex',
       flexDirection: 'column',
@@ -1284,12 +1318,45 @@ async function graph_show() {
   }
 
   graph_panel.style.display = 'flex';
+
+  // This panel is kept between builds, so a second open must not stack a second trap on it.
+  if (graph_releaseFocus) {
+    graph_releaseFocus();
+    graph_releaseFocus = null;
+  }
+
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  graph_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
+
+  graph_releaseFocus = trapFocus(graph_panel, {
+    onEscape: graph_hide,
+    initialFocus: graph_panel.querySelector('.kg-close'),
+  });
 }
 
 /**
  * Hide the graph panel
  */
 function graph_hide() {
+  // Abandon a build in flight: its graph must not draw itself into a closed panel.
+  graph_requestId += 1;
+
+  // This panel is hidden rather than removed, so focus has to be taken off its controls
+  // explicitly — otherwise the keyboard is left on a button the student can no longer see.
+  if (graph_panel && graph_panel.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
+  if (graph_releaseFocus) {
+    graph_releaseFocus();
+    graph_releaseFocus = null;
+  }
+
   if (graph_panel) {
     graph_panel.style.display = 'none';
   }
@@ -1300,6 +1367,9 @@ function graph_hide() {
   if (graph_simulation) {
     graph_simulation.stop();
   }
+
+  returnFocusAfterDialog(graph_returnFocus);
+  graph_returnFocus = null;
 }
 
 /**
@@ -1314,13 +1384,18 @@ async function graph_build(text) {
   }
 
   await graph_show();
+  const requestId = ++graph_requestId;
 
   const modeInfo = await getAIMode('knowledgeGraph');
   const availability = await checkAIAvailable(modeInfo);
 
+  if (requestId !== graph_requestId) {
+    return;
+  }
+
   if (!availability.available) {
     if (availability.needsApiKey) {
-      graph_showApiKeyWarning();
+      graph_showApiKeyWarning(availability.provider);
     } else {
       const statusBar = graph_panel?.querySelector('#kg-status');
       if (statusBar) {
@@ -1335,6 +1410,11 @@ async function graph_build(text) {
   // Show loading
   const loading = graph_panel?.querySelector('#kg-loading');
   const empty = graph_panel?.querySelector('#kg-empty');
+  const fallbackNote = graph_panel?.querySelector('#kg-fallback-note');
+
+  if (fallbackNote) {
+    fallbackNote.style.display = 'none';
+  }
 
   if (loading) {
     loading.style.display = 'block';
@@ -1349,6 +1429,10 @@ async function graph_build(text) {
 
   try {
     graph_data = await graph_extractFromText(text, modeInfo);
+
+    if (requestId !== graph_requestId) {
+      return;
+    }
 
     if (!graph_data.nodes.length) {
       if (empty) {
@@ -1373,9 +1457,17 @@ async function graph_build(text) {
       _kgModelBadge.style.display = 'block';
     }
 
-    // Update status bar with success
+    // Say which of the two built this: the AI, or the extension on its own.
     const statusBar = graph_panel?.querySelector('#kg-status');
-    if (statusBar) {
+    if (graph_data.withoutAI) {
+      if (fallbackNote) {
+        fallbackNote.style.display = 'block';
+      }
+      if (statusBar) {
+        statusBar.className = 'kg-status visible error';
+        statusBar.textContent = `⚠️ ${graph_data.withoutAI}`;
+      }
+    } else if (statusBar) {
       statusBar.className = 'kg-status visible success';
       statusBar.textContent = getSuccessStatusMessage(modeInfo, 'built');
     }
@@ -1387,7 +1479,18 @@ async function graph_build(text) {
     });
   } catch (error) {
     console.error('[KnowledgeGraph] Build failed:', error);
-    showToast?.('Failed to build knowledge graph');
+
+    // The reason is the student's only route to fixing it, so it goes in the panel's own
+    // status region rather than into a toast that says nothing useful.
+    const reason = getFailureMessage(error);
+    const statusBar = graph_panel?.querySelector('#kg-status');
+    if (statusBar) {
+      statusBar.className = 'kg-status visible error';
+      statusBar.textContent = `⚠️ ${reason}`;
+    } else {
+      showToast?.(reason);
+    }
+
     if (empty) {
       empty.style.display = 'block';
     }
@@ -1401,7 +1504,7 @@ async function graph_build(text) {
 /**
  * Show API key warning when cloud mode is enabled but no key is configured
  */
-function graph_showApiKeyWarning() {
+function graph_showApiKeyWarning(provider) {
   const empty = graph_panel?.querySelector('#kg-empty');
   const loading = graph_panel?.querySelector('#kg-loading');
 
@@ -1416,7 +1519,7 @@ function graph_showApiKeyWarning() {
       <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
       <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="graph-open-settings" style="
@@ -1446,17 +1549,14 @@ function graph_showApiKeyWarning() {
     // Attach handlers for buttons
     const openSettingsBtn = empty.querySelector('.graph-open-settings');
     if (openSettingsBtn) {
-      attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+      attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
         chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-        alert(
-          'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-        );
       });
     }
 
     const useLocalBtn = empty.querySelector('.graph-use-local');
     if (useLocalBtn) {
-      attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+      attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
         await chrome.storage.local.set({ aiMode: 'local' });
         console.log('[KnowledgeGraph] Switched to local AI mode');
         graph_showEmptyState();

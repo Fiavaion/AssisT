@@ -14,7 +14,8 @@
  * @module features/rsvp/rsvp-ui
  */
 
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { returnFocusAfterDialog } from '../../utils/dialog-return-focus.js';
 import { Z } from '../../utils/z-index.js';
 
 /**
@@ -24,6 +25,8 @@ import { Z } from '../../utils/z-index.js';
 export class RSVPUI {
   constructor() {
     this.overlay = null;
+    this.previousFocus = null;
+    this.returnFocusFallback = null;
     this.wordDisplay = null;
     this.progressBar = null;
     this.progressText = null;
@@ -38,14 +41,31 @@ export class RSVPUI {
 
   /**
    * Create and show the RSVP overlay
+   *
+   * @param {Object} [options]
+   * @param {HTMLElement|null} [options.returnFocus] - Where focus should go when the overlay
+   *   closes and the element it was opened from is no longer there. Speed Read is usually
+   *   started from the highlight menu, which activates on mousedown and is removed before the
+   *   overlay exists, so the remembered opener is <body> or a detached button and focus would
+   *   otherwise drop to the top of the page (SC 2.4.3). The caller passes the element the
+   *   selection sits in.
    */
-  show() {
+  show(options = {}) {
     if (this.overlay) {
       return;
     } // Already visible
 
+    // Where focus came from, so Escape and Close can put it back (SC 2.4.3).
+    this.previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.returnFocusFallback = options.returnFocus || null;
+
     this.overlay = document.createElement('div');
     this.overlay.id = 'assist-rsvp-overlay';
+    this.overlay.setAttribute('role', 'dialog');
+    this.overlay.setAttribute('aria-modal', 'true');
+    this.overlay.setAttribute('aria-label', 'Speed reading');
+    this.overlay.setAttribute('tabindex', '-1');
 
     // NOTE: No sanitization needed - this is our own trusted HTML, not user input
     this.overlay.innerHTML = `
@@ -167,6 +187,19 @@ export class RSVPUI {
           background: #4a4a4a;
         }
 
+        .rsvp-status {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          margin: -1px;
+          padding: 0;
+          overflow: hidden;
+          clip: rect(0 0 0 0);
+          clip-path: inset(50%);
+          white-space: nowrap;
+          border: 0;
+        }
+
         .rsvp-help {
           margin-top: 16px;
           padding-top: 16px;
@@ -178,6 +211,12 @@ export class RSVPUI {
       </style>
 
       <div class="rsvp-container">
+        <!--
+          Playback state only. The word itself is never announced: at 300 WPM a live region
+          would flood a screen reader five times a second.
+        -->
+        <div class="rsvp-status" id="assist-rsvp-status" role="status" aria-live="polite"></div>
+
         <div class="rsvp-word-container">
           <div class="rsvp-word" id="assist-rsvp-word">
             <span class="word-before"></span><span class="orp-character"></span><span class="word-after"></span>
@@ -214,21 +253,99 @@ export class RSVPUI {
     this.timeText = this.overlay.querySelector('#assist-rsvp-time-text');
     this.speedText = this.overlay.querySelector('#assist-rsvp-speed-text');
     this.playPauseBtn = this.overlay.querySelector('#assist-rsvp-play-pause');
+    this.statusRegion = this.overlay.querySelector('#assist-rsvp-status');
 
     // Attach event listeners
     this.attachEventListeners();
 
     // Add to DOM
     document.body.appendChild(this.overlay);
+
+    // A modal dialog owns focus while it is open.
+    const first = this.getFocusableControls()[0];
+    if (first) {
+      first.focus();
+    } else {
+      this.overlay.focus();
+    }
   }
 
   /**
-   * Hide and remove the overlay
+   * Hide and remove the overlay, handing focus back to whatever opened it
+   *
+   * <body> counts as nothing to return to, not as a real opener: a menu button that activates on
+   * mousedown never took focus in the first place.
    */
   hide() {
     if (this.overlay) {
+      const hadFocus = this.overlay.contains(document.activeElement);
       this.overlay.remove();
       this.overlay = null;
+      this.statusRegion = null;
+
+      if (hadFocus) {
+        const opener = this.previousFocus;
+        const openerIsUsable = Boolean(opener) && opener !== document.body && opener.isConnected;
+
+        if (openerIsUsable) {
+          opener.focus();
+        } else {
+          returnFocusAfterDialog(this.returnFocusFallback);
+        }
+      }
+    }
+
+    this.previousFocus = null;
+    this.returnFocusFallback = null;
+  }
+
+  /**
+   * The dialog's own controls, in tab order
+   * @returns {Array<HTMLElement>}
+   * @private
+   */
+  getFocusableControls() {
+    if (!this.overlay) {
+      return [];
+    }
+    return Array.from(this.overlay.querySelectorAll('button:not([disabled])'));
+  }
+
+  /**
+   * Keep Tab inside the dialog (SC 2.4.3) — including pulling focus back if it is on the
+   * page behind.
+   * @param {KeyboardEvent} event
+   * @private
+   */
+  trapTab(event) {
+    const items = this.getFocusableControls();
+    if (items.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const current = items.indexOf(document.activeElement);
+    let next;
+    if (current === -1) {
+      next = event.shiftKey ? items.length - 1 : 0;
+    } else {
+      next = event.shiftKey
+        ? (current - 1 + items.length) % items.length
+        : (current + 1) % items.length;
+    }
+
+    items[next].focus();
+  }
+
+  /**
+   * Announce playback state politely. Never the word being displayed.
+   * @param {string} message
+   * @private
+   */
+  announce(message) {
+    if (this.statusRegion) {
+      this.statusRegion.textContent = message;
     }
   }
 
@@ -287,6 +404,7 @@ export class RSVPUI {
       return;
     }
     this.speedText.textContent = `${wpm} WPM`;
+    this.announce(`${wpm} words per minute`);
   }
 
   /**
@@ -298,6 +416,7 @@ export class RSVPUI {
       return;
     }
     this.playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+    this.announce(isPlaying ? 'Playing' : 'Paused');
   }
 
   /**
@@ -311,25 +430,25 @@ export class RSVPUI {
     const closeBtn = this.overlay.querySelector('#assist-rsvp-close');
 
     // Use mousedown pattern to prevent race conditions with document listeners
-    attachInteractiveHandler(this.playPauseBtn, 'RSVP Play/Pause', () => {
+    attachAccessibleHandler(this.playPauseBtn, 'RSVP Play/Pause', () => {
       if (this.onPlayPause) {
         this.onPlayPause();
       }
     });
 
-    attachInteractiveHandler(slowerBtn, 'RSVP Slower', () => {
+    attachAccessibleHandler(slowerBtn, 'RSVP Slower', () => {
       if (this.onSpeedChange) {
         this.onSpeedChange(-25);
       }
     });
 
-    attachInteractiveHandler(fasterBtn, 'RSVP Faster', () => {
+    attachAccessibleHandler(fasterBtn, 'RSVP Faster', () => {
       if (this.onSpeedChange) {
         this.onSpeedChange(25);
       }
     });
 
-    attachInteractiveHandler(closeBtn, 'RSVP Close', () => {
+    attachAccessibleHandler(closeBtn, 'RSVP Close', () => {
       if (this.onClose) {
         this.onClose();
       }
@@ -337,12 +456,22 @@ export class RSVPUI {
 
     // Keyboard shortcuts
     this.keyboardHandler = e => {
+      // A control inside the dialog handles its own Enter and Space; hijacking them here
+      // would run the button's action and toggle playback off the same keypress.
+      const onOwnControl =
+        this.overlay && this.overlay.contains(e.target) && e.target.closest('button') !== null;
+
       if (e.key === 'Escape') {
         e.preventDefault();
         if (this.onClose) {
           this.onClose();
         }
+      } else if (e.key === 'Tab') {
+        this.trapTab(e);
       } else if (e.key === ' ' || e.code === 'Space') {
+        if (onOwnControl) {
+          return;
+        }
         e.preventDefault();
         if (this.onPlayPause) {
           this.onPlayPause();

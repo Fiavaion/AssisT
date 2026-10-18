@@ -1,19 +1,222 @@
 /**
- * Floating Microphone Button Component (Sprint 5)
+ * Floating Microphone Button Component
  * Creates a floating microphone button that appears when text fields are focused
  *
  * Features:
- * - Appears on text field focus
- * - Red pulse animation when recording
- * - Tooltip feedback
- * - Keyboard accessible
- * - Responsive positioning
+ * - Appears on text field focus, inside the field's own bounds so it never covers the next control
+ * - Honest state: "starting" until recognition really begins, only then "recording"
+ * - A status bar and tooltip that a screen reader announces
+ * - One Tab from the field reaches it, Shift+Tab goes back
+ * - The hint names the student's own dictation key, and follows a remap without a page reload
  *
  * @module MicrophoneButton
  */
 
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachQuietHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
+import { DEFAULT_SHORTCUTS, loadShortcuts } from '../../utils/keyboard-shortcuts.js';
+import { frameHolding } from '../../features/stt/editor-frames.js';
+import { Z } from '../../utils/z-index.js';
+
+/** How long to wait for recognition to start before telling the student it did not. */
+const START_TIMEOUT_MS = 8000;
+
+/** Button diameter, and the smaller one used on single-line fields. */
+const FULL_SIZE = 56;
+const COMPACT_SIZE = 36;
+
+/** Distance kept from the field's own edges. */
+const EDGE_GAP = 4;
+
+/** Registry key for "start dictation" (see DEFAULT_SHORTCUTS). */
+const DICTATION_FEATURE = 'stt_dictate';
+
+/**
+ * The keyboard route to dictation as the button's own text says it: the student's saved binding,
+ * with the registry default standing in until storage answers. One value for every button in the
+ * realm, read once and then kept current by the storage listener below, so remapping the key in
+ * Settings changes what the button promises without a page reload — a hint that names a key the
+ * student no longer has is worse than no hint at all.
+ */
+let dictationShortcut = DEFAULT_SHORTCUTS[DICTATION_FEATURE];
+
+/** Buttons wanting to be repainted when the binding changes. */
+const shortcutSubscribers = new Set();
+/** The one storage listener that serves all of them, null while none are showing. */
+let storageListener = null;
+/** Storage is read once per realm; every later change arrives through the listener. */
+let shortcutRead = false;
+
+/**
+ * Adopt a binding and repaint every button that is showing one. An empty string is a binding the
+ * student cleared on purpose, and is kept as such — the hint then names no key.
+ * @param {string} binding
+ */
+function applyDictationShortcut(binding) {
+  if (typeof binding !== 'string' || binding === dictationShortcut) {
+    return;
+  }
+  dictationShortcut = binding;
+  shortcutSubscribers.forEach(repaint => repaint());
+}
+
+/**
+ * The popup writes the whole settings object when a shortcut is remapped, so the new binding is
+ * read straight out of the change rather than by going back to storage.
+ * @param {Object} changes
+ * @param {string} [area]
+ */
+function onShortcutStorageChange(changes, area) {
+  if (area && area !== 'local') {
+    return;
+  }
+  const change = changes && changes.assist_settings;
+  if (!change) {
+    return;
+  }
+  const saved = (change.newValue && change.newValue.keyboardShortcuts) || {};
+  applyDictationShortcut(
+    DICTATION_FEATURE in saved ? saved[DICTATION_FEATURE] : DEFAULT_SHORTCUTS[DICTATION_FEATURE]
+  );
+}
+
+/**
+ * Follow the student's binding for as long as this button exists: one storage read per realm and
+ * one change listener shared by every button. Silent on failure — a realm without chrome.storage
+ * (a plain page in a test) simply keeps the registry default and says the default.
+ * @param {Function} repaint
+ */
+function watchDictationShortcut(repaint) {
+  shortcutSubscribers.add(repaint);
+
+  if (!storageListener) {
+    try {
+      storageListener = onShortcutStorageChange;
+      chrome.storage.onChanged.addListener(storageListener);
+    } catch {
+      storageListener = null;
+    }
+  }
+
+  if (shortcutRead) {
+    return;
+  }
+  shortcutRead = true;
+  try {
+    Promise.resolve(loadShortcuts())
+      .then(map => {
+        if (map && DICTATION_FEATURE in map) {
+          applyDictationShortcut(map[DICTATION_FEATURE]);
+        }
+      })
+      .catch(() => {});
+  } catch {
+    /* no storage in this realm — the registry default stands */
+  }
+}
+
+/**
+ * Stop following the binding, and take the shared listener down with the last button so a
+ * destroyed button leaves nothing behind.
+ * @param {Function} repaint
+ */
+function unwatchDictationShortcut(repaint) {
+  shortcutSubscribers.delete(repaint);
+  if (shortcutSubscribers.size > 0 || !storageListener) {
+    return;
+  }
+  try {
+    chrome.storage.onChanged.removeListener(storageListener);
+  } catch {
+    /* the realm that could not add one cannot have one to remove */
+  }
+  storageListener = null;
+}
+
+/**
+ * What the student is told the microphone did not start. Plain language, and the one action
+ * that fixes it — never the browser's DOMException text.
+ */
+const START_TIMEOUT_MESSAGE =
+  'The microphone did not start. If your browser is asking for permission, choose Allow in the ' +
+  'address bar, then press the microphone button again.';
+
+const MIC_ICON = `
+  <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
+    <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z" fill="white"/>
+  </svg>
+`;
+
+const PAUSE_ICON = `
+  <svg class="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <rect x="6" y="4" width="4" height="16" rx="1" fill="white"/>
+    <rect x="14" y="4" width="4" height="16" rx="1" fill="white"/>
+  </svg>
+`;
+
+/**
+ * Everything the four states say, in one place — the label a screen reader reads, the hover
+ * title, the tooltip and the status bar. One table, so a wording fix cannot land in three of
+ * the four places.
+ */
+const STATE_TEXT = {
+  idle: {
+    ariaLabel: 'Start voice typing',
+    bar: null,
+  },
+  starting: {
+    ariaLabel: 'Starting voice typing, waiting for the microphone',
+    title: 'Waiting for the microphone. Click to cancel.',
+    tooltip: 'Waiting for the microphone...',
+    bar: '\u{1F3A4} Starting voice typing - waiting for the microphone...',
+  },
+  recording: {
+    ariaLabel: 'Pause voice typing',
+    title: 'Recording. Click to pause, right-click to stop.',
+    tooltip: 'Click to pause voice typing',
+    bar: '\u{1F534} Recording...',
+  },
+  paused: {
+    ariaLabel: 'Resume voice typing',
+    title: 'Paused. Click to carry on, right-click to stop.',
+    tooltip: 'Click to carry on voice typing',
+    bar: '⏸ Paused - click the microphone to carry on',
+  },
+};
+
+/**
+ * Everything a state says, with the idle wording finished off from the student's own binding. The
+ * idle title and tooltip are the only text that names a key, so they are the only text built here;
+ * a binding the student has cleared leaves the wording with no key in it at all.
+ * @param {'idle'|'starting'|'recording'|'paused'} state
+ * @returns {{ariaLabel: string, title: string, tooltip: string, bar: ?string}}
+ */
+function stateText(state) {
+  const text = STATE_TEXT[state];
+  if (state !== 'idle') {
+    return text;
+  }
+  const key = dictationShortcut ? ` (${dictationShortcut})` : '';
+  return {
+    ...text,
+    title: `Start voice typing${key}`,
+    tooltip: `Click to start voice typing${key}`,
+  };
+}
+
+/** Elements the browser puts in the tab order, used to find what follows the field. */
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'area[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'button:not([disabled])',
+  'iframe',
+  '[contenteditable]:not([contenteditable="false"])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
 
 export class MicrophoneButton {
   constructor(options = {}) {
@@ -22,19 +225,54 @@ export class MicrophoneButton {
     this.onPause = options.onPause || (() => {});
     this.onResume = options.onResume || (() => {});
     this.onError = options.onError || (() => {});
+    // Asked before anything starts (the dictation question, ADR 0006), so the time a student takes
+    // to read it is not counted against the microphone's start timer.
+    this.confirmStart = options.confirmStart || null;
+    this._asking = false;
 
     this.button = null;
     this.targetField = null;
-    this.isRecording = false;
-    this.isPaused = false;
     this.tooltip = null;
 
+    /** 'idle' | 'starting' | 'recording' | 'paused' — the single source of truth. */
+    this.state = 'idle';
+
+    this._startTimer = null;
+    this._offscreen = false;
+    this._interimWanted = false;
     this._scrollHandler = null;
     this._resizeHandler = null;
-    this._scrollParents = null;
+    this._fieldKeyHandler = null;
+    this._keyField = null;
+
+    /**
+     * Repaint the idle wording when the student remaps the dictation key. Only idle names a key,
+     * and only idle is repainted: rewriting the status bar mid-dictation would announce the state
+     * the student is already in a second time.
+     */
+    this._repaintShortcut = () => {
+      if (this.button && this.state === 'idle') {
+        this._applyState();
+      }
+    };
 
     this.createButton();
     this.injectStyles();
+    watchDictationShortcut(this._repaintShortcut);
+  }
+
+  /** True only once recognition has actually started. */
+  get isRecording() {
+    return this.state === 'recording';
+  }
+
+  /** True while the student has asked to dictate but the microphone has not started yet. */
+  get isStarting() {
+    return this.state === 'starting';
+  }
+
+  get isPaused() {
+    return this.state === 'paused';
   }
 
   /**
@@ -44,50 +282,61 @@ export class MicrophoneButton {
     this.button = document.createElement('button');
     this.button.className = 'assist-stt-mic-button';
     this.button.type = 'button';
-    this.button.setAttribute('aria-label', 'Start voice typing');
-    this.button.setAttribute('title', 'Left-click: Start • Right-click: Stop');
-    this.button.setAttribute('role', 'button');
-    this.button.setAttribute('tabindex', '0');
+    // Out of the tab order until it is actually shown — an invisible focus stop is a trap of
+    // its own (SC 2.4.3).
+    this.button.setAttribute('tabindex', '-1');
+    this.button.innerHTML = sanitizeHTML(MIC_ICON);
+    this._iconMarkup = MIC_ICON;
+    this._applyState();
 
-    // Microphone icon (SVG for better control)
-    this.button.innerHTML = sanitizeHTML(`
-      <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
-        <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z" fill="white"/>
-      </svg>
-    `);
+    // Activation. attachAccessibleHandler covers mouse and Enter/Space in one place, so there is
+    // no second keydown toggle to cancel the first (the accordion bug). Shift stops outright.
+    attachAccessibleHandler(
+      this.button,
+      'Microphone Button',
+      event => {
+        if (event && event.shiftKey && this.state !== 'idle') {
+          this.stopRecording();
+          return;
+        }
+        this.toggle();
+      },
+      { enableVisualFeedback: false }
+    );
 
-    // Click handler (left click = toggle pause/resume)
-    // Use quiet handler (no visual feedback - button has custom tooltip/hover logic)
-    attachQuietHandler(this.button, 'Microphone Button', () => {
-      this.toggle();
-    });
-
-    // Right-click handler (right click = stop)
+    // Right-click = stop
     this.button.addEventListener('contextmenu', e => {
       e.preventDefault();
       e.stopPropagation();
-      if (this.isRecording || this.isPaused) {
-        console.log('[MicButton] Right-click detected - stopping recording');
+      if (this.state !== 'idle') {
         this.stopRecording();
       }
     });
 
-    // Keyboard handler
+    // Tab moves on to whatever follows the field, Shift+Tab goes back to the field. Without this
+    // the button — appended at the end of the body — sits many tab stops away from the field it
+    // belongs to.
     this.button.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-
-        // Shift+Enter/Space = stop, regular = toggle
-        if (e.shiftKey && (this.isRecording || this.isPaused)) {
-          this.stopRecording();
-        } else {
-          this.toggle();
-        }
+      if (e.key !== 'Tab') {
+        return;
       }
+
+      if (e.shiftKey) {
+        if (this.targetField) {
+          e.preventDefault();
+          this.targetField.focus();
+        }
+        return;
+      }
+
+      const next = this._nextFocusableAfterField();
+      if (next) {
+        e.preventDefault();
+        next.focus();
+      }
+      // No next control: let the browser move focus on as usual. Never trap.
     });
 
-    // Hover effects
     this.button.addEventListener('mouseenter', () => {
       this.showTooltip();
     });
@@ -114,27 +363,49 @@ export class MicrophoneButton {
       /* Microphone Button Base Styles */
       .assist-stt-mic-button {
         position: fixed;
-        width: 56px;
-        height: 56px;
+        width: ${FULL_SIZE}px;
+        height: ${FULL_SIZE}px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #4f46c4 0%, #6b3fa0 100%);
         border: 3px solid white;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         cursor: pointer;
-        z-index: 99999;
-        transition: all 0.3s ease;
+        z-index: ${Z.CONTROLS};
+        transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease;
         display: flex;
         align-items: center;
         justify-content: center;
         opacity: 0;
         transform: scale(0.8);
         pointer-events: none;
+        padding: 0;
+      }
+
+      /* Compact size for single-line fields, so the button fits inside the field's own bounds
+         and never covers the next field or control. 36px still clears SC 2.5.8 (24x24). */
+      .assist-stt-mic-button.compact {
+        width: ${COMPACT_SIZE}px;
+        height: ${COMPACT_SIZE}px;
+        border-width: 2px;
+      }
+
+      .assist-stt-mic-button.compact .mic-icon,
+      .assist-stt-mic-button.compact .pause-icon {
+        width: 18px;
+        height: 18px;
       }
 
       .assist-stt-mic-button.visible {
         opacity: 1;
         transform: scale(1);
         pointer-events: auto;
+      }
+
+      /* The field has scrolled out of view — the button goes with it rather than floating over
+         unrelated content. */
+      .assist-stt-mic-button.offscreen {
+        opacity: 0;
+        pointer-events: none;
       }
 
       .assist-stt-mic-button:hover {
@@ -146,25 +417,37 @@ export class MicrophoneButton {
         transform: scale(0.95);
       }
 
+      .assist-stt-mic-button:focus-visible,
       .assist-stt-mic-button:focus {
-        outline: 3px solid #667eea;
+        outline: 3px solid #1a1a1a;
         outline-offset: 2px;
+      }
+
+      /* Waiting for the microphone — visibly not yet recording */
+      .assist-stt-mic-button.starting {
+        background: linear-gradient(135deg, #3730a3 0%, #1e1b7a 100%);
+        animation: mic-starting 1.2s ease-in-out infinite;
+      }
+
+      @keyframes mic-starting {
+        0%, 100% { box-shadow: 0 4px 12px rgba(55, 48, 163, 0.5); }
+        50% { box-shadow: 0 4px 20px rgba(55, 48, 163, 0.9); }
       }
 
       /* Recording State */
       .assist-stt-mic-button.recording {
-        background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+        background: linear-gradient(135deg, #c62828 0%, #8e0000 100%);
         animation: mic-pulse 1.5s infinite;
       }
 
       @keyframes mic-pulse {
         0%, 100% {
           transform: scale(1);
-          box-shadow: 0 4px 12px rgba(255, 68, 68, 0.5);
+          box-shadow: 0 4px 12px rgba(198, 40, 40, 0.5);
         }
         50% {
           transform: scale(1.05);
-          box-shadow: 0 4px 20px rgba(255, 68, 68, 0.8);
+          box-shadow: 0 4px 20px rgba(198, 40, 40, 0.8);
         }
       }
 
@@ -176,58 +459,56 @@ export class MicrophoneButton {
       @keyframes mic-pulse-hover {
         0%, 100% {
           transform: scale(1.1);
-          box-shadow: 0 6px 16px rgba(255, 68, 68, 0.6);
+          box-shadow: 0 6px 16px rgba(198, 40, 40, 0.6);
         }
         50% {
           transform: scale(1.15);
-          box-shadow: 0 6px 24px rgba(255, 68, 68, 0.9);
+          box-shadow: 0 6px 24px rgba(198, 40, 40, 0.9);
+        }
+      }
+
+      /* Any student who has asked for less motion gets none of the above. */
+      @media (prefers-reduced-motion: reduce) {
+        .assist-stt-mic-button,
+        .assist-stt-mic-button.starting,
+        .assist-stt-mic-button.recording,
+        .assist-stt-mic-button.recording:hover,
+        .assist-stt-recording-bar.visible {
+          animation: none;
+          transition: none;
         }
       }
 
       /* Paused State */
       .assist-stt-mic-button.paused {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        background: linear-gradient(135deg, #b45309 0%, #7c3d06 100%);
         animation: none;
       }
 
       .assist-stt-mic-button.paused:hover {
         transform: scale(1.1);
-        box-shadow: 0 6px 16px rgba(245, 158, 11, 0.6);
-      }
-
-      .assist-stt-mic-button.paused .pause-icon {
-        width: 28px;
-        height: 28px;
+        box-shadow: 0 6px 16px rgba(180, 83, 9, 0.6);
       }
 
       /* Icon Styles */
-      .assist-stt-mic-button .mic-icon {
+      .assist-stt-mic-button .mic-icon,
+      .assist-stt-mic-button .pause-icon {
         width: 28px;
         height: 28px;
         transition: transform 0.2s ease;
       }
 
-      .assist-stt-mic-button.recording .mic-icon {
-        animation: mic-shake 0.5s ease-in-out infinite;
-      }
-
-      @keyframes mic-shake {
-        0%, 100% { transform: translateY(0); }
-        25% { transform: translateY(-2px); }
-        75% { transform: translateY(2px); }
-      }
-
       /* Tooltip */
       .assist-stt-mic-tooltip {
         position: fixed;
-        background: rgba(0, 0, 0, 0.9);
+        background: rgba(0, 0, 0, 0.92);
         color: white;
         padding: 8px 12px;
         border-radius: 6px;
         font-size: 13px;
         font-weight: 500;
         white-space: nowrap;
-        z-index: 100000;
+        z-index: ${Z.CONTROLS};
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.2s ease;
@@ -241,12 +522,12 @@ export class MicrophoneButton {
       .assist-stt-interim-display {
         position: fixed;
         background: rgba(255, 255, 255, 0.98);
-        border: 2px solid #667eea;
+        border: 2px solid #4f46c4;
         border-radius: 8px;
         padding: 12px 16px;
         font-size: 14px;
         color: #333;
-        z-index: 99998;
+        z-index: ${Z.CONTROLS};
         max-width: 400px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         opacity: 0;
@@ -261,51 +542,49 @@ export class MicrophoneButton {
       }
 
       .assist-stt-interim-display::before {
-        content: '🎤 ';
+        content: '\\1F3A4 ';
         font-size: 16px;
       }
 
-      /* Recording Indicator (Top Bar) */
+      /* Status bar (top). White text on these darker fills clears SC 1.4.3 at 4.5:1. */
       .assist-stt-recording-bar {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        height: 32px;
-        background: linear-gradient(90deg, #ff4444 0%, #cc0000 100%);
-        z-index: 99999;
+        min-height: 32px;
+        background: linear-gradient(90deg, #c62828 0%, #7f0000 100%);
+        z-index: ${Z.CONTROLS};
         opacity: 0;
-        transition: all 0.3s ease;
+        transition: opacity 0.3s ease;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
         font-size: 13px;
         font-weight: 600;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        padding: 6px 12px;
+        box-sizing: border-box;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       }
 
       .assist-stt-recording-bar.visible {
         opacity: 1;
-        animation: recording-bar-pulse 2s ease-in-out infinite;
+      }
+
+      .assist-stt-recording-bar.starting {
+        background: linear-gradient(90deg, #3730a3 0%, #1e1b7a 100%);
       }
 
       .assist-stt-recording-bar.paused {
-        background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
-        animation: none;
-      }
-
-      @keyframes recording-bar-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
+        background: linear-gradient(90deg, #8a5a00 0%, #5c3c00 100%);
       }
 
       /* Disabled State */
       .assist-stt-mic-button:disabled {
         opacity: 0.5;
         cursor: not-allowed;
-        background: linear-gradient(135deg, #999 0%, #666 100%);
+        background: linear-gradient(135deg, #767676 0%, #565656 100%);
       }
 
       .assist-stt-mic-button:disabled:hover {
@@ -338,12 +617,17 @@ export class MicrophoneButton {
       document.body.appendChild(this.button);
     }
 
+    this.button.setAttribute('tabindex', '0');
+
     // Attach scroll/resize listeners so button tracks the field
     this._attachScrollListeners();
+    this._attachFieldKeyHandler(field);
 
     // Show with animation
     requestAnimationFrame(() => {
-      this.button.classList.add('visible');
+      if (this.button) {
+        this.button.classList.add('visible');
+      }
     });
 
     console.log('[MicButton] Shown for field:', field.tagName);
@@ -354,15 +638,17 @@ export class MicrophoneButton {
    */
   hide() {
     this.button.classList.remove('visible');
+    // An invisible button must not keep a focus stop.
+    this.button.setAttribute('tabindex', '-1');
     this.hideTooltip();
     this.hideInterimDisplay();
 
-    // Remove scroll/resize listeners
     this._detachScrollListeners();
+    this._detachFieldKeyHandler();
 
-    // Remove from DOM after animation
+    // Remove from DOM after animation, unless dictation is still going on
     setTimeout(() => {
-      if (this.button.parentElement && !this.isRecording) {
+      if (this.button && this.button.parentElement && this.state === 'idle') {
         this.button.parentElement.removeChild(this.button);
       }
     }, 300);
@@ -372,35 +658,84 @@ export class MicrophoneButton {
   }
 
   /**
-   * Position button relative to target field
+   * Position button inside the target field's own bounds.
+   *
+   * The button is position:fixed, so getBoundingClientRect()'s viewport coordinates are used as
+   * they are — adding scrollX/scrollY would send it drifting off down the page.
+   *
+   * It sits inside the field's bottom-right corner rather than below the field, because below is
+   * where the page keeps its next input or its Submit button.
+   *
    * @param {HTMLElement} field - The target text field
    */
   positionButton(field) {
-    const rect = field.getBoundingClientRect();
+    // A field in an editor's iframe reports its rectangle in the iframe's own coordinates.
+    const rect = (frameHolding(field) || field).getBoundingClientRect();
 
-    // Button uses position:fixed, so coordinates are relative to the viewport
-    // No scroll offset needed — getBoundingClientRect() already returns viewport coords
-    let left = rect.right - 70; // 70px from right edge of field
-    let top = rect.bottom + 10; // 10px below field
+    // The field has scrolled out of view: take the button with it.
+    if (this._isFieldOffScreen(rect)) {
+      this._setOffScreen(true);
+      return;
+    }
+    this._setOffScreen(false);
 
-    // Keep button within viewport bounds
-    const buttonSize = 56;
-    if (left + buttonSize > window.innerWidth) {
-      left = window.innerWidth - buttonSize - 8;
+    // A single-line input is shorter than the full button, so use the compact one there.
+    const compact = rect.height < FULL_SIZE + EDGE_GAP * 2;
+    this.button.classList.toggle('compact', compact);
+    const size = compact ? COMPACT_SIZE : FULL_SIZE;
+
+    let left;
+    if (rect.width >= size + EDGE_GAP * 2) {
+      // Inside the field's right edge
+      left = rect.right - size - EDGE_GAP;
+    } else if (rect.right + EDGE_GAP + size <= window.innerWidth) {
+      // Field too narrow to hold the button: flip to just outside its right edge
+      left = rect.right + EDGE_GAP;
+    } else {
+      // No room on the right either: flip to just outside the left edge
+      left = rect.left - size - EDGE_GAP;
     }
-    if (left < 8) {
-      left = 8;
-    }
-    if (top + buttonSize > window.innerHeight) {
-      // Place above the field instead
-      top = rect.top - buttonSize - 10;
-    }
-    if (top < 8) {
-      top = 8;
-    }
+
+    // Bottom corner of a multi-line field; vertically centred on a single-line one
+    let top = compact ? rect.top + (rect.height - size) / 2 : rect.bottom - size - EDGE_GAP;
+
+    // Keep it on screen whatever the field is doing
+    left = Math.max(EDGE_GAP, Math.min(left, window.innerWidth - size - EDGE_GAP));
+    top = Math.max(EDGE_GAP, Math.min(top, window.innerHeight - size - EDGE_GAP));
 
     this.button.style.left = `${left}px`;
     this.button.style.top = `${top}px`;
+  }
+
+  /**
+   * Whether the field's rectangle lies entirely outside the viewport.
+   * @param {DOMRect} rect
+   * @returns {boolean}
+   */
+  _isFieldOffScreen(rect) {
+    return (
+      rect.bottom <= 0 ||
+      rect.top >= window.innerHeight ||
+      rect.right <= 0 ||
+      rect.left >= window.innerWidth
+    );
+  }
+
+  /**
+   * Hide/restore the button while its field is out of view, without tearing down the listeners
+   * that will bring it back.
+   * @param {boolean} off
+   */
+  _setOffScreen(off) {
+    if (this._offscreen === off) {
+      return;
+    }
+    this._offscreen = off;
+    this.button.classList.toggle('offscreen', off);
+    this.button.setAttribute('tabindex', off ? '-1' : '0');
+    if (off) {
+      this.hideTooltip();
+    }
   }
 
   /**
@@ -423,11 +758,7 @@ export class MicrophoneButton {
       }
     };
 
-    this._resizeHandler = () => {
-      if (this.targetField) {
-        this.positionButton(this.targetField);
-      }
-    };
+    this._resizeHandler = this._scrollHandler;
 
     // capture:true catches scroll events on any element in the document tree,
     // not just window — this is the only reliable way to track all scroll sources.
@@ -442,66 +773,148 @@ export class MicrophoneButton {
     if (this._scrollHandler) {
       document.removeEventListener('scroll', this._scrollHandler, { capture: true });
     }
-    this._scrollParents = null;
-    this._scrollHandler = null;
     if (this._resizeHandler) {
       window.removeEventListener('resize', this._resizeHandler);
-      this._resizeHandler = null;
     }
+    this._scrollHandler = null;
+    this._resizeHandler = null;
   }
 
   /**
-   * Toggle recording state (cycles through start → pause → resume → stop)
+   * One Tab from the field reaches the microphone (SC 2.4.3). The button lives at the end of the
+   * body, so without this it is a dozen tab stops away from the field it belongs to. Focus is
+   * only redirected, never held: Tab from the button carries on to whatever follows the field.
+   *
+   * @param {HTMLElement} field
+   */
+  _attachFieldKeyHandler(field) {
+    this._detachFieldKeyHandler();
+
+    this._fieldKeyHandler = e => {
+      if (e.key !== 'Tab' || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) {
+        return;
+      }
+      // The field used Tab itself (a rich editor indenting a list item): leave it alone.
+      if (e.defaultPrevented) {
+        return;
+      }
+      if (!this.button || !this.button.parentElement || this._offscreen) {
+        return;
+      }
+      e.preventDefault();
+      this.button.focus();
+    };
+
+    field.addEventListener('keydown', this._fieldKeyHandler);
+    this._keyField = field;
+  }
+
+  /**
+   * Stop listening to the field's keystrokes.
+   */
+  _detachFieldKeyHandler() {
+    if (this._keyField && this._fieldKeyHandler) {
+      this._keyField.removeEventListener('keydown', this._fieldKeyHandler);
+    }
+    this._keyField = null;
+    this._fieldKeyHandler = null;
+  }
+
+  /**
+   * The focusable element that follows the target field in the page's own tab order.
+   * @returns {HTMLElement|null}
+   */
+  _nextFocusableAfterField() {
+    if (!this.targetField) {
+      return null;
+    }
+
+    const candidates = Array.from(document.querySelectorAll(FOCUSABLE_SELECTOR)).filter(el => {
+      if (el === this.button || el.hasAttribute('hidden') || el.disabled) {
+        return false;
+      }
+      const style = window.getComputedStyle(el);
+      return style.display !== 'none' && style.visibility !== 'hidden';
+    });
+
+    const index = candidates.indexOf(frameHolding(this.targetField) || this.targetField);
+    if (index === -1) {
+      return null;
+    }
+    return candidates[index + 1] || null;
+  }
+
+  /**
+   * Toggle: idle → start, starting → cancel, recording → pause, paused → resume
    */
   toggle() {
-    if (this.isPaused) {
-      // If paused, resume recording
+    if (this.state === 'starting') {
+      // The student pressed again while the microphone was still coming up: cancel.
+      this.stopRecording();
+    } else if (this.state === 'paused') {
       this.resumeRecording();
-    } else if (this.isRecording) {
-      // If recording, pause
+    } else if (this.state === 'recording') {
       this.pauseRecording();
     } else {
-      // If idle, start recording
       this.startRecording();
     }
   }
 
   /**
-   * Start recording
+   * Ask for dictation. The button says "starting" — NOT "recording" — until the recognition
+   * engine reports that it really began (see updateState), or until the wait runs out.
    */
   startRecording() {
     if (!this.targetField) {
       console.error('[MicButton] No target field set');
       return;
     }
+    if (this.state !== 'idle' || this._asking) {
+      return;
+    }
+    if (this.confirmStart) {
+      this._asking = true;
+      const field = this.targetField;
+      Promise.resolve(this.confirmStart(field))
+        .catch(() => false)
+        .then(allowed => {
+          this._asking = false;
+          if (allowed && this.button && this.state === 'idle') {
+            this._beginStart();
+          }
+        });
+      return;
+    }
+    this._beginStart();
+  }
 
-    this.isRecording = true;
-    this.isPaused = false;
-    this.button.classList.add('recording');
-    this.button.setAttribute('aria-label', 'Pause voice typing');
-    this.button.setAttribute('title', 'Recording... Left-click: Pause • Right-click: Stop');
-    this.updateIcon('recording');
+  /** The start itself: "starting", the timer, and the request to the controller. */
+  _beginStart() {
+    this._setState('starting');
 
-    this.showRecordingIndicator();
-    this.updateRecordingIndicator('recording');
+    this._clearStartTimer();
+    this._startTimer = setTimeout(() => {
+      this._startTimer = null;
+      if (this.state !== 'starting') {
+        return;
+      }
+      console.warn('[MicButton] Recognition never started');
+      // Call the start off as well, so recognition cannot come up after the student has been
+      // told it did not and flip the button back to Recording on its own.
+      this.stopRecording();
+      this.onError(START_TIMEOUT_MESSAGE);
+    }, START_TIMEOUT_MS);
+
     this.onStart(this.targetField);
-
-    console.log('[MicButton] Recording started');
   }
 
   /**
-   * Stop recording
+   * Stop dictation. Works from every state, including a start that has not landed yet — the
+   * controller aborts the pending recognition.
    */
   stopRecording() {
-    this.isRecording = false;
-    this.isPaused = false;
-    this.button.classList.remove('recording');
-    this.button.classList.remove('paused');
-    this.button.setAttribute('aria-label', 'Start voice typing');
-    this.button.setAttribute('title', 'Click to speak (Ctrl+Shift+M)');
-    this.updateIcon('idle');
-
-    this.hideRecordingIndicator();
+    this._clearStartTimer();
+    this._setState('idle');
     this.hideInterimDisplay();
     this.onStop();
 
@@ -512,21 +925,11 @@ export class MicrophoneButton {
    * Pause recording
    */
   pauseRecording() {
-    if (!this.isRecording || this.isPaused) {
+    if (this.state !== 'recording') {
       return;
     }
 
-    this.isPaused = true;
-    this.button.classList.remove('recording');
-    this.button.classList.add('paused');
-    this.button.setAttribute('aria-label', 'Resume voice typing');
-    this.button.setAttribute(
-      'title',
-      'Paused (still listening) • Left-click: Resume • Right-click: Stop'
-    );
-    this.updateIcon('paused');
-    this.updateRecordingIndicator('paused');
-
+    this._setState('paused');
     this.onPause();
 
     console.log('[MicButton] Recording paused (still listening, ignoring results)');
@@ -536,90 +939,83 @@ export class MicrophoneButton {
    * Resume recording
    */
   resumeRecording() {
-    if (!this.isPaused) {
+    if (this.state !== 'paused') {
       return;
     }
 
-    this.isPaused = false;
-    this.button.classList.remove('paused');
-    this.button.classList.add('recording');
-    this.button.setAttribute('aria-label', 'Pause voice typing');
-    this.button.setAttribute('title', 'Recording... Click to pause');
-    this.updateIcon('recording');
-    this.updateRecordingIndicator('recording');
-
+    this._setState('recording');
     this.onResume();
 
     console.log('[MicButton] Recording resumed');
   }
 
   /**
-   * Update button icon based on state
-   * @param {string} state - 'idle', 'recording', or 'paused'
+   * Move to a state and make every visible thing agree with it.
+   * @param {'idle'|'starting'|'recording'|'paused'} next
    */
-  updateIcon(state) {
-    if (state === 'idle') {
-      // Microphone icon (default)
-      this.button.innerHTML = sanitizeHTML(`
-        <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
-          <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z" fill="white"/>
-        </svg>
-      `);
-    } else if (state === 'recording') {
-      // Microphone icon (same as idle, pulse is via CSS)
-      this.button.innerHTML = sanitizeHTML(`
-        <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
-          <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z" fill="white"/>
-        </svg>
-      `);
-    } else if (state === 'paused') {
-      // Pause icon (two vertical bars)
-      this.button.innerHTML = sanitizeHTML(`
-        <svg class="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="6" y="4" width="4" height="16" rx="1" fill="white"/>
-          <rect x="14" y="4" width="4" height="16" rx="1" fill="white"/>
-        </svg>
-      `);
+  _setState(next) {
+    this.state = next;
+    this._applyState();
+  }
+
+  /**
+   * Paint the current state onto the button, its icon and the status bar.
+   */
+  _applyState() {
+    const text = stateText(this.state);
+
+    this.button.classList.toggle('starting', this.state === 'starting');
+    this.button.classList.toggle('recording', this.state === 'recording');
+    this.button.classList.toggle('paused', this.state === 'paused');
+    this.button.setAttribute('aria-label', text.ariaLabel);
+    this.button.setAttribute('title', text.title);
+
+    const icon = this.state === 'paused' ? PAUSE_ICON : MIC_ICON;
+    if (this._iconMarkup !== icon) {
+      this.button.innerHTML = sanitizeHTML(icon);
+      this._iconMarkup = icon;
+    }
+
+    if (text.bar) {
+      this._showStatusBar(text.bar);
+    } else {
+      this.hideRecordingIndicator();
+    }
+
+    if (this.tooltip) {
+      this.tooltip.textContent = text.tooltip;
     }
   }
 
   /**
-   * Show recording indicator (top bar)
+   * Show the status bar with a message, as a live region so start, pause, and the wait for the
+   * microphone are all announced (SC 4.1.3).
+   * @param {string} message
    */
-  showRecordingIndicator() {
+  _showStatusBar(message) {
     let bar = document.getElementById('assist-stt-recording-bar');
 
     if (!bar) {
       bar = document.createElement('div');
       bar.id = 'assist-stt-recording-bar';
       bar.className = 'assist-stt-recording-bar';
+      bar.setAttribute('role', 'status');
+      bar.setAttribute('aria-live', 'polite');
+      bar.setAttribute('aria-atomic', 'true');
+      // In the tree first, text second: a live region that arrives already filled is often
+      // not announced at all.
       document.body.appendChild(bar);
     }
 
+    bar.classList.toggle('starting', this.state === 'starting');
+    bar.classList.toggle('paused', this.state === 'paused');
+    bar.textContent = message;
+
     requestAnimationFrame(() => {
-      bar.classList.add('visible');
+      if (bar.parentElement && stateText(this.state).bar) {
+        bar.classList.add('visible');
+      }
     });
-  }
-
-  /**
-   * Update recording indicator appearance based on state
-   * @param {string} state - 'recording' or 'paused'
-   */
-  updateRecordingIndicator(state) {
-    const bar = document.getElementById('assist-stt-recording-bar');
-    if (!bar) {
-      return;
-    }
-
-    if (state === 'paused') {
-      bar.classList.add('paused');
-      bar.textContent = '⏸ Paused (still listening - no permission prompts on resume)';
-    } else if (state === 'recording') {
-      bar.classList.remove('paused');
-      bar.textContent = '🔴 Recording...';
-    }
   }
 
   /**
@@ -630,7 +1026,9 @@ export class MicrophoneButton {
     if (bar) {
       bar.classList.remove('visible');
       setTimeout(() => {
-        if (bar.parentElement) {
+        // Not if dictation started again inside the fade — this timer would otherwise delete the
+        // bar that is now showing the new state.
+        if (bar.parentElement && !bar.classList.contains('visible')) {
           bar.parentElement.removeChild(bar);
         }
       }, 300);
@@ -653,21 +1051,24 @@ export class MicrophoneButton {
       display = document.createElement('div');
       display.id = 'assist-stt-interim-display';
       display.className = 'assist-stt-interim-display';
+      display.setAttribute('role', 'status');
+      display.setAttribute('aria-live', 'polite');
       document.body.appendChild(display);
     }
 
     display.textContent = text;
+    this._interimWanted = true;
 
-    // Position above the button
+    // Both the box and the button are position:fixed, so the button's viewport rectangle is used
+    // as it is — no scroll offsets.
     const buttonRect = this.button.getBoundingClientRect();
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
-
-    display.style.left = `${buttonRect.left + scrollX}px`;
-    display.style.bottom = `${window.innerHeight - buttonRect.top - scrollY + 10}px`;
+    display.style.left = `${buttonRect.left}px`;
+    display.style.bottom = `${window.innerHeight - buttonRect.top + 10}px`;
 
     requestAnimationFrame(() => {
-      display.classList.add('visible');
+      if (display.parentElement && this._interimWanted) {
+        display.classList.add('visible');
+      }
     });
   }
 
@@ -675,11 +1076,13 @@ export class MicrophoneButton {
    * Hide interim display
    */
   hideInterimDisplay() {
+    this._interimWanted = false;
     const display = document.getElementById('assist-stt-interim-display');
     if (display) {
       display.classList.remove('visible');
       setTimeout(() => {
-        if (display.parentElement) {
+        // Not if new words arrived inside the fade.
+        if (display.parentElement && !display.classList.contains('visible')) {
           display.parentElement.removeChild(display);
         }
       }, 300);
@@ -696,21 +1099,19 @@ export class MicrophoneButton {
       document.body.appendChild(this.tooltip);
     }
 
-    this.tooltip.textContent = this.isRecording
-      ? 'Click to stop recording'
-      : 'Click to start voice typing';
+    this.tooltip.textContent = stateText(this.state).tooltip;
 
-    // Position above button
+    // Fixed box, fixed button: viewport coordinates, no scroll offsets (the old maths sent the
+    // tooltip hundreds of pixels away from the button as soon as the page scrolled).
     const buttonRect = this.button.getBoundingClientRect();
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
-
-    this.tooltip.style.left = `${buttonRect.left + scrollX + buttonRect.width / 2}px`;
-    this.tooltip.style.bottom = `${window.innerHeight - buttonRect.top - scrollY + 10}px`;
+    this.tooltip.style.left = `${buttonRect.left + buttonRect.width / 2}px`;
+    this.tooltip.style.bottom = `${window.innerHeight - buttonRect.top + 10}px`;
     this.tooltip.style.transform = 'translateX(-50%)';
 
     requestAnimationFrame(() => {
-      this.tooltip.classList.add('visible');
+      if (this.tooltip) {
+        this.tooltip.classList.add('visible');
+      }
     });
   }
 
@@ -724,16 +1125,21 @@ export class MicrophoneButton {
   }
 
   /**
-   * Update button state
+   * Update button state from the recognition engine.
    * @param {Object} state - State object { isRecording, error }
    */
   updateState(state) {
-    if (state.isRecording !== undefined) {
-      if (state.isRecording && !this.isRecording) {
-        this.startRecording();
-      } else if (!state.isRecording && this.isRecording) {
-        this.stopRecording();
+    if (state.isRecording === true) {
+      // Recognition really started — this is the only path to "Recording".
+      this._clearStartTimer();
+      if (this.state !== 'recording' && this.state !== 'paused') {
+        this._setState('recording');
       }
+    } else if (state.isRecording === false && this.state !== 'idle') {
+      // Recognition ended on its own; the callbacks have already run, so do not call onStop.
+      this._clearStartTimer();
+      this._setState('idle');
+      this.hideInterimDisplay();
     }
 
     if (state.error) {
@@ -742,31 +1148,46 @@ export class MicrophoneButton {
   }
 
   /**
-   * Show error state
-   * @param {string} message - Error message
+   * Something went wrong: flash, and return to idle so the button can be pressed again.
+   * The message is reported to the student by the caller (once), not from here.
+   * @param {string} message - Plain-language error message
    */
   showError(message) {
     console.error('[MicButton] Error:', message);
 
-    // Briefly flash button red
-    this.button.style.background = 'linear-gradient(135deg, #ff0000 0%, #990000 100%)';
+    this._clearStartTimer();
+    this._setState('idle');
+    this.hideInterimDisplay();
 
+    this.button.style.background = 'linear-gradient(135deg, #b00020 0%, #7f0000 100%)';
     setTimeout(() => {
-      this.button.style.background = '';
+      if (this.button) {
+        this.button.style.background = '';
+      }
     }, 300);
+  }
 
-    this.onError(message);
+  /**
+   * Cancel the wait-for-microphone timer.
+   */
+  _clearStartTimer() {
+    if (this._startTimer) {
+      clearTimeout(this._startTimer);
+      this._startTimer = null;
+    }
   }
 
   /**
    * Cleanup and destroy button
    */
   destroy() {
-    if (this.isRecording) {
-      this.stopRecording();
-    }
+    this._clearStartTimer();
+    this.state = 'idle';
+
+    unwatchDictationShortcut(this._repaintShortcut);
 
     this._detachScrollListeners();
+    this._detachFieldKeyHandler();
     this.hideTooltip();
     this.hideInterimDisplay();
     this.hideRecordingIndicator();
@@ -791,5 +1212,8 @@ export class MicrophoneButton {
     console.log('[MicButton] Destroyed');
   }
 }
+
+/** Exposed so tests and callers share one definition of the wait. */
+MicrophoneButton.START_TIMEOUT_MS = START_TIMEOUT_MS;
 
 export default MicrophoneButton;

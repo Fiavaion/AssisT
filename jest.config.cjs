@@ -14,10 +14,11 @@ module.exports = {
     }]
   },
 
-  // Allow Jest to transform ESM packages in node_modules
-  // Dexie uses ESM exports that Jest can't parse without transformation
+  // Allow Jest to transform ESM packages in node_modules.
+  // Dexie (storage tests) and the d3 modules the mind map canvas pans, zooms and drags with are
+  // published as ESM only, so Jest cannot parse them until Babel has been over them.
   transformIgnorePatterns: [
-    'node_modules/(?!(dexie)/)'
+    'node_modules/(?!(dexie|d3-[a-z-]+|internmap)/)'
   ],
 
   // Module name mapper for CSS and other non-JS imports
@@ -69,7 +70,14 @@ module.exports = {
   // Ignore patterns
   testPathIgnorePatterns: [
     '/node_modules/',
-    '/Output/'
+    '/Output/',
+    '/.claude/'
+  ],
+
+  // Keep jest-haste-map out of agent worktrees under .claude/ — they hold duplicate copies of
+  // manual mocks (tests/__mocks__/styleMock.js) and configs that otherwise collide in the map.
+  modulePathIgnorePatterns: [
+    '<rootDir>/.claude/'
   ],
 
   // Verbose output for debugging

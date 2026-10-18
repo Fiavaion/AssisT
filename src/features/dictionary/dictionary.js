@@ -4,7 +4,8 @@
  * Provides word definitions, pronunciations, and usage examples using the Free Dictionary API
  *
  * Features:
- * - Free Dictionary API integration (https://dictionaryapi.dev/)
+ * - Free Dictionary API, reached through the service worker once the student has allowed it
+ *   (ADR 0006); this content script never fetches it directly
  * - Modal popup UI with clean design
  * - Definitions grouped by part of speech
  * - IPA pronunciation display
@@ -24,13 +25,31 @@
 
 import { registerShortcut } from '../../utils/keyboard-shortcuts.js';
 import { Z } from '../../utils/z-index.js';
-import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { sanitizeHTML, sanitizeText } from '../../utils/sanitize.js';
+import { attachAccessibleHandler, attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog } from '../../utils/dialog-return-focus.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { requestThirdParty } from '../../utils/third-party-client.js';
+import { createDeclinedNotice } from '../../utils/consent-panel.js';
 
 let dictionary_modal = null;
 const dictionary_cache = new Map(); // LRU cache for lookups
 const dictionary_cacheMaxSize = 100;
 let dictionary_currentAudio = null;
+let dictionary_releaseFocus = null;
+let dictionary_returnFocus = null;
+/**
+ * Bumped by every lookup and by closing the dialog, so a slow answer that arrives after the
+ * student has walked away cannot put the dialog back up.
+ */
+let dictionary_lookupId = 0;
+
+/**
+ * A dictionary looks up words. Beyond a short phrase there is nothing for it to find, and the
+ * whole sentence a student had selected was sent to the API and timed out.
+ */
+const DICTIONARY_MAX_WORDS = 3;
 
 const dictionary_settings = {
   enabled: true,
@@ -39,9 +58,10 @@ const dictionary_settings = {
 };
 
 /**
- * Fetches word definition from Free Dictionary API
+ * Fetches a word's definition from the Free Dictionary API, through the service worker.
  *
- * API Docs: https://dictionaryapi.dev/
+ * The first lookup asks the student whether the word may be sent; a "not now" comes back as a
+ * 'declined' failure, and nothing is sent.
  *
  * @param {string} word - Word to look up
  * @returns {Promise<Object>} Dictionary data
@@ -51,35 +71,81 @@ async function dictionary_fetchDefinition(word) {
 
   // Check cache first
   if (dictionary_cache.has(normalizedWord)) {
-    console.log(`[Dictionary] Cache hit for: ${normalizedWord}`);
+    debugLog(`[Dictionary] Cache hit for: ${normalizedWord}`);
     return dictionary_cache.get(normalizedWord);
   }
 
-  console.log(`[Dictionary] Fetching definition for: ${normalizedWord}`);
+  debugLog(`[Dictionary] Fetching definition for: ${normalizedWord}`);
 
-  try {
-    const response = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(normalizedWord)}`,
-      { signal: AbortSignal.timeout(8000) }
-    );
+  const reply = await requestThirdParty(
+    'dictionary',
+    { word: normalizedWord },
+    { detail: normalizedWord, returnFocus: dictionary_returnFocus }
+  );
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(`No definition found for "${word}"`);
-      }
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Cache the result
-    dictionary_addToCache(normalizedWord, data);
-
-    return data;
-  } catch (error) {
-    console.error('[Dictionary] API error:', error);
-    throw error;
+  if (reply.success) {
+    dictionary_addToCache(normalizedWord, reply.data);
+    return reply.data;
   }
+
+  if (reply.code === 'consent-declined' || reply.code === 'consent-unasked') {
+    throw dictionary_failure('declined', 'The student has not allowed the dictionary service');
+  }
+  if (reply.code === 'not-found') {
+    throw dictionary_failure('not-found', `No definition found for "${word}"`);
+  }
+  // A timeout or a dropped connection is NOT a missing word. Anything that is not an explicit
+  // "not found" is a reachability problem and has to be reported as one.
+  console.error('[Dictionary] Lookup failed:', reply.code, reply.error);
+  throw dictionary_failure('unreachable', reply.error || reply.code);
+}
+
+/**
+ * Build a classified dictionary failure.
+ *
+ * The distinction matters more than it looks. Telling a student their word does not exist, when
+ * really the service was unreachable, invites them to doubt spelling that was correct — precisely
+ * the wrong failure mode for the people this extension is for.
+ *
+ * @param {'not-found'|'unreachable'|'declined'} kind
+ * @param {string} message - developer-facing detail, for the console
+ * @returns {Error}
+ */
+function dictionary_failure(kind, message) {
+  const error = new Error(message);
+  error.kind = kind;
+  return error;
+}
+
+/**
+ * Decide what a student is told about a failed lookup.
+ *
+ * Exported so the wording itself is test-locked: the difference between "your word doesn't exist"
+ * and "we couldn't reach the dictionary" is the whole point of this code path, and it must not
+ * quietly regress back to one generic message.
+ *
+ * @param {string} word - the word that was looked up
+ * @param {Error|string} error - the classified failure, or a bare message
+ * @returns {{kind:string, detail:string, unreachable:boolean, icon:string, heading:string, body:string}}
+ */
+export function describeDictionaryFailure(word, error) {
+  // Anything that did not explicitly come back as a 404 is treated as a reachability problem —
+  // failing towards "our fault", never towards blaming the student's spelling.
+  const kind = (error && error.kind) === 'not-found' ? 'not-found' : 'unreachable';
+  const detail = (typeof error === 'string' ? error : error && error.message) || 'unknown error';
+  const unreachable = kind !== 'not-found';
+  const safeWord = sanitizeText(String(word === null || word === undefined ? '' : word));
+
+  return {
+    kind,
+    detail,
+    unreachable,
+    icon: unreachable ? '📡' : '📖',
+    heading: unreachable ? 'Dictionary Unavailable' : 'Word Not Found',
+    body: unreachable
+      ? `We could not reach the dictionary service just now. This is a problem at their end — nothing to do with how you spelled &ldquo;${safeWord}&rdquo;. Try again in a moment.`
+      : `We could not find a definition for &ldquo;${safeWord}&rdquo;. It may be a name, an abbreviation, or a very unusual word — check the spelling and try again.`,
+  };
 }
 
 /**
@@ -96,7 +162,7 @@ function dictionary_addToCache(word, data) {
   }
 
   dictionary_cache.set(word, data);
-  console.log(`[Dictionary] Cached: ${word} (${dictionary_cache.size}/${dictionary_cacheMaxSize})`);
+  console.log(`[Dictionary] Cached a lookup (${dictionary_cache.size}/${dictionary_cacheMaxSize})`);
 }
 
 /**
@@ -107,25 +173,7 @@ function dictionary_addToCache(word, data) {
  * @returns {HTMLElement} Modal element
  */
 function dictionary_createModal(word, data) {
-  const modal = document.createElement('div');
-  modal.id = 'assist-dictionary-modal';
-  modal.setAttribute('role', 'dialog');
-  modal.setAttribute('aria-labelledby', 'assist-dictionary-title');
-  modal.setAttribute('aria-modal', 'true');
-
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: ${Z.MODAL};
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  `;
+  const modal = dictionary_createShell();
 
   const content = document.createElement('div');
   content.className = 'assist-dictionary-content';
@@ -350,29 +398,21 @@ function dictionary_addModalEventListeners(modal, _data) {
   // Close button
   const closeBtn = modal.querySelector('.assist-dictionary-close');
   if (closeBtn) {
-    attachInteractiveHandler(closeBtn, 'Dictionary Close Button', () => dictionary_hide());
+    attachAccessibleHandler(closeBtn, 'Dictionary Close Button', () => dictionary_hide());
   }
 
-  // Click outside to close
+  // Click outside to close. Escape is the focus trap's job, so there is no document-level
+  // key listener here any more — the old one outlived the dialog it belonged to.
   attachInteractiveHandler(modal, 'Dictionary Modal Backdrop', e => {
     if (e.target === modal) {
       dictionary_hide();
     }
   });
 
-  // Escape key to close
-  const escapeHandler = e => {
-    if (e.key === 'Escape') {
-      dictionary_hide();
-      document.removeEventListener('keydown', escapeHandler);
-    }
-  };
-  document.addEventListener('keydown', escapeHandler);
-
   // Audio playback
   const audioBtn = modal.querySelector('.assist-dictionary-play-audio');
   if (audioBtn) {
-    attachInteractiveHandler(audioBtn, 'Dictionary Audio Playback Button', () => {
+    attachAccessibleHandler(audioBtn, 'Dictionary Audio Playback Button', () => {
       const audioUrl = audioBtn.getAttribute('data-audio-url');
       dictionary_playAudio(audioUrl);
     });
@@ -381,7 +421,7 @@ function dictionary_addModalEventListeners(modal, _data) {
   // Synonym buttons (clickable to look up synonym)
   const synonymBtns = modal.querySelectorAll('.assist-dictionary-synonym');
   synonymBtns.forEach(btn => {
-    attachInteractiveHandler(btn, 'Dictionary Synonym Button', () => {
+    attachAccessibleHandler(btn, 'Dictionary Synonym Button', () => {
       const word = btn.getAttribute('data-word');
       dictionary_lookup(word);
     });
@@ -392,102 +432,122 @@ function dictionary_addModalEventListeners(modal, _data) {
  * Shows the dictionary modal with word definition
  *
  * @param {string} word - Word to look up
+ * @param {{returnFocus?: HTMLElement}} [options] - Where focus goes when the dialog closes.
+ *   Omitted by a lookup started from inside the dialog (a synonym), which keeps the target the
+ *   first lookup was given.
  */
-async function dictionary_lookup(word) {
-  console.log(`[Dictionary] Looking up: ${word}`);
+async function dictionary_lookup(word, options = {}) {
+  if (options.returnFocus) {
+    dictionary_returnFocus = options.returnFocus;
+  }
 
-  // Show loading state
+  const words = dictionary_countWords(word);
+
+  if (words === 0) {
+    console.log('[Dictionary] Nothing to look up');
+    return;
+  }
+
+  if (words > DICTIONARY_MAX_WORDS) {
+    dictionary_showTooLong();
+    return;
+  }
+
+  debugLog(`[Dictionary] Looking up: ${word}`);
+
+  const lookupId = ++dictionary_lookupId;
   dictionary_showLoading(word);
 
   try {
     const data = await dictionary_fetchDefinition(word);
+    if (lookupId !== dictionary_lookupId) {
+      return; // The student closed the dialog while this was in the air.
+    }
     dictionary_showDefinition(word, data);
   } catch (error) {
-    dictionary_showError(word, error.message);
+    if (lookupId !== dictionary_lookupId) {
+      return;
+    }
+    if (error.kind === 'declined') {
+      dictionary_showDeclined(word);
+      return;
+    }
+    dictionary_showError(word, error);
   }
 }
 
 /**
- * Shows loading state
+ * Says that nothing was looked up because the student chose not to use the dictionary service,
+ * and offers to allow it right here. Allowing runs the same lookup again.
  *
- * @param {string} word - Word being looked up
+ * @param {string} word - The word the student asked about.
  */
-function dictionary_showLoading(word) {
-  dictionary_hide(); // Remove existing modal
+function dictionary_showDeclined(word) {
+  const modal = dictionary_createShell();
 
-  const modal = document.createElement('div');
-  modal.id = 'assist-dictionary-modal';
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: ${Z.MODAL};
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 420px;
+    color: #1a1a1a;
   `;
 
-  modal.innerHTML = sanitizeHTML(`
-    <div style="
-      background: white;
-      border-radius: 12px;
-      padding: 40px;
-      text-align: center;
-    ">
-      <div style="font-size: 18px; color: #666;">
-        Looking up "<strong>${word}</strong>"...
-      </div>
-    </div>
-  `);
+  const heading = document.createElement('h2');
+  heading.id = 'assist-dictionary-title';
+  heading.style.cssText = 'margin: 0 0 12px 0; font-size: 20px; color: #1a1a1a;';
+  heading.textContent = 'Not looked up';
 
-  document.body.appendChild(modal);
-  dictionary_modal = modal;
+  const notice = createDeclinedNotice('dictionary', {
+    onAllowed: () => dictionary_lookup(word),
+    // The question asked again shows the word that would be sent, as the first one did.
+    panelOptions: { detail: word.trim().toLowerCase() },
+  });
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'assist-dictionary-close';
+  close.textContent = 'Close';
+  close.style.cssText = `
+    margin-top: 12px;
+    background: transparent;
+    border: 1px solid #767676;
+    border-radius: 6px;
+    padding: 10px 24px;
+    min-height: 44px;
+    color: #1a1a1a;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  `;
+  attachAccessibleHandler(close, 'Dictionary Declined Close', () => dictionary_hide());
+
+  content.append(heading, notice, close);
+  modal.appendChild(content);
+
+  dictionary_present(modal, '[data-assist-consent-notice] button');
 }
 
 /**
- * Shows the definition in modal
+ * How many words a selection holds.
  *
- * @param {string} word - Word
- * @param {Object} data - Dictionary data
+ * @param {string} text - The selected text.
+ * @returns {number} Word count.
  */
-function dictionary_showDefinition(word, data) {
-  dictionary_hide(); // Remove loading modal
-
-  const modal = dictionary_createModal(word, data);
-  document.body.appendChild(modal);
-  dictionary_modal = modal;
-
-  console.log('[Dictionary] Definition displayed');
+function dictionary_countWords(text) {
+  return String(text === null || text === undefined ? '' : text)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
 }
 
 /**
- * Shows error message
- *
- * @param {string} word - Word
- * @param {string} errorMessage - Error message
+ * Says that the selection is too long to look up, and asks for less. No request is made: the
+ * API has nothing to say about a sentence, and asking it cost the student a timeout.
  */
-function dictionary_showError(word, errorMessage) {
-  dictionary_hide(); // Remove loading modal
-
-  const modal = document.createElement('div');
-  modal.id = 'assist-dictionary-modal';
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: ${Z.MODAL};
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  `;
+function dictionary_showTooLong() {
+  const modal = dictionary_createShell();
 
   modal.innerHTML = sanitizeHTML(`
     <div style="
@@ -497,18 +557,22 @@ function dictionary_showError(word, errorMessage) {
       max-width: 400px;
       text-align: center;
     ">
-      <div style="font-size: 48px; margin-bottom: 16px;">📖</div>
-      <h2 style="margin: 0 0 12px 0; font-size: 20px; color: #1a1a1a;">Word Not Found</h2>
-      <p style="margin: 0 0 20px 0; color: #666; line-height: 1.6;">
-        ${errorMessage}
+      <div style="font-size: 48px; margin-bottom: 16px;" aria-hidden="true">📖</div>
+      <h2 id="assist-dictionary-title" style="margin: 0 0 12px 0; font-size: 20px; color: #1a1a1a;">
+        That is more than a word
+      </h2>
+      <p style="margin: 0 0 20px 0; color: #4a4a4a; line-height: 1.6;">
+        Select one word or a short phrase and look it up again. The dictionary can define a word
+        or two, but not a whole sentence.
       </p>
       <button
         class="assist-dictionary-close"
         style="
-          background: #4285f4;
+          background: #1a73e8;
           border: none;
           border-radius: 6px;
           padding: 10px 24px;
+          min-height: 44px;
           color: white;
           font-size: 14px;
           font-weight: 500;
@@ -518,22 +582,221 @@ function dictionary_showError(word, errorMessage) {
     </div>
   `);
 
+  attachAccessibleHandler(
+    modal.querySelector('.assist-dictionary-close'),
+    'Dictionary Too Long Close',
+    () => dictionary_hide()
+  );
+
+  dictionary_present(modal, '.assist-dictionary-close');
+}
+
+/**
+ * The overlay every dictionary dialog shares: a labelled modal, so a screen reader is told
+ * what it has landed in and the page behind is out of play.
+ *
+ * @returns {HTMLElement} The overlay element.
+ */
+function dictionary_createShell() {
+  const modal = document.createElement('div');
+  modal.id = 'assist-dictionary-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'assist-dictionary-title');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: ${Z.MODAL};
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  `;
+  return modal;
+}
+
+/**
+ * Shows loading state
+ *
+ * @param {string} word - Word being looked up
+ */
+function dictionary_showLoading(word) {
+  const modal = dictionary_createShell();
+
+  modal.innerHTML = sanitizeHTML(`
+    <div style="
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+    ">
+      <h2
+        id="assist-dictionary-title"
+        style="margin: 0 0 20px 0; font-size: 18px; font-weight: 400; color: #4a4a4a;"
+      >Looking up &ldquo;${word}&rdquo;&hellip;</h2>
+      <button
+        class="assist-dictionary-close"
+        style="
+          background: transparent;
+          border: 1px solid #767676;
+          border-radius: 6px;
+          padding: 10px 24px;
+          min-height: 44px;
+          color: #1a1a1a;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+        "
+      >Cancel</button>
+    </div>
+  `);
+
+  // A wait with no way out is a trap. Cancel abandons the lookup, and Escape does the same.
+  attachAccessibleHandler(
+    modal.querySelector('.assist-dictionary-close'),
+    'Dictionary Loading Cancel',
+    () => dictionary_hide()
+  );
+
+  dictionary_present(modal, '.assist-dictionary-close');
+}
+
+/**
+ * Shows the definition in modal
+ *
+ * @param {string} word - Word
+ * @param {Object} data - Dictionary data
+ */
+function dictionary_showDefinition(word, data) {
+  dictionary_present(dictionary_createModal(word, data), '.assist-dictionary-close');
+
+  console.log('[Dictionary] Definition displayed');
+}
+
+/**
+ * Shows error message
+ *
+ * @param {string} word - Word
+ * @param {Error|string} error - the classified failure (see dictionary_failure)
+ */
+function dictionary_showError(word, error) {
+  const { kind, detail, unreachable, icon, heading, body } = describeDictionaryFailure(word, error);
+
+  const modal = dictionary_createShell();
+
+  modal.innerHTML = sanitizeHTML(`
+    <div style="
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 400px;
+      text-align: center;
+    ">
+      <div style="font-size: 48px; margin-bottom: 16px;" aria-hidden="true">${icon}</div>
+      <h2 id="assist-dictionary-title" style="margin: 0 0 12px 0; font-size: 20px; color: #1a1a1a;">${heading}</h2>
+      <p style="margin: 0 0 20px 0; color: #4a4a4a; line-height: 1.6;">
+        ${body}
+      </p>
+      <div style="display: flex; gap: 8px; justify-content: center;">
+        ${
+          unreachable
+            ? `<button
+        class="assist-dictionary-retry"
+        style="
+          background: #1a73e8;
+          border: none;
+          border-radius: 6px;
+          padding: 10px 24px;
+          min-height: 44px;
+          color: white;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+        "
+      >Try again</button>`
+            : ''
+        }
+        <button
+          class="assist-dictionary-close"
+          style="
+            background: ${unreachable ? 'transparent' : '#1a73e8'};
+            border: ${unreachable ? '1px solid #767676' : 'none'};
+            border-radius: 6px;
+            padding: 10px 24px;
+            min-height: 44px;
+            color: ${unreachable ? '#1a1a1a' : 'white'};
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+          "
+        >Close</button>
+      </div>
+    </div>
+  `);
+
   attachInteractiveHandler(modal, 'Dictionary Error Modal Backdrop', e => {
+    if (e.target.classList && e.target.classList.contains('assist-dictionary-retry')) {
+      dictionary_hide();
+      dictionary_lookup(word);
+      return;
+    }
     if (e.target === modal || e.target.classList.contains('assist-dictionary-close')) {
       dictionary_hide();
     }
   });
 
-  document.body.appendChild(modal);
-  dictionary_modal = modal;
+  // Focus the primary action so the modal is operable from the keyboard the moment it opens.
+  dictionary_present(modal, '.assist-dictionary-retry, .assist-dictionary-close');
 
-  console.warn(`[Dictionary] Error: ${errorMessage}`);
+  console.warn(`[Dictionary] ${kind}: ${detail}`);
 }
 
 /**
- * Hides the dictionary modal
+ * Puts a dialog on the page in place of whatever the dictionary was showing, and keeps the
+ * keyboard inside it.
+ *
+ * Every one of these dialogs claims aria-modal="true", so Tab has to stay in and Escape has to
+ * close (SC 2.1.2). Focus is moved explicitly rather than left where it was: the highlight menu
+ * that opened the lookup activates on mousedown and is removed straight away, so there is
+ * nothing for the trap to restore to and focus was dropping to the top of the page.
+ *
+ * @param {HTMLElement} modal - The dialog to show.
+ * @param {string} initialFocusSelector - The control focus lands on inside it.
  */
-function dictionary_hide() {
+function dictionary_present(modal, initialFocusSelector) {
+  dictionary_teardown();
+
+  document.body.appendChild(modal);
+  dictionary_modal = modal;
+
+  const initialFocus = modal.querySelector(initialFocusSelector);
+  dictionary_releaseFocus = trapFocus(modal, {
+    onEscape: () => dictionary_hide(),
+    initialFocus,
+  });
+  // Now, not on the trap's next tick. One dictionary dialog replaces another (waiting, then the
+  // definition), and in between focus sat on the page behind: a consent panel opened over the
+  // waiting dialog remembered the page as the place to go back to, and the definition could be on
+  // screen with focus still outside it.
+  if (initialFocus) {
+    initialFocus.focus();
+  }
+}
+
+/**
+ * Take down whatever is showing, without deciding where focus goes: used when one dictionary
+ * dialog replaces another (loading to definition) and the keyboard never leaves the feature.
+ */
+function dictionary_teardown() {
+  if (dictionary_releaseFocus) {
+    dictionary_releaseFocus();
+    dictionary_releaseFocus = null;
+  }
+
   if (dictionary_modal) {
     dictionary_modal.remove();
     dictionary_modal = null;
@@ -544,6 +807,17 @@ function dictionary_hide() {
     dictionary_currentAudio.pause();
     dictionary_currentAudio = null;
   }
+}
+
+/**
+ * Closes the dictionary for good: the dialog goes, a lookup still in flight is abandoned, and
+ * focus goes back to the words the student had selected.
+ */
+function dictionary_hide() {
+  dictionary_lookupId += 1;
+  dictionary_teardown();
+  returnFocusAfterDialog(dictionary_returnFocus);
+  dictionary_returnFocus = null;
 }
 
 /**
@@ -592,7 +866,7 @@ function dictionary_init() {
   chrome.storage.local.get(['dictionarySettings'], result => {
     if (result.dictionarySettings) {
       Object.assign(dictionary_settings, result.dictionarySettings);
-      console.log('[Dictionary] Settings loaded:', dictionary_settings);
+      console.log('[Dictionary] Settings loaded:', Object.keys(dictionary_settings).join(', '));
     }
   });
 
@@ -613,7 +887,7 @@ function dictionary_init() {
 /**
  * Cleanup function
  */
-function dictionary_cleanup() {
+export function dictionary_cleanup() {
   console.log('[Dictionary] Cleaning up...');
   dictionary_hide();
   // Shortcut unregistration is handled automatically by shortcuts manager
@@ -622,14 +896,4 @@ function dictionary_cleanup() {
 // Auto-initialize when script loads
 if (typeof window !== 'undefined') {
   dictionary_init();
-}
-
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    dictionary_init,
-    dictionary_cleanup,
-    dictionary_lookup,
-    dictionary_hide,
-  };
 }

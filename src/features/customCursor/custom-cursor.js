@@ -5,12 +5,45 @@
  */
 
 import { initFeatureSettings } from '../../content/utils/storage-utils.js';
+import { Z } from '../../utils/z-index.js';
 
 let enabled = false;
 let settings = null;
 let cursorOverlay = null;
-let mouseMoveHandler = null;
 let cursorHideStyle = null;
+
+/**
+ * Where the drawn cursor's top-left sits relative to the pointer for the current settings.
+ * The arrow's tip is at its top-left corner; every other style is centred on the pointer.
+ * @returns {{x: number, y: number}}
+ */
+function pointerOffset() {
+  const size = settings?.size || 32;
+  if ((settings?.style || 'crosshair') === 'arrow') {
+    const tip = size * (4 / 32);
+    return { x: tip, y: tip };
+  }
+  return { x: size / 2, y: size / 2 };
+}
+
+/**
+ * Move the drawn cursor under the pointer.
+ *
+ * Registered in the capture phase: a page that stops mousemove at its own editor (Google Docs
+ * does) would otherwise leave the system cursor hidden and this one parked where it started.
+ * @param {MouseEvent} e
+ */
+function positionCursor(e) {
+  if (!cursorOverlay) {
+    return;
+  }
+  const { x, y } = pointerOffset();
+  cursorOverlay.style.left = `${e.clientX - x}px`;
+  cursorOverlay.style.top = `${e.clientY - y}px`;
+  cursorOverlay.style.opacity = '1';
+}
+
+const POINTER_LISTENER = { capture: true, passive: true };
 
 const DEFAULT_SETTINGS = {
   enabled: false,
@@ -131,7 +164,7 @@ function initCustomCursor() {
   cursor.style.cssText = `
     position: fixed;
     pointer-events: none;
-    z-index: 2147483647;
+    z-index: ${Z.POINTER};
     opacity: 0;
     transition: opacity 0.15s ease-out;
   `;
@@ -154,48 +187,12 @@ function initCustomCursor() {
   `;
   document.head.appendChild(cursorHideStyle);
 
-  // Track mouse movement
-  mouseMoveHandler = e => {
-    if (!cursorOverlay) {
-      return;
-    }
+  document.addEventListener('mousemove', positionCursor, POINTER_LISTENER);
 
-    const size = settings.size || 32;
-    const style = settings.style || 'crosshair';
-
-    // Arrow tip is at top-left (~4/32 of size), other styles are centered
-    let offsetX, offsetY;
-    if (style === 'arrow') {
-      const tipOffset = size * (4 / 32);
-      offsetX = tipOffset;
-      offsetY = tipOffset;
-    } else {
-      offsetX = size / 2;
-      offsetY = size / 2;
-    }
-
-    cursorOverlay.style.left = `${e.clientX - offsetX}px`;
-    cursorOverlay.style.top = `${e.clientY - offsetY}px`;
-    cursorOverlay.style.opacity = '1';
-  };
-
-  document.addEventListener('mousemove', mouseMoveHandler, { passive: true });
-
-  // Initialize position at center
-  const centerX = window.innerWidth / 2;
-  const centerY = window.innerHeight / 2;
-  const initSize = settings.size || 32;
-  const initStyle = settings.style || 'crosshair';
-  let initOffX, initOffY;
-  if (initStyle === 'arrow') {
-    initOffX = initSize * (4 / 32);
-    initOffY = initSize * (4 / 32);
-  } else {
-    initOffX = initSize / 2;
-    initOffY = initSize / 2;
-  }
-  cursor.style.left = `${centerX - initOffX}px`;
-  cursor.style.top = `${centerY - initOffY}px`;
+  // Start in the middle of the viewport until the pointer moves
+  const { x, y } = pointerOffset();
+  cursor.style.left = `${window.innerWidth / 2 - x}px`;
+  cursor.style.top = `${window.innerHeight / 2 - y}px`;
 
   // Show cursor after a moment
   setTimeout(() => {
@@ -203,8 +200,6 @@ function initCustomCursor() {
       cursorOverlay.style.opacity = '1';
     }
   }, 100);
-
-  console.log('[CustomCursor] Custom cursor initialized:', settings);
 }
 
 /**
@@ -225,36 +220,8 @@ function updateCustomCursor() {
     return;
   }
 
-  // Update cursor style
+  // The listener reads `settings` on every move, so a new size or style needs no re-binding.
   applyCursorStyle(cursorOverlay, settings);
-
-  // Update mousemove handler with new size
-  if (mouseMoveHandler) {
-    document.removeEventListener('mousemove', mouseMoveHandler);
-  }
-
-  mouseMoveHandler = e => {
-    if (!cursorOverlay) {
-      return;
-    }
-
-    const size = settings.size || 32;
-    const style = settings.style || 'crosshair';
-    let offsetX, offsetY;
-    if (style === 'arrow') {
-      const tipOffset = size * (4 / 32);
-      offsetX = tipOffset;
-      offsetY = tipOffset;
-    } else {
-      offsetX = size / 2;
-      offsetY = size / 2;
-    }
-
-    cursorOverlay.style.left = `${e.clientX - offsetX}px`;
-    cursorOverlay.style.top = `${e.clientY - offsetY}px`;
-  };
-
-  document.addEventListener('mousemove', mouseMoveHandler, { passive: true });
 }
 
 /**
@@ -263,11 +230,7 @@ function updateCustomCursor() {
 function removeCustomCursor() {
   console.log('[CustomCursor] Removing custom cursor...');
 
-  // Remove event listener
-  if (mouseMoveHandler) {
-    document.removeEventListener('mousemove', mouseMoveHandler);
-    mouseMoveHandler = null;
-  }
+  document.removeEventListener('mousemove', positionCursor, POINTER_LISTENER);
 
   // Remove cursor element
   if (cursorOverlay) {
@@ -281,34 +244,27 @@ function removeCustomCursor() {
     cursorHideStyle = null;
   }
 
-  // Restore system cursor
+  // Restore system cursor. Clearing the declaration leaves `style=""` behind on a body
+  // that had no style attribute of its own, which is a leftover the student cannot clear
+  // without reloading — so the emptied attribute goes too, and any the page set stays.
   if (document.body) {
     document.body.style.cursor = '';
+    if (document.body.getAttribute('style') === '') {
+      document.body.removeAttribute('style');
+    }
   }
 }
 
 /**
  * Apply settings changes
  * @param {Object} newSettings - New settings object
- * @param {boolean} isInit - Whether this is the initial settings load
  */
-function applySettings(newSettings, isInit = false) {
+function applySettings(newSettings) {
+  // Every frame draws its own cursor: mouse events never cross a document boundary, so a cursor
+  // owned by the top document alone would freeze the moment the pointer entered an iframe.
   const wasEnabled = enabled;
-
-  console.log('[CustomCursor] applySettings called with:', {
-    newSettings,
-    isInit,
-    wasEnabled,
-  });
-
-  // Update local state
   settings = newSettings;
   enabled = settings?.enabled || false;
-
-  console.log('[CustomCursor] After state update:', {
-    enabled,
-    settings,
-  });
 
   // Handle enable/disable transitions
   if (enabled && !wasEnabled) {
@@ -321,23 +277,4 @@ function applySettings(newSettings, isInit = false) {
   }
 }
 
-/**
- * Cleanup function
- */
-function cleanup() {
-  console.log('[CustomCursor] Cleaning up...');
-  removeCustomCursor();
-  enabled = false;
-}
-
-// Initialize feature settings with storage utility
-initFeatureSettings(
-  'customCursor',
-  DEFAULT_SETTINGS,
-  settings => applySettings(settings, true),
-  settings => applySettings(settings, false)
-);
-
-console.log('[CustomCursor] Module loaded');
-
-export { applySettings, cleanup, DEFAULT_SETTINGS };
+initFeatureSettings('customCursor', DEFAULT_SETTINGS, applySettings, applySettings);

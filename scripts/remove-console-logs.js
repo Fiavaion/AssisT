@@ -68,18 +68,8 @@ function isInJSDoc(content, index) {
  * Remove console.log statements from content
  * Handles single-line and multi-line cases
  */
-function removeConsoleLogs(content, filePath) {
+function removeConsoleLogs(content) {
   let removedCount = 0;
-  const relativePath = path.relative(rootDir, filePath);
-
-  // Pattern to match console.log statements
-  // Handles: console.log('...'), console.log(`...`), console.log(...) with nested parens
-  const patterns = [
-    // Single line console.log with semicolon
-    /^\s*console\.log\([^)]*\);\s*\n?/gm,
-    // Multi-line console.log (handles template literals and nested calls)
-    /^\s*console\.log\([\s\S]*?\);\s*\n?/gm,
-  ];
 
   let newContent = content;
 
@@ -99,7 +89,6 @@ function removeConsoleLogs(content, filePath) {
   const newLines = [];
   let inMultiLineLog = false;
   let parenDepth = 0;
-  let multiLineStart = -1;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -121,8 +110,8 @@ function removeConsoleLogs(content, filePath) {
       // Count parentheses to handle multi-line
       parenDepth = 0;
       for (const char of line) {
-        if (char === '(') parenDepth++;
-        if (char === ')') parenDepth--;
+        if (char === '(') {parenDepth++;}
+        if (char === ')') {parenDepth--;}
       }
 
       if (parenDepth === 0 && line.includes(');')) {
@@ -132,7 +121,6 @@ function removeConsoleLogs(content, filePath) {
       } else {
         // Multi-line console.log
         inMultiLineLog = true;
-        multiLineStart = i;
         continue;
       }
     }
@@ -140,8 +128,8 @@ function removeConsoleLogs(content, filePath) {
     // Continue multi-line console.log
     if (inMultiLineLog) {
       for (const char of line) {
-        if (char === '(') parenDepth++;
-        if (char === ')') parenDepth--;
+        if (char === '(') {parenDepth++;}
+        if (char === ')') {parenDepth--;}
       }
 
       if (parenDepth <= 0 && line.includes(');')) {
@@ -180,7 +168,7 @@ function processFile(filePath) {
     return;
   }
 
-  const { content: newContent, removed } = removeConsoleLogs(content, filePath);
+  const { content: newContent, removed } = removeConsoleLogs(content);
 
   if (removed > 0) {
     fs.writeFileSync(filePath, newContent, 'utf8');

@@ -20,6 +20,7 @@
  */
 
 import { hexToRgba } from '../utils/color.js';
+import { leafSlice } from './scope-resolver.js';
 
 let currentHighlight = null;
 
@@ -243,7 +244,7 @@ export function removeElementHighlight(element) {
 /**
  * Hybrid word-by-word highlighter driven by onboundary + char-weighted prediction.
  *
- * INVARIANT: `text` MUST equal `leaves.map(l => l.textContent.trim()).join('\n\n')`
+ * INVARIANT: `text` MUST equal `leaves.map(leafText).join('\n\n')` (scope-resolver.js)
  * — the boundary event's charIndex maps into this concatenated string, and the
  * scheduler depends on word ordering matching exactly. Callers that produce
  * `text` and `leaves` independently (e.g., AI-generated summaries) MUST NOT
@@ -256,7 +257,8 @@ export function removeElementHighlight(element) {
  * @param {string} settings.highlightColor
  * @param {number} settings.highlightOpacity
  * @param {boolean} [settings.autoScroll] - scroll active word into view when off-screen
- * @param {HTMLElement[]} [leaves] - text-leaf elements to wrap; defaults to [element]
+ * @param {Array<HTMLElement|{element: HTMLElement, start: number, end: number}>} [leaves]
+ *   text-leaf elements, or slices of them, to wrap; defaults to [element]
  */
 export function highlightWordByWord(element, text, utterance, settings, leaves) {
   // Defensive: if a previous run left leaves wrapped, restore them first.
@@ -272,13 +274,16 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
   let charCursor = 0;
 
   for (let li = 0; li < targetLeaves.length; li++) {
-    const leaf = targetLeaves[li];
-    if (!leaf) {
+    if (!targetLeaves[li]) {
       continue;
     }
+    // A slice leaf (a selection) wraps its whole block but only times and
+    // highlights the words inside [start, end); words outside fall outside
+    // the trimmed slice text below and are dropped.
+    const { element: leaf, start: sliceStart, end: sliceEnd } = leafSlice(targetLeaves[li]);
 
-    const fullText = leaf.textContent;
-    const leafText = fullText?.trim();
+    const sliceText = leaf.textContent.slice(sliceStart, sliceEnd);
+    const leafText = sliceText.trim();
     if (!leafText) {
       continue;
     }
@@ -288,7 +293,7 @@ export function highlightWordByWord(element, text, utterance, settings, leaves) 
       unwrapLeafSpans(leaf);
     }
 
-    const leadingWs = fullText.length - fullText.trimStart().length;
+    const leadingWs = sliceStart + sliceText.length - sliceText.trimStart().length;
     const { spans: leafSpans, positions: leafPositions } = wrapLeafTextNodes(leaf);
 
     if (leafSpans.length > 0) {

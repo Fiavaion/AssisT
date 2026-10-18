@@ -12,17 +12,23 @@
  */
 
 /**
- * Citation types supported by the system
+ * Citation types supported by the system. Mirrors the canonical ids registered in
+ * type-registry.js, which is the single source of truth for their labels and export types.
+ * What a page can reveal about its own type is decided in metadata-extractor.js; chapter and
+ * thesis arrive from manual entry, a DOI/CrossRef lookup, or a BibTeX/RIS import instead, because
+ * page markup never says which one it is.
  * @enum {string}
  */
 export const CitationType = {
   WEBSITE: 'website',
   BOOK: 'book',
+  CHAPTER: 'chapter',
   JOURNAL: 'journal',
   NEWSPAPER: 'newspaper',
   VIDEO: 'video',
   SOCIAL_MEDIA: 'social_media',
   PDF: 'pdf',
+  THESIS: 'thesis',
   OTHER: 'other',
 };
 
@@ -42,6 +48,8 @@ export const CitationType = {
  * @property {string} isbn - ISBN for books
  * @property {string} issn - ISSN for journals
  * @property {Object} extra - Additional metadata fields
+ * @property {string} quote - The source's exact words, captured at read time
+ * @property {string} locator - Where in the source the quote lives (page, paragraph, timestamp)
  * @property {string} notes - User notes
  * @property {Array<string>} tags - User-defined tags
  * @property {number} createdAt - Timestamp
@@ -61,32 +69,58 @@ export const CitationType = {
  */
 
 /**
+ * THE field list. Every field a stored citation carries, with the value a missing one falls back
+ * to. `createCitation` (the add path) builds a record from exactly these keys, and
+ * `CitationStorage.update` merges over a record that already has them — so what an add stores and
+ * what an update keeps cannot drift apart. Adding a field to the schema is one entry here.
+ *
+ * It exists because they DID drift: the add path copied a hand-written list that had never been
+ * told about `quote`, `locator` or `notes`, so the exact words a student captured with Alt+C —
+ * the whole point of the capture flow — were dropped on the way into the database, while an edit
+ * of the same record kept them.
+ * @type {Readonly<Record<string, () => any>>}
+ */
+export const CITATION_FIELDS = Object.freeze({
+  type: () => CitationType.WEBSITE,
+  url: () => '',
+  title: () => '',
+  authors: () => [],
+  publicationDate: () => '',
+  accessDate: () => todayLocal(),
+  publisher: () => '',
+  siteName: () => '',
+  doi: () => '',
+  isbn: () => '',
+  issn: () => '',
+  // The student's own material, captured while reading: the source's exact words, where in the
+  // source they live (so an in-text citation can carry "p. 24"), and why it was worth saving.
+  quote: () => '',
+  locator: () => '',
+  notes: () => '',
+  extra: () => ({}),
+  tags: () => [],
+  projectId: () => null,
+});
+
+/** The schema's field names, in order. */
+export const CITATION_FIELD_KEYS = Object.freeze(Object.keys(CITATION_FIELDS));
+
+/**
  * Create a new citation object with default values
  * @param {Partial<CitationMetadata>} data - Initial citation data
  * @returns {CitationMetadata}
  */
 export function createCitation(data = {}) {
   const now = Date.now();
-  return {
-    id: data.id || generateUUID(),
-    type: data.type || CitationType.WEBSITE,
-    url: data.url || '',
-    title: data.title || '',
-    authors: data.authors || [],
-    publicationDate: data.publicationDate || '',
-    accessDate: data.accessDate || new Date().toISOString().split('T')[0],
-    publisher: data.publisher || '',
-    siteName: data.siteName || '',
-    doi: data.doi || '',
-    isbn: data.isbn || '',
-    issn: data.issn || '',
-    extra: data.extra || {},
-    notes: data.notes || '',
-    tags: data.tags || [],
-    createdAt: data.createdAt || now,
-    updatedAt: data.updatedAt || now,
-    projectId: data.projectId || null,
-  };
+  const citation = { id: data.id || generateUUID() };
+  for (const key of CITATION_FIELD_KEYS) {
+    const value = data[key];
+    const missing = value === undefined || value === null || value === '';
+    citation[key] = missing ? CITATION_FIELDS[key]() : value;
+  }
+  citation.createdAt = data.createdAt || now;
+  citation.updatedAt = data.updatedAt || now;
+  return citation;
 }
 
 /**
@@ -101,96 +135,54 @@ function generateUUID() {
   });
 }
 
+/** True when a field holds nothing a reference list could print. */
+function blank(value) {
+  if (Array.isArray(value)) {
+    return value.filter(v => String(v ?? '').trim()).length === 0;
+  }
+  return String(value ?? '').trim() === '';
+}
+
 /**
- * Validate citation data
+ * Validate citation data.
+ *
+ * A title is the ONLY thing a stored citation must have, because it is the only thing a student
+ * cannot be given a sane default for: everything else has a printing convention for its absence —
+ * the title in the author's place for a missing author, "n.d." / "no date" for a missing year, no
+ * "Available at" clause when there is no link. Refusing to store a printed book with no URL and no
+ * ISBN (which is most printed books, as a student meets them) threw the source away instead, and
+ * there is no version of that which is better for the student than an imperfect reference they
+ * can finish later.
+ *
+ * The missing link, author and year are NOT restated here as warnings. They are already the
+ * "worth a check" advice `assessCitation` gives in reassurance-engine.js — amber, in the student's
+ * words, on the wizard's CHECK step and on the save tray — and a second copy of three rules is a
+ * second answer waiting to disagree with the first. Demoting them means dropping them from the
+ * errors below; the advice itself never moved.
+ *
+ * `problems` names the field each error concerns, so the wizard can put the sentence beside the
+ * box that fixes it instead of parsing prose; `errors` is the same messages as plain strings.
+ *
  * @param {CitationMetadata} citation
- * @returns {{ valid: boolean, errors: Array<string> }}
+ * @returns {{ valid: boolean, errors: Array<string>,
+ *             problems: Array<{field: string, message: string}> }}
  */
 export function validateCitation(citation) {
-  const errors = [];
+  const c = citation || {};
+  const problems = [];
 
-  if (!citation.title || citation.title.trim() === '') {
-    errors.push('Title is required');
-  }
-
-  if (!citation.url || citation.url.trim() === '') {
-    errors.push('URL is required');
-  }
-
-  if (citation.authors.length === 0) {
-    errors.push('At least one author is required (use "Anon." if unknown)');
-  }
-
-  if (!citation.accessDate) {
-    errors.push('Access date is required');
+  if (blank(c.title)) {
+    problems.push({
+      field: 'title',
+      message: 'Give the source a title, so you can find it again.',
+    });
   }
 
   return {
-    valid: errors.length === 0,
-    errors,
+    valid: problems.length === 0,
+    errors: problems.map(p => p.message),
+    problems,
   };
-}
-
-/**
- * Detect citation type from URL and metadata
- * @param {string} url
- * @param {ExtractedMetadata} metadata
- * @returns {CitationType}
- */
-export function detectCitationType(url, metadata) {
-  // Check URL patterns
-  if (url.includes('youtube.com') || url.includes('vimeo.com')) {
-    return CitationType.VIDEO;
-  }
-
-  if (
-    url.includes('twitter.com') ||
-    url.includes('facebook.com') ||
-    url.includes('instagram.com')
-  ) {
-    return CitationType.SOCIAL_MEDIA;
-  }
-
-  if (url.endsWith('.pdf')) {
-    return CitationType.PDF;
-  }
-
-  // Check metadata
-  if (metadata?.openGraph?.ogType === 'article') {
-    return CitationType.JOURNAL;
-  }
-
-  if (metadata?.jsonLD?.['@type'] === 'Book') {
-    return CitationType.BOOK;
-  }
-
-  if (metadata?.jsonLD?.['@type'] === 'NewsArticle') {
-    return CitationType.NEWSPAPER;
-  }
-
-  // Default to website
-  return CitationType.WEBSITE;
-}
-
-/**
- * Parse author string into structured format
- * Handles formats: "Smith, John", "John Smith", "Smith, J.", etc.
- * @param {string} authorString
- * @returns {Array<string>}
- */
-export function parseAuthors(authorString) {
-  if (!authorString) {
-    return [];
-  }
-
-  // Split by "and" first, then by semicolons
-  const authors = authorString
-    .split(/\s+and\s+/)
-    .flatMap(part => part.split(/\s*;\s*/))
-    .map(a => a.trim())
-    .filter(a => a.length > 0);
-
-  return authors;
 }
 
 /**
@@ -221,6 +213,18 @@ export function formatAuthorHarvard(authorName) {
 }
 
 /**
+ * Today on the student's own calendar, as YYYY-MM-DD: the access date a source is stamped with.
+ * Not the UTC day, which east of Greenwich after midnight (or west of it in the evening) is a day
+ * the student did not read the source on.
+ * @returns {string}
+ */
+export function todayLocal() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
  * Extract year from publication date
  * @param {string} dateString - ISO date or year string
  * @returns {string} - Year (YYYY) or empty string
@@ -234,36 +238,13 @@ export function extractYear(dateString) {
   return match ? match[0] : '';
 }
 
-/**
- * Create citation key for sorting and indexing
- * Format: "AuthorYear-ShortTitle"
- * @param {CitationMetadata} citation
- * @returns {string}
- */
-export function createCitationKey(citation) {
-  const author = citation.authors[0] || 'Anon';
-  const lastName = author
-    .split(',')[0]
-    .trim()
-    .replace(/[^a-zA-Z0-9]/g, '');
-  const year = extractYear(citation.publicationDate) || extractYear(citation.accessDate);
-  const shortTitle = citation.title
-    .split(/\s+/)
-    .slice(0, 3)
-    .join('')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .substring(0, 20);
-
-  return `${lastName}${year}-${shortTitle}`;
-}
-
 export default {
   CitationType,
+  CITATION_FIELDS,
+  CITATION_FIELD_KEYS,
   createCitation,
   validateCitation,
-  detectCitationType,
-  parseAuthors,
   formatAuthorHarvard,
   extractYear,
-  createCitationKey,
+  todayLocal,
 };

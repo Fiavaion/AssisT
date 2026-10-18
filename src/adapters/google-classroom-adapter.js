@@ -6,7 +6,12 @@
  */
 
 import { sanitizeHTML } from '../utils/sanitize.js';
-import { attachInteractiveHandler } from '../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../utils/event-handlers.js';
+import { isGoogleClassroomPage } from './lms-detect.js';
+
+// Detection lives in lms-detect.js because the feature module has to answer it before it
+// loads this adapter; it stays part of the adapter's own surface.
+export { isGoogleClassroomPage };
 
 /**
  * Google Classroom page types
@@ -22,28 +27,6 @@ export const GoogleClassroomPageType = {
   MATERIAL: 'material',
   OTHER: 'other',
 };
-
-/**
- * Check if current page is Google Classroom
- * @returns {boolean} True if on Google Classroom
- */
-export function isGoogleClassroomPage() {
-  const hostname = window.location.hostname;
-  const isMockPage = document.querySelector('[data-assist-mock="google-classroom"]') !== null;
-
-  if (!hostname.includes('classroom.google.com') && !isMockPage) {
-    return false;
-  }
-
-  // Verify Google Classroom app is loaded
-  const hasClassroomApp =
-    document.querySelector('[data-focus-id="classroom-view"]') !== null ||
-    document.querySelector('[data-id="app"]') !== null ||
-    document.querySelector('[aria-label*="Classroom"]') !== null ||
-    document.querySelector('.xSP5Vb') !== null; // Google class name (may change)
-
-  return hasClassroomApp;
-}
 
 /**
  * Detect the type of Google Classroom page
@@ -339,7 +322,7 @@ export function createGoogleClassroomFAB(options = {}) {
     fab.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
   });
 
-  attachInteractiveHandler(fab, 'Google Classroom FAB', onClick, { enableVisualFeedback: false });
+  attachAccessibleHandler(fab, 'Google Classroom FAB', onClick, { enableVisualFeedback: false });
 
   return fab;
 }

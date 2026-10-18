@@ -23,16 +23,28 @@
 
 import { showToast } from '../../core/ui/toast.js';
 import { sanitizeHTML } from '../../utils/sanitize.js';
-import { attachInteractiveHandler } from '../../utils/event-handlers.js';
+import { attachAccessibleHandler } from '../../utils/event-handlers.js';
 import { getAIBadgeInfo, renderAIBadge, injectAIBadgeStyles } from '../../utils/ai-badge.js';
 import {
   getAIMode,
   checkAIAvailable,
   getSuccessStatusMessage,
+  getFailureMessage,
   setAIStatusBar,
+  missingKeyMessage,
 } from '../shared/ai-feature-client.js';
+import { getProfileAddendum } from '../companion/profile-addendum.js';
+import { getReadingLevelAddendum } from '../companion/reading-level.js';
+import { debugLog } from '../../utils/debug-log.js';
+import { trapFocus } from '../../utils/focus-trap.js';
+import { returnFocusAfterDialog, selectionContainer } from '../../utils/dialog-return-focus.js';
+import { Z } from '../../utils/z-index.js';
+import { createSavedUtterance } from '../../utils/speech-voice.js';
 
 let simplification_panel = null;
+let simplification_releaseFocus = null;
+let simplification_returnFocus = null;
+let simplification_requestId = 0;
 let simplification_isLoading = false;
 let simplification_currentText = '';
 let simplification_currentResult = '';
@@ -44,15 +56,25 @@ const simplification_settings = {
   showTermDefinitions: true,
 };
 
-async function simplification_generate(text, level = 'moderate', modelKey = 'local') {
-  const isWebLLM =
-    modelKey.startsWith('llama-') ||
-    modelKey.startsWith('phi-') ||
-    modelKey.startsWith('qwen') ||
-    modelKey.startsWith('gemma-') ||
-    modelKey.startsWith('mistral-');
-  const isGemini = modelKey === 'gemini';
-  const isCloud = modelKey !== 'local' && !isWebLLM && !isGemini;
+// Asked for after the passage, where a small local model still has it in view: without it,
+// llama3.2:3b opened simplified text with "Here is a simplified version of the text:".
+const REPLY_ONLY = 'Reply with only the simplified text, with no opening line.';
+
+/**
+ * The Simplify prompt for a level.
+ *
+ * The profile and reading-level addenda go after the passage, next to the reply-only line. At the
+ * top of this long prompt a small local model lost them: llama3.2:3b dropped Very plain's bracketed
+ * explanations in 5 of 5 runs once the reply-only line was added, and kept them in 5 of 5 here.
+ *
+ * @param {string} text - the passage
+ * @param {string} level - basic, moderate or academic; anything else is moderate
+ * @param {boolean} isCloud - cloud prompts reason step by step and take the full text
+ * @param {string} [addenda] - profile and reading-level instructions, or ''
+ * @returns {string}
+ */
+function simplification_buildPrompt(text, level, isCloud, addenda = '') {
+  const closing = addenda ? `${addenda}\n\n${REPLY_ONLY}` : REPLY_ONLY;
 
   // Optimized prompts: CoT for cloud (50B+ benefits), direct for local (faster, similar quality)
   // Research: https://www.promptingguide.ai/techniques/cot - "CoT benefits large models (50B+)"
@@ -72,6 +94,8 @@ Output: "We feel uncomfortable when what we believe and what we do don't match. 
 TEXT:
 ${inputText}
 
+${closing}
+
 FULL SIMPLIFIED VERSION (cover all points, 2-3+ sentences):`,
 
     moderate: `Rewrite this text to be clearer. Keep academic terms but add brief definitions in parentheses.
@@ -83,6 +107,8 @@ Output: "The phenomenological approach (studying direct experience) emphasizes w
 TEXT:
 ${inputText}
 
+${closing}
+
 CLEAR VERSION:`,
 
     academic: `Rewrite this text to be clearer while keeping all academic vocabulary. Add brief definitions in parentheses for difficult terms.
@@ -93,6 +119,8 @@ Output: "Ontological reframing (reconceptualising what something fundamentally i
 
 TEXT:
 ${inputText}
+
+${closing}
 
 IMPROVED VERSION:`,
   };
@@ -121,6 +149,8 @@ RULES:
 TEXT TO SIMPLIFY:
 ${text}
 
+${closing}
+
 FULL SIMPLIFIED VERSION (cover all points, very simple English):`,
 
     moderate: `You are an educational accessibility specialist. Simplify academic text while keeping important terms with definitions.
@@ -144,6 +174,8 @@ RULES:
 
 TEXT TO SIMPLIFY:
 ${text}
+
+${closing}
 
 SIMPLIFIED VERSION:`,
 
@@ -169,11 +201,28 @@ RULES:
 TEXT TO SIMPLIFY:
 ${text}
 
+${closing}
+
 IMPROVED VERSION:`,
   };
 
   const promptSet = isCloud ? cloudPrompts : localPrompts;
-  const prompt = promptSet[level] || promptSet.moderate;
+  return promptSet[level] || promptSet.moderate;
+}
+
+async function simplification_generate(text, level = 'moderate', modelKey = 'local') {
+  const isWebLLM =
+    modelKey.startsWith('llama-') ||
+    modelKey.startsWith('phi-') ||
+    modelKey.startsWith('qwen') ||
+    modelKey.startsWith('gemma-') ||
+    modelKey.startsWith('mistral-');
+  const isGemini = modelKey === 'gemini';
+  const isCloud = modelKey !== 'local' && !isWebLLM && !isGemini;
+
+  const addenda =
+    `${await getProfileAddendum()}${await getReadingLevelAddendum('simplify')}`.trim();
+  const prompt = simplification_buildPrompt(text, level, isCloud, addenda);
   // Cloud: 1200-1500 tokens (API has no sendMessage timeout).
   // Local/WebLLM: 800 tokens — Chrome's sendMessage has a ~30s hard timeout;
   // at typical Ollama speeds (10-15 tok/s) 1200+ tokens reliably exceeds it.
@@ -184,11 +233,9 @@ IMPROVED VERSION:`,
     model: isCloud ? modelKey : 'local',
     textLength: text.length,
     maxTokens,
-    promptPreview: prompt.substring(0, 150) + '...',
+    promptLength: prompt.length,
   });
-
-  // TEMPORARILY DISABLED: For local models with complex/long text, use two-stage processing
-  // const isComplexText = !isCloud && text.length > 300 && detectComplexity(text) > 0.6;
+  debugLog('[TextSimplification] Prompt:', prompt);
 
   try {
     let response;
@@ -240,7 +287,6 @@ IMPROVED VERSION:`,
         hasData: !!response?.data,
         dataType: typeof response?.data,
         error: response?.error,
-        fullResponse: response,
       });
     }
 
@@ -527,12 +573,14 @@ async function simplification_createPanel() {
   const panel = document.createElement('div');
   panel.id = 'assist-simplification-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Text Simplification');
   panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'assist-simplify-title');
+  // Focusable so the dialog itself can hold the keyboard: `.focus()` on a plain div does nothing.
+  panel.setAttribute('tabindex', '-1');
 
   panel.innerHTML = sanitizeHTML(`
     <div class="assist-simplify-header">
-      <span class="assist-simplify-title">📝 Simplified Text</span>
+      <span class="assist-simplify-title" id="assist-simplify-title">📝 Simplified Text</span>
       <div class="assist-simplify-controls">
         <select class="assist-simplify-level" aria-label="Simplification level">
           <option value="basic">Basic (Very Simple)</option>
@@ -542,8 +590,8 @@ async function simplification_createPanel() {
         <button class="assist-simplify-close" aria-label="Close" title="Close (Esc)">×</button>
       </div>
     </div>
-    <div class="assist-simplify-status"></div>
-    <div class="assist-simplify-content" aria-live="polite">
+    <div class="assist-simplify-status" role="status"></div>
+    <div class="assist-simplify-content">
       <p class="assist-simplify-placeholder">Select text and click simplify...</p>
     </div>
     <div class="assist-simplify-actions">
@@ -562,7 +610,7 @@ async function simplification_createPanel() {
   simplification_injectStyles();
 
   const closeBtn = panel.querySelector('.assist-simplify-close');
-  attachInteractiveHandler(closeBtn, 'Text Simplification Close Button', simplification_hide);
+  attachAccessibleHandler(closeBtn, 'Text Simplification Close Button', simplification_hide);
 
   const levelSelect = panel.querySelector('.assist-simplify-level');
   levelSelect.value = simplification_settings.defaultLevel;
@@ -574,13 +622,13 @@ async function simplification_createPanel() {
   });
 
   const copyBtn = panel.querySelector('.assist-simplify-copy');
-  attachInteractiveHandler(copyBtn, 'Text Simplification Copy Button', simplification_copy);
+  attachAccessibleHandler(copyBtn, 'Text Simplification Copy Button', simplification_copy);
 
   const speakBtn = panel.querySelector('.assist-simplify-speak');
-  attachInteractiveHandler(speakBtn, 'Text Simplification Speak Button', simplification_speak);
+  attachAccessibleHandler(speakBtn, 'Text Simplification Speak Button', simplification_speak);
 
   const regenerateBtn = panel.querySelector('.assist-simplify-regenerate');
-  attachInteractiveHandler(regenerateBtn, 'Text Simplification Regenerate Button', async () => {
+  attachAccessibleHandler(regenerateBtn, 'Text Simplification Regenerate Button', async () => {
     if (simplification_currentText) {
       simplification_simplify(simplification_currentText, simplification_settings.defaultLevel);
     }
@@ -604,13 +652,16 @@ function simplification_injectStyles() {
       top: 100px;
       right: 20px;
       width: 420px;
-      max-width: calc(100vw - 40px);
+      /* Fits a 320px screen (SC 1.4.10): 100% of a fixed box excludes the scrollbar, which 100vw
+         includes, and border-box keeps padding and border inside the cap. */
+      box-sizing: border-box;
+      max-width: calc(100% - 40px);
       max-height: 60vh;
       background: #ffffff;
       border: 1px solid #e0e0e0;
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-      z-index: 999998;
+      z-index: ${Z.MODAL};
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
       display: flex;
@@ -696,7 +747,13 @@ function simplification_injectStyles() {
       color: #2e7d32;
     }
 
-    .assist-simplify-status[data-assist-clickable]:hover {
+    .assist-simplify-status [data-assist-clickable]:hover {
+      text-decoration: underline;
+    }
+
+    .assist-simplify-status [data-assist-clickable]:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
       text-decoration: underline;
     }
 
@@ -731,6 +788,10 @@ function simplification_injectStyles() {
       border-top-color: #4CAF50;
       border-radius: 50%;
       animation: assist-simplify-spin 0.8s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .assist-simplify-spinner { animation: none; }
     }
 
     @keyframes assist-simplify-spin {
@@ -844,17 +905,15 @@ function simplification_injectStyles() {
       margin-left: 8px;
     }
 
-    .assist-simplify-fallback-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: #ff9800;
-      color: white;
-      font-size: 10px;
-      font-weight: 600;
-      border-radius: 10px;
-      margin-left: 8px;
+    .assist-simplify-fallback-note {
+      margin: 0 0 8px 0;
+      padding: 8px 10px;
+      background: #fff3e0;
+      color: #8a4b00;
+      border-left: 3px solid #ff9800;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     /* Inline definitions styling */
@@ -971,6 +1030,14 @@ async function simplification_show(selectionRect = null) {
     simplification_panel.remove();
   }
 
+  // The highlight menu is gone by the time the panel opens and its buttons activate on
+  // mousedown, so there may be nothing for the trap to give the keyboard back to. The words
+  // the student selected are the fallback.
+  const selection = window.getSelection?.();
+  simplification_returnFocus = selectionContainer(
+    selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  );
+
   simplification_panel = await simplification_createPanel();
   document.body.appendChild(simplification_panel);
 
@@ -999,24 +1066,29 @@ async function simplification_show(selectionRect = null) {
     simplification_panel.style.right = 'auto';
   }
 
-  document.addEventListener('keydown', simplification_handleKeydown);
-  simplification_panel.focus();
+  simplification_releaseFocus = trapFocus(simplification_panel, {
+    onEscape: simplification_hide,
+    initialFocus: simplification_panel.querySelector('.assist-simplify-close'),
+  });
 }
 
 function simplification_hide() {
+  // Abandon anything in flight: its result must not paint into a panel the student has closed.
+  simplification_requestId += 1;
+  simplification_isLoading = false;
+
+  if (simplification_releaseFocus) {
+    simplification_releaseFocus();
+    simplification_releaseFocus = null;
+  }
+
   if (simplification_panel) {
     simplification_panel.remove();
     simplification_panel = null;
   }
 
-  document.removeEventListener('keydown', simplification_handleKeydown);
-  simplification_isLoading = false;
-}
-
-function simplification_handleKeydown(e) {
-  if (e.key === 'Escape') {
-    simplification_hide();
-  }
+  returnFocusAfterDialog(simplification_returnFocus);
+  simplification_returnFocus = null;
 }
 
 async function simplification_simplify(text, level = 'moderate') {
@@ -1026,6 +1098,7 @@ async function simplification_simplify(text, level = 'moderate') {
 
   simplification_currentText = text;
   simplification_isLoading = true;
+  const requestId = ++simplification_requestId;
 
   const contentArea = simplification_panel?.querySelector('.assist-simplify-content');
   const statusBar = simplification_panel?.querySelector('.assist-simplify-status');
@@ -1054,6 +1127,10 @@ async function simplification_simplify(text, level = 'moderate') {
 
     const availability = await checkAIAvailable(modeInfo);
 
+    if (requestId !== simplification_requestId) {
+      return;
+    }
+
     if (!availability.available) {
       simplification_isLoading = false;
       actionBtns?.forEach(btn => {
@@ -1061,7 +1138,7 @@ async function simplification_simplify(text, level = 'moderate') {
       });
 
       if (availability.needsApiKey) {
-        simplification_showApiKeyWarning();
+        simplification_showApiKeyWarning(availability.provider);
         return;
       }
 
@@ -1080,6 +1157,10 @@ async function simplification_simplify(text, level = 'moderate') {
     }
 
     const result = await simplification_generate(text, level, modeInfo.modelKey);
+
+    if (requestId !== simplification_requestId) {
+      return;
+    }
     simplified = result.simplified;
     isAI = true;
 
@@ -1103,24 +1184,29 @@ async function simplification_simplify(text, level = 'moderate') {
   } catch (error) {
     console.error('[TextSimplification] Error:', error);
 
+    const reason = getFailureMessage(error);
     const fallbackResult = simplification_fallback(text, level);
     simplification_currentResult = fallbackResult;
 
     if (contentArea) {
       contentArea.innerHTML = sanitizeHTML(`
+        <p class="assist-simplify-fallback-note">
+          This wording was simplified on this device with word swaps, without AI.
+        </p>
         <p class="assist-simplify-text">${escapeHtml(fallbackResult)}</p>
-        <span class="assist-simplify-fallback-badge">Basic</span>
       `);
     }
     if (statusBar) {
-      statusBar.textContent = `⚠️ AI unavailable: ${error.message}`;
+      statusBar.textContent = `⚠️ ${reason}`;
       statusBar.className = 'assist-simplify-status visible error';
     }
   } finally {
-    simplification_isLoading = false;
-    actionBtns?.forEach(btn => {
-      btn.disabled = false;
-    });
+    if (requestId === simplification_requestId) {
+      simplification_isLoading = false;
+      actionBtns?.forEach(btn => {
+        btn.disabled = false;
+      });
+    }
   }
 }
 
@@ -1149,8 +1235,9 @@ function simplification_speak() {
     const contentArea = simplification_panel?.querySelector('.assist-simplify-content');
     window.readText(simplification_currentResult, contentArea || document.body);
   } else {
-    const utterance = new SpeechSynthesisUtterance(simplification_currentResult);
-    window.speechSynthesis.speak(utterance);
+    createSavedUtterance(simplification_currentResult).then(utterance =>
+      window.speechSynthesis.speak(utterance)
+    );
   }
 }
 
@@ -1160,7 +1247,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function simplification_showApiKeyWarning() {
+function simplification_showApiKeyWarning(provider) {
   const contentArea = simplification_panel?.querySelector('.assist-simplify-content');
   if (!contentArea) {
     return;
@@ -1172,7 +1259,7 @@ function simplification_showApiKeyWarning() {
       <h3 style="margin: 0 0 12px 0; color: #333;">API Key Required</h3>
       <p style="color: #666; margin-bottom: 16px; line-height: 1.5;">
         Cloud AI mode is enabled but no API key is configured.<br>
-        Please add your Anthropic API key to use cloud features.
+        ${missingKeyMessage(provider)}
       </p>
       <div style="display: flex; flex-direction: column; gap: 12px; align-items: center;">
         <button class="simplify-open-settings" style="
@@ -1202,17 +1289,14 @@ function simplification_showApiKeyWarning() {
 
   const openSettingsBtn = contentArea.querySelector('.simplify-open-settings');
   if (openSettingsBtn) {
-    attachInteractiveHandler(openSettingsBtn, 'Open Settings Button', () => {
+    attachAccessibleHandler(openSettingsBtn, 'Open Settings Button', () => {
       chrome.runtime.sendMessage({ action: 'OPEN_POPUP_ADVANCED_OPTIONS' });
-      alert(
-        'To add your API key:\n\n1. Click the AssisT extension icon\n2. Click "Advanced Options"\n3. Go to the "AI" tab\n4. Select your AI provider and enter your API key\n5. Click Save'
-      );
     });
   }
 
   const useLocalBtn = contentArea.querySelector('.simplify-use-local');
   if (useLocalBtn) {
-    attachInteractiveHandler(useLocalBtn, 'Use Local AI Button', async () => {
+    attachAccessibleHandler(useLocalBtn, 'Use Local AI Button', async () => {
       await chrome.storage.local.set({ aiMode: 'local' });
       console.log('[TextSimplification] Switched to local AI mode');
       simplification_showEmptyState();
@@ -1265,14 +1349,20 @@ function simplification_init() {
   chrome.storage.local.get(['textSimplificationSettings'], result => {
     if (result.textSimplificationSettings) {
       Object.assign(simplification_settings, result.textSimplificationSettings);
-      console.log('[TextSimplification] Settings loaded:', simplification_settings);
+      console.log(
+        '[TextSimplification] Settings loaded:',
+        Object.keys(simplification_settings).join(', ')
+      );
     }
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.textSimplificationSettings) {
       Object.assign(simplification_settings, changes.textSimplificationSettings.newValue);
-      console.log('[TextSimplification] Settings updated:', simplification_settings);
+      console.log(
+        '[TextSimplification] Settings updated:',
+        Object.keys(simplification_settings).join(', ')
+      );
     }
   });
 
@@ -1289,5 +1379,6 @@ export {
   simplification_show,
   simplification_hide,
   simplification_simplify,
+  simplification_buildPrompt,
   simplification_settings,
 };

@@ -32,6 +32,19 @@ let textCustomization_enabled = false;
 let textCustomization_styleElement = null;
 
 /**
+ * Watcher and its batching timer for content the page adds after the first pass.
+ * @type {MutationObserver|null}
+ */
+let textCustomization_observer = null;
+let textCustomization_rescanTimer = null;
+
+/** Subtrees the page has added since the last measuring pass. @type {Set<Element>} */
+const textCustomization_pendingRoots = new Set();
+
+/** How long to gather DOM additions before measuring them, in ms. */
+const SPACING_RESCAN_DELAY = 300;
+
+/**
  * Current text customization settings
  * @type {Object}
  * @property {string} fontFamily - Selected font family
@@ -88,11 +101,176 @@ function textCustomization_loadOpenDyslexic() {
 }
 
 /**
+ * Elements whose spacing belongs to the interface, not to the prose: a control's own
+ * label, code whose alignment carries meaning, and the LMS chrome.
+ * @type {string}
+ */
+const SPACING_EXCLUDE_PARTS = [
+  'button',
+  'input',
+  'select',
+  'textarea',
+  '[role="button"]',
+  '[role="navigation"]',
+  'code',
+  'pre',
+  '.ic-app-header',
+  '.ic-app-header *',
+  '#header',
+  '#header *',
+];
+
+/** @type {string} The same list as a selector, for `matches()`. */
+const SPACING_EXCLUDE = SPACING_EXCLUDE_PARTS.join(', ');
+
+/** @type {string} ...and as a chain of `:not()`, for the font rule's selector. */
+const SPACING_EXCLUDE_NOT = SPACING_EXCLUDE_PARTS.map(part => `:not(${part})`).join('');
+
+/**
+ * The class each minimum is raised with. One class per property, so an element that is
+ * already generous in one dimension and cramped in another gets only what it lacks.
+ * @type {Readonly<Record<string, string>>}
+ */
+const SPACING_CLASS = Object.freeze({
+  line: 'assist-spacing-line',
+  letter: 'assist-spacing-letter',
+  word: 'assist-spacing-word',
+  paragraph: 'assist-spacing-paragraph',
+});
+
+/** Rounding slack, in px: a page at 24.4 px is not cramped and must not be rewritten. */
+const SPACING_TOLERANCE = 0.5;
+
+/** Elements currently carrying one of our spacing classes, so removal is exact. */
+const textCustomization_boosted = new Set();
+
+/**
+ * A computed length in px, or null when the value carries no reading (`normal`, unset).
+ * @param {string} [value] - Computed CSS length.
+ * @returns {number|null} Pixels, or null.
+ */
+function textCustomization_px(value) {
+  const px = parseFloat(value);
+  return Number.isFinite(px) ? px : null;
+}
+
+/**
+ * Which minimums this element falls short of.
+ *
+ * SC 1.4.12 is a floor, so the only question worth asking is whether the page is already
+ * above it: forcing the value took Wikipedia's 26 px leading down to 24 px, which is the
+ * success criterion being used to make a page harder to read. An unreadable value counts
+ * as short — `line-height: normal` is about 1.2, and guessing high would leave the
+ * cramped case unfixed.
+ *
+ * @param {CSSStyleDeclaration|Object} computed - Computed style, or the same properties.
+ * @param {Object} settings - Multiples of the font size to reach.
+ * @param {boolean} [isParagraph] - Whether the paragraph-spacing minimum applies too.
+ * @returns {Array<string>} Class names to add; empty when the page is already generous.
+ */
+function textCustomization_spacingGaps(computed, settings, isParagraph = false) {
+  const fontSize = textCustomization_px(computed.fontSize) || 16;
+  const short = (value, multiple, unreadableIsShort) => {
+    const px = textCustomization_px(value);
+    if (px === null) {
+      return unreadableIsShort;
+    }
+    return px < fontSize * multiple - SPACING_TOLERANCE;
+  };
+
+  const gaps = [];
+  // `normal` line height is ~1.2 and always short; `normal` letter and word spacing are 0.
+  if (short(computed.lineHeight, settings.lineSpacing, true)) {
+    gaps.push(SPACING_CLASS.line);
+  }
+  if (short(computed.letterSpacing, settings.letterSpacing, true)) {
+    gaps.push(SPACING_CLASS.letter);
+  }
+  if (short(computed.wordSpacing, settings.wordSpacing, true)) {
+    gaps.push(SPACING_CLASS.word);
+  }
+  if (isParagraph && short(computed.marginBottom, settings.paragraphSpacing, true)) {
+    gaps.push(SPACING_CLASS.paragraph);
+  }
+  return gaps;
+}
+
+/**
+ * Whether this element renders text of its own, rather than only containing elements
+ * that do. Spacing is inherited, so tagging the wrappers as well would measure and
+ * rewrite thousands of elements for no visible change.
+ *
+ * @param {Element} element
+ * @returns {boolean}
+ */
+function textCustomization_holdsText(element) {
+  for (const node of element.childNodes) {
+    if (node.nodeType === 3 && node.textContent.trim()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Raise the spacing of every text-bearing element in a subtree that falls short.
+ *
+ * Measured in one pass before anything is written, so one element's boost cannot be read
+ * back as another's starting point.
+ *
+ * @param {Element} [root] - Subtree to measure; the whole body by default.
+ * @returns {void}
+ */
+function textCustomization_applySpacing(root = document.body) {
+  const view = root?.ownerDocument?.defaultView;
+  if (!root || !view || typeof view.getComputedStyle !== 'function') {
+    return;
+  }
+
+  // `closest`, not `matches`: the span inside a button is part of the control too.
+  const candidates = [root, ...root.querySelectorAll('*')].filter(
+    element => !element.closest(SPACING_EXCLUDE) && textCustomization_holdsText(element)
+  );
+
+  const pending = candidates.map(element => ({
+    element,
+    gaps: textCustomization_spacingGaps(
+      view.getComputedStyle(element),
+      textCustomization_settings,
+      element.tagName === 'P'
+    ),
+  }));
+
+  pending.forEach(({ element, gaps }) => {
+    if (!gaps.length) {
+      return;
+    }
+    element.classList.add(...gaps);
+    textCustomization_boosted.add(element);
+  });
+}
+
+/**
+ * Drop every class we added, and an emptied class attribute with it: a page element that
+ * carried no class before must not be left with `class=""`.
+ * @returns {void}
+ */
+function textCustomization_removeSpacing() {
+  textCustomization_boosted.forEach(element => {
+    element.classList.remove(...Object.values(SPACING_CLASS));
+    if (element.getAttribute('class') === '') {
+      element.removeAttribute('class');
+    }
+  });
+  textCustomization_boosted.clear();
+}
+
+/**
  * Generates CSS rules for text customization based on current settings
  *
- * Creates CSS with high specificity and !important declarations to override
- * Canvas LMS default styles. Excludes UI elements (buttons, inputs, navigation)
- * to preserve the interface integrity.
+ * Only two kinds of rule: the chosen typeface, and one class per SC 1.4.12 minimum. The
+ * minimums are classes rather than a `body *` override because whether a rule should
+ * apply is a question about the page's own spacing, which only a measurement can answer.
  *
  * Implements WCAG 2.2 SC 1.4.12 compliant text spacing:
  * - Line height (line spacing) at least 1.5 times the font size
@@ -103,31 +281,43 @@ function textCustomization_loadOpenDyslexic() {
  * @returns {string} CSS stylesheet text
  */
 function textCustomization_generateCSS() {
-  const font = textCustomization_fontMap[textCustomization_settings.fontFamily] || 'inherit';
+  const chosenFont = textCustomization_settings.fontFamily;
 
   // Load fonts if needed
-  if (textCustomization_settings.fontFamily === 'lexend') {
+  if (chosenFont === 'lexend') {
     textCustomization_loadLexend();
-  } else if (textCustomization_settings.fontFamily === 'opendyslexic') {
+  } else if (chosenFont === 'opendyslexic') {
     textCustomization_loadOpenDyslexic();
   }
 
-  // Generate CSS with high specificity and !important to override Canvas styles
-  // Exclude Canvas UI elements (buttons, inputs, navigation, headers)
-  return `
-    /* Text Customization - WCAG 2.2 SC 1.4.12 Compliant */
-    body *:not(button):not(input):not(select):not(textarea):not([role="button"]):not([role="navigation"]):not(code):not(pre):not(.ic-app-header):not(.ic-app-header *):not(#header):not(#header *) {
+  // 'system' means the page's own typeface. `font-family: inherit !important` is not that:
+  // it flattens every element to its parent's font, which is how the serif headline of an
+  // article came out in the body sans-serif.
+  const font = textCustomization_fontMap[chosenFont];
+  const fontRule =
+    chosenFont === 'system' || !font || font === 'inherit'
+      ? ''
+      : `
+    body *${SPACING_EXCLUDE_NOT} {
       font-family: ${font} !important;
+    }
+  `;
+
+  return `
+    /* Text Customization - WCAG 2.2 SC 1.4.12 minimums, raised never lowered */${fontRule}
+    .${SPACING_CLASS.line} {
       line-height: ${textCustomization_settings.lineSpacing} !important;
+    }
+
+    .${SPACING_CLASS.letter} {
       letter-spacing: ${textCustomization_settings.letterSpacing}em !important;
+    }
+
+    .${SPACING_CLASS.word} {
       word-spacing: ${textCustomization_settings.wordSpacing}em !important;
     }
 
-    /* Paragraph spacing */
-    p:not(.ic-app-header p):not(#header p),
-    div.user_content p,
-    article p,
-    section p {
+    .${SPACING_CLASS.paragraph} {
       margin-bottom: ${textCustomization_settings.paragraphSpacing}em !important;
     }
   `;
@@ -158,21 +348,89 @@ function textCustomization_apply() {
   textCustomization_styleElement.textContent = textCustomization_generateCSS();
   document.head.appendChild(textCustomization_styleElement);
 
-  console.log('[TextCustomization] Applied:', textCustomization_settings);
+  // Drop the previous boosts before measuring, so a setting that moved down re-reads the
+  // page's own spacing instead of the value we had raised it to.
+  textCustomization_removeSpacing();
+  textCustomization_applySpacing();
+  textCustomization_watchForNewContent();
+
+  console.log('[TextCustomization] Applied:', Object.keys(textCustomization_settings).join(', '));
+}
+
+/**
+ * Raise the minimums on content the page adds after we have run — a Canvas module loading
+ * its items, an article lazy-rendering a section. Batched, because a page that appends in
+ * a loop would otherwise get a full measuring pass per node.
+ * @returns {void}
+ */
+function textCustomization_watchForNewContent() {
+  if (textCustomization_observer || typeof MutationObserver !== 'function' || !document.body) {
+    return;
+  }
+
+  textCustomization_observer = new MutationObserver(records => {
+    records.forEach(record => {
+      record.addedNodes.forEach(node => {
+        // New text under an element we already measured changes that element's answer,
+        // so the element it landed in is the subtree to look at again.
+        const root = node.nodeType === 1 ? node : record.target;
+        if (root?.nodeType === 1) {
+          textCustomization_pendingRoots.add(root);
+        }
+      });
+    });
+
+    if (!textCustomization_pendingRoots.size || textCustomization_rescanTimer) {
+      return;
+    }
+
+    textCustomization_rescanTimer = setTimeout(() => {
+      textCustomization_rescanTimer = null;
+      const roots = Array.from(textCustomization_pendingRoots);
+      textCustomization_pendingRoots.clear();
+      if (!textCustomization_enabled) {
+        return;
+      }
+      // Only what arrived: a full pass per mutation burst is a measurable cost on a page
+      // that appends while the student reads.
+      roots.filter(root => root.isConnected).forEach(root => textCustomization_applySpacing(root));
+    }, SPACING_RESCAN_DELAY);
+  });
+
+  textCustomization_observer.observe(document.body, { childList: true, subtree: true });
 }
 
 /**
  * Removes text customization from the current page
  *
- * Cleans up the injected style element and resets the page to default styles.
+ * Takes back everything it put on the page: the rules, the boosts it measured, the
+ * watcher, and the font faces it injected — a switched-off feature that leaves
+ * `<style id="assist-lexend-font">` in the head has not been switched off.
  *
  * @returns {void}
  */
 function textCustomization_remove() {
+  if (textCustomization_observer) {
+    textCustomization_observer.disconnect();
+    textCustomization_observer = null;
+  }
+  if (textCustomization_rescanTimer) {
+    clearTimeout(textCustomization_rescanTimer);
+    textCustomization_rescanTimer = null;
+  }
+  textCustomization_pendingRoots.clear();
+
+  textCustomization_removeSpacing();
+
   if (textCustomization_styleElement) {
     textCustomization_styleElement.remove();
     textCustomization_styleElement = null;
   }
+
+  ['assist-lexend-font', 'assist-opendyslexic-font'].forEach(id => {
+    document.getElementById(id)?.remove();
+  });
+
   console.log('[TextCustomization] Removed');
 }
 
@@ -218,19 +476,13 @@ function applySettings(settings, isInit = false) {
     }
   }
 
-  console.log(
-    `[TextCustomization] Settings ${isInit ? 'loaded' : 'updated'}:`,
-    newEnabled,
-    textCustomization_settings
-  );
+  console.log(`[TextCustomization] Settings ${isInit ? 'loaded' : 'updated'}:`, newEnabled);
 }
 
 /**
- * Initialize text customization using centralized storage utility.
- * Checks chrome.storage.local for a "this window only" override first,
- * then falls back to the shared assist_settings path.
+ * The student's choice is a stored setting like any other: applied from assist_settings when a
+ * page loads, and again whenever the popup changes it.
  */
-// Normal path: load from shared assist_settings
 initFeatureSettings(
   'textCustomization',
   DEFAULT_SETTINGS,
@@ -238,19 +490,12 @@ initFeatureSettings(
   settings => applySettings(settings, false)
 );
 
-// Expose applySettings so content-simple.js can call it for local-only applies
-// (when the popup's "Apply to all windows" toggle is OFF)
-window.assistFeatures = window.assistFeatures || {};
-window.assistFeatures.textCustomization = {
-  applySettings: settings => applySettings({ ...DEFAULT_SETTINGS, ...settings }, false),
-  remove: () => textCustomization_remove(),
-};
-
 export {
   textCustomization_loadLexend,
   textCustomization_loadOpenDyslexic,
   textCustomization_generateCSS,
   textCustomization_apply,
   textCustomization_remove,
+  textCustomization_spacingGaps,
   textCustomization_fontMap,
 };

@@ -270,12 +270,15 @@ function mediaControl_disable() {
   console.log('[MediaControl] Disabled');
 }
 
-/** @type {Object} Default settings for media control */
+/**
+ * @type {Object} Default settings for media control.
+ *
+ * Auto-play blocking is one switch: it covers video and audio together and marks what it blocked.
+ * `blockVideos`, `blockAudios` and `showIndicator` were declared here, never read, and never
+ * offered by any control, so a student could not have set them either way.
+ */
 const DEFAULT_SETTINGS = {
   enabled: false,
-  blockVideos: true,
-  blockAudios: true,
-  showIndicator: true,
 };
 
 /**

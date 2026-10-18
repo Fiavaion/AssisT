@@ -6,7 +6,7 @@
  * SPA navigation support for browser extensions and web tools.
  *
  * Extraction status (May 2026): scaffolding in place; full extraction
- * from AssisT src/features/lms/ is the NLnet-funded deliverable.
+ * from AssisT src/features/lms/ is still to come.
  * Public API is stable — implementation depth will increase through v1.0.
  *
  * @example
@@ -63,9 +63,9 @@ async function getPageType(options) {
  */
 async function getCourseContext(options) {
   const platform = await _detectLMS();
-  if (platform === 'canvas') return getCanvasCourseContext(options);
-  if (platform === 'moodle') return getMoodleCourseContext(options);
-  if (platform === 'classroom') return getClassroomCourseContext(options);
+  if (platform === 'canvas') {return getCanvasCourseContext(options);}
+  if (platform === 'moodle') {return getMoodleCourseContext(options);}
+  if (platform === 'classroom') {return getClassroomCourseContext(options);}
   return { courseId: null, courseName: null, term: null, discipline: null, platform: null };
 }
 
@@ -79,9 +79,9 @@ async function getCourseContext(options) {
  */
 async function getAssignmentContext(options) {
   const platform = await _detectLMS();
-  if (platform === 'canvas') return getCanvasAssignmentContext(options);
-  if (platform === 'moodle') return getMoodleAssignmentContext(options);
-  if (platform === 'classroom') return getClassroomAssignmentContext(options);
+  if (platform === 'canvas') {return getCanvasAssignmentContext(options);}
+  if (platform === 'moodle') {return getMoodleAssignmentContext(options);}
+  if (platform === 'classroom') {return getClassroomAssignmentContext(options);}
   return { title: null, dueDate: null, rubric: [], instructions: null, submissionType: 'unknown', platform: null };
 }
 
@@ -95,8 +95,8 @@ async function getAssignmentContext(options) {
 function getRawInstructions() {
   // Synchronous best-effort — call after getAssignmentContext() has settled.
   const href = typeof window !== 'undefined' ? window.location.href : '';
-  if (/\.instructure\.com|\/courses\/\d+/.test(href)) return getCanvasRawInstructions();
-  if (/\/mod\/assign/.test(href)) return getMoodleRawInstructions();
-  if (/classroom\.google\.com/.test(href)) return getClassroomRawInstructions();
+  if (/\.instructure\.com|\/courses\/\d+/.test(href)) {return getCanvasRawInstructions();}
+  if (/\/mod\/assign/.test(href)) {return getMoodleRawInstructions();}
+  if (/classroom\.google\.com/.test(href)) {return getClassroomRawInstructions();}
   return null;
 }

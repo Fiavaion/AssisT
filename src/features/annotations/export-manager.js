@@ -359,7 +359,7 @@ export function downloadFile(content, filename, mimeType) {
             URL.revokeObjectURL(url);
             reject(chrome.runtime.lastError);
           } else {
-            console.log(`[ExportManager] File downloaded: ${filename} (ID: ${downloadId})`);
+            console.log(`[ExportManager] File downloaded (ID: ${downloadId})`);
 
             // Revoke blob URL after download
             setTimeout(() => {

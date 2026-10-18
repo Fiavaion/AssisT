@@ -167,6 +167,61 @@ describe('citation-ai-analyser — AI CLOUD available, malformed output', () => 
 });
 
 // ---------------------------------------------------------------------------
+// AI LOCAL (Ollama) — generate returns an ALREADY-PARSED OBJECT (format:'json')
+// Regression: local Ollama with format:'json' resolves data to an object, not a string.
+// parseResult must accept it instead of throwing on text.match (which broke "Analyse with AI").
+// ---------------------------------------------------------------------------
+
+describe('citation-ai-analyser — AI LOCAL, parsed-object response', () => {
+  beforeEach(() => {
+    mockStorage({ aiMode: 'local' });
+    mockMessages({
+      LOCAL_LLM_CHECK: { success: true, available: true },
+      LOCAL_LLM_GENERATE: {
+        success: true,
+        data: {
+          signal: 'medium',
+          summary: 'A general reference; corroborate with a scholarly source.',
+          considerations: ['Encyclopaedia-style source', 'No named author'],
+        },
+      },
+    });
+  });
+
+  test('isAnalyserAvailable() returns true in local mode', async () => {
+    expect(await isAnalyserAvailable()).toBe(true);
+  });
+
+  test('analyseCitation() reads the parsed object without throwing', async () => {
+    const result = await analyseCitation(CITATION);
+    expect(result.available).toBe(true);
+    expect(result.signal).toBe('medium');
+    expect(result.summary).toBe('A general reference; corroborate with a scholarly source.');
+    expect(result.considerations).toEqual(['Encyclopaedia-style source', 'No named author']);
+  });
+});
+
+describe('citation-ai-analyser — AI LOCAL, {raw, parseError} object', () => {
+  beforeEach(() => {
+    mockStorage({ aiMode: 'local' });
+    mockMessages({
+      LOCAL_LLM_CHECK: { success: true, available: true },
+      LOCAL_LLM_GENERATE: {
+        success: true,
+        data: { raw: '{"signal":"low","summary":"Weak.","considerations":[]}', parseError: true },
+      },
+    });
+  });
+
+  test('recovers the JSON embedded in the raw payload', async () => {
+    const result = await analyseCitation(CITATION);
+    expect(result.available).toBe(true);
+    expect(result.signal).toBe('low');
+    expect(result.summary).toBe('Weak.');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AI CLOUD — availability check fails (no API key)
 // ---------------------------------------------------------------------------
 

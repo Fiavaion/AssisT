@@ -19,6 +19,16 @@
 import { sanitizeHTML } from '../../utils/sanitize.js';
 
 /**
+ * The selection of the document a field lives in. A rich editor's body can be in its own iframe
+ * (Canvas's Rich Content Editor), where the page's selection says nothing about the caret.
+ * @param {HTMLElement} element
+ * @returns {Selection}
+ */
+function selectionOf(element) {
+  return (element.ownerDocument?.defaultView || window).getSelection();
+}
+
+/**
  * Command types enum
  */
 export const CommandType = {
@@ -470,7 +480,7 @@ export class CommandParser {
         timestamp: Date.now(),
       };
     } else if (element.isContentEditable) {
-      const selection = window.getSelection();
+      const selection = selectionOf(element);
       return {
         text: element.innerHTML,
         cursorStart: selection.anchorOffset,
@@ -894,12 +904,12 @@ export class CommandParser {
       element.selectionEnd = end;
       element.focus();
     } else if (element.isContentEditable) {
-      const range = document.createRange();
+      const range = (element.ownerDocument || document).createRange();
       const textNode = element.firstChild;
       if (textNode) {
         range.setStart(textNode, start);
         range.setEnd(textNode, end);
-        const selection = window.getSelection();
+        const selection = selectionOf(element);
         selection.removeAllRanges();
         selection.addRange(range);
       }

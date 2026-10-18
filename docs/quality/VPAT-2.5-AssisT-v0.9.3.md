@@ -1,14 +1,23 @@
 # Voluntary Product Accessibility Template (VPAT®) 2.5 — International Edition
 
+> **Scope — please read before relying on this report.** This report assesses **version 0.9.3**
+> and nothing else. Every claim, evaluation method and remark below describes that build.
+> Version 1.0.0 adds features this report does not cover — among them the mind map, the rebuilt
+> citation manager, Maths Support and an alternative popup layout — and it also changes some of
+> what is described here, including the number of keyboard shortcuts. A separate report for
+> 1.0.0 is scheduled. **Do not read this document as a conformance statement for version 1.0.0.**
+> For the current accessibility position of a build you are evaluating, write to the contact
+> address below.
+
 **Name of Product / Version:** AssisT: Adaptive Augmentative Tool, version 0.9.3
 
 **Product Description:** A Chrome Manifest V3 browser extension that provides accessibility tools for neurodivergent learners inside Canvas, Moodle, and Google Classroom learning-management systems. Features include synchronised text-to-speech, speech-to-text dictation, dyslexia-friendly typography and reading aids, focus / reading modes, OCR, translation, AI-assisted learning (local via Ollama / WebLLM / Chrome Prompt API, or optional cloud providers), sticky notes, annotation highlighting, citations, dictionary lookup, text statistics, and a customisable keyboard-shortcut system (14 shortcuts, platform-aware).
 
 **Date:** 2026-05-28
 
-**Contact Information:** `accessibility@fiavaion.com` — Fiavaion, Ireland. Website: <https://fiavaion.com/products/assist/>. The legal person behind the Fiavaion trading name is identifiable on written request to the contact address above; this ensures funders, HEIs, and procurement offices can confirm counterparty identity without placing the maintainer's personal name in public documentation.
+**Contact Information:** `accessibility@fiavaion.com` — Fiavaion, Ireland. Website: <https://fiavaion.com/products/assist/>. The legal person behind the Fiavaion trading name is identifiable on written request to the contact address above; this ensures HEIs and procurement offices can confirm counterparty identity without placing the maintainer's personal name in public documentation.
 
-**Notes:** This VPAT is a self-assessment prepared by the project maintainer based on the codebase state at v0.9.3 (June 2026), incorporating Pa11y-CI automated findings and manual keyboard-navigation testing. It supersedes the v0.1.2 VPAT (published 2026-04-19). An independent third-party accessibility audit is planned (budget committed in the NLnet NGI0 Commons Fund application); this VPAT will be updated upon audit completion. Readers acting on procurement decisions are invited to contact the address above with questions or to report accessibility issues.
+**Notes:** This VPAT is a self-assessment prepared by the project maintainer based on the codebase state at v0.9.3 (June 2026), incorporating Pa11y-CI automated findings and manual keyboard-navigation testing. It supersedes the v0.1.2 VPAT (published 2026-04-19). An independent third-party accessibility audit is planned; this VPAT will be updated upon audit completion. Readers acting on procurement decisions are invited to contact the address above with questions or to report accessibility issues.
 
 **Evaluation Methods Used:**
 
@@ -162,7 +171,7 @@ The following items are tracked for closure before version 1.0 and will be refle
 3. **SC 3.2.6 Consistent Help:** Add a persistent help affordance (proposed: "?" icon in the popup header linking to the feature guide, and a help link in the advanced-options footer).
 4. **SC 4.1.3 Status Messages:** Add `aria-busy="true"` to dynamic content regions during AI-inference and load states.
 5. **Screen-reader validation:** Complete manual testing with NVDA (Windows), JAWS (Windows), and VoiceOver (macOS). Publish findings. This is the highest-priority remaining quality item.
-6. **Third-party audit:** Commission an independent accessibility review to verify VPAT self-assessment claims. Budgeted in the NLnet NGI0 Commons Fund application (€2,500); planned for Month 1 of the grant period.
+6. **Third-party audit:** Commission an independent accessibility review to verify VPAT self-assessment claims.
 7. **Content-script Pa11y coverage:** Extend automated Pa11y scanning to content-script–injected UI (highlight menu, mic button, reading guide, focus overlay, annotation sidebar, sticky notes). Currently verified by manual keyboard inspection only.
 
 ---
