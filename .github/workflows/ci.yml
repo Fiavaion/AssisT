@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   pull_request:
     branches: [ main, develop ]
-    paths: ['src/**', 'manifest.json', 'package.json']
+    paths: ['src/**', 'packages/**', 'manifest.json', 'package.json', '.github/workflows/ci.yml']
   workflow_dispatch:
 
 concurrency:
